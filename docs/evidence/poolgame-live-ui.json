@@ -1,0 +1,74 @@
+[
+  {
+    "at": "2026-10-03T14:49:14.9811268+00:00",
+    "label": "16 balls · 7 reds · 7 yellows · 1 cue · 1 black\nopen · confirmed · frame 4.9s old · analysis 999ms",
+    "candidates": [
+      "1. DIRECT · POCKET 3 · CUT 5°",
+      "2. KICK · POCKET 5 · CUT 3°",
+      "3. DIRECT · POCKET 3 · CUT 33°"
+    ]
+  },
+  {
+    "at": "2026-10-03T14:49:20.0277915+00:00",
+    "label": "16 balls · 7 reds · 7 yellows · 1 cue · 1 black\nopen · confirmed · frame 3.9s old · analysis 975ms",
+    "candidates": [
+      "1. DIRECT · POCKET 3 · CUT 5°",
+      "2. KICK · POCKET 5 · CUT 3°",
+      "3. DIRECT · POCKET 3 · CUT 33°"
+    ]
+  },
+  {
+    "at": "2026-10-03T14:49:23.9383536+00:00",
+    "label": "16 balls · 7 reds · 7 yellows · 1 cue · 1 black\nopen · confirmed · frame 5.0s old · analysis 951ms",
+    "candidates": [
+      "1. DIRECT · POCKET 3 · CUT 5°",
+      "2. KICK · POCKET 5 · CUT 3°",
+      "3. DIRECT · POCKET 3 · CUT 33°"
+    ]
+  },
+  {
+    "at": "2026-10-03T14:49:27.6229603+00:00",
+    "label": "16 balls · 7 reds · 7 yellows · 1 cue · 1 black\nopen · confirmed · frame 3.6s old · analysis 1297ms",
+    "candidates": [
+      "1. DIRECT · POCKET 3 · CUT 5°",
+      "2. KICK · POCKET 5 · CUT 3°",
+      "3. DIRECT · POCKET 3 · CUT 33°"
+    ]
+  },
+  {
+    "at": "2026-10-03T14:49:31.4780861+00:00",
+    "label": "16 balls · 7 reds · 7 yellows · 1 cue · 1 black\nopen · confirmed · frame 4.6s old · analysis 848ms",
+    "candidates": [
+      "1. DIRECT · POCKET 3 · CUT 5°",
+      "2. KICK · POCKET 5 · CUT 3°",
+      "3. DIRECT · POCKET 3 · CUT 33°"
+    ]
+  },
+  {
+    "at": "2026-10-03T14:49:35.2039956+00:00",
+    "label": "16 balls · 7 reds · 7 yellows · 1 cue · 1 black\nopen · confirmed · frame 3.2s old · analysis 1055ms",
+    "candidates": [
+      "1. DIRECT · POCKET 3 · CUT 5°",
+      "2. KICK · POCKET 5 · CUT 3°",
+      "3. DIRECT · POCKET 3 · CUT 33°"
+    ]
+  },
+  {
+    "at": "2026-10-03T14:49:38.8355204+00:00",
+    "label": "16 balls · 7 reds · 7 yellows · 1 cue · 1 black\nopen · confirmed · frame 1.7s old · analysis 629ms",
+    "candidates": [
+      "1. DIRECT · POCKET 3 · CUT 5°",
+      "2. KICK · POCKET 5 · CUT 3°",
+      "3. DIRECT · POCKET 3 · CUT 33°"
+    ]
+  },
+  {
+    "at": "2026-10-03T14:49:42.7908169+00:00",
+    "label": "16 balls · 7 reds · 7 yellows · 1 cue · 1 black\nopen · confirmed · frame 3.7s old · analysis 1219ms",
+    "candidates": [
+      "1. DIRECT · POCKET 3 · CUT 5°",
+      "2. KICK · POCKET 5 · CUT 3°",
+      "3. DIRECT · POCKET 3 · CUT 33°"
+    ]
+  }
+]

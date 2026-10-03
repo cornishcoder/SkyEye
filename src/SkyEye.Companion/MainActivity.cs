@@ -137,15 +137,20 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
     {
         try
         {
+            int delayMs = 2500;
             while ((resumed || maeve is not null) && connected && !lifetime.IsCancellationRequested)
             {
-                await Task.Delay(2500, lifetime.Token);
+                await Task.Delay(delayMs, lifetime.Token);
+                var cycle = System.Diagnostics.Stopwatch.StartNew();
                 try { await RefreshAsync(); }
                 catch { RunOnUiThread(() => { status.Text = "Camera unreachable. Recording may continue; reconnect to check."; if (!offline) player.Stop(); InvalidateTable("Camera unreachable; advice is waiting for a fresh view."); }); }
                 // Downloads/export can occupy the action slot longer than a frame's
                 // advice lifetime. Expire displayed paths even while analysis is skipped.
                 if (tableState is not null) ShowTable();
                 if (!busy && client.HostToken is not null && currentState == "Active" && calibration is not null) try { await UpdateTableAsync(); } catch { InvalidateTable("Table analysis unavailable; wait for a fresh view and confirm it."); }
+                // Aim for 2.5 seconds between starts, including network and analysis
+                // time. Remain sequential even when a cycle exceeds that budget.
+                delayMs = (int)Math.Max(250, 2500 - cycle.ElapsedMilliseconds);
             }
         }
         catch (System.OperationCanceledException) { }
