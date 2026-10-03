@@ -1,0 +1,720 @@
+[
+  {
+    "library": "lib/arm64-v8a/libSystem.Globalization.Native.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libSystem.IO.Compression.Native.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libSystem.Native.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libSystem.Security.Cryptography.Native.Android.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-Java.Interop.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-Mono.Android.Runtime.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-Mono.Android.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-SkyEye.Companion.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-SkyEye.Core.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-SkyEye.OpenCv.Android.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-SkyEye.Vision.Android.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Collections.Concurrent.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Collections.NonGeneric.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Collections.Specialized.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Collections.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Console.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Diagnostics.DiagnosticSource.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Formats.Asn1.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.IO.Compression.Brotli.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.IO.Compression.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.IO.Pipelines.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Linq.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Memory.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Net.Http.Json.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Net.Http.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Net.NameResolution.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Net.NetworkInformation.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Net.Primitives.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Net.Requests.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Net.Security.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Net.Sockets.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Net.WebHeaderCollection.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Net.WebSockets.Client.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Net.WebSockets.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Private.CoreLib.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Private.Uri.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Runtime.InteropServices.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Runtime.Numerics.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Runtime.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Security.Cryptography.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Text.Encodings.Web.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Text.Json.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Text.RegularExpressions.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Threading.Channels.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-System.Threading.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-Xamarin.AndroidX.Activity.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-Xamarin.AndroidX.AppCompat.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-Xamarin.AndroidX.Core.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-Xamarin.AndroidX.DrawerLayout.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-Xamarin.AndroidX.Fragment.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-Xamarin.AndroidX.Lifecycle.Common.Jvm.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-Xamarin.AndroidX.Lifecycle.LiveData.Core.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-Xamarin.AndroidX.Lifecycle.ViewModel.Android.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-Xamarin.AndroidX.Loader.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-Xamarin.AndroidX.NavigationEvent.Android.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-Xamarin.AndroidX.SavedState.SavedState.Android.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-Xamarin.Google.Guava.ListenableFuture.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-Xamarin.GooglePlayServices.Base.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-Xamarin.GooglePlayServices.Basement.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-Xamarin.GooglePlayServices.Cast.Framework.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-Xamarin.GooglePlayServices.Cast.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-Xamarin.Kotlin.StdLib.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-Xamarin.KotlinX.Coroutines.Core.Jvm.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libaot-_Microsoft.Android.Resource.Designer.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libarc.bin.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libassembly-store.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libc++_shared.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libjingle_peerconnection_so.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libmono-component-marshal-ilgen.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libmonodroid.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libmonosgen-2.0.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libopencv_java4.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libxamarin-app.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  }
+]

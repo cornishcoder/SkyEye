@@ -36,4 +36,4 @@ Verify native microphone/speaker operation, echo cancellation, mute, interruptio
 
 Calibrate against the actual mounted view. Compare detected colours/positions against manually labelled frames with moving balls, hands/cues, glare and balls touching cushions/each other. Changed, old, uncertain and obstructed layouts must invalidate confident advice. Check manually corrected positions and chosen group against the rendered schematic and candidate lines. Ask Maeve naturally about a pot, alternative or safety; judge timing and repetition in play.
 
-Do not call the detector validated until real-table results support it. Current shot computation covers direct-pot geometry and target groups, not complete physics or referee decisions.
+Clear-frame colour/count regressions and ideal direct/bank/kick geometry are checked separately. Broader recognition accuracy needs held-out real layouts, including touching balls, changed mounts and pocket-adjacent black/cue balls. The planner handles group eligibility and at most one cushion rebound per ball; it does not provide complete physics or referee decisions. See `poolgame-port.md` for current evidence.

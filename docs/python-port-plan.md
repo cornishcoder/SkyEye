@@ -133,3 +133,7 @@ Build Android projects sequentially. Ship a reviewed source change, comparison r
 5. **Acceptance:** held-out accuracy, Pixel performance, capture regression checks and deployment.
 
 The highest uncertainty is mobile OpenCV packaging and detection quality on real images. Prove those early. A reliable elapsed-time estimate should follow the dependency experiment and initial fixture run; translating the mathematics alone would underestimate the work.
+
+## Implementation follow-up — 3 October 2026
+
+The local C# port is implemented in committed checkpoints. See `poolgame-port.md` for the final algorithms, intentional corrections, standard-lighting device regressions, dependency snapshot and live/replay evidence. This planning document's held-out accuracy, centre-error and live performance targets remain acceptance targets; implementation does not imply they were all achieved.
