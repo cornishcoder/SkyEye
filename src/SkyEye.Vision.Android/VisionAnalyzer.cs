@@ -96,7 +96,7 @@ public sealed class VisionAnalyzer : ITableAnalyzer
         using var mask = ClothMask(hsv, pixels); using var circles = new MatLease(new Mat());
         double scale = coordinates.Width / 1000.0;
         Imgproc.HoughCircles(mask.Value, circles.Value, Imgproc.HoughGradient, settings.HoughDp, settings.Separation * scale, settings.EdgeThreshold, votes * scale, (int)(settings.MinimumRadius * scale), (int)(settings.MaximumRadius * scale));
-        var result = new List<Circle>(); int count = Math.Max(circles.Value.Cols(), circles.Value.Rows());
+        var result = new List<Circle>(); int count = Math.Max(circles.Value.Cols(), circles.Value.Rows()); int clothHue = ClothHue(pixels);
         for (int i = 0; i < count && result.Count <= 32; i++)
         {
             var value = circles.Value.Get(circles.Value.Rows() == 1 ? 0 : i, circles.Value.Rows() == 1 ? i : 0);
@@ -105,6 +105,19 @@ public sealed class VisionAnalyzer : ITableAnalyzer
             if (c.X < margin || c.Y < margin || c.X > coordinates.Width - margin || c.Y > coordinates.Height - margin) continue;
             // An opening is not a ball; ball-adjacent uncertain cases remain visible through review.
             if (PocketCentres().Any(p => (new Point(c.X, c.Y) - p).Length < settings.PocketExclusionRadius * scale)) continue;
+            // Cushion shadows can produce circular mask edges. Reject only border
+            // candidates whose interior is overwhelmingly the cloth's own colour;
+            // retain mixed/neutral/dark ball bodies for classification and review.
+            if (c.X < 65 * scale || c.Y < 65 * scale || c.X > coordinates.Width - 65 * scale || c.Y > coordinates.Height - 65 * scale)
+            {
+                int sampled = 0, cloth = 0;
+                ForPixels(c, .85, (x, y) =>
+                {
+                    int offset = (y * coordinates.Width + x) * 3; int difference = Math.Abs(pixels[offset] - clothHue); sampled++;
+                    if (Math.Min(difference, 180 - difference) <= settings.HueBand && pixels[offset + 1] > 20 && pixels[offset + 2] > 20) cloth++;
+                });
+                if (sampled > 0 && cloth / (double)sampled > .9) continue;
+            }
             result.Add(c);
         }
         return result.ToArray();

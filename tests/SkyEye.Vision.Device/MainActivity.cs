@@ -53,12 +53,12 @@ public sealed class MainActivity : Activity
                 }
                 if (error > .015) throw new Exception("Ball-centre error exceeds fixture tolerance: " + error);
                 var negativeResults = new List<object>();
-                foreach (string name in new[] { "pixel-later-light", "synthetic-empty", "synthetic-dim", "synthetic-dark", "synthetic-obstruction", "synthetic-edge-obstruction", "synthetic-pocket-ball" })
+                foreach (string name in new[] { "pixel-later-light", "pixel-cushion-shadow", "synthetic-empty", "synthetic-dim", "synthetic-dark", "synthetic-obstruction", "synthetic-edge-obstruction", "synthetic-pocket-ball" })
                 {
                     using var input = Assets.Open(name + ".jpg"); using var buffer = new MemoryStream(); input.CopyTo(buffer);
                     var variant = analyzer.Analyze(buffer.ToArray(), calibration);
-                    if (name is "synthetic-dim" or "pixel-later-light" && (variant.Uncertain || variant.Balls.Length != 16 || variant.Balls.Count(b => b.Kind == "red") != 7 || variant.Balls.Count(b => b.Kind == "yellow") != 7)) throw new Exception("Clear-frame regression: " + JsonSerializer.Serialize(variant));
-                    if (name is not ("synthetic-dim" or "pixel-later-light") && !variant.Uncertain) throw new Exception("Negative frame was accepted: " + name);
+                    if (name is "synthetic-dim" or "pixel-later-light" or "pixel-cushion-shadow" && (variant.Uncertain || variant.Balls.Length != 16 || variant.Balls.Count(b => b.Kind == "red") != 7 || variant.Balls.Count(b => b.Kind == "yellow") != 7)) throw new Exception("Clear-frame regression: " + JsonSerializer.Serialize(variant));
+                    if (name is not ("synthetic-dim" or "pixel-later-light" or "pixel-cushion-shadow") && !variant.Uncertain) throw new Exception("Negative frame was accepted: " + name);
                     if (name.Contains("obstruction") && !variant.Obstructed) throw new Exception("Obstruction not flagged: " + name);
                     if (name == "synthetic-empty" && analyzer.FindCorners(buffer.ToArray()) is not null) throw new Exception("Invented automatic corners on empty cloth");
                     negativeResults.Add(new { name, count = variant.Balls.Length, variant.Uncertain, variant.Obstructed, variant.Warnings, variant.ElapsedMs });
@@ -70,7 +70,7 @@ public sealed class MainActivity : Activity
                 for (int i = 0; i < 12; i++)
                 {
                     var repeated = analyzer.Analyze(imageBytes, calibration);
-                    if (repeated.Uncertain || repeated.Balls.Length != 16) throw new Exception("Repeated detection drift"); times.Add(repeated.ElapsedMs);
+                    if (repeated.Uncertain || repeated.Balls.Length != 16 || repeated.Balls.Count(b => b.Kind == "red") != 7 || repeated.Balls.Count(b => b.Kind == "yellow") != 7) throw new Exception("Repeated detection drift: " + JsonSerializer.Serialize(repeated)); times.Add(repeated.ElapsedMs);
                     // Let normal allocation pressure drive GC during the timing sample.
                     // Forced collection belongs to the separate retained-memory check.
                 }
@@ -79,7 +79,7 @@ public sealed class MainActivity : Activity
                 var sorted = times.Order().ToArray(); double p95 = sorted[(int)Math.Ceiling(sorted.Length * .95) - 1];
                 if (heapAfter - heapBefore > 12 * 1024 * 1024) throw new Exception($"Native allocation growth exceeded the memory budget: {heapAfter - heapBefore}");
                 result = new { passed = true, version = Cv.Version, model = Build.Model, analyzed, maximumTableCentreError = error, negatives = negativeResults,
-                    performance = new { iterations = times.Count, samplesMs = times, targetMs = 1000, targetMet = p95 < 1000, p95Ms = p95, medianMs = sorted[sorted.Length / 2], heapBefore, heapAfter, nativeGrowthBytes = heapAfter - heapBefore }, elapsedMs = watch.Elapsed.TotalMilliseconds };
+                    performance = new { analysisWidth = 1000, iterations = times.Count, samplesMs = times, targetMs = 1000, targetMet = p95 < 1000, p95Ms = p95, medianMs = sorted[sorted.Length / 2], heapBefore, heapAfter, nativeGrowthBytes = heapAfter - heapBefore }, elapsedMs = watch.Elapsed.TotalMilliseconds };
             }
             catch (Exception e) { result = new { passed = false, error = e.ToString() }; }
             string json = JsonSerializer.Serialize(result); File.WriteAllText(Path.Combine(FilesDir!.AbsolutePath, "vision-checks.json"), json);
