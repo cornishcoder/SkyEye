@@ -1,0 +1,9 @@
+**/bin/
+**/obj/
+.vs/
+work/
+*.user
+*.apk
+*.aab
+*.key
+local-settings.json

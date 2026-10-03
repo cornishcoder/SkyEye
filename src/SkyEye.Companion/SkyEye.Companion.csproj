@@ -1,0 +1,4 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup><TargetFramework>net10.0-android</TargetFramework><SupportedOSPlatformVersion>33</SupportedOSPlatformVersion><RuntimeIdentifier>android-arm64</RuntimeIdentifier><OutputType>Exe</OutputType><ApplicationId>uk.co.skyeye.companion</ApplicationId><ApplicationVersion>1</ApplicationVersion><ApplicationDisplayVersion>0.1</ApplicationDisplayVersion><TrimMode>partial</TrimMode></PropertyGroup>
+  <ItemGroup><ProjectReference Include="../SkyEye.Core/SkyEye.Core.csproj"/><PackageReference Include="Xamarin.AndroidX.Media3.ExoPlayer.Hls" Version="1.10.1.1"/><PackageReference Include="Xamarin.AndroidX.Media3.UI" Version="1.10.1.1"/><PackageReference Include="Xamarin.AndroidX.Media3.Transformer" Version="1.10.1.1"/><PackageReference Include="Xamarin.GooglePlayServices.Cast.Framework" Version="122.3.1.2"/><AndroidMavenLibrary Include="io.github.webrtc-sdk:android" Version="150.7871.01" Bind="false" /></ItemGroup>
+</Project>

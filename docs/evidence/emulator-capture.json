@@ -1,0 +1,29 @@
+[
+  {
+    "state": "passed",
+    "cycle": 1,
+    "screenOff": true,
+    "clipSeconds": 12.877,
+    "historySeconds": 9.131826,
+    "temperatureC": 25,
+    "battery": 100
+  },
+  {
+    "state": "passed",
+    "cycle": 2,
+    "screenOff": true,
+    "clipSeconds": 13.044,
+    "historySeconds": 10.780793,
+    "temperatureC": 25,
+    "battery": 100
+  },
+  {
+    "state": "passed",
+    "cycle": 3,
+    "screenOff": true,
+    "clipSeconds": 12.5,
+    "historySeconds": 10.693002,
+    "temperatureC": 25,
+    "battery": 100
+  }
+]

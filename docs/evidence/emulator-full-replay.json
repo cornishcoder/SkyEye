@@ -1,0 +1,15 @@
+{
+  "durationMeasured": "30.481811",
+  "hashVerified": true,
+  "durationReported": 30.482,
+  "streams": [
+    {
+      "codec_type": "video",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "codec_type": "audio"
+    }
+  ]
+}

@@ -1,0 +1,212 @@
+using Android;
+using Android.App;
+using Android.Content;
+using Android.Content.PM;
+using Android.Graphics;
+using Android.OS;
+using Android.Views;
+using Android.Widget;
+using SkyEye.Core;
+using System.Text.Json;
+using Path = System.IO.Path;
+using Bridge = UK.CO.Skyeye.Companion.Nativebridge;
+
+namespace SkyEye.Companion;
+
+[Activity(Name = "uk.co.skyeye.companion.MainActivity", Label = "SkyEye", MainLauncher = true, Exported = true, ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize)]
+public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActivity
+{
+    readonly CameraClient client = new();
+    readonly CancellationTokenSource lifetime = new();
+    readonly SemaphoreSlim connectionGate = new(1);
+    TextView status = null!, message = null!, viewerStatus = null!;
+    EditText address = null!;
+    LinearLayout controls = null!, remoteClips = null!, localClips = null!, discoveries = null!;
+    Spinner duration = null!;
+    Button claim = null!, release = null!;
+    Bridge.PlayerBridge player = null!;
+    Bridge.CastBridge? cast;
+    Bridge.DiscoveryBridge discovery = null!;
+    Bridge.PortraitExporter? exporter;
+    PlayerListener playerListener = null!; CastListener? castListener; DiscoveryListener discoveryListener = null!; ExportListener? exportListener;
+    bool resumed, connected, polling, busy, portrait, offline;
+    string currentState = "", clipDir = "", stream = "";
+    DateTimeOffset lastHeartbeat;
+    MaeveSession? maeve;
+    public override void OnConfigurationChanged(Android.Content.Res.Configuration config) { base.OnConfigurationChanged(config); }
+    protected override void OnCreate(Bundle? savedInstanceState)
+    {
+        base.OnCreate(savedInstanceState); clipDir = Path.Combine(FilesDir!.AbsolutePath, "clips"); Directory.CreateDirectory(clipDir);
+        var root = new LinearLayout(this) { Orientation = Orientation.Vertical }; root.SetPadding(20, 24, 20, 20); root.SetBackgroundColor(Color.Rgb(10, 19, 28));
+        var scroll = new ScrollView(this); scroll.AddView(root); SetContentView(scroll);
+        root.AddView(Label("SkyEye", 30)); root.AddView(Label("Your table. Every shot.", 15));
+        var settings = GetSharedPreferences("skyeye", FileCreationMode.Private)!;
+        address = new EditText(this) { Hint = "Camera address · IP:8765", Text = settings.GetString("camera", "") }; address.SetSingleLine(true); address.SetTextColor(Color.White); address.SetHintTextColor(Color.Gray); root.AddView(address);
+        var connectRow = Row(root); Add(connectRow, "Connect", () => _ = ConnectAsync()); Add(connectRow, "Find camera", () => discovery.Start());
+        discoveries = new LinearLayout(this) { Orientation = Orientation.Vertical }; root.AddView(discoveries);
+        status = Label("Connect to your armed camera", 16); root.AddView(status);
+        message = Label("", 14); root.AddView(message);
+        var hostRow = Row(root); claim = Add(hostRow, "Become host", () => _ = ActionAsync(async () => { var result = await client.PostAsync("host/claim", new { owner = Android.OS.Build.Model ?? "SkyEye companion" }); client.HostToken = result.GetProperty("token").GetString(); settings.Edit()!.PutString("host", client.HostToken)!.Apply(); await RefreshAsync(); }));
+        release = Add(hostRow, "Release control", () => _ = ActionAsync(async () => { await client.PostAsync("host/release", new { }); client.HostToken = null; settings.Edit()!.Remove("host")!.Apply(); await EndMaeveAsync(); await RefreshAsync(); }));
+        controls = new LinearLayout(this) { Orientation = Orientation.Vertical }; root.AddView(controls);
+        var sessionRow = Row(controls); Add(sessionRow, "Start", () => Command("session/start")); Add(sessionRow, "Pause", () => Command("session/pause")); Add(sessionRow, "Resume", () => Command("session/resume")); Add(sessionRow, "Stop", () => Command("session/stop"));
+        var replayRow = Row(controls);
+        duration = new Spinner(this); duration.Adapter = new ArrayAdapter<string>(this, Android.Resource.Layout.SimpleSpinnerDropDownItem, ["30 seconds", "1 minute", "2 minutes", "5 minutes", "10 minutes"]); replayRow.AddView(duration);
+        Add(replayRow, "Save last…", () => _ = ActionAsync(async () => { var result = await client.PostAsync("clips/save", new { commandId = Guid.NewGuid().ToString("N"), seconds = ReplaySelection.Durations[duration.SelectedItemPosition] }); Say($"Saved {result.GetProperty("duration").GetDouble():0.0} seconds on camera."); await LoadClipsAsync(); }));
+        controls.AddView(Label("Save ends at the camera's current moment. Viewing is delayed.", 12));
+        playerListener = new PlayerListener(this); player = new Bridge.PlayerBridge(this, playerListener);
+        root.AddView(player.View, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, (int)(260 * Resources!.DisplayMetrics!.Density)));
+        viewerStatus = Label("Live viewing is silent. Saved clips include room sound.", 13); root.AddView(viewerStatus);
+        var viewRow = Row(root); Add(viewRow, "Watch live", () => _ = ActionAsync(async () => { await RefreshAsync(); offline = false; player.SetMuted(true); player.Play(stream); }));
+        Add(viewRow, "Portrait / landscape", () => { portrait = !portrait; player.SetPortrait(portrait); });
+        try { castListener = new CastListener(this); cast = new Bridge.CastBridge(this, castListener); viewRow.AddView(cast.Button, new LinearLayout.LayoutParams(56, 56)); }
+        catch { root.AddView(Label("Cast is unavailable on this device.", 13)); }
+        var tvRow = Row(controls); Add(tvRow, "Play on TV", () => cast?.Load()); Add(tvRow, "Stop TV", () => cast?.Stop());
+        root.AddView(Label("Clips on camera", 22)); Add(root, "Refresh clips", () => _ = ActionAsync(LoadClipsAsync)); remoteClips = new LinearLayout(this) { Orientation = Orientation.Vertical }; root.AddView(remoteClips);
+        root.AddView(Label("Your downloaded clips", 22)); localClips = new LinearLayout(this) { Orientation = Orientation.Vertical }; root.AddView(localClips); RefreshLocal();
+        BuildTableUi(root);
+        root.AddView(Label("Maeve · pool partner", 22));
+        var keyRow = Row(root); Add(keyRow, "Set API key", SetupKey); Add(keyRow, "Talk to Maeve", StartMaeve); Add(keyRow, "End Maeve", () => _ = EndMaeveAsync());
+        Add(root, "Mute / unmute Maeve microphone", () => { voiceMuted = !voiceMuted; maeve?.SetMuted(voiceMuted); Say(voiceMuted ? "Maeve microphone muted" : "Maeve microphone enabled"); });
+        discoveryListener = new DiscoveryListener(this); discovery = new Bridge.DiscoveryBridge(this, discoveryListener);
+        client.HostToken = settings.GetString("host", null); controls.Visibility = ViewStates.Gone; release.Visibility = ViewStates.Gone;
+        var initial = Intent?.GetStringExtra("camera"); if (!string.IsNullOrWhiteSpace(initial)) { address.Text = initial; _ = ConnectAsync(); }
+    }
+    TextView Label(string text, int size) { var view = new TextView(this) { Text = text, TextSize = size }; view.SetTextColor(Color.Rgb(205, 230, 235)); view.SetPadding(0, 7, 0, 7); return view; }
+    LinearLayout Row(LinearLayout parent) { var row = new LinearLayout(this) { Orientation = Orientation.Horizontal }; parent.AddView(row); return row; }
+    Button Add(LinearLayout parent, string title, Action action) { var button = new Button(this) { Text = title, TextSize = 12 }; button.Click += (_, _) => action(); parent.AddView(button, parent.Orientation == Orientation.Horizontal ? new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WrapContent, 1) : new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent)); return button; }
+    void Say(string text) => RunOnUiThread(() => message.Text = text);
+    async Task ActionAsync(Func<Task> work)
+    {
+        if (busy) { Say("Please wait for the current operation."); return; } busy = true;
+        try { await work(); }
+        catch (Exception e) { Say(e.Message); }
+        finally { busy = false; }
+    }
+    async Task ConnectAsync()
+    {
+        await ActionAsync(async () =>
+        {
+            await connectionGate.WaitAsync(lifetime.Token);
+            try
+            {
+                var previousAddress = client.Address; client.Connect(address.Text ?? "");
+                if (previousAddress.Length > 0 && !string.Equals(previousAddress, client.Address, StringComparison.OrdinalIgnoreCase)) { client.HostToken = null; calibration = null; tableState = null; lastDetections = null; await EndMaeveAsync(); }
+                await RefreshAsync(); connected = true; RestoreCalibration();
+                GetSharedPreferences("skyeye", FileCreationMode.Private)!.Edit()!.PutString("camera", client.Address)!.Apply();
+                Say("Connected. Watch as a guest or claim available host control."); await LoadClipsAsync();
+                if (currentState == "Active") { offline = false; player.SetMuted(true); player.Play(stream); }
+                StartPolling();
+            }
+            finally { connectionGate.Release(); }
+        });
+    }
+    void Command(string path) => _ = ActionAsync(async () => { await client.PostAsync(path, new { commandId = Guid.NewGuid().ToString("N") }); await RefreshAsync(); if (currentState == "Active") { offline = false; player.SetMuted(true); player.Play(stream); } });
+    async Task RefreshAsync()
+    {
+        var state = await client.StatusAsync(lifetime.Token); string next = state.GetProperty("state").GetString()!;
+        var host = state.GetProperty("host"); bool owns = false;
+        if (client.HostToken is not null)
+        {
+            if ((DateTimeOffset.UtcNow - lastHeartbeat).TotalSeconds >= 5)
+            {
+                try { await client.PostAsync("host/heartbeat", new { }, lifetime.Token); lastHeartbeat = DateTimeOffset.UtcNow; owns = true; }
+                catch (CameraRequestException e) when (e.StatusCode == System.Net.HttpStatusCode.Forbidden) { client.HostToken = null; await EndMaeveAsync(); }
+            }
+            else owns = true;
+        }
+        stream = client.MediaUrl(state.GetProperty("streamPath").GetString()!);
+        RunOnUiThread(() =>
+        {
+            status.Text = $"{next} · Battery {state.GetProperty("battery").GetInt32()}% · {state.GetProperty("temperatureC").GetDouble():0.0}°C\nReplay available: {state.GetProperty("historySeconds").GetDouble():0}s · " + (owns ? "You control this session" : host.ValueKind == JsonValueKind.Null ? "Host available" : "Host: " + host.GetProperty("owner").GetString());
+            controls.Visibility = owns ? ViewStates.Visible : ViewStates.Gone; release.Visibility = controls.Visibility; claim.Visibility = owns ? ViewStates.Gone : ViewStates.Visible;
+            claim.Enabled = host.ValueKind == JsonValueKind.Null;
+            cast?.Configure(stream, owns);
+            if (next != "Active" && !offline) { player.Stop(); viewerStatus.Text = "Capture is " + next.ToLowerInvariant(); }
+            if (next == "Active" && currentState != "Active" && !offline) player.Play(stream);
+            currentState = next;
+        });
+    }
+    void StartPolling()
+    {
+        if (polling || !connected || !resumed && maeve is null) return; polling = true;
+        _ = PollAsync();
+    }
+    async Task PollAsync()
+    {
+        try
+        {
+            while ((resumed || maeve is not null) && connected && !lifetime.IsCancellationRequested)
+            {
+                await Task.Delay(2500, lifetime.Token);
+                try { await RefreshAsync(); }
+                catch { RunOnUiThread(() => { status.Text = "Camera unreachable. Recording may continue; reconnect to check."; if (!offline) player.Stop(); }); }
+                if (!busy && client.HostToken is not null && currentState == "Active" && calibration is not null) try { await UpdateTableAsync(); } catch { tableState = null; }
+            }
+        }
+        catch (System.OperationCanceledException) { }
+        finally { polling = false; if ((resumed || maeve is not null) && connected && !lifetime.IsCancellationRequested) StartPolling(); }
+    }
+    async Task LoadClipsAsync()
+    {
+        var clips = await client.ClipsAsync(lifetime.Token); remoteClips.RemoveAllViews();
+        foreach (var clip in clips.Reverse()) { remoteClips.AddView(Label($"{clip.Name} · {clip.Duration:0}s · {clip.Bytes / 1048576.0:0.0} MB", 14)); Add(remoteClips, File.Exists(Path.Combine(clipDir, clip.Id + ".mp4")) ? "Downloaded · play below" : "Download portrait clip", () => _ = ActionAsync(() => DownloadAsync(clip))); }
+        if (clips.Length == 0) remoteClips.AddView(Label("Saved clips appear here.", 14));
+    }
+    async Task DownloadAsync(Clip clip)
+    {
+        var master = Path.Combine(clipDir, clip.Id + ".source.part"); string portrait = Path.Combine(clipDir, clip.Id + ".portrait.part"), final = Path.Combine(clipDir, clip.Id + ".mp4");
+        if (File.Exists(final)) { Say("Clip is already available locally."); return; }
+        Say("Downloading…"); var lastProgress = DateTimeOffset.MinValue;
+        await client.DownloadAsync(clip, master, bytes => { if ((DateTimeOffset.UtcNow - lastProgress).TotalMilliseconds > 500) { lastProgress = DateTimeOffset.UtcNow; Say($"Downloading {bytes * 100 / clip.Bytes}%"); } }, lifetime.Token);
+        Say("Download verified. Preparing portrait clip…");
+        if (File.Exists(portrait)) File.Delete(portrait);
+        var finished = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        exporter = new Bridge.PortraitExporter(); exportListener = new ExportListener(finished);
+        exporter.Start(this, master, portrait, clip.PortraitRotation, exportListener);
+        try { await finished.Task.WaitAsync(TimeSpan.FromMinutes(20), lifetime.Token); }
+        catch { exporter.Cancel(); if (File.Exists(portrait)) File.Delete(portrait); throw; }
+        File.Move(portrait, final); File.WriteAllText(Path.Combine(clipDir, clip.Id + ".json"), JsonSerializer.Serialize(clip, JsonDefaults.Options)); File.Delete(master);
+        Say("Portrait clip available locally, with room audio."); RefreshLocal();
+    }
+    void RefreshLocal()
+    {
+        localClips.RemoveAllViews();
+        foreach (var file in Directory.GetFiles(clipDir, "*.json").OrderDescending())
+        {
+            Clip? clip; try { clip = JsonSerializer.Deserialize<Clip>(File.ReadAllText(file), JsonDefaults.Options); } catch { continue; }
+            if (clip is null || !Guid.TryParseExact(clip.Id, "N", out _)) continue; string video = Path.Combine(clipDir, clip.Id + ".mp4"); if (!File.Exists(video)) continue;
+            localClips.AddView(Label(clip.Name + " · available offline", 14)); var row = Row(localClips);
+            Add(row, "Play", () => { offline = true; player.SetPortrait(false); player.SetMuted(false); player.Play(Android.Net.Uri.FromFile(new Java.IO.File(video))!.ToString()!); });
+            Add(row, "Share", () => { var uri = AndroidX.Core.Content.FileProvider.GetUriForFile(this, "uk.co.skyeye.companion.files", new Java.IO.File(video)); var intent = new Intent(Intent.ActionSend).SetType("video/mp4").PutExtra(Intent.ExtraStream, uri).AddFlags(ActivityFlags.GrantReadUriPermission); StartActivity(Intent.CreateChooser(intent, "Share your shot")); });
+        }
+    }
+    void SetupKey()
+    {
+        var edit = new EditText(this) { Hint = "Personal OpenAI API key", InputType = Android.Text.InputTypes.ClassText | Android.Text.InputTypes.TextVariationPassword };
+        new AlertDialog.Builder(this)!.SetTitle("Maeve voice setup")!.SetMessage("Stored encrypted on this host phone. Camera and guests never receive it.")!.SetView(edit)!.SetPositiveButton("Save", (_, _) => { SecretStore.Set(this, "openai", edit.Text?.Trim() ?? ""); edit.Text = ""; Say("API key saved on this phone."); })!.SetNegativeButton("Cancel", (_, _) => { })!.Show();
+    }
+    void StartMaeve()
+    {
+        if (client.HostToken is null) { Say("Claim host control before starting Maeve."); return; }
+        if (CheckSelfPermission(Manifest.Permission.RecordAudio) != Permission.Granted) { RequestPermissions([Manifest.Permission.RecordAudio], 2); return; }
+        if (maeve is not null) { Say("Maeve is already connected."); return; }
+        var key = SecretStore.Get(this, "openai"); if (string.IsNullOrWhiteSpace(key)) { SetupKey(); return; }
+        if (busy) { Say("Finish the current operation before starting Maeve."); return; }
+        StartForegroundService(new Intent(this, typeof(VoiceService)));
+        player.SetMuted(true); voiceMuted = false; var session = new MaeveSession(this, key, Say, ExecutePoolToolAsync); maeve = session;
+        _ = ActionAsync(async () => { try { await session.StartAsync(); } catch { if (maeve == session) maeve = null; StopService(new Intent(this, typeof(VoiceService))); throw; } });
+    }
+    async Task EndMaeveAsync() { var session = maeve; maeve = null; try { if (session is not null) await session.CloseAsync(); } finally { StopService(new Intent(this, typeof(VoiceService))); } }
+    protected override void OnResume() { base.OnResume(); resumed = true; StartPolling(); }
+    protected override void OnPause() { resumed = false; discovery.Stop(); base.OnPause(); }
+    protected override void OnDestroy() { lifetime.Cancel(); exporter?.Cancel(); _ = EndMaeveAsync(); player.Release(); cast?.Release(); discovery.Stop(); client.Dispose(); base.OnDestroy(); }
+    sealed class PlayerListener(MainActivity owner) : Java.Lang.Object, Bridge.PlayerBridge.IListener { public void OnError(string? error) => owner.Say(error ?? "Viewing interrupted"); public void OnPlaying(bool playing) => owner.RunOnUiThread(() => owner.viewerStatus.Text = playing ? owner.offline ? "Playing downloaded clip" : "Live · delayed · silent" : "Waiting for video…"); }
+    sealed class CastListener(MainActivity owner) : Java.Lang.Object, Bridge.CastBridge.IListener { public void OnStatus(string? status) => owner.Say(status ?? "TV status changed"); }
+    sealed class DiscoveryListener(MainActivity owner) : Java.Lang.Object, Bridge.DiscoveryBridge.IListener
+    {
+        public void OnError(string? error) => owner.Say(error ?? "Discovery unavailable");
+        public void OnCamera(string? name, string? address) => owner.RunOnUiThread(() => owner.Add(owner.discoveries, name ?? "Camera", () => { owner.address.Text = address; _ = owner.ConnectAsync(); }));
+    }
+    sealed class ExportListener(TaskCompletionSource<bool> completion) : Java.Lang.Object, Bridge.PortraitExporter.IListener { public void OnComplete() => completion.TrySetResult(true); public void OnError(string? message) => completion.TrySetException(new IOException(message ?? "Portrait export failed")); }
+}
