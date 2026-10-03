@@ -50,7 +50,14 @@ public sealed class TableCalibration
 }
 public sealed record Ball(string Id, string Kind, Point Position, double Confidence);
 public sealed record TableState(long Version, DateTimeOffset CapturedAt, Ball[] Balls, string Group, bool Settled, bool Occluded, bool Confirmed, string CalibrationId);
-public sealed record Shot(string Id, string BallId, int Pocket, Point GhostBall, Point Target, Point Destination, double Score, string Explanation, long TableVersion);
+public sealed record Shot(string Id, string BallId, int Pocket, Point GhostBall, Point Target, Point Destination, double Score, string Explanation, long TableVersion)
+{
+    public Point[] CuePath { get; init; } = [];
+    public Point[] TargetPath { get; init; } = [];
+    public string Type { get; init; } = "direct";
+    public double CutDegrees { get; init; }
+    public double Difficulty { get; init; }
+}
 
 public static class PoolGeometry
 {

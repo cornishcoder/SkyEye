@@ -47,5 +47,47 @@ static class PortChecks
         }
         Require(BallClassifier.Classify([]).Kind == "unknown" && BallClassifier.Classify(Enumerable.Repeat(new HsvPixel(100, 130, 120), 50).ToArray()).Kind == "unknown", "No guessed classification for empty/cloth region");
         Console.WriteLine("PASS repeatable bounded colour clustering, spotted cream cue, orange yellows and empty/cloth rejection");
+        CheckPlanner(reference);
+    }
+    static void CheckPlanner(JsonDocument reference)
+    {
+        int generated = 0;
+        foreach (var fixture in reference.RootElement.GetProperty("cases").EnumerateArray())
+        {
+            var candidates = ShotPlanner.Generate(Point(fixture.GetProperty("cue")), Point(fixture.GetProperty("target")), new(Radius: 23, CushionInset: 40), pythonRounding: true);
+            foreach (var candidate in candidates)
+            {
+                var paths = candidate.Paths;
+                // Bounded reflections may omit impossible upstream candidates. Each retained
+                // path must match an independently generated original Python result.
+                bool matched = fixture.GetProperty("shots").EnumerateArray().Any(expected =>
+                    Math.Abs(paths.Length - expected.GetProperty("length").GetDouble()) < 1e-6 &&
+                    Math.Abs(paths.Difficulty - expected.GetProperty("difficulty").GetDouble()) < 1e-6 &&
+                    (int)paths.Ghost.X == expected.GetProperty("ghost")[0].GetInt32() && (int)paths.Ghost.Y == expected.GetProperty("ghost")[1].GetInt32());
+                Require(matched, "Generated reflection, angle and ranking match Python: " + JsonSerializer.Serialize(candidate)); generated++;
+            }
+        }
+        Require(generated > 240, "Most upstream reflection candidates retained");
+        Require(ShotPlanner.Reflect(new(10, 10), new(20, 10), new(0, 0), new(0, 30)) is { X: 0, Y: 10 }, "Vertical reflection intersection");
+        Require(ShotPlanner.Reflect(new(10, 90), new(20, 80), new(0, 0), new(0, 30)) is null, "Finite rail bounds reject outside bounce");
+        Require(ShotPlanner.Reflect(new(0, 0), new(0, 20), new(0, 0), new(0, 30)) is null, "Parallel reflection rejected");
+        var coordinate = new AnalysisCoordinates(); var now = DateTimeOffset.UtcNow;
+        var state = new TableState(31, now, [new("cue", "cue", new(1.5, .3), 1), new("red", "red", new(.8, .6), 1)], "red", true, false, true, "test");
+        var valid = ShotPlanner.Generate(coordinate.FromTable(state.Balls[0].Position), coordinate.FromTable(state.Balls[1].Position))
+            .Where(c => ShotPlanner.Valid(c, coordinate.FromTable(state.Balls[0].Position), coordinate.FromTable(state.Balls[1].Position), [])).ToArray();
+        Require(valid.Any(c => c.TargetCushion >= 0) && valid.Any(c => c.CueCushion >= 0) && valid.Any(c => c.TargetCushion < 0 && c.CueCushion < 0), "Direct, bank and kick candidates exist");
+        foreach (var candidate in valid.Where(c => c.Paths.CuePath.Length > 1 || c.Paths.TargetPath.Length > 1))
+        {
+            var leg = candidate.Paths.CuePath.Length > 1 ? candidate.Paths.CuePath[1] : candidate.Paths.TargetPath[1];
+            Require(!ShotPlanner.Valid(candidate, coordinate.FromTable(state.Balls[0].Position), coordinate.FromTable(state.Balls[1].Position), [(leg.Start + leg.End) * .5]), "An obstacle blocks the second reflected leg");
+        }
+        string before = JsonSerializer.Serialize(state); var suggestions = ShotPlanner.Suggest(state, now);
+        Require(suggestions.Length == 3 && suggestions.All(s => s.TargetPath.Length is 2 or 3 && s.CuePath.Length is 2 or 3 && s.TableVersion == 31), "Three complete versioned candidates");
+        Require(suggestions.SequenceEqual(suggestions.OrderBy(s => s.Difficulty)), "Nonmutating source ranking");
+        Require(before == JsonSerializer.Serialize(state) && JsonSerializer.Serialize(suggestions) == JsonSerializer.Serialize(ShotPlanner.Suggest(state, now)), "Deterministic ranking preserves table state");
+        foreach (var invalid in new[] { state with { CapturedAt = now.AddSeconds(-7) }, state with { CapturedAt = now.AddSeconds(3) }, state with { Settled = false }, state with { Occluded = true }, state with { Confirmed = false }, state with { CalibrationId = "" }, state with { Group = "bogus" }, state with { Balls = [state.Balls[0] with { Confidence = double.NaN }, state.Balls[1]] } })
+            Require(ShotPlanner.Suggest(invalid, now).Length == 0, "Freshness, motion, obstruction, confirmation and finite-quality gates");
+        Require(ShotPlanner.Suggest(state with { Group = "black" }, now).Length == 0, "No guessed legal black on missing black");
+        Console.WriteLine($"PASS {generated} generated Python reflections, bounded rails, direct/bank/kick candidates, second-leg obstruction, stable top-three ranking and advice gates");
     }
 }
