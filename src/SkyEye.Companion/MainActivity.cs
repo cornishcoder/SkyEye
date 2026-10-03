@@ -91,7 +91,7 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
             try
             {
                 var previousAddress = client.Address; client.Connect(address.Text ?? "");
-                if (previousAddress.Length > 0 && !string.Equals(previousAddress, client.Address, StringComparison.OrdinalIgnoreCase)) { client.HostToken = null; calibration = null; tableState = null; lastDetections = null; await EndMaeveAsync(); }
+                if (previousAddress.Length > 0 && !string.Equals(previousAddress, client.Address, StringComparison.OrdinalIgnoreCase)) { client.HostToken = null; calibration = null; tableView.Picking = false; tableView.Picks.Clear(); InvalidateTable("Camera changed; calibrate and check its table."); await EndMaeveAsync(); }
                 await RefreshAsync(); connected = true; RestoreCalibration();
                 GetSharedPreferences("skyeye", FileCreationMode.Private)!.Edit()!.PutString("camera", client.Address)!.Apply();
                 Say("Connected. Watch as a guest or claim available host control."); await LoadClipsAsync();
@@ -125,6 +125,7 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
             if (next != "Active" && !offline) { player.Stop(); viewerStatus.Text = "Capture is " + next.ToLowerInvariant(); }
             if (next == "Active" && currentState != "Active" && !offline) player.Play(stream);
             currentState = next;
+            if ((!owns || next != "Active") && tableState is not null) InvalidateTable("A fresh active camera view and host control are needed for table advice.");
         });
     }
     void StartPolling()
@@ -140,8 +141,8 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
             {
                 await Task.Delay(2500, lifetime.Token);
                 try { await RefreshAsync(); }
-                catch { RunOnUiThread(() => { status.Text = "Camera unreachable. Recording may continue; reconnect to check."; if (!offline) player.Stop(); }); }
-                if (!busy && client.HostToken is not null && currentState == "Active" && calibration is not null) try { await UpdateTableAsync(); } catch { tableState = null; }
+                catch { RunOnUiThread(() => { status.Text = "Camera unreachable. Recording may continue; reconnect to check."; if (!offline) player.Stop(); InvalidateTable("Camera unreachable; advice is waiting for a fresh view."); }); }
+                if (!busy && client.HostToken is not null && currentState == "Active" && calibration is not null) try { await UpdateTableAsync(); } catch { InvalidateTable("Table analysis unavailable; wait for a fresh view and confirm it."); }
             }
         }
         catch (System.OperationCanceledException) { }
@@ -199,8 +200,8 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
     }
     async Task EndMaeveAsync() { var session = maeve; maeve = null; try { if (session is not null) await session.CloseAsync(); } finally { StopService(new Intent(this, typeof(VoiceService))); } }
     protected override void OnResume() { base.OnResume(); resumed = true; StartPolling(); }
-    protected override void OnPause() { resumed = false; discovery.Stop(); base.OnPause(); }
-    protected override void OnDestroy() { lifetime.Cancel(); exporter?.Cancel(); _ = EndMaeveAsync(); player.Release(); cast?.Release(); discovery.Stop(); client.Dispose(); base.OnDestroy(); }
+    protected override void OnPause() { resumed = false; discovery.Stop(); if (maeve is null) InvalidateTable("Return for a fresh table view and confirm the balls."); base.OnPause(); }
+    protected override void OnDestroy() { lifetime.Cancel(); ++tableGeneration; tableBitmap?.Dispose(); exporter?.Cancel(); _ = EndMaeveAsync(); player.Release(); cast?.Release(); discovery.Stop(); client.Dispose(); base.OnDestroy(); }
     sealed class PlayerListener(MainActivity owner) : Java.Lang.Object, Bridge.PlayerBridge.IListener { public void OnError(string? error) => owner.Say(error ?? "Viewing interrupted"); public void OnPlaying(bool playing) => owner.RunOnUiThread(() => owner.viewerStatus.Text = playing ? owner.offline ? "Playing downloaded clip" : "Live · delayed · silent" : "Waiting for video…"); }
     sealed class CastListener(MainActivity owner) : Java.Lang.Object, Bridge.CastBridge.IListener { public void OnStatus(string? status) => owner.Say(status ?? "TV status changed"); }
     sealed class DiscoveryListener(MainActivity owner) : Java.Lang.Object, Bridge.DiscoveryBridge.IListener

@@ -52,7 +52,7 @@ public sealed class MaeveSession(Context context, string key, Action<string> sta
                             tools = new object[]
                             {
                                 Function("get_table_state", "Get the latest calibrated table, player group, state age and confidence.", empty),
-                                Function("suggest_shots", "Find unobstructed candidate pots for the current fresh, settled table under the configured group.", empty),
+                                Function("suggest_shots", "Rank up to three validated direct, bank or kick pots for the fresh, settled, confirmed table and selected group. Read every cue and object path segment; scores are difficulty rankings, not pot probabilities.", empty),
                                 Function("explain_shot", "Explain one candidate from suggest_shots using its stable ID.", new { type = "object", properties = new { shot_id = new { type = "string" } }, required = new[] { "shot_id" }, additionalProperties = false })
                             }, tool_choice = "auto"
                         }
