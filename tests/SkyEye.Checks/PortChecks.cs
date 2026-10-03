@@ -49,6 +49,7 @@ static class PortChecks
         Console.WriteLine("PASS repeatable bounded colour clustering, spotted cream cue, orange yellows and empty/cloth rejection");
         CheckPlanner(reference);
         CheckTracking();
+        CheckCarousel();
     }
     static void CheckPlanner(JsonDocument reference)
     {
@@ -94,6 +95,23 @@ static class PortChecks
             Require(ShotPlanner.Suggest(invalid, now).Length == 0, "Freshness, motion, obstruction, confirmation and finite-quality gates");
         Require(ShotPlanner.Suggest(state with { Group = "black" }, now).Length == 0, "No guessed legal black on missing black");
         Console.WriteLine($"PASS {generated} generated Python reflections, bounded rails, direct/bank/kick candidates, second-leg obstruction, stable top-three ranking and advice gates");
+    }
+    static void CheckCarousel()
+    {
+        var now = DateTimeOffset.UtcNow;
+        var state = new TableState(31, now, [new("cue", "cue", new(1.5, .3), 1), new("red", "red", new(.8, .6), 1)], "red", true, false, true, "test");
+        var carousel = new CandidateCarousel(); carousel.Start(1000); carousel.Update(state, now);
+        Require(carousel.Candidates.Length == 3, "Carousel has validated candidates");
+        Require(carousel.Index(2999, now) == 0 && carousel.Index(3000, now) == 1 && carousel.Index(5000, now) == 2 && carousel.Index(7000, now) == 0, "Two-second cycle boundaries and wrapping");
+        Require(carousel.Current(9000, now.AddSeconds(10)) is not null && ShotPlanner.Suggest(state, now.AddSeconds(10)).Length == 0, "Presentation cache covers ten-second refresh without loosening advice freshness");
+        Require(carousel.Current(9000, now.AddSeconds(15)) is null, "Presentation expires when refresh stops");
+        carousel.Update(state with { Occluded = true }, now); Require(carousel.Current(10000, now) is null, "Uncertain refresh clears old paths");
+        var tracker = new TableTracker(15);
+        tracker.Observe("cal", "timeline", now, state.Balls, "red", false, false);
+        tracker.Observe("cal", "timeline", now.AddSeconds(3), state.Balls, "red", false, false); tracker.Confirm(now.AddSeconds(3));
+        Require(tracker.Observe("cal", "timeline", now.AddSeconds(13), state.Balls, "red", false, false).Confirmed, "Ten-second sampling preserves a stable layout");
+        Require(!tracker.Observe("cal", "timeline", now.AddSeconds(29), state.Balls, "red", false, false).Confirmed, "A missed sampling interval invalidates confirmation");
+        Console.WriteLine("PASS two-second carousel, ten-second sampling, bounded presentation expiry and independent strict advice freshness");
     }
     static void CheckTracking()
     {

@@ -2,8 +2,10 @@ namespace SkyEye.Core.Analysis;
 
 /// <summary>Associates automatic observations and corrections with a capture timeline
 /// and calibration. Duplicate or interrupted frames cannot establish settlement.</summary>
-public sealed class TableTracker
+public sealed class TableTracker(double maximumObservationGapSeconds = 6)
 {
+    readonly double maximumGap = double.IsFinite(maximumObservationGapSeconds) && maximumObservationGapSeconds is >= 6 and <= 60
+        ? maximumObservationGapSeconds : throw new ArgumentOutOfRangeException(nameof(maximumObservationGapSeconds));
     public TableState? State { get; private set; }
     public bool PhysicallyObstructed { get; private set; }
     Ball[] previous = [], stableAnchor = []; string timeline = ""; DateTimeOffset stableSince;
@@ -15,7 +17,7 @@ public sealed class TableTracker
         bool sameSource = old is not null && old.CalibrationId == calibrationId && timeline == captureTimeline;
         double interval = old is null ? 0 : (capturedAt - old.CapturedAt).TotalSeconds;
         if (sameSource && interval <= 0) return old!;
-        bool same = sameSource && interval <= 6 && SameLayout(previous, detected) && SameLayout(stableAnchor, detected);
+        bool same = sameSource && interval <= maximumGap && SameLayout(previous, detected) && SameLayout(stableAnchor, detected);
         if (!same) { stableSince = capturedAt; stableAnchor = detected.ToArray(); manual = false; }
         bool confirmed = same && old!.Confirmed && !obstructed;
         bool occluded = obstructed || uncertain && !(manual && confirmed);
