@@ -1,0 +1,1830 @@
+[
+  {
+    "library": "lib/arm64-v8a/lib_Microsoft.CSharp.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_Microsoft.VisualBasic.Core.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_Microsoft.VisualBasic.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_Microsoft.Win32.Primitives.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_Microsoft.Win32.Registry.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.AppContext.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Buffers.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Collections.Concurrent.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Collections.Immutable.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Collections.NonGeneric.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Collections.Specialized.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Collections.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.ComponentModel.Annotations.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.ComponentModel.DataAnnotations.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.ComponentModel.EventBasedAsync.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.ComponentModel.Primitives.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.ComponentModel.TypeConverter.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.ComponentModel.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Configuration.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Console.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Core.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Data.Common.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Data.DataSetExtensions.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Data.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Diagnostics.Contracts.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Diagnostics.Debug.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Diagnostics.DiagnosticSource.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Diagnostics.FileVersionInfo.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Diagnostics.Process.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Diagnostics.StackTrace.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Diagnostics.TextWriterTraceListener.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Diagnostics.Tools.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Diagnostics.TraceSource.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Diagnostics.Tracing.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Drawing.Primitives.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Drawing.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Dynamic.Runtime.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Formats.Asn1.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Formats.Tar.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Globalization.Calendars.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Globalization.Extensions.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Globalization.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.IO.Compression.Brotli.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.IO.Compression.FileSystem.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.IO.Compression.ZipFile.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.IO.Compression.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.IO.FileSystem.AccessControl.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.IO.FileSystem.DriveInfo.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.IO.FileSystem.Primitives.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.IO.FileSystem.Watcher.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.IO.FileSystem.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.IO.IsolatedStorage.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.IO.MemoryMappedFiles.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.IO.Pipelines.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.IO.Pipes.AccessControl.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.IO.Pipes.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.IO.UnmanagedMemoryStream.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.IO.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Linq.AsyncEnumerable.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Linq.Expressions.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Linq.Parallel.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Linq.Queryable.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Linq.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Memory.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Net.Http.Json.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Net.Http.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Net.HttpListener.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Net.Mail.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Net.NameResolution.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Net.NetworkInformation.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Net.Ping.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Net.Primitives.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Net.Quic.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Net.Requests.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Net.Security.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Net.ServerSentEvents.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Net.ServicePoint.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Net.Sockets.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Net.WebClient.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Net.WebHeaderCollection.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Net.WebProxy.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Net.WebSockets.Client.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Net.WebSockets.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Net.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Numerics.Vectors.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Numerics.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.ObjectModel.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Private.DataContractSerialization.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Private.Uri.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Private.Xml.Linq.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Private.Xml.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Reflection.DispatchProxy.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Reflection.Emit.ILGeneration.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Reflection.Emit.Lightweight.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Reflection.Emit.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Reflection.Extensions.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Reflection.Metadata.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Reflection.Primitives.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Reflection.TypeExtensions.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Reflection.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Resources.Reader.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Resources.ResourceManager.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Resources.Writer.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Runtime.CompilerServices.Unsafe.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Runtime.CompilerServices.VisualC.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Runtime.Extensions.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Runtime.Handles.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Runtime.InteropServices.JavaScript.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Runtime.InteropServices.RuntimeInformation.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Runtime.InteropServices.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Runtime.Intrinsics.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Runtime.Loader.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Runtime.Numerics.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Runtime.Serialization.Formatters.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Runtime.Serialization.Json.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Runtime.Serialization.Primitives.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Runtime.Serialization.Xml.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Runtime.Serialization.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Runtime.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Security.AccessControl.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Security.Claims.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Security.Cryptography.Algorithms.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Security.Cryptography.Cng.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Security.Cryptography.Csp.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Security.Cryptography.Encoding.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Security.Cryptography.OpenSsl.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Security.Cryptography.Primitives.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Security.Cryptography.X509Certificates.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Security.Cryptography.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Security.Principal.Windows.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Security.Principal.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Security.SecureString.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Security.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.ServiceModel.Web.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.ServiceProcess.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Text.Encoding.CodePages.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Text.Encoding.Extensions.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Text.Encoding.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Text.Encodings.Web.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Text.Json.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Text.RegularExpressions.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Threading.AccessControl.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Threading.Channels.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Threading.Overlapped.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Threading.Tasks.Dataflow.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Threading.Tasks.Extensions.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Threading.Tasks.Parallel.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Threading.Tasks.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Threading.Thread.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Threading.ThreadPool.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Threading.Timer.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Threading.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Transactions.Local.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Transactions.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.ValueTuple.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Web.HttpUtility.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Web.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Windows.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Xml.Linq.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Xml.ReaderWriter.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Xml.Serialization.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Xml.XDocument.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Xml.XPath.XDocument.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Xml.XPath.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Xml.XmlDocument.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Xml.XmlSerializer.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Xml.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_WindowsBase.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_mscorlib.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_netstandard.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_Java.Interop.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_Mono.Android.Export.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_Mono.Android.Runtime.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_Mono.Android.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.IO.Hashing.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_System.Private.CoreLib.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_SkyEye.Vision.Device.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_SkyEye.Vision.Device.pdb.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_Xamarin.Jetbrains.Annotations.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_Xamarin.Jetbrains.Annotations.pdb.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_Xamarin.Kotlin.StdLib.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_Xamarin.Kotlin.StdLib.Jdk7.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_Xamarin.Kotlin.StdLib.Jdk7.pdb.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_Xamarin.Kotlin.StdLib.Jdk8.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_Xamarin.Kotlin.StdLib.Jdk8.pdb.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_SkyEye.OpenCv.Android.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib_SkyEye.OpenCv.Android.pdb.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/lib__Microsoft.Android.Resource.Designer.dll.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libarc.bin.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libxamarin-app.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libSystem.Globalization.Native.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libSystem.IO.Compression.Native.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libSystem.Native.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libSystem.Security.Cryptography.Native.Android.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libmono-component-debugger.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libmono-component-hot_reload.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libmono-component-marshal-ilgen.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libmonosgen-2.0.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libmonodroid.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libxamarin-debug-app-helper.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libc++_shared.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  },
+  {
+    "library": "lib/arm64-v8a/libopencv_java4.so",
+    "loadAlignment": [
+      16384,
+      16384,
+      16384
+    ],
+    "passed": true
+  }
+]

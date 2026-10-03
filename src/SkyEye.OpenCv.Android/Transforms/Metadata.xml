@@ -1,0 +1,14 @@
+<metadata>
+  <remove-node path="/api/package[not(@name='org.opencv.core' or @name='org.opencv.imgproc' or @name='org.opencv.imgcodecs' or @name='org.opencv.android')]" />
+  <remove-node path="/api/package[@name='org.opencv.android']/class[not(@name='OpenCVLoader' or @name='Utils')]" />
+  <remove-node path="/api/package[@name='org.opencv.android']/interface" />
+  <remove-node path="/api/package[@name='org.opencv.core']/class[starts-with(@name,'Atable') or starts-with(@name,'Mat.Tuple')]" />
+  <remove-node path="/api/package[@name='org.opencv.core']/interface[@name='Mat.Atable']" />
+  <remove-node path="/api/package[@name='org.opencv.core']/class[@name='MatAtKt']" />
+  <remove-node path="/api/package[@name='org.opencv.core']/class[@name='Mat']/method[@name='at']" />
+  <attr path="/api/package[@name='org.opencv.core']/class[@name='Core']/field[@name='BORDER_REFLECT_101']" name="managedName">BorderReflectUnderscore101</attr>
+  <attr path="/api/package[@name='org.opencv.core']/class[@name='Core']/field[@name='VERSION_MAJOR']" name="managedName">VersionMajorConstant</attr>
+  <attr path="/api/package[@name='org.opencv.core']/class[@name='Core']/field[@name='VERSION_MINOR']" name="managedName">VersionMinorConstant</attr>
+  <attr path="/api/package[@name='org.opencv.core']/class[@name='Core']/field[@name='VERSION_REVISION']" name="managedName">VersionRevisionConstant</attr>
+  <attr path="/api/package[@name='org.opencv.core']/class/method[@name='clone']" name="managedName">CloneValue</attr>
+</metadata>
