@@ -2,6 +2,8 @@
 
 Implemented in SkyEye on 3 October 2026, in small committed checkpoints. The companion runs local C# algorithms with native OpenCV image primitives. It requires no Python installation, inference server or downloaded model. The user's mounted camera and current grey-blue cloth lighting are the baseline for the recorded regression frames.
 
+The subsequent [automatic main-view candidate overlay](candidate-overlay.md) replaces the manual candidate buttons: two-second cycling, ten-second analysis cadence, automatic clear-layout checks and an annotated Cast feed. The sections below preserve the original port verification and its stricter tool freshness limits.
+
 ## Source and scope
 
 Reference: `C:\code\Poolgame-AI-shot-prediction`, upstream https://github.com/tomasz-pawlaczyk/Poolgame-AI-shot-prediction, revision `a7a803177c63ccb51f715c6920ba650fc341f76a`. This source checkout was retained unchanged. Its executable pipeline is OpenCV/Hough/HSV plus K-means and direct/bank/kick geometry. YOLO weights and the README's post-collision physics are absent; those are not implemented by this port. No LICENSE file was found in the source checkout. Preserve provenance and establish reuse terms before distributing incorporated upstream work.

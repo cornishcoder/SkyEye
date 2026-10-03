@@ -1,0 +1,4049 @@
+{
+  "recordedAt": "2026-10-03T16:09:17.9125925+00:00",
+  "companion": "Pixel 11 Pro XL / Android 17 / 4KB",
+  "camera": "Pixel 10 Pro; capture remains Active",
+  "codeRevision": "a65b54b",
+  "requestedCycleSeconds": 2,
+  "requestedAnalysisCadenceSeconds": 10,
+  "timing": {
+    "samples": [
+      {
+        "at": 1791043437.0686743,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 813,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043429269,
+            "updatedAt": 1791043432401,
+            "expiresAt": 1791043444269,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 80881,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043437.3014863,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 815,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043429269,
+            "updatedAt": 1791043432401,
+            "expiresAt": 1791043444269,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 80881,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043437.535758,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 817,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043429269,
+            "updatedAt": 1791043432401,
+            "expiresAt": 1791043444269,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 80881,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043437.768308,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 820,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043429269,
+            "updatedAt": 1791043432401,
+            "expiresAt": 1791043444269,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 80881,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043438.0034668,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 822,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043429269,
+            "updatedAt": 1791043432401,
+            "expiresAt": 1791043444269,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 80881,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043438.2357767,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 824,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043429269,
+            "updatedAt": 1791043432401,
+            "expiresAt": 1791043444269,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 80881,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043438.4873924,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 826,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043429269,
+            "updatedAt": 1791043432401,
+            "expiresAt": 1791043444269,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 80881,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043438.71804,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 828,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043429269,
+            "updatedAt": 1791043432401,
+            "expiresAt": 1791043444269,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 80881,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043438.960007,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 831,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043429269,
+            "updatedAt": 1791043432401,
+            "expiresAt": 1791043444269,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 80881,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043439.182497,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 833,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043429269,
+            "updatedAt": 1791043432401,
+            "expiresAt": 1791043444269,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 84073,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043439.417152,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 835,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043429269,
+            "updatedAt": 1791043432401,
+            "expiresAt": 1791043444269,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 84073,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043439.6504564,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 837,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043429269,
+            "updatedAt": 1791043432401,
+            "expiresAt": 1791043444269,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 84073,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043439.8824801,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 839,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043429269,
+            "updatedAt": 1791043432401,
+            "expiresAt": 1791043444269,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 84109,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043440.1215754,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 842,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043429269,
+            "updatedAt": 1791043432401,
+            "expiresAt": 1791043444269,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 84109,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043440.3589802,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 844,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043429269,
+            "updatedAt": 1791043432401,
+            "expiresAt": 1791043444269,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 84109,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043440.5940423,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 846,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043429269,
+            "updatedAt": 1791043432401,
+            "expiresAt": 1791043444269,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 84109,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043440.8385177,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 848,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043429269,
+            "updatedAt": 1791043432401,
+            "expiresAt": 1791043444269,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 84109,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043441.058488,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 850,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043429269,
+            "updatedAt": 1791043432401,
+            "expiresAt": 1791043444269,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 84109,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043441.2866588,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 852,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 84109,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043441.5322676,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 854,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 84109,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043441.7815711,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 857,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 84109,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043442.2490585,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 861,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 87146,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043442.4875956,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 863,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 87146,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043442.7177262,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 865,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 87146,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043442.9505541,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 868,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 87146,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043443.2113903,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 870,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 87146,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043443.4479506,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 872,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 87146,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043443.6823566,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 875,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 87146,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043443.9198895,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 877,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 87146,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043444.1437962,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 879,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 87146,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043444.3807683,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 881,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 87146,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043444.6154542,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 883,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 87146,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043444.8503864,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 885,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 87146,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043445.0826764,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 888,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 87146,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043445.3161035,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 890,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 87146,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043445.548288,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 892,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 87146,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043445.7813911,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 894,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 87146,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043446.0155346,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 897,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 87146,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043446.2467875,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 899,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 87146,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043446.4786403,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 901,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 87146,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043446.7168608,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 903,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 87146,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043446.9468038,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 905,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 87146,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043447.1717863,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 908,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 87146,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043447.5684059,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 911,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 87146,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043447.8027751,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 914,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 87146,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043448.0270805,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 916,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": false
+        }
+      },
+      {
+        "at": 1791043448.263243,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 918,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": false
+        }
+      },
+      {
+        "at": 1791043448.4955258,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 920,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": false
+        }
+      },
+      {
+        "at": 1791043448.7425544,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 922,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": false
+        }
+      },
+      {
+        "at": 1791043448.9756484,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 925,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": false
+        }
+      },
+      {
+        "at": 1791043449.2138414,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 927,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": false
+        }
+      },
+      {
+        "at": 1791043449.4448109,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 929,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": false
+        }
+      },
+      {
+        "at": 1791043449.6812744,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 931,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": false
+        }
+      },
+      {
+        "at": 1791043449.9363415,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 934,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": false
+        }
+      },
+      {
+        "at": 1791043450.16067,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 936,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": false
+        }
+      },
+      {
+        "at": 1791043450.3914564,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 938,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": false
+        }
+      },
+      {
+        "at": 1791043450.6383524,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 940,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": false
+        }
+      },
+      {
+        "at": 1791043450.8792586,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 943,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": false
+        }
+      },
+      {
+        "at": 1791043451.1202874,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 945,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043439270,
+            "updatedAt": 1791043442412,
+            "expiresAt": 1791043454270,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": false
+        }
+      },
+      {
+        "at": 1791043451.3453853,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 947,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": false
+        }
+      },
+      {
+        "at": 1791043451.5774171,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 950,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": false
+        }
+      },
+      {
+        "at": 1791043451.824048,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 952,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": false
+        }
+      },
+      {
+        "at": 1791043452.065296,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 954,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": false
+        }
+      },
+      {
+        "at": 1791043452.301594,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 956,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": false
+        }
+      },
+      {
+        "at": 1791043452.531411,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 959,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": false
+        }
+      },
+      {
+        "at": 1791043452.7660325,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 961,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": false
+        }
+      },
+      {
+        "at": 1791043453.0138252,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 963,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": false
+        }
+      },
+      {
+        "at": 1791043453.2518725,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 965,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": false
+        }
+      },
+      {
+        "at": 1791043453.4776702,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 967,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": false
+        }
+      },
+      {
+        "at": 1791043453.7154434,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 970,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "none",
+          "positionMs": 0,
+          "playerState": 0
+        }
+      },
+      {
+        "at": 1791043453.9576542,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 972,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 0,
+          "playerState": 5
+        }
+      },
+      {
+        "at": 1791043454.1978216,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 974,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 0,
+          "playerState": 5
+        }
+      },
+      {
+        "at": 1791043454.4335737,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 976,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 0,
+          "playerState": 5
+        }
+      },
+      {
+        "at": 1791043454.673612,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 979,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 0,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043454.9051108,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 981,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 0,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043455.1393087,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 983,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 0,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043455.3794994,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 985,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 6200,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043455.6064243,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 987,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 6200,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043455.8415065,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 990,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 6200,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043456.0741029,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 992,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 6200,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043456.3084488,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 994,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 6200,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043456.5488007,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 996,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 6200,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043456.7833226,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 998,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 6200,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043457.0118127,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1000,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "candidates",
+          "positionMs": 6200,
+          "playerState": 4
+        }
+      },
+      {
+        "at": 1791043457.251201,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1003,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 6499,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043457.47528,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1005,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 6704,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043457.711073,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1007,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 6912,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043457.9456415,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1009,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 7121,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043458.1789074,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1011,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 7340,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043458.415702,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1014,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 7547,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043458.6474628,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1016,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 7757,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043458.884171,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1018,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 7966,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043459.1195579,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1020,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 8375,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043459.3628995,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1022,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 8575,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043459.600286,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1025,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 8783,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043459.8348067,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1027,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 8989,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043460.062245,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1029,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 9193,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043460.301976,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1031,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 9401,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043460.5397563,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1033,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 9604,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043460.7786493,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1036,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 9813,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043461.0171642,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1038,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 9813,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043461.2472363,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1040,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 9813,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043461.4823565,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1042,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043449271,
+            "updatedAt": 1791043452420,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 9813,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043461.7199638,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1044,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043461272,
+            "updatedAt": 1791043462688,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 9813,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043461.9547515,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1046,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043461272,
+            "updatedAt": 1791043462688,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 11147,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043462.2089431,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1049,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043461272,
+            "updatedAt": 1791043462688,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 11147,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043462.4424691,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1051,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043461272,
+            "updatedAt": 1791043462688,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 11147,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043462.6653721,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1053,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043461272,
+            "updatedAt": 1791043462688,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 11147,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043462.9111717,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1055,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043461272,
+            "updatedAt": 1791043462688,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 11147,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043463.1495886,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1058,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043461272,
+            "updatedAt": 1791043462688,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 11147,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043463.3853438,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1060,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043461272,
+            "updatedAt": 1791043462688,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 11147,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043463.616718,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1062,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043461272,
+            "updatedAt": 1791043462688,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 11147,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043463.8610826,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1064,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043461272,
+            "updatedAt": 1791043462688,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 11147,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043464.126251,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1067,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043461272,
+            "updatedAt": 1791043462688,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 11147,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043464.346857,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1069,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043461272,
+            "updatedAt": 1791043462688,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 13601,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043464.5818887,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1071,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 0,
+            "capturedAt": 1791043461272,
+            "updatedAt": 1791043462688,
+            "expiresAt": 0,
+            "candidateIndex": -1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 13601,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043464.8158097,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1073,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043463272,
+            "updatedAt": 1791043465766,
+            "expiresAt": 1791043478272,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 13601,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043465.0492854,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1075,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043463272,
+            "updatedAt": 1791043465766,
+            "expiresAt": 1791043478272,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 14114,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043465.2975981,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1077,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043463272,
+            "updatedAt": 1791043465766,
+            "expiresAt": 1791043478272,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 14523,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043465.5413082,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1080,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043463272,
+            "updatedAt": 1791043465766,
+            "expiresAt": 1791043478272,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 14743,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043465.7788155,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1082,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043463272,
+            "updatedAt": 1791043465766,
+            "expiresAt": 1791043478272,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 14960,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043466.0122223,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1084,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043463272,
+            "updatedAt": 1791043465766,
+            "expiresAt": 1791043478272,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 15164,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043466.2467034,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1086,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043463272,
+            "updatedAt": 1791043465766,
+            "expiresAt": 1791043478272,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 15377,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043466.4836676,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1088,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043463272,
+            "updatedAt": 1791043465766,
+            "expiresAt": 1791043478272,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 15611,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043466.7142382,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1091,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043463272,
+            "updatedAt": 1791043465766,
+            "expiresAt": 1791043478272,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 15811,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043466.943185,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1093,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043463272,
+            "updatedAt": 1791043465766,
+            "expiresAt": 1791043478272,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 16014,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043467.1802785,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1095,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043463272,
+            "updatedAt": 1791043465766,
+            "expiresAt": 1791043478272,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 16421,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043467.4105933,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1097,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043463272,
+            "updatedAt": 1791043465766,
+            "expiresAt": 1791043478272,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 16624,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043467.8461633,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1099,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043463272,
+            "updatedAt": 1791043465766,
+            "expiresAt": 1791043478272,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 16829,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043468.080075,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1104,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043463272,
+            "updatedAt": 1791043465766,
+            "expiresAt": 1791043478272,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 17246,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043468.3154962,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1106,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043463272,
+            "updatedAt": 1791043465766,
+            "expiresAt": 1791043478272,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 17450,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043468.5466673,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1108,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043463272,
+            "updatedAt": 1791043465766,
+            "expiresAt": 1791043478272,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 17655,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043468.7842755,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1110,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043463272,
+            "updatedAt": 1791043465766,
+            "expiresAt": 1791043478272,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 17855,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043469.2437255,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1112,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043463272,
+            "updatedAt": 1791043465766,
+            "expiresAt": 1791043478272,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 18262,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043469.4774919,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1117,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043463272,
+            "updatedAt": 1791043465766,
+            "expiresAt": 1791043478272,
+            "candidateIndex": 2
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 18745,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043469.7012475,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1119,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043463272,
+            "updatedAt": 1791043465766,
+            "expiresAt": 1791043478272,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 18873,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043469.9215505,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1121,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043463272,
+            "updatedAt": 1791043465766,
+            "expiresAt": 1791043478272,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 19076,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043470.1557162,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1123,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043463272,
+            "updatedAt": 1791043465766,
+            "expiresAt": 1791043478272,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 19280,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043470.3911142,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1125,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043463272,
+            "updatedAt": 1791043465766,
+            "expiresAt": 1791043478272,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 19483,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043470.6382866,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1128,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043463272,
+            "updatedAt": 1791043465766,
+            "expiresAt": 1791043478272,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 19903,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043470.8718803,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1130,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043463272,
+            "updatedAt": 1791043465766,
+            "expiresAt": 1791043478272,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 19903,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043471.1211956,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1132,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043463272,
+            "updatedAt": 1791043465766,
+            "expiresAt": 1791043478272,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 19903,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043471.3477647,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1134,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043463272,
+            "updatedAt": 1791043465766,
+            "expiresAt": 1791043478272,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 19903,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043471.5821965,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1136,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043471271,
+            "updatedAt": 1791043472632,
+            "expiresAt": 1791043486271,
+            "candidateIndex": 0
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 19903,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043471.8196087,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1139,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043471271,
+            "updatedAt": 1791043472632,
+            "expiresAt": 1791043486271,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 20979,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043472.0420454,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1141,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043471271,
+            "updatedAt": 1791043472632,
+            "expiresAt": 1791043486271,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 21178,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043472.2694628,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1143,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043471271,
+            "updatedAt": 1791043472632,
+            "expiresAt": 1791043486271,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 21381,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043472.502846,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1145,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043471271,
+            "updatedAt": 1791043472632,
+            "expiresAt": 1791043486271,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 21591,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043472.736835,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1147,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043471271,
+            "updatedAt": 1791043472632,
+            "expiresAt": 1791043486271,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 21995,
+          "playerState": 2
+        }
+      },
+      {
+        "at": 1791043472.961254,
+        "video": {
+          "width": 960,
+          "height": 540,
+          "fps": 10,
+          "frames": 1149,
+          "skipped": 0,
+          "segments": 16,
+          "failed": false,
+          "presentation": {
+            "enabled": true,
+            "candidateCount": 3,
+            "capturedAt": 1791043471271,
+            "updatedAt": 1791043472632,
+            "expiresAt": 1791043486271,
+            "candidateIndex": 1
+          }
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "candidates",
+          "positionMs": 22204,
+          "playerState": 2
+        }
+      }
+    ],
+    "cycleTransitions": [
+      {
+        "at": 1791043437.0686743,
+        "index": 1
+      },
+      {
+        "at": 1791043437.768308,
+        "index": 2
+      },
+      {
+        "at": 1791043439.6504564,
+        "index": 0
+      },
+      {
+        "at": 1791043441.7815711,
+        "index": 1
+      },
+      {
+        "at": 1791043443.6823566,
+        "index": 2
+      },
+      {
+        "at": 1791043445.7813911,
+        "index": 0
+      },
+      {
+        "at": 1791043447.8027751,
+        "index": 1
+      },
+      {
+        "at": 1791043449.6812744,
+        "index": 2
+      },
+      {
+        "at": 1791043464.8158097,
+        "index": 0
+      },
+      {
+        "at": 1791043465.7788155,
+        "index": 1
+      },
+      {
+        "at": 1791043467.8461633,
+        "index": 2
+      },
+      {
+        "at": 1791043469.7012475,
+        "index": 0
+      },
+      {
+        "at": 1791043471.8196087,
+        "index": 1
+      }
+    ],
+    "cycleIntervalsSeconds": [
+      0.6996335983276367,
+      1.8821485042572021,
+      2.1311147212982178,
+      1.9007854461669922,
+      2.099034547805786,
+      2.0213840007781982,
+      1.8784992694854736,
+      15.134535312652588,
+      0.963005781173706,
+      2.067347764968872,
+      1.8550841808319092,
+      2.118361234664917
+    ],
+    "refreshIntervalsSeconds": [
+      10.011,
+      23.354,
+      6.866
+    ],
+    "castCandidatePlayingObserved": true
+  },
+  "toggleOff": "Native UI reported TV playing live camera and Candidate overlay is off; relay was stopped",
+  "toggleOn": "Relay restarted and receiver subsequently reported PLAYING on candidate stream",
+  "decodedFeed": "H.264 960x540, silent, all three candidates visible in two-second samples",
+  "limits": [
+    "Receiver status and decoded sender feed verified; TV pixels not physically inspected",
+    "Uncertain detections pause candidates until a clear settled layout is obtained",
+    "Keep SkyEye visible for annotated Cast; background returns Cast to raw camera",
+    "Overlay latency and long-session battery/thermal behavior not measured"
+  ]
+}
