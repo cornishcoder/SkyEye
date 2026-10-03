@@ -6,6 +6,10 @@ using Org.Opencv.Core;
 using Org.Opencv.Imgcodecs;
 using Org.Opencv.Imgproc;
 using Stopwatch = System.Diagnostics.Stopwatch;
+using Cv = Org.Opencv.Core.Core;
+using SkyEye.Vision.Android;
+using SkyEye.Core;
+using Point = Org.Opencv.Core.Point;
 using System.Text.Json;
 
 namespace SkyEye.Vision.Device;
@@ -27,7 +31,7 @@ public sealed class MainActivity : Activity
                 using var encoded = new MatOfByte(bytes.ToArray()); using var frame = new MatLease(Imgcodecs.Imdecode(encoded, Imgcodecs.ImreadColor));
                 using var hsv = new MatLease(new Mat()); using var mask = new MatLease(new Mat()); using var cleaned = new MatLease(new Mat()); using var circles = new MatLease(new Mat());
                 Imgproc.CvtColor(frame.Value, hsv.Value, Imgproc.ColorBgr2hsv);
-                using var low = new Scalar(0, 70, 70); using var high = new Scalar(179, 255, 255); Core.InRange(hsv.Value, low, high, mask.Value);
+                using var low = new Scalar(0, 70, 70); using var high = new Scalar(179, 255, 255); Cv.InRange(hsv.Value, low, high, mask.Value);
                 using var size = new Size(3, 3); using var kernel = new MatLease(Imgproc.GetStructuringElement(Imgproc.MorphEllipse, size));
                 Imgproc.MorphologyEx(mask.Value, cleaned.Value, Imgproc.MorphOpen, kernel.Value);
                 Imgproc.HoughCircles(cleaned.Value, circles.Value, Imgproc.HoughGradient, 1.3, 35, 150, 15, 15, 35);
@@ -36,7 +40,19 @@ public sealed class MainActivity : Activity
                 using var transform = new MatLease(Imgproc.GetPerspectiveTransform(src, dst)); using var warped = new MatLease(new Mat()); using var outputSize = new Size(1000, 2000);
                 Imgproc.WarpPerspective(frame.Value, warped.Value, transform.Value, outputSize);
                 if (warped.Value.Rows() != 2000 || warped.Value.Cols() != 1000 || frame.Value.Channels() != 3) throw new Exception("Image primitive shape mismatch");
-                result = new { passed = true, version = Core.Version, model = Build.Model, width = frame.Value.Cols(), height = frame.Value.Rows(), circles = circles.Value.Cols(), elapsedMs = watch.Elapsed.TotalMilliseconds };
+                using var labelsReader = new StreamReader(Assets.Open("pixel-table.json")); using var labels = JsonDocument.Parse(labelsReader.ReadToEnd());
+                var calibration = new TableCalibration(labels.RootElement.GetProperty("calibration").EnumerateArray().Select(p => new SkyEye.Core.Point(p.GetProperty("x").GetDouble(), p.GetProperty("y").GetDouble())).ToArray());
+                var analyzed = new VisionAnalyzer().Analyze(bytes.ToArray(), calibration);
+                if (analyzed.Uncertain || analyzed.Balls.Length != 16 || analyzed.Balls.Count(b => b.Kind == "red") != 7 || analyzed.Balls.Count(b => b.Kind == "yellow") != 7 || analyzed.Balls.Count(b => b.Kind == "cue") != 1 || analyzed.Balls.Count(b => b.Kind == "black") != 1) throw new Exception("Real-frame classification failed: " + JsonSerializer.Serialize(analyzed));
+                double error = 0; var remaining = analyzed.Balls.ToList();
+                foreach (var expected in labels.RootElement.GetProperty("expected").EnumerateArray())
+                {
+                    var p = expected.GetProperty("image"); var image = new SkyEye.Core.Point(p.GetProperty("x").GetDouble(), p.GetProperty("y").GetDouble()); string kind = expected.GetProperty("kind").GetString()!;
+                    var ball = remaining.Where(b => b.Kind == kind).MinBy(b => (calibration.Unmap(b.Position) - image).Length) ?? throw new Exception("Missing labelled ball");
+                    error = Math.Max(error, (ball.Position - calibration.Map(image)).Length); remaining.Remove(ball);
+                }
+                if (error > .015) throw new Exception("Ball-centre error exceeds fixture tolerance: " + error);
+                result = new { passed = true, version = Cv.Version, model = Build.Model, analyzed, maximumTableCentreError = error, elapsedMs = watch.Elapsed.TotalMilliseconds };
             }
             catch (Exception e) { result = new { passed = false, error = e.ToString() }; }
             string json = JsonSerializer.Serialize(result); File.WriteAllText(Path.Combine(FilesDir!.AbsolutePath, "vision-checks.json"), json); RunOnUiThread(() => text.Text = json);
