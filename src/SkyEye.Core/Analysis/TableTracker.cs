@@ -6,20 +6,20 @@ public sealed class TableTracker
 {
     public TableState? State { get; private set; }
     public bool PhysicallyObstructed { get; private set; }
-    Ball[] previous = []; string timeline = ""; DateTimeOffset stableSince;
+    Ball[] previous = [], stableAnchor = []; string timeline = ""; DateTimeOffset stableSince;
     long version; bool manual;
-    public void Reset() { State = null; previous = []; timeline = ""; manual = false; PhysicallyObstructed = false; }
+    public void Reset() { State = null; previous = []; stableAnchor = []; timeline = ""; manual = false; PhysicallyObstructed = false; }
     public TableState Observe(string calibrationId, string captureTimeline, DateTimeOffset capturedAt, Ball[] detected, string group, bool uncertain, bool obstructed)
     {
         var old = State;
         bool sameSource = old is not null && old.CalibrationId == calibrationId && timeline == captureTimeline;
         double interval = old is null ? 0 : (capturedAt - old.CapturedAt).TotalSeconds;
         if (sameSource && interval <= 0) return old!;
-        bool same = sameSource && interval <= 6 && SameLayout(previous, detected);
-        if (!same) { stableSince = capturedAt; manual = false; }
+        bool same = sameSource && interval <= 6 && SameLayout(previous, detected) && SameLayout(stableAnchor, detected);
+        if (!same) { stableSince = capturedAt; stableAnchor = detected.ToArray(); manual = false; }
         bool confirmed = same && old!.Confirmed && !obstructed;
         bool occluded = obstructed || uncertain && !(manual && confirmed);
-        bool settled = same && (capturedAt - stableSince).TotalSeconds >= 1;
+        bool settled = same && (capturedAt - stableSince).TotalSeconds >= 2;
         bool sameVersion = same && old!.Occluded == occluded && old.Group == group;
         State = new(sameVersion ? old!.Version : ++version, capturedAt, confirmed ? old!.Balls : detected.ToArray(), group, settled, occluded, confirmed, calibrationId);
         timeline = captureTimeline; previous = detected.ToArray(); PhysicallyObstructed = obstructed; return State;
@@ -52,7 +52,9 @@ public sealed class TableTracker
         foreach (var ball in before)
         {
             var match = remaining.Where(b => b.Kind == ball.Kind).MinBy(b => (b.Position - ball.Position).Length);
-            if (match is null || (match.Position - ball.Position).Length > .008) return false; remaining.Remove(match);
+            // Tolerate measured Hough centre jitter while checking a fixed anchor as
+            // well as the previous frame, so slow cumulative motion cannot creep through.
+            if (match is null || (match.Position - ball.Position).Length > .015) return false; remaining.Remove(match);
         }
         return true;
     }

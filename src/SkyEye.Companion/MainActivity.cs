@@ -142,6 +142,9 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
                 await Task.Delay(2500, lifetime.Token);
                 try { await RefreshAsync(); }
                 catch { RunOnUiThread(() => { status.Text = "Camera unreachable. Recording may continue; reconnect to check."; if (!offline) player.Stop(); InvalidateTable("Camera unreachable; advice is waiting for a fresh view."); }); }
+                // Downloads/export can occupy the action slot longer than a frame's
+                // advice lifetime. Expire displayed paths even while analysis is skipped.
+                if (tableState is not null) ShowTable();
                 if (!busy && client.HostToken is not null && currentState == "Active" && calibration is not null) try { await UpdateTableAsync(); } catch { InvalidateTable("Table analysis unavailable; wait for a fresh view and confirm it."); }
             }
         }

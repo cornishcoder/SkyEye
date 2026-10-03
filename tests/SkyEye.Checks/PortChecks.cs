@@ -77,6 +77,10 @@ static class PortChecks
         var valid = ShotPlanner.Generate(coordinate.FromTable(state.Balls[0].Position), coordinate.FromTable(state.Balls[1].Position))
             .Where(c => ShotPlanner.Valid(c, coordinate.FromTable(state.Balls[0].Position), coordinate.FromTable(state.Balls[1].Position), [])).ToArray();
         Require(valid.Any(c => c.TargetCushion >= 0) && valid.Any(c => c.CueCushion >= 0) && valid.Any(c => c.TargetCushion < 0 && c.CueCushion < 0), "Direct, bank and kick candidates exist");
+        var sample = valid[0];
+        Require(!ShotPlanner.Valid(sample with { Paths = sample.Paths with { Angle = double.NaN } }, coordinate.FromTable(state.Balls[0].Position), coordinate.FromTable(state.Balls[1].Position), []), "Non-finite cut angle rejected");
+        Require(!ShotPlanner.Valid(sample, coordinate.FromTable(state.Balls[0].Position), coordinate.FromTable(state.Balls[1].Position), [new(double.NaN, 500)]), "Non-finite obstacle rejected");
+        Require(!ShotPlanner.Valid(sample with { Paths = sample.Paths with { CuePath = [] } }, coordinate.FromTable(state.Balls[0].Position), coordinate.FromTable(state.Balls[1].Position), []), "Missing path legs rejected");
         foreach (var candidate in valid.Where(c => c.Paths.CuePath.Length > 1 || c.Paths.TargetPath.Length > 1))
         {
             var leg = candidate.Paths.CuePath.Length > 1 ? candidate.Paths.CuePath[1] : candidate.Paths.TargetPath[1];
@@ -116,6 +120,8 @@ static class PortChecks
         Observe(27, timeline: "b", calibration: "two"); tracker.Confirm(now.AddSeconds(27));
         Require(!Observe(29, timeline: "b", calibration: "two", detected: [balls[0], balls[1] with { Position = new(.9, .6) }]).Confirmed, "Movement invalidates confirmed positions");
         tracker.Reset(); Require(tracker.State is null, "Lifecycle reset clears state");
+        Observe(40); Observe(42, detected: [balls[0], balls[1] with { Position = new(.811, .6) }]); tracker.Confirm(now.AddSeconds(42));
+        Require(!Observe(44, detected: [balls[0], balls[1] with { Position = new(.822, .6) }]).Confirmed, "Slow cumulative movement cannot drift away from the stable anchor");
         Console.WriteLine("PASS frame settlement, duplicate/gap/timeline/calibration rejection, reviewed corrections, movement and physical-obstruction invalidation");
     }
 }
