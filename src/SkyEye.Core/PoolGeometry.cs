@@ -40,6 +40,13 @@ public sealed class TableCalibration
         double denominator = coefficients[6] * image.X + coefficients[7] * image.Y + 1;
         return new((coefficients[0] * image.X + coefficients[1] * image.Y + coefficients[2]) / denominator, (coefficients[3] * image.X + coefficients[4] * image.Y + coefficients[5]) / denominator);
     }
+    public Point Unmap(Point table)
+    {
+        double a = coefficients[0], b = coefficients[1], c = coefficients[2], d = coefficients[3], e = coefficients[4], f = coefficients[5], g = coefficients[6], h = coefficients[7];
+        double denominator = (d * h - e * g) * table.X + (b * g - a * h) * table.Y + a * e - b * d;
+        return new(((e - f * h) * table.X + (c * h - b) * table.Y + b * f - c * e) / denominator,
+            ((f * g - d) * table.X + (a - c * g) * table.Y + c * d - a * f) / denominator);
+    }
 }
 public sealed record Ball(string Id, string Kind, Point Position, double Confidence);
 public sealed record TableState(long Version, DateTimeOffset CapturedAt, Ball[] Balls, string Group, bool Settled, bool Occluded, bool Confirmed, string CalibrationId);

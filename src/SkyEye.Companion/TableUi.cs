@@ -17,6 +17,7 @@ public sealed partial class MainActivity
     Bitmap? tableBitmap;
     TextView tableLabel = null!;
     long version;
+    int tableGeneration;
     bool voiceMuted;
     Ball[]? lastDetections;
     TableView tableView = null!;
@@ -47,10 +48,11 @@ public sealed partial class MainActivity
     }
     async Task CalibrateAsync()
     {
+        ++tableGeneration; tableState = null; lastDetections = null;
         var snapshot = await client.SnapshotAsync(lifetime.Token);
         tableBitmap?.Dispose(); tableBitmap = BitmapFactory.DecodeByteArray(snapshot.Jpeg, 0, snapshot.Jpeg.Length) ?? throw new IOException("Snapshot could not be decoded.");
         tableView.Image = tableBitmap; tableView.Picks.Clear(); tableView.Picking = true; tableView.Calibration = null; tableView.Balls = []; tableView.Shots = []; tableView.Invalidate();
-        Say("Tap playable-surface corners: top left, top right, bottom right, bottom left. Long table edge runs left to right.");
+        Say("Tap the cloth corners where the cushion faces meet: top left, top right, bottom right, bottom left. Long edge runs left to right. This frame stays still while you calibrate.");
         tableView.Calibrated = corners =>
         {
             try { calibration = new TableCalibration(corners); calibrationId = Guid.NewGuid().ToString("N"); tableState = null; lastDetections = null; GetSharedPreferences("skyeye", Android.Content.FileCreationMode.Private)!.Edit()!.PutString(CalibrationKey(), JsonSerializer.Serialize(calibration.Corners, JsonDefaults.Options))!.Apply(); tableView.Calibration = calibration; tableView.Picking = false; _ = ActionAsync(UpdateTableAsync); }
@@ -59,12 +61,14 @@ public sealed partial class MainActivity
     }
     async Task UpdateTableAsync()
     {
-        if (calibration is null) return;
+        var currentCalibration = calibration; int generation = tableGeneration;
+        if (currentCalibration is null || tableView.Picking) return;
         var snapshot = await client.SnapshotAsync(lifetime.Token);
         using var full = BitmapFactory.DecodeByteArray(snapshot.Jpeg, 0, snapshot.Jpeg.Length) ?? throw new IOException("Snapshot unavailable");
         using var small = Bitmap.CreateScaledBitmap(full, 640, (int)Math.Round(640.0 * full.Height / full.Width), true)!;
         int[] pixels = new int[small.Width * small.Height]; small.GetPixels(pixels, 0, small.Width, 0, 0, small.Width, small.Height);
-        var detected = await Task.Run(() => BallDetector.Detect(pixels, small.Width, small.Height, calibration), lifetime.Token);
+        var detected = await Task.Run(() => BallDetector.Detect(pixels, small.Width, small.Height, currentCalibration), lifetime.Token);
+        if (generation != tableGeneration || tableView.Picking || currentCalibration != calibration) return;
         bool same = tableState is not null && lastDetections is not null && snapshot.Timeline == tableTimeline && SameLayout(lastDetections, detected.Balls);
         bool settled = same && (tableState!.Settled || (snapshot.CapturedAt - tableState.CapturedAt).TotalSeconds >= 1);
         bool confirmed = same && tableState!.Confirmed;
@@ -86,7 +90,8 @@ public sealed partial class MainActivity
     {
         if (tableState is null) return;
         tableView.Calibration = calibration; tableView.Balls = tableState.Balls; tableView.Shots = []; tableView.Invalidate();
-        tableLabel.Text = $"{tableState.Balls.Length} balls · {group} · " + (tableState.Occluded ? "uncertain/obstructed" : !tableState.Settled ? "layout changing" : tableState.Confirmed ? "confirmed" : "check and confirm detections");
+        var balls = tableState.Balls;
+        tableLabel.Text = $"{balls.Length} balls · {balls.Count(b => b.Kind == "red")} reds · {balls.Count(b => b.Kind == "yellow")} yellows · {balls.Count(b => b.Kind == "cue")} cue · {balls.Count(b => b.Kind == "black")} black\n{group} · " + (tableState.Occluded ? "uncertain/obstructed" : !tableState.Settled ? "layout changing" : tableState.Confirmed ? "confirmed" : "check and confirm detections");
     }
     void CorrectLayout()
     {
@@ -97,7 +102,7 @@ public sealed partial class MainActivity
             try
             {
                 var balls = (edit.Text ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries).Select((line, i) => { var fields = line.Split(' ', StringSplitOptions.RemoveEmptyEntries); if (fields.Length != 3 || fields[0] is not ("cue" or "red" or "yellow" or "black")) throw new ArgumentException("Each line needs a ball colour and two coordinates."); double x = double.Parse(fields[1], CultureInfo.InvariantCulture), y = double.Parse(fields[2], CultureInfo.InvariantCulture); if (!double.IsFinite(x) || !double.IsFinite(y) || x is < 0 or > 2 || y is < 0 or > 1) throw new ArgumentException("Coordinates must be within the table."); return new Ball("manual-" + i, fields[0], new(x, y), 1); }).ToArray();
-                if (balls.Count(b => b.Kind == "cue") != 1 || balls.Length > 16) throw new ArgumentException("Include exactly one cue ball and no more than 16 balls.");
+                if (balls.Count(b => b.Kind == "cue") != 1 || balls.Count(b => b.Kind == "black") > 1 || balls.Count(b => b.Kind == "red") > 7 || balls.Count(b => b.Kind == "yellow") > 7 || balls.Length > 16) throw new ArgumentException("Include one cue ball, at most one black, seven reds and seven yellows.");
                 tableState = new(++version, tableState?.CapturedAt ?? DateTimeOffset.MinValue, balls, group, true, false, true, calibrationId); ShowTable();
             }
             catch (Exception e) { Say(e.Message); }
@@ -130,12 +135,24 @@ public sealed partial class MainActivity
             paint.Color = Color.Cyan;
             foreach (var pick in Picks) canvas.DrawCircle(bounds.Left + (float)pick.X * bounds.Width(), bounds.Top + (float)pick.Y * bounds.Height(), 8, paint);
             if (Calibration is null) return;
-            // Draw in calibrated table space beside the source image to keep coordinates inspectable.
-            float scale = Math.Min(Width / 2f, Height); float ox = (Width - 2 * scale) / 2, oy = (Height - scale) / 2;
-            paint.Color = Color.Argb(185, 8, 67, 83); canvas.DrawRect(ox, oy, ox + 2 * scale, oy + scale, paint);
-            foreach (var ball in Balls) { paint.Color = ball.Kind switch { "red" => Color.Red, "yellow" => Color.Yellow, "cue" => Color.White, _ => Color.Black }; canvas.DrawCircle(ox + (float)ball.Position.X * scale, oy + (float)ball.Position.Y * scale, (float)PoolGeometry.Radius * scale, paint); }
-            paint.Color = Color.Cyan;
-            foreach (var shot in Shots.Take(1)) { canvas.DrawLine(ox + (float)shot.Target.X * scale, oy + (float)shot.Target.Y * scale, ox + (float)shot.Destination.X * scale, oy + (float)shot.Destination.Y * scale, paint); var cue = Balls.FirstOrDefault(b => b.Kind == "cue"); if (cue is not null) canvas.DrawLine(ox + (float)cue.Position.X * scale, oy + (float)cue.Position.Y * scale, ox + (float)shot.GhostBall.X * scale, oy + (float)shot.GhostBall.Y * scale, paint); }
+            // Detection and calibration use this exact unrotated snapshot. The inverse
+            // perspective mapping and the image's letterbox bounds also apply to overlays.
+            Point Screen(Point table) { var image = Calibration.Unmap(table); return new(bounds.Left + image.X * bounds.Width(), bounds.Top + image.Y * bounds.Height()); }
+            void Line(Point a, Point b) { canvas.DrawLine((float)a.X, (float)a.Y, (float)b.X, (float)b.Y, paint); }
+            using var outline = new Android.Graphics.Path();
+            var first = Calibration.Corners[0]; outline.MoveTo(bounds.Left + (float)first.X * bounds.Width(), bounds.Top + (float)first.Y * bounds.Height());
+            foreach (var corner in Calibration.Corners.Skip(1)) outline.LineTo(bounds.Left + (float)corner.X * bounds.Width(), bounds.Top + (float)corner.Y * bounds.Height());
+            outline.Close(); paint.SetStyle(Paint.Style.Stroke); paint.Color = Color.Cyan; canvas.DrawPath(outline, paint);
+            foreach (var ball in Balls)
+            {
+                var centre = Screen(ball.Position);
+                var right = Screen(ball.Position + new Point(PoolGeometry.Radius, 0)); var bottom = Screen(ball.Position + new Point(0, PoolGeometry.Radius));
+                float radius = (float)(((right - centre).Length + (bottom - centre).Length) / 2);
+                paint.StrokeWidth = 5; paint.Color = ball.Kind == "black" ? Color.White : Color.Black; canvas.DrawCircle((float)centre.X, (float)centre.Y, radius, paint);
+                paint.StrokeWidth = 3; paint.Color = ball.Kind switch { "red" => Color.Red, "yellow" => Color.Yellow, "cue" => Color.White, _ => Color.Black }; canvas.DrawCircle((float)centre.X, (float)centre.Y, radius, paint);
+            }
+            paint.Color = Color.Cyan; paint.StrokeWidth = 3;
+            foreach (var shot in Shots.Take(1)) { Line(Screen(shot.Target), Screen(shot.Destination)); var cue = Balls.FirstOrDefault(b => b.Kind == "cue"); if (cue is not null) Line(Screen(cue.Position), Screen(shot.GhostBall)); }
         }
         public override bool OnTouchEvent(MotionEvent? e)
         {
