@@ -57,6 +57,7 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
         playerListener = new PlayerListener(this); player = new Bridge.PlayerBridge(this, playerListener);
         root.AddView(player.View, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, (int)(260 * Resources!.DisplayMetrics!.Density)));
         viewerStatus = Label("Live viewing is silent. Saved clips include room sound.", 13); root.AddView(viewerStatus);
+        BuildCandidateOverlayUi(root);
         var viewRow = Row(root); Add(viewRow, "Watch live", () => _ = ActionAsync(async () => { await RefreshAsync(); offline = false; player.SetMuted(true); player.Play(stream); }));
         Add(viewRow, "Portrait / landscape", () => { portrait = !portrait; player.SetPortrait(portrait); });
         try { castListener = new CastListener(this); cast = new Bridge.CastBridge(this, castListener); viewRow.AddView(cast.Button, new LinearLayout.LayoutParams(56, 56)); }
@@ -121,7 +122,7 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
             status.Text = $"{next} · Battery {state.GetProperty("battery").GetInt32()}% · {state.GetProperty("temperatureC").GetDouble():0.0}°C\nReplay available: {state.GetProperty("historySeconds").GetDouble():0}s · " + (owns ? "You control this session" : host.ValueKind == JsonValueKind.Null ? "Host available" : "Host: " + host.GetProperty("owner").GetString());
             controls.Visibility = owns ? ViewStates.Visible : ViewStates.Gone; release.Visibility = controls.Visibility; claim.Visibility = owns ? ViewStates.Gone : ViewStates.Visible;
             claim.Enabled = host.ValueKind == JsonValueKind.Null;
-            cast?.Configure(stream, owns);
+            ConfigureCandidateCast(owns);
             if (next != "Active" && !offline) { player.Stop(); viewerStatus.Text = "Capture is " + next.ToLowerInvariant(); }
             if (next == "Active" && currentState != "Active" && !offline) player.Play(stream);
             currentState = next;
@@ -147,7 +148,7 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
                 // Downloads/export can occupy the action slot longer than a frame's
                 // advice lifetime. Expire displayed paths even while analysis is skipped.
                 if (tableState is not null) ShowTable();
-                if (!busy && client.HostToken is not null && currentState == "Active" && calibration is not null) try { await UpdateTableAsync(); } catch { InvalidateTable("Table analysis unavailable; wait for a fresh view and confirm it."); }
+                if (!overlayEnabled && !busy && client.HostToken is not null && currentState == "Active" && calibration is not null) try { await UpdateTableAsync(); } catch { InvalidateTable("Table analysis unavailable; wait for a fresh view and confirm it."); }
                 // Aim for 2.5 seconds between starts, including network and analysis
                 // time. Remain sequential even when a cycle exceeds that budget.
                 delayMs = (int)Math.Max(250, 2500 - cycle.ElapsedMilliseconds);
@@ -207,9 +208,9 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
         _ = ActionAsync(async () => { try { await session.StartAsync(); } catch { if (maeve == session) maeve = null; StopService(new Intent(this, typeof(VoiceService))); throw; } });
     }
     async Task EndMaeveAsync() { var session = maeve; maeve = null; try { if (session is not null) await session.CloseAsync(); } finally { StopService(new Intent(this, typeof(VoiceService))); } }
-    protected override void OnResume() { base.OnResume(); resumed = true; StartPolling(); }
-    protected override void OnPause() { resumed = false; discovery.Stop(); if (maeve is null) InvalidateTable("Return for a fresh table view and confirm the balls."); base.OnPause(); }
-    protected override void OnDestroy() { lifetime.Cancel(); ++tableGeneration; tableBitmap?.Dispose(); exporter?.Cancel(); _ = EndMaeveAsync(); player.Release(); cast?.Release(); discovery.Stop(); client.Dispose(); base.OnDestroy(); }
+    protected override void OnResume() { base.OnResume(); resumed = true; StartPolling(); if (overlayEnabled) StartCandidateOverlay(); }
+    protected override void OnPause() { resumed = false; PauseCandidateOverlay(); discovery.Stop(); if (maeve is null) InvalidateTable("Return for a fresh table view."); base.OnPause(); }
+    protected override void OnDestroy() { lifetime.Cancel(); ++tableGeneration; PauseCandidateOverlay(); tableBitmap?.Dispose(); exporter?.Cancel(); _ = EndMaeveAsync(); player.Release(); cast?.Release(); discovery.Stop(); client.Dispose(); base.OnDestroy(); }
     sealed class PlayerListener(MainActivity owner) : Java.Lang.Object, Bridge.PlayerBridge.IListener { public void OnError(string? error) => owner.Say(error ?? "Viewing interrupted"); public void OnPlaying(bool playing) => owner.RunOnUiThread(() => owner.viewerStatus.Text = playing ? owner.offline ? "Playing downloaded clip" : "Live · delayed · silent" : "Waiting for video…"); }
     sealed class CastListener(MainActivity owner) : Java.Lang.Object, Bridge.CastBridge.IListener { public void OnStatus(string? status) => owner.Say(status ?? "TV status changed"); }
     sealed class DiscoveryListener(MainActivity owner) : Java.Lang.Object, Bridge.DiscoveryBridge.IListener

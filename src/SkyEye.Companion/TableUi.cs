@@ -20,13 +20,12 @@ public sealed partial class MainActivity
     TextView tableLabel = null!;
     int tableGeneration;
     bool voiceMuted;
-    readonly TableTracker tableTracker = new();
+    readonly TableTracker tableTracker = new(15);
     readonly ITableAnalyzer tableAnalyzer = new VisionAnalyzer();
     Task? tableUpdate;
     VisionResult? lastVision;
     CancellationTokenSource? analysisCancellation;
-    LinearLayout candidateChoices = null!;
-    bool shotsVisible;
+    bool overlayEnabled;
     string selectedShotId = "";
     TableView tableView = null!;
     string CalibrationKey() => "calibration-" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(client.Address)));
@@ -51,9 +50,7 @@ public sealed partial class MainActivity
         tableView = new TableView(this); root.AddView(tableView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, (int)(220 * Resources!.DisplayMetrics!.Density)));
         var row = Row(root); Add(row, "Calibrate", () => _ = ActionAsync(CalibrateAsync)); Add(row, "Confirm balls", () => _ = ActionAsync(async () => { await UpdateTableAsync(); tableState = tableTracker.Confirm(DateTimeOffset.UtcNow); ShowTable(); if (maeve is not null) await maeve.UpdateTableAsync(tableState); })); Add(row, "Correct layout", CorrectLayout);
         var groups = new Spinner(this); groups.Adapter = new ArrayAdapter<string>(this, Android.Resource.Layout.SimpleSpinnerDropDownItem, ["Open table", "I'm reds", "I'm yellows", "I'm on the black"]);
-        groups.ItemSelected += (_, e) => { group = new[] { "open", "red", "yellow", "black" }[e.Position]; if (tableState is not null) { tableState = tableTracker.SetGroup(group); ShowTable(); if (maeve is not null) _ = maeve.UpdateTableAsync(tableState!); } }; root.AddView(groups);
-        Add(root, "Show candidate shots", () => { shotsVisible = true; RefreshCandidates(); var shots = CurrentShots(); Say(shots.Length == 0 ? "No candidate in this fresh, confirmed layout. Check positions and group, or discuss a safety." : shots[0].Explanation); });
-        candidateChoices = new LinearLayout(this) { Orientation = Orientation.Vertical }; root.AddView(candidateChoices);
+        groups.ItemSelected += (_, e) => { group = new[] { "open", "red", "yellow", "black" }[e.Position]; if (tableState is not null) { tableState = tableTracker.SetGroup(group); ClearCandidatePresentation("Checking your selected group…"); overlayRefreshAt = 0; ShowTable(); if (maeve is not null) _ = maeve.UpdateTableAsync(tableState!); } }; root.AddView(groups);
     }
     async Task CalibrateAsync()
     {
@@ -80,7 +77,7 @@ public sealed partial class MainActivity
     void InvalidateTable(string reason)
     {
         ++tableGeneration; analysisCancellation?.Cancel(); tableTracker.Reset(); tableState = null; lastVision = null;
-        shotsVisible = false; selectedShotId = ""; tableView.Balls = []; tableView.Shots = []; tableView.Invalidate(); candidateChoices.RemoveAllViews(); tableLabel.Text = reason;
+        selectedShotId = ""; tableView.Balls = []; tableView.Shots = []; tableView.Invalidate(); ClearCandidatePresentation(reason); tableLabel.Text = reason;
     }
     Task UpdateTableAsync()
     {
@@ -122,20 +119,8 @@ public sealed partial class MainActivity
     Shot[] CurrentShots() => tableState is null ? [] : ShotPlanner.Suggest(tableState, DateTimeOffset.UtcNow);
     void RefreshCandidates()
     {
-        candidateChoices.RemoveAllViews(); tableView.Shots = [];
-        if (!shotsVisible) return;
-        var shots = CurrentShots();
-        if (!shots.Any(s => s.Id == selectedShotId)) selectedShotId = shots.FirstOrDefault()?.Id ?? "";
-        for (int i = 0; i < shots.Length; i++)
-        {
-            var shot = shots[i]; Add(candidateChoices, $"{i + 1}. {shot.Type} · pocket {shot.Pocket + 1} · cut {shot.CutDegrees:0}°", () =>
-            {
-                var fresh = CurrentShots().FirstOrDefault(s => s.Id == shot.Id);
-                if (fresh is null) { RefreshCandidates(); tableView.Invalidate(); Say("That shot belongs to an old or uncertain layout."); return; }
-                selectedShotId = fresh.Id; tableView.Shots = [fresh]; tableView.Invalidate(); Say(fresh.Explanation);
-            });
-        }
-        var selected = shots.FirstOrDefault(s => s.Id == selectedShotId); tableView.Shots = selected is null ? [] : [selected]; tableView.Invalidate();
+        var selected = overlayEnabled ? carousel.Current(Android.OS.SystemClock.ElapsedRealtime(), DateTimeOffset.UtcNow) : null;
+        selectedShotId = selected?.Id ?? ""; tableView.Shots = selected is null ? [] : [selected]; tableView.Invalidate();
     }
     void CorrectLayout()
     {

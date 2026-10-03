@@ -21,7 +21,7 @@ public final class CastBridge {
         };context.getSessionManager().addSessionManagerListener(events,CastSession.class);
     }
     public View getButton(){return button;}
-    public void configure(String url,boolean enabled){this.url=url;this.enabled=enabled;button.setVisibility(enabled?View.VISIBLE:View.GONE);}
+    public void configure(String url,boolean enabled){boolean changed=this.url!=null&&!this.url.equals(url);this.url=url;this.enabled=enabled;button.setVisibility(enabled?View.VISIBLE:View.GONE);if(changed&&enabled)load();}
     public void load(){if(!enabled||url==null)return;CastSession session=context.getSessionManager().getCurrentCastSession();if(session==null||!session.isConnected())return;
         MediaMetadata metadata=new MediaMetadata(MediaMetadata.MEDIA_TYPE_MOVIE);metadata.putString(MediaMetadata.KEY_TITLE,"SkyEye · pool table");
         MediaInfo media=new MediaInfo.Builder(url).setContentType("application/x-mpegURL").setStreamType(MediaInfo.STREAM_TYPE_LIVE).setMetadata(metadata).build();
