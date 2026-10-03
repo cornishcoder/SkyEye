@@ -5,11 +5,13 @@ import androidx.mediarouter.app.MediaRouteButton;
 import com.google.android.gms.cast.*;
 import com.google.android.gms.cast.framework.*;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient;
+import org.json.JSONObject;
 
 public final class CastBridge {
     public interface Listener { void onStatus(String status); }
     private final CastContext context;private final MediaRouteButton button;private final Listener listener;
     private String url;private boolean enabled;private final SessionManagerListener<CastSession> events;
+    private volatile String metrics="{}";private String observed="";
     public CastBridge(Activity activity,Listener listener){this.listener=listener;context=CastContext.getSharedInstance(activity);button=new MediaRouteButton(activity);CastButtonFactory.setUpMediaRouteButton(activity,button);
         events=new SessionManagerListener<CastSession>(){
             public void onSessionStarted(CastSession s,String id){load();}
@@ -21,7 +23,13 @@ public final class CastBridge {
         };context.getSessionManager().addSessionManagerListener(events,CastSession.class);
     }
     public View getButton(){return button;}
-    public void configure(String url,boolean enabled){boolean changed=this.url!=null&&!this.url.equals(url);this.url=url;this.enabled=enabled;button.setVisibility(enabled?View.VISIBLE:View.GONE);if(changed&&enabled)load();}
+    public void configure(String url,boolean enabled){boolean changed=this.url!=null&&!this.url.equals(url);this.url=url;this.enabled=enabled;button.setVisibility(enabled?View.VISIBLE:View.GONE);if(changed&&enabled)load();updateMetrics();}
+    public String metrics(){return metrics;}
+    private void updateMetrics(){try{CastSession session=context.getSessionManager().getCurrentCastSession();boolean connected=session!=null&&session.isConnected();JSONObject report=new JSONObject();report.put("connected",connected);
+        if(connected){RemoteMediaClient client=session.getRemoteMediaClient();MediaStatus state=client==null?null:client.getMediaStatus();MediaInfo info=state==null?null:state.getMediaInfo();String kind=info==null?"none":info.getContentId().contains(":8766/")?"candidates":"camera";boolean playing=state!=null&&state.getPlayerState()==MediaStatus.PLAYER_STATE_PLAYING;
+            report.put("playing",playing);report.put("stream",kind);report.put("positionMs",client==null?0:client.getApproximateStreamPosition());report.put("playerState",state==null?0:state.getPlayerState());
+            String key=kind+":"+playing;if(playing&&!key.equals(observed)){observed=key;listener.onStatus(kind.equals("candidates")?"TV playing candidate overlay":"TV playing live camera");}
+        }metrics=report.toString();}catch(Exception ignored){metrics="{}";}}
     public void load(){if(!enabled||url==null)return;CastSession session=context.getSessionManager().getCurrentCastSession();if(session==null||!session.isConnected())return;
         MediaMetadata metadata=new MediaMetadata(MediaMetadata.MEDIA_TYPE_MOVIE);metadata.putString(MediaMetadata.KEY_TITLE,"SkyEye · pool table");
         MediaInfo media=new MediaInfo.Builder(url).setContentType("application/x-mpegURL").setStreamType(MediaInfo.STREAM_TYPE_LIVE).setMetadata(metadata).build();

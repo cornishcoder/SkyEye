@@ -34,7 +34,7 @@ public final class OverlayEncoder {
         text.append("#EXT-X-TARGETDURATION:").append((int)Math.ceil(list.stream().mapToDouble(Segment::duration).max().orElse(3))).append("\n#EXT-X-MEDIA-SEQUENCE:").append(list.get(0).sequence()).append('\n');
         for(Segment s:list)text.append("#EXTINF:").append(String.format(Locale.ROOT,"%.6f",s.duration())).append(",\n").append(s.name()).append("?access=").append(access).append('\n');return text.toString();
     }
-    public synchronized String metrics(){return "{\"width\":960,\"height\":540,\"fps\":10,\"frames\":"+frames+",\"skipped\":"+skipped+",\"segments\":"+segments.size()+",\"failed\":"+(!error.isEmpty())+"}";}
+    public synchronized String metrics(){return "{\"width\":960,\"height\":540,\"fps\":10,\"frames\":"+frames+",\"skipped\":"+skipped+",\"segments\":"+segments.size()+",\"failed\":"+(!error.isEmpty())+",\"presentation\":"+source.presentation()+"}";}
     private synchronized void completed(File temporary,File finalFile,long sequence,double duration)throws IOException{
         if(!temporary.renameTo(finalFile))throw new IOException("Overlay segment could not be finalized");segments.add(new Segment(finalFile.getName(),sequence,duration));
         while(segments.size()>16){Segment old=segments.remove();new File(directory,old.name()).delete();}

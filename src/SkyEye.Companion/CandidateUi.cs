@@ -56,7 +56,7 @@ public sealed partial class MainActivity
                     if (overlayRelay is null && Android.OS.SystemClock.ElapsedRealtime() >= overlayRelayRetryAt)
                     {
                         overlayListener = new OverlayListener(this);
-                        try { overlayRelay = new OverlayRelay(this, player, client.Address, overlayListener); }
+                        try { overlayRelay = new OverlayRelay(this, player, client.Address, overlayListener, () => cast?.Metrics() ?? "{}"); }
                         catch { overlayRelayRetryAt = Android.OS.SystemClock.ElapsedRealtime() + 30000; overlayMessage = "TV candidate view unavailable. Phone overlay is available."; }
                     }
                     ConfigureCandidateCast(true);
@@ -113,6 +113,7 @@ public sealed partial class MainActivity
             type = s.Type, pocket = s.Pocket + 1, cue = s.CuePath.Select(Image).ToArray(), target = s.TargetPath.Select(Image).ToArray(), ghost = Image(s.GhostBall)
         }).ToArray();
         player.SetOverlay(JsonSerializer.Serialize(new { enabled = overlayEnabled && resumed, message = overlayMessage, origin = carousel.OriginMilliseconds,
+            capturedAt = tableState?.CapturedAt.ToUnixTimeMilliseconds() ?? 0, updatedAt = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
             expiresAt = carousel.ExpiresAt == default ? 0 : carousel.ExpiresAt.ToUnixTimeMilliseconds(), shots }, JsonDefaults.Options));
     }
     sealed class OverlayListener(MainActivity owner) : Java.Lang.Object, Bridge.OverlayEncoder.IListener

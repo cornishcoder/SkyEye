@@ -7,6 +7,7 @@ import org.json.*;
 final class CandidateOverlay {
     private volatile JSONObject data=new JSONObject();
     void set(String json) { try { data=new JSONObject(json); } catch(JSONException e) { data=new JSONObject(); } }
+    String metrics(){JSONObject value=data,result=new JSONObject();JSONArray shots=value.optJSONArray("shots");try{result.put("enabled",value.optBoolean("enabled"));result.put("candidateCount",shots==null?0:shots.length());result.put("capturedAt",value.optLong("capturedAt"));result.put("updatedAt",value.optLong("updatedAt"));result.put("expiresAt",value.optLong("expiresAt"));result.put("candidateIndex",shots==null||shots.length()==0||System.currentTimeMillis()>=value.optLong("expiresAt")?-1:(int)(Math.max(0,android.os.SystemClock.elapsedRealtime()-value.optLong("origin"))/2000%shots.length()));}catch(JSONException ignored){}return result.toString();}
     void draw(Canvas canvas,int width,int height) {
         JSONObject value=data;if(!value.optBoolean("enabled"))return;
         JSONArray shots=value.optJSONArray("shots");

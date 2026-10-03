@@ -14,10 +14,12 @@ sealed class OverlayRelay : IAsyncDisposable
     readonly string directory;
     readonly Bridge.OverlayEncoder encoder;
     readonly LocalHttpServer server;
+    readonly Func<string> castMetrics;
     public string Url { get; }
     public bool Ready => encoder.Ready();
-    public OverlayRelay(MainActivity activity, Bridge.PlayerBridge player, string cameraAddress, Bridge.OverlayEncoder.IListener listener)
+    public OverlayRelay(MainActivity activity, Bridge.PlayerBridge player, string cameraAddress, Bridge.OverlayEncoder.IListener listener, Func<string> castMetrics)
     {
+        this.castMetrics = castMetrics;
         // Use the interface routed to this camera, including devices with a VPN.
         using var route = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
         route.Connect(new Uri(cameraAddress).Host, 8765);
@@ -35,7 +37,7 @@ sealed class OverlayRelay : IAsyncDisposable
         if (request.Method == "OPTIONS") return Task.FromResult(HttpResponse.Text(""));
         if (request.Method is not ("GET" or "HEAD")) return Task.FromResult(HttpResponse.Json(new { error = "Read-only viewing feed" }, 405));
         // Like camera discovery, this advertises only read-only viewing access.
-        if (request.Path == "/status") return Task.FromResult(HttpResponse.Json(new { streamPath = $"/live/index.m3u8?access={access}", ready = Ready, video = JsonSerializer.Deserialize<JsonElement>(encoder.Metrics() ?? "{}") }));
+        if (request.Path == "/status") return Task.FromResult(HttpResponse.Json(new { streamPath = $"/live/index.m3u8?access={access}", ready = Ready, video = JsonSerializer.Deserialize<JsonElement>(encoder.Metrics() ?? "{}"), cast = JsonSerializer.Deserialize<JsonElement>(castMetrics()) }));
         if (request.Query.GetValueOrDefault("access") != access) throw new UnauthorizedAccessException("Reconnect to the candidate view.");
         if (request.Path == "/live/index.m3u8")
         {
