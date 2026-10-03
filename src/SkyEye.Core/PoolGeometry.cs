@@ -65,30 +65,7 @@ public static class PoolGeometry
     public const string RulesUrl = "https://www.wepf.org/docs/International%20Eightball%20Rules%20%28Revision%202c%29%20-%20A4%20Booklet.pdf";
     public const double Radius = 0.027;
     public static readonly Point[] Pockets = [new(0, 0), new(1, 0), new(2, 0), new(0, 1), new(1, 1), new(2, 1)];
-    public static Shot[] Suggest(TableState state, DateTimeOffset now)
-    {
-        if ((now - state.CapturedAt).TotalSeconds is > 6 or < -2 || !state.Settled || state.Occluded || !state.Confirmed || state.CalibrationId.Length == 0) return [];
-        if (state.Balls.Length > 16 || state.Balls.Select(b => b.Id).Distinct().Count() != state.Balls.Length || state.Balls.Any(b => b.Kind is not ("cue" or "red" or "yellow" or "black") || b.Confidence < .7 || !double.IsFinite(b.Position.X) || !double.IsFinite(b.Position.Y) || b.Position.X is < 0 or > 2 || b.Position.Y is < 0 or > 1)) return [];
-        var cues = state.Balls.Where(b => b.Kind == "cue").ToArray(); if (cues.Length != 1) return [];
-        var cue = cues[0]; var candidates = new List<Shot>();
-        // Black is eligible only after the player explicitly selects Black; absent detections never infer clearance.
-        var targets = state.Balls.Where(b => state.Group switch { "red" => b.Kind == "red", "yellow" => b.Kind == "yellow", "black" => b.Kind == "black", "open" => b.Kind is "red" or "yellow", _ => false });
-        foreach (var ball in targets)
-        foreach (var pocket in Pockets.Select((p, i) => (p, i)))
-        {
-            var toPocket = pocket.p - ball.Position; if (toPocket.Length < 2 * Radius) continue;
-            var direction = toPocket * (1 / toPocket.Length); var ghost = ball.Position - direction * (2 * Radius);
-            if (ghost.X is < Radius or > 2 - Radius || ghost.Y is < Radius or > 1 - Radius) continue;
-            var approach = ghost - cue.Position; if (approach.Length < 2 * Radius) continue;
-            double cut = (approach * (1 / approach.Length)).Dot(direction); if (cut < .2) continue;
-            var obstacles = state.Balls.Where(b => b.Id != cue.Id && b.Id != ball.Id).ToArray();
-            if (obstacles.Any(b => DistanceToSegment(b.Position, cue.Position, ghost) < 2 * Radius + .004 || DistanceToSegment(b.Position, ball.Position, pocket.p) < 2 * Radius + .004)) continue;
-            // Initial-contact path must also avoid clipping the target before the computed ghost contact.
-            double score = cut / (1 + approach.Length + toPocket.Length);
-            candidates.Add(new($"{state.Version}:{ball.Id}:{pocket.i}", ball.Id, pocket.i, ghost, ball.Position, pocket.p, score,
-                $"Direct {ball.Kind} pot into pocket {pocket.i + 1}; clear geometric paths, cut alignment {cut:0.00}. This does not model spin, cushion jaws, pace or positional outcome." + (state.Group == "open" ? " Confirm/nominate the intended group where required." : ""), state.Version));
-        }
-        return candidates.OrderByDescending(s => s.Score).Take(5).ToArray();
-    }
+    public static Shot[] Suggest(TableState state, DateTimeOffset now) => Analysis.ShotPlanner.Suggest(state, now);
     public static double DistanceToSegment(Point p, Point a, Point b) { var delta = b - a; double t = delta.Dot(delta) < 1e-12 ? 0 : Math.Clamp((p - a).Dot(delta) / delta.Dot(delta), 0, 1); return (p - (a + delta * t)).Length; }
 }
+

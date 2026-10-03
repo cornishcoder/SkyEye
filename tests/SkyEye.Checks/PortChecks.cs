@@ -48,6 +48,7 @@ static class PortChecks
         Require(BallClassifier.Classify([]).Kind == "unknown" && BallClassifier.Classify(Enumerable.Repeat(new HsvPixel(100, 130, 120), 50).ToArray()).Kind == "unknown", "No guessed classification for empty/cloth region");
         Console.WriteLine("PASS repeatable bounded colour clustering, spotted cream cue, orange yellows and empty/cloth rejection");
         CheckPlanner(reference);
+        CheckTracking();
     }
     static void CheckPlanner(JsonDocument reference)
     {
@@ -89,5 +90,32 @@ static class PortChecks
             Require(ShotPlanner.Suggest(invalid, now).Length == 0, "Freshness, motion, obstruction, confirmation and finite-quality gates");
         Require(ShotPlanner.Suggest(state with { Group = "black" }, now).Length == 0, "No guessed legal black on missing black");
         Console.WriteLine($"PASS {generated} generated Python reflections, bounded rails, direct/bank/kick candidates, second-leg obstruction, stable top-three ranking and advice gates");
+    }
+    static void CheckTracking()
+    {
+        var tracker = new TableTracker(); var now = DateTimeOffset.UtcNow;
+        Ball[] balls = [new("cue", "cue", new(1.5, .3), 1), new("red", "red", new(.8, .6), 1)];
+        TableState Observe(double seconds, string timeline = "a", string calibration = "one", bool uncertain = false, bool obstruction = false, Ball[]? detected = null) => tracker.Observe(calibration, timeline, now.AddSeconds(seconds), detected ?? balls, "red", uncertain, obstruction);
+        Require(!Observe(0).Settled && !Observe(0).Settled, "Duplicate snapshots cannot establish settlement");
+        var settled = Observe(2); Require(settled.Settled && !settled.Confirmed, "Distinct stable observations establish settlement");
+        var confirmed = tracker.Confirm(now.AddSeconds(2)); Require(confirmed.Confirmed, "User confirmation applies to a fresh settled frame");
+        var fresh = Observe(4); Require(fresh.Confirmed && fresh.Version == confirmed.Version, "Stable layout keeps its candidate IDs");
+        var interrupted = Observe(6, timeline: "b"); Require(!interrupted.Settled && !interrupted.Confirmed && interrupted.Version != fresh.Version, "Capture timeline change discards confirmation");
+        Observe(8, timeline: "b"); tracker.Confirm(now.AddSeconds(8));
+        Require(!Observe(10, timeline: "b", calibration: "two").Confirmed, "Calibration change discards confirmation");
+        Observe(12, timeline: "b", calibration: "two", uncertain: true);
+        var corrected = tracker.Correct(balls, now.AddSeconds(12));
+        Require(corrected.Confirmed && !corrected.Occluded, "Manual review can resolve colour uncertainty");
+        Require(Observe(14, timeline: "b", calibration: "two", uncertain: true).Confirmed, "Corrections persist only on unchanged automatic observations");
+        var obscured = Observe(16, timeline: "b", calibration: "two", obstruction: true);
+        Require(!obscured.Confirmed && obscured.Occluded, "Physical obstruction invalidates corrections");
+        bool rejected = false; try { tracker.Correct(balls, now.AddSeconds(16)); } catch (InvalidOperationException) { rejected = true; }
+        Require(rejected, "Correction cannot bypass physical obstruction");
+        Observe(18, timeline: "b", calibration: "two"); tracker.Confirm(now.AddSeconds(18));
+        Require(!Observe(25, timeline: "b", calibration: "two").Confirmed, "Long frame gap resets settlement and confirmation");
+        Observe(27, timeline: "b", calibration: "two"); tracker.Confirm(now.AddSeconds(27));
+        Require(!Observe(29, timeline: "b", calibration: "two", detected: [balls[0], balls[1] with { Position = new(.9, .6) }]).Confirmed, "Movement invalidates confirmed positions");
+        tracker.Reset(); Require(tracker.State is null, "Lifecycle reset clears state");
+        Console.WriteLine("PASS frame settlement, duplicate/gap/timeline/calibration rejection, reviewed corrections, movement and physical-obstruction invalidation");
     }
 }

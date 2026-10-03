@@ -42,7 +42,7 @@ Require(PoolGeometry.Suggest(table with { Group = "open" }, now).All(p => p.Ball
 Require(PoolGeometry.Suggest(table with { CapturedAt = now.AddSeconds(-7) }, now).Length == 0, "Stale layouts suppress advice");
 Require(PoolGeometry.Suggest(table with { Settled = false }, now).Length == 0 && PoolGeometry.Suggest(table with { Occluded = true }, now).Length == 0 && PoolGeometry.Suggest(table with { Confirmed = false }, now).Length == 0, "Moving, occluded and unconfirmed layouts suppress advice");
 var blocked = table with { Balls = table.Balls.Concat([new Ball("blocker", "yellow", new(.5, .25), 1)]).ToArray() };
-Require(PoolGeometry.Suggest(blocked, now).All(p => p.Pocket != 0), "Obstacle excludes blocked pocket");
+Require(PoolGeometry.Suggest(blocked, now).All(p => p.Pocket != 0 || p.Type != "direct"), "Obstacle excludes the blocked direct route");
 Console.WriteLine("PASS perspective calibration, target-group legality, obstruction and stale/uncertain state rejection");
 
 int width = 400, height = 200; int[] image = Enumerable.Repeat(unchecked((int)0xff087eac), width * height).ToArray();
@@ -84,3 +84,4 @@ PortChecks.Run();
 
 sealed class TestTime : TimeProvider { DateTimeOffset current = DateTimeOffset.UtcNow; public override DateTimeOffset GetUtcNow() => current; public void Advance(int seconds) => current = current.AddSeconds(seconds); }
 sealed class FragmentedStream(byte[] data) : MemoryStream(data) { public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken ct = default) => base.ReadAsync(buffer[..Math.Min(buffer.Length, 1)], ct); }
+
