@@ -73,7 +73,9 @@ public static class ShotPlanner
         double w = geometry.Width, radius = geometry.Radius, rail = geometry.CushionInset;
         bool InBounds(Point p) => ShotMath.Finite(p) && p.X >= rail - 1e-6 && p.X <= w - rail + 1e-6 && p.Y >= rail - 1e-6 && p.Y <= w * 2 - rail + 1e-6;
         bool Mouth(Point p) => new[] { new Point(0, 0), new Point(w, 0), new Point(0, w), new Point(w, w), new Point(0, w * 2), new Point(w, w * 2) }.Any(pocket => (p - pocket).Length < geometry.PocketMouth);
-        if (paths.Angle <= 120 || !double.IsFinite(paths.Difficulty) || !InBounds(cue) || !InBounds(target) || !InBounds(paths.Ghost) ||
+        if (candidate.Pocket is < 0 or > 5 || !double.IsFinite(paths.Angle) || paths.Angle <= 120 || !double.IsFinite(paths.Difficulty) || paths.CuePath.Length is < 1 or > 2 || paths.TargetPath.Length is < 1 or > 2 || obstacles.Any(p => !InBounds(p))) return false;
+        if ((paths.CuePath[0].Start - cue).Length > 1e-6 || (paths.TargetPath[0].Start - target).Length > 1e-6 || (paths.CuePath[^1].End - paths.Ghost).Length > 1e-6) return false;
+        if (!InBounds(cue) || !InBounds(target) || !InBounds(paths.Ghost) ||
             paths.CuePath.Concat(paths.TargetPath).Any(s => !InBounds(s.Start) || !InBounds(s.End) || s.Length < 1e-6)) return false;
         if (paths.CuePath.Length > 1 && Mouth(paths.CuePath[0].End) || paths.TargetPath.Length > 1 && Mouth(paths.TargetPath[0].End)) return false;
         // IDs are excluded by the caller. Coordinate equality never exempts a third ball.
