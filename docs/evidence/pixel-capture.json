@@ -1,0 +1,48 @@
+{
+  "camera": {
+    "pageBytes": 4096,
+    "model": "Pixel 10 Pro",
+    "android": "17"
+  },
+  "transport": "ADB forward for lifecycle, direct LAN companion tested separately",
+  "testedAt": "2026-10-03T11:49:03.1070989Z",
+  "companion": {
+    "pageBytes": 4096,
+    "model": "Pixel 11 Pro XL",
+    "android": "17"
+  },
+  "limit": "Standby was non-interactive Dozing with always-on display, not proof that the panel was entirely dark.",
+  "idleMinutes": 0,
+  "cycles": [
+    {
+      "state": "passed",
+      "cycle": 1,
+      "historySeconds": 10.086667666666667,
+      "battery": 100,
+      "displayMode": "mWakefulness=Dozing",
+      "clipSeconds": 12.072,
+      "temperatureC": 33.1,
+      "screenOff": true
+    },
+    {
+      "state": "passed",
+      "cycle": 2,
+      "historySeconds": 11.901193666666668,
+      "battery": 100,
+      "displayMode": "mWakefulness=Dozing",
+      "clipSeconds": 12.049,
+      "temperatureC": 33.1,
+      "screenOff": true
+    },
+    {
+      "state": "passed",
+      "cycle": 3,
+      "historySeconds": 10.568292333333334,
+      "battery": 100,
+      "displayMode": "mWakefulness=Dozing",
+      "clipSeconds": 12.268,
+      "temperatureC": 33.1,
+      "screenOff": true
+    }
+  ]
+}

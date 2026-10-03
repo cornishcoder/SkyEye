@@ -1,0 +1,72 @@
+{
+  "clip": {
+    "id": "b46590b6d2af49e1b3007508a130689e",
+    "name": "SkyEye 03 Oct 12:49:17",
+    "duration": 31.475,
+    "bytes": 23873771,
+    "sha256": "1459FD65CDE730365CB8E1A7FFC19B424F377844A906EBD15E37F2EA6AA0F17A"
+  },
+  "camera": "Pixel 10 Pro",
+  "limits": [
+    "No subjective audio or visible event synchronization test",
+    "No measured live latency",
+    "No mounted pool-table perception test",
+    "No Chromecast or paid GPT-Live test"
+  ],
+  "offlinePlayback": "Native companion reported Playing downloaded clip while camera process force-stopped and camera status unreachable",
+  "decode": "Both video and audio decoded for camera original and portrait export; passthrough frame timing retained",
+  "companion": "Pixel 11 Pro XL",
+  "sourceMedia": {
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "codec_name": "h264",
+        "codec_type": "video",
+        "width": 1920,
+        "height": 1080,
+        "avg_frame_rate": "28320000/944243",
+        "start_time": "0.000000",
+        "duration": "31.474767"
+      },
+      {
+        "codec_name": "aac",
+        "codec_type": "audio",
+        "avg_frame_rate": "0/0",
+        "start_time": "0.013208",
+        "duration": "31.402687"
+      }
+    ],
+    "format": {
+      "duration": "31.474767"
+    }
+  },
+  "portraitMedia": {
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "codec_name": "aac",
+        "codec_type": "audio",
+        "tags": {}
+      },
+      {
+        "codec_name": "h264",
+        "codec_type": "video",
+        "width": 1080,
+        "height": 1920,
+        "tags": {}
+      }
+    ],
+    "format": {
+      "duration": "31.474767"
+    }
+  },
+  "selectedReplaySeconds": 30,
+  "network": "Direct Wi-Fi LAN between physical phones",
+  "download": "Native client reported verified download and completed portrait preparation",
+  "android": "17",
+  "livePlayback": "Native companion reported Live delayed silent while capture active",
+  "hostControl": "Claim, start, save, stop, release through native companion UI",
+  "discovery": "Native Find camera displayed SkyEye Camera on the physical LAN"
+}

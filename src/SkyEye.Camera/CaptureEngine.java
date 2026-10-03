@@ -138,7 +138,9 @@ public final class CaptureEngine {
         try{if(video!=null){video.stop();video.release();}if(audio!=null){audio.stop();audio.release();}}catch(Exception ignored){}
         if(microphone!=null)microphone.release();if(surface!=null)surface.release();if(cameraThread!=null)cameraThread.quitSafely();
     }
-    public static long timeUs(){return SystemClock.elapsedRealtimeNanos()/1000;}
+    // Camera2's default MediaCodec output uses MONOTONIC, which excludes device sleep.
+    // Sensor REALTIME timestamps do not determine the encoder output clock.
+    public static long timeUs(){return System.nanoTime()/1000;}
     public static void joinClips(String[] paths,long[] starts,long endUs,String output) throws Exception {
         MediaMuxer result=null;boolean started=false;
         try {

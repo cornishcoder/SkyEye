@@ -1,6 +1,6 @@
 # SkyEye
 
-C#/.NET 10 Android camera and companion apps for a mounted pool-table camera. The code implements a prototype of the agreed brief; physical Pixel/Chromecast acceptance is still required before calling it dependable.
+C#/.NET 10 Android camera and companion apps for a mounted pool-table camera. Initial Pixel 10 Pro camera and Pixel 11 Pro XL companion capture, LAN viewing and replay checks pass. Extended device/Chromecast acceptance is still required before calling the prototype dependable.
 
 ## Apps
 
@@ -64,7 +64,7 @@ See [device acceptance](docs/device-acceptance.md), [validation evidence](docs/v
 - Saved clips use independent atomic metadata journals and MP4 files rather than the plan's proposed SQLite catalogue. Completed files survive process death; rolling history is ephemeral. Saved-file deletion/retention controls remain a product decision.
 - Camera pixels are encoded in native landscape sensor coordinates. Full-table coverage and upright portrait rotation must be checked with the actual mount. Export forces portrait encoding instead of depending on rotation metadata.
 - Runtime metrics are private `benchmarks.jsonl` records with battery, temperature, storage and completed-frame estimates. Frame count is derived from completed segment duration; it is not a hardware dropped-frame counter.
-- Camera/audio alignment assumes Camera2 timestamps use Android's realtime clock. Check the physical camera timestamp source and synchronization during acceptance; other clock sources need an adapter before support.
+- Capture, audio and replay selection use Android's monotonic clock, matching Camera2's default MediaCodec output timestamp base. Sensor timestamps may use a different clock. Physical microphone synchronization still needs an audible/visible event check.
 - Stream latency, battery runtime, echo quality, Cast playback and recognition accuracy are not established by builds/unit fixtures.
 - The local network is the audience boundary. Viewing capability URLs are distinct from private host-control tokens. Internet hosting and authentication are outside scope.
 - Reboot/force-stop recovery, whole-session recording, a separate guest APK and complete refereeing are deferred.

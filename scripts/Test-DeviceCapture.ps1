@@ -65,9 +65,10 @@ try {
         if ($taskResumed.state -ne 'Active' -or $taskResumed.historySeconds -le 0) { throw 'Screen-off resume failed.' }
         Send-CameraCommand 'session/stop' | Out-Null
         $taskPower=Invoke-DeviceAdb @('shell','dumpsys','power')
-        $taskScreenOff = ($taskPower -match 'mWakefulness=Asleep' -or $taskPower -match 'mInteractive=false')
-        if (-not $taskScreenOff) { throw 'The camera display was not confirmed off.' }
-        $taskEvidence+=@{cycle=$taskCycle;state='passed';historySeconds=$taskStatus.historySeconds;clipSeconds=$taskClip.duration;battery=$taskStatus.battery;temperatureC=$taskStatus.temperatureC;screenOff=$taskScreenOff}
+        # Pixels may retain an always-on display while the phone is non-interactive.
+        $taskScreenOff = ($taskPower -match 'mWakefulness=(Asleep|Dozing)' -or $taskPower -match 'mInteractive=false' -or $taskPower -match 'mIsInteractive: false')
+        if (-not $taskScreenOff) { throw 'The camera display was not confirmed asleep or dozing.' }
+        $taskEvidence+=@{cycle=$taskCycle;state='passed';historySeconds=$taskStatus.historySeconds;clipSeconds=$taskClip.duration;battery=$taskStatus.battery;temperatureC=$taskStatus.temperatureC;screenOff=$taskScreenOff;displayMode=($taskPower | Select-String '^  mWakefulness=' | ForEach-Object {$_.Line.Trim()})}
         Invoke-RestMethod "$taskBase/host/heartbeat" -Headers $taskHeaders -Method Post -ContentType 'application/json' -Body '{}' | Out-Null
     }
     $taskEvidence | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath "$taskResults\acceptance.json"
