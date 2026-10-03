@@ -38,5 +38,14 @@ static class PortChecks
         Require(ShotMath.Create(new(50, 50), new(0, 0), new(0, 0)) is null, "Zero target direction rejected");
         Require(ShotMath.Create(new(double.NaN, 1), new(500, 500), new(0, 0)) is null, "Non-finite geometry rejected");
         Console.WriteLine("PASS real-frame coordinate roundtrips, six pocket identities and 270 Python ghost/angle/length/ranking fixtures");
+        foreach (var (pixel, kind) in new[] { (new HsvPixel(170, 245, 210), "red"), (new HsvPixel(16, 250, 240), "yellow"), (new HsvPixel(16, 76, 224), "cue"), (new HsvPixel(20, 70, 20), "black") })
+        {
+            var sample = Enumerable.Repeat(pixel, 90).Concat(Enumerable.Repeat(new HsvPixel(0, 240, 180), 10)).ToArray();
+            var result = BallClassifier.Classify(sample);
+            Require(result.Kind == kind && result.Quality >= .7, "Cream cue/orange yellow/red spot/black classification");
+            Require(JsonSerializer.Serialize(result) == JsonSerializer.Serialize(BallClassifier.Classify(sample)), "Repeatable clustering");
+        }
+        Require(BallClassifier.Classify([]).Kind == "unknown" && BallClassifier.Classify(Enumerable.Repeat(new HsvPixel(100, 130, 120), 50).ToArray()).Kind == "unknown", "No guessed classification for empty/cloth region");
+        Console.WriteLine("PASS repeatable bounded colour clustering, spotted cream cue, orange yellows and empty/cloth rejection");
     }
 }
