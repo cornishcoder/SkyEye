@@ -10,11 +10,16 @@
     }
     else
     {
-        <label for="ball-colour">Ball colour</label>
-        <select id="ball-colour" disabled="@Busy" value="@Session.TableEdit.Kind" @onchange="Colour">
-            @if (Session.TableEdit.Kind is not ("red" or "yellow" or "cue" or "black")) { <option value="unknown" disabled>Check colour</option> }
-            <option value="red">Red</option><option value="yellow">Yellow</option><option value="cue">Cue ball</option><option value="black">Black</option>
-        </select>
+        <p class="colour-label">Ball colour</p>
+        <div class="colour-choices" role="group" aria-label="Ball colour">
+            @foreach (var colour in Colours)
+            {
+                <button class="@(Session.TableEdit.Kind == colour.Kind ? "primary" : "secondary")" disabled="@Busy"
+                        aria-pressed="@(Session.TableEdit.Kind == colour.Kind ? "true" : "false")"
+                        aria-label="@($"Choose {colour.Label.ToLowerInvariant()} ball")"
+                        @onclick="() => Session.EditTable(e => e.SetKind(colour.Kind))">@colour.Label</button>
+            }
+        </div>
         <div class="clip-actions">
             <button class="secondary" disabled="@(Busy || Session.TableEdit.Balls.Count >= 16)" @onclick="() => Session.EditTable(e => e.AddBallMode())">Add ball</button>
             <button class="secondary" disabled="@(Busy || Session.TableEdit.Selected < 0)" @onclick="() => Session.EditTable(e => e.DeleteSelected())">Remove selected ball</button>
@@ -32,5 +37,5 @@
     [Parameter, EditorRequired] public ShellSession Session { get; set; } = null!;
     [Parameter] public bool Busy { get; set; }
     [Parameter] public EventCallback Apply { get; set; }
-    void Colour(ChangeEventArgs args) => Session.EditTable(e => e.SetKind(args.Value?.ToString() ?? "red"));
+    static readonly (string Kind, string Label)[] Colours = [("red", "Red"), ("yellow", "Yellow"), ("cue", "Cue"), ("black", "Black")];
 }

@@ -159,4 +159,10 @@ Check(draft.Balls.Count == 3 && draft.Selected == 2 && draft.Balls[2].Kind == "b
 draft.DeleteSelected(); Check(draft.Balls.Count == 2 && draft.Selected == -1, "remove changes preview only");
 Check(draft.LayoutText().Contains("yellow"), "reviewed draft serializes to existing validated correction parser");
 draft.Clear(); Check(draft.Mode == SkyEye.Companion.Hybrid.TableEditMode.None && draft.Balls.Count == 0 && originalLayout.Balls.Length == 2, "reject clears preview while preserving canonical layout");
+var unknownLayout = originalLayout with { Balls = [new("uncertain", "unknown", new(.7, .5), .2)] };
+draft.BeginCorrection(8, unknownLayout, calibration); draft.Select(0); draft.AddBallMode();
+Check(draft.Kind == "red" && draft.Selected == -1 && unknownLayout.Balls[0].Kind == "unknown", "adding after an uncertain detection starts with a valid colour without changing that detection");
+draft.Place(calibration.Unmap(new(1.4, .5)));
+Check(draft.Balls[1].Kind == "red", "new ball cannot inherit an unsupported detection colour");
+draft.Clear();
 Console.WriteLine("PASS frozen review: portrait inverse/letterbox mapping, manual corner adjustment/undo, isolated ball edits, apply scope and cancel");

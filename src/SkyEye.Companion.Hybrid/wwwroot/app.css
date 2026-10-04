@@ -37,6 +37,9 @@ input { width: 100%; min-height: 48px; border: 1px solid #405859; border-radius:
 select { width: 100%; min-height: 48px; border: 1px solid #405859; border-radius: 12px; color: #e9f2f3; background: #0b1517; padding: 8px 12px; }
 .editor { min-height: 0; overflow-y: auto; padding: 18px; border: 1px solid #263a3b; border-radius: 22px; background: #101e20; }
 .editor label { margin-top: 8px; }
+.colour-label { font-size: 13px; color: #bbcacc; margin: 8px 0; }
+.colour-choices { display: grid; grid-template-columns: repeat(4, minmax(48px, 1fr)); gap: 6px; }
+.colour-choices button { margin: 0; padding: 8px 4px; font-size: 12px; }
 .primary, .secondary { width: 100%; margin-top: 12px; }
 .primary { background: #88e0cd; color: #0b2520; }
 .secondary { background: #263b3d; color: #e9f2f3; }

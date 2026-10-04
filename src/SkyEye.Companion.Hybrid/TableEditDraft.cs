@@ -57,7 +57,12 @@ public sealed class TableEditDraft
         Kind = kind;
         if (Mode == TableEditMode.Correction && Selected >= 0 && !AddingBall) balls[Selected] = balls[Selected] with { Kind = kind };
     }
-    public void AddBallMode() { if (Mode == TableEditMode.Correction) { AddingBall = true; Selected = -1; } }
+    public void AddBallMode()
+    {
+        if (Mode != TableEditMode.Correction) return;
+        AddingBall = true; Selected = -1;
+        if (Kind is not ("red" or "yellow" or "cue" or "black")) Kind = "red";
+    }
     public void Place(Point image)
     {
         if (Mode != TableEditMode.Correction || Calibration is null || !InImage(image)) return;
