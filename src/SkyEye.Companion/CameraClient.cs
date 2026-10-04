@@ -19,6 +19,14 @@ public sealed class CameraClient : IDisposable
         Address = CameraEndpoint.Parse(input); ReadToken = ""; SaveScope = null;
     }
     public string MediaUrl(string path) => Address + path;
+    public CameraClient CopyForViewing()
+    {
+        var copy = new CameraClient(); copy.Connect(Address); copy.ReadToken = ReadToken; return copy;
+    }
+    public CameraClient CopyForHost()
+    {
+        var copy = CopyForViewing(); copy.HostToken = HostToken; return copy;
+    }
     public async Task<JsonElement> StatusAsync(CancellationToken ct = default)
     {
         var requestAddress = Address;
