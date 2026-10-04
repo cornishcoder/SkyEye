@@ -149,7 +149,7 @@ public sealed partial class ShellSession : IDisposable
         var state = app.State.Camera; var view = effects.Latest;
         if (state.Reachability != CameraReachability.Reachable || view?.Connection != state || state.Capture != CaptureState.Active)
         {
-            if (selection.Source is not null) { StopPocketFraming(); StopShotScenes(); ClearSceneCheck(); player?.Stop(); cast?.Configure("", true); }
+            if (selection.Source is not null) { StopPocketFraming(); StopShotScenes(); ClearSceneCheck(); player?.Stop(); if (!TvReplaySelected) cast?.Configure("", true); }
             selection.Observe(generation, ViewingSource.Live, null);
             Playing = false;
             Playback = state.Reachability == CameraReachability.Unreachable ? "Camera unreachable" : "Waiting for your table";
@@ -168,13 +168,13 @@ public sealed partial class ShellSession : IDisposable
         player.SetMuted(selection.Kind != ViewingSource.LocalClip); player.Play(source);
         Android.Util.Log.Info("SkyEyeShell", "Native playback started: " + selection.Kind);
         selection.Started();
-        cast?.Configure(selection.Kind == ViewingSource.Live ? source : "", true);
+        if (!TvReplaySelected) cast?.Configure(selection.Kind == ViewingSource.Live ? source : "", true);
         EnsureShotLoop();
     }
     public void Stop()
     {
         if (!MainThread.IsMainThread) { MainThread.BeginInvokeOnMainThread(Stop); return; }
-        StopPocketFraming(); StopShotScenes(); ClearSceneCheck(); selection.Stop(); player?.Stop(); cast?.Configure("", true);
+        StopPocketFraming(); StopShotScenes(); ClearSceneCheck(); selection.Stop(); player?.Stop(); if (!TvReplaySelected) cast?.Configure("", true);
         Playing = false; Playback = "Waiting for your table"; Publish();
     }
     public void Suspend()
@@ -213,8 +213,8 @@ public sealed partial class ShellSession : IDisposable
                     if (clock.Elapsed >= nextCastCheck)
                     {
                         nextCastCheck = clock.Elapsed + TimeSpan.FromSeconds(1);
-                        var wasConnected = TvConnected; ObserveCast();
-                        if (wasConnected != TvConnected) Publish();
+                        var wasConnected = TvConnected; var replayChanged = ObserveCast();
+                        if (wasConnected != TvConnected || replayChanged) Publish();
                     }
                     bool tickChanged = chrome.Tick();
                     if (tickChanged || wasVisible != chrome.Visible || wasAccessible != chrome.Accessible) Changed?.Invoke();
@@ -253,6 +253,7 @@ public sealed partial class ShellSession : IDisposable
     {
         if (disposed) return;
         var state = app.State.Camera;
+        if (TvReplaySelected && tvReplay.Connection != state.ConnectionId) { tvReplay.Clear(); cast?.Configure("", true); }
         InvalidateClipCatalog(state.ConnectionId);
         ObserveTable();
         EnsurePocketLoop();

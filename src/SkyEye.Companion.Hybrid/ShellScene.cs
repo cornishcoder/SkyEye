@@ -12,7 +12,7 @@ public sealed partial class ShellSession
     CancellationTokenSource? sceneLifetime;
     long sceneRevision;
     public bool SceneCheck { get; private set; }
-    public bool CanSceneCheck => IsLab && active && Playing && selection.Kind == ViewingSource.Live && player is not null && !EditingTable;
+    public bool CanSceneCheck => !TvReplaySelected && IsLab && active && Playing && selection.Kind == ViewingSource.Live && player is not null && !EditingTable;
     public string SceneCheckStatus { get; private set; } = "A labelled scene check works even with the table lights off.";
 
     public Task ToggleSceneCheckAsync() => MainThread.InvokeOnMainThreadAsync(async () =>

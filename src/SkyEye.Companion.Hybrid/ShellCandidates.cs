@@ -156,7 +156,7 @@ public sealed partial class ShellSession
     }
     void ManageShotRelay()
     {
-        bool needed = active && Playing && selection.Kind == ViewingSource.Live && CanCastLive && !EditingTable
+        bool needed = !TvReplaySelected && active && Playing && selection.Kind == ViewingSource.Live && CanCastLive && !EditingTable
             && (app.State.Presentation.Tv.Mode != ShotDisplayMode.Live || FrameTableRequested && AutomaticPocketsCurrent);
         if (!needed) { CloseShotRelay(); return; }
         if (shotRelay is null && sceneRelayClosing.IsCompleted && Android.OS.SystemClock.ElapsedRealtime() >= relayRetryAt)

@@ -97,20 +97,24 @@ public sealed partial class ShellSession
     public void ReportCast(string? status)
     {
         if (status == "TV connected") TvConnected = true;
-        if (status == "TV disconnected") TvConnected = false;
+        if (status == "TV disconnected") { TvConnected = false; tvReplay.Clear(); }
+        if (tvReplay.Selected && status is "TV playing live camera" or "TV playing shared table scene" or "TV playing candidate overlay") return;
         TvStatus = status switch { "Casting silently in landscape" => "TV accepted the live playback request",
             "TV playing shared table scene" => AutomaticPocketsCurrent && FrameTableRequested ? "TV playing rectangular table" : "TV playing table overlay", _ => status ?? "TV status changed" };
         Publish();
     }
-    void ObserveCast()
+    bool ObserveCast()
     {
-        if (cast is null) { TvConnected = false; return; }
+        if (cast is null) { TvConnected = false; return false; }
         try
         {
             using var metrics = JsonDocument.Parse(cast.Metrics()!);
             TvConnected = metrics.RootElement.TryGetProperty("connected", out var value) && value.GetBoolean();
+            if (!TvConnected && tvReplay.Selected) { tvReplay.Clear(); return true; }
+            return ObserveTvReplay(metrics.RootElement);
         }
         catch { TvConnected = false; }
+        return false;
     }
     public Task ChooseTvAsync() => MainThread.InvokeOnMainThreadAsync(async () =>
     {
@@ -128,12 +132,13 @@ public sealed partial class ShellSession
         ObserveCast();
         if (!CanCastLive || effects.Latest is not { } view) { ShowError("An active, reachable camera is needed for TV viewing."); return; }
         if (!TvConnected) { TvStatus = "Choose a TV before playing live"; Publish(); return; }
+        tvReplay.Clear();
         cast?.Play(sceneRelay is { Ready: true } ? sceneRelay.Url : shotRelay is { Ready: true } && (app.State.Presentation.Tv.Mode != ShotDisplayMode.Live || FrameTableRequested && AutomaticPocketsCurrent) ? shotRelay.Url : view.Stream); TvStatus = "Sending the live table to TV…"; Publish();
     }
     public void StopTv()
     {
         if (!MainThread.IsMainThread) { MainThread.BeginInvokeOnMainThread(StopTv); return; }
         if (!active) return;
-        cast?.Stop(); TvStatus = "Disconnecting TV…"; Publish();
+        tvReplay.Clear(); cast?.Stop(); TvStatus = "Disconnecting TV…"; Publish();
     }
 }

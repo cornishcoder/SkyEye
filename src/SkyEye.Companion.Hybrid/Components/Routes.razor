@@ -34,6 +34,7 @@
                 <ShotControls Session="Session" Busy="busy" Version="Session.Agent.State.Value.Version" />
                 <section class="control-section" aria-label="TV viewing">
                 <h2>TV</h2><p class="hint" role="status">@Session.TvStatus</p>
+                @if (Session.TvReplaySelected) { <p class="hint" role="status">@Session.TvReplayProgress</p> }
                 <button class="secondary" disabled="@busy" @onclick="ChooseTv">Choose TV</button>
                 <button class="secondary" disabled="@(busy || !Session.CanCastLive || !Session.TvConnected)" @onclick="Session.PlayTv">Play live on TV</button>
                 <button class="quiet" disabled="@(busy || !Session.TvConnected)" @onclick="Session.StopTv">Disconnect TV</button>

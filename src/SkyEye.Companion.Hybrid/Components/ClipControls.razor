@@ -1,12 +1,14 @@
 <details class="control-section clip-section" aria-label="Saved clips">
     <summary>Clips</summary>
     <p class="hint" role="status">@Session.ClipStatus</p>
+    <p class="hint">Watch a camera clip on TV with room audio. Your phone can stay live while the camera keeps recording.</p>
     <button class="secondary" disabled="@(Busy || Session.LoadingClips || !Session.CanLoadClips)" @onclick="Session.LoadClipsAsync">@(Session.LoadingClips ? "Loading clips…" : "Refresh camera clips")</button>
     @if (Session.TransferringClip) { <button class="quiet" @onclick="Session.CancelClipTransfer">Cancel download</button> }
     @foreach (var clip in Session.RemoteClips)
     {
         <article class="clip" @key="@($"remote-{clip.Id}")">
             <p>@clip.Name <span class="hint">· @clip.Duration.ToString("0")s</span></p>
+            <button class="secondary" disabled="@(Busy || !Session.TvConnected || !Session.CanLoadClips)" @onclick="() => Session.PlayClipOnTv(clip)" aria-label="@($"Watch {clip.Name} on TV")">Watch on TV</button>
             @if (clip.Available)
             {
                 <p class="hint">Saved on this phone</p>
