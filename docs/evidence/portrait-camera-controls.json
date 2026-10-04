@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-04",
+  "unit": "H03",
+  "package": "uk.co.skyeye.companion.lab",
+  "configuration": "Release",
+  "device": "Pixel 11 Pro XL",
+  "transport": "USB",
+  "apkSha256": "C3057909A8F996A3277261464AAAD45540403304B811F3327487F78C5B9630EB",
+  "builds": { "hybrid": { "errors": 0, "warnings": 7 }, "baseline": { "errors": 0, "warnings": 14 } },
+  "directlyObserved": [
+    "Install, launch and all camera control taps succeed over USB without policy rejection",
+    "Connect observes stopped camera with host available",
+    "Become host reveals recording actions after fresh authority proof",
+    "Start, Pause and Resume render the matching observed state",
+    "Live playback runs silently after Start and resumes after Resume",
+    "Closing and reopening the sheet leaves native Play invocation count unchanged at two",
+    "No handler attachment occurs during the measured sheet toggle interval",
+    "Choose TV opens the native Cast picker with Chromecast listed; Back dismisses it",
+    "Stop and Release hide capture controls and restore host available",
+    "Camera independently confirms stopped, armed, unowned, no error and eight clips"
+  ],
+  "automatedChecks": [ "Core and real HTTP command, authority, queue, reconnect and credential boundaries", "Real Blazor AI and native playback/chrome checks" ],
+  "limitations": [
+    "Nearby discovery completes without finding the current camera; manual address works",
+    "Receiver playback and disconnect after an actual TV connection were not exercised",
+    "USB success does not identify or prove a permanent fix for intermittent upstream policy rejection"
+  ],
+  "camera": { "armed": true, "state": "Stopped", "hasHost": false, "error": "", "clipCount": 8 }
+}
