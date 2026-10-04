@@ -41,7 +41,7 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
     public override void OnConfigurationChanged(Android.Content.Res.Configuration config) { base.OnConfigurationChanged(config); }
     protected override void OnCreate(Bundle? savedInstanceState)
     {
-        base.OnCreate(savedInstanceState); clipDir = Path.Combine(FilesDir!.AbsolutePath, "clips"); Directory.CreateDirectory(clipDir);
+        base.OnCreate(savedInstanceState); clipDir = Path.Combine(FilesDir!.AbsolutePath, "clips"); Directory.CreateDirectory(clipDir); InitializeApp();
         var root = new LinearLayout(this) { Orientation = Orientation.Vertical }; root.SetPadding(20, 24, 20, 20); root.SetBackgroundColor(Color.Rgb(10, 19, 28));
         var scroll = new ScrollView(this); scroll.AddView(root); SetContentView(scroll);
         root.AddView(Label(AppTitle, 30)); root.AddView(Label("Your table. Every shot.", 15));
@@ -57,8 +57,11 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
         var sessionRow = Row(controls); Add(sessionRow, "Start", () => Command("session/start")); Add(sessionRow, "Pause", () => Command("session/pause")); Add(sessionRow, "Resume", () => Command("session/resume")); Add(sessionRow, "Stop", () => Command("session/stop"));
         var replayRow = Row(controls);
         duration = new Spinner(this); duration.Adapter = new ArrayAdapter<string>(this, Android.Resource.Layout.SimpleSpinnerDropDownItem, ["30 seconds", "1 minute", "2 minutes", "5 minutes", "10 minutes"]); replayRow.AddView(duration);
-        Add(replayRow, "Save last…", () => _ = ActionAsync(async () => { var result = await client.PostAsync("clips/save", new { commandId = Guid.NewGuid().ToString("N"), seconds = ReplaySelection.Durations[duration.SelectedItemPosition] }); Say($"Saved {result.GetProperty("duration").GetDouble():0.0} seconds on camera."); await LoadClipsAsync(); }));
+        Add(replayRow, "Save last…", () => _ = ActionAsync(SaveClipUiAsync));
         controls.AddView(Label("Save ends at the camera's current moment. Viewing is delayed.", 12));
+#if SKYEYE_COMMAND_LAB
+        Add(controls, "Retry last save", () => _ = ActionAsync(RetryLabSaveAsync));
+#endif
         playerListener = new PlayerListener(this); player = new Bridge.PlayerBridge(this, playerListener);
         root.AddView(player.View, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, (int)(260 * Resources!.DisplayMetrics!.Density)));
         viewerStatus = Label("Live viewing is silent. Saved clips include room sound.", 13); root.AddView(viewerStatus);

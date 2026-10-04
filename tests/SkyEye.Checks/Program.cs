@@ -83,6 +83,7 @@ Console.WriteLine("PASS real companion command client against the camera HTTP se
 PortChecks.Run();
 await AppCoordinatorChecks.Run();
 await ClipSaveChecks.Run();
+await CameraClipSaveChecks.Run();
 
 sealed class TestTime : TimeProvider { DateTimeOffset current = DateTimeOffset.UtcNow; public override DateTimeOffset GetUtcNow() => current; public void Advance(int seconds) => current = current.AddSeconds(seconds); }
 sealed class FragmentedStream(byte[] data) : MemoryStream(data) { public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken ct = default) => base.ReadAsync(buffer[..Math.Min(buffer.Length, 1)], ct); }

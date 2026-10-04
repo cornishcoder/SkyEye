@@ -77,6 +77,23 @@ static class ClipSaveChecks
 
             var malformedEffect = new FixtureEffect((_, _, _) => Task.FromResult(FixtureClip() with { Duration = double.NaN }));
             Check((await new AppCoordinator(clipSaves: new(Path.Combine(root, "invalid-ack"), malformedEffect)).DispatchAsync(Request())).Outcome == CommandOutcome.Uncertain, "invalid acknowledgement is not reported saved");
+            if (OperatingSystem.IsWindows())
+            {
+                var retainPath = Path.Combine(root, "retain-failure"); FileStream? blockedRecord = null; var retainRequest = Request();
+                var retainEffect = new FixtureEffect((id, _, _) =>
+                {
+                    blockedRecord = new FileStream(Path.Combine(retainPath, id.ToString("N") + ".json"), FileMode.Open, FileAccess.Read, FileShare.Read);
+                    return Task.FromResult(FixtureClip());
+                });
+                try
+                {
+                    var retained = await new AppCoordinator(clipSaves: new(retainPath, retainEffect)).DispatchAsync(retainRequest);
+                    Check(retained.Outcome == CommandOutcome.Uncertain, "terminal persistence failure never claims a retained success");
+                }
+                finally { blockedRecord?.Dispose(); }
+                Check((await new AppCoordinator(clipSaves: new(retainPath, retainEffect)).DispatchAsync(retainRequest)).Outcome == CommandOutcome.Uncertain && retainEffect.Calls == 1,
+                    "pending reservation survives failed terminal replacement without a second effect");
+            }
             var fullPath = Path.Combine(root, "bounded"); var bounded = new AppCoordinator(clipSaves: new(fullPath, effect, capacity: 1));
             var boundedRequest = Request(); await bounded.DispatchAsync(boundedRequest); int before = effect.Calls;
             Check((await bounded.DispatchAsync(Request())).Outcome == CommandOutcome.Failed && effect.Calls == before && (await bounded.DispatchAsync(boundedRequest)).Duplicate, "full journal rejects new saves without discarding replay protection");
@@ -85,7 +102,11 @@ static class ClipSaveChecks
                 Check((await locked.DispatchAsync(Request())).Outcome == CommandOutcome.Uncertain && effect.Calls == before, "another process writer prevents dispatch");
             Console.WriteLine("PASS durable clip save deduplication/restart, scope/conflicts, bounds, stale/failed/uncertain outcomes, crash/cancellation and concurrent preferences");
         }
-        finally { Directory.Delete(root, recursive: true); }
+        finally
+        {
+            if (!Path.GetFullPath(root).StartsWith(Path.GetFullPath(Path.GetTempPath()), StringComparison.OrdinalIgnoreCase)) throw new Exception("Unexpected fixture path");
+            Directory.Delete(root, recursive: true);
+        }
     }
     sealed class FixtureEffect(Func<Guid, SaveClip, CancellationToken, Task<Clip>> save) : IClipSaveEffect
     {

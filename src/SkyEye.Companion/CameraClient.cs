@@ -1,6 +1,7 @@
 using System.Net.Http.Json;
 using System.Text.Json;
 using SkyEye.Core;
+using SkyEye.Core.Application;
 
 namespace SkyEye.Companion;
 
@@ -12,17 +13,28 @@ public sealed class CameraClient : IDisposable
     public string Address { get; private set; } = "";
     public string? HostToken { get; set; }
     public string ReadToken { get; private set; } = "";
+    public ClipSaveScope? SaveScope { get; private set; }
     public void Connect(string input)
     {
         var text = input.Trim(); if (!text.Contains("://")) text = "http://" + text;
         if (!Uri.TryCreate(text, UriKind.Absolute, out var uri) || uri.Scheme != "http" || !string.IsNullOrEmpty(uri.UserInfo) || uri.Query.Length > 0 || uri.AbsolutePath != "/") throw new ArgumentException("Enter the camera's local address, for example 192.168.1.100:8765.");
-        Address = uri.GetLeftPart(UriPartial.Authority); ReadToken = "";
+        Address = uri.GetLeftPart(UriPartial.Authority); ReadToken = ""; SaveScope = null;
     }
     public string MediaUrl(string path) => Address + path;
     public async Task<JsonElement> StatusAsync(CancellationToken ct = default)
     {
-        using var response = await http.GetAsync(Address + "/status", ct); using var document = await ParseAsync(response, ct);
-        var status = document.RootElement.Clone(); ReadToken = status.GetProperty("readToken").GetString()!; return status;
+        var requestAddress = Address;
+        using var response = await http.GetAsync(requestAddress + "/status", ct); using var document = await ParseAsync(response, ct);
+        var status = document.RootElement.Clone();
+        if (Address == requestAddress)
+        {
+            ReadToken = status.GetProperty("readToken").GetString()!;
+            var host = status.GetProperty("host");
+            SaveScope = host.ValueKind == JsonValueKind.Null ? null : new(
+                Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(requestAddress.ToLowerInvariant()))),
+                status.GetProperty("sessionId").GetString()!, host.GetProperty("generation").GetInt64(), status.GetProperty("revision").GetInt64());
+        }
+        return status;
     }
     public async Task<JsonElement> PostAsync(string path, object payload, CancellationToken ct = default)
     {
