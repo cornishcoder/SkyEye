@@ -279,3 +279,7 @@ Production, native baseline and independent lab trimmed Release builds pass with
 
 Source snapshot ad5f8a4 and installed APK provenance are recorded in evidence/sky-identity.json. A01 implementation is complete. Actual spoken identity, the runtime microphone notification and voice/tool event bridging are checked in A02; no paid voice session or remote personal-key request is started for this branding change. Archive naming/storage compatibility is reviewed; an archive-history UI is not exercised. Camera recording/casting remain Active with 8 clips and no camera error; no clip or key is changed. A02 is next.
 
+
+### Voice deferred at the user's request
+
+A02-A05 are deferred while the user revisits API-key setup. No voice session or remote credential use is authorized by this deferral. Recommended next work is the API-key-independent T01 shared phone/TV scene followed by T02 portrait touch/candidate controls, then T03-T04 saved-clip TV playback and replay controls. Score overlays follow the G01-G05 ledger; those game-state chunks also require no API key. This is an execution-order update; no new feature or device check is claimed.

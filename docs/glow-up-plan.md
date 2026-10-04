@@ -254,3 +254,9 @@ The previous eight milestones were not sufficiently small as individual commits.
 | X03 | Final migration report, signed APK, source snapshot and rollback instructions | Artifact provenance matches tested commit |
 
 **First action when implementation is authorized:** P01, then P02–P05. The first user-visible application slice is S02. Release A is not dependent on automatic refereeing, and Release B is not dependent on contact-level vision. Background TV composition, a custom Cast receiver, wake-word listening and advanced cue-ball physics remain separate gated extensions rather than hidden prerequisites.
+
+## Execution order update — voice deferred
+
+On 4 October, the user chooses to defer Sky voice/API-key work until they revisit key setup. Leave A02-A05 deferred; do not use the saved personal credential for voice testing meanwhile. The non-voice work can proceed independently.
+
+Recommended next: T01 shared native phone/TV scene, then T02's touch/live/candidate controls in the portrait UI (retain two-second cycling and ten-second refresh). Score presentation waits for G01-G05's ledger. Follow with T03-T04 playback of existing saved clips on TV, pause/seek and return live. G01-G05 session/player scoring, restart recovery and undo can also proceed without an API key. Existing native More controls remains available until each replacement touch flow is verified. Keep the small checked-commit and physical-device gates for these reordered chunks.
