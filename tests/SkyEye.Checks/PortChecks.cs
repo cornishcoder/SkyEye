@@ -46,6 +46,15 @@ static class PortChecks
             Require(JsonSerializer.Serialize(result) == JsonSerializer.Serialize(BallClassifier.Classify(sample)), "Repeatable clustering");
         }
         Require(BallClassifier.Classify([]).Kind == "unknown" && BallClassifier.Classify(Enumerable.Repeat(new HsvPixel(100, 130, 120), 50).ToArray()).Kind == "unknown", "No guessed classification for empty/cloth region");
+        foreach (var (pixel, kind) in new[] { (new HsvPixel(178, 255, 65), "red"), (new HsvPixel(16, 118, 167), "cue"), (new HsvPixel(16, 239, 144), "yellow"), (new HsvPixel(20, 142, 13), "black") })
+            Require(BallClassifier.Classify(Enumerable.Repeat(pixel, 100).ToArray()).Kind == kind, "Observed dim warm-light ball colours");
+        foreach (var (kind, limit) in new[] { ("cue", 1), ("black", 1), ("red", 7), ("yellow", 7) })
+        {
+            var label = new BallClassification(kind, "solid", .9, []);
+            Require(BallClassifier.ConstrainInventory(Enumerable.Repeat(label, limit).ToArray()).All(b => b.Kind == kind), "Valid inventory preserved");
+            var constrained = BallClassifier.ConstrainInventory(Enumerable.Repeat(label, limit + 1).ToArray());
+            Require(constrained.Length == limit + 1 && constrained.All(b => b.Kind == "unknown" && b.Quality == 0), "Conflicting inventory retained for review without invented colours");
+        }
         Console.WriteLine("PASS repeatable bounded colour clustering, spotted cream cue, orange yellows and empty/cloth rejection");
         CheckPlanner(reference);
         CheckTracking();

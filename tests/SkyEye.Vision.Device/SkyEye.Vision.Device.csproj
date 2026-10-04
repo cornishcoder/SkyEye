@@ -1,4 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup><TargetFramework>net10.0-android</TargetFramework><SupportedOSPlatformVersion>33</SupportedOSPlatformVersion><RuntimeIdentifier>android-arm64</RuntimeIdentifier><OutputType>Exe</OutputType><ApplicationId>uk.co.skyeye.visionchecks</ApplicationId><ApplicationVersion>1</ApplicationVersion><ApplicationDisplayVersion>0.1</ApplicationDisplayVersion><TrimMode>partial</TrimMode></PropertyGroup>
   <ItemGroup><ProjectReference Include="../../src/SkyEye.Vision.Android/SkyEye.Vision.Android.csproj"/><AndroidAsset Include="../fixtures/poolgame/*.jpg" Link="%(Filename)%(Extension)"/><AndroidAsset Include="../fixtures/poolgame/pixel-table.json" Link="pixel-table.json"/><AndroidAsset Include="../fixtures/poolgame/pixel-racked-dim.json" Link="pixel-racked-dim.json"/></ItemGroup>
+  <ItemGroup><AndroidAsset Include="../fixtures/poolgame/pixel-spread-dim.json" Link="pixel-spread-dim.json"/></ItemGroup>
 </Project>

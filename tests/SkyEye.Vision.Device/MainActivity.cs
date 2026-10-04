@@ -54,6 +54,23 @@ public sealed class MainActivity : Activity
                 }
                 if (error > .015) throw new Exception("Ball-centre error exceeds fixture tolerance: " + error);
                 var negativeResults = new List<object>();
+                using var spreadLabelsReader = new StreamReader(Assets.Open("pixel-spread-dim.json"));
+                using var spreadLabels = JsonDocument.Parse(spreadLabelsReader.ReadToEnd());
+                var spreadCalibration = new TableCalibration(spreadLabels.RootElement.GetProperty("calibration").EnumerateArray()
+                    .Select(p => new SkyEye.Core.Point(p.GetProperty("x").GetDouble(), p.GetProperty("y").GetDouble())).ToArray());
+                using var spreadInput = Assets.Open("pixel-spread-dim.jpg"); using var spreadBytes = new MemoryStream(); spreadInput.CopyTo(spreadBytes);
+                var spread = analyzer.Analyze(spreadBytes.ToArray(), spreadCalibration);
+                if (spread.Uncertain || spread.Balls.Length != 16 || spread.Balls.Count(b => b.Kind == "red") != 7 || spread.Balls.Count(b => b.Kind == "yellow") != 7 || spread.Balls.Count(b => b.Kind == "cue") != 1 || spread.Balls.Count(b => b.Kind == "black") != 1)
+                    throw new Exception("Dim spread regression: " + JsonSerializer.Serialize(spread));
+                double spreadError = 0; var spreadRemaining = spread.Balls.ToList();
+                foreach (var expected in spreadLabels.RootElement.GetProperty("expected").EnumerateArray())
+                {
+                    var p = expected.GetProperty("image"); var image = new SkyEye.Core.Point(p.GetProperty("x").GetDouble(), p.GetProperty("y").GetDouble());
+                    var ball = spreadRemaining.Where(b => b.Kind == expected.GetProperty("kind").GetString()).MinBy(b => (spreadCalibration.Unmap(b.Position) - image).Length) ?? throw new Exception("Missing dim spread ball");
+                    spreadError = Math.Max(spreadError, (ball.Position - spreadCalibration.Map(image)).Length); spreadRemaining.Remove(ball);
+                }
+                if (spreadError > .025) throw new Exception("Dim spread centre outside tolerance: " + spreadError);
+                negativeResults.Add(new { name = "pixel-spread-dim", spread, maximumCentreError = spreadError });
                 foreach (string name in new[] { "pixel-later-light", "pixel-cushion-shadow", "synthetic-empty", "synthetic-dim", "synthetic-dark", "synthetic-obstruction", "synthetic-edge-obstruction", "synthetic-pocket-ball" })
                 {
                     using var input = Assets.Open(name + ".jpg"); using var buffer = new MemoryStream(); input.CopyTo(buffer);

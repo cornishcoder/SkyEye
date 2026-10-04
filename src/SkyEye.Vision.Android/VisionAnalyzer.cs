@@ -44,7 +44,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer
             byte[] bgr = Read(warped.Value); var cue = circles[cueIndices[0]];
             var channels = new[] { new List<byte>(), new List<byte>(), new List<byte>() };
             ForPixels(cue, .7, (x, y) => { int offset = (y * coordinates.Width + x) * 3; for (int k = 0; k < 3; k++) channels[k].Add(bgr[offset + k]); });
-            double[] gains = channels.Select(c => { c.Sort(); return c.Count == 0 || c[(int)((c.Count - 1) * .95)] < 10 ? 0 : Math.Min(2, 255.0 / c[(int)((c.Count - 1) * .95)]); }).ToArray();
+            double[] gains = channels.Select(c => { c.Sort(); return c.Count == 0 || c[(int)((c.Count - 1) * .95)] < 10 ? 0 : Math.Min(3, 255.0 / c[(int)((c.Count - 1) * .95)]); }).ToArray();
             if (gains.All(g => g > 0))
             {
                 for (int i = 0; i < bgr.Length; i++) bgr[i] = (byte)Math.Clamp((int)(bgr[i] * gains[i % 3]), 0, 255);
@@ -55,13 +55,15 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer
         }
         if (!normalized) warnings.Add("No unique cue reference; colours were analyzed without normalization.");
         cancellation.ThrowIfCancellationRequested(); var balls = new List<Ball>(); var observations = new List<CircleObservation>();
-        foreach (var circle in circles.OrderBy(c => c.Y).ThenBy(c => c.X))
+        var ordered = circles.OrderBy(c => c.Y).ThenBy(c => c.X).ToArray();
+        var labels = BallClassifier.ConstrainInventory(ordered.Select(c => Classify(c, pixels)).ToArray());
+        for (int i = 0; i < ordered.Length; i++)
         {
-            var label = Classify(circle, pixels); var position = coordinates.ToTable(new(circle.X, circle.Y));
+            var circle = ordered[i]; var label = labels[i]; var position = coordinates.ToTable(new(circle.X, circle.Y));
             balls.Add(new(label.Kind + "-" + balls.Count, label.Kind, position, label.Quality));
             observations.Add(new(balls[^1].Id, new(circle.X, circle.Y), circle.Radius, label.Pattern, label.Clusters));
         }
-        bool uncertain = balls.Any(b => b.Kind == "unknown") || balls.Count > 16 || balls.Count(b => b.Kind == "cue") != 1 || balls.Count(b => b.Kind == "black") > 1 || balls.Count(b => b.Kind == "red") > 7 || balls.Count(b => b.Kind == "yellow") > 7;
+        bool uncertain = balls.Any(b => b.Kind == "unknown") || balls.Count > 16 || balls.Count(b => b.Kind == "cue") != 1 || balls.Count(b => b.Kind == "black") != 1 || balls.Count(b => b.Kind == "red") > 7 || balls.Count(b => b.Kind == "yellow") > 7;
         if (uncertain) warnings.Add("Check uncertain colours or ball counts before using advice.");
         if (PocketColourNeedsReview(pixels)) { uncertain = true; warnings.Add("Check a coloured ball at a pocket opening; the pocket mask may hide part of it."); }
         bool obstructed = LargeObstruction(hsv.Value, pixels);
@@ -87,7 +89,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer
         using var mask = ClothMask(hsv, pixels); using var circles = new MatLease(new Mat());
         double scale = coordinates.Width / 1000.0;
         Imgproc.HoughCircles(mask.Value, circles.Value, Imgproc.HoughGradient, settings.HoughDp, settings.Separation * scale, settings.EdgeThreshold, votes * scale, (int)(settings.MinimumRadius * scale), (int)(settings.MaximumRadius * scale));
-        var result = new List<Circle>(); int count = Math.Max(circles.Value.Cols(), circles.Value.Rows()); int clothHue = ClothHue(pixels);
+        var result = new List<Circle>(); int count = Math.Max(circles.Value.Cols(), circles.Value.Rows()); var clothRange = ClothRange(pixels); int clothHue = clothRange.Hue;
         for (int i = 0; i < count && result.Count <= 32; i++)
         {
             var value = circles.Value.Get(circles.Value.Rows() == 1 ? 0 : i, circles.Value.Rows() == 1 ? i : 0);
@@ -96,22 +98,51 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer
             if (c.X < margin || c.Y < margin || c.X > coordinates.Width - margin || c.Y > coordinates.Height - margin) continue;
             // An opening is not a ball; ball-adjacent uncertain cases remain visible through review.
             if (PocketCentres().Any(p => (new Point(c.X, c.Y) - p).Length < settings.PocketExclusionRadius * scale)) continue;
-            // Cushion shadows can produce circular mask edges. Reject only border
-            // candidates whose interior is overwhelmingly the cloth's own colour;
-            // retain mixed/neutral/dark ball bodies for classification and review.
-            if (c.X < 65 * scale || c.Y < 65 * scale || c.X > coordinates.Width - 65 * scale || c.Y > coordinates.Height - 65 * scale)
+            // Cloth shadows can produce circle edges anywhere. A wider hue band
+            // tolerates dim texture only when S/V also resemble the cloth, so it
+            // cannot swallow saturated yellows or the bright cream cue.
             {
                 int sampled = 0, cloth = 0;
                 ForPixels(c, .85, (x, y) =>
                 {
                     int offset = (y * coordinates.Width + x) * 3; int difference = Math.Abs(pixels[offset] - clothHue); sampled++;
-                    if (Math.Min(difference, 180 - difference) <= settings.HueBand && pixels[offset + 1] > 20 && pixels[offset + 2] > 20) cloth++;
+                    if (Math.Min(difference, 180 - difference) <= Math.Max(12, settings.HueBand) &&
+                        pixels[offset + 1] > 20 && pixels[offset + 1] < Math.Max(60, clothRange.SaturationFloor / .45 * 1.5) &&
+                        pixels[offset + 2] > 20 && pixels[offset + 2] < Math.Max(80, clothRange.ValueFloor / .45 * 1.8)) cloth++;
                 });
                 if (sampled > 0 && cloth / (double)sampled > .9) continue;
             }
             result.Add(c);
         }
+        AddColourBodies(hsv, pixels, result, scale);
         return result.ToArray();
+    }
+    void AddColourBodies(Mat hsv, byte[] pixels, List<Circle> circles, double scale)
+    {
+        // Recover isolated painted bodies that the cloth mask loses beside a
+        // cushion or warm shadow. Size, fill and aspect bounds exclude streaks,
+        // rails and merged groups; the normal uncertainty gates still apply.
+        using var mask = new MatLease(new Mat());
+        using var low = new Scalar(0, 160, 40); using var high = new Scalar(179, 255, 255);
+        Cv.InRange(hsv, low, high, mask.Value);
+        byte[] body = Read(mask.Value);
+        for (int i = 0; i < body.Length; i++)
+            if (pixels[i * 3] > 37 && pixels[i * 3] < 163) body[i] = 0;
+        mask.Value.Put(0, 0, body);
+        using var labels = new MatLease(new Mat()); using var stats = new MatLease(new Mat()); using var centres = new MatLease(new Mat());
+        int count = Imgproc.ConnectedComponentsWithStats(mask.Value, labels.Value, stats.Value, centres.Value);
+        for (int i = 1; i < count && circles.Count <= 32; i++)
+        {
+            double width = stats.Value.Get(i, Imgproc.CcStatWidth)![0], height = stats.Value.Get(i, Imgproc.CcStatHeight)![0], area = stats.Value.Get(i, Imgproc.CcStatArea)![0];
+            double radius = (width + height) / 4;
+            if (radius < settings.MinimumRadius * scale || radius > settings.MaximumRadius * scale || width / height is < .6 or > 1.6 || area / (width * height) < .55) continue;
+            var c = new Circle(centres.Value.Get(i, 0)![0], centres.Value.Get(i, 1)![0], radius);
+            double margin = 23 * scale;
+            if (c.X < margin || c.Y < margin || c.X > coordinates.Width - margin || c.Y > coordinates.Height - margin ||
+                PocketCentres().Any(p => (new Point(c.X, c.Y) - p).Length < settings.PocketExclusionRadius * scale) ||
+                circles.Any(p => Math.Sqrt((p.X - c.X) * (p.X - c.X) + (p.Y - c.Y) * (p.Y - c.Y)) < settings.Separation * scale)) continue;
+            circles.Add(c);
+        }
     }
     int ClothHue(byte[] pixels)
         => ClothRange(pixels).Hue;

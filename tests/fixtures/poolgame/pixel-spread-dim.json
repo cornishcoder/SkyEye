@@ -1,0 +1,169 @@
+{
+  "description": "User spread with no pots; all 16 balls manually identified in the saved raw frame.",
+  "observedAt": "2026-10-04T21:13:31.2706041+01:00",
+  "timestampMeaning": "Camera status/download observation, not an exact image capture timestamp.",
+  "source": "Pixel 10 SkyEye Camera HLS, decoded locally without overlays",
+  "width": 1920,
+  "height": 1080,
+  "lighting": "Table lights off; ambient room light",
+  "groundTruth": {
+    "cue": 1,
+    "red": 7,
+    "yellow": 7,
+    "black": 1,
+    "racked": false
+  },
+  "pocketCentresMeaning": "Manually inspected approximate hole centres in image order TL, TR, BR, BL; normalized centre tolerance 0.02.",
+  "pocketCentres": [
+    {
+      "x": 0.069,
+      "y": 0.137
+    },
+    {
+      "x": 0.91,
+      "y": 0.052
+    },
+    {
+      "x": 0.908,
+      "y": 0.896
+    },
+    {
+      "x": 0.078,
+      "y": 0.851
+    }
+  ],
+  "calibrationMeaning": "Approximate cloth corners manually inspected for negative-regression testing only; not applied to a user's camera calibration.",
+  "calibration": [
+    {
+      "x": 0.091,
+      "y": 0.164
+    },
+    {
+      "x": 0.883,
+      "y": 0.096
+    },
+    {
+      "x": 0.885,
+      "y": 0.863
+    },
+    {
+      "x": 0.091,
+      "y": 0.819
+    }
+  ],
+  "expectedBehaviour": "Detect all 16 individually labelled balls; do not infer pots or score changes.",
+  "expected": [
+    {
+      "kind": "red",
+      "image": {
+        "x": 0.26927083333333335,
+        "y": 0.1675925925925926
+      }
+    },
+    {
+      "kind": "red",
+      "image": {
+        "x": 0.2916666666666667,
+        "y": 0.3611111111111111
+      }
+    },
+    {
+      "kind": "red",
+      "image": {
+        "x": 0.5171875,
+        "y": 0.3888888888888889
+      }
+    },
+    {
+      "kind": "red",
+      "image": {
+        "x": 0.6375,
+        "y": 0.387037037037037
+      }
+    },
+    {
+      "kind": "red",
+      "image": {
+        "x": 0.6682291666666667,
+        "y": 0.524074074074074
+      }
+    },
+    {
+      "kind": "red",
+      "image": {
+        "x": 0.6682291666666667,
+        "y": 0.23796296296296296
+      }
+    },
+    {
+      "kind": "red",
+      "image": {
+        "x": 0.7760416666666666,
+        "y": 0.637962962962963
+      }
+    },
+    {
+      "kind": "yellow",
+      "image": {
+        "x": 0.18958333333333333,
+        "y": 0.5203703703703704
+      }
+    },
+    {
+      "kind": "yellow",
+      "image": {
+        "x": 0.6213541666666667,
+        "y": 0.287962962962963
+      }
+    },
+    {
+      "kind": "yellow",
+      "image": {
+        "x": 0.69375,
+        "y": 0.4425925925925926
+      }
+    },
+    {
+      "kind": "yellow",
+      "image": {
+        "x": 0.6067708333333334,
+        "y": 0.5055555555555555
+      }
+    },
+    {
+      "kind": "yellow",
+      "image": {
+        "x": 0.7609375,
+        "y": 0.5342592592592592
+      }
+    },
+    {
+      "kind": "yellow",
+      "image": {
+        "x": 0.6817708333333333,
+        "y": 0.7148148148148148
+      }
+    },
+    {
+      "kind": "yellow",
+      "image": {
+        "x": 0.5921875,
+        "y": 0.8287037037037037
+      }
+    },
+    {
+      "kind": "cue",
+      "image": {
+        "x": 0.415625,
+        "y": 0.7953703703703704
+      }
+    },
+    {
+      "kind": "black",
+      "image": {
+        "x": 0.6682291666666667,
+        "y": 0.48333333333333334
+      }
+    }
+  ]
+}
