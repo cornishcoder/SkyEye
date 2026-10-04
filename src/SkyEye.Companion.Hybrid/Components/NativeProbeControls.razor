@@ -1,0 +1,31 @@
+@implements IDisposable
+@inject NativeMediaProbe Media
+<section class="card">
+    <strong>Native compatibility</strong>
+    <p role="status">@Media.Status</p>
+    <div class="actions">
+        <button @onclick="() => Run(Media.FixtureAsync)">Play fixture</button>
+        <button @onclick="Media.Stop">Stop video</button>
+        <button @onclick="CheckLibraries">Check native libraries</button>
+    </div>
+    <label>Camera address <input @bind="address" /></label>
+    <button @onclick="() => Run(() => Media.CameraAsync(address))">View live camera</button>
+    @if (error.Length > 0) { <p role="alert">@error</p> }
+</section>
+@code {
+    string address = "http://192.168.1.124:8765", error = "";
+    protected override void OnInitialized() => Media.Changed += OnChanged;
+    void OnChanged() => _ = InvokeAsync(StateHasChanged);
+    public void Dispose() => Media.Changed -= OnChanged;
+    async Task Run(Func<Task> action)
+    {
+        error = "";
+        try { await action(); }
+        catch (Exception e)
+        {
+            Android.Util.Log.Warn("SkyEyeLab", $"Native probe failed: {e.GetType().Name}; {e.InnerException?.GetType().Name}; {e.StackTrace}");
+            error = e is InvalidOperationException ? e.Message : "Native media check failed.";
+        }
+    }
+    Task CheckLibraries() => Run(() => { Media.CheckLibraries(); return Task.CompletedTask; });
+}

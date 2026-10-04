@@ -30,3 +30,22 @@ Run `scripts/Setup-Hybrid.ps1 -AcceptAndroidSdkLicenses` to install the pinned M
 Pixel 11 checks: Android API 37; enabled WebView `com.google.android.webview` 153.0.8010.36. Accessibility hierarchy and screenshot show the Razor page and `Microsoft.AspNetCore.Components.AI` loaded. Tool streaming and predictive decisions pass; native media and trimmed Release remain separate gates.
 
 Predictive-state finding: AgentContext rejects unconfirmed predictive state at turn completion. The fixture therefore emits a registered UI action and keeps the turn pending until accept/reject/cancel. Ending a simple text stream is insufficient to test a real interactive preview. All decisions resynchronize from canonical versioned state, so rollback cannot restore an obsolete layout. The lab installer stops its previous process and disables incremental installation to avoid testing stale assemblies.
+
+## Native host gate (P05)
+
+The lab links the existing PlayerBridge, CandidateOverlay, CastBridge and Cast options source. A MAUI handler owns the player/listeners and releases them when detached. Video and the native Cast button occupy a native region above contextual Razor controls; a full-screen transparent stack is still H01 work. Activity pause/resume stops/reopens the selected media, without mutating camera capture.
+
+Debug device evidence on Pixel 11:
+
+- Bundled silent H.264 fixture plays through ExoPlayer; native callback reports actual playing.
+- OpenCV 4.14.0 loads and sums a 2-by-2 matrix of sevens to 28 through JNI.
+- The existing WebRTC AAR creates/disposes a native PeerConnectionFactory without a microphone/session/model.
+- Real Pixel 10 HLS plays while a real typed agent tool completes; app background/foreground restores video and retains the agent snapshot.
+- Native Cast picker opens and lists Chromecast/speaker routes; it is dismissed without loading a receiver.
+- APK contains CoreCLR/JIT and all 14 ARM64 native libraries pass the ELF 16 KB alignment inspection. Physical Pixel 11 page size is 4 KB; this does not establish execution on a 16 KB device.
+
+Android 17/API 37 requires `ACCESS_LOCAL_NETWORK` at runtime for this manually addressed LAN camera and existing Cast integration. The lab declares it and requests nearby-device permission when viewing the camera; grant and live playback are verified. See [Android's local-network permission guidance](https://developer.android.com/privacy-and-security/local-network-permission?hl=en). The lab uses cleartext HTTP because the existing camera protocol is local HTTP. Camera ownership and read tokens remain native and never enter the agent projection.
+
+Native Debug build passes. Existing OpenCV generated-member warnings and duplicate packaging warnings occur when SDK 11 builds the referenced Android libraries for both their original target and the CoreCLR-compatible target; packaged native binaries are inspected directly. Trimmed Release/signing/ZIP alignment are pending.
+
+`Resources/Raw/probe.mp4` is synthetic test data, generated with FFmpeg's `testsrc2` at 640x360/24 fps for 8 seconds, H.264/yuv420p and faststart; it contains no camera footage.

@@ -5,10 +5,13 @@
              xmlns:components="clr-namespace:SkyEye.Companion.Hybrid.Components"
              x:Class="SkyEye.Companion.Hybrid.MainPage">
 
-    <BlazorWebView x:Name="blazorWebView" HostPage="wwwroot/index.html">
+    <Grid RowDefinitions="240,*">
+    <local:NativeMediaView />
+    <BlazorWebView Grid.Row="1" x:Name="blazorWebView" HostPage="wwwroot/index.html" BackgroundColor="Transparent" BlazorWebViewInitialized="WebViewInitialized">
         <BlazorWebView.RootComponents>
             <RootComponent Selector="#app" ComponentType="{x:Type components:Routes}" />
         </BlazorWebView.RootComponents>
     </BlazorWebView>
+    </Grid>
 
 </ContentPage>
