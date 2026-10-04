@@ -18,6 +18,8 @@ The full implementation plan is in [glow-up-plan.md](glow-up-plan.md). Work star
 | P03 | Complete | Real UIAgent fixture streams text, source-generated typed tool pending/result and an observable state snapshot on Pixel 11. Repeated Run stream increments state and renders three fixture choices. Desktop checks run the same adapter through the real package and prove cancellation before the effect leaves canonical state unchanged. Debug build: 0 warnings/errors |
 | P04 | Complete | Real AgentContext retains predictive state while a registered UIActionBlock waits for a human decision. Pixel 11 shows yellow preview with committed open, rejects without mutation, and refuses an expired accept after a layout change. Same-package checks prove accept once, duplicate invocation, concurrent reject and cancellation. Debug build: 0 warnings/errors |
 | P05 | Complete | Trimmed Release launches on Pixel 11; native fixture/live HLS, OpenCV calculation, WebRTC factory, typed tools and predictive decisions pass. Background/foreground restores video/state; native Cast picker opens. Signature v3, ZIP alignment and all 14 ARM64 ELF libraries pass. See evidence/hybrid-release-compatibility.json; full-screen stacking, actual receiver playback and physical 16 KB execution remain separate checks |
+| S01 | Complete | Immutable preference slices, typed touch/Sky command envelopes and receipts, serialized writer and disposable subscriptions. Core checks prove stale/duplicate/conflicting request handling, one winner for concurrent versioned commands, observer failure isolation and cancellation. Existing core/HTTP/Python/tracker/carousel checks still pass |
+| S02 | Next | Route the existing candidate overlay through the shared coordinator before migrating the product UI |
 
 No device testing is implied by a build or template listing.
 
@@ -51,3 +53,9 @@ Native Debug and trimmed Release builds pass. Release has 0 errors and 10 existi
 Release device checks repeat fixture/live playback, OpenCV/WebRTC loading, typed stream and predictive preview/reject/accept/stale accept. Layout version 3 survives an expired proposal and activity background/foreground while playback resumes. The native Cast picker also opens in Release. No inspected fatal, unhandled or missing-native-library errors. The temporary test recording is stopped and its own host lease released; camera remains armed. Production APKs/data were not migrated or reinstalled. Signing here is the lab development identity, not proof of H07 production signing/storage migration.
 
 `Resources/Raw/probe.mp4` is synthetic test data, generated with FFmpeg's `testsrc2` at 640x360/24 fps for 8 seconds, H.264/yuv420p and faststart; it contains no camera footage.
+
+## Shared commands (S01)
+
+`SkyEye.Core/Application` starts the canonical store with target-group and candidate-display preferences, the first state needed for S02. Only typed supported commands can change it. Touch and Sky carry operation IDs and expected versions through one serialized writer. Receipts describe their original decision; callers render the current store snapshot, never replay an old receipt as state. Unchanged preferences do not increment a version. Notifications are ordered, disposable and isolated from observer failures; observers post UI/further command work and return promptly.
+
+The 256-operation in-memory cache protects preference retries in this bounded window. It is not a durable at-most-once guarantee for camera saves; S03 must persist effect outcomes before those operations use this path. Connection/table/game slices are introduced with their verified adapters rather than presenting unimplemented state as fact. S01 does not yet route production buttons or voice tools through the coordinator.
