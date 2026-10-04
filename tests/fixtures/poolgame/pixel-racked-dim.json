@@ -1,0 +1,18 @@
+{
+  "description": "User-confirmed pre-break rack with table lighting off; separate cue ball and touching object balls.",
+  "observedAt": "2026-10-04T20:17:23.4618264+01:00",
+  "timestampMeaning": "Camera status/download observation, not an exact image capture timestamp.",
+  "source": "Pixel 10 SkyEye Camera HLS, decoded locally without overlays",
+  "width": 1920,
+  "height": 1080,
+  "lighting": "Table lights off; ambient room light",
+  "groundTruth": { "cue": 1, "red": 7, "yellow": 7, "black": 1, "racked": true },
+  "calibrationMeaning": "Approximate cloth corners manually inspected for negative-regression testing only; not applied to a user's camera calibration.",
+  "calibration": [
+    { "x": 0.091, "y": 0.164 },
+    { "x": 0.883, "y": 0.096 },
+    { "x": 0.885, "y": 0.863 },
+    { "x": 0.091, "y": 0.819 }
+  ],
+  "expectedBehaviour": "Withhold shot advice for this unresolved touching cluster. Do not infer pots, score changes, group assignment or automatic rack recognition. Exact ball centres are not labelled."
+}

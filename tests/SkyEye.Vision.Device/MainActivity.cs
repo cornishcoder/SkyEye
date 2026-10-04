@@ -9,6 +9,7 @@ using Stopwatch = System.Diagnostics.Stopwatch;
 using Cv = Org.Opencv.Core.Core;
 using SkyEye.Vision.Android;
 using SkyEye.Core;
+using SkyEye.Core.Analysis;
 using Point = Org.Opencv.Core.Point;
 using System.Text.Json;
 
@@ -63,6 +64,19 @@ public sealed class MainActivity : Activity
                     if (name == "synthetic-empty" && analyzer.FindCorners(buffer.ToArray()) is not null) throw new Exception("Invented automatic corners on empty cloth");
                     negativeResults.Add(new { name, count = variant.Balls.Length, variant.Uncertain, variant.Obstructed, variant.Warnings, variant.ElapsedMs });
                 }
+                using var rackLabelsReader = new StreamReader(Assets.Open("pixel-racked-dim.json"));
+                using var rackLabels = JsonDocument.Parse(rackLabelsReader.ReadToEnd());
+                var rackCalibration = new TableCalibration(rackLabels.RootElement.GetProperty("calibration").EnumerateArray()
+                    .Select(p => new SkyEye.Core.Point(p.GetProperty("x").GetDouble(), p.GetProperty("y").GetDouble())).ToArray());
+                using var rackInput = Assets.Open("pixel-racked-dim.jpg"); using var rackBytes = new MemoryStream(); rackInput.CopyTo(rackBytes);
+                var rack = analyzer.Analyze(rackBytes.ToArray(), rackCalibration);
+                // Fresh/settled/confirmed is deliberately the strongest possible admission attempt.
+                // This replay timestamp is test input, not a claim about the recorded frame's capture time.
+                var rackNow = DateTimeOffset.UtcNow;
+                var rackTable = new TableState(1, rackNow, rack.Balls, "open", true, rack.Uncertain || rack.Obstructed, true, "fixture-rack");
+                bool rackEligible = ShotPlanner.Eligible(rackTable, rackNow);
+                if (!rack.Uncertain && !rack.Obstructed || rackEligible) throw new Exception("Unresolved rack accepted for shot advice");
+                negativeResults.Add(new { name = "pixel-racked-dim", count = rack.Balls.Length, rack.Uncertain, rack.Obstructed, rack.Warnings, rack.ElapsedMs, eligible = rackEligible });
                 bool invalidRejected = false; try { analyzer.Analyze([1, 2, 3, 4], calibration); } catch (IOException) { invalidRejected = true; }
                 if (!invalidRejected) throw new Exception("Invalid JPEG accepted");
                 byte[] imageBytes = bytes.ToArray(); analyzer.Analyze(imageBytes, calibration); GC.Collect(); GC.WaitForPendingFinalizers();

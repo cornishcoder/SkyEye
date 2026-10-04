@@ -9,3 +9,7 @@
 - `device-vision-reference.json`: first successful C# OpenCV 4.14.0 device pipeline run before later-light adaptations. Later device performance/negative runs are recorded separately.
 
 Colour quality is a heuristic feature score. Native runtime version, cue gains, circle centres/radii and colour clusters are retained in device results so detection, classification and coordinates can be inspected independently.
+# Racked table with lights off
+
+`pixel-racked-dim.jpg` is an unannotated camera frame captured on 4 October 2026. The user confirmed the balls were racked for the start of a game; the image shows the separate cue ball and touching 15-ball triangle. Its JSON records human ground truth and approximate cloth corners solely for a negative regression. It does not claim automatic rack recognition, reliable dim-light classification or exact image capture timing. The device check requires shot advice to remain ineligible for this unresolved cluster, even if a caller attempts to confirm the detected layout.
+
