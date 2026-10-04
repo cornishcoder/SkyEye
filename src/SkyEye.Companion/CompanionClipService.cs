@@ -7,6 +7,17 @@ public sealed record CameraClipCatalog(Guid ConnectionId, string CameraIdentity,
 public sealed class CompanionClipService(CameraClient current, Func<CameraConnection> connection, ClipLibrary library, IPortraitClipExporter exporter)
 {
     public ClipLibrary Library => library;
+    // Resolve only a validated catalog member on the still-current camera. Read
+    // credentials stay native; the UI supplies an ID, never a media address.
+    public string TvSource(CameraClipCatalog catalog, Clip clip)
+    {
+        Check(catalog.ConnectionId, catalog.CameraIdentity);
+        if (!catalog.Clips.Contains(clip) || !Guid.TryParseExact(clip.Id, "N", out _)
+            || !double.IsFinite(clip.Duration) || clip.Duration <= 0 || clip.Duration > long.MaxValue / 1000d
+            || string.IsNullOrEmpty(current.ReadToken))
+            throw new InvalidOperationException("Refresh camera clips before playing this shot.");
+        return current.MediaUrl("/clips/" + clip.Id + "?access=" + Uri.EscapeDataString(current.ReadToken));
+    }
     public async Task<CameraClipCatalog> LoadAsync(CancellationToken cancellation)
     {
         var admitted = connection(); Check(admitted.ConnectionId, admitted.CameraIdentity);

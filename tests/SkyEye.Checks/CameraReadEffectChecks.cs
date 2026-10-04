@@ -57,6 +57,17 @@ static class CameraReadEffectChecks
         try
         {
             var catalog = await clips.LoadAsync(default); Check(catalog.Clips.Single() == clip && fileRequests == 0, "guest-readable catalog keeps connection identity");
+            camera = camera with { Ownership = CameraOwnership.Guest };
+            using (var viewer = new HttpClient())
+            {
+                using var request = new HttpRequestMessage(HttpMethod.Get, clips.TvSource(catalog, clip));
+                request.Headers.Range = new System.Net.Http.Headers.RangeHeaderValue(100, 199);
+                using var response = await viewer.SendAsync(request);
+                Check(response.StatusCode == HttpStatusCode.PartialContent && (await response.Content.ReadAsByteArrayAsync()).SequenceEqual(bytes[100..200])
+                    && authority.State == CaptureState.Active, "guest TV clip read supports buffered ranges while capture remains active");
+            }
+            await Refused(() => { clips.TvSource(catalog, clip with { Id = Guid.NewGuid().ToString("N") }); return Task.CompletedTask; });
+            camera = camera with { Ownership = CameraOwnership.Owned };
             using (var frozen = new CameraClipTransfer(current))
             {
                 current.Connect("127.0.0.1:1"); string part = Path.Combine(root, "resume.part"); await File.WriteAllBytesAsync(part, bytes[..100]);
@@ -67,6 +78,7 @@ static class CameraReadEffectChecks
             }
             current.Connect($"127.0.0.1:{port}"); current.HostToken = lease.Token; await current.StatusAsync();
             camera = camera with { ConnectionId = Guid.NewGuid() }; await Refused(() => clips.DownloadAsync(catalog, clip, null, default));
+            await Refused(() => { clips.TvSource(catalog, clip); return Task.CompletedTask; });
             entered = new(TaskCreationOptions.RunContinuationsAsynchronously); released = new(TaskCreationOptions.RunContinuationsAsynchronously); holdCatalog = true;
             var oldCatalog = clips.LoadAsync(default); await entered.Task; camera = camera with { ConnectionId = Guid.NewGuid() }; released.TrySetResult();
             await Refused(() => oldCatalog); holdCatalog = false;
