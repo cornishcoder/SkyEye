@@ -1,12 +1,13 @@
 {
   "unit": "H06",
-  "status": "device_gate_pending",
+  "status": "complete",
   "date": "2026-10-04",
   "package": "uk.co.skyeye.companion.lab",
   "device": "Pixel 11 Pro XL",
   "transport": "USB",
-  "installedApkSha256": "62F6875B9C8312AA8B686B7BE045CA897582A1548FF0B33F088A17BC6A5367FE",
-  "builds": { "hybrid": { "errors": 0, "warnings": 7 }, "baseline": { "errors": 0, "warnings": 14 } },
+  "initialInstalledApkSha256": "62F6875B9C8312AA8B686B7BE045CA897582A1548FF0B33F088A17BC6A5367FE",
+  "installedApkSha256": "80CDE16ED89EEB700AE3BFF0E496B152E4E18CC5322AE3AD43C1FAE8D7AF8674",
+  "builds": { "hybrid": { "errors": 0, "warnings": 10 }, "baseline": { "errors": 0, "warnings": 14 } },
   "automatedChecks": [
     "Actual scene projection maps skewed calibration to a portrait rectangle",
     "All six pockets remain within the retained framing border",
@@ -17,20 +18,26 @@
   ],
   "directlyObserved": [
     "Signed lab installs over USB without policy rejection",
-    "Pixel 11 is locked before the updated physical framing gate",
+    "Pixel 11 is initially locked, then becomes visible for the complete physical framing gate",
+    "Native texture metrics report applied=true, framed=true and hardware=true",
+    "Final end border 0.18 and side border 0.12 retain six complete pocket mouths",
+    "Physical framed and whole-camera views retain aligned calibrated diagonal/pocket guides",
+    "Calibration shows the original frozen frame; Android Back returns to calibrated live framing",
+    "mediaGeneration stays 2 and playing=true through framing toggles, frozen review, viewport resize and return",
+    "Framing guides are hidden after testing",
     "Before H06 installation, Start changes capture from Stopped to Active and enables Watch live",
     "Native TV picker lists Chromecast; selection receives accepted live load",
     "Cast receiver subsequently reports TV playing live camera from PLAYING state",
-    "Camera remains Active, armed, no error, eight clips; host expires after phone locks"
+    "Cast is restored after final installation and again reports TV playing live camera",
+    "Final camera status is Active, armed, owned, no error and eight clips; capture/casting deliberately continue"
   ],
   "pending": [
-    "Unlock Pixel 11 and verify hardware projective rendering and pocket/guide alignment",
-    "Verify whole-camera fallback, frozen editor return and unchanged playback on device",
     "User confirmation of actual moving table pixels on TV"
   ],
+  "nativeGuideProof": { "viewportWidth": 1344, "viewportHeight": 1869, "hardware": true, "applied": true, "framed": true, "mediaGeneration": 2, "playing": true, "maximumErrorPixels": 0.00008896649887901731 },
   "sources": ["https://developer.android.com/reference/android/view/TextureView#setTransform(android.graphics.Matrix)"],
   "limits": [
-    "This is an optional native texture spike, not a completed GPU/performance acceptance gate",
+    "This is an optional native hardware texture spike; long-session thermal/fps acceptance remains X04",
     "Framing preference is ephemeral and native to this lab; directed voice/TV presentation commands are later units",
     "Phone framing leaves raw Cast source independent; encoded-overlay/replay composition remains T01-T07",
     "No new clip is saved; capture is deliberately left active for live viewing"
