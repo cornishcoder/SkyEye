@@ -1,0 +1,38 @@
+{
+  "date": "2026-10-04",
+  "unit": "H04",
+  "package": "uk.co.skyeye.companion.lab",
+  "configuration": "Release",
+  "device": "Pixel 11 Pro XL",
+  "transport": "USB",
+  "finalApkSha256": "C7A727AAC4F772E09FBA2AFBBBE1218003EC3B076556E0D495D68D013B76B4FC",
+  "clipPlaybackGateApkSha256": "37C9D5AD651CB63C47419DA6F774D8C904627560334E184F3EFFDD16F664F1F6",
+  "builds": { "finalHybrid": { "errors": 0, "warnings": 10 }, "baseline": { "errors": 0, "warnings": 14 } },
+  "directlyObserved": [
+    "Newest existing camera clip downloads, verifies and completes the native portrait export",
+    "Downloaded row offers immediate Play and Share and a local-library entry",
+    "Playback shows the entire upright table; native ExoPlayer reports playing, volume 1, rotation 0 and 1080x1920",
+    "Share opens Android ChooserActivityLauncher; Back dismisses it without selecting a recipient",
+    "Final APK retains the downloaded clip after process replacement, with local Play/Share enabled before any camera connection",
+    "A public dummy key persists through signed reinstall/process replacement and is decrypted for configured-status observation",
+    "Final native password field has password=true and does not report the entered dummy value verbatim",
+    "Native dialog has SECURE window flag and its password input is outside WebView",
+    "Reopening key editor starts empty; Cancel and empty Save preserve configured key",
+    "Empty Save displays an actionable error; backgrounding dismisses the native editor",
+    "Explicit removal restores No personal key saved on this phone before USB disconnects",
+    "All installs, launches and control actions execute without policy rejection"
+  ],
+  "automatedChecks": [
+    "Shared clip publication, verification, cancellation/retry and exporter-failure recovery",
+    "Real HTTP frozen credentials, obsolete catalogs and transfers across camera connection changes",
+    "Real Blazor AI integration and offline media-selection recovery, obsolete camera replies and Stop"
+  ],
+  "limitations": [
+    "Native volume was observed as unmuted; audible room sound was not independently heard by the assistant",
+    "Sharing gate covers native chooser/content-URI handoff; no external share recipient selected",
+    "USB disconnected after final key cleanup; existing wireless endpoint became offline and reconnection timed out, so final-APK replay repetition was not executed",
+    "Download cancellation/background transfer failures are fixture-verified rather than induced on the phone",
+    "No real API key used or remote voice authentication attempted; real voice transport remains A02"
+  ],
+  "camera": { "armed": true, "state": "Stopped", "hasHost": false, "error": "", "clipCount": 8 }
+}
