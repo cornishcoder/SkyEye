@@ -1,0 +1,35 @@
+{
+  "unit": "S03",
+  "checkedAt": "2026-10-04T09:59:38.8678296+01:00",
+  "package": "uk.co.skyeye.companion.commands.lab",
+  "configuration": "Release",
+  "apkSha256": "03CEC4DBB07854FB002DA5B78CEE01F6841041AEE0925B0E9B12D46481034331",
+  "buildErrors": 0,
+  "buildWarnings": 11,
+  "installed": true,
+  "deviceChecks": "pending manual opening",
+  "coreChecks": [
+    "Concurrent duplicates execute once",
+    "Success, failure and stale receipts survive restart",
+    "Interrupted/corrupt reservations fail closed",
+    "Cancellation before/after reservation",
+    "Terminal result persistence failure",
+    "Slow save permits preference commands",
+    "Journal capacity never evicts replay protection"
+  ],
+  "adapterChecks": [
+    "Real HTTP framing with original operation ID",
+    "Guest, wrong token and expired lease rejection",
+    "Fresh non-secret capture scope",
+    "Known no-history refusal remains failed",
+    "Uncertain server failure never resends",
+    "Frozen endpoint/token across reconnect",
+    "No credentials or camera URL in journal"
+  ],
+  "limitations": [
+    "Device save/retry check pending manual camera-control steps",
+    "Automatic approval review rejected the remote Connect/Become host/Start test script with only blocked by policy",
+    "Production install/remote launch previously blocked; not retried",
+    "At-most-one dispatch per retained operation; unknown remote completion is not automatically recovered"
+  ]
+}
