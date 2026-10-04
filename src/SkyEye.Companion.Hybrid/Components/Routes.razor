@@ -1,38 +1,47 @@
 @implements IDisposable
+@inject ShellSession Session
 
-<main>
-    <p class="eyebrow">SKYEYE LAB</p>
-    <h1>Sky's new home</h1>
-    <p>Android Hybrid compatibility check</p>
-    <NativeProbeControls />
-    <section class="card">
-        <strong>Agent stream fixture</strong>
-        <p>These choices are test data, not live table advice.</p>
-        <p role="status">State @agent.State.Value.Version · @agent.State.Value.Group · @agent.State.Value.CandidateCount choices</p>
-        <AgentBoundary Agent="agent">
-            <ProbeControls Client="client" Agent="agent" />
-            <MessageList>
-                <BlockRenderer TBlock="UIActionBlock" Context="review">
-                    <p>@(review.IsComplete ? "Decision recorded." : "Waiting for your fixture decision.")</p>
-                </BlockRenderer>
-                <BlockRenderer TBlock="ProbeShotBlock" Context="shot">
-                    <div class="tool-result" role="status">
-                        @(shot.HasResult ? $"Ready: {shot.CandidateCount} fixture choices for {shot.Group}" : $"Checking choices for {shot.Group}…")
-                    </div>
-                </BlockRenderer>
-            </MessageList>
-        </AgentBoundary>
-    </section>
-</main>
+<AgentBoundary Agent="Session.Agent">
+    <main class="shell @(Session.SheetOpen ? "expanded" : "")">
+        @if (Session.SheetOpen)
+        {
+            <section class="sheet" aria-label="Table controls">
+                <div class="sheet-heading"><h1>Your table</h1><button class="quiet" @onclick="Close" aria-label="Close controls">Close</button></div>
+                <p class="camera-state" role="status">@Session.Agent.State.Value.Camera</p>
+                <label for="camera-address">Camera address</label>
+                <input id="camera-address" type="url" inputmode="url" autocomplete="off" spellcheck="false" @bind="address" />
+                <button class="primary" disabled="@busy" @onclick="Connect">@(busy ? "Connecting…" : "Connect camera")</button>
+                <p class="hint">Live viewing is silent. Your camera host controls recording.</p>
+                @if (Session.HasSource) { <button class="secondary" @onclick="Session.Stop">Stop viewing</button> }
+                @if (error.Length > 0) { <p class="notice" role="alert">@error</p> }
+                <details class="lab-tools"><summary>Lab checks</summary><button class="secondary" disabled="@busy" @onclick="Preview">Show table preview</button><p class="hint">A recorded preview, separate from your live table.</p></details>
+            </section>
+        }
+        <footer class="dock">
+            <div class="sky"><span class="sky-orb" aria-hidden="true"></span><div><strong>Sky</strong><span role="status">@Session.Playback</span></div></div>
+            <button class="controls" @onclick="Toggle" aria-expanded="@Session.SheetOpen" aria-label="Open table controls">@(Session.SheetOpen ? "Hide" : "Controls") <span aria-hidden="true">⌃</span></button>
+            <p class="message" role="status">@Session.Message</p>
+        </footer>
+    </main>
+</AgentBoundary>
 
 @code {
-    readonly ProbeChatClient client = new();
-    UIAgent<ProbeState> agent = null!;
-    IDisposable? subscription;
-    protected override void OnInitialized()
+    string address = "", error = "";
+    bool busy, disposed;
+    protected override void OnInitialized() { address = Session.SavedAddress; Session.Changed += Changed; }
+    void Changed() { if (!disposed) _ = InvokeAsync(StateHasChanged); }
+    void Toggle() => Session.SetSheet(!Session.SheetOpen);
+    void Close() => Session.SetSheet(false);
+    async Task Connect() => await Run(() => Session.ConnectAsync(address), close: true);
+    async Task Preview() => await Run(Session.FixtureAsync, close: true);
+    async Task Run(Func<Task> action, bool close)
     {
-        agent = ProbeAgent.Create(client);
-        subscription = agent.State.OnChanged(() => _ = InvokeAsync(StateHasChanged));
+        if (busy) return;
+        busy = true; error = "";
+        try { await action(); if (!disposed && close && Session.HasSource) Close(); }
+        catch (OperationCanceledException) { }
+        catch (Exception) { error = "The table view could not open. Check the camera and try again."; }
+        finally { busy = false; }
     }
-    public void Dispose() { subscription?.Dispose(); agent.Dispose(); client.Dispose(); }
+    public void Dispose() { disposed = true; Session.Changed -= Changed; }
 }

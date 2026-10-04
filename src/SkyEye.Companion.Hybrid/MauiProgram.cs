@@ -8,6 +8,7 @@ public static class MauiProgram
         builder.UseMauiApp<App>();
         builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<NativeMediaView, NativeMediaHandler>());
         builder.Services.AddSingleton<Probes.NativeMediaProbe>();
+        builder.Services.AddSingleton<ShellSession>();
         builder.Services.AddMauiBlazorWebView();
 #if DEBUG
         builder.Services.AddBlazorWebViewDeveloperTools();

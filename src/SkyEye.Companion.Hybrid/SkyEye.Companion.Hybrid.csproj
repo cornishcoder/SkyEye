@@ -36,6 +36,8 @@
     <AndroidJavaSource Include="../SkyEye.Companion/CastBridge.java" Link="Native/CastBridge.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/SkyEyeCastOptions.java" Link="Native/SkyEyeCastOptions.java" />
     <AndroidJavaSource Include="NativeCompatibilityProbe.java" />
+    <Compile Include="../SkyEye.Companion/CameraClient.cs" Link="Services/CameraClient.cs" />
+    <Compile Include="../SkyEye.Companion/CameraControlEffect.cs" Link="Services/CameraControlEffect.cs" />
     <MauiAsset Include="Resources/Raw/probe.mp4" LogicalName="probe.mp4" />
   </ItemGroup>
 </Project>
