@@ -19,6 +19,21 @@
     <AndroidManifestPlaceholders>skyeyeFileProvider=$(ApplicationId).files</AndroidManifestPlaceholders>
     <TrimMode>partial</TrimMode>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(SkyEyeProduction)' == 'true'">
+    <ApplicationTitle>SkyEye</ApplicationTitle>
+    <ApplicationId>uk.co.skyeye.companion</ApplicationId>
+    <ApplicationDisplayVersion>0.2</ApplicationDisplayVersion>
+    <ApplicationVersion>2</ApplicationVersion>
+    <DefineConstants>$(DefineConstants);SKYEYE_HYBRID_PRODUCTION</DefineConstants>
+    <AndroidManifestPlaceholders>skyeyeFileProvider=$(ApplicationId).files</AndroidManifestPlaceholders>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(SkyEyeProduction)' == 'true'">
+    <!-- Preserve existing save, candidates and voice workflows until their new UI adapters land. -->
+    <Compile Include="../SkyEye.Companion/*.cs" Exclude="../SkyEye.Companion/CameraClient.cs;../SkyEye.Companion/CameraControlEffect.cs;../SkyEye.Companion/CameraReadEffects.cs;../SkyEye.Companion/CompanionClipService.cs;../SkyEye.Companion/AndroidEffectAdapters.cs;../SkyEye.Companion/SecretStore.cs;../SkyEye.Companion/MigrationAudit.cs" Link="MoreControls/%(Filename)%(Extension)" />
+    <AndroidJavaSource Include="../SkyEye.Companion/OverlayEncoder.java" Link="Native/OverlayEncoder.java" />
+    <AndroidJavaSource Include="../SkyEye.Companion/OverlayTsWriter.java" Link="Native/OverlayTsWriter.java" />
+    <AndroidJavaSource Include="../SkyEye.Companion/SkyEyeRtcSession.java" Link="Native/SkyEyeRtcSession.java" />
+  </ItemGroup>
   <ItemGroup>
     <MauiIcon Include="Resources/AppIcon/appicon.svg" ForegroundFile="Resources/AppIcon/appiconfg.svg" Color="#0A131C" />
     <MauiSplashScreen Include="Resources/Splash/splash.svg" Color="#0A131C" BaseSize="128,128" />
@@ -46,6 +61,7 @@
     <Compile Include="../SkyEye.Companion/CompanionClipService.cs" Link="Services/CompanionClipService.cs" />
     <Compile Include="../SkyEye.Companion/AndroidEffectAdapters.cs" Link="Services/AndroidEffectAdapters.cs" />
     <Compile Include="../SkyEye.Companion/SecretStore.cs" Link="Services/SecretStore.cs" />
+    <Compile Include="../SkyEye.Companion/MigrationAudit.cs" Link="Services/MigrationAudit.cs" />
     <AndroidResource Include="../SkyEye.Companion/Resources/xml/file_paths.xml" Link="Resources/xml/file_paths.xml" />
     <MauiAsset Include="Resources/Raw/probe.mp4" LogicalName="probe.mp4" />
   </ItemGroup>

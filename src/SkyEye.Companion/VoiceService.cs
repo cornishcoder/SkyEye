@@ -5,7 +5,7 @@ using Android.OS;
 
 namespace SkyEye.Companion;
 
-[Service(Exported = false, ForegroundServiceType = ForegroundService.TypeMicrophone)]
+[Service(Name = "crc648b11b8ca3be5d4a4.VoiceService", Exported = false, ForegroundServiceType = ForegroundService.TypeMicrophone)]
 public sealed class VoiceService : Service
 {
     public override IBinder? OnBind(Intent? intent) => null;

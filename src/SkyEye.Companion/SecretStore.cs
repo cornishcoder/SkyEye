@@ -34,7 +34,7 @@ internal static class SecretStore
             if (envelope is null) return null;
             var parts = envelope.Split(':');
             using var cipher = Cipher.GetInstance("AES/GCM/NoPadding")!;
-            cipher.Init(CipherMode.DecryptMode, Key(), new GCMParameterSpec(128, Convert.FromBase64String(parts[0])));
+            cipher.Init(CipherMode.DecryptMode, Key(create: false), new GCMParameterSpec(128, Convert.FromBase64String(parts[0])));
             return Encoding.UTF8.GetString(cipher.DoFinal(Convert.FromBase64String(parts[1]))!);
         }
     }
@@ -46,11 +46,12 @@ internal static class SecretStore
                 throw new IOException("Could not save settings.");
     }
 
-    private static IKey Key()
+    private static IKey Key(bool create = true)
     {
         using var store = KeyStore.GetInstance("AndroidKeyStore")!;
         store.Load(null);
         if (store.ContainsAlias(Alias)) return store.GetKey(Alias, null)!;
+        if (!create) throw new IOException("The saved credential key is unavailable.");
         using var generator = KeyGenerator.GetInstance(KeyProperties.KeyAlgorithmAes, "AndroidKeyStore")!;
         using var spec = new KeyGenParameterSpec.Builder(Alias, KeyStorePurpose.Encrypt | KeyStorePurpose.Decrypt)
             .SetBlockModes(KeyProperties.BlockModeGcm)

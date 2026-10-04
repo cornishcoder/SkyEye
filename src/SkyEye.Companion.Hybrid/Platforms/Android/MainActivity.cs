@@ -4,13 +4,18 @@ using Android.OS;
 
 namespace SkyEye.Companion.Hybrid;
 
+#if SKYEYE_HYBRID_PRODUCTION
+[Activity(Name = "uk.co.skyeye.companion.MainActivity", Theme = "@style/Maui.SplashTheme", MainLauncher = true, Exported = true, ScreenOrientation = ScreenOrientation.UserPortrait, ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation | ConfigChanges.UiMode | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density)]
+#else
 [Activity(Name = "uk.co.skyeye.companion.lab.MainActivity", Theme = "@style/Maui.SplashTheme", MainLauncher = true, Exported = true, ScreenOrientation = ScreenOrientation.UserPortrait, ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation | ConfigChanges.UiMode | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density)]
+#endif
 public class MainActivity : MauiAppCompatActivity
 {
     ShellSession? shell;
     SheetBackCallback? sheetBack;
     protected override void OnCreate(Bundle? savedInstanceState)
     {
+        SkyEye.Companion.MigrationAudit.Report(this);
         base.OnCreate(savedInstanceState);
         shell = IPlatformApplication.Current!.Services.GetRequiredService<ShellSession>();
         sheetBack = new(shell);

@@ -8,6 +8,10 @@ using SkyEye.Core.Application;
 using System.Globalization;
 using System.Text.Json;
 using Point = SkyEye.Core.Point;
+using View = Android.Views.View;
+using Color = Android.Graphics.Color;
+using RectF = Android.Graphics.RectF;
+using Paint = Android.Graphics.Paint;
 
 namespace SkyEye.Companion;
 

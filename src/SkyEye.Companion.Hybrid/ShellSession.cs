@@ -126,7 +126,8 @@ public sealed partial class ShellSession : IDisposable
         }
         ApplyCameraView(generation); Publish();
     }
-    public string SavedAddress => Preferences.Get("shell-camera", "http://192.168.1.124:8765");
+    public string SavedAddress => Android.App.Application.Context.GetSharedPreferences("skyeye", Android.Content.FileCreationMode.Private)!
+        .GetString("camera", Preferences.Get("shell-camera", "http://192.168.1.124:8765"))!;
     public Task FixtureAsync() => MainThread.InvokeOnMainThreadAsync(FixtureCoreAsync);
     async Task FixtureCoreAsync()
     {
@@ -182,7 +183,7 @@ public sealed partial class ShellSession : IDisposable
         chrome.Reveal();
         if (selection.Kind is ViewingSource.Preview or ViewingSource.LocalClip) PlayCurrent();
         RefreshLocalClips(); RefreshKeyStatus();
-        _ = PollAsync(foreground.Token);
+        _ = ResumeCameraAsync(foreground.Token);
         _ = FadeAsync(foreground.Token);
     }
     async Task FadeAsync(CancellationToken token)

@@ -1,1 +1,12 @@
-<Project><PropertyGroup><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><LangVersion>latest</LangVersion><EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk><JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault></PropertyGroup></Project>
+<Project>
+  <PropertyGroup><Nullable>enable</Nullable><ImplicitUsings>enable</ImplicitUsings><LangVersion>latest</LangVersion><EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk><JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault></PropertyGroup>
+  <!-- Resolve before SDK/NuGet imports; a production build cannot reuse lab manifests or assets. -->
+  <PropertyGroup Condition="'$(MSBuildProjectName)' == 'SkyEye.Companion.Hybrid' and '$(SkyEyeProduction)' == 'true'">
+    <BaseIntermediateOutputPath>../../work/production/obj/</BaseIntermediateOutputPath>
+    <BaseOutputPath>../../work/production/bin/</BaseOutputPath>
+    <DefaultItemExcludes>$(DefaultItemExcludes);bin/**;obj/**</DefaultItemExcludes>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(SkyEyeMigrationAudit)' == 'true'">
+    <DefineConstants>$(DefineConstants);SKYEYE_MIGRATION_AUDIT</DefineConstants>
+  </PropertyGroup>
+</Project>

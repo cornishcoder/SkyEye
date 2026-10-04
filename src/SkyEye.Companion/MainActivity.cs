@@ -9,10 +9,17 @@ using Android.Widget;
 using SkyEye.Core;
 using SkyEye.Core.Application;
 using Bridge = UK.CO.Skyeye.Companion.Nativebridge;
+using Button = Android.Widget.Button;
+using Color = Android.Graphics.Color;
+using ScrollView = Android.Widget.ScrollView;
 
 namespace SkyEye.Companion;
 
+#if SKYEYE_HYBRID_PRODUCTION
+[Activity(Name = "uk.co.skyeye.companion.MoreControlsActivity", Label = "SkyEye · More controls", Theme = "@style/Theme.AppCompat.DayNight.NoActionBar", MainLauncher = false, Exported = false, ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize)]
+#else
 [Activity(Name = "uk.co.skyeye.companion.MainActivity", Label = MainActivity.AppTitle, MainLauncher = true, Exported = true, ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize)]
+#endif
 public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActivity
 {
 #if SKYEYE_COMMAND_LAB
@@ -39,10 +46,15 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
     public override void OnConfigurationChanged(Android.Content.Res.Configuration config) { base.OnConfigurationChanged(config); }
     protected override void OnCreate(Bundle? savedInstanceState)
     {
-        base.OnCreate(savedInstanceState); InitializeApp();
+        base.OnCreate(savedInstanceState); MigrationAudit.Report(this); InitializeApp();
         var root = new LinearLayout(this) { Orientation = Orientation.Vertical }; root.SetPadding(20, 24, 20, 20); root.SetBackgroundColor(Color.Rgb(10, 19, 28));
         var scroll = new ScrollView(this); scroll.AddView(root); SetContentView(scroll);
         root.AddView(Label(AppTitle, 30)); root.AddView(Label("Your table. Every shot.", 15));
+#if SKYEYE_HYBRID_PRODUCTION
+        Add(root, "Return to table view", Finish);
+        root.AddView(Label("Save recent recording, candidate shots and voice are available here while the new table controls are completed.", 14));
+        root.AddView(Label("Returning to the table view ends any conversation here. Voice can continue while this screen is in the background.", 12));
+#endif
         var settings = GetSharedPreferences("skyeye", FileCreationMode.Private)!;
         address = new EditText(this) { Hint = "Camera address · IP:8765", Text = settings.GetString("camera", "") }; address.SetSingleLine(true); address.SetTextColor(Color.White); address.SetHintTextColor(Color.Gray); root.AddView(address);
         var connectRow = Row(root); Add(connectRow, "Connect", () => _ = ConnectAsync()); Add(connectRow, "Find camera", () => discovery.Start());
@@ -125,8 +137,14 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
     }
     void SetupKey()
     {
+#if SKYEYE_HYBRID_PRODUCTION
+        // Reuse the verified, protected password dialog in the portrait surface.
+        Say("Set your personal key in the table view, then return here to talk.");
+        Finish();
+#else
         var edit = new EditText(this) { Hint = "Personal OpenAI API key", InputType = Android.Text.InputTypes.ClassText | Android.Text.InputTypes.TextVariationPassword };
         new AlertDialog.Builder(this)!.SetTitle("Maeve voice setup")!.SetMessage("Stored encrypted on this host phone. Camera and guests never receive it.")!.SetView(edit)!.SetPositiveButton("Save", (_, _) => { SecretStore.Set(this, "openai", edit.Text?.Trim() ?? ""); edit.Text = ""; Say("API key saved on this phone."); })!.SetNegativeButton("Cancel", (_, _) => { })!.Show();
+#endif
     }
     void StartMaeve()
     {
