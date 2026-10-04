@@ -1,0 +1,280 @@
+{
+  "unit": "T04 TV pause resume seek and return-live acknowledgements",
+  "date": "2026-10-04",
+  "sourceSnapshotCommit": "8a1a1c82fdbc080ed3d3feadf78302137a033708",
+  "initialPhysicalVerificationCommit": "652bb6b",
+  "finalProductionApkSha256": "8B071F54CF6680CA14F97289E8EF53A7FEF6B8BC34390A220A6B5A2FB33AFFB9",
+  "package": "uk.co.skyeye.companion",
+  "device": "Pixel 11 via USB and Chromecast",
+  "installedInPlace": true,
+  "uidAndPrivateStorageRetained": true,
+  "checks": {
+    "coreHttp": "passed",
+    "agentUi": "passed including request fencing, single flight, duplicate commands, observed effects, timeout, fractional seek bounds and current live buffering",
+    "productionRelease": {
+      "warnings": 7,
+      "errors": 0
+    },
+    "labRelease": {
+      "warnings": 7,
+      "errors": 0
+    },
+    "retainedBaselineRelease": {
+      "warnings": 14,
+      "note": "same native implementation; subsequent changes Hybrid only",
+      "errors": 0
+    }
+  },
+  "replay": {
+    "clipId": "ddcefc614f334743bdb74c66763e8797",
+    "name": "SkyEye 04 Oct 10:03:42",
+    "durationMs": 31369,
+    "request": "8fb836734fd4407bb2d60e41c2bcb42c",
+    "acceptedCommands": [
+      {
+        "connected": true,
+        "playing": false,
+        "stream": "clip",
+        "positionMs": 24000,
+        "playerState": 3,
+        "idleReason": 0,
+        "clipId": "ddcefc614f334743bdb74c66763e8797",
+        "request": "8fb836734fd4407bb2d60e41c2bcb42c",
+        "durationMs": 31369,
+        "progressCallbacks": 148,
+        "canPause": true,
+        "canSeek": true,
+        "commandId": "02ecf8167ee3421fb3bb3477e61d50dd",
+        "commandRequest": "8fb836734fd4407bb2d60e41c2bcb42c",
+        "commandAction": "seek",
+        "commandTargetMs": 24000,
+        "commandOutcome": "accepted"
+      },
+      {
+        "connected": true,
+        "playing": false,
+        "stream": "clip",
+        "positionMs": 14000,
+        "playerState": 3,
+        "idleReason": 0,
+        "clipId": "ddcefc614f334743bdb74c66763e8797",
+        "request": "8fb836734fd4407bb2d60e41c2bcb42c",
+        "durationMs": 31369,
+        "progressCallbacks": 219,
+        "canPause": true,
+        "canSeek": true,
+        "commandId": "2be57caefabb4af58b9b90e335c94628",
+        "commandRequest": "8fb836734fd4407bb2d60e41c2bcb42c",
+        "commandAction": "seek",
+        "commandTargetMs": 14000,
+        "commandOutcome": "accepted"
+      },
+      {
+        "connected": true,
+        "playing": false,
+        "stream": "clip",
+        "positionMs": 14000,
+        "playerState": 3,
+        "idleReason": 0,
+        "clipId": "ddcefc614f334743bdb74c66763e8797",
+        "request": "8fb836734fd4407bb2d60e41c2bcb42c",
+        "durationMs": 31369,
+        "progressCallbacks": 85,
+        "canPause": true,
+        "canSeek": true,
+        "commandId": "38d6dd417f7c432c99ae9779a2d72900",
+        "commandRequest": "8fb836734fd4407bb2d60e41c2bcb42c",
+        "commandAction": "seek",
+        "commandTargetMs": 14000,
+        "commandOutcome": "accepted"
+      },
+      {
+        "connected": true,
+        "playing": false,
+        "stream": "clip",
+        "positionMs": 24356,
+        "playerState": 3,
+        "idleReason": 0,
+        "clipId": "ddcefc614f334743bdb74c66763e8797",
+        "request": "8fb836734fd4407bb2d60e41c2bcb42c",
+        "durationMs": 31369,
+        "progressCallbacks": 31,
+        "canPause": true,
+        "canSeek": true,
+        "commandId": "adc6cd7101bc4248964858ed927542a1",
+        "commandRequest": "8fb836734fd4407bb2d60e41c2bcb42c",
+        "commandAction": "pause",
+        "commandTargetMs": 0,
+        "commandOutcome": "accepted"
+      },
+      {
+        "connected": true,
+        "playing": true,
+        "stream": "clip",
+        "positionMs": 4000,
+        "playerState": 2,
+        "idleReason": 0,
+        "clipId": "ddcefc614f334743bdb74c66763e8797",
+        "request": "8fb836734fd4407bb2d60e41c2bcb42c",
+        "durationMs": 31369,
+        "progressCallbacks": 259,
+        "canPause": true,
+        "canSeek": true,
+        "commandId": "e1525b753c0542a1967edeab2008a5e3",
+        "commandRequest": "8fb836734fd4407bb2d60e41c2bcb42c",
+        "commandAction": "resume",
+        "commandTargetMs": 0,
+        "commandOutcome": "accepted"
+      },
+      {
+        "connected": true,
+        "playing": false,
+        "stream": "clip",
+        "positionMs": 4000,
+        "playerState": 3,
+        "idleReason": 0,
+        "clipId": "ddcefc614f334743bdb74c66763e8797",
+        "request": "8fb836734fd4407bb2d60e41c2bcb42c",
+        "durationMs": 31369,
+        "progressCallbacks": 226,
+        "canPause": true,
+        "canSeek": true,
+        "commandId": "f3301425f8f9417e8ed9e85daa37fd69",
+        "commandRequest": "8fb836734fd4407bb2d60e41c2bcb42c",
+        "commandAction": "seek",
+        "commandTargetMs": 4000,
+        "commandOutcome": "accepted"
+      }
+    ],
+    "fullReceiverSamples": "tv-replay-controls-progress.json",
+    "sampleCount": 69,
+    "observed": "Pause at 24.356 seconds; paused seeks to 14, 24, 14 and 4 seconds; resume from 4 seconds advances to natural completion.",
+    "finalBuildPauseUi": [
+      {
+        "text": "SkyEye 04 Oct 10:03:42 · 0:04 / 0:32 · Paused",
+        "enabled": "true",
+        "bounds": "[123,1447][1221,1519]"
+      },
+      {
+        "text": "TV confirmed pause",
+        "enabled": "true",
+        "bounds": "[123,1552][1221,1627]"
+      },
+      {
+        "text": "Pause TV clip",
+        "enabled": "false",
+        "bounds": "[123,1696][654,1915]"
+      },
+      {
+        "text": "Resume TV clip",
+        "enabled": "true",
+        "bounds": "[690,1696][1221,1915]"
+      }
+    ],
+    "finalBuildPlayingSeekUi": [
+      {
+        "text": "SkyEye 04 Oct 10:03:42 · 0:28 / 0:32 · Playing with room audio",
+        "enabled": "true",
+        "bounds": "[123,1447][1221,1591]"
+      },
+      {
+        "text": "TV confirmed seek to 0:15",
+        "enabled": "true",
+        "bounds": "[123,1624][1221,1696]"
+      }
+    ],
+    "finalBuildObserved": "Pause at 4 seconds; resume; Forward 10 seeks to 15 seconds and preserves playing; receiver-backed UI confirms seek and position subsequently advances to 28 seconds.",
+    "finalConfirmationVisuallyInspected": true,
+    "commandConfirmation": "Requires matching receiver load and command, native accepted receipt, and observed requested state or seek position; API acceptance alone is insufficient."
+  },
+  "physicalUserConfirmations": [
+    {
+      "question": "Did picture pause, jump when seeking and move again on resume?",
+      "answer": "yes"
+    },
+    {
+      "question": "Did playback resume and switch back to live table successfully?",
+      "answer": "yes"
+    }
+  ],
+  "returnLive": {
+    "initialReceiver": {
+      "connected": true,
+      "playing": false,
+      "stream": "scene",
+      "positionMs": 25193,
+      "playerState": 4,
+      "idleReason": 0,
+      "liveRequest": "62730275f9134940a1ba66e8339dc6e1"
+    },
+    "finalReceiver": {
+      "connected": true,
+      "playing": false,
+      "stream": "scene",
+      "positionMs": 22003,
+      "playerState": 4,
+      "idleReason": 0,
+      "liveRequest": "c74a9b1e11ed407fb67608b53adf7ad7"
+    },
+    "finalUi": [
+      {
+        "text": "TV buffering live table…",
+        "enabled": "true",
+        "bounds": "[123,1351][1221,1423]"
+      },
+      {
+        "text": "TV confirmed live playback",
+        "enabled": "true",
+        "bounds": "[123,1456][1221,1531]"
+      },
+      {
+        "text": "Live table on TV · silent.",
+        "enabled": "true",
+        "bounds": "[117,2731][1227,2797]"
+      }
+    ],
+    "semantics": "Matching live request observed PLAYING confirms the return command. Subsequent live buffering is separately shown as current status and does not rewrite that completed command."
+  },
+  "capture": {
+    "before": {
+      "state": "Active",
+      "sessionId": "50d79a8d453e404d8bf111b2da351e09",
+      "revision": 71,
+      "battery": 98,
+      "clipCount": 8,
+      "error": ""
+    },
+    "during": {
+      "state": "Active",
+      "sessionId": "50d79a8d453e404d8bf111b2da351e09",
+      "revision": 71,
+      "battery": 98,
+      "clipCount": 8,
+      "error": ""
+    },
+    "after": {
+      "state": "Active",
+      "sessionId": "50d79a8d453e404d8bf111b2da351e09",
+      "revision": 71,
+      "battery": 100,
+      "clipCount": 8,
+      "error": ""
+    },
+    "hostOrCaptureOperationRequired": false,
+    "newClipSaved": false
+  },
+  "limitations": [
+    "Intermittent existing corrected live receiver buffering remains X02; observed on final return live.",
+    "Failure, stale request, duplicate and timeout paths are deterministic checks, not induced physical receiver failures.",
+    "Slider admission and bounds checked; physical seeks exercised with ten-second buttons.",
+    "Camera must remain reachable; saved replay retains original clip framing. Slow motion and replay composition remain separate chunks."
+  ],
+  "cleanup": {
+    "ownedAdbForwardRemoved": true,
+    "cameraLeftActive": true,
+    "tvReturnedLive": true,
+    "ownedDiagnosticsReaderStopped": true,
+    "personalKeyUsed": false
+  },
+  "next": "T05 bounded temporary recent replay; A02-A05 voice remains deferred"
+}

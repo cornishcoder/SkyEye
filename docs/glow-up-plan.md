@@ -235,7 +235,7 @@ The previous eight milestones were not sufficiently small as individual commits.
 | T01 | Generalize shared native scene beyond candidate paths | Phone/encoded TV show same scene versions; sheets excluded |
 | T02 | Target-specific live/choices/pin/clear/score commands | Phone and TV can differ intentionally; 2s/10s cycling retained |
 | T03 | Buffered MP4 load and replay position callbacks — implemented 4 Oct | Chromecast plays a saved camera clip with position callbacks; phone stays live and current capture continues. Evidence: saved-clip-tv.json |
-| T04 | Pause/resume/seek/return-live commands | Phone and physical TV acknowledge requested operations |
+| T04 | Pause/resume/seek/return-live commands — implemented 4 Oct | Receiver-backed confirmations and physical TV pause/seek/resume/return-live verified; final production build also preserves playback when seeking. Evidence: tv-replay-controls.json |
 | T05 | Recent replay window and bounded temporary asset lifetime | Camera timeline selects correct window; library not cluttered |
 | T06 | Playback-rate support/fallback slow-motion proof | Physical TV plays measured 0.25x/0.5x when offered |
 | T07 | Freeze/zoom and non-live compositor support | Frozen replay and pocket zoom work without live-player requirement |
