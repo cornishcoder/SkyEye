@@ -1,13 +1,13 @@
 {
   "unit": "S03",
-  "checkedAt": "2026-10-04T09:59:38.8678296+01:00",
+  "checkedAt": "2026-10-04T10:05:23.2291805+01:00",
   "package": "uk.co.skyeye.companion.commands.lab",
   "configuration": "Release",
   "apkSha256": "03CEC4DBB07854FB002DA5B78CEE01F6841041AEE0925B0E9B12D46481034331",
   "buildErrors": 0,
   "buildWarnings": 11,
   "installed": true,
-  "deviceChecks": "pending manual opening",
+  "deviceChecks": "passed in Release lab, user performs camera-control/save/retry steps, assistant verifies read-only",
   "coreChecks": [
     "Concurrent duplicates execute once",
     "Success, failure and stale receipts survive restart",
@@ -27,9 +27,31 @@
     "No credentials or camera URL in journal"
   ],
   "limitations": [
-    "Device save/retry check pending manual camera-control steps",
-    "Automatic approval review rejected the remote Connect/Become host/Start test script with only blocked by policy",
+    "Physical restart retry and forced transport loss tested in core/HTTP fixtures; not induced on the phone",
+    "Automatic approval review blocks remote Connect/Become host/Start script with only blocked by policy; user performs phone test manually",
     "Production install/remote launch previously blocked; not retried",
     "At-most-one dispatch per retained operation; unknown remote completion is not automatically recovered"
-  ]
+  ],
+  "observed": [
+    "Release lab starts and connects to Pixel 10",
+    "User records at least 30 seconds and saves selected 30-second replay",
+    "Camera clip count increases from 7 to 8",
+    "Retry last save displays Original result: Saved 31.4 seconds on camera",
+    "Clip count remains 8 after retry",
+    "Stopped, armed, unowned camera without error after user cleanup"
+  ],
+  "latestTestClip": {
+    "id": "ddcefc614f334743bdb74c66763e8797",
+    "duration": 31.369,
+    "bytes": 23800813,
+    "sha256": "56529E5B1E9D02F04B4D52967E8E93F0D7687CDF4470C41EE00FCE51CE81A95B",
+    "createdAt": "2026-10-04T10:03:42.5578666+01:00"
+  },
+  "cleanup": {
+    "armed": true,
+    "state": "Stopped",
+    "host": null,
+    "error": "",
+    "clipCount": 8
+  }
 }

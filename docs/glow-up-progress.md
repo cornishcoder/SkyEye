@@ -20,7 +20,7 @@ The full implementation plan is in [glow-up-plan.md](glow-up-plan.md). Work star
 | P05 | Complete | Trimmed Release launches on Pixel 11; native fixture/live HLS, OpenCV calculation, WebRTC factory, typed tools and predictive decisions pass. Background/foreground restores video/state; native Cast picker opens. Signature v3, ZIP alignment and all 14 ARM64 ELF libraries pass. See evidence/hybrid-release-compatibility.json; full-screen stacking, actual receiver playback and physical 16 KB execution remain separate checks |
 | S01 | Complete | Immutable preference slices, typed touch/Sky command envelopes and receipts, serialized writer and disposable subscriptions. Core checks prove stale/duplicate/conflicting request handling, one winner for concurrent versioned commands, observer failure isolation and cancellation. Existing core/HTTP/Python/tracker/carousel checks still pass |
 | S02 | Complete | Existing overlay/group controls dispatch typed shared commands. Separate Commands Lab verifies live native candidates, 2-second index rotation, roughly 10-second analysis refresh, uncertainty clearing/recovery and stop/release cleanup. Core checks and both Debug app builds pass. See evidence/shared-candidate-commands.json; production installation remains blocked |
-| S03 | In progress | Durable save outcomes, existing button routing and native camera adapter implemented. Core and real HTTP integration checks pass. Production Release and Commands Lab Debug/Release builds pass; device save/retry check pending |
+| S03 | Complete | Durable save admission/outcomes, native authority adapter and existing button routing. Core/real HTTP checks and Android builds pass. User-operated Release lab check creates one clip; retry returns the original result and count stays 8. Camera stopped, armed and unowned. See evidence/shared-save-commands.json |
 
 No device testing is implied by a build or template listing.
 
@@ -94,3 +94,9 @@ Build verification: production Release and Commands Lab Debug/Release succeed wi
 
 
 The Release lab is manually opened by the user. The next remote UI script containing Connect, Become host and Start is rejected by automatic approval review with only `blocked by policy` and no specific reason. None of that script executes. The user is asked to perform the bounded save/retry check and Stop/Release cleanup manually; read-only inspection remains available. This is an approval-review rejection, not an Android package conflict, and uninstalling existing apps is unnecessary. S03 remains in progress until that device result is observed. See evidence/shared-save-commands.json for the verified automated checks and explicit pending device gate.
+
+### Release device gate completed
+
+The user performs Connect/Become host/Start, waits at least 30 seconds, then selects the 30-second save and retries that same operation. Read-only verification observes the camera clip count rise from 7 to 8, and the Release lab displays **Original result: Saved 31.4 seconds on camera** after retry. The count remains 8. Metadata identifies one new 31.4-second test clip; the requested replay is rounded at the existing segment boundary, within the validated two-second allowance. Camera is stopped, armed, unowned and without error after the user's Stop/Release cleanup. No clips are deleted.
+
+S03 is complete. App-restart replay, interruption/transport loss and terminal persistence failure are proved in core/real HTTP fixtures; those failures are not induced on the physical phone. The physical device proves the Release journal's actual serialization and duplicate read path. The next planned unit is S04, connection/host/capture effects using existing camera authority. The visible portrait shell remains H01.
