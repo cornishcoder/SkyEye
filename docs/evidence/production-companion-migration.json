@@ -1,6 +1,6 @@
 {
   "unit": "H07",
-  "status": "storage-launch-and-control-handoff-verified-live-repetition-pending",
+  "status": "complete",
   "date": "2026-10-04",
   "sourceCommit": "91e81a6717c56ce3cd16e57ee75a834016e39aa4",
   "package": "uk.co.skyeye.companion",
@@ -16,9 +16,18 @@
   "signingCertificateSha256": "54A26D27FA0A0BFE68F0C96F9640229E4D9A9B2FA0AD1861BC9CE874CE65A7C1",
   "signingScope": "Existing local Android Debug certificate; Release build configuration, not public distribution signing",
   "builds": {
-    "productionRelease": { "errors": 0, "warnings": 10 },
-    "independentLabRelease": { "errors": 0, "warnings": 7 },
-    "retainedBaselineRelease": { "errors": 0, "warnings": 10 }
+    "productionRelease": {
+      "errors": 0,
+      "warnings": 10
+    },
+    "independentLabRelease": {
+      "errors": 0,
+      "warnings": 7
+    },
+    "retainedBaselineRelease": {
+      "errors": 0,
+      "warnings": 10
+    }
   },
   "automatedChecks": [
     "Core checks, real camera control HTTP, table session and clip/read-effect fixtures pass",
@@ -59,19 +68,22 @@
     "More controls rechecks and recognizes the existing host lease",
     "Releasing the lease there and returning to portrait immediately reports Host available",
     "Final installed APK repeats exact data comparison and original native clip playback",
-    "Camera installation is unchanged; no clip is saved and no key is changed"
+    "Camera installation is unchanged; no clip is saved and no key is changed",
+    "After charging above 10%, production Become host and Start change capture to Active and clear the protection error",
+    "Production Watch live renders the complete upright table; native metrics report playing=true, volume=0, rotation=90, 1920x1080 source",
+    "The original production calibration is restored; framing reports too little pocket border and safely preserves the complete camera image without modifying the saved calibration",
+    "Production Choose TV lists Chromecast and accepted live load progresses to observed TV playing live camera"
   ],
   "latestCameraObservation": {
-    "capture": "Stopped",
-    "batteryPercent": 8,
+    "capture": "Active",
+    "batteryPercent": 16,
     "clipCount": 8,
-    "stopReason": "Camera battery/storage protection",
-    "ampleStorageObserved": true,
-    "hostReleasedDuringHandoffCheck": true,
-    "restartAttemptedAfterProtection": false
+    "error": "",
+    "hasHost": true,
+    "previousStopReason": "Camera battery/storage protection",
+    "restartAttemptedOnlyAfterBatteryAbove10": true
   },
   "pending": [
-    "Charge Pixel 10 above 10% for post-update live video, calibrated framing and Cast repetition",
     "Actual TV pixels remain unconfirmed by the user",
     "Actual microphone foreground-service and voice transport re-verification remains A02",
     "Audible room sound is not independently heard by the assistant",
