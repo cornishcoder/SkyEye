@@ -1,0 +1,27 @@
+{
+  "observedAt": "2026-10-04T19:49:32.3908498+01:00",
+  "encodedFrame": {
+    "sceneVersion": 2,
+    "mediaGeneration": 4,
+    "tableVersion": 0,
+    "sourcePositionMs": 3375,
+    "paths": 2,
+    "markers": 3
+  },
+  "phoneFrame": {
+    "sceneVersion": 2,
+    "mediaGeneration": 4,
+    "tableVersion": 0,
+    "sourcePositionMs": 3385,
+    "paths": 2,
+    "markers": 3
+  },
+  "encodedPtsUs": 18287113,
+  "receiver": {
+    "connected": true,
+    "playing": true,
+    "stream": "scene",
+    "positionMs": 12397,
+    "playerState": 2
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "unit": "T01",
+  "status": "complete",
+  "date": "2026-10-04",
+  "sourceSnapshotCommit": "63a198e2967c37248c9acd34c54d325995b274dd",
+  "provenance": "APKs built from the code in this source snapshot; documentation-only edits followed compilation",
+  "device": "Pixel 11 Pro XL",
+  "transport": "USB",
+  "productionPackage": "uk.co.skyeye.companion",
+  "productionApkSha256": "880FE8009771BB18F5498B5B4D8CEBB2A207683B20BDA191AD3E7DC974EE5097",
+  "labApkSha256": "4AA60A53E8F6ABCD866695D791D9E27A7924CA69400117EE64659F9935646D31",
+  "builds": {
+    "baselineRelease": {
+      "warnings": 14,
+      "errors": 0
+    },
+    "productionRelease": {
+      "warnings": 14,
+      "errors": 0
+    },
+    "labRelease": {
+      "warnings": 7,
+      "errors": 0
+    }
+  },
+  "checks": [
+    "Core scene immutability, scope/expiry, finite/bounded geometry and score/content validation passed",
+    "All existing core/HTTP/command/analysis/clip checks passed",
+    "Real AI package and portrait projection/framing checks passed",
+    "Annex-B and AVCC TS checks: each 60 decoded frames match source",
+    "Installed recorded vision checks passed on Pixel 11: dim retains 16 balls; dark flags uncertain"
+  ],
+  "directlyObserved": [
+    "Live dim table plays in portrait on Pixel 11",
+    "Actual Android scene gate rejects wrong media generation and duplicate revision",
+    "Phone and encoded frame report scene versions 1 and 2, generation 4, two paths and three markers",
+    "Decoded landscape relay frame has corresponding paths, markers, upright caption, note and demo score",
+    "Controls/key-setup sheet visible on phone is absent from corresponding encoded media",
+    "User confirms demo overlay on physical TV",
+    "After 60-second expiry both surfaces report scene version 0, zero paths and markers; live video continues",
+    "Home/return clears scene and phone reports TV playing live camera",
+    "Production in-place update retains UID and private storage; live portrait playback repeated",
+    "Camera remains Active, armed, battery 34 percent, no error, 8 clips, no host"
+  ],
+  "fixtureLighting": "Controlled recorded regression frames; this does not establish accuracy for tonight's changed lighting",
+  "pending": [
+    "T02 real candidate/touch/target-specific scene commands",
+    "G01-G05 ledger before production score publication",
+    "Background service compositor: currently foreground only with raw camera fallback",
+    "X02 long-session TV latency and buffering; intermittent receiver buffering observed",
+    "Real ball detection accuracy in lights-off conditions"
+  ],
+  "sceneCheckHiddenInProduction": true,
+  "privateKeyExposedOrSent": false,
+  "clipSaved": false,
+  "captureLeftActive": true
+}
