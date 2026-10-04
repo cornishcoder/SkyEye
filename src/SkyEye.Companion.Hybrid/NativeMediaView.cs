@@ -28,7 +28,7 @@ public sealed class NativeMediaHandler : ViewHandler<NativeMediaView, FrameLayou
         var activity = Platform.CurrentActivity ?? throw new InvalidOperationException("Android activity required.");
         probe = MauiContext!.Services.GetRequiredService<NativeMediaProbe>();
         session = MauiContext.Services.GetRequiredService<ShellSession>();
-        playerListener = new(probe, session); castListener = new(probe);
+        playerListener = new(probe, session); castListener = new(probe, session);
         player = new(activity, playerListener); cast = new(activity, castListener);
         container = new FrameLayout(activity);
         density = activity.Resources!.DisplayMetrics!.Density;
@@ -125,8 +125,8 @@ public sealed class NativeMediaHandler : ViewHandler<NativeMediaView, FrameLayou
         public void OnError(string? error) { probe.Report(error ?? "Native playback interrupted"); session.ReportError(); }
         public void OnPlaying(bool playing) { probe.Report(playing ? "Native ExoPlayer playing · silent" : "Native player waiting"); session.ReportPlaying(playing); }
     }
-    sealed class CastListener(NativeMediaProbe probe) : Java.Lang.Object, Bridge.CastBridge.IListener
+    sealed class CastListener(NativeMediaProbe probe, ShellSession session) : Java.Lang.Object, Bridge.CastBridge.IListener
     {
-        public void OnStatus(string? status) => probe.Report(status ?? "Native Cast status changed");
+        public void OnStatus(string? status) { probe.Report(status ?? "Native Cast status changed"); session.ReportCast(status); }
     }
 }

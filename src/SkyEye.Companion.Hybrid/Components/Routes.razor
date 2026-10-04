@@ -8,11 +8,27 @@
             <section class="sheet" aria-label="Table controls">
                 <div class="sheet-heading"><h1>Your table</h1><button class="quiet" @onclick="Close" aria-label="Close controls">Close</button></div>
                 <p class="camera-state" role="status">@Session.Agent.State.Value.Camera</p>
+                <section class="control-section" aria-label="Camera connection">
+                <h2>Camera</h2>
+                <button class="secondary" disabled="@(busy || Session.FindingCamera)" @onclick="Find">@(Session.FindingCamera ? "Finding cameras…" : "Find camera")</button>
+                @foreach (var camera in Session.Cameras)
+                { <button class="secondary" disabled="@busy" @onclick="() => SelectCamera(camera)">@camera.Name</button> }
                 <label for="camera-address">Camera address</label>
                 <input id="camera-address" type="url" inputmode="url" autocomplete="off" spellcheck="false" @bind="address" />
                 <button class="primary" disabled="@busy" @onclick="Connect">@(busy ? "Connecting…" : "Connect camera")</button>
-                <p class="hint">Live viewing is silent. Your camera host controls recording.</p>
-                @if (Session.HasSource) { <button class="secondary" @onclick="Session.Stop">Stop viewing</button> }
+                </section>
+                <CameraControls View="Session.Agent.State.Value" Busy="busy" HostName="Session.HostName" OnCommand="Control" />
+                <section class="control-section" aria-label="Live viewing">
+                <h2>Live table</h2><p class="hint">Viewing is silent. Recording keeps room audio.</p>
+                <button class="secondary" disabled="@(busy || !Session.CanCastLive)" @onclick="Watch">Watch live</button>
+                @if (Session.HasSource) { <button class="quiet" @onclick="Session.Stop">Stop viewing</button> }
+                </section>
+                <section class="control-section" aria-label="TV viewing">
+                <h2>TV</h2><p class="hint" role="status">@Session.TvStatus</p>
+                <button class="secondary" disabled="@busy" @onclick="ChooseTv">Choose TV</button>
+                <button class="secondary" disabled="@(busy || !Session.CanCastLive || !Session.TvConnected)" @onclick="Session.PlayTv">Play live on TV</button>
+                <button class="quiet" disabled="@(busy || !Session.TvConnected)" @onclick="Session.StopTv">Disconnect TV</button>
+                </section>
                 @if (error.Length > 0) { <p class="notice" role="alert">@error</p> }
                 <details class="lab-tools"><summary>Lab checks</summary><button class="secondary" disabled="@busy" @onclick="Preview">Play test video</button><p class="hint">A recorded playback check, separate from your live table.</p></details>
             </section>
@@ -42,13 +58,18 @@
     void Close() => Session.SetSheet(false);
     async Task Connect() => await Run(() => Session.ConnectAsync(address), close: true);
     async Task Preview() => await Run(Session.FixtureAsync, close: true);
-    async Task Run(Func<Task> action, bool close)
+    async Task Find() => await Run(Session.FindCamerasAsync);
+    async Task SelectCamera(CameraChoice camera) { address = camera.Address; await Connect(); }
+    async Task Control(CameraControlRequest request) => await Run(() => Session.ControlCameraAsync(request));
+    async Task Watch() => await Run(Session.WatchLiveAsync, close: true);
+    async Task ChooseTv() => await Run(Session.ChooseTvAsync);
+    async Task Run(Func<Task> action, bool close = false)
     {
         if (busy) return;
         busy = true; error = "";
         try { await action(); if (!disposed && close && Session.HasSource) Close(); }
         catch (OperationCanceledException) { }
-        catch (Exception) { error = "The table view could not open. Check the camera and try again."; Session.ShowError(error); }
+        catch (Exception) { error = "The request could not finish. Check the connection and try again."; Session.ShowError(error); }
         finally { busy = false; }
     }
     public void Dispose() { disposed = true; Session.Changed -= Changed; }

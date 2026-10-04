@@ -34,6 +34,7 @@
     <AndroidJavaSource Include="../SkyEye.Companion/PlayerBridge.java" Link="Native/PlayerBridge.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/CandidateOverlay.java" Link="Native/CandidateOverlay.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/CastBridge.java" Link="Native/CastBridge.java" />
+    <AndroidJavaSource Include="../SkyEye.Companion/DiscoveryBridge.java" Link="Native/DiscoveryBridge.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/SkyEyeCastOptions.java" Link="Native/SkyEyeCastOptions.java" />
     <AndroidJavaSource Include="NativeCompatibilityProbe.java" />
     <Compile Include="../SkyEye.Companion/CameraClient.cs" Link="Services/CameraClient.cs" />

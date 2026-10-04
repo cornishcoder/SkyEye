@@ -11,9 +11,10 @@ namespace SkyEye.Companion.Hybrid;
 public sealed record ShellViewState(long Version, string Camera, bool Playing)
 {
     public ShellViewState() : this(0, "Connect your camera", false) { }
+    public CameraConnection Connection { get; init; } = CameraConnection.Empty;
 }
 
-public sealed class ShellSession : IDisposable
+public sealed partial class ShellSession : IDisposable
 {
     readonly CameraClient client = new();
     readonly CameraControlEffect effects;
@@ -42,7 +43,19 @@ public sealed class ShellSession : IDisposable
     public ShellSession()
     {
         chrome = new(() => clock.Elapsed);
-        effects = new(client);
+        var settings = Android.App.Application.Context.GetSharedPreferences("skyeye", Android.Content.FileCreationMode.Private)!;
+        try
+        {
+            var savedCamera = settings.GetString("camera", "");
+            if (!string.IsNullOrWhiteSpace(savedCamera)) { client.Connect(savedCamera); client.HostToken = settings.GetString("host", null); }
+        }
+        catch (ArgumentException) { settings.Edit()!.Remove("host")!.Apply(); }
+        effects = new(client, token =>
+        {
+            var edit = settings.Edit()!;
+            if (token is null) edit.Remove("host"); else edit.PutString("host", token);
+            edit.Apply();
+        });
         app = new(cameraControls: effects);
         Agent = new(agentClient, _ => { }, new ShellViewState());
         subscription = app.Subscribe(_ => MainThread.BeginInvokeOnMainThread(Publish));
@@ -58,6 +71,7 @@ public sealed class ShellSession : IDisposable
     public void Attach(Bridge.PlayerBridge player, Bridge.CastBridge cast)
     {
         this.player = player; this.cast = cast; player.SetPortrait(true);
+        Android.Util.Log.Info("SkyEyeShell", "Native media handler attached");
         selection.Suspend();
         if (active && selection.Kind == ViewingSource.Preview) PlayCurrent();
         if (active && selection.Kind == ViewingSource.Live) _ = RefreshAsync(foreground?.Token ?? CancellationToken.None);
@@ -72,7 +86,6 @@ public sealed class ShellSession : IDisposable
         if (playing && !Playing) chrome.Reveal();
         Playing = playing; Playback = playing ? "Live table · silent" : "Waiting for your table";
         if (playing && selection.Kind == ViewingSource.Preview) Playback = "Test video";
-        if (playing) chrome.SetAttention(false);
         Publish();
     }
     public void ReportError() { Playing = false; Playback = "Viewing interrupted"; ShowError("The table view is reconnecting."); }
@@ -92,7 +105,11 @@ public sealed class ShellSession : IDisposable
         if (cancellation.IsCancellationRequested || generation != selection.Generation || disposed) return;
         Message = result.Succeeded ? "Camera connected." : result.Message;
         chrome.SetAttention(!result.Succeeded);
-        if (result.Succeeded) Preferences.Set("shell-camera", client.Address);
+        if (result.Succeeded)
+        {
+            Preferences.Set("shell-camera", client.Address);
+            Android.App.Application.Context.GetSharedPreferences("skyeye", Android.Content.FileCreationMode.Private)!.Edit()!.PutString("camera", client.Address)!.Apply();
+        }
         ApplyCameraView(generation); Publish();
     }
     public string SavedAddress => Preferences.Get("shell-camera", "http://192.168.1.124:8765");
@@ -127,6 +144,7 @@ public sealed class ShellSession : IDisposable
     {
         if (!active || selection.Source is not { } source || player is null) return;
         player.SetPortrait(true); player.SetMuted(true); player.Play(source);
+        Android.Util.Log.Info("SkyEyeShell", "Native playback started: " + selection.Kind);
         selection.Started();
         cast?.Configure(selection.Kind == ViewingSource.Live ? source : "", true);
     }
@@ -138,7 +156,7 @@ public sealed class ShellSession : IDisposable
     }
     public void Suspend()
     {
-        active = false; foreground?.Cancel(); foreground?.Dispose(); foreground = null;
+        active = false; foreground?.Cancel(); foreground?.Dispose(); foreground = null; StopDiscovery();
         player?.Stop(); Playing = false; selection.Suspend(); Publish();
     }
     public void Resume()
@@ -152,6 +170,7 @@ public sealed class ShellSession : IDisposable
     }
     async Task FadeAsync(CancellationToken token)
     {
+        var nextCastCheck = TimeSpan.Zero;
         try
         {
             using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(250));
@@ -163,6 +182,12 @@ public sealed class ShellSession : IDisposable
                     bool wasVisible = chrome.Visible, wasAccessible = chrome.Accessible;
                     chrome.SetAccessibility(manager?.IsTouchExplorationEnabled == true);
                     chrome.CanFade = HasSource && Playing;
+                    if (clock.Elapsed >= nextCastCheck)
+                    {
+                        nextCastCheck = clock.Elapsed + TimeSpan.FromSeconds(1);
+                        var wasConnected = TvConnected; ObserveCast();
+                        if (wasConnected != TvConnected) Publish();
+                    }
                     bool tickChanged = chrome.Tick();
                     if (tickChanged || wasVisible != chrome.Visible || wasAccessible != chrome.Accessible) Changed?.Invoke();
                 });
@@ -190,6 +215,7 @@ public sealed class ShellSession : IDisposable
             {
                 // Only a live selection may resume automatically; stopping/previewing overrides a late refresh.
                 if (generation == selection.Generation && selection.Kind == ViewingSource.Live) ApplyCameraView(generation);
+                ObserveCast();
                 Publish();
             });
         }
@@ -207,7 +233,7 @@ public sealed class ShellSession : IDisposable
             CameraReachability.Reachable => "Camera ready",
             _ => "Connect your camera"
         };
-        Agent.State.Value = new(app.State.Version, camera, Playing); Changed?.Invoke();
+        Agent.State.Value = new(app.State.Version, camera, Playing) { Connection = state }; Changed?.Invoke();
     }
     public void Dispose()
     {

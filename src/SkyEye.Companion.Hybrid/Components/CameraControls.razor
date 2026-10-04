@@ -1,0 +1,40 @@
+@using SkyEye.Core
+@using SkyEye.Core.Application
+
+<section class="control-section" aria-label="Recording controls">
+    <h2>Recording</h2>
+    <p class="hint" role="status">@Ownership</p>
+    @if (View.Connection.Scope is { } scope)
+    {
+        @if (View.Connection.Ownership == CameraOwnership.Available)
+        {
+            <button class="secondary" disabled="@Busy" @onclick="() => Send(new ClaimCameraHost(scope, HostName))">Become host</button>
+        }
+        @if (View.Connection.CanControl)
+        {
+            <div class="capture-actions">
+                @if (View.Connection.Armed == true && View.Connection.Capture is CaptureState.Ready or CaptureState.Stopped)
+                { <button class="primary" disabled="@Busy" @onclick="() => Send(new ChangeCapture(scope, CaptureAction.Start))">Start recording</button> }
+                @if (View.Connection.Capture == CaptureState.Active)
+                { <button class="secondary" disabled="@Busy" @onclick="() => Send(new ChangeCapture(scope, CaptureAction.Pause))">Pause recording</button> }
+                @if (View.Connection.Armed == true && View.Connection.Capture == CaptureState.Paused)
+                { <button class="primary" disabled="@Busy" @onclick="() => Send(new ChangeCapture(scope, CaptureAction.Resume))">Resume recording</button> }
+                @if (View.Connection.Capture is CaptureState.Active or CaptureState.Paused or CaptureState.Faulted)
+                { <button class="secondary" disabled="@Busy" @onclick="() => Send(new ChangeCapture(scope, CaptureAction.Stop))">Stop recording</button> }
+                <button class="quiet" disabled="@Busy" @onclick="() => Send(new ReleaseCameraHost(scope))">Release control</button>
+            </div>
+        }
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public ShellViewState View { get; set; } = null!;
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public string HostName { get; set; } = "SkyEye companion";
+    [Parameter] public EventCallback<CameraControlRequest> OnCommand { get; set; }
+    Task Send(CameraCommand command) => OnCommand.InvokeAsync(new(View.Version, command));
+    string Ownership => View.Connection.Reachability != CameraReachability.Reachable ? "Connect to your camera first."
+        : View.Connection.CanControl ? $"You control this camera · {View.Connection.Capture}"
+        : View.Connection.Ownership == CameraOwnership.Available ? $"Host available · {View.Connection.Capture}"
+        : $"Viewing as guest · {View.Connection.Capture}";
+}
