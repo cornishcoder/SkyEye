@@ -1,6 +1,6 @@
 {
   "unit": "S04",
-  "checkedAt": "2026-10-04T10:36:21+01:00",
+  "checkedAt": "2026-10-04T10:38:51+01:00",
   "package": "uk.co.skyeye.companion.commands.lab",
   "configuration": "Release",
   "apkSha256": "7F838A48A2A08438AF109E27DE3802CA3FB85493BBFCFD2BA612DE79B2EA1A6A",
@@ -9,7 +9,7 @@
     "labRelease": { "errors": 0, "warnings": 7 }
   },
   "installed": true,
-  "deviceChecks": "pending user-operated capture transitions and background host expiry",
+  "deviceChecks": "user reports completing capture transitions and background host expiry; assistant directly verifies final released/stopped state and hidden controls",
   "coreChecks": [
     "Typed guest/authority/transition admission",
     "Pending and completed duplicate handling across command types",
@@ -32,11 +32,25 @@
     "Canonical camera state excludes native credentials and viewing URLs"
   ],
   "limitations": [
-    "Physical transition and background-expiry gate pending",
+    "Intermediate physical transition/expiry states are user-reported; assistant read-only observations verify final cleanup",
     "Automatic approval review previously blocked remote launch and camera-control taps with only blocked by policy and no specific reason; not retried",
     "Production installation previously blocked; built APK is ready but not installed",
     "Lost acknowledgement, queued races and invalid credentials verified in core/HTTP fixtures, not induced on the phone",
     "Camera controls retain bounded in-process receipts; durable replay protection remains specific to clip saves"
   ],
-  "beforeDeviceCheck": { "armed": true, "state": "Stopped", "host": null, "error": "", "clipCount": 8 }
+  "beforeDeviceCheck": { "armed": true, "state": "Stopped", "host": null, "error": "", "clipCount": 8 },
+  "userReportedSequence": [
+    "Connect, claim host, start, pause and resume",
+    "Home screen for 40 seconds; reopen and check Active with Host available and hidden capture controls",
+    "Claim host, stop and release"
+  ],
+  "directlyObserved": [
+    "Updated Release lab installed at 2026-10-04 10:36:23",
+    "Lab displays Host control released.",
+    "Lab displays Stopped and Host available",
+    "Capture and release buttons are absent from visible app hierarchy",
+    "Camera confirms stopped, armed, unowned and no error",
+    "Clip count remains 8"
+  ],
+  "cleanup": { "armed": true, "state": "Stopped", "host": null, "error": "", "clipCount": 8, "revision": 20 }
 }
