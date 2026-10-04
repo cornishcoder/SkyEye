@@ -153,10 +153,13 @@ tvReplay.Clear();
 Check(!tvReplay.ObserveCommand(commandRequest, timeoutId, "accepted") && !tvReplay.CanControl, "return-live/disconnect cancels pending clip commands");
 var liveProof = new SkyEye.Companion.Hybrid.TvLiveSelection();
 var liveRequest = liveProof.Begin(tvCamera, commandTime);
-Check(!liveProof.Observe(liveRequest, "clip", 2) && !liveProof.Observe(liveRequest, "scene", 4), "return-live waits for matching live PLAYING proof");
+Check(!liveProof.Observe(liveRequest, "clip", 2) && liveProof.Observe(liveRequest, "scene", 4)
+    && liveProof.Outcome == SkyEye.Companion.Hybrid.TvCommandOutcome.Pending && liveProof.PlayerState == 4, "return-live records buffering but waits for matching PLAYING proof");
 Check(!liveProof.Observe(Guid.NewGuid().ToString("N"), "camera", 2), "obsolete live media cannot confirm current request");
 Check(liveProof.Expire(commandTime.AddSeconds(20)) && liveProof.Outcome == SkyEye.Companion.Hybrid.TvCommandOutcome.Unknown, "buffered live acknowledgement times out honestly");
 Check(liveProof.Observe(liveRequest, "scene", 2) && liveProof.Outcome == SkyEye.Companion.Hybrid.TvCommandOutcome.Confirmed, "later current live proof can establish playback");
+Check(liveProof.Observe(liveRequest, "scene", 4) && liveProof.PlayerState == 4 && liveProof.Outcome == SkyEye.Companion.Hybrid.TvCommandOutcome.Confirmed,
+    "later live buffering remains visible without erasing fulfilled command proof");
 liveProof.Clear();
 Check(!liveProof.Observe(liveRequest, "camera", 2), "camera switch or clip replacement clears live proof");
 Console.WriteLine("PASS TV controls: scoped admission, single flight, duplicates, receiver pause/resume/seek proof, fractional end bounds, rejection, timeout and return-live confirmation");

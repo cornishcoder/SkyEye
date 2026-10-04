@@ -100,8 +100,19 @@ public sealed partial class ShellSession
         catch { tvReplay.ObserveCommand(command.Request, command.Id, "rejected"); }
         ObserveCast(); Publish();
     }
-    bool ObserveTvLive(JsonElement metrics) => metrics.TryGetProperty("liveRequest", out var request)
-        && metrics.TryGetProperty("stream", out var stream) && metrics.TryGetProperty("playerState", out var state)
-        && tvLive.Observe(request.GetString(), stream.GetString(), state.GetInt32());
+    bool ObserveTvLive(JsonElement metrics)
+    {
+        if (!metrics.TryGetProperty("liveRequest", out var request) || !metrics.TryGetProperty("stream", out var stream)
+            || !metrics.TryGetProperty("playerState", out var state)) return false;
+        var changed = tvLive.Observe(request.GetString(), stream.GetString(), state.GetInt32());
+        if (changed) TvStatus = tvLive.PlayerState switch
+        {
+            4 => "TV buffering live table…", 3 => "TV live playback paused", 1 => "TV live playback stopped",
+            2 when tvLive.Stream == "scene" => AutomaticPocketsCurrent && FrameTableRequested ? "TV playing rectangular table" : "TV playing table overlay",
+            2 when tvLive.Stream == "candidates" => "TV playing candidate overlay", 2 => "TV playing live camera",
+            _ => "Waiting for TV live playback…"
+        };
+        return changed;
+    }
     bool ExpireTvCommands() => tvReplay.ExpireCommand(DateTimeOffset.UtcNow) | tvLive.Expire(DateTimeOffset.UtcNow);
 }
