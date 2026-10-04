@@ -8,7 +8,7 @@
     {
         <article class="clip" @key="@($"remote-{clip.Id}")">
             <p>@clip.Name <span class="hint">· @clip.Duration.ToString("0")s</span></p>
-            <button class="secondary" disabled="@(Busy || !Session.TvConnected || !Session.CanLoadClips)" @onclick="() => Session.PlayClipOnTv(clip)" aria-label="@($"Watch {clip.Name} on TV")">Watch on TV</button>
+            <button class="secondary" disabled="@(Busy || !Session.TvConnected || !Session.CanLoadClips)" @onclick="() => WatchTv.InvokeAsync(clip)" aria-label="@($"Watch {clip.Name} on TV")">Watch on TV</button>
             @if (clip.Available)
             {
                 <p class="hint">Saved on this phone</p>
@@ -38,4 +38,5 @@
     [Parameter, EditorRequired] public ShellSession Session { get; set; } = null!;
     [Parameter] public bool Busy { get; set; }
     [Parameter] public EventCallback<string> Share { get; set; }
+    [Parameter] public EventCallback<ShellClipChoice> WatchTv { get; set; }
 }

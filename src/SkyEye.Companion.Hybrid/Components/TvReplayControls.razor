@@ -1,0 +1,40 @@
+@if (Session.TvReplaySelected)
+{
+    var renderedRequest = Session.TvReplayRequest;
+    var renderedSeek = seekSeconds;
+    <div class="clip-actions">
+        <button class="secondary" disabled="@(Busy || !Session.CanPauseTvReplay)" @onclick="() => Session.ControlTvReplay(renderedRequest, TvReplayAction.Pause)">Pause TV clip</button>
+        <button class="secondary" disabled="@(Busy || !Session.CanResumeTvReplay)" @onclick="() => Session.ControlTvReplay(renderedRequest, TvReplayAction.Resume)">Resume TV clip</button>
+    </div>
+    <div class="clip-actions">
+        <button class="secondary" disabled="@(Busy || !Session.CanSeekTvReplay)" @onclick="() => Back(renderedRequest)">Back 10 seconds</button>
+        <button class="secondary" disabled="@(Busy || !Session.CanSeekTvReplay)" @onclick="() => Forward(renderedRequest)">Forward 10 seconds</button>
+    </div>
+    <label for="tv-clip-position">TV clip position · @Clock(seekSeconds)</label>
+    <input id="tv-clip-position" type="range" min="0" max="@Session.TvReplayDuration" step="1" value="@seekSeconds"
+           disabled="@(Busy || !Session.CanSeekTvReplay)" @oninput="PreviewSeek" />
+    <button class="secondary" disabled="@(Busy || !Session.CanSeekTvReplay)" @onclick="() => Seek(renderedRequest, renderedSeek)">Seek TV clip</button>
+    @if (Session.TvCommandStatus.Length > 0) { <p class="hint" role="status">@Session.TvCommandStatus</p> }
+}
+
+@code {
+    [Parameter, EditorRequired] public ShellSession Session { get; set; } = null!;
+    [Parameter] public bool Busy { get; set; }
+    string? request;
+    long seekSeconds;
+    bool previewing;
+    protected override void OnParametersSet()
+    {
+        if (request != Session.TvReplayRequest) { request = Session.TvReplayRequest; previewing = false; }
+        if (!previewing) seekSeconds = Session.TvReplayPosition;
+    }
+    static string Clock(long seconds) => $"{seconds / 60}:{seconds % 60:00}";
+    void PreviewSeek(ChangeEventArgs args)
+    {
+        if (long.TryParse(args.Value?.ToString(), out var value))
+        { seekSeconds = Math.Clamp(value, 0, Session.TvReplayDuration); previewing = true; }
+    }
+    void Back(string? scope) { Session.ControlTvReplay(scope, TvReplayAction.Seek, Math.Max(0, Session.TvReplayPosition - 10)); previewing = false; }
+    void Forward(string? scope) { Session.ControlTvReplay(scope, TvReplayAction.Seek, Math.Min(Session.TvReplayDuration, Session.TvReplayPosition + 10)); previewing = false; }
+    void Seek(string? scope, long target) { Session.ControlTvReplay(scope, TvReplayAction.Seek, target); previewing = false; }
+}

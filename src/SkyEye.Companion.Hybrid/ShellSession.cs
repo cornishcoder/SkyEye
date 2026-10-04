@@ -214,7 +214,8 @@ public sealed partial class ShellSession : IDisposable
                     {
                         nextCastCheck = clock.Elapsed + TimeSpan.FromSeconds(1);
                         var wasConnected = TvConnected; var replayChanged = ObserveCast();
-                        if (wasConnected != TvConnected || replayChanged) Publish();
+                        var commandExpired = ExpireTvCommands();
+                        if (wasConnected != TvConnected || replayChanged || commandExpired) Publish();
                     }
                     bool tickChanged = chrome.Tick();
                     if (tickChanged || wasVisible != chrome.Visible || wasAccessible != chrome.Accessible) Changed?.Invoke();
@@ -254,6 +255,7 @@ public sealed partial class ShellSession : IDisposable
         if (disposed) return;
         var state = app.State.Camera;
         if (TvReplaySelected && tvReplay.Connection != state.ConnectionId) { tvReplay.Clear(); cast?.Configure("", true); }
+        if (tvLive.Request is not null && tvLive.Connection != state.ConnectionId) { tvLive.Clear(); cast?.Configure("", true); }
         InvalidateClipCatalog(state.ConnectionId);
         ObserveTable();
         EnsurePocketLoop();

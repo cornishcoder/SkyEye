@@ -5,7 +5,28 @@ namespace SkyEye.Companion.Hybrid;
 public sealed partial class ShellSession
 {
     readonly TvReplaySelection tvReplay = new();
+    readonly TvLiveSelection tvLive = new();
+    bool tvCanPause, tvCanSeek;
     public bool TvReplaySelected => tvReplay.Selected;
+    public string? TvReplayRequest => tvReplay.Request;
+    public long TvReplayPosition => tvReplay.PositionSeconds;
+    public long TvReplayDuration => tvReplay.DurationSeconds;
+    public bool CanPauseTvReplay => TvConnected && tvReplay.CanControl && tvCanPause && tvReplay.PlayerState == 2;
+    public bool CanResumeTvReplay => TvConnected && tvReplay.CanControl && tvReplay.PlayerState == 3;
+    public bool CanSeekTvReplay => TvConnected && tvReplay.CanControl && tvCanSeek;
+    public string TvCommandStatus => tvReplay.Command is not { } command ? "" : tvReplay.CommandOutcome switch
+    {
+        TvCommandOutcome.Pending => "Waiting for TV confirmation…",
+        TvCommandOutcome.Confirmed => command.Action switch { TvReplayAction.Pause => "TV confirmed pause", TvReplayAction.Resume => "TV confirmed resume", _ => $"TV confirmed seek to {Clock(command.PositionMs / 1000)}" },
+        TvCommandOutcome.Rejected => "TV declined that request. Check playback and try again.",
+        TvCommandOutcome.Unknown => "TV has not confirmed that request. Check playback before retrying.",
+        _ => ""
+    };
+    public string TvLiveConfirmation => tvLive.Outcome switch
+    {
+        TvCommandOutcome.Pending => "Waiting for TV to play live…", TvCommandOutcome.Confirmed => "TV confirmed live playback",
+        TvCommandOutcome.Unknown => "TV has not confirmed live playback yet. You can retry Play live on TV.", _ => ""
+    };
     public string TvReplayProgress => !tvReplay.Selected ? "" : !tvReplay.Confirmed ? "Waiting for the TV…"
         : $"{tvReplay.Name} · {Clock(tvReplay.PositionSeconds)} / {Clock(tvReplay.DurationSeconds)} · {ReplayState}";
     string ReplayState => tvReplay.PlayerState switch
@@ -30,6 +51,7 @@ public sealed partial class ShellSession
         {
             var source = clips.TvSource(admitted, clip);
             ClearSceneCheck(); CloseShotRelay();
+            tvLive.Clear(); tvCanPause = tvCanSeek = false;
             var request = tvReplay.Begin(admitted.ConnectionId, clip.Id, clip.Name, clip.Duration);
             cast.PlayClip(source, clip.Id, clip.Name, (long)Math.Ceiling(clip.Duration * 1000), request);
             TvStatus = "Sending your saved shot to TV…";
@@ -48,8 +70,38 @@ public sealed partial class ShellSession
             || !metrics.TryGetProperty("playerState", out var state)) return false;
         var changed = tvReplay.Observe(request.GetString(), clip.GetString(), position.GetInt64(), duration.GetInt64(), state.GetInt32(),
             metrics.TryGetProperty("idleReason", out var idle) ? idle.GetInt32() : 0);
+        if (tvReplay.Request == request.GetString() && tvReplay.ClipId == clip.GetString())
+        {
+            var pause = metrics.TryGetProperty("canPause", out var canPause) && canPause.GetBoolean();
+            var seek = metrics.TryGetProperty("canSeek", out var canSeek) && canSeek.GetBoolean();
+            changed |= pause != tvCanPause || seek != tvCanSeek; tvCanPause = pause; tvCanSeek = seek;
+            if (metrics.TryGetProperty("commandId", out var id) && metrics.TryGetProperty("commandRequest", out var commandRequest)
+                && metrics.TryGetProperty("commandOutcome", out var outcome))
+                changed |= tvReplay.ObserveCommand(commandRequest.GetString(), id.GetString(), outcome.GetString());
+        }
         if (changed && tvReplay.Confirmed && tvReplay.PlayerState == 1)
             TvStatus = tvReplay.IdleReason == 1 ? "TV clip finished · play another shot or return live" : "TV clip stopped · play another shot or return live";
         return changed;
     }
+    public void ControlTvReplay(string? request, TvReplayAction action, long seconds = 0)
+    {
+        if (!MainThread.IsMainThread) { MainThread.BeginInvokeOnMainThread(() => ControlTvReplay(request, action, seconds)); return; }
+        if (!active || disposed || cast is null) return;
+        ObserveCast();
+        if (!TvConnected || request != tvReplay.Request || !tvReplay.CanControl
+            || action == TvReplayAction.Pause && !CanPauseTvReplay || action == TvReplayAction.Seek && !CanSeekTvReplay) return;
+        var command = tvReplay.BeginCommand(request, Guid.NewGuid().ToString("N"), action, seconds, DateTimeOffset.UtcNow);
+        if (command is null) return;
+        try
+        {
+            if (!cast.ControlClip(command.Request, command.Id, action.ToString().ToLowerInvariant(), command.PositionMs))
+                tvReplay.ObserveCommand(command.Request, command.Id, "rejected");
+        }
+        catch { tvReplay.ObserveCommand(command.Request, command.Id, "rejected"); }
+        ObserveCast(); Publish();
+    }
+    bool ObserveTvLive(JsonElement metrics) => metrics.TryGetProperty("liveRequest", out var request)
+        && metrics.TryGetProperty("stream", out var stream) && metrics.TryGetProperty("playerState", out var state)
+        && tvLive.Observe(request.GetString(), stream.GetString(), state.GetInt32());
+    bool ExpireTvCommands() => tvReplay.ExpireCommand(DateTimeOffset.UtcNow) | tvLive.Expire(DateTimeOffset.UtcNow);
 }
