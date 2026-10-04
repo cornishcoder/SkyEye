@@ -11,10 +11,11 @@ public sealed partial class AppCoordinator
     readonly Queue<Guid> order = [];
     readonly Action<Exception>? observerError;
     readonly ClipSaveExecutor? clipSaves;
+    readonly TimeProvider sceneClock;
     long nextSubscription;
     SkyEyeState state = SkyEyeState.Empty;
-    public AppCoordinator(Action<Exception>? observerError = null, ClipSaveExecutor? clipSaves = null, ICameraControlEffect? cameraControls = null)
-    { this.observerError = observerError; this.clipSaves = clipSaves; this.cameraControls = cameraControls; }
+    public AppCoordinator(Action<Exception>? observerError = null, ClipSaveExecutor? clipSaves = null, ICameraControlEffect? cameraControls = null, TimeProvider? clock = null)
+    { this.observerError = observerError; this.clipSaves = clipSaves; this.cameraControls = cameraControls; sceneClock = clock ?? TimeProvider.System; }
     public SkyEyeState State => Volatile.Read(ref state);
 
     // Subscribe first, then read State for initial rendering. Observers must return
@@ -66,10 +67,10 @@ public sealed partial class AppCoordinator
                     SkyEyeState? updated = envelope.Command switch
                     {
                         ShowShotChoices show => state with { Presentation = new(show.Enabled) },
-                        SetTargetGroup group when Enum.IsDefined(group.Group) => state with { Advice = new(group.Group) },
-                        _ => null
+                        SetTargetGroup group when Enum.IsDefined(group.Group) => group.Group == state.Advice.TargetGroup ? state : ClearShotCatalog(state with { Advice = new(group.Group) }),
+                        _ => SceneCommand(envelope)
                     };
-                    if (updated is null) result = Receipt(envelope, CommandOutcome.Rejected, "This command is not supported.");
+                    if (updated is null) result = Receipt(envelope, CommandOutcome.Rejected, envelope.Command is PinShot ? "That shot is no longer current. Check the latest choices." : envelope.Command is SetShotDisplay { Mode: ShotDisplayMode.Score } ? "Start a supported match before showing its score." : "This command is not supported.");
                     else if (updated == state) result = Receipt(envelope, CommandOutcome.Unchanged, "Already set.");
                     else
                     {

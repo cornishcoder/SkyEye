@@ -97,6 +97,7 @@ Console.WriteLine("PASS real HTTP download ranges, invalid offsets and HEAD");
 Console.WriteLine("PASS real companion command client against the camera HTTP server");
 PortChecks.Run();
 await AppCoordinatorChecks.Run();
+await SceneCommandChecks.Run();
 await ClipSaveChecks.Run();
 await CameraClipSaveChecks.Run();
 await CameraCommandChecks.Run();

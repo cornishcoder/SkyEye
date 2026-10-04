@@ -119,7 +119,9 @@ public sealed partial class AppCoordinator
     void CommitCamera(CameraConnection connection)
     {
         if (state.Camera == connection) return;
-        Volatile.Write(ref state, state with { Version = checked(state.Version + 1), Camera = connection }); Notify(state);
+        var updated = state with { Version = checked(state.Version + 1), Camera = connection };
+        if (!connection.CanControl || connection.Capture != CaptureState.Active || connection.Scope != state.Camera.Scope) updated = ClearShotCatalog(updated);
+        Volatile.Write(ref state, updated); Notify(state);
     }
     static async Task<CommandReceipt> DuplicateAsync(Task<CommandReceipt> pending) => (await pending.ConfigureAwait(false)) with { Duplicate = true };
     Task<CommandReceipt> BeginSaveCommand(CommandEnvelope envelope, CancellationToken cancellation)
