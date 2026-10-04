@@ -11,10 +11,11 @@ import java.nio.*;
 import java.util.*;
 import java.util.concurrent.*;
 
-/** Bounded 960x540, 10fps, silent AVC feed of the main live view with annotations.
+/** Bounded 1920x1080, 10fps, silent AVC feed of the main live view with annotations.
  * Camera archive/capture is independent. Two reusable encoder bitmaps may be in flight;
  * PlayerBridge owns one reusable raw capture bitmap for perspective composition. */
 public final class OverlayEncoder {
+    private static final int WIDTH=1920,HEIGHT=1080,BITRATE=6000000;
     public interface Listener { void onError(String message); }
     private final PlayerBridge source;private final Listener listener;private final File directory;
     private final Handler main=new Handler(Looper.getMainLooper());
@@ -26,7 +27,7 @@ public final class OverlayEncoder {
     private volatile boolean closed;private Thread worker;private volatile long frames,skipped,encodedPtsUs;private volatile String error="",encodedFrame="{}";
     private static final class Segment { final String name;final long sequence;final double duration;Segment(String name,long sequence,double duration){this.name=name;this.sequence=sequence;this.duration=duration;}String name(){return name;}long sequence(){return sequence;}double duration(){return duration;} }
     public OverlayEncoder(Activity activity,PlayerBridge source,String directory,Listener listener){this.source=source;this.listener=listener;this.directory=new File(directory);this.directory.mkdirs();}
-    public void start(){for(int i=0;i<2;i++)free.add(Bitmap.createBitmap(960,540,Bitmap.Config.ARGB_8888));worker=new Thread(this::encode,"SkyEyeOverlayVideo");worker.start();main.post(capture);}
+    public void start(){for(int i=0;i<2;i++)free.add(Bitmap.createBitmap(WIDTH,HEIGHT,Bitmap.Config.ARGB_8888));worker=new Thread(this::encode,"SkyEyeOverlayVideo");worker.start();main.post(capture);}
     private final Runnable capture=new Runnable(){public void run(){if(closed)return;
         if(pending.isEmpty()){Bitmap image=free.poll();if(image!=null){try{String metadata=source.captureFrame(image);if(metadata==null){metadata="{}";image.eraseColor(Color.BLACK);Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);p.setColor(Color.WHITE);p.setTextSize(26);new Canvas(image).drawText("Waiting for live video…",24,48,p);}if(!pending.offer(new CapturedFrame(image,metadata)))free.offer(image);}catch(Exception e){free.offer(image);}}else skipped++;}else skipped++;
         main.postDelayed(this,100);
@@ -37,13 +38,13 @@ public final class OverlayEncoder {
         text.append("#EXT-X-TARGETDURATION:").append((int)Math.ceil(list.stream().mapToDouble(Segment::duration).max().orElse(3))).append("\n#EXT-X-MEDIA-SEQUENCE:").append(list.get(0).sequence()).append('\n');
         for(Segment s:list)text.append("#EXTINF:").append(String.format(Locale.ROOT,"%.6f",s.duration())).append(",\n").append(s.name()).append("?access=").append(access).append('\n');return text.toString();
     }
-    public synchronized String metrics(){return "{\"width\":960,\"height\":540,\"fps\":10,\"frames\":"+frames+",\"skipped\":"+skipped+",\"segments\":"+segments.size()+",\"failed\":"+(!error.isEmpty())+",\"encodedPtsUs\":"+encodedPtsUs+",\"encodedFrame\":"+encodedFrame+",\"phoneFrame\":"+source.sceneMetrics()+",\"presentation\":"+source.presentation()+"}";}
+    public synchronized String metrics(){return "{\"width\":"+WIDTH+",\"height\":"+HEIGHT+",\"fps\":10,\"bitrate\":"+BITRATE+",\"frames\":"+frames+",\"skipped\":"+skipped+",\"segments\":"+segments.size()+",\"failed\":"+(!error.isEmpty())+",\"encodedPtsUs\":"+encodedPtsUs+",\"encodedFrame\":"+encodedFrame+",\"phoneFrame\":"+source.sceneMetrics()+",\"presentation\":"+source.presentation()+"}";}
     private synchronized void completed(File temporary,File finalFile,long sequence,double duration)throws IOException{
         if(!temporary.renameTo(finalFile))throw new IOException("Overlay segment could not be finalized");segments.add(new Segment(finalFile.getName(),sequence,duration));
         while(segments.size()>16){Segment old=segments.remove();new File(directory,old.name()).delete();}
     }
     private void encode(){MediaCodec codec=null;Surface input=null;Egl egl=null;OverlayTsWriter writer=null;File temporary=null,finalFile=null;
-        try{MediaFormat format=MediaFormat.createVideoFormat("video/avc",960,540);format.setInteger(MediaFormat.KEY_COLOR_FORMAT,MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);format.setInteger(MediaFormat.KEY_FRAME_RATE,10);format.setInteger(MediaFormat.KEY_BIT_RATE,2000000);format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL,2);
+        try{MediaFormat format=MediaFormat.createVideoFormat("video/avc",WIDTH,HEIGHT);format.setInteger(MediaFormat.KEY_COLOR_FORMAT,MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);format.setInteger(MediaFormat.KEY_FRAME_RATE,10);format.setInteger(MediaFormat.KEY_BIT_RATE,BITRATE);format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL,2);
             codec=MediaCodec.createEncoderByType("video/avc");codec.configure(format,null,null,MediaCodec.CONFIGURE_FLAG_ENCODE);input=codec.createInputSurface();codec.start();egl=new Egl(input);
             MediaCodec.BufferInfo info=new MediaCodec.BufferInfo();byte[] config=null;long origin=System.nanoTime(),nextSync=2000000,start=0,last=0,sequence=0;TreeMap<Long,String> submitted=new TreeMap<>();
             while(!closed){CapturedFrame frame=pending.poll(200,TimeUnit.MILLISECONDS);if(frame==null)continue;Bitmap bitmap=frame.image;long pts=(System.nanoTime()-origin)/1000;
@@ -71,7 +72,7 @@ public final class OverlayEncoder {
         }
         static FloatBuffer buffer(float[] data){FloatBuffer b=ByteBuffer.allocateDirect(data.length*4).order(ByteOrder.nativeOrder()).asFloatBuffer();b.put(data).position(0);return b;}
         static int shader(int type,String source){int id=GLES20.glCreateShader(type);GLES20.glShaderSource(id,source);GLES20.glCompileShader(id);int[] ok=new int[1];GLES20.glGetShaderiv(id,GLES20.GL_COMPILE_STATUS,ok,0);if(ok[0]==0)throw new IllegalStateException("Encoder shader compile failed");return id;}
-        void draw(Bitmap bitmap,long pts){GLES20.glViewport(0,0,960,540);GLES20.glUseProgram(program);GLES20.glBindTexture(GLES20.GL_TEXTURE_2D,texture);GLUtils.texImage2D(GLES20.GL_TEXTURE_2D,0,bitmap,0);int position=GLES20.glGetAttribLocation(program,"p"),coord=GLES20.glGetAttribLocation(program,"t");GLES20.glEnableVertexAttribArray(position);GLES20.glEnableVertexAttribArray(coord);GLES20.glVertexAttribPointer(position,2,GLES20.GL_FLOAT,false,0,vertices);GLES20.glVertexAttribPointer(coord,2,GLES20.GL_FLOAT,false,0,uv);GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP,0,4);EGLExt.eglPresentationTimeANDROID(display,surface,pts*1000);if(!EGL14.eglSwapBuffers(display,surface))throw new IllegalStateException("Encoder frame unavailable");}
+        void draw(Bitmap bitmap,long pts){GLES20.glViewport(0,0,WIDTH,HEIGHT);GLES20.glUseProgram(program);GLES20.glBindTexture(GLES20.GL_TEXTURE_2D,texture);GLUtils.texImage2D(GLES20.GL_TEXTURE_2D,0,bitmap,0);int position=GLES20.glGetAttribLocation(program,"p"),coord=GLES20.glGetAttribLocation(program,"t");GLES20.glEnableVertexAttribArray(position);GLES20.glEnableVertexAttribArray(coord);GLES20.glVertexAttribPointer(position,2,GLES20.GL_FLOAT,false,0,vertices);GLES20.glVertexAttribPointer(coord,2,GLES20.GL_FLOAT,false,0,uv);GLES20.glDrawArrays(GLES20.GL_TRIANGLE_STRIP,0,4);EGLExt.eglPresentationTimeANDROID(display,surface,pts*1000);if(!EGL14.eglSwapBuffers(display,surface))throw new IllegalStateException("Encoder frame unavailable");}
         public void close(){GLES20.glDeleteTextures(1,new int[]{texture},0);GLES20.glDeleteProgram(program);EGL14.eglMakeCurrent(display,EGL14.EGL_NO_SURFACE,EGL14.EGL_NO_SURFACE,EGL14.EGL_NO_CONTEXT);EGL14.eglDestroySurface(display,surface);EGL14.eglDestroyContext(display,context);EGL14.eglTerminate(display);}
     }
 }

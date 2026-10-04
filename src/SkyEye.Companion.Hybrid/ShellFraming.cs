@@ -40,7 +40,7 @@ public sealed partial class ShellSession
             scene = JsonSerializer.Serialize(new { width, height, values = projection.Values, clip = new[] { projection.Left, projection.Top, projection.Left + projection.Width, projection.Top + projection.Height }, framed = projection.Framed, guides, pockets });
             status = projection.Framed ? "Rectangular table · corner pockets found automatically" : FrameTableRequested && selection.Kind == ViewingSource.Live ? "Finding corner pockets automatically · whole camera for now" : "Whole camera · all pockets visible";
             var tvProjection = projection.Framed ? SceneProjection.Pockets(960, 540, videoWidth, videoHeight, calibration!, portrait: false) : null;
-            var tvFraming = tvProjection is null ? "" : JsonSerializer.Serialize(new { values = tvProjection.Values, clip = new[] { tvProjection.Left, tvProjection.Top, tvProjection.Left + tvProjection.Width, tvProjection.Top + tvProjection.Height }, pockets });
+            var tvFraming = tvProjection is null ? "" : JsonSerializer.Serialize(new { width = 960, height = 540, values = tvProjection.Values, clip = new[] { tvProjection.Left, tvProjection.Top, tvProjection.Left + tvProjection.Width, tvProjection.Top + tvProjection.Height }, pockets });
             if (tvFraming != lastTvFraming) { player.SetTvSceneTransform(tvFraming); lastTvFraming = tvFraming; }
         }
         if (scene != lastScene)

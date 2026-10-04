@@ -78,6 +78,18 @@ public sealed class MainActivity : Activity
                 using var emptyInput = Assets.Open("synthetic-empty.jpg"); using var emptyBytes = new MemoryStream(); emptyInput.CopyTo(emptyBytes);
                 if (analyzer.FindPockets(emptyBytes.ToArray()) is not null) throw new Exception("Invented pockets on empty image");
                 negativeResults.Add(new { name = "automatic-dim-rack-pockets", rackPockets, maximumCentreError = pocketError });
+                foreach (string pocketName in new[] { "pixel-table", "pixel-later-light", "pixel-cushion-shadow", "synthetic-dim", "synthetic-dark" })
+                {
+                    using var pocketInput = Assets.Open(pocketName + ".jpg"); using var pocketBytes = new MemoryStream(); pocketInput.CopyTo(pocketBytes);
+                    var pockets = analyzer.FindPockets(pocketBytes.ToArray()) ?? throw new Exception("Automatic pockets missing: " + pocketName);
+                    negativeResults.Add(new { name = "automatic-pockets-" + pocketName, pockets });
+                }
+                using var obscuredEncoded = new MatLease(new MatOfByte(rackBytes.ToArray()));
+                using var obscured = new MatLease(Imgcodecs.Imdecode(obscuredEncoded.Value, Imgcodecs.ImreadColor));
+                using var coverA = new Point(0, 0); using var coverB = new Point(260, 260); using var coverInk = new Scalar(70, 70, 70);
+                Imgproc.Rectangle(obscured.Value, coverA, coverB, coverInk, -1);
+                using var obscuredJpeg = new MatOfByte(); Imgcodecs.Imencode(".jpg", obscured.Value, obscuredJpeg);
+                if (analyzer.FindPockets(obscuredJpeg.ToArray()) is not null) throw new Exception("Missing corner pocket invented under obstruction");
                 // Fresh/settled/confirmed is deliberately the strongest possible admission attempt.
                 // This replay timestamp is test input, not a claim about the recorded frame's capture time.
                 var rackNow = DateTimeOffset.UtcNow;
