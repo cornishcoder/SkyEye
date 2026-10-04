@@ -33,6 +33,7 @@ public final class PlayerBridge {
     public View getView(){return container;}
     public void setOverlay(String json){drawing.set(json);overlay.invalidate();}
     public String presentation(){return drawing.metrics();}
+    public String playbackMetrics(){try{return new org.json.JSONObject().put("playing",player.isPlaying()).put("volume",player.getVolume()).put("rotation",rotation).put("width",videoWidth).put("height",videoHeight).put("positionMs",player.getCurrentPosition()).toString();}catch(Exception ignored){return "{}";}}
     boolean capture(Bitmap output){
         if(!player.isPlaying()||!activeUrl.contains(".m3u8")||!texture.isAvailable())return false;
         if(texture.getBitmap(output)==null)return false;drawing.draw(new Canvas(output),output.getWidth(),output.getHeight());return true;

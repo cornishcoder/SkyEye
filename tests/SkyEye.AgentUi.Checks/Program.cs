@@ -98,6 +98,16 @@ Check(!media.Observe(nextGeneration, SkyEye.Companion.Hybrid.ViewingSource.Live,
 Check(media.Observe(nextGeneration, SkyEye.Companion.Hybrid.ViewingSource.Live, "new-live-source"), "validated recovery can start after reachability loss");
 Console.WriteLine("PASS portrait media selection: inactive-to-active, stable refresh, resume/detach, stop, obsolete live/preview and recovery");
 
+var clipGeneration = media.Begin(SkyEye.Companion.Hybrid.ViewingSource.LocalClip);
+Check(media.Observe(clipGeneration, SkyEye.Companion.Hybrid.ViewingSource.LocalClip, "private-portrait-file"), "offline clip selection starts independently of camera reachability");
+media.Started();
+Check(!media.Observe(nextGeneration, SkyEye.Companion.Hybrid.ViewingSource.Live, "late-camera-source") && media.Kind == SkyEye.Companion.Hybrid.ViewingSource.LocalClip, "camera refresh cannot replace offline playback");
+media.Suspend();
+Check(media.Observe(clipGeneration, SkyEye.Companion.Hybrid.ViewingSource.LocalClip, "private-portrait-file"), "offline clip survives foreground or handler replacement");
+media.Started(); media.Stop();
+Check(!media.Observe(clipGeneration, SkyEye.Companion.Hybrid.ViewingSource.LocalClip, "private-portrait-file") && media.Source is null, "late local selection cannot undo stop");
+Console.WriteLine("PASS offline clip selection: camera-independent playback, obsolete camera response, foreground recovery and stop");
+
 var elapsed = TimeSpan.Zero;
 var chrome = new SkyEye.Companion.Hybrid.ControlChrome(() => elapsed);
 elapsed = TimeSpan.FromSeconds(30); chrome.Tick();

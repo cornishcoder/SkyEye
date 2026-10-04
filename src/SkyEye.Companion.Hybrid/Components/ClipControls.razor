@@ -1,0 +1,39 @@
+<details class="control-section clip-section" aria-label="Saved clips">
+    <summary>Clips</summary>
+    <p class="hint" role="status">@Session.ClipStatus</p>
+    <button class="secondary" disabled="@(Busy || Session.LoadingClips || !Session.CanLoadClips)" @onclick="Session.LoadClipsAsync">@(Session.LoadingClips ? "Loading clips…" : "Refresh camera clips")</button>
+    @if (Session.TransferringClip) { <button class="quiet" @onclick="Session.CancelClipTransfer">Cancel download</button> }
+    @foreach (var clip in Session.RemoteClips)
+    {
+        <article class="clip" @key="@($"remote-{clip.Id}")">
+            <p>@clip.Name <span class="hint">· @clip.Duration.ToString("0")s</span></p>
+            @if (clip.Available)
+            {
+                <p class="hint">Saved on this phone</p>
+                <div class="clip-actions">
+                    <button class="secondary" disabled="@Busy" @onclick="() => Session.PlayClip(clip.Id)" aria-label="@($"Play {clip.Name}")">Play</button>
+                    <button class="secondary" disabled="@Busy" @onclick="() => Share.InvokeAsync(clip.Id)" aria-label="@($"Share {clip.Name}")">Share</button>
+                </div>
+            }
+            else { <button class="secondary" disabled="@(Busy || Session.TransferringClip || !Session.CanLoadClips)" @onclick="() => Session.DownloadClipAsync(clip)" aria-label="@($"Download {clip.Name}")">Download portrait clip</button> }
+        </article>
+    }
+    <h3>On this phone</h3>
+    @if (Session.LocalClips.Count == 0) { <p class="hint">Download a shot to watch or share it here.</p> }
+    @foreach (var clip in Session.LocalClips)
+    {
+        <article class="clip" @key="@($"local-{clip.Id}")">
+            <p>@clip.Name <span class="hint">· available offline</span></p>
+            <div class="clip-actions">
+                <button class="secondary" disabled="@Busy" @onclick="() => Session.PlayClip(clip.Id)" aria-label="@($"Play {clip.Name}")">Play</button>
+                <button class="secondary" disabled="@Busy" @onclick="() => Share.InvokeAsync(clip.Id)" aria-label="@($"Share {clip.Name}")">Share</button>
+            </div>
+        </article>
+    }
+</details>
+
+@code {
+    [Parameter, EditorRequired] public ShellSession Session { get; set; } = null!;
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public EventCallback<string> Share { get; set; }
+}

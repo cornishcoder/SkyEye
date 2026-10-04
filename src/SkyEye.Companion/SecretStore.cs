@@ -39,6 +39,13 @@ internal static class SecretStore
         }
     }
 
+    public static void Remove(Context context, string name)
+    {
+        lock (Gate)
+            if (!context.GetSharedPreferences("secrets", FileCreationMode.Private)!.Edit()!.Remove(name)!.Commit())
+                throw new IOException("Could not save settings.");
+    }
+
     private static IKey Key()
     {
         using var store = KeyStore.GetInstance("AndroidKeyStore")!;

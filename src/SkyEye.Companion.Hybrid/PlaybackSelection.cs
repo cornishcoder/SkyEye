@@ -2,7 +2,7 @@ namespace SkyEye.Companion.Hybrid;
 
 // Native-only media effect state. It contains private media addresses and must
 // never be serialized into the agent projection or exposed to JavaScript.
-public enum ViewingSource { None, Live, Preview }
+public enum ViewingSource { None, Live, Preview, LocalClip }
 public sealed class PlaybackSelection
 {
     public long Generation { get; private set; }

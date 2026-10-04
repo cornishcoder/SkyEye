@@ -16,6 +16,7 @@
     <AndroidSdkDirectory Condition="'$(AndroidSdkDirectory)' == '' and Exists('$(MSBuildThisFileDirectory)..\..\work\android-sdk-11')">$(MSBuildThisFileDirectory)..\..\work\android-sdk-11</AndroidSdkDirectory>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <AndroidPackageFormats>apk</AndroidPackageFormats>
+    <AndroidManifestPlaceholders>skyeyeFileProvider=$(ApplicationId).files</AndroidManifestPlaceholders>
     <TrimMode>partial</TrimMode>
   </PropertyGroup>
   <ItemGroup>
@@ -27,6 +28,7 @@
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="11.0.0-rc.1.26425.128" />
     <PackageReference Include="Xamarin.AndroidX.Media3.ExoPlayer.Hls" Version="1.10.1.1" />
     <PackageReference Include="Xamarin.AndroidX.Media3.UI" Version="1.10.1.1" />
+    <PackageReference Include="Xamarin.AndroidX.Media3.Transformer" Version="1.10.1.1" />
     <PackageReference Include="Xamarin.GooglePlayServices.Cast.Framework" Version="122.3.1.2" />
     <PackageReference Include="Xamarin.AndroidX.Fragment.Ktx" Version="1.9.0" />
     <AndroidMavenLibrary Include="io.github.webrtc-sdk:android" Version="150.7871.01" Bind="false" />
@@ -35,10 +37,16 @@
     <AndroidJavaSource Include="../SkyEye.Companion/CandidateOverlay.java" Link="Native/CandidateOverlay.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/CastBridge.java" Link="Native/CastBridge.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/DiscoveryBridge.java" Link="Native/DiscoveryBridge.java" />
+    <AndroidJavaSource Include="../SkyEye.Companion/PortraitExporter.java" Link="Native/PortraitExporter.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/SkyEyeCastOptions.java" Link="Native/SkyEyeCastOptions.java" />
     <AndroidJavaSource Include="NativeCompatibilityProbe.java" />
     <Compile Include="../SkyEye.Companion/CameraClient.cs" Link="Services/CameraClient.cs" />
     <Compile Include="../SkyEye.Companion/CameraControlEffect.cs" Link="Services/CameraControlEffect.cs" />
+    <Compile Include="../SkyEye.Companion/CameraReadEffects.cs" Link="Services/CameraReadEffects.cs" />
+    <Compile Include="../SkyEye.Companion/CompanionClipService.cs" Link="Services/CompanionClipService.cs" />
+    <Compile Include="../SkyEye.Companion/AndroidEffectAdapters.cs" Link="Services/AndroidEffectAdapters.cs" />
+    <Compile Include="../SkyEye.Companion/SecretStore.cs" Link="Services/SecretStore.cs" />
+    <AndroidResource Include="../SkyEye.Companion/Resources/xml/file_paths.xml" Link="Resources/xml/file_paths.xml" />
     <MauiAsset Include="Resources/Raw/probe.mp4" LogicalName="probe.mp4" />
   </ItemGroup>
 </Project>

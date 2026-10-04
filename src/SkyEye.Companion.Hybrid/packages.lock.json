@@ -70,6 +70,21 @@
           "Xamarin.AndroidX.Media3.ExoPlayer": "1.10.1.1"
         }
       },
+      "Xamarin.AndroidX.Media3.Transformer": {
+        "type": "Direct",
+        "requested": "[1.10.1.1, )",
+        "resolved": "1.10.1.1",
+        "contentHash": "aIHvINosJITD6lYQKLSPGHkpxe3fEh/30N+l1wgGkEan/oH9/gKDDUmmo+JlTMrrQc7xDHh7oEy5aCsLvbTecw==",
+        "dependencies": {
+          "Xamarin.AndroidX.Annotation": "1.10.0.1",
+          "Xamarin.AndroidX.Concurrent.Futures": "1.3.0.4",
+          "Xamarin.AndroidX.Media3.Container": "1.10.1.1",
+          "Xamarin.AndroidX.Media3.DataSource": "1.10.1.1",
+          "Xamarin.AndroidX.Media3.Effect": "1.10.1.1",
+          "Xamarin.AndroidX.Media3.ExoPlayer": "1.10.1.1",
+          "Xamarin.AndroidX.Media3.Muxer": "1.10.1.1"
+        }
+      },
       "Xamarin.AndroidX.Media3.Ui": {
         "type": "Direct",
         "requested": "[1.10.1.1, )",
@@ -1101,6 +1116,19 @@
           "Xamarin.AndroidX.Media3.Common": "1.10.1.1"
         }
       },
+      "Xamarin.AndroidX.Media3.Effect": {
+        "type": "Transitive",
+        "resolved": "1.10.1.1",
+        "contentHash": "87iwfm5BdUh1q2d3VUl6HX7MSlyuYJziUsuZJvj1BpiwXibeK/tyuDG7WoyZf25dUVAwhV7CRamGXfP4/lMlWQ==",
+        "dependencies": {
+          "Xamarin.AndroidX.Annotation": "1.10.0.1",
+          "Xamarin.AndroidX.Concurrent.Futures": "1.3.0.4",
+          "Xamarin.AndroidX.Media3.Common": "1.10.1.1",
+          "Xamarin.AndroidX.Media3.DataSource": "1.10.1.1",
+          "Xamarin.Kotlin.StdLib": "2.4.0.1",
+          "Xamarin.KotlinX.Coroutines.Guava": "1.11.0.1"
+        }
+      },
       "Xamarin.AndroidX.Media3.ExoPlayer": {
         "type": "Transitive",
         "resolved": "1.10.1.1",
@@ -1126,6 +1154,16 @@
           "Xamarin.AndroidX.Media3.Common": "1.10.1.1",
           "Xamarin.AndroidX.Media3.Container": "1.10.1.1",
           "Xamarin.AndroidX.Media3.Decoder": "1.10.1.1"
+        }
+      },
+      "Xamarin.AndroidX.Media3.Muxer": {
+        "type": "Transitive",
+        "resolved": "1.10.1.1",
+        "contentHash": "vCR7rq9yi9Duz8h7GY2uukjTMKIIw6UX86LzWa3PS6yDNM4b2gScwdo2uL1R21INjmhDghuYOsCdtI6YryhtmQ==",
+        "dependencies": {
+          "Xamarin.AndroidX.Annotation": "1.10.0.1",
+          "Xamarin.AndroidX.Media3.Common": "1.10.1.1",
+          "Xamarin.AndroidX.Media3.Container": "1.10.1.1"
         }
       },
       "Xamarin.AndroidX.MediaRouter": {
@@ -1810,6 +1848,16 @@
         "dependencies": {
           "Xamarin.Jetbrains.Annotations": "26.1.0.2",
           "Xamarin.Kotlin.StdLib": "2.4.0.1"
+        }
+      },
+      "Xamarin.KotlinX.Coroutines.Guava": {
+        "type": "Transitive",
+        "resolved": "1.11.0.1",
+        "contentHash": "WNa+Imww+2BjKFrjyEgNtECaAmOgORZRD5IHc35E+WRUy0OKgoyG6WNASpspk3eTWKgeAUNLg8hSo0o3H4TR8A==",
+        "dependencies": {
+          "Xamarin.Google.Guava": "33.6.0.1",
+          "Xamarin.Kotlin.StdLib": "2.4.0.1",
+          "Xamarin.KotlinX.Coroutines.Core.Jvm": "1.11.0.1"
         }
       },
       "Xamarin.KotlinX.Serialization.Core": {

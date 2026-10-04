@@ -57,6 +57,7 @@ public sealed partial class ShellSession : IDisposable
             edit.Apply();
         });
         app = new(cameraControls: effects);
+        InitializeClips();
         Agent = new(agentClient, _ => { }, new ShellViewState());
         subscription = app.Subscribe(_ => MainThread.BeginInvokeOnMainThread(Publish));
     }
@@ -73,7 +74,7 @@ public sealed partial class ShellSession : IDisposable
         this.player = player; this.cast = cast; player.SetPortrait(true);
         Android.Util.Log.Info("SkyEyeShell", "Native media handler attached");
         selection.Suspend();
-        if (active && selection.Kind == ViewingSource.Preview) PlayCurrent();
+        if (active && selection.Kind is ViewingSource.Preview or ViewingSource.LocalClip) PlayCurrent();
         if (active && selection.Kind == ViewingSource.Live) _ = RefreshAsync(foreground?.Token ?? CancellationToken.None);
     }
     public void Detach(Bridge.PlayerBridge owner)
@@ -83,12 +84,18 @@ public sealed partial class ShellSession : IDisposable
     }
     public void ReportPlaying(bool playing)
     {
+        if (playing && player is not null) Android.Util.Log.Info("SkyEyeShell", "Native playback observed: " + player.PlaybackMetrics());
         if (playing && !Playing) chrome.Reveal();
         Playing = playing; Playback = playing ? "Live table · silent" : "Waiting for your table";
         if (playing && selection.Kind == ViewingSource.Preview) Playback = "Test video";
+        if (playing && selection.Kind == ViewingSource.LocalClip) Playback = "Offline clip · room audio";
         Publish();
     }
-    public void ReportError() { Playing = false; Playback = "Viewing interrupted"; ShowError("The table view is reconnecting."); }
+    public void ReportError()
+    {
+        Playing = false; Playback = "Viewing interrupted";
+        ShowError(selection.Kind == ViewingSource.Live ? "The table view is reconnecting." : "This clip could not play. Try opening it again.");
+    }
 
     public Task ConnectAsync(string address) => MainThread.InvokeOnMainThreadAsync(() => ConnectCoreAsync(address));
     async Task ConnectCoreAsync(string address)
@@ -143,7 +150,8 @@ public sealed partial class ShellSession : IDisposable
     void PlayCurrent()
     {
         if (!active || selection.Source is not { } source || player is null) return;
-        player.SetPortrait(true); player.SetMuted(true); player.Play(source);
+        player.SetPortrait(selection.Kind != ViewingSource.LocalClip);
+        player.SetMuted(selection.Kind != ViewingSource.LocalClip); player.Play(source);
         Android.Util.Log.Info("SkyEyeShell", "Native playback started: " + selection.Kind);
         selection.Started();
         cast?.Configure(selection.Kind == ViewingSource.Live ? source : "", true);
@@ -156,7 +164,7 @@ public sealed partial class ShellSession : IDisposable
     }
     public void Suspend()
     {
-        active = false; foreground?.Cancel(); foreground?.Dispose(); foreground = null; StopDiscovery();
+        active = false; foreground?.Cancel(); foreground?.Dispose(); foreground = null; StopDiscovery(); CloseKeyEditor();
         player?.Stop(); Playing = false; selection.Suspend(); Publish();
     }
     public void Resume()
@@ -164,7 +172,8 @@ public sealed partial class ShellSession : IDisposable
         if (active || disposed) return;
         active = true; foreground = new();
         chrome.Reveal();
-        if (selection.Kind == ViewingSource.Preview) PlayCurrent();
+        if (selection.Kind is ViewingSource.Preview or ViewingSource.LocalClip) PlayCurrent();
+        RefreshLocalClips(); RefreshKeyStatus();
         _ = PollAsync(foreground.Token);
         _ = FadeAsync(foreground.Token);
     }
@@ -225,6 +234,7 @@ public sealed partial class ShellSession : IDisposable
     {
         if (disposed) return;
         var state = app.State.Camera;
+        InvalidateClipCatalog(state.ConnectionId);
         var camera = state.Reachability switch
         {
             CameraReachability.Connecting => "Connecting…",
@@ -238,7 +248,8 @@ public sealed partial class ShellSession : IDisposable
     public void Dispose()
     {
         if (disposed) return;
-        Suspend(); disposed = true; subscription.Dispose(); client.Dispose(); Agent.Dispose(); agentClient.Dispose();
+        Suspend(); disposed = true; clipLifetime.Cancel(); CancelClipTransfer(); clipLifetime.Dispose();
+        subscription.Dispose(); client.Dispose(); Agent.Dispose(); agentClient.Dispose();
     }
     // H01 only projects canonical state. Voice/tool transport is connected in A02.
     sealed class ProjectionClient : IChatClient

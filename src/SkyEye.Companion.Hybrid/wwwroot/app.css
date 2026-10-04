@@ -23,6 +23,11 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px 
 .sheet-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 h1 { font-size: 23px; font-weight: 600; margin: 0; }
 h2 { font-size: 17px; font-weight: 600; margin: 0 0 8px; }
+h3 { font-size: 14px; font-weight: 600; margin: 24px 0 8px; }
+.clip { border-top: 1px solid #263a3b; padding: 12px 0; }
+.clip p { font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.clip-actions { display: flex; gap: 12px; }
+.clip-section > summary { font-size: 17px; font-weight: 600; color: #e9f2f3; }
 .control-section { border-top: 1px solid #263a3b; margin-top: 20px; padding-top: 20px; }
 .capture-actions { display: flex; flex-direction: column; }
 .quiet { background: transparent; color: #a5d9d0; }

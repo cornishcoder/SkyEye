@@ -5,6 +5,7 @@ using SkyEye.Core.Analysis;
 using SkyEye.Core.Application;
 using System.Text.Json;
 using Bridge = UK.CO.Skyeye.Companion.Nativebridge;
+using Point = SkyEye.Core.Point;
 
 namespace SkyEye.Companion;
 

@@ -29,6 +29,13 @@
                 <button class="secondary" disabled="@(busy || !Session.CanCastLive || !Session.TvConnected)" @onclick="Session.PlayTv">Play live on TV</button>
                 <button class="quiet" disabled="@(busy || !Session.TvConnected)" @onclick="Session.StopTv">Disconnect TV</button>
                 </section>
+                <ClipControls Session="Session" Busy="busy" Share="ShareClip" />
+                <section class="control-section" aria-label="Personal voice setup">
+                <h2>Sky voice</h2><p class="hint" role="status">@Session.KeyStatus</p>
+                <p class="hint">Your personal key stays on this phone.</p>
+                <button class="secondary" disabled="@busy" @onclick="SetupKey">@(Session.PersonalKeyConfigured ? "Replace personal key" : "Set personal key")</button>
+                @if (Session.PersonalKeyConfigured) { <button class="quiet" disabled="@busy" @onclick="Session.RemoveKey">Remove personal key</button> }
+                </section>
                 @if (error.Length > 0) { <p class="notice" role="alert">@error</p> }
                 <details class="lab-tools"><summary>Lab checks</summary><button class="secondary" disabled="@busy" @onclick="Preview">Play test video</button><p class="hint">A recorded playback check, separate from your live table.</p></details>
             </section>
@@ -63,6 +70,8 @@
     async Task Control(CameraControlRequest request) => await Run(() => Session.ControlCameraAsync(request));
     async Task Watch() => await Run(Session.WatchLiveAsync, close: true);
     async Task ChooseTv() => await Run(Session.ChooseTvAsync);
+    async Task ShareClip(string id) => await Run(() => Session.ShareClipAsync(id));
+    async Task SetupKey() => await Run(Session.SetupKeyAsync);
     async Task Run(Func<Task> action, bool close = false)
     {
         if (busy) return;
