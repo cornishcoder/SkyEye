@@ -1,7 +1,7 @@
 namespace SkyEye.Core.Application;
 
-/// <summary>Single serialized writer for app commands. This first slice only changes
-/// preferences; durable camera/clip effects get their own outcome journal in S03/S04.</summary>
+/// <summary>Single serialized writer for preferences and effect admission. Long
+/// saves run outside the preference writer and retain their own durable outcomes.</summary>
 public sealed class AppCoordinator
 {
     readonly SemaphoreSlim serial = new(1);
@@ -10,9 +10,11 @@ public sealed class AppCoordinator
     readonly Dictionary<Guid, (CommandEnvelope Envelope, CommandReceipt Receipt)> recent = [];
     readonly Queue<Guid> order = [];
     readonly Action<Exception>? observerError;
+    readonly ClipSaveExecutor? clipSaves;
     long nextSubscription;
     SkyEyeState state = SkyEyeState.Empty;
-    public AppCoordinator(Action<Exception>? observerError = null) => this.observerError = observerError;
+    public AppCoordinator(Action<Exception>? observerError = null, ClipSaveExecutor? clipSaves = null)
+    { this.observerError = observerError; this.clipSaves = clipSaves; }
     public SkyEyeState State => Volatile.Read(ref state);
 
     // Subscribe first, then read State for initial rendering. Observers must return
@@ -28,6 +30,7 @@ public sealed class AppCoordinator
     public async Task<CommandReceipt> DispatchAsync(CommandEnvelope envelope, CancellationToken cancellation = default)
     {
         ArgumentNullException.ThrowIfNull(envelope);
+        Task<CommandReceipt>? pendingSave = null;
         await serial.WaitAsync(cancellation).ConfigureAwait(false);
         try
         {
@@ -37,32 +40,43 @@ public sealed class AppCoordinator
             if (recent.TryGetValue(envelope.OperationId, out var previous))
                 return previous.Envelope == envelope ? previous.Receipt with { Duplicate = true }
                     : Receipt(envelope, CommandOutcome.Conflict, "Operation ID was already used for a different request.");
-            CommandReceipt result;
-            if (envelope.ExpectedVersion != state.Version)
-                result = Receipt(envelope, CommandOutcome.Stale, "The app changed. Use its current state before trying again.");
+            if (envelope.Command is SaveClip)
+            {
+                if (clipSaves is null) return Receipt(envelope, CommandOutcome.Rejected, "Clip saving is unavailable.");
+                pendingSave = clipSaves.ExecuteAsync(envelope, state.Version, cancellation);
+            }
             else
             {
-                SkyEyeState? updated = envelope.Command switch
-                {
-                    ShowShotChoices show => state with { Presentation = new(show.Enabled) },
-                    SetTargetGroup group when Enum.IsDefined(group.Group) => state with { Advice = new(group.Group) },
-                    _ => null
-                };
-                if (updated is null) result = Receipt(envelope, CommandOutcome.Rejected, "This command is not supported.");
-                else if (updated == state) result = Receipt(envelope, CommandOutcome.Unchanged, "Already set.");
+                var durable = clipSaves?.FindPrevious(envelope, state.Version);
+                if (durable is not null) return durable;
+                CommandReceipt result;
+                if (envelope.ExpectedVersion != state.Version)
+                    result = Receipt(envelope, CommandOutcome.Stale, "The app changed. Use its current state before trying again.");
                 else
                 {
-                    Volatile.Write(ref state, updated with { Version = checked(state.Version + 1) });
-                    result = Receipt(envelope, CommandOutcome.Applied, "Updated.");
-                    Notify(state);
+                    SkyEyeState? updated = envelope.Command switch
+                    {
+                        ShowShotChoices show => state with { Presentation = new(show.Enabled) },
+                        SetTargetGroup group when Enum.IsDefined(group.Group) => state with { Advice = new(group.Group) },
+                        _ => null
+                    };
+                    if (updated is null) result = Receipt(envelope, CommandOutcome.Rejected, "This command is not supported.");
+                    else if (updated == state) result = Receipt(envelope, CommandOutcome.Unchanged, "Already set.");
+                    else
+                    {
+                        Volatile.Write(ref state, updated with { Version = checked(state.Version + 1) });
+                        result = Receipt(envelope, CommandOutcome.Applied, "Updated.");
+                        Notify(state);
+                    }
                 }
+                // Bounded in-memory replay protection for preference commands only.
+                recent.Add(envelope.OperationId, (envelope, result)); order.Enqueue(envelope.OperationId);
+                while (order.Count > 256) recent.Remove(order.Dequeue());
+                return result;
             }
-            // Bounded in-memory replay protection for preference commands only.
-            recent.Add(envelope.OperationId, (envelope, result)); order.Enqueue(envelope.OperationId);
-            while (order.Count > 256) recent.Remove(order.Dequeue());
-            return result;
         }
         finally { serial.Release(); }
+        return await pendingSave!.ConfigureAwait(false);
     }
     CommandReceipt Receipt(CommandEnvelope envelope, CommandOutcome outcome, string message)
         => new(envelope.OperationId, outcome, state.Version, message);
