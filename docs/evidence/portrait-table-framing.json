@@ -1,0 +1,38 @@
+{
+  "unit": "H06",
+  "status": "device_gate_pending",
+  "date": "2026-10-04",
+  "package": "uk.co.skyeye.companion.lab",
+  "device": "Pixel 11 Pro XL",
+  "transport": "USB",
+  "installedApkSha256": "62F6875B9C8312AA8B686B7BE045CA897582A1548FF0B33F088A17BC6A5367FE",
+  "builds": { "hybrid": { "errors": 0, "warnings": 7 }, "baseline": { "errors": 0, "warnings": 14 } },
+  "automatedChecks": [
+    "Actual scene projection maps skewed calibration to a portrait rectangle",
+    "All six pockets remain within the retained framing border",
+    "Perspective inverse picking round trips pocket locations",
+    "Calibrated path segments agree with table geometry",
+    "Missing camera border preserves whole-camera mapping",
+    "Existing real AI, predictive preview, media selection, controls and frozen review checks pass"
+  ],
+  "directlyObserved": [
+    "Signed lab installs over USB without policy rejection",
+    "Pixel 11 is locked before the updated physical framing gate",
+    "Before H06 installation, Start changes capture from Stopped to Active and enables Watch live",
+    "Native TV picker lists Chromecast; selection receives accepted live load",
+    "Cast receiver subsequently reports TV playing live camera from PLAYING state",
+    "Camera remains Active, armed, no error, eight clips; host expires after phone locks"
+  ],
+  "pending": [
+    "Unlock Pixel 11 and verify hardware projective rendering and pocket/guide alignment",
+    "Verify whole-camera fallback, frozen editor return and unchanged playback on device",
+    "User confirmation of actual moving table pixels on TV"
+  ],
+  "sources": ["https://developer.android.com/reference/android/view/TextureView#setTransform(android.graphics.Matrix)"],
+  "limits": [
+    "This is an optional native texture spike, not a completed GPU/performance acceptance gate",
+    "Framing preference is ephemeral and native to this lab; directed voice/TV presentation commands are later units",
+    "Phone framing leaves raw Cast source independent; encoded-overlay/replay composition remains T01-T07",
+    "No new clip is saved; capture is deliberately left active for live viewing"
+  ]
+}

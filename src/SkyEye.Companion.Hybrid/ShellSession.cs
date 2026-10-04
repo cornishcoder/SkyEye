@@ -73,6 +73,7 @@ public sealed partial class ShellSession : IDisposable
     public void Attach(Bridge.PlayerBridge player, Bridge.CastBridge cast)
     {
         this.player = player; this.cast = cast; player.SetPortrait(true);
+        lastScene = null;
         Android.Util.Log.Info("SkyEyeShell", "Native media handler attached");
         selection.Suspend();
         if (active && selection.Kind is ViewingSource.Preview or ViewingSource.LocalClip) PlayCurrent();
@@ -82,6 +83,7 @@ public sealed partial class ShellSession : IDisposable
     {
         if (player != owner) return;
         player = null; cast = null; Playing = false; selection.Suspend();
+        lastScene = null;
     }
     public void ReportPlaying(bool playing)
     {

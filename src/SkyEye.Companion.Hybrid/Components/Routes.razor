@@ -25,9 +25,11 @@
                 </section>
                 <CameraControls View="Session.Agent.State.Value" Busy="busy" HostName="Session.HostName" OnCommand="Control" />
                 <section class="control-section" aria-label="Live viewing">
-                <h2>Live table</h2><p class="hint">Viewing is silent. Recording keeps room audio.</p>
+                <h2>Live table</h2><p class="hint" role="status">@Session.LiveAvailability</p>
                 <button class="secondary" disabled="@(busy || !Session.CanCastLive)" @onclick="Watch">Watch live</button>
                 @if (Session.HasSource) { <button class="quiet" @onclick="Session.Stop">Stop viewing</button> }
+                <p class="hint" role="status">@Session.FramingStatus</p>
+                <button class="secondary" disabled="@(busy || !Session.CanFrameTable && !Session.FrameTableRequested)" @onclick="() => Session.SetTableFraming(!Session.FrameTableRequested)">@(Session.FrameTableRequested ? "Show whole camera" : "Frame table")</button>
                 </section>
                 <section class="control-section" aria-label="TV viewing">
                 <h2>TV</h2><p class="hint" role="status">@Session.TvStatus</p>
@@ -44,7 +46,7 @@
                 @if (Session.PersonalKeyConfigured) { <button class="quiet" disabled="@busy" @onclick="Session.RemoveKey">Remove personal key</button> }
                 </section>
                 @if (error.Length > 0) { <p class="notice" role="alert">@error</p> }
-                <details class="lab-tools"><summary>Lab checks</summary><button class="secondary" disabled="@busy" @onclick="Preview">Play test video</button><p class="hint">A recorded playback check, separate from your live table.</p></details>
+                <details class="lab-tools"><summary>Lab checks</summary><button class="secondary" disabled="@busy" @onclick="Preview">Play test video</button><p class="hint">A recorded playback check, separate from your live table.</p><button class="secondary" disabled="@(!Session.CanFrameTable)" @onclick="Session.ToggleFrameGuides">@(Session.FrameGuides ? "Hide framing guides" : "Show framing guides")</button><p class="hint">Alignment guides for this lab. They are not shot suggestions.</p></details>
             </section>
         }
         @if (Session.ControlsVisible)

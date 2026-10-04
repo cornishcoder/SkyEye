@@ -131,7 +131,7 @@ Check(!chrome.Visible, "leaving accessibility interaction returns to normal fade
 chrome.Reveal(); Check(chrome.Visible, "tap or swipe restores controls");
 Console.WriteLine("PASS transient controls: idle/buffering, inactivity, editing, error acknowledgment, touch exploration and reveal");
 
-var fit = SkyEye.Companion.Hybrid.FrozenFrameFit.Fit(400, 600, 1920, 1080);
+var fit = SkyEye.Companion.Hybrid.SceneProjection.Portrait(400, 600, 1920, 1080);
 var sourcePoint = new SkyEye.Core.Point(.2, .7);
 var mappedPoint = fit.Screen(sourcePoint);
 Check((fit.Image(mappedPoint)!.Value - sourcePoint).Length < 1e-10, "portrait frozen-frame mapping round trips touch and drawing");
@@ -166,3 +166,25 @@ draft.Place(calibration.Unmap(new(1.4, .5)));
 Check(draft.Balls[1].Kind == "red", "new ball cannot inherit an unsupported detection colour");
 draft.Clear();
 Console.WriteLine("PASS frozen review: portrait inverse/letterbox mapping, manual corner adjustment/undo, isolated ball edits, apply scope and cancel");
+
+// Perspective camera measurements share the exact matrix sent to Android.
+var skewed = new SkyEye.Core.TableCalibration([new(.2, .2), new(.8, .25), new(.78, .75), new(.18, .8)]);
+var framed = SkyEye.Companion.Hybrid.SceneProjection.Table(1080, 1920, 1920, 1080, skewed);
+Check(framed.Framed && framed.Fallback is null, "valid calibrated view rectifies with a pocket border");
+foreach (var pocket in SkyEye.Core.PoolGeometry.Pockets)
+{
+    var imagePoint = skewed.Unmap(pocket); var screenPoint = framed.Screen(imagePoint);
+    Check(screenPoint.X > framed.Left && screenPoint.X < framed.Left + framed.Width && screenPoint.Y > framed.Top && screenPoint.Y < framed.Top + framed.Height, "all six pockets stay inside the framed border");
+    Check((framed.Image(screenPoint)!.Value - imagePoint).Length < 1e-9, "perspective pocket hit test matches drawing and video");
+}
+var topLeft = framed.Screen(skewed.Unmap(new(0, 0))); var bottomLeft = framed.Screen(skewed.Unmap(new(2, 0)));
+var topRight = framed.Screen(skewed.Unmap(new(0, 1))); var bottomRight = framed.Screen(skewed.Unmap(new(2, 1)));
+Check(Math.Abs(topLeft.X - bottomLeft.X) < 1e-8 && Math.Abs(topRight.X - bottomRight.X) < 1e-8 && Math.Abs(topLeft.Y - topRight.Y) < 1e-8 && Math.Abs(bottomLeft.Y - bottomRight.Y) < 1e-8, "skewed cloth becomes a straight portrait rectangle");
+var pathA = skewed.Unmap(new(.35, .27)); var pathB = skewed.Unmap(new(1.7, .75));
+var middle = framed.Screen(skewed.Unmap(new(1.025, .51)));
+Check(SkyEye.Core.PoolGeometry.DistanceToSegment(middle, framed.Screen(pathA), framed.Screen(pathB)) < 1e-8, "calibrated paths remain straight and agree with table geometry");
+var tight = new SkyEye.Core.TableCalibration([new(.01, .01), new(.99, .01), new(.99, .99), new(.01, .99)]);
+var fallback = SkyEye.Companion.Hybrid.SceneProjection.Table(1080, 1920, 1920, 1080, tight);
+Check(!fallback.Framed && fallback.Fallback is not null && (fallback.Screen(sourcePoint) - SkyEye.Companion.Hybrid.SceneProjection.Portrait(1080, 1920, 1920, 1080).Screen(sourcePoint)).Length < 1e-9, "missing pocket border keeps whole-camera fallback");
+Check(framed.Image(new(-1, 500)) is null, "framed picking ignores letterbox space");
+Console.WriteLine("PASS scene framing: perspective rectification, six retained pockets, inverse hits, path alignment and whole-camera fallback");

@@ -28,15 +28,19 @@ public sealed class FrozenTableSurface(Android.Content.Context context, ShellSes
             : "Frozen ball layout. Tap a ball to select it and drag to adjust its position. Review controls are below.";
         Invalidate();
     }
-    FrozenFrameFit Fit => image is null ? default : FrozenFrameFit.Fit(Width, Height, image.Width, image.Height);
+    SceneProjection Fit => SceneProjection.Portrait(Width, Height, image!.Width, image.Height);
     Point Screen(Point point) => Fit.Screen(point);
     protected override void OnDraw(Canvas canvas)
     {
         base.OnDraw(canvas); canvas.DrawColor(Color.Black);
         if (image is null || Width <= 0 || Height <= 0) return;
         var fit = Fit; using var paint = new Paint { AntiAlias = true };
-        canvas.Save(); canvas.Translate((float)(fit.Left + fit.Width), (float)fit.Top); canvas.Rotate(90);
-        canvas.Scale((float)(fit.Height / image.Width), (float)(fit.Height / image.Width));
+        using var matrix = new Matrix();
+        var coefficients = fit.Values.Select(v => (float)v).ToArray();
+        foreach (var i in new[] { 0, 3, 6 }) coefficients[i] /= image.Width;
+        foreach (var i in new[] { 1, 4, 7 }) coefficients[i] /= image.Height;
+        matrix.SetValues(coefficients);
+        canvas.Save(); canvas.Concat(matrix);
         canvas.DrawBitmap(image, 0, 0, paint); canvas.Restore();
         var draft = session.TableEdit;
         if (draft.Mode == TableEditMode.Calibration)
@@ -70,7 +74,7 @@ public sealed class FrozenTableSurface(Android.Content.Context context, ShellSes
     }
     public override bool OnTouchEvent(MotionEvent? motion)
     {
-        if (motion is null || image is null || !session.EditingTable) return false;
+        if (motion is null || image is null || Width <= 0 || Height <= 0 || !session.EditingTable) return false;
         if (motion.PointerCount != 1) { moving = false; dragging = -1; return true; }
         var screen = new Point(motion.GetX(), motion.GetY()); var normalized = Fit.Image(screen);
         var draft = session.TableEdit;

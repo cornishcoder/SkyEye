@@ -56,6 +56,7 @@ public sealed class NativeMediaHandler : ViewHandler<NativeMediaView, FrameLayou
         player.View.Clickable = true; player.View.Focusable = true;
         player.View.ContentDescription = "Table video. Tap to reveal controls or swipe up to open them.";
         session.Attach(player, cast); session.Changed += Update;
+        player.View.LayoutChange += SceneLayoutChanged;
         Update();
         container.SetOnApplyWindowInsetsListener(new InsetsListener());
         container.RequestApplyInsets();
@@ -64,7 +65,7 @@ public sealed class NativeMediaHandler : ViewHandler<NativeMediaView, FrameLayou
     protected override void DisconnectHandler(FrameLayout platformView)
     {
         if (session is not null) { session.Changed -= Update; if (player is not null) session.Detach(player); }
-        if (player is not null) { player.View!.Click -= Reveal; player.View.SetOnTouchListener(null); }
+        if (player is not null) { player.View!.Click -= Reveal; player.View.LayoutChange -= SceneLayoutChanged; player.View.SetOnTouchListener(null); }
         probe?.Detach(); player?.Release(); cast?.Release();
         placeholder = null;
         title = null; container = null; touchListener?.Dispose(); touchListener = null;
@@ -93,9 +94,11 @@ public sealed class NativeMediaHandler : ViewHandler<NativeMediaView, FrameLayou
                 frozen.Bind(session.FrozenFrame);
             }
             if (cast is not null) cast.Button!.Visibility = session.ControlsVisible ? ViewStates.Visible : ViewStates.Gone;
+            session.UpdateFraming(player.View.Width, player.View.Height);
         }
     });
     void Reveal(object? sender, EventArgs args) => session?.RevealControls();
+    void SceneLayoutChanged(object? sender, Android.Views.View.LayoutChangeEventArgs args) => Update();
     sealed class TouchListener(ShellSession session, float density) : Java.Lang.Object, Android.Views.View.IOnTouchListener
     {
         float x, y; bool tracking;

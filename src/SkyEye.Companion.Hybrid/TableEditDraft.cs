@@ -82,18 +82,3 @@ public sealed class TableEditDraft
     public string LayoutText() => string.Join("\n", balls.Select(b => $"{b.Kind} {b.Position.X.ToString("R", CultureInfo.InvariantCulture)} {b.Position.Y.ToString("R", CultureInfo.InvariantCulture)}"));
     static bool InImage(Point point) => double.IsFinite(point.X) && double.IsFinite(point.Y) && point.X is >= 0 and <= 1 && point.Y is >= 0 and <= 1;
 }
-
-// Portrait fit for the unchanged landscape camera snapshot. UI picking and
-// drawing use this same inverse; letterbox space never becomes a corner.
-public readonly record struct FrozenFrameFit(double Left, double Top, double Width, double Height)
-{
-    public static FrozenFrameFit Fit(double viewportWidth, double viewportHeight, double imageWidth, double imageHeight)
-    {
-        double scale = Math.Min(viewportWidth / imageHeight, viewportHeight / imageWidth);
-        double width = imageHeight * scale, height = imageWidth * scale;
-        return new((viewportWidth - width) / 2, (viewportHeight - height) / 2, width, height);
-    }
-    public Point Screen(Point image) => new(Left + (1 - image.Y) * Width, Top + image.X * Height);
-    public Point? Image(Point screen) => Width <= 0 || Height <= 0 || screen.X < Left || screen.X > Left + Width || screen.Y < Top || screen.Y > Top + Height
-        ? null : new((screen.Y - Top) / Height, 1 - (screen.X - Left) / Width);
-}
