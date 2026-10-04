@@ -42,7 +42,7 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
     bool connected => app.State.Camera.ConnectionId != Guid.Empty && app.State.Camera.Reachability is CameraReachability.Reachable or CameraReachability.Unreachable;
     string currentState => app.State.Camera.Capture?.ToString() ?? "";
     string stream = "";
-    MaeveSession? maeve;
+    SkyVoiceSession? sky;
     public override void OnConfigurationChanged(Android.Content.Res.Configuration config) { base.OnConfigurationChanged(config); }
     protected override void OnCreate(Bundle? savedInstanceState)
     {
@@ -84,9 +84,9 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
         root.AddView(Label("Clips on camera", 22)); Add(root, "Refresh clips", () => _ = ActionAsync(LoadClipsAsync)); remoteClips = new LinearLayout(this) { Orientation = Orientation.Vertical }; root.AddView(remoteClips);
         root.AddView(Label("Your downloaded clips", 22)); localClips = new LinearLayout(this) { Orientation = Orientation.Vertical }; root.AddView(localClips); RefreshLocal();
         BuildTableUi(root);
-        root.AddView(Label("Maeve · pool partner", 22));
-        var keyRow = Row(root); Add(keyRow, "Set API key", SetupKey); Add(keyRow, "Talk to Maeve", StartMaeve); Add(keyRow, "End Maeve", () => _ = EndMaeveAsync());
-        Add(root, "Mute / unmute Maeve microphone", () => { voiceMuted = !voiceMuted; maeve?.SetMuted(voiceMuted); Say(voiceMuted ? "Maeve microphone muted" : "Maeve microphone enabled"); });
+        root.AddView(Label("Sky · pool partner", 22));
+        var keyRow = Row(root); Add(keyRow, "Set API key", SetupKey); Add(keyRow, "Talk to Sky", StartSky); Add(keyRow, "End Sky", () => _ = EndSkyAsync());
+        Add(root, "Mute / unmute Sky microphone", () => { voiceMuted = !voiceMuted; sky?.SetMuted(voiceMuted); Say(voiceMuted ? "Sky microphone muted" : "Sky microphone enabled"); });
         discoveryListener = new DiscoveryListener(this); discovery = new Bridge.DiscoveryBridge(this, discoveryListener);
         // Bind a restored native credential to its saved endpoint before a new
         // connect can compare identities. Authority is still unknown until proof.
@@ -109,7 +109,7 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
     }
     void StartPolling()
     {
-        if (polling || !connected || !resumed && maeve is null) return; polling = true;
+        if (polling || !connected || !resumed && sky is null) return; polling = true;
         _ = PollAsync();
     }
     async Task PollAsync()
@@ -117,7 +117,7 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
         try
         {
             int delayMs = 2500;
-            while ((resumed || maeve is not null) && connected && !lifetime.IsCancellationRequested)
+            while ((resumed || sky is not null) && connected && !lifetime.IsCancellationRequested)
             {
                 await Task.Delay(delayMs, lifetime.Token);
                 var cycle = System.Diagnostics.Stopwatch.StartNew();
@@ -126,14 +126,14 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
                 // Downloads/export can occupy the action slot longer than a frame's
                 // advice lifetime. Expire displayed paths even while analysis is skipped.
                 if (tableState is not null) ShowTable();
-                if ((resumed || maeve is not null) && !overlayEnabled && !busy && app.State.Camera.CanControl && currentState == "Active" && calibration is not null) try { await UpdateTableAsync(); } catch { InvalidateTable("Table analysis unavailable; wait for a fresh view and confirm it."); }
+                if ((resumed || sky is not null) && !overlayEnabled && !busy && app.State.Camera.CanControl && currentState == "Active" && calibration is not null) try { await UpdateTableAsync(); } catch { InvalidateTable("Table analysis unavailable; wait for a fresh view and confirm it."); }
                 // Aim for 2.5 seconds between starts, including network and analysis
                 // time. Remain sequential even when a cycle exceeds that budget.
                 delayMs = (int)Math.Max(250, 2500 - cycle.ElapsedMilliseconds);
             }
         }
         catch (System.OperationCanceledException) { }
-        finally { polling = false; if ((resumed || maeve is not null) && connected && !lifetime.IsCancellationRequested) StartPolling(); }
+        finally { polling = false; if ((resumed || sky is not null) && connected && !lifetime.IsCancellationRequested) StartPolling(); }
     }
     void SetupKey()
     {
@@ -143,24 +143,24 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
         Finish();
 #else
         var edit = new EditText(this) { Hint = "Personal OpenAI API key", InputType = Android.Text.InputTypes.ClassText | Android.Text.InputTypes.TextVariationPassword };
-        new AlertDialog.Builder(this)!.SetTitle("Maeve voice setup")!.SetMessage("Stored encrypted on this host phone. Camera and guests never receive it.")!.SetView(edit)!.SetPositiveButton("Save", (_, _) => { SecretStore.Set(this, "openai", edit.Text?.Trim() ?? ""); edit.Text = ""; Say("API key saved on this phone."); })!.SetNegativeButton("Cancel", (_, _) => { })!.Show();
+        new AlertDialog.Builder(this)!.SetTitle("Sky voice setup")!.SetMessage("Stored encrypted on this host phone. Camera and guests never receive it.")!.SetView(edit)!.SetPositiveButton("Save", (_, _) => { SecretStore.Set(this, "openai", edit.Text?.Trim() ?? ""); edit.Text = ""; Say("API key saved on this phone."); })!.SetNegativeButton("Cancel", (_, _) => { })!.Show();
 #endif
     }
-    void StartMaeve()
+    void StartSky()
     {
-        if (!app.State.Camera.CanControl) { Say("Claim host control before starting Maeve."); return; }
+        if (!app.State.Camera.CanControl) { Say("Claim host control before starting Sky."); return; }
         if (CheckSelfPermission(Manifest.Permission.RecordAudio) != Permission.Granted) { RequestPermissions([Manifest.Permission.RecordAudio], 2); return; }
-        if (maeve is not null) { Say("Maeve is already connected."); return; }
+        if (sky is not null) { Say("Sky is already connected."); return; }
         var key = SecretStore.Get(this, "openai"); if (string.IsNullOrWhiteSpace(key)) { SetupKey(); return; }
-        if (busy) { Say("Finish the current operation before starting Maeve."); return; }
+        if (busy) { Say("Finish the current operation before starting Sky."); return; }
         StartForegroundService(new Intent(this, typeof(VoiceService)));
-        player.SetMuted(true); voiceMuted = false; var session = new MaeveSession(this, key, Say, ExecutePoolToolAsync); maeve = session;
-        _ = ActionAsync(async () => { try { await session.StartAsync(); } catch { if (maeve == session) maeve = null; StopService(new Intent(this, typeof(VoiceService))); throw; } });
+        player.SetMuted(true); voiceMuted = false; var session = new SkyVoiceSession(this, key, Say, ExecutePoolToolAsync); sky = session;
+        _ = ActionAsync(async () => { try { await session.StartAsync(); } catch { if (sky == session) sky = null; StopService(new Intent(this, typeof(VoiceService))); throw; } });
     }
-    async Task EndMaeveAsync() { var session = maeve; maeve = null; try { if (session is not null) await session.CloseAsync(); } finally { StopService(new Intent(this, typeof(VoiceService))); } }
+    async Task EndSkyAsync() { var session = sky; sky = null; try { if (session is not null) await session.CloseAsync(); } finally { StopService(new Intent(this, typeof(VoiceService))); } }
     protected override void OnResume() { base.OnResume(); resumed = true; if (connected) _ = RefreshOnResumeAsync(); StartPolling(); if (overlayEnabled) StartCandidateOverlay(); }
-    protected override void OnPause() { resumed = false; PauseCandidateOverlay(); discovery.Stop(); if (maeve is null) InvalidateTable("Return for a fresh table view."); base.OnPause(); }
-    protected override void OnDestroy() { appSubscription?.Dispose(); effectSubscription?.Dispose(); lifetime.Cancel(); tableAnalysis.Dispose(); PauseCandidateOverlay(); tableBitmap?.Dispose(); _ = EndMaeveAsync(); player.Release(); cast?.Release(); discovery.Stop(); client.Dispose(); base.OnDestroy(); }
+    protected override void OnPause() { resumed = false; PauseCandidateOverlay(); discovery.Stop(); if (sky is null) InvalidateTable("Return for a fresh table view."); base.OnPause(); }
+    protected override void OnDestroy() { appSubscription?.Dispose(); effectSubscription?.Dispose(); lifetime.Cancel(); tableAnalysis.Dispose(); PauseCandidateOverlay(); tableBitmap?.Dispose(); _ = EndSkyAsync(); player.Release(); cast?.Release(); discovery.Stop(); client.Dispose(); base.OnDestroy(); }
     sealed class PlayerListener(MainActivity owner) : Java.Lang.Object, Bridge.PlayerBridge.IListener { public void OnError(string? error) => owner.Say(error ?? "Viewing interrupted"); public void OnPlaying(bool playing) => owner.RunOnUiThread(() => { if (!owner.lifetime.IsCancellationRequested) owner.viewerStatus.Text = playing ? owner.offline ? "Playing downloaded clip" : "Live · delayed · silent" : "Waiting for video…"; }); }
     sealed class CastListener(MainActivity owner) : Java.Lang.Object, Bridge.CastBridge.IListener { public void OnStatus(string? status) => owner.Say(status ?? "TV status changed"); }
     sealed class DiscoveryListener(MainActivity owner) : Java.Lang.Object, Bridge.DiscoveryBridge.IListener

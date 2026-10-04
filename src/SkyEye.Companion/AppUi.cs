@@ -114,7 +114,7 @@ public sealed partial class MainActivity
             if (tableState is not null)
             {
                 ClearCandidatePresentation("Checking your selected group…"); overlayRefreshAt = 0; ShowTable();
-                if (maeve is not null && tableState is not null) _ = maeve.UpdateTableAsync(tableState);
+                if (sky is not null && tableState is not null) _ = sky.UpdateTableAsync(tableState);
             }
         }
         if (previous.Presentation != next.Presentation)

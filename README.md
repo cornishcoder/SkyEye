@@ -1,14 +1,16 @@
 # SkyEye
 
-C#/.NET 10 Android camera and companion apps for a mounted pool-table camera. Initial Pixel 10 Pro camera and Pixel 11 Pro XL companion capture, LAN viewing and replay checks pass. Extended device/Chromecast acceptance is still required before calling the prototype dependable.
+C# Android apps for a mounted pool-table camera. The camera and retained native companion use .NET 10; the production portrait companion uses .NET 11. Initial Pixel 10 Pro camera and Pixel 11 Pro XL companion capture, LAN viewing and replay checks pass. Extended device/Chromecast acceptance is still required before calling the prototype dependable.
 
 ## Apps
 
 - **SkyEye Camera:** arm once on the mounted phone, then switch its display off. Session controls exist on the companion. A camera/microphone foreground service serves the local network on port 8765.
 - **SkyEye:** discover or enter the camera address, watch as a guest, or deliberately claim host control. The first successful claim wins. Guests browse/download clips; the host starts/pauses/resumes/stops, saves replay clips and casts.
-- **Maeve:** optional host-owned GPT-Live-1 conversation, adapted from Maeve Watch. The personal API key is entered on the companion and encrypted with Android Keystore. Camera, guests and source code receive no API credential.
+- **Sky:** optional host-owned GPT-Live-1 conversation, adapted from Maeve Watch. The personal API key is entered on the companion and encrypted with Android Keystore. Camera, guests and source code receive no API credential.
 
 ## Build and install
+
+For the production portrait companion, use the separate [production build and guarded in-place update](docs/production-companion-migration.md). The baseline instructions below remain available for the camera and retained native companion.
 
 Requires .NET 10 with the Android workload and the Android SDK/JDK. Native integrations are Java adapters inside the C# Android projects. Dependencies are pinned in the project files.
 
@@ -34,7 +36,7 @@ Wireless debugging must be paired with the computer first. A pairing address/cod
 7. Select Chromecast with the Cast button and choose **Play on TV**. The live feed has no audio track. Phone presentation can rotate independently.
 8. **Pause** preserves saved clips and suspends capture. **Resume** starts a new continuous history interval. **Stop** ends the session while the service remains armed for another start, subject to device validation.
 
-Capture/buffering continues without viewers or a host. Host leases use five-second companion heartbeats and expire after 30 seconds without renewal. New claims invalidate old control tokens. Releasing ownership ends the old host's Maeve conversation. Low battery (10%) or critically low storage stops capture; saved clips remain.
+Capture/buffering continues without viewers or a host. Host leases use five-second companion heartbeats and expire after 30 seconds without renewal. New claims invalidate old control tokens. Releasing ownership ends the old host's Sky conversation. Low battery (10%) or critically low storage stops capture; saved clips remain.
 
 ## Pool partner
 
@@ -46,11 +48,11 @@ The local C# OpenCV detector rectifies perspective, measures cloth colour in the
 
 Turn on **Candidate overlay** beside the main live video to cycle up to three direct, bank and kick pots every two seconds. The layout refreshes every ten seconds and clear, settled detections are checked automatically; waiting/retry messages appear in the main view. White cue paths, cyan object-ball paths, ghost contact and cushion contacts are drawn on the video. Cast receives the annotated view while SkyEye is visible; turning the overlay off returns Cast to the original camera stream. See [overlay operation and device evidence](docs/candidate-overlay.md).
 
-Each ball can rebound at most once. Every segment is checked for obstacles, finite cushion bounds and pocket-mouth rebounds. Maeve's `get_table_state`, `suggest_shots` and `explain_shot` tools use the same state and stable candidate IDs, with their stricter fresh-frame gate. Scores rank geometric difficulty, not pot probability. Group eligibility is based on the existing [WEPF International Eightball Revision 2c](https://www.wepf.org/docs/International%20Eightball%20Rules%20%28Revision%202c%29%20-%20A4%20Booklet.pdf) reference. This does not simulate spin, pace, cushion jaws or the resulting cue-ball position.
+Each ball can rebound at most once. Every segment is checked for obstacles, finite cushion bounds and pocket-mouth rebounds. Sky's `get_table_state`, `suggest_shots` and `explain_shot` tools use the same state and stable candidate IDs, with their stricter fresh-frame gate. Scores rank geometric difficulty, not pot probability. Group eligibility is based on the existing [WEPF International Eightball Revision 2c](https://www.wepf.org/docs/International%20Eightball%20Rules%20%28Revision%202c%29%20-%20A4%20Booklet.pdf) reference. This does not simulate spin, pace, cushion jaws or the resulting cue-ball position.
 
 The implemented [Poolgame port and intentional adaptations](docs/poolgame-port.md) run entirely in C# on the companion with OpenCV 4.14.0 native image primitives. Python reference fixtures use OpenCV 4.11.0 and are development references only; no Python runtime, model download or analysis server is needed in the app. See the port report for the difference between regression checks and held-out accuracy evidence.
 
-Set the API key and **Talk to Maeve** on the host. Microphone mute/end controls are separate from recording. A microphone foreground service supports an ongoing conversation while the activity backgrounds; removing/destroying the activity closes voice. Shutdown waits for `session.closed` or a bounded timeout, recording whether usage finalization was confirmed. Voice/transcript events are stored privately on the host. No key values are logged.
+In the production portrait app, open **Controls → More controls** and choose **Talk to Sky** on the host. Set your personal key through the protected dialog in the portrait controls. Microphone mute/end controls are separate from recording. A microphone foreground service supports an ongoing conversation while the activity backgrounds; removing/destroying the activity closes voice. Shutdown waits for `session.closed` or a bounded timeout, recording whether usage finalization was confirmed. Voice/transcript events are stored privately on the host. No key values are logged.
 
 ## Validation
 

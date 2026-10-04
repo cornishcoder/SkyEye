@@ -27,7 +27,7 @@ import java.util.Collections;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * Small Android-native WebRTC session wrapper for Maeve. All callbacks are posted
+ * Small Android-native WebRTC session wrapper for Sky. All callbacks are posted
  * to the main thread so a .NET Activity can update its UI without extra dispatch.
  */
 public final class SkyEyeRtcSession {
@@ -66,8 +66,8 @@ public final class SkyEyeRtcSession {
 
     /** Initializes audio capture/playback and starts offer creation. */
     public void start() {
-        if (started) throw new IllegalStateException("The Maeve WebRTC session has already started.");
-        if (stopped) throw new IllegalStateException("The Maeve WebRTC session has stopped.");
+        if (started) throw new IllegalStateException("The Sky WebRTC session has already started.");
+        if (stopped) throw new IllegalStateException("The Sky WebRTC session has stopped.");
         if (appContext.checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             throw new SecurityException("Microphone permission is required before starting WebRTC.");
         }

@@ -76,7 +76,7 @@ public sealed partial class MainActivity
             InvalidateTable(changedCamera ? "Camera changed; calibrate and check its table." : "A fresh active camera view and host control are needed for table advice.");
             if (overlayEnabled) StartCandidateOverlay();
         }
-        if (previous.CanControl && !next.CanControl) _ = EndMaeveAsync();
+        if (previous.CanControl && !next.CanControl) _ = EndSkyAsync();
         controls.Visibility = next.CanControl ? ViewStates.Visible : ViewStates.Gone;
         release.Visibility = controls.Visibility;
         claim.Visibility = next.CanControl ? ViewStates.Gone : ViewStates.Visible;

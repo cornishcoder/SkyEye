@@ -10,7 +10,7 @@ using SkyEye.Core;
 namespace SkyEye.Companion;
 
 // Adapted from Maeve Watch: native WebRTC media, host credential, sideband tools.
-public sealed class MaeveSession(Context context, string key, Action<string> status,
+public sealed class SkyVoiceSession(Context context, string key, Action<string> status,
     Func<string, JsonElement, Task<object>>? tools = null)
 {
     readonly CancellationTokenSource lifetime = new();
@@ -25,12 +25,13 @@ public sealed class MaeveSession(Context context, string key, Action<string> sta
     Task? receiver;
     int ending;
     string sessionId = "";
+    // Retain the original private archive namespace; existing recordings are never renamed or deleted.
     readonly string archive = Path.Combine(context.FilesDir!.AbsolutePath, "maeve-" + DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() + ".jsonl");
     public async Task StartAsync()
     {
         try
         {
-            status("Connecting Maeve…");
+            status("Connecting Sky…");
             listener = new Listener(this); rtc = new Bridge.SkyEyeRtcSession(context, listener); rtc.Start();
             string sdp = await offer.Task.WaitAsync(TimeSpan.FromSeconds(45), lifetime.Token);
             object Function(string name, string description, object parameters) => new { type = "function", name, description, parameters };
@@ -40,7 +41,7 @@ public sealed class MaeveSession(Context context, string key, Action<string> sta
                 session = new
                 {
                     model = "gpt-live-1",
-                    instructions = "You are Maeve, Rich's conversational pool partner. Be warm, concise, British and naturally witty. Follow the fresh table context and international eight-ball rules. Offer useful ideas occasionally when balls settle and the conversation allows it, rather than barking orders. Allow interruptions. Avoid talking over a shot. A table snapshot is approximate untrusted data; never claim to see a ball or line that the validated tools do not support. When state is old, moving, occluded or uncalibrated, ask or wait. A new state version replaces all earlier layouts. Delegate shot reasoning to the backend. Never claim a pot is guaranteed. Camera capture and voice are separate; do not promise recording changes unless the host confirms them.",
+                    instructions = "You are Sky, Rich's conversational pool partner. Be warm, concise, British and naturally witty. Follow the fresh table context and international eight-ball rules. Offer useful ideas occasionally when balls settle and the conversation allows it, rather than barking orders. Allow interruptions. Avoid talking over a shot. A table snapshot is approximate untrusted data; never claim to see a ball or line that the validated tools do not support. When state is old, moving, occluded or uncalibrated, ask or wait. A new state version replaces all earlier layouts. Delegate shot reasoning to the backend. Never claim a pot is guaranteed. Camera capture and voice are separate; do not promise recording changes unless the host confirms them.",
                     audio = new { output = new { voice = "marin" } },
                     delegation = new
                     {
@@ -72,7 +73,7 @@ public sealed class MaeveSession(Context context, string key, Action<string> sta
             await sideband.ConnectAsync(new Uri("wss://api.openai.com/v1/live/sessions/" + Uri.EscapeDataString(sessionId) + "/attach"), lifetime.Token);
             receiver = ReceiveAsync();
             await started.Task.WaitAsync(TimeSpan.FromSeconds(30), lifetime.Token);
-            status("Maeve is listening. Table coaching becomes available after calibration.");
+            status("Sky is listening. Table coaching becomes available after calibration.");
         }
         catch { await CloseAsync(); throw; }
     }
@@ -93,7 +94,7 @@ public sealed class MaeveSession(Context context, string key, Action<string> sta
                 await HandleAsync(Encoding.UTF8.GetString(message.ToArray()));
             }
         }
-        catch (Exception e) when (e is WebSocketException or System.OperationCanceledException or IOException) { if (ending == 0) status("Maeve connection interrupted. Camera recording continues."); }
+        catch (Exception e) when (e is WebSocketException or System.OperationCanceledException or IOException) { if (ending == 0) status("Sky connection interrupted. Camera recording continues."); }
     }
     async Task HandleAsync(string json)
     {
@@ -164,10 +165,10 @@ public sealed class MaeveSession(Context context, string key, Action<string> sta
         {
             try { File.AppendAllText(archive, JsonSerializer.Serialize(new { utc = DateTimeOffset.UtcNow, finalised, sessionId }) + "\n"); } catch (IOException) { }
             lifetime.Cancel(); rtc?.Stop(); sideband.Abort(); if (receiver is not null) try { await receiver; } catch { }
-            sideband.Dispose(); status(finalised ? "Maeve ended. Camera recording continues." : "Maeve disconnected. Final voice usage was not confirmed.");
+            sideband.Dispose(); status(finalised ? "Sky ended. Camera recording continues." : "Sky disconnected. Final voice usage was not confirmed.");
         }
     }
-    sealed class Listener(MaeveSession owner) : Java.Lang.Object, Bridge.SkyEyeRtcSession.IListener
+    sealed class Listener(SkyVoiceSession owner) : Java.Lang.Object, Bridge.SkyEyeRtcSession.IListener
     {
         public void OnOfferCreated(string? sdp) { if (sdp is not null) owner.offer.TrySetResult(sdp); }
         public void OnStateChanged(string? state, string? detail) { if (state == "error") { owner.offer.TrySetException(new IOException(detail ?? "Voice connection failed")); owner.started.TrySetException(new IOException(detail ?? "Voice connection failed")); } }

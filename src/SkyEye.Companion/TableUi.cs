@@ -86,13 +86,13 @@ public sealed partial class MainActivity
         if (tableAnalysis.State.Jpeg is { } jpeg) SetTableImage(jpeg);
         ShowTable();
         var latest = tableState;
-        if (maeve is not null && latest is not null && (previousVersion != latest.Version || latest.Settled && latest.Confirmed)) await maeve.UpdateTableAsync(latest);
+        if (sky is not null && latest is not null && (previousVersion != latest.Version || latest.Settled && latest.Confirmed)) await sky.UpdateTableAsync(latest);
     }
     async Task ConfirmBallsUiAsync()
     {
         await UpdateTableAsync(); if (lifetime.IsCancellationRequested) return;
         var confirmed = tableAnalysis.Confirm(tableState?.Version ?? -1); ShowTable();
-        if (maeve is not null) await maeve.UpdateTableAsync(confirmed);
+        if (sky is not null) await sky.UpdateTableAsync(confirmed);
     }
     void SetTableImage(byte[] jpeg)
     {
@@ -137,7 +137,7 @@ public sealed partial class MainActivity
             {
                 var corrected = tableAnalysis.Correct(expectedVersion, edit.Text ?? "");
                 ClearCandidatePresentation("Checking the corrected layout..."); overlayRefreshAt = 0; ShowTable();
-                if (maeve is not null) _ = maeve.UpdateTableAsync(corrected);
+                if (sky is not null) _ = sky.UpdateTableAsync(corrected);
             }
             catch (Exception e) { Say(e.Message); }
         })!.SetNegativeButton("Cancel", (_, _) => { })!.Show();
