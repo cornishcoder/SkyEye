@@ -12,7 +12,8 @@ import java.util.*;
 import java.util.concurrent.*;
 
 /** Bounded 960x540, 10fps, silent AVC feed of the main live view with annotations.
- * Camera archive/capture is independent. Only two reusable bitmaps may be in flight. */
+ * Camera archive/capture is independent. Two reusable encoder bitmaps may be in flight;
+ * PlayerBridge owns one reusable raw capture bitmap for perspective composition. */
 public final class OverlayEncoder {
     public interface Listener { void onError(String message); }
     private final PlayerBridge source;private final Listener listener;private final File directory;

@@ -45,7 +45,7 @@ public sealed partial class ShellSession
     });
     void EnsureShotLoop()
     {
-        if (!active || foreground is null || suppressShotLoop || shotLoopFaulted || EditingTable || table.State.Picking || SceneCheck || selection.Kind != ViewingSource.Live || !app.State.Presentation.ShotChoicesEnabled || shotLifetime is not null) return;
+        if (!active || foreground is null || suppressShotLoop || shotLoopFaulted || EditingTable || table.State.Picking || SceneCheck || selection.Kind != ViewingSource.Live || !(app.State.Presentation.ShotChoicesEnabled || FrameTableRequested) || shotLifetime is not null) return;
         shotLifetime = CancellationTokenSource.CreateLinkedTokenSource(foreground.Token);
         shotCarousel.Start(Android.OS.SystemClock.ElapsedRealtime()); nextShotRefresh = 0;
         _ = ShotLoopAsync(shotLifetime.Token);
@@ -58,8 +58,8 @@ public sealed partial class ShellSession
             do
             {
                 if (!active || token.IsCancellationRequested) return;
-                if (!app.State.Presentation.ShotChoicesEnabled) { StopShotScenes(); return; }
-                if (!CanAnalyzeTable || !HasTableCalibration || EditingTable) await ClearShotCatalogAsync(token);
+                if (!(app.State.Presentation.ShotChoicesEnabled || FrameTableRequested)) { StopShotScenes(); return; }
+                if (!app.State.Presentation.ShotChoicesEnabled || !CanAnalyzeTable || !HasTableCalibration || EditingTable) await ClearShotCatalogAsync(token);
                 else if (Android.OS.SystemClock.ElapsedRealtime() >= nextShotRefresh)
                 {
                     nextShotRefresh = Android.OS.SystemClock.ElapsedRealtime() + CandidateCarousel.RefreshMilliseconds;
@@ -68,7 +68,8 @@ public sealed partial class ShellSession
                 if (token.IsCancellationRequested) return;
                 RenderShotScenes();
                 ManageShotRelay();
-                Publish();
+                // Candidate/catalog and camera callbacks publish UI changes. The
+                // native renderer can tick without rerendering the sheet five times/sec.
             } while (await timer.WaitForNextTickAsync(token));
         }
         catch (OperationCanceledException) { }
@@ -155,7 +156,8 @@ public sealed partial class ShellSession
     }
     void ManageShotRelay()
     {
-        bool needed = active && Playing && selection.Kind == ViewingSource.Live && CanCastLive && !EditingTable && app.State.Presentation.Tv.Mode != ShotDisplayMode.Live;
+        bool needed = active && Playing && selection.Kind == ViewingSource.Live && CanCastLive && !EditingTable
+            && (app.State.Presentation.Tv.Mode != ShotDisplayMode.Live || FrameTableRequested && AutomaticPocketsCurrent);
         if (!needed) { CloseShotRelay(); return; }
         if (shotRelay is null && sceneRelayClosing.IsCompleted && Android.OS.SystemClock.ElapsedRealtime() >= relayRetryAt)
         {

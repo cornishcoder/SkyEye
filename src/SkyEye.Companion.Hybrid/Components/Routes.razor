@@ -29,7 +29,7 @@
                 <button class="secondary" disabled="@(busy || !Session.CanCastLive)" @onclick="Watch">Watch live</button>
                 @if (Session.HasSource) { <button class="quiet" @onclick="Session.Stop">Stop viewing</button> }
                 <p class="hint" role="status">@Session.FramingStatus</p>
-                <button class="secondary" disabled="@(busy || !Session.CanFrameTable && !Session.FrameTableRequested)" @onclick="() => Session.SetTableFraming(!Session.FrameTableRequested)">@(Session.FrameTableRequested ? "Show whole camera" : "Frame table")</button>
+                <button class="secondary" disabled="@(busy || !Session.CanFrameTable && !Session.FrameTableRequested)" @onclick="() => Session.SetTableFraming(!Session.FrameTableRequested)">@(Session.FrameTableRequested ? "Show whole camera" : "Rectangular table")</button>
                 </section>
                 <ShotControls Session="Session" Busy="busy" Version="Session.Agent.State.Value.Version" />
                 <section class="control-section" aria-label="TV viewing">
