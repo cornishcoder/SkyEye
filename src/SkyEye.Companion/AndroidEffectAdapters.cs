@@ -32,6 +32,7 @@ public sealed class AndroidPortraitClipExporter(Context context) : IPortraitClip
     {
         var finished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         Bridge.PortraitExporter? exporter = null; ExportListener? listener = null;
+        bool completed = false;
         try
         {
             await OnMainAsync(() =>
@@ -40,12 +41,13 @@ public sealed class AndroidPortraitClipExporter(Context context) : IPortraitClip
                 listener = new(finished); exporter = new(); exporter.Start(context, input, output, rotation, listener);
             }).ConfigureAwait(false);
             await finished.Task.WaitAsync(TimeSpan.FromMinutes(20), cancellation).ConfigureAwait(false);
+            completed = true;
         }
         finally
         {
             // Media3 requires its creating looper for cancellation. Wait for it
             // before the library removes a failed/cancelled portrait part file.
-            await OnMainAsync(() => { exporter?.Cancel(); exporter?.Dispose(); listener?.Dispose(); }).ConfigureAwait(false);
+            await OnMainAsync(() => { if (!completed) exporter?.Cancel(); exporter?.Dispose(); listener?.Dispose(); }).ConfigureAwait(false);
         }
     }
     static Task OnMainAsync(Action work)

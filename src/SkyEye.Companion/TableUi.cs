@@ -5,7 +5,6 @@ using Android.Widget;
 using SkyEye.Core;
 using SkyEye.Core.Analysis;
 using SkyEye.Core.Application;
-using SkyEye.Vision.Android;
 using System.Globalization;
 using System.Text.Json;
 using Point = SkyEye.Core.Point;
@@ -14,113 +13,113 @@ namespace SkyEye.Companion;
 
 public sealed partial class MainActivity
 {
-    TableCalibration? calibration;
-    string calibrationId = "";
-    TableState? tableState;
+    TableCalibration? calibration => tableAnalysis.State.Calibration;
+    TableState? tableState => tableAnalysis.State.Table;
     Bitmap? tableBitmap;
+    byte[]? displayedTableFrame;
     TextView tableLabel = null!;
-    int tableGeneration;
     bool voiceMuted;
-    readonly TableTracker tableTracker = new(15);
-    readonly ITableAnalyzer tableAnalyzer = new VisionAnalyzer();
-    Task? tableUpdate;
-    VisionResult? lastVision;
-    CancellationTokenSource? analysisCancellation;
     Spinner groupSelector = null!;
     string selectedShotId = "";
     TableView tableView = null!;
-    string CalibrationKey() => "calibration-" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(client.Address)));
     void RestoreCalibration()
     {
-        if (calibration is not null) return;
         try
         {
-            var stored = GetSharedPreferences("skyeye", Android.Content.FileCreationMode.Private)!.GetString(CalibrationKey(), null);
-            if (stored is null) return;
-            var corners = JsonSerializer.Deserialize<Point[]>(stored, JsonDefaults.Options);
-            if (corners is null) return;
-            calibration = new TableCalibration(corners); calibrationId = Guid.NewGuid().ToString("N");
-            tableView.Calibration = calibration; tableLabel.Text = "Saved calibration loaded. Recalibrate if the mount moved; confirm the current balls.";
+            if (!tableAnalysis.RestoreCalibration()) return;
+            tableView.Calibration = calibration;
+            tableLabel.Text = "Saved calibration loaded. Recalibrate if the mount moved; confirm the current balls.";
         }
-        catch { calibration = null; }
+        catch { Say("Saved calibration could not be loaded. Calibrate this table again."); }
     }
     void BuildTableUi(LinearLayout root)
     {
         root.AddView(Label("Table awareness", 22));
         tableLabel = Label("Calibrate before using pool advice. Confirm or correct detections when the layout changes.", 13); root.AddView(tableLabel);
         tableView = new TableView(this); root.AddView(tableView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, (int)(220 * Resources!.DisplayMetrics!.Density)));
-        var row = Row(root); Add(row, "Calibrate", () => _ = ActionAsync(CalibrateAsync)); Add(row, "Confirm balls", () => _ = ActionAsync(async () => { await UpdateTableAsync(); tableState = tableTracker.Confirm(DateTimeOffset.UtcNow); ShowTable(); if (maeve is not null) await maeve.UpdateTableAsync(tableState); })); Add(row, "Correct layout", CorrectLayout);
+        var row = Row(root); Add(row, "Calibrate", () => _ = ActionAsync(CalibrateAsync)); Add(row, "Confirm balls", () => _ = ActionAsync(ConfirmBallsUiAsync)); Add(row, "Correct layout", CorrectLayout);
         groupSelector = new Spinner(this); groupSelector.Adapter = new ArrayAdapter<string>(this, Android.Resource.Layout.SimpleSpinnerDropDownItem, ["Open table", "I'm reds", "I'm yellows", "I'm on the black"]);
         groupSelector.ItemSelected += (sender, e) => { _ = DispatchAppAsync(new SetTargetGroup((AdviceTargetGroup)e.Position)); }; root.AddView(groupSelector);
     }
     async Task CalibrateAsync()
     {
         InvalidateTable("Selecting a new table calibration.");
-        var snapshot = await client.SnapshotAsync(lifetime.Token);
-        tableBitmap?.Dispose(); tableBitmap = BitmapFactory.DecodeByteArray(snapshot.Jpeg, 0, snapshot.Jpeg.Length) ?? throw new IOException("Snapshot could not be decoded.");
-        tableView.Image = tableBitmap; tableView.Picks.Clear(); tableView.Picking = true; tableView.Calibration = null; tableView.Balls = []; tableView.Shots = []; tableView.Invalidate();
+        var draft = await tableAnalysis.PrepareCalibrationAsync(lifetime.Token);
+        if (lifetime.IsCancellationRequested || tableAnalysis.State.Generation != draft.Generation) return;
+        SetTableImage(draft.Jpeg);
+        tableView.Picks.Clear(); tableView.Picking = true; tableView.Calibration = null; tableView.Balls = []; tableView.Shots = []; tableView.Invalidate();
         Say("Tap the cloth corners where the cushion faces meet: top left, top right, bottom right, bottom left. Long edge runs left to right. This frame stays still while you calibrate.");
         void Accept(Point[] corners)
         {
-            try { calibration = new TableCalibration(corners); calibrationId = Guid.NewGuid().ToString("N"); tableTracker.Reset(); tableState = null; GetSharedPreferences("skyeye", Android.Content.FileCreationMode.Private)!.Edit()!.PutString(CalibrationKey(), JsonSerializer.Serialize(calibration.Corners, JsonDefaults.Options))!.Apply(); tableView.Calibration = calibration; tableView.Picking = false; _ = ActionAsync(UpdateTableAsync); }
+            try
+            {
+                tableAnalysis.ApplyCalibration(draft.Generation, corners);
+                tableView.Calibration = calibration; tableView.Picking = false; tableView.Calibrated = null;
+                ClearCandidatePresentation("Checking the new calibration..."); _ = ActionAsync(UpdateTableAsync);
+            }
             catch (Exception e) { tableView.Picks.Clear(); Say(e.Message); }
         }
         tableView.Calibrated = Accept;
-        int generation = tableGeneration;
-        var proposed = await Task.Run(() => tableAnalyzer.FindCorners(snapshot.Jpeg), lifetime.Token);
-        if (proposed is null || generation != tableGeneration || !tableView.Picking) return;
-        tableView.Picks.AddRange(proposed); tableView.Invalidate();
+        if (draft.Proposed is null) return;
+        tableView.Picks.AddRange(draft.Proposed); tableView.Invalidate();
         new AlertDialog.Builder(this)!.SetTitle("Check the proposed table corners")!.SetMessage("Use these four cyan points only if they match the cloth boundary. Otherwise select the corners yourself.")!
-            .SetPositiveButton("Use corners", (_, _) => { if (generation == tableGeneration && tableView.Picking) Accept(proposed); })!
+            .SetPositiveButton("Use corners", (_, _) => Accept(draft.Proposed))!
             .SetNegativeButton("Select manually", (_, _) => { tableView.Picks.Clear(); tableView.Invalidate(); })!
             .SetOnCancelListener(new CornerDialogCancel(tableView))!.Show();
     }
     void InvalidateTable(string reason)
     {
-        ++tableGeneration; analysisCancellation?.Cancel(); tableTracker.Reset(); tableState = null; lastVision = null;
-        selectedShotId = ""; tableView.Balls = []; tableView.Shots = []; tableView.Invalidate(); ClearCandidatePresentation(reason); tableLabel.Text = reason;
+        tableAnalysis.Invalidate();
+        selectedShotId = ""; tableView.Picking = false; tableView.Picks.Clear(); tableView.Calibrated = null;
+        tableView.Image = null; displayedTableFrame = null; tableBitmap?.Dispose(); tableBitmap = null;
+        tableView.Balls = []; tableView.Shots = []; tableView.Invalidate(); ClearCandidatePresentation(reason); tableLabel.Text = reason;
     }
-    Task UpdateTableAsync()
+    async Task UpdateTableAsync()
     {
-        // Reuse the in-flight operation; never build a queue of camera frames.
-        if (tableUpdate is { IsCompleted: false }) return tableUpdate;
-        return tableUpdate = AnalyzeTableAsync();
-    }
-    async Task AnalyzeTableAsync()
-    {
-        var currentCalibration = calibration; int generation = tableGeneration;
-        if (currentCalibration is null || tableView.Picking) return;
-        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token); analysisCancellation = cancellation;
-        try
-        {
-        var snapshot = await client.SnapshotAsync(cancellation.Token);
-        var detected = await Task.Run(() => tableAnalyzer.Analyze(snapshot.Jpeg, currentCalibration, cancellation.Token), cancellation.Token);
-        if (generation != tableGeneration || tableView.Picking || currentCalibration != calibration) return;
         long previousVersion = tableState?.Version ?? -1;
-        tableState = tableTracker.Observe(calibrationId, snapshot.Timeline, snapshot.CapturedAt, detected.Balls, group, detected.Uncertain, detected.Obstructed); lastVision = detected;
-        tableBitmap?.Dispose(); tableBitmap = BitmapFactory.DecodeByteArray(snapshot.Jpeg, 0, snapshot.Jpeg.Length); tableView.Image = tableBitmap;
+        await tableAnalysis.UpdateAsync(lifetime.Token);
+        if (lifetime.IsCancellationRequested) return;
+        if (tableAnalysis.State.Jpeg is { } jpeg) SetTableImage(jpeg);
         ShowTable();
-        if (maeve is not null && (previousVersion != tableState.Version || tableState.Settled && tableState.Confirmed)) await maeve.UpdateTableAsync(tableState);
-        }
-        finally { if (analysisCancellation == cancellation) analysisCancellation = null; }
+        var latest = tableState;
+        if (maeve is not null && latest is not null && (previousVersion != latest.Version || latest.Settled && latest.Confirmed)) await maeve.UpdateTableAsync(latest);
+    }
+    async Task ConfirmBallsUiAsync()
+    {
+        await UpdateTableAsync(); if (lifetime.IsCancellationRequested) return;
+        var confirmed = tableAnalysis.Confirm(tableState?.Version ?? -1); ShowTable();
+        if (maeve is not null) await maeve.UpdateTableAsync(confirmed);
+    }
+    void SetTableImage(byte[] jpeg)
+    {
+        if (ReferenceEquals(displayedTableFrame, jpeg)) return;
+        var image = BitmapFactory.DecodeByteArray(jpeg, 0, jpeg.Length) ?? throw new IOException("Snapshot could not be decoded.");
+        tableView.Image = image; tableBitmap?.Dispose(); tableBitmap = image; displayedTableFrame = jpeg;
     }
     void ShowTable()
     {
-        if (tableState is null) return;
-        tableView.Calibration = calibration; tableView.Balls = tableState.Balls; RefreshCandidates(); tableView.Invalidate();
-        var balls = tableState.Balls;
-        double age = (DateTimeOffset.UtcNow - tableState.CapturedAt).TotalSeconds;
-        tableLabel.Text = $"{balls.Length} balls · {balls.Count(b => b.Kind == "red")} reds · {balls.Count(b => b.Kind == "yellow")} yellows · {balls.Count(b => b.Kind == "cue")} cue · {balls.Count(b => b.Kind == "black")} black\n{group} · " + (age > 6 || age < -2 ? "frame is out of date" : tableState.Occluded ? "uncertain/obstructed" : !tableState.Settled ? "layout changing" : tableState.Confirmed ? "confirmed" : "check and confirm detections") +
-            $" · frame {age:0.0}s old · analysis {lastVision?.ElapsedMs ?? 0:0}ms" + (lastVision?.Warnings.Length > 0 ? "\n" + string.Join(" ", lastVision.Warnings) : "");
+        var snapshot = tableAnalysis.State; var state = snapshot.Table; var vision = snapshot.Vision;
+        if (state is null) return;
+        tableView.Calibration = snapshot.Calibration; tableView.Balls = state.Balls; RefreshCandidates(); tableView.Invalidate();
+        var balls = state.Balls;
+        double age = (DateTimeOffset.UtcNow - state.CapturedAt).TotalSeconds;
+        tableLabel.Text = $"{balls.Length} balls · {balls.Count(b => b.Kind == "red")} reds · {balls.Count(b => b.Kind == "yellow")} yellows · {balls.Count(b => b.Kind == "cue")} cue · {balls.Count(b => b.Kind == "black")} black\n{state.Group} · " + (age > 6 || age < -2 ? "frame is out of date" : state.Occluded ? "uncertain/obstructed" : !state.Settled ? "layout changing" : state.Confirmed ? "confirmed" : "check and confirm detections") +
+            $" · frame {age:0.0}s old · analysis {vision?.ElapsedMs ?? 0:0}ms" + (vision?.Warnings.Length > 0 ? "\n" + string.Join(" ", vision.Warnings) : "");
 #if DEBUG
-        // A bounded latest-result diagnostic for device verification; no JPEG, credentials or history.
-        File.WriteAllText(System.IO.Path.Combine(FilesDir!.AbsolutePath, "table-analysis.json"), JsonSerializer.Serialize(new { state = tableState, analysis = lastVision, candidates = CurrentShots(), selectedShotId }, JsonDefaults.Options));
+        // A bounded latest-result diagnostic; no JPEG, credentials or history.
+        File.WriteAllText(System.IO.Path.Combine(FilesDir!.AbsolutePath, "table-analysis.json"), JsonSerializer.Serialize(new { state, analysis = vision, candidates = CurrentShots(), selectedShotId }, JsonDefaults.Options));
 #endif
     }
-    Shot[] CurrentShots() => tableState is null ? [] : ShotPlanner.Suggest(tableState, DateTimeOffset.UtcNow);
+    Shot[] CurrentShots()
+    {
+        var snapshot = tableAnalysis.State; var camera = app.State.Camera;
+        return !camera.CanControl || camera.Capture != CaptureState.Active || snapshot.Source != camera.Scope || snapshot.Table is null
+            ? [] : ShotPlanner.Suggest(snapshot.Table, DateTimeOffset.UtcNow);
+    }
     void RefreshCandidates()
     {
-        var selected = overlayEnabled ? carousel.Current(Android.OS.SystemClock.ElapsedRealtime(), DateTimeOffset.UtcNow) : null;
+        var selected = overlayEnabled && app.State.Camera.CanControl ? carousel.Current(Android.OS.SystemClock.ElapsedRealtime(), DateTimeOffset.UtcNow) : null;
+        if (selected is not null && (tableState?.Version != selected.TableVersion || tableState?.Group != group)) selected = null;
         selectedShotId = selected?.Id ?? ""; tableView.Shots = selected is null ? [] : [selected]; tableView.Invalidate();
     }
     void CorrectLayout()
@@ -132,22 +131,21 @@ public sealed partial class MainActivity
         {
             try
             {
-                if (tableState?.Version != expectedVersion) throw new InvalidOperationException("The layout changed while you were editing. Check the current frame and try again.");
-                var balls = (edit.Text ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries).Select((line, i) => { var fields = line.Split(' ', StringSplitOptions.RemoveEmptyEntries); if (fields.Length != 3 || fields[0] is not ("cue" or "red" or "yellow" or "black")) throw new ArgumentException("Each line needs a ball colour and two coordinates."); double x = double.Parse(fields[1], CultureInfo.InvariantCulture), y = double.Parse(fields[2], CultureInfo.InvariantCulture); if (!double.IsFinite(x) || !double.IsFinite(y) || x is < 0 or > 2 || y is < 0 or > 1) throw new ArgumentException("Coordinates must be within the table."); return new Ball("manual-" + i, fields[0], new(x, y), 1); }).ToArray();
-                if (balls.Count(b => b.Kind == "cue") != 1 || balls.Count(b => b.Kind == "black") > 1 || balls.Count(b => b.Kind == "red") > 7 || balls.Count(b => b.Kind == "yellow") > 7 || balls.Length > 16) throw new ArgumentException("Include one cue ball, at most one black, seven reds and seven yellows.");
-                tableState = tableTracker.Correct(balls, DateTimeOffset.UtcNow); ShowTable(); if (maeve is not null) _ = maeve.UpdateTableAsync(tableState);
+                var corrected = tableAnalysis.Correct(expectedVersion, edit.Text ?? "");
+                ClearCandidatePresentation("Checking the corrected layout..."); overlayRefreshAt = 0; ShowTable();
+                if (maeve is not null) _ = maeve.UpdateTableAsync(corrected);
             }
             catch (Exception e) { Say(e.Message); }
         })!.SetNegativeButton("Cancel", (_, _) => { })!.Show();
     }
     Task<object> ExecutePoolToolAsync(string name, JsonElement arguments)
     {
-        var state = tableState;
-        if (state is null) return Task.FromResult<object>(new { error = "Table has not been calibrated and confirmed." });
+        var snapshot = tableAnalysis.State; var state = snapshot.Table; var vision = snapshot.Vision; var camera = app.State.Camera;
+        if (state is null || !camera.CanControl || snapshot.Source != camera.Scope) return Task.FromResult<object>(new { error = "Table has not been calibrated and confirmed." });
         var shots = ShotPlanner.Suggest(state, DateTimeOffset.UtcNow);
         object output = name switch
         {
-            "get_table_state" => new { state, analysis = lastVision is null ? null : new { lastVision.Warnings, lastVision.ElapsedMs, lastVision.Normalized }, ageSeconds = (DateTimeOffset.UtcNow - state.CapturedAt).TotalSeconds, rules = PoolGeometry.RulesVersion, source = PoolGeometry.RulesUrl },
+            "get_table_state" => new { state, analysis = vision is null ? null : new { vision.Warnings, vision.ElapsedMs, vision.Normalized }, ageSeconds = (DateTimeOffset.UtcNow - state.CapturedAt).TotalSeconds, rules = PoolGeometry.RulesVersion, source = PoolGeometry.RulesUrl },
             "suggest_shots" => new { shots, state.Version, rules = PoolGeometry.RulesVersion, source = PoolGeometry.RulesUrl, limitation = "Direct, bank and kick geometry with at most one rebound per ball. No spin, pace, positional prediction or complete refereeing. Scores rank difficulty; they are not pot probabilities. An empty list means uncertainty or no validated candidate." },
             "explain_shot" => (object?)shots.FirstOrDefault(s => s.Id == arguments.GetProperty("shot_id").GetString()) ?? new { error = "That candidate belongs to an old layout or is unavailable." },
             _ => new { error = "Unknown pool tool" }

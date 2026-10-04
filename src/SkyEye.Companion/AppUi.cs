@@ -1,5 +1,7 @@
 using SkyEye.Core.Application;
 using SkyEye.Core;
+using SkyEye.Core.Analysis;
+using SkyEye.Vision.Android;
 
 namespace SkyEye.Companion;
 
@@ -7,6 +9,9 @@ public sealed partial class MainActivity
 {
     AppCoordinator app = null!;
     CameraControlEffect cameraEffects = null!;
+    TableAnalysisSession tableAnalysis = null!;
+    CompanionClipService clipService = null!;
+    IDisposable? effectSubscription;
     IDisposable? appSubscription;
     SkyEyeState renderedAppState = SkyEyeState.Empty;
     bool overlayEnabled => app.State.Presentation.ShotChoicesEnabled;
@@ -22,6 +27,13 @@ public sealed partial class MainActivity
         });
         app = new(e => Android.Util.Log.Warn("SkyEye", $"App state observer: {e.GetType().Name}"),
             new ClipSaveExecutor(System.IO.Path.Combine(FilesDir!.AbsolutePath, "save-operations"), new CameraClipSaveEffect(client)), cameraEffects);
+        tableAnalysis = new(new CameraTableFrameSource(client, () => app.State.Camera), new VisionAnalyzer(),
+            new CameraCalibrationStore(ApplicationContext!, () => client.Address));
+        // Service binding runs before UI observers; delayed UI notifications must
+        // not leave a late frame/edit attached to an obsolete camera or group.
+        effectSubscription = app.Subscribe(state => tableAnalysis.Bind(state.Camera, state.Advice.TargetGroup.ToString().ToLowerInvariant()));
+        clipService = new(client, () => app.State.Camera,
+            new ClipLibrary(System.IO.Path.Combine(FilesDir!.AbsolutePath, "clips")), new AndroidPortraitClipExporter(ApplicationContext!));
     }
 
 #if SKYEYE_COMMAND_LAB
@@ -101,7 +113,6 @@ public sealed partial class MainActivity
                 groupSelector.SetSelection((int)next.Advice.TargetGroup);
             if (tableState is not null)
             {
-                tableState = tableTracker.SetGroup(next.Advice.TargetGroup.ToString().ToLowerInvariant());
                 ClearCandidatePresentation("Checking your selected group…"); overlayRefreshAt = 0; ShowTable();
                 if (maeve is not null && tableState is not null) _ = maeve.UpdateTableAsync(tableState);
             }

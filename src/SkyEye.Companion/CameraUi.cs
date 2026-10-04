@@ -68,7 +68,7 @@ public sealed partial class MainActivity
         bool changedCamera = previous.CameraIdentity is not null && previous.CameraIdentity != next.CameraIdentity;
         if (changedCamera)
         {
-            calibration = null; tableView.Calibration = null; tableView.Picking = false; tableView.Picks.Clear();
+            tableView.Calibration = null; tableView.Picking = false; tableView.Picks.Clear();
         }
         if (newConnection || previous.CanControl != next.CanControl || previous.Capture != next.Capture)
         {

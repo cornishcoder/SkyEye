@@ -79,19 +79,20 @@ public sealed partial class MainActivity
     async Task RefreshAutomaticCandidatesAsync(int run)
     {
         await UpdateTableAsync();
-        if (run != overlayRun || !overlayEnabled) return;
+        if (run != overlayRun || !overlayEnabled || !app.State.Camera.CanControl) return;
         if (tableState is { Settled: false, Occluded: false })
         {
             ClearCandidatePresentation("Waiting for the balls to settle…");
             await Task.Delay(2100, lifetime.Token); if (run != overlayRun || !overlayEnabled) return; await UpdateTableAsync();
         }
-        if (run != overlayRun || !overlayEnabled) return;
-        if (tableState is null || tableState.Occluded || !tableState.Settled)
+        if (run != overlayRun || !overlayEnabled || !app.State.Camera.CanControl) return;
+        var snapshot = tableAnalysis.State; var state = snapshot.Table;
+        if (state is null || state.Occluded || !state.Settled || snapshot.Source != app.State.Camera.Scope)
         {
             ClearCandidatePresentation(tableState?.Occluded == true ? "Table unclear or obstructed. Retrying automatically…" : "Waiting for the balls to settle…"); return;
         }
-        tableState = tableTracker.Confirm(DateTimeOffset.UtcNow);
-        carousel.Update(tableState, DateTimeOffset.UtcNow);
+        var confirmed = tableAnalysis.Confirm(state.Version);
+        carousel.Update(confirmed, DateTimeOffset.UtcNow);
         overlayMessage = carousel.Candidates.Length == 0 ? "No clear candidate for this layout and group." : "";
         PublishCandidatePresentation(); ShowTable();
     }
@@ -104,8 +105,12 @@ public sealed partial class MainActivity
     void PublishCandidatePresentation()
     {
         if (player is null) return;
-        double[] Image(Point p) { var mapped = calibration!.Unmap(p); return [mapped.X, mapped.Y]; }
-        var shots = calibration is null ? [] : carousel.Candidates.Select(s => new
+        var snapshot = tableAnalysis.State; var currentCalibration = snapshot.Calibration;
+        double[] Image(Point p) { var mapped = currentCalibration!.Unmap(p); return [mapped.X, mapped.Y]; }
+        var state = snapshot.Table;
+        bool current = state is not null && app.State.Camera.CanControl && snapshot.Source == app.State.Camera.Scope && state.Group == group
+            && carousel.Candidates.All(s => s.TableVersion == state.Version);
+        var shots = currentCalibration is null || !current ? [] : carousel.Candidates.Select(s => new
         {
             type = s.Type, pocket = s.Pocket + 1, cue = s.CuePath.Select(Image).ToArray(), target = s.TargetPath.Select(Image).ToArray(), ghost = Image(s.GhostBall)
         }).ToArray();

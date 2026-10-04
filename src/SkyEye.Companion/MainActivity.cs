@@ -8,8 +8,6 @@ using Android.Views;
 using Android.Widget;
 using SkyEye.Core;
 using SkyEye.Core.Application;
-using System.Text.Json;
-using Path = System.IO.Path;
 using Bridge = UK.CO.Skyeye.Companion.Nativebridge;
 
 namespace SkyEye.Companion;
@@ -32,17 +30,16 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
     Bridge.PlayerBridge player = null!;
     Bridge.CastBridge? cast;
     Bridge.DiscoveryBridge discovery = null!;
-    Bridge.PortraitExporter? exporter;
-    PlayerListener playerListener = null!; CastListener? castListener; DiscoveryListener discoveryListener = null!; ExportListener? exportListener;
+    PlayerListener playerListener = null!; CastListener? castListener; DiscoveryListener discoveryListener = null!;
     bool resumed, polling, busy, portrait, offline;
     bool connected => app.State.Camera.ConnectionId != Guid.Empty && app.State.Camera.Reachability is CameraReachability.Reachable or CameraReachability.Unreachable;
     string currentState => app.State.Camera.Capture?.ToString() ?? "";
-    string clipDir = "", stream = "";
+    string stream = "";
     MaeveSession? maeve;
     public override void OnConfigurationChanged(Android.Content.Res.Configuration config) { base.OnConfigurationChanged(config); }
     protected override void OnCreate(Bundle? savedInstanceState)
     {
-        base.OnCreate(savedInstanceState); clipDir = Path.Combine(FilesDir!.AbsolutePath, "clips"); Directory.CreateDirectory(clipDir); InitializeApp();
+        base.OnCreate(savedInstanceState); InitializeApp();
         var root = new LinearLayout(this) { Orientation = Orientation.Vertical }; root.SetPadding(20, 24, 20, 20); root.SetBackgroundColor(Color.Rgb(10, 19, 28));
         var scroll = new ScrollView(this); scroll.AddView(root); SetContentView(scroll);
         root.AddView(Label(AppTitle, 30)); root.AddView(Label("Your table. Every shot.", 15));
@@ -89,11 +86,12 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
     TextView Label(string text, int size) { var view = new TextView(this) { Text = text, TextSize = size }; view.SetTextColor(Color.Rgb(205, 230, 235)); view.SetPadding(0, 7, 0, 7); return view; }
     LinearLayout Row(LinearLayout parent) { var row = new LinearLayout(this) { Orientation = Orientation.Horizontal }; parent.AddView(row); return row; }
     Button Add(LinearLayout parent, string title, Action action) { var button = new Button(this) { Text = title, TextSize = 12 }; button.Click += (_, _) => action(); parent.AddView(button, parent.Orientation == Orientation.Horizontal ? new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WrapContent, 1) : new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, ViewGroup.LayoutParams.WrapContent)); return button; }
-    void Say(string text) => RunOnUiThread(() => message.Text = text);
+    void Say(string text) { if (!lifetime.IsCancellationRequested) RunOnUiThread(() => { if (!lifetime.IsCancellationRequested) message.Text = text; }); }
     async Task ActionAsync(Func<Task> work)
     {
         if (busy) { Say("Please wait for the current operation."); return; } busy = true;
         try { await work(); }
+        catch (System.OperationCanceledException) when (lifetime.IsCancellationRequested) { }
         catch (Exception e) { Say(e.Message); }
         finally { busy = false; }
     }
@@ -116,7 +114,7 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
                 // Downloads/export can occupy the action slot longer than a frame's
                 // advice lifetime. Expire displayed paths even while analysis is skipped.
                 if (tableState is not null) ShowTable();
-                if (!overlayEnabled && !busy && app.State.Camera.CanControl && currentState == "Active" && calibration is not null) try { await UpdateTableAsync(); } catch { InvalidateTable("Table analysis unavailable; wait for a fresh view and confirm it."); }
+                if ((resumed || maeve is not null) && !overlayEnabled && !busy && app.State.Camera.CanControl && currentState == "Active" && calibration is not null) try { await UpdateTableAsync(); } catch { InvalidateTable("Table analysis unavailable; wait for a fresh view and confirm it."); }
                 // Aim for 2.5 seconds between starts, including network and analysis
                 // time. Remain sequential even when a cycle exceeds that budget.
                 delayMs = (int)Math.Max(250, 2500 - cycle.ElapsedMilliseconds);
@@ -124,40 +122,6 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
         }
         catch (System.OperationCanceledException) { }
         finally { polling = false; if ((resumed || maeve is not null) && connected && !lifetime.IsCancellationRequested) StartPolling(); }
-    }
-    async Task LoadClipsAsync()
-    {
-        var clips = await client.ClipsAsync(lifetime.Token); remoteClips.RemoveAllViews();
-        foreach (var clip in clips.Reverse()) { remoteClips.AddView(Label($"{clip.Name} · {clip.Duration:0}s · {clip.Bytes / 1048576.0:0.0} MB", 14)); Add(remoteClips, File.Exists(Path.Combine(clipDir, clip.Id + ".mp4")) ? "Downloaded · play below" : "Download portrait clip", () => _ = ActionAsync(() => DownloadAsync(clip))); }
-        if (clips.Length == 0) remoteClips.AddView(Label("Saved clips appear here.", 14));
-    }
-    async Task DownloadAsync(Clip clip)
-    {
-        var master = Path.Combine(clipDir, clip.Id + ".source.part"); string portrait = Path.Combine(clipDir, clip.Id + ".portrait.part"), final = Path.Combine(clipDir, clip.Id + ".mp4");
-        if (File.Exists(final)) { Say("Clip is already available locally."); return; }
-        Say("Downloading…"); var lastProgress = DateTimeOffset.MinValue;
-        await client.DownloadAsync(clip, master, bytes => { if ((DateTimeOffset.UtcNow - lastProgress).TotalMilliseconds > 500) { lastProgress = DateTimeOffset.UtcNow; Say($"Downloading {bytes * 100 / clip.Bytes}%"); } }, lifetime.Token);
-        Say("Download verified. Preparing portrait clip…");
-        if (File.Exists(portrait)) File.Delete(portrait);
-        var finished = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-        exporter = new Bridge.PortraitExporter(); exportListener = new ExportListener(finished);
-        exporter.Start(this, master, portrait, clip.PortraitRotation, exportListener);
-        try { await finished.Task.WaitAsync(TimeSpan.FromMinutes(20), lifetime.Token); }
-        catch { exporter.Cancel(); if (File.Exists(portrait)) File.Delete(portrait); throw; }
-        File.Move(portrait, final); File.WriteAllText(Path.Combine(clipDir, clip.Id + ".json"), JsonSerializer.Serialize(clip, JsonDefaults.Options)); File.Delete(master);
-        Say("Portrait clip available locally, with room audio."); RefreshLocal();
-    }
-    void RefreshLocal()
-    {
-        localClips.RemoveAllViews();
-        foreach (var file in Directory.GetFiles(clipDir, "*.json").OrderDescending())
-        {
-            Clip? clip; try { clip = JsonSerializer.Deserialize<Clip>(File.ReadAllText(file), JsonDefaults.Options); } catch { continue; }
-            if (clip is null || !Guid.TryParseExact(clip.Id, "N", out _)) continue; string video = Path.Combine(clipDir, clip.Id + ".mp4"); if (!File.Exists(video)) continue;
-            localClips.AddView(Label(clip.Name + " · available offline", 14)); var row = Row(localClips);
-            Add(row, "Play", () => { offline = true; player.SetPortrait(false); player.SetMuted(false); player.Play(Android.Net.Uri.FromFile(new Java.IO.File(video))!.ToString()!); });
-            Add(row, "Share", () => { var uri = AndroidX.Core.Content.FileProvider.GetUriForFile(this, PackageName + ".files", new Java.IO.File(video)); var intent = new Intent(Intent.ActionSend).SetType("video/mp4").PutExtra(Intent.ExtraStream, uri).AddFlags(ActivityFlags.GrantReadUriPermission); StartActivity(Intent.CreateChooser(intent, "Share your shot")); });
-        }
     }
     void SetupKey()
     {
@@ -178,13 +142,12 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
     async Task EndMaeveAsync() { var session = maeve; maeve = null; try { if (session is not null) await session.CloseAsync(); } finally { StopService(new Intent(this, typeof(VoiceService))); } }
     protected override void OnResume() { base.OnResume(); resumed = true; if (connected) _ = RefreshOnResumeAsync(); StartPolling(); if (overlayEnabled) StartCandidateOverlay(); }
     protected override void OnPause() { resumed = false; PauseCandidateOverlay(); discovery.Stop(); if (maeve is null) InvalidateTable("Return for a fresh table view."); base.OnPause(); }
-    protected override void OnDestroy() { appSubscription?.Dispose(); lifetime.Cancel(); ++tableGeneration; PauseCandidateOverlay(); tableBitmap?.Dispose(); exporter?.Cancel(); _ = EndMaeveAsync(); player.Release(); cast?.Release(); discovery.Stop(); client.Dispose(); base.OnDestroy(); }
-    sealed class PlayerListener(MainActivity owner) : Java.Lang.Object, Bridge.PlayerBridge.IListener { public void OnError(string? error) => owner.Say(error ?? "Viewing interrupted"); public void OnPlaying(bool playing) => owner.RunOnUiThread(() => owner.viewerStatus.Text = playing ? owner.offline ? "Playing downloaded clip" : "Live · delayed · silent" : "Waiting for video…"); }
+    protected override void OnDestroy() { appSubscription?.Dispose(); effectSubscription?.Dispose(); lifetime.Cancel(); tableAnalysis.Dispose(); PauseCandidateOverlay(); tableBitmap?.Dispose(); _ = EndMaeveAsync(); player.Release(); cast?.Release(); discovery.Stop(); client.Dispose(); base.OnDestroy(); }
+    sealed class PlayerListener(MainActivity owner) : Java.Lang.Object, Bridge.PlayerBridge.IListener { public void OnError(string? error) => owner.Say(error ?? "Viewing interrupted"); public void OnPlaying(bool playing) => owner.RunOnUiThread(() => { if (!owner.lifetime.IsCancellationRequested) owner.viewerStatus.Text = playing ? owner.offline ? "Playing downloaded clip" : "Live · delayed · silent" : "Waiting for video…"; }); }
     sealed class CastListener(MainActivity owner) : Java.Lang.Object, Bridge.CastBridge.IListener { public void OnStatus(string? status) => owner.Say(status ?? "TV status changed"); }
     sealed class DiscoveryListener(MainActivity owner) : Java.Lang.Object, Bridge.DiscoveryBridge.IListener
     {
         public void OnError(string? error) => owner.Say(error ?? "Discovery unavailable");
         public void OnCamera(string? name, string? address) => owner.RunOnUiThread(() => owner.Add(owner.discoveries, name ?? "Camera", () => { owner.address.Text = address; _ = owner.ConnectAsync(); }));
     }
-    sealed class ExportListener(TaskCompletionSource<bool> completion) : Java.Lang.Object, Bridge.PortraitExporter.IListener { public void OnComplete() => completion.TrySetResult(true); public void OnError(string? message) => completion.TrySetException(new IOException(message ?? "Portrait export failed")); }
 }

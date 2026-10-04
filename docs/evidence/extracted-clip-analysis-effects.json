@@ -1,0 +1,50 @@
+{
+  "unit": "S05",
+  "package": "uk.co.skyeye.companion.commands.lab",
+  "configuration": "Release",
+  "apkSha256": "5B7BD2F73951798D6106BC8904146A0ECBA80467BED67C349F60C8BD6B31EE00",
+  "builds": {
+    "productionRelease": { "errors": 0, "warnings": 7 },
+    "labRelease": { "errors": 0, "warnings": 7 }
+  },
+  "installed": true,
+  "deviceChecks": "pending user-operated portrait download/playback and table calibration/group/correction-dialog check",
+  "tableServiceChecks": [
+    "One in-flight frame shared by concurrent requests",
+    "Current group applied to late analysis",
+    "Duplicate source time preserves frame and diagnostics",
+    "Fresh settled unobstructed confirmation and reviewed complete correction",
+    "Old layout/group versions, invalid coordinates/counts/overlap and stale frames rejected",
+    "Versioned calibration apply once; obsolete proposal rejected",
+    "Reconnect, read failure, cancellation and host loss clear stale advice",
+    "Same camera retains mount calibration; different camera clears it"
+  ],
+  "clipServiceChecks": [
+    "Existing mp4/json storage paths and rotated export contract",
+    "Metadata publishes after converted video",
+    "Duplicate and restart avoid repeated transfer/export",
+    "Corrupt sibling and orphan video excluded from available library",
+    "Encoder failure preserves verified source and removes incomplete portrait",
+    "Cancellation before/during conversion publishes no clip",
+    "Concurrent activity replacements serialize directory publication",
+    "Explicit failed/cancelled retries recover"
+  ],
+  "realHttpChecks": [
+    "Range resume and complete source checksum with real CameraClient",
+    "Bad checksum removes unverified source",
+    "Viewing/host credentials fixed to admitted endpoint across reconnect",
+    "Old catalog buttons and catalog/frame completions rejected after reconnect",
+    "Active host and camera scope checked before and after snapshot",
+    "Capture transition during frame request rejected",
+    "Actual camera transport passes through extracted clip library"
+  ],
+  "limitations": [
+    "Physical portrait export/playback and live table check pending",
+    "Failure, cancellation, obsolete edits and reconnect races verified in core/real HTTP fixtures; not induced on the phone",
+    "Calibration acceptance and complete layout parsing preserve existing source fidelity and advice gates; vision accuracy is unchanged",
+    "App cancellation/publication recovery is not arbitrary hardware-failure durability",
+    "Production build is ready but installation was previously blocked and is not retried",
+    "Remote launch/camera-control taps previously rejected by automatic approval review with only blocked by policy and no specific reason"
+  ],
+  "beforeDeviceCheck": { "armed": true, "state": "Stopped", "host": null, "error": "", "clipCount": 8 }
+}
