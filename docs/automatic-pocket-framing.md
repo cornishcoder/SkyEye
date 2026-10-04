@@ -1,0 +1,13 @@
+# Automatic rectangular table view
+
+The live phone and TV views now detect corner pockets automatically and map their centres to the four corners of a rectangle. The phone uses portrait orientation; TV uses landscape. A modest outer border retains the pocket mouths. Missing pixels outside the camera frame remain black. Whole-camera viewing remains available with one toggle.
+
+Detection uses a bounded 960-pixel greyscale replay of the raw native video texture, dark-interior versus surrounding-rail contrast, four distinct convex corner landmarks and independent side-pocket agreement. Two agreeing samples are needed before framing. Missing/uncertain results clear framing and retry automatically; camera/media/background changes clear the old proof. A thirty-second freshness bound also prevents old display landmarks surviving interrupted checks. No host claim, camera snapshot request or manual corner picking is needed for this display flow.
+
+Pocket landmarks are display-only. They do not overwrite stored cloth calibration, confirm ball positions, identify a rack automatically or commit game events. Ball analysis and shot admission retain their separate checks. The user-confirmed dim/racked image is a tuning regression, not a held-out accuracy dataset.
+
+One image transform drives phone video and path geometry. The TV compositor applies the corresponding landscape transform to raw video plus the selected TV scene, excluding controls and setup sheets. TV sampling is filtered, and the silent annotated feed is encoded at 1920 × 1080, nominal 10 fps and 6 Mbps. Actual capture cadence in the short device sample is roughly 7–8 fps; this is not a measured end-to-end latency or long-session thermal acceptance. Composition remains foreground-only, with raw-camera fallback when the companion goes into the background.
+
+Pixel 11 tests pass on the original, later-light, cushion-shadow, dim, dark and real dim-rack frames. Empty cloth and a covered corner do not invent pockets. The current rack's maximum normalized centre error against approximate manual labels is 0.00824, within the 0.02 regression tolerance. Hardware phone and encoded TV landmarks form rectangles to within 0.001 output pixel. The user confirms the physical TV rectangle, then confirms alignment and noticeably smoother edges after the 1080p/filtering update. Builds of lab, production and retained baseline pass; the guarded production update preserves UID and private storage.
+
+Source snapshot and installed APK hashes are in `evidence/automatic-pocket-framing.json`; native mapped-frame metadata and recorded detector results are saved separately. Broader layouts, partly hidden pockets, long-session quality and background composition remain later acceptance work.

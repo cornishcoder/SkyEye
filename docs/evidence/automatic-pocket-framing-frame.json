@@ -1,0 +1,93 @@
+{
+  "ready": true,
+  "video": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 10,
+    "bitrate": 6000000,
+    "frames": 1936,
+    "skipped": 0,
+    "segments": 16,
+    "failed": false,
+    "encodedPtsUs": 274066774,
+    "encodedFrame": {
+      "sceneVersion": 0,
+      "mediaGeneration": 2,
+      "tableVersion": 0,
+      "sourcePositionMs": 3216,
+      "paths": 0,
+      "markers": 0,
+      "rectangular": true,
+      "pocketPixels": [
+        [
+          66.97676086425781,
+          93.48837280273438
+        ],
+        [
+          1853.0233154296875,
+          93.4883804321289
+        ],
+        [
+          1853.0233154296875,
+          986.5115966796875
+        ],
+        [
+          66.97676086425781,
+          986.5116577148438
+        ]
+      ]
+    },
+    "phoneFrame": {
+      "sceneVersion": 0,
+      "mediaGeneration": 2,
+      "tableVersion": 0,
+      "sourcePositionMs": 3257,
+      "paths": 0,
+      "markers": 0
+    },
+    "presentation": {
+      "enabled": false,
+      "candidateCount": 0,
+      "capturedAt": 0,
+      "updatedAt": 0,
+      "expiresAt": 0,
+      "candidateIndex": -1
+    }
+  },
+  "framing": {
+    "applied": true,
+    "framed": true,
+    "hardware": true,
+    "viewportWidth": 1344,
+    "viewportHeight": 1869,
+    "mediaGeneration": 2,
+    "playing": true,
+    "positionMs": 3257,
+    "guidePixels": [],
+    "pocketPixels": [
+      [
+        1106.6512451171875,
+        65.19768524169922
+      ],
+      [
+        1106.651123046875,
+        1803.8021240234375
+      ],
+      [
+        237.34872436523438,
+        1803.802001953125
+      ],
+      [
+        237.34878540039062,
+        65.19766998291016
+      ]
+    ]
+  },
+  "cast": {
+    "connected": true,
+    "playing": true,
+    "stream": "scene",
+    "positionMs": 261608,
+    "playerState": 2
+  }
+}

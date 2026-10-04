@@ -1,0 +1,7 @@
+# Target-specific shot presentation
+
+Touch controls in the portrait sheet select phone, TV or both, then switch to cycling choices, pin a current candidate or clear to live. The coordinator owns these preferences. System-only candidate references bind to an owned active camera, target group, table version and expiry; geometry stays in the native table pipeline. Expired, replaced or unknown references cannot be pinned. Score remains gated until the match ledger exists.
+
+The native player maintains separate phone and TV scenes. The phone draws over its video texture, while the relay encodes only the TV scene and video. Camera, media, table, group, edit and foreground changes invalidate candidate proof. Cycling uses the existing two-second interval and ten-second refresh, with fifteen-second presentation expiry and stricter six-second planner admission. TV composition remains foreground-only with raw-camera fallback in the background.
+
+On Pixel 11, clearing phone choices leaves a nonzero encoded TV scene and zero phone scene; clearing the TV returns both to live. Chromecast reports PLAYING for the TV-only scene, and a decoded segment shows the uncertainty caption without phone controls or invented paths. The live dim rack remains ineligible for advice. Core tests cover actual command admission, scoped pins and projection, but positive physical pin/cycling on a valid spread layout remains pending. Existing More controls remains available. Voice is deferred.

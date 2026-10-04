@@ -1,0 +1,76 @@
+{
+  "unit": "H06b",
+  "status": "complete",
+  "date": "2026-10-04",
+  "sourceSnapshotCommit": "9eccd6a39c53ff80cd43628af2d83f32c39c03c5",
+  "productionPackage": "uk.co.skyeye.companion",
+  "device": "Pixel 11 Pro XL",
+  "transport": "USB",
+  "productionApkSha256": "5E0FB5C4127A5F252E6263C9239D3B42CCF4A20188E9A193AD7DA102E7993F41",
+  "labApkSha256": "9091661C6D4F43032822A5572695DFF8A1B884861ECB19B6D4718FD86EA5B8F2",
+  "productionStorageRetained": true,
+  "builds": {
+    "baseline": {
+      "errors": 0,
+      "warnings": 14
+    },
+    "production": {
+      "errors": 0,
+      "warnings": 11
+    },
+    "lab": {
+      "errors": 0,
+      "warnings": 10
+    }
+  },
+  "directlyObserved": [
+    "Automatic rectification on live dim rack without host control or manual corners",
+    "Phone hardware texture and encoded TV pocket centres align as rectangle corners",
+    "1080p corrected relay decoded successfully",
+    "Receiver PLAYING on corrected production feed",
+    "Whole-camera toggle clears display proof; rectangular toggle reacquires without changing media generation",
+    "Production in-place update retains UID and private storage"
+  ],
+  "userConfirmed": [
+    "Perfect rectangle on physical TV at initial quality",
+    "Aligned and noticeably smoother after filtered 1080p update"
+  ],
+  "automaticDetectorRegressions": [
+    "pixel-table",
+    "pixel-later-light",
+    "pixel-cushion-shadow",
+    "synthetic-dim",
+    "synthetic-dark",
+    "pixel-racked-dim",
+    "empty image rejected",
+    "covered corner rejected"
+  ],
+  "ballAnalysisCalibrationChanged": false,
+  "capture": {
+    "state": "Active",
+    "lastError": null,
+    "battery": 63,
+    "clipCount": 8
+  },
+  "clipSaved": false,
+  "privateKeySent": false,
+  "captureLeftActive": true,
+  "tvLeftPlaying": true,
+  "foregroundCompositionOnly": true,
+  "video": {
+    "height": 1080,
+    "nominalFps": 10,
+    "filteredPerspectiveSampling": true,
+    "width": 1920,
+    "bitrate": 6000000,
+    "shortSampleApproximateFps": "7-8"
+  },
+  "pending": [
+    "T02 positive physical cycling and pin on valid spread layout",
+    "Broader held-out automatic pocket accuracy",
+    "X02 intermittent Cast buffering, thermal and end-to-end latency acceptance",
+    "Background compositor",
+    "G01-G05 ledger before score presentation",
+    "A02-A05 voice deferred"
+  ]
+}
