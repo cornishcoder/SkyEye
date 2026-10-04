@@ -108,6 +108,7 @@ Check(!tvReplay.Observe(firstTvRequest, tvClip, 3200, 30000, 2, 0), "subsecond p
 var nextTvRequest = tvReplay.Begin(tvCamera, tvClip, "Replay again", 30);
 Check(!tvReplay.Observe(firstTvRequest, tvClip, 8000, 30000, 2, 0) && !tvReplay.Confirmed, "late completion from same clip previous load rejected");
 Check(tvReplay.Observe(nextTvRequest, tvClip, 30000, 30000, 1, 1) && tvReplay.IdleReason == 1, "receiver completion preserved without restarting clip");
+Check(!tvReplay.Observe(nextTvRequest, tvClip, 0, 30000, 1, 1) && tvReplay.PositionSeconds == 30, "receiver idle reset cannot erase finished position");
 tvReplay.Clear();
 Check(!tvReplay.Observe(nextTvRequest, tvClip, 4000, 30000, 2, 0) && !tvReplay.Selected, "return-live and disconnect reject late replay progress");
 Console.WriteLine("PASS buffered TV replay: pending load, scoped receiver progress, duplicate, same-clip replacement, finish and return-live");

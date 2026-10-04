@@ -26,8 +26,10 @@ public sealed class TvReplaySelection
     public bool Observe(string? request, string? clip, long positionMs, long durationMs, int playerState, int idleReason)
     {
         if (!Selected || Request != request || ClipId != clip || positionMs < 0 || durationMs <= 0) return false;
-        var position = Math.Min(positionMs, durationMs) / 1000;
         var duration = (long)Math.Ceiling(durationMs / 1000d);
+        // Cast resets position to zero after natural completion. FINISHED is
+        // receiver proof of the end, not a new seek back to the beginning.
+        var position = playerState == 1 && idleReason == 1 ? duration : Math.Min(positionMs, durationMs) / 1000;
         bool changed = !Confirmed || PositionSeconds != position || DurationSeconds != duration
             || PlayerState != playerState || IdleReason != idleReason;
         Confirmed = true; PositionSeconds = position; DurationSeconds = duration;

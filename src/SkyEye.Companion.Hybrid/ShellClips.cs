@@ -49,7 +49,7 @@ public sealed partial class ShellSession
             catalog = result;
             remoteClips = result.Clips.OrderByDescending(c => c.CreatedAt)
                 .Select(c => new ShellClipChoice(result.ConnectionId, c.Id, c.Name, c.Duration, clips.Library.Available(c))).ToArray();
-            ClipStatus = remoteClips.Length == 0 ? "Saved camera clips will appear here." : "Choose a shot to keep on this phone.";
+            ClipStatus = remoteClips.Length == 0 ? "Saved camera clips will appear here." : "Choose a shot to watch on TV or keep on this phone.";
         }
         catch (OperationCanceledException) { }
         catch (Exception) { if (!token.IsCancellationRequested && !disposed) ShowError("Camera clips could not load. Check the connection and refresh."); }

@@ -23,7 +23,7 @@ public sealed partial class ShellSession
     public long ChoiceTableVersion => app.State.ShotChoices.TableVersion;
     bool CurrentShotCatalog => app.State.ShotChoices.Matches(app.State.Camera, app.State.Advice.TargetGroup, DateTimeOffset.UtcNow)
         && table.State.Table?.Version == app.State.ShotChoices.TableVersion && !EditingTable && selection.Kind == ViewingSource.Live;
-    public string CandidateStatus => !app.State.Presentation.ShotChoicesEnabled ? "Choices are off · live table on both screens."
+    public string CandidateStatus => !app.State.Presentation.ShotChoicesEnabled ? TvReplaySelected ? "Choices are off · saved clip on TV." : "Choices are off · live table on both screens."
         : !CanAnalyzeTable ? "Become host on an active camera to check shot choices."
         : !HasTableCalibration ? "Calibrate the table before showing choices."
         : ShotChoices.Count == 0 ? shotMessage : $"{ShotChoices.Count} choices · cycle every 2 seconds · update every 10 seconds";

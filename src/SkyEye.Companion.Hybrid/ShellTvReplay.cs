@@ -44,7 +44,10 @@ public sealed partial class ShellSession
             || !metrics.TryGetProperty("positionMs", out var position)
             || !metrics.TryGetProperty("durationMs", out var duration)
             || !metrics.TryGetProperty("playerState", out var state)) return false;
-        return tvReplay.Observe(request.GetString(), clip.GetString(), position.GetInt64(), duration.GetInt64(), state.GetInt32(),
+        var changed = tvReplay.Observe(request.GetString(), clip.GetString(), position.GetInt64(), duration.GetInt64(), state.GetInt32(),
             metrics.TryGetProperty("idleReason", out var idle) ? idle.GetInt32() : 0);
+        if (changed && tvReplay.Confirmed && tvReplay.PlayerState == 1)
+            TvStatus = tvReplay.IdleReason == 1 ? "TV clip finished · play another shot or return live" : "TV clip stopped · play another shot or return live";
+        return changed;
     }
 }
