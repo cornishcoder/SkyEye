@@ -1,0 +1,65 @@
+{
+  "unit": "T02 positive live verification and dim spread detection",
+  "date": "2026-10-04",
+  "sourceSnapshotCommit": "9e29b8347b44a3b5084da7a37a7d3d1dd471c28a",
+  "productionApkSha256": "1F2893B15C141F97DEAABA8F6025D84C125979461E264B6568F2AB5901BEF5CF",
+  "package": "uk.co.skyeye.companion",
+  "device": "Pixel 11 via USB",
+  "classifier": {
+    "maximumCue": 1,
+    "maximumBlack": 1,
+    "maximumRed": 7,
+    "maximumYellow": 7,
+    "conflictBehaviour": "Retain all conflicting bodies as unknown; do not invent colours or delete circles to fit totals.",
+    "missingCueOrBlack": "Uncertain; no shot advice."
+  },
+  "fixtures": {
+    "userGroundTruth": "Spread with no pots: 7 reds, 7 yellows, 1 cue, 1 black.",
+    "videoFrameSha256": "FB9600502AAADF0198D18205777D658C75DA104FF8F0A629BA8A3FCF75BE026B",
+    "analysisSnapshotSha256": "8E25BA80A4436D5E5EC1CEA16B63282BE526BF29E67022152CF4E42A1AFEF7BE",
+    "report": "dim-spread-detection.json",
+    "bothDetected": { "red": 7, "yellow": 7, "cue": 1, "black": 1 },
+    "videoFrameMaximumTableCentreError": 0.019,
+    "videoFrameCandidateCount": 3,
+    "admissionMeaning": "Freshness, settlement and confirmation in the fixture planner check are test inputs, not live authorization."
+  },
+  "checks": {
+    "coreHttp": "passed",
+    "agentUi": "passed",
+    "visionOnDevice": "passed",
+    "productionRelease": { "errors": 0, "warnings": 10 },
+    "labRelease": { "errors": 0, "warnings": 7 },
+    "baselineRelease": { "errors": 0, "warnings": 10 },
+    "originalAndLaterLightingRetained": true,
+    "rackObstructionPocketBallNegativesRetained": true,
+    "emptyAndCoveredPocketRejectionRetained": true
+  },
+  "live": {
+    "countsObserved": "7 reds, 7 yellows, 1 cue, 1 black; layout confirmed.",
+    "clothCalibration": "Reviewed and applied through the frozen editor against the current cloth boundary. Display pocket detection remains automatic and independent.",
+    "cycleMilliseconds": 2000,
+    "refreshMilliseconds": 10000,
+    "encodedTvVisualCheck": "Decoded frames at two-second intervals visibly read Candidate 1 / 3, Candidate 2 / 3, Candidate 3 / 3, then repeat, with different aligned paths.",
+    "phonePin": {
+      "tableVersion": 28,
+      "phoneSceneVersion": 431,
+      "phonePaths": 2,
+      "tvSceneVersions": [430, 432, 433],
+      "tvPaths": 2,
+      "samples": 9,
+      "intervalMilliseconds": 500,
+      "meaning": "Phone pinned while TV advanced during a short unchanged-version sample; changed/uncertain layouts subsequently clear stale pins."
+    },
+    "phoneOnlyClear": { "phonePaths": 0, "tvPaths": 2, "castPlayerState": 2 },
+    "final": { "phonePaths": 2, "tvPaths": 2, "castPlayerState": 2, "rectangular": true, "width": 1920, "height": 1080, "camera": "Active", "clips": 8, "cameraError": "" },
+    "productionStorageRetained": true,
+    "savedClip": false,
+    "personalKeyUsed": false
+  },
+  "limits": [
+    "Some dim frames remain uncertain; candidate lines clear and recover automatically rather than force an inventory match.",
+    "Current physical TV pixels were not reconfirmed by the user; receiver PLAYING and decoded cast feed were inspected.",
+    "Short pin/cycle samples do not establish long-session thermal, latency or universal lighting accuracy.",
+    "Nominal TV encoder cadence remains 10 fps; prior actual 7-8 fps limitation is unchanged."
+  ]
+}
