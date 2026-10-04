@@ -86,9 +86,13 @@ public sealed partial class ShellSession : IDisposable
     {
         if (playing && player is not null) Android.Util.Log.Info("SkyEyeShell", "Native playback observed: " + player.PlaybackMetrics());
         if (playing && !Playing) chrome.Reveal();
-        Playing = playing; Playback = playing ? "Live table · silent" : "Waiting for your table";
-        if (playing && selection.Kind == ViewingSource.Preview) Playback = "Test video";
-        if (playing && selection.Kind == ViewingSource.LocalClip) Playback = "Offline clip · room audio";
+        Playing = playing;
+        Playback = selection.Kind switch
+        {
+            ViewingSource.LocalClip => playing ? "Offline clip · room audio" : "Offline clip · not playing",
+            ViewingSource.Preview => playing ? "Test video" : "Test video · not playing",
+            _ => playing ? "Live table · silent" : "Waiting for your table"
+        };
         Publish();
     }
     public void ReportError()

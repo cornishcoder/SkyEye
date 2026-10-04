@@ -33,6 +33,9 @@ public sealed partial class ShellSession
             ImportantForAutofill = ImportantForAutofill.NoExcludeDescendants
         };
         edit.SetSingleLine(true);
+        // Android's single-line helper replaces the transformation method.
+        // Restore password masking after it, including accessibility semantics.
+        edit.TransformationMethod = Android.Text.Method.PasswordTransformationMethod.Instance;
         edit.ImeOptions = (Android.Views.InputMethods.ImeAction)((int)Android.Views.InputMethods.ImeAction.Done | (int)Android.Views.InputMethods.ImeFlags.NoPersonalizedLearning);
         using var builder = new AlertDialog.Builder(activity);
         var dialog = builder.SetTitle("Sky voice setup")!
