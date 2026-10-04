@@ -1,0 +1,81 @@
+{
+  "unit": "H07",
+  "status": "storage-launch-and-control-handoff-verified-live-repetition-pending",
+  "date": "2026-10-04",
+  "sourceCommit": "91e81a6717c56ce3cd16e57ee75a834016e39aa4",
+  "package": "uk.co.skyeye.companion",
+  "versionCode": 2,
+  "versionName": "0.2",
+  "launcher": "uk.co.skyeye.companion.MainActivity",
+  "retainedVoiceService": "crc648b11b8ca3be5d4a4.VoiceService",
+  "fileProvider": "uk.co.skyeye.companion.files",
+  "device": "Pixel 11 Pro XL",
+  "transport": "USB",
+  "firstProductionApkSha256": "DD91D7078CEA122E5619DA74EF20F711E8A5C0939C7D730AA37C3E60C42560E1",
+  "installedApkSha256": "22A4440DB092BA98F4C1BEA13B84A3F69725FBFEB7B370A34F76F953E452924D",
+  "signingCertificateSha256": "54A26D27FA0A0BFE68F0C96F9640229E4D9A9B2FA0AD1861BC9CE874CE65A7C1",
+  "signingScope": "Existing local Android Debug certificate; Release build configuration, not public distribution signing",
+  "builds": {
+    "productionRelease": { "errors": 0, "warnings": 10 },
+    "independentLabRelease": { "errors": 0, "warnings": 7 },
+    "retainedBaselineRelease": { "errors": 0, "warnings": 10 }
+  },
+  "automatedChecks": [
+    "Core checks, real camera control HTTP, table session and clip/read-effect fixtures pass",
+    "Real AI/native scene, frozen review, media selection and control-chrome checks pass",
+    "Installer rejects a lab APK before installation",
+    "Installer refuses a lower-version baseline before installation",
+    "Guarded production installation verifies matching APK certificates and stable launcher/provider/service names",
+    "Production and lab APK inspection confirms distinct package IDs, launchers and versions"
+  ],
+  "storageComparison": {
+    "uidBeforeAndAfter": 10644,
+    "credentialEncryptedDataInodeBeforeAndAfter": 639806,
+    "deviceEncryptedDataInodeBeforeAndAfter": 617901,
+    "firstInstallTimeBeforeAndAfter": "2026-10-03 12:35:39",
+    "originalClipFilesBeforeAndAfter": 6,
+    "visibleOriginalClips": 3,
+    "calibrationCountBeforeAndAfter": 1,
+    "savedCameraFingerprintMatches": true,
+    "clipFileContentFingerprintMatches": true,
+    "calibrationFingerprintMatches": true,
+    "encryptedKeyEnvelopeFingerprintMatches": true,
+    "keyConfiguredBeforeAndAfter": true,
+    "keyReadableBeforeAndAfter": true,
+    "saveLedgerFilesBeforeAndAfter": 0,
+    "saveLedgerFingerprintMatches": true,
+    "differentAuditFields": [],
+    "privateKeyExposedOrSentToRemoteService": false
+  },
+  "directlyObserved": [
+    "Signed native audit baseline update preserves original package storage before portrait migration",
+    "Guarded production update opens portrait SkyEye through the original launcher without policy rejection",
+    "Post-migration native audit matches the original storage inventory exactly",
+    "Portrait library lists three original offline clips and configured personal-key status",
+    "Original 03 Oct 15:50:38 clip renders upright with complete table visible",
+    "Native playback metrics report playing=true, 1080x1920, rotation=0 and volume=1",
+    "Share opens Android ChooserActivityLauncher; no recipient is selected",
+    "More controls opens its private native activity with original save and candidate UI",
+    "More controls rechecks and recognizes the existing host lease",
+    "Releasing the lease there and returning to portrait immediately reports Host available",
+    "Final installed APK repeats exact data comparison and original native clip playback",
+    "Camera installation is unchanged; no clip is saved and no key is changed"
+  ],
+  "latestCameraObservation": {
+    "capture": "Stopped",
+    "batteryPercent": 8,
+    "clipCount": 8,
+    "stopReason": "Camera battery/storage protection",
+    "ampleStorageObserved": true,
+    "hostReleasedDuringHandoffCheck": true,
+    "restartAttemptedAfterProtection": false
+  },
+  "pending": [
+    "Charge Pixel 10 above 10% for post-update live video, calibrated framing and Cast repetition",
+    "Actual TV pixels remain unconfirmed by the user",
+    "Actual microphone foreground-service and voice transport re-verification remains A02",
+    "Audible room sound is not independently heard by the assistant",
+    "Installation of a higher-version rollback build is documented but not exercised on real production data",
+    "TalkBack/large-font and long-session thermal/fps acceptance remain X02/X04"
+  ]
+}
