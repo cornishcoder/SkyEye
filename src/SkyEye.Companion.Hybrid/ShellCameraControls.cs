@@ -99,6 +99,8 @@ public sealed partial class ShellSession
         if (status == "TV connected") TvConnected = true;
         if (status == "TV disconnected") { TvConnected = false; tvReplay.Clear(); }
         if (tvReplay.Selected && status is "TV playing live camera" or "TV playing shared table scene" or "TV playing candidate overlay") return;
+        if (!TvReplaySelected && status is "TV playing live camera" or "TV playing shared table scene" or "TV playing candidate overlay")
+            Message = "Live table on TV · silent.";
         TvStatus = status switch { "Casting silently in landscape" => "TV accepted the live playback request",
             "TV playing shared table scene" => AutomaticPocketsCurrent && FrameTableRequested ? "TV playing rectangular table" : "TV playing table overlay", _ => status ?? "TV status changed" };
         Publish();
@@ -133,6 +135,7 @@ public sealed partial class ShellSession
         if (!CanCastLive || effects.Latest is not { } view) { ShowError("An active, reachable camera is needed for TV viewing."); return; }
         if (!TvConnected) { TvStatus = "Choose a TV before playing live"; Publish(); return; }
         tvReplay.Clear();
+        Message = "Sending the live table to TV…";
         cast?.Play(sceneRelay is { Ready: true } ? sceneRelay.Url : shotRelay is { Ready: true } && (app.State.Presentation.Tv.Mode != ShotDisplayMode.Live || FrameTableRequested && AutomaticPocketsCurrent) ? shotRelay.Url : view.Stream); TvStatus = "Sending the live table to TV…"; Publish();
     }
     public void StopTv()

@@ -33,7 +33,9 @@ public sealed partial class ShellSession
             var request = tvReplay.Begin(admitted.ConnectionId, clip.Id, clip.Name, clip.Duration);
             cast.PlayClip(source, clip.Id, clip.Name, (long)Math.Ceiling(clip.Duration * 1000), request);
             TvStatus = "Sending your saved shot to TV…";
-            Message = "Saved shot on TV · camera recording continues."; DismissNotice(); Publish();
+            Message = app.State.Camera.Capture == SkyEye.Core.CaptureState.Active
+                ? "Saved shot on TV · camera recording continues." : "Saved shot on TV · with room audio.";
+            DismissNotice(); Publish();
         }
         catch (Exception) { ShowError("The clip could not be sent. Refresh camera clips and try again."); }
     }
