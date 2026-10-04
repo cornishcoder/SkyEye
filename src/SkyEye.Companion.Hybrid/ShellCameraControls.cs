@@ -127,7 +127,7 @@ public sealed partial class ShellSession
         ObserveCast();
         if (!CanCastLive || effects.Latest is not { } view) { ShowError("An active, reachable camera is needed for TV viewing."); return; }
         if (!TvConnected) { TvStatus = "Choose a TV before playing live"; Publish(); return; }
-        cast?.Play(view.Stream); TvStatus = "Sending the live table to TV…"; Publish();
+        cast?.Play(sceneRelay is { Ready: true } ? sceneRelay.Url : view.Stream); TvStatus = "Sending the live table to TV…"; Publish();
     }
     public void StopTv()
     {

@@ -82,6 +82,7 @@ public sealed partial class ShellSession : IDisposable
     public void Detach(Bridge.PlayerBridge owner)
     {
         if (player != owner) return;
+        ClearSceneCheck();
         player = null; cast = null; Playing = false; selection.Suspend();
         lastScene = null;
     }
@@ -146,7 +147,7 @@ public sealed partial class ShellSession : IDisposable
         var state = app.State.Camera; var view = effects.Latest;
         if (state.Reachability != CameraReachability.Reachable || view?.Connection != state || state.Capture != CaptureState.Active)
         {
-            if (selection.Source is not null) { player?.Stop(); cast?.Configure("", true); }
+            if (selection.Source is not null) { ClearSceneCheck(); player?.Stop(); cast?.Configure("", true); }
             selection.Observe(generation, ViewingSource.Live, null);
             Playing = false;
             Playback = state.Reachability == CameraReachability.Unreachable ? "Camera unreachable" : "Waiting for your table";
@@ -158,6 +159,7 @@ public sealed partial class ShellSession : IDisposable
     void PlayCurrent()
     {
         if (!active || selection.Source is not { } source || player is null) return;
+        ClearSceneCheck();
         player.SetPortrait(selection.Kind != ViewingSource.LocalClip);
         player.SetMuted(selection.Kind != ViewingSource.LocalClip); player.Play(source);
         Android.Util.Log.Info("SkyEyeShell", "Native playback started: " + selection.Kind);
@@ -167,11 +169,12 @@ public sealed partial class ShellSession : IDisposable
     public void Stop()
     {
         if (!MainThread.IsMainThread) { MainThread.BeginInvokeOnMainThread(Stop); return; }
-        selection.Stop(); player?.Stop(); cast?.Configure("", true);
+        ClearSceneCheck(); selection.Stop(); player?.Stop(); cast?.Configure("", true);
         Playing = false; Playback = "Waiting for your table"; Publish();
     }
     public void Suspend()
     {
+        ClearSceneCheck();
         active = false; foreground?.Cancel(); foreground?.Dispose(); foreground = null; StopDiscovery(); CloseKeyEditor();
         CloseTableEdit(invalidatePicking: true); table.Invalidate();
         player?.Stop(); Playing = false; selection.Suspend(); Publish();

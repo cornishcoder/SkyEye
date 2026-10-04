@@ -29,9 +29,7 @@
   </PropertyGroup>
   <ItemGroup Condition="'$(SkyEyeProduction)' == 'true'">
     <!-- Preserve existing save, candidates and voice workflows until their new UI adapters land. -->
-    <Compile Include="../SkyEye.Companion/*.cs" Exclude="../SkyEye.Companion/CameraClient.cs;../SkyEye.Companion/CameraControlEffect.cs;../SkyEye.Companion/CameraReadEffects.cs;../SkyEye.Companion/CompanionClipService.cs;../SkyEye.Companion/AndroidEffectAdapters.cs;../SkyEye.Companion/SecretStore.cs;../SkyEye.Companion/MigrationAudit.cs" Link="MoreControls/%(Filename)%(Extension)" />
-    <AndroidJavaSource Include="../SkyEye.Companion/OverlayEncoder.java" Link="Native/OverlayEncoder.java" />
-    <AndroidJavaSource Include="../SkyEye.Companion/OverlayTsWriter.java" Link="Native/OverlayTsWriter.java" />
+    <Compile Include="../SkyEye.Companion/*.cs" Exclude="../SkyEye.Companion/CameraClient.cs;../SkyEye.Companion/CameraControlEffect.cs;../SkyEye.Companion/CameraReadEffects.cs;../SkyEye.Companion/CompanionClipService.cs;../SkyEye.Companion/AndroidEffectAdapters.cs;../SkyEye.Companion/SecretStore.cs;../SkyEye.Companion/MigrationAudit.cs;../SkyEye.Companion/OverlayRelay.cs" Link="MoreControls/%(Filename)%(Extension)" />
     <AndroidJavaSource Include="../SkyEye.Companion/SkyEyeRtcSession.java" Link="Native/SkyEyeRtcSession.java" />
   </ItemGroup>
   <ItemGroup>
@@ -50,6 +48,9 @@
     <ProjectReference Include="../SkyEye.Vision.Android/SkyEye.Vision.Android.csproj" />
     <AndroidJavaSource Include="../SkyEye.Companion/PlayerBridge.java" Link="Native/PlayerBridge.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/CandidateOverlay.java" Link="Native/CandidateOverlay.java" />
+    <AndroidJavaSource Include="../SkyEye.Companion/TableSceneOverlay.java" Link="Native/TableSceneOverlay.java" />
+    <AndroidJavaSource Include="../SkyEye.Companion/OverlayEncoder.java" Link="Native/OverlayEncoder.java" />
+    <AndroidJavaSource Include="../SkyEye.Companion/OverlayTsWriter.java" Link="Native/OverlayTsWriter.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/CastBridge.java" Link="Native/CastBridge.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/DiscoveryBridge.java" Link="Native/DiscoveryBridge.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/PortraitExporter.java" Link="Native/PortraitExporter.java" />
@@ -62,6 +63,7 @@
     <Compile Include="../SkyEye.Companion/AndroidEffectAdapters.cs" Link="Services/AndroidEffectAdapters.cs" />
     <Compile Include="../SkyEye.Companion/SecretStore.cs" Link="Services/SecretStore.cs" />
     <Compile Include="../SkyEye.Companion/MigrationAudit.cs" Link="Services/MigrationAudit.cs" />
+    <Compile Include="../SkyEye.Companion/OverlayRelay.cs" Link="Services/OverlayRelay.cs" />
     <AndroidResource Include="../SkyEye.Companion/Resources/xml/file_paths.xml" Link="Resources/xml/file_paths.xml" />
     <MauiAsset Include="Resources/Raw/probe.mp4" LogicalName="probe.mp4" />
   </ItemGroup>

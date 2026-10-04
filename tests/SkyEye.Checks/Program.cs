@@ -6,6 +6,21 @@ using SkyEye.Core;
 
 static void Require(bool yes, string reason) { if (!yes) throw new Exception(reason); }
 static void Throws<T>(Action action) where T : Exception { try { action(); } catch (T) { return; } throw new Exception("Expected " + typeof(T).Name); }
+var sceneTime = DateTimeOffset.UtcNow;
+var scenePaths = new List<ScenePath> { new([new(.2, .3), new(.8, .7)], SceneInk.Cyan, true) };
+var scene = new TableScene(2, 3, 4, sceneTime, TimeSpan.FromSeconds(10), scenePaths,
+    [new(new(.5, .5), .02, SceneInk.Yellow, SceneMarkerKind.Ball)], [new(new(.5, .6), "Target")], "Choices", new("Alice", 2, "Bob", 1));
+scenePaths.Clear();
+Require(scene.Paths.Length == 1 && scene.Paths[0].Selected, "Scene must retain an immutable copy of published paths");
+Require(scene.IsCurrent(3, sceneTime.AddSeconds(9)) && !scene.IsCurrent(3, sceneTime.AddSeconds(10)) && !scene.IsCurrent(4, sceneTime), "Scene expires exactly at its deadline and cannot move between media generations");
+Throws<ArgumentException>(() => new TableScene(0, 3, 4, sceneTime, TimeSpan.FromSeconds(10), [], [], []));
+Throws<ArgumentException>(() => new TableScene(2, 3, 4, sceneTime, TimeSpan.FromSeconds(61), [], [], []));
+Throws<ArgumentException>(() => new TableScene(2, 3, 4, sceneTime, TimeSpan.FromSeconds(10), [new([new(double.NaN, .2), new(.5, .5)], SceneInk.Cyan)], [], []));
+Throws<ArgumentException>(() => new TableScene(2, 3, 4, sceneTime, TimeSpan.FromSeconds(10), [], [new(new(1.1, .2), .02, SceneInk.Cyan, SceneMarkerKind.Ball)], []));
+Throws<ArgumentException>(() => new TableScene(2, 3, 4, sceneTime, TimeSpan.FromSeconds(10), [], [], [], "Bad\ncaption"));
+Throws<ArgumentException>(() => new TableScene(2, 3, 4, sceneTime, TimeSpan.FromSeconds(10), Enumerable.Repeat(scene.Paths[0], 17), [], []));
+Throws<ArgumentException>(() => new TableScene(2, 3, 4, sceneTime, TimeSpan.FromSeconds(10), [], [], [], score: new("Alice", -1, "Bob", 1)));
+Console.WriteLine("PASS immutable, scoped, expiring scene geometry, bounded content and score validation");
 var time = new TestTime(); var authority = new SessionAuthority(time);
 var winners = new System.Collections.Concurrent.ConcurrentBag<Lease>();
 Parallel.For(0, 50, i => { try { winners.Add(authority.Claim("phone " + i)); } catch (InvalidOperationException) { } });

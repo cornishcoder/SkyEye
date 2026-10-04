@@ -17,14 +17,14 @@ sealed class OverlayRelay : IAsyncDisposable
     readonly Func<string> castMetrics;
     public string Url { get; }
     public bool Ready => encoder.Ready();
-    public OverlayRelay(MainActivity activity, Bridge.PlayerBridge player, string cameraAddress, Bridge.OverlayEncoder.IListener listener, Func<string> castMetrics)
+    public OverlayRelay(Android.App.Activity activity, Bridge.PlayerBridge player, string cameraAddress, Bridge.OverlayEncoder.IListener listener, Func<string> castMetrics, bool sharedScene = false)
     {
         this.castMetrics = castMetrics;
         // Use the interface routed to this camera, including devices with a VPN.
         using var route = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp);
         route.Connect(new Uri(cameraAddress).Host, 8765);
         var address = ((IPEndPoint)route.LocalEndPoint!).Address;
-        Url = $"http://{address}:{Port}/live/index.m3u8?access={access}";
+        Url = $"http://{address}:{Port}/live/index.m3u8?access={access}" + (sharedScene ? "&scene=1" : "");
         directory = Path.Combine(activity.CacheDir!.AbsolutePath, "overlay-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(directory);
         encoder = new Bridge.OverlayEncoder(activity, player, directory, listener);

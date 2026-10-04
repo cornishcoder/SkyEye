@@ -17,15 +17,17 @@ public final class OverlayEncoder {
     public interface Listener { void onError(String message); }
     private final PlayerBridge source;private final Listener listener;private final File directory;
     private final Handler main=new Handler(Looper.getMainLooper());
-    private final ArrayBlockingQueue<Bitmap> free=new ArrayBlockingQueue<>(2),pending=new ArrayBlockingQueue<>(1);
+    private final ArrayBlockingQueue<Bitmap> free=new ArrayBlockingQueue<>(2);
+    private final ArrayBlockingQueue<CapturedFrame> pending=new ArrayBlockingQueue<>(1);
+    private static final class CapturedFrame {final Bitmap image;final String metadata;CapturedFrame(Bitmap image,String metadata){this.image=image;this.metadata=metadata;}}
     private final ArrayDeque<Segment> segments=new ArrayDeque<>();private final int[] counters=new int[8192];
     private final String generation=UUID.randomUUID().toString().replace("-","");
-    private volatile boolean closed;private Thread worker;private long frames,skipped;private String error="";
+    private volatile boolean closed;private Thread worker;private volatile long frames,skipped,encodedPtsUs;private volatile String error="",encodedFrame="{}";
     private static final class Segment { final String name;final long sequence;final double duration;Segment(String name,long sequence,double duration){this.name=name;this.sequence=sequence;this.duration=duration;}String name(){return name;}long sequence(){return sequence;}double duration(){return duration;} }
     public OverlayEncoder(Activity activity,PlayerBridge source,String directory,Listener listener){this.source=source;this.listener=listener;this.directory=new File(directory);this.directory.mkdirs();}
     public void start(){for(int i=0;i<2;i++)free.add(Bitmap.createBitmap(960,540,Bitmap.Config.ARGB_8888));worker=new Thread(this::encode,"SkyEyeOverlayVideo");worker.start();main.post(capture);}
     private final Runnable capture=new Runnable(){public void run(){if(closed)return;
-        if(pending.isEmpty()){Bitmap image=free.poll();if(image!=null){try{if(!source.capture(image)){image.eraseColor(Color.BLACK);Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);p.setColor(Color.WHITE);p.setTextSize(26);new Canvas(image).drawText("Waiting for live video…",24,48,p);}if(!pending.offer(image))free.offer(image);}catch(Exception e){free.offer(image);}}else skipped++;}else skipped++;
+        if(pending.isEmpty()){Bitmap image=free.poll();if(image!=null){try{String metadata=source.captureFrame(image);if(metadata==null){metadata="{}";image.eraseColor(Color.BLACK);Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);p.setColor(Color.WHITE);p.setTextSize(26);new Canvas(image).drawText("Waiting for live video…",24,48,p);}if(!pending.offer(new CapturedFrame(image,metadata)))free.offer(image);}catch(Exception e){free.offer(image);}}else skipped++;}else skipped++;
         main.postDelayed(this,100);
     }};
     public synchronized boolean ready(){return segments.size()>=2;}
@@ -34,7 +36,7 @@ public final class OverlayEncoder {
         text.append("#EXT-X-TARGETDURATION:").append((int)Math.ceil(list.stream().mapToDouble(Segment::duration).max().orElse(3))).append("\n#EXT-X-MEDIA-SEQUENCE:").append(list.get(0).sequence()).append('\n');
         for(Segment s:list)text.append("#EXTINF:").append(String.format(Locale.ROOT,"%.6f",s.duration())).append(",\n").append(s.name()).append("?access=").append(access).append('\n');return text.toString();
     }
-    public synchronized String metrics(){return "{\"width\":960,\"height\":540,\"fps\":10,\"frames\":"+frames+",\"skipped\":"+skipped+",\"segments\":"+segments.size()+",\"failed\":"+(!error.isEmpty())+",\"presentation\":"+source.presentation()+"}";}
+    public synchronized String metrics(){return "{\"width\":960,\"height\":540,\"fps\":10,\"frames\":"+frames+",\"skipped\":"+skipped+",\"segments\":"+segments.size()+",\"failed\":"+(!error.isEmpty())+",\"encodedPtsUs\":"+encodedPtsUs+",\"encodedFrame\":"+encodedFrame+",\"phoneFrame\":"+source.sceneMetrics()+",\"presentation\":"+source.presentation()+"}";}
     private synchronized void completed(File temporary,File finalFile,long sequence,double duration)throws IOException{
         if(!temporary.renameTo(finalFile))throw new IOException("Overlay segment could not be finalized");segments.add(new Segment(finalFile.getName(),sequence,duration));
         while(segments.size()>16){Segment old=segments.remove();new File(directory,old.name()).delete();}
@@ -42,19 +44,19 @@ public final class OverlayEncoder {
     private void encode(){MediaCodec codec=null;Surface input=null;Egl egl=null;OverlayTsWriter writer=null;File temporary=null,finalFile=null;
         try{MediaFormat format=MediaFormat.createVideoFormat("video/avc",960,540);format.setInteger(MediaFormat.KEY_COLOR_FORMAT,MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);format.setInteger(MediaFormat.KEY_FRAME_RATE,10);format.setInteger(MediaFormat.KEY_BIT_RATE,2000000);format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL,2);
             codec=MediaCodec.createEncoderByType("video/avc");codec.configure(format,null,null,MediaCodec.CONFIGURE_FLAG_ENCODE);input=codec.createInputSurface();codec.start();egl=new Egl(input);
-            MediaCodec.BufferInfo info=new MediaCodec.BufferInfo();byte[] config=null;long origin=System.nanoTime(),nextSync=2000000,start=0,last=0,sequence=0;
-            while(!closed){Bitmap bitmap=pending.poll(200,TimeUnit.MILLISECONDS);if(bitmap==null)continue;long pts=(System.nanoTime()-origin)/1000;
+            MediaCodec.BufferInfo info=new MediaCodec.BufferInfo();byte[] config=null;long origin=System.nanoTime(),nextSync=2000000,start=0,last=0,sequence=0;TreeMap<Long,String> submitted=new TreeMap<>();
+            while(!closed){CapturedFrame frame=pending.poll(200,TimeUnit.MILLISECONDS);if(frame==null)continue;Bitmap bitmap=frame.image;long pts=(System.nanoTime()-origin)/1000;
                 if(pts>=nextSync){Bundle sync=new Bundle();sync.putInt(MediaCodec.PARAMETER_KEY_REQUEST_SYNC_FRAME,0);codec.setParameters(sync);nextSync=pts+2000000;}
-                try{egl.draw(bitmap,pts);}finally{free.offer(bitmap);}frames++;
+                try{egl.draw(bitmap,pts);submitted.put(pts,frame.metadata);while(submitted.size()>64)submitted.pollFirstEntry();}finally{free.offer(bitmap);}frames++;
                 for(int n=0;n<64;n++){int index=codec.dequeueOutputBuffer(info,0);if(index==MediaCodec.INFO_OUTPUT_FORMAT_CHANGED){ByteArrayOutputStream bytes=new ByteArrayOutputStream();MediaFormat output=codec.getOutputFormat();for(String key:new String[]{"csd-0","csd-1"}){ByteBuffer c=output.getByteBuffer(key);if(c!=null){byte[] raw=new byte[c.remaining()];c.duplicate().get(raw);bytes.write(OverlayTsWriter.annex(raw));}}config=bytes.toByteArray();continue;}if(index<0)break;
                     try{if(info.size==0||(info.flags&MediaCodec.BUFFER_FLAG_CODEC_CONFIG)!=0)continue;boolean key=(info.flags&MediaCodec.BUFFER_FLAG_KEY_FRAME)!=0;
                         if(key&&(writer==null||info.presentationTimeUs-start>=1900000)){if(writer!=null){writer.close();completed(temporary,finalFile,sequence,(info.presentationTimeUs-start)/1000000.0);}start=info.presentationTimeUs;sequence++;finalFile=new File(directory,generation+"-"+sequence+".ts");temporary=new File(finalFile.getPath()+".part");writer=new OverlayTsWriter(temporary,counters);}
-                        if(writer!=null){ByteBuffer output=codec.getOutputBuffer(index);output.position(info.offset);output.limit(info.offset+info.size);byte[] bytes=new byte[info.size];output.get(bytes);writer.video(bytes,info.presentationTimeUs,key,config);last=info.presentationTimeUs;}
+                        if(writer!=null){ByteBuffer output=codec.getOutputBuffer(index);output.position(info.offset);output.limit(info.offset+info.size);byte[] bytes=new byte[info.size];output.get(bytes);writer.video(bytes,info.presentationTimeUs,key,config);last=info.presentationTimeUs;String actual=submitted.remove(info.presentationTimeUs);encodedFrame=actual==null?"{}":actual;encodedPtsUs=info.presentationTimeUs;}
                     }finally{codec.releaseOutputBuffer(index,false);}
                 }
             }
-        }catch(Exception e){if(!closed){error=e.getClass().getSimpleName();main.post(()->listener.onError("Candidate TV view could not start. Toggle it off and try again."));}}
-        finally{main.removeCallbacks(capture);try{if(writer!=null)writer.close();}catch(Exception ignored){}if(temporary!=null)temporary.delete();if(egl!=null)egl.close();if(codec!=null){try{codec.stop();}catch(Exception ignored){}codec.release();}if(input!=null)input.release();for(Bitmap b:free)b.recycle();for(Bitmap b:pending)b.recycle();}
+        }catch(Exception e){if(!closed){error=e.getClass().getSimpleName();main.post(()->listener.onError("Annotated TV view could not start. Toggle it off and try again."));}}
+        finally{main.removeCallbacks(capture);try{if(writer!=null)writer.close();}catch(Exception ignored){}if(temporary!=null)temporary.delete();if(egl!=null)egl.close();if(codec!=null){try{codec.stop();}catch(Exception ignored){}codec.release();}if(input!=null)input.release();for(Bitmap b:free)b.recycle();for(CapturedFrame f:pending)f.image.recycle();}
     }
     public void close(){closed=true;main.removeCallbacks(capture);if(worker!=null)worker.interrupt();}
     private static final class Egl implements AutoCloseable {

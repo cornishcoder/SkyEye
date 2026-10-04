@@ -12,13 +12,14 @@ import androidx.media3.exoplayer.ExoPlayer;
 public final class PlayerBridge {
     public interface Listener { void onError(String error); void onPlaying(boolean playing); }
     private final ExoPlayer player;private final TextureView texture;private final Listener listener;
-    private final FrameLayout container;private final View overlay;private final CandidateOverlay drawing=new CandidateOverlay();
+    private final FrameLayout container;private final View overlay;private final CandidateOverlay drawing=new CandidateOverlay();private final TableSceneOverlay tableDrawing=new TableSceneOverlay();
+    private volatile String phoneScene="{}";
     private final android.os.Handler retry=new android.os.Handler(android.os.Looper.getMainLooper());private long generation;private String activeUrl="";private boolean released;
     private int rotation;private int videoWidth=1920,videoHeight=1080;private org.json.JSONObject scene;private boolean sceneApplied;
     public PlayerBridge(Activity context,Listener listener){
         this.listener=listener;texture=new TextureView(context);texture.setOpaque(false);player=new ExoPlayer.Builder(context).build();player.setVideoTextureView(texture);player.setVolume(0);
         container=new FrameLayout(context);container.setBackgroundColor(android.graphics.Color.BLACK);container.addView(texture,new FrameLayout.LayoutParams(-1,-1));
-        overlay=new View(context){protected void onDraw(Canvas canvas){super.onDraw(canvas);canvas.save();if(sceneApplied)clipScene(canvas);canvas.concat(texture.getTransform(new Matrix()));drawing.draw(canvas,getWidth(),getHeight());if(sceneApplied)drawGuides(canvas,getWidth(),getHeight());canvas.restore();}};
+        overlay=new View(context){protected void onDraw(Canvas canvas){super.onDraw(canvas);org.json.JSONObject snapshot=tableDrawing.snapshot(System.currentTimeMillis());Matrix matrix=texture.getTransform(new Matrix());canvas.save();if(sceneApplied)clipScene(canvas);canvas.concat(matrix);drawing.draw(canvas,getWidth(),getHeight());tableDrawing.geometry(canvas,getWidth(),getHeight(),videoWidth/(float)videoHeight,snapshot);if(sceneApplied)drawGuides(canvas,getWidth(),getHeight());canvas.restore();tableDrawing.textLayer(canvas,getWidth(),getHeight(),matrix,snapshot);phoneScene=tableDrawing.metrics(snapshot,generation,player.getCurrentPosition()).toString();}};
         overlay.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);container.addView(overlay,new FrameLayout.LayoutParams(-1,-1));
         retry.post(new Runnable(){public void run(){if(released)return;overlay.invalidate();retry.postDelayed(this,200);}});
         texture.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->transform());
@@ -31,9 +32,12 @@ public final class PlayerBridge {
         });
     }
     public View getView(){return container;}
-    public void setOverlay(String json){drawing.set(json);overlay.invalidate();}
+    public void setOverlay(String json){tableDrawing.clear();drawing.set(json);overlay.invalidate();}
+    public boolean setTableScene(String json){boolean accepted=tableDrawing.set(json,generation);if(accepted){drawing.set("{}");overlay.invalidate();}return accepted;}
+    public void clearTableScene(){tableDrawing.clear();overlay.invalidate();}
+    public String sceneMetrics(){return phoneScene;}
     public String presentation(){return drawing.metrics();}
-    public String playbackMetrics(){try{return new org.json.JSONObject().put("playing",player.isPlaying()).put("volume",player.getVolume()).put("rotation",rotation).put("width",videoWidth).put("height",videoHeight).put("positionMs",player.getCurrentPosition()).toString();}catch(Exception ignored){return "{}";}}
+    public String playbackMetrics(){try{return new org.json.JSONObject().put("playing",player.isPlaying()).put("mediaGeneration",generation).put("volume",player.getVolume()).put("rotation",rotation).put("width",videoWidth).put("height",videoHeight).put("positionMs",player.getCurrentPosition()).toString();}catch(Exception ignored){return "{}";}}
     public void setSceneTransform(String json){try{scene=json==null||json.isEmpty()?null:new org.json.JSONObject(json);}catch(Exception ignored){scene=null;}transform();}
     public String framingMetrics(){try{org.json.JSONObject result=new org.json.JSONObject().put("applied",sceneApplied).put("framed",sceneApplied&&scene.optBoolean("framed")).put("hardware",texture.isHardwareAccelerated()).put("viewportWidth",texture.getWidth()).put("viewportHeight",texture.getHeight()).put("mediaGeneration",generation).put("playing",player.isPlaying()).put("positionMs",player.getCurrentPosition());
         org.json.JSONArray mapped=new org.json.JSONArray();org.json.JSONArray points=sceneApplied?scene.optJSONArray("guides"):null;Matrix matrix=texture.getTransform(new Matrix());
@@ -44,12 +48,17 @@ public final class PlayerBridge {
         for(int i=0;i<6;i++){org.json.JSONArray p=points.optJSONArray(i);float x=(float)p.optDouble(0)*width,y=(float)p.optDouble(1)*height;canvas.drawCircle(x,y,10,paint);}
         for(int[] pair:new int[][]{{0,5},{2,3}}){org.json.JSONArray a=points.optJSONArray(pair[0]),b=points.optJSONArray(pair[1]);canvas.drawLine((float)a.optDouble(0)*width,(float)a.optDouble(1)*height,(float)b.optDouble(0)*width,(float)b.optDouble(1)*height,paint);}
     }
-    boolean capture(Bitmap output){
-        if(!player.isPlaying()||!activeUrl.contains(".m3u8")||!texture.isAvailable())return false;
-        if(texture.getBitmap(output)==null)return false;drawing.draw(new Canvas(output),output.getWidth(),output.getHeight());return true;
+    String captureFrame(Bitmap output){
+        if(!player.isPlaying()||!activeUrl.contains(".m3u8")||!texture.isAvailable())return null;
+        output.eraseColor(android.graphics.Color.BLACK);
+        if(texture.getBitmap(output)==null)return null;
+        // Copy only the video surface, then this content renderer. Never capture the window, sheet or key editor.
+        org.json.JSONObject snapshot=tableDrawing.snapshot(System.currentTimeMillis());long position=player.getCurrentPosition();Canvas canvas=new Canvas(output);
+        drawing.draw(canvas,output.getWidth(),output.getHeight());tableDrawing.geometry(canvas,output.getWidth(),output.getHeight(),videoWidth/(float)videoHeight,snapshot);tableDrawing.textLayer(canvas,output.getWidth(),output.getHeight(),new Matrix(),snapshot);
+        return tableDrawing.metrics(snapshot,generation,position).toString();
     }
-    public void play(String url){generation++;activeUrl=url;player.setMediaItem(MediaItem.fromUri(url));player.prepare();player.play();}
-    public void stop(){generation++;activeUrl="";player.stop();player.clearMediaItems();}
+    public void play(String url){generation++;tableDrawing.reset();drawing.set("{}");phoneScene="{}";activeUrl=url;player.setMediaItem(MediaItem.fromUri(url));player.prepare();player.play();}
+    public void stop(){generation++;tableDrawing.reset();drawing.set("{}");phoneScene="{}";activeUrl="";player.stop();player.clearMediaItems();}
     public void setMuted(boolean muted){player.setVolume(muted?0:1);}
     public void setPortrait(boolean portrait){rotation=portrait?90:0;transform();}
     private void transform(){float w=texture.getWidth(),h=texture.getHeight();if(w<=0||h<=0)return;sceneApplied=false;texture.setClipBounds(null);
