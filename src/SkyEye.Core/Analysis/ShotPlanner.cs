@@ -72,8 +72,11 @@ public static class ShotPlanner
         var geometry = settings ?? new(); geometry.Validate(); var paths = candidate.Paths;
         double w = geometry.Width, radius = geometry.Radius, rail = geometry.CushionInset;
         bool InBounds(Point p) => ShotMath.Finite(p) && p.X >= rail - 1e-6 && p.X <= w - rail + 1e-6 && p.Y >= rail - 1e-6 && p.Y <= w * 2 - rail + 1e-6;
+        // A detected cushion ball can sit a few pixels beyond the ideal centre
+        // rail. Keep it as a full collision obstacle; it is never a path endpoint.
+        bool ObstacleInBounds(Point p) => ShotMath.Finite(p) && p.X >= 0 && p.X <= w && p.Y >= 0 && p.Y <= w * 2;
         bool Mouth(Point p) => new[] { new Point(0, 0), new Point(w, 0), new Point(0, w), new Point(w, w), new Point(0, w * 2), new Point(w, w * 2) }.Any(pocket => (p - pocket).Length < geometry.PocketMouth);
-        if (candidate.Pocket is < 0 or > 5 || !double.IsFinite(paths.Angle) || paths.Angle <= 120 || !double.IsFinite(paths.Difficulty) || paths.CuePath.Length is < 1 or > 2 || paths.TargetPath.Length is < 1 or > 2 || obstacles.Any(p => !InBounds(p))) return false;
+        if (candidate.Pocket is < 0 or > 5 || !double.IsFinite(paths.Angle) || paths.Angle <= 120 || !double.IsFinite(paths.Difficulty) || paths.CuePath.Length is < 1 or > 2 || paths.TargetPath.Length is < 1 or > 2 || obstacles.Any(p => !ObstacleInBounds(p))) return false;
         if ((paths.CuePath[0].Start - cue).Length > 1e-6 || (paths.TargetPath[0].Start - target).Length > 1e-6 || (paths.CuePath[^1].End - paths.Ghost).Length > 1e-6) return false;
         if (!InBounds(cue) || !InBounds(target) || !InBounds(paths.Ghost) ||
             paths.CuePath.Concat(paths.TargetPath).Any(s => !InBounds(s.Start) || !InBounds(s.End) || s.Length < 1e-6)) return false;

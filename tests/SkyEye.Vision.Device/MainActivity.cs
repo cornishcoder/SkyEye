@@ -71,6 +71,11 @@ public sealed class MainActivity : Activity
                 }
                 if (spreadError > .025) throw new Exception("Dim spread centre outside tolerance: " + spreadError);
                 negativeResults.Add(new { name = "pixel-spread-dim", spread, maximumCentreError = spreadError });
+                var spreadNow = DateTimeOffset.UtcNow;
+                var spreadTable = new TableState(1, spreadNow, spread.Balls, "open", true, false, true, "fixture-spread");
+                var spreadShots = ShotPlanner.Suggest(spreadTable, spreadNow);
+                if (spreadShots.Length == 0) throw new Exception("Clear dim spread rejected by planner");
+                negativeResults.Add(new { name = "pixel-spread-candidates", eligible = ShotPlanner.Eligible(spreadTable, spreadNow), spreadShots, timestampMeaning = "Freshness and review are test input, not live approval." });
                 using var snapshotInput = Assets.Open("pixel-spread-snapshot.jpg"); using var snapshotBytes = new MemoryStream(); snapshotInput.CopyTo(snapshotBytes);
                 var spreadSnapshot = analyzer.Analyze(snapshotBytes.ToArray(), spreadCalibration);
                 if (spreadSnapshot.Uncertain || spreadSnapshot.Balls.Length != 16 || spreadSnapshot.Balls.Count(b => b.Kind == "red") != 7 || spreadSnapshot.Balls.Count(b => b.Kind == "yellow") != 7 || spreadSnapshot.Balls.Count(b => b.Kind == "cue") != 1 || spreadSnapshot.Balls.Count(b => b.Kind == "black") != 1)

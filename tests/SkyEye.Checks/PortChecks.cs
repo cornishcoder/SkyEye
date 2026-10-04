@@ -90,6 +90,8 @@ static class PortChecks
         var sample = valid[0];
         Require(!ShotPlanner.Valid(sample with { Paths = sample.Paths with { Angle = double.NaN } }, coordinate.FromTable(state.Balls[0].Position), coordinate.FromTable(state.Balls[1].Position), []), "Non-finite cut angle rejected");
         Require(!ShotPlanner.Valid(sample, coordinate.FromTable(state.Balls[0].Position), coordinate.FromTable(state.Balls[1].Position), [new(double.NaN, 500)]), "Non-finite obstacle rejected");
+        Require(valid.Any(c => ShotPlanner.Valid(c, coordinate.FromTable(state.Balls[0].Position), coordinate.FromTable(state.Balls[1].Position), [new(25, 1900)])), "An unrelated cushion ball does not reject the entire layout");
+        Require(!ShotPlanner.Valid(sample, coordinate.FromTable(state.Balls[0].Position), coordinate.FromTable(state.Balls[1].Position), [new(-1, 500)]), "Obstacle beyond the cloth rejected");
         Require(!ShotPlanner.Valid(sample with { Paths = sample.Paths with { CuePath = [] } }, coordinate.FromTable(state.Balls[0].Position), coordinate.FromTable(state.Balls[1].Position), []), "Missing path legs rejected");
         foreach (var candidate in valid.Where(c => c.Paths.CuePath.Length > 1 || c.Paths.TargetPath.Length > 1))
         {
