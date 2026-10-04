@@ -17,7 +17,7 @@ foreach ($taskDevice in @($CameraSerial,$CompanionSerial)) {
 }
 Push-Location $taskRoot
 try {
-    if (-not $SkipBuild) { dotnet build SkyEye.sln -c Debug -m:1; if ($LASTEXITCODE -ne 0) { throw 'Build failed.' } }
+    if (-not $SkipBuild) { & (Join-Path $PSScriptRoot 'Build-SkyEye.ps1') -Target Baseline -Configuration Debug }
     $taskCameraApk = Join-Path $taskRoot 'src\SkyEye.Camera\bin\Debug\net10.0-android\android-arm64\uk.co.skyeye.camera-Signed.apk'
     $taskCompanionApk = Join-Path $taskRoot 'src\SkyEye.Companion\bin\Debug\net10.0-android\android-arm64\uk.co.skyeye.companion-Signed.apk'
     foreach ($taskApk in @($taskCameraApk,$taskCompanionApk)) { if (-not (Test-Path -LiteralPath $taskApk -PathType Leaf)) { throw "APK missing: $taskApk" } }

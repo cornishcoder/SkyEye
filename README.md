@@ -17,6 +17,8 @@ dotnet build SkyEye.sln -c Debug -m:1
 .\scripts\Install-SkyEye.ps1 -CameraSerial '<connected camera>' -CompanionSerial '<connected host>' -SkipBuild
 ```
 
+The existing solution is pinned to .NET SDK 10.0.400. The [glow-up](docs/glow-up-plan.md) is being developed in a separate .NET 11 MAUI Blazor Hybrid build lane. Use `scripts/Build-SkyEye.ps1 -Target Baseline`, `-Target Hybrid` or `-Target All`; SDK selection and Android builds are explicit and sequential. See [progress](docs/glow-up-progress.md) for compatibility gates.
+
 APKs embed their managed assemblies and can be installed directly using ADB or Android's installer. Use the ARM64 APKs for the physical phones. Apps have separate package IDs (`uk.co.skyeye.camera`, `uk.co.skyeye.companion`), leaving Maeve Watch intact.
 
 Wireless debugging must be paired with the computer first. A pairing address/code is different from the connection address displayed on the main Wireless debugging page; connection ports change. `adb connect` and `adb devices -l` must show authorized devices before installation.
