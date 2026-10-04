@@ -2,6 +2,7 @@
 {
     var renderedRequest = Session.TvReplayRequest;
     var renderedSeek = seekSeconds;
+    @if (Session.TvCommandStatus.Length > 0) { <p class="hint" role="status">@Session.TvCommandStatus</p> }
     <div class="clip-actions">
         <button class="secondary" disabled="@(Busy || !Session.CanPauseTvReplay)" @onclick="() => Session.ControlTvReplay(renderedRequest, TvReplayAction.Pause)">Pause TV clip</button>
         <button class="secondary" disabled="@(Busy || !Session.CanResumeTvReplay)" @onclick="() => Session.ControlTvReplay(renderedRequest, TvReplayAction.Resume)">Resume TV clip</button>
@@ -14,7 +15,6 @@
     <input id="tv-clip-position" type="range" min="0" max="@Session.TvReplayDuration" step="1" value="@seekSeconds"
            disabled="@(Busy || !Session.CanSeekTvReplay)" @oninput="PreviewSeek" />
     <button class="secondary" disabled="@(Busy || !Session.CanSeekTvReplay)" @onclick="() => Seek(renderedRequest, renderedSeek)">Seek TV clip</button>
-    @if (Session.TvCommandStatus.Length > 0) { <p class="hint" role="status">@Session.TvCommandStatus</p> }
 }
 
 @code {
