@@ -11,15 +11,6 @@ using CvPoint = Org.Opencv.Core.Point;
 
 namespace SkyEye.Vision.Android;
 
-public sealed record CircleObservation(string BallId, Point Centre, double Radius, string Pattern, ColourCluster[] Clusters);
-public sealed record VisionResult(Ball[] Balls, bool Uncertain, string[] Warnings, double ElapsedMs, int CircleCount, bool Normalized, string Runtime, double[] ColourGains, int ClothHue, bool Obstructed, CircleObservation[] Circles);
-
-public interface ITableAnalyzer
-{
-    VisionResult Analyze(byte[] jpeg, TableCalibration calibration, CancellationToken cancellation = default);
-    Point[]? FindCorners(byte[] jpeg);
-}
-
 /// <summary>C# port of the upstream HSV/morphology/Hough pipeline with calibrated
 /// pocket masks, cue-reference normalization and bounded C# colour clustering.</summary>
 public sealed class VisionAnalyzer : ITableAnalyzer

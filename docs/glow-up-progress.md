@@ -22,6 +22,7 @@ The full implementation plan is in [glow-up-plan.md](glow-up-plan.md). Work star
 | S02 | Complete | Existing overlay/group controls dispatch typed shared commands. Separate Commands Lab verifies live native candidates, 2-second index rotation, roughly 10-second analysis refresh, uncertainty clearing/recovery and stop/release cleanup. Core checks and both Debug app builds pass. See evidence/shared-candidate-commands.json; production installation remains blocked |
 | S03 | Complete | Durable save admission/outcomes, native authority adapter and existing button routing. Core/real HTTP checks and Android builds pass. User-operated Release lab check creates one clip; retry returns the original result and count stays 8. Camera stopped, armed and unowned. See evidence/shared-save-commands.json |
 | S04 | Complete | Canonical camera facts, authority adapter and connect/host/capture controls implemented. Core/real HTTP checks and both Release builds pass. User completes transition/background-expiry sequence; read-only inspection confirms released control, hidden capture buttons and stopped/armed camera. See evidence/shared-camera-commands.json |
+| S05 | In progress | Table-analysis service foundation passes single-flight, group, correction/calibration, freshness, reconnect and cancellation checks. Native adapters and existing screen wiring follow |
 
 No device testing is implied by a build or template listing.
 
@@ -124,3 +125,9 @@ Production and separate Commands Lab Release builds each succeed with 0 errors a
 The user reports completing the requested transition and background-expiry sequence with no error reported. Read-only inspection of the updated Release lab directly observes **Host control released.**, **Stopped ... Host available**, and hidden capture/release buttons. Camera status independently confirms stopped, armed, unowned, no error and 8 clips. The installed package update time matches this build. Intermediate capture and background-expiry screen states are user-reported rather than captured by the assistant; exact authority, expiry and race behavior are additionally verified in the real HTTP/core fixtures.
 
 S04 is complete and committed locally. S05 next extracts the remaining clip and analysis effects from the Activity while preserving cancellation, calibration, corrections and freshness. The portrait Hybrid shell remains H01 after S05.
+
+## Table and clip service extraction (S05)
+
+The platform-independent table service owns the existing tracker, transient calibration/review state and one in-flight analysis. Pure vision contracts now live in Core; the OpenCV analyzer retains its implementation and thresholds. Current camera authority and group bind the service before UI observers run. Late/cancelled work cannot publish under another connection or calibration, and a group change during analysis is applied when the current observation commits. Duplicate source timestamps preserve the existing image/diagnostics as well as tracker state.
+
+Calibration proposals are accepted only against their generation. Reviewed corrections carry the table version and retain fresh/settled/unobstructed, count, coordinate and overlap checks. Camera/read failures clear advice within the service, preserving the mount calibration for recovery. Different cameras clear that calibration. Checks pass for shared in-flight requests, current-group completion, stale edits, calibration rejection, cancellation, authority loss and reconnect. Existing screen wiring remains to be replaced at this foundation commit.

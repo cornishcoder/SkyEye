@@ -1,0 +1,207 @@
+using System.Globalization;
+using SkyEye.Core.Application;
+
+namespace SkyEye.Core.Analysis;
+
+public sealed record CircleObservation(string BallId, Point Centre, double Radius, string Pattern, ColourCluster[] Clusters);
+public sealed record VisionResult(Ball[] Balls, bool Uncertain, string[] Warnings, double ElapsedMs, int CircleCount, bool Normalized, string Runtime, double[] ColourGains, int ClothHue, bool Obstructed, CircleObservation[] Circles);
+public interface ITableAnalyzer
+{
+    VisionResult Analyze(byte[] jpeg, TableCalibration calibration, CancellationToken cancellation = default);
+    Point[]? FindCorners(byte[] jpeg);
+}
+public sealed record TableFrame(byte[] Jpeg, DateTimeOffset CapturedAt, string Timeline);
+public interface ITableFrameSource { Task<TableFrame> ReadAsync(CameraScope source, CancellationToken cancellation); }
+public interface ICalibrationStore
+{
+    Point[]? Load(string cameraIdentity);
+    void Save(string cameraIdentity, Point[] corners);
+}
+// Native frame bytes stay here, outside the app/agent control projection.
+public sealed record TableAnalysisSnapshot(long Generation, CameraScope? Source, string? CameraIdentity, TableCalibration? Calibration,
+    string CalibrationId, bool Picking, TableState? Table, VisionResult? Vision, byte[]? Jpeg);
+public sealed record CalibrationDraft(long Generation, byte[] Jpeg, Point[]? Proposed);
+
+/// <summary>One owner for transient table tracking, calibration and reviewed edits.
+/// Native/network work runs outside its lock. Source changes invalidate late work;
+/// concurrent update requests share one frame instead of building a frame queue.</summary>
+public sealed class TableAnalysisSession(ITableFrameSource frames, ITableAnalyzer analyzer, ICalibrationStore? calibrations = null, TimeProvider? clock = null) : IDisposable
+{
+    readonly object gate = new();
+    readonly SemaphoreSlim analyzerGate = new(1);
+    readonly TableTracker tracker = new(15);
+    readonly TimeProvider time = clock ?? TimeProvider.System;
+    TableAnalysisSnapshot state = new(0, null, null, null, "", false, null, null, null);
+    CancellationTokenSource? active;
+    Task? pending;
+    string group = "open";
+    string? lastTimeline;
+    bool disposed;
+    public TableAnalysisSnapshot State { get { lock (gate) return state; } }
+
+    // Called from the coordinator subscription, before its UI observers. No IO.
+    public void Bind(CameraConnection camera, string targetGroup)
+    {
+        lock (gate)
+        {
+            if (disposed) return;
+            if (targetGroup is not ("open" or "red" or "yellow" or "black")) throw new ArgumentException("Unknown group.");
+            var source = camera.CanControl && camera.Capture == CaptureState.Active ? camera.Scope : null;
+            bool changedCamera = state.CameraIdentity != camera.CameraIdentity;
+            if (source != state.Source || changedCamera)
+            {
+                InvalidateLocked();
+                state = state with { Source = source, CameraIdentity = camera.CameraIdentity,
+                    Calibration = changedCamera ? null : state.Calibration, CalibrationId = changedCamera ? "" : state.CalibrationId };
+            }
+            if (group != targetGroup) { group = targetGroup; state = state with { Table = tracker.SetGroup(group) }; }
+        }
+    }
+    public bool RestoreCalibration()
+    {
+        lock (gate)
+        {
+            ThrowIfDisposed();
+            if (state.Calibration is not null || state.CameraIdentity is null || calibrations is null) return false;
+            var corners = calibrations.Load(state.CameraIdentity);
+            if (corners is null) return false;
+            var calibration = new TableCalibration(corners);
+            InvalidateLocked(); state = state with { Calibration = calibration, CalibrationId = Guid.NewGuid().ToString("N") };
+            return true;
+        }
+    }
+    public void Invalidate()
+    {
+        lock (gate) { if (!disposed) InvalidateLocked(); }
+    }
+    void InvalidateLocked()
+    {
+        active?.Cancel(); tracker.Reset(); lastTimeline = null;
+        state = state with { Generation = checked(state.Generation + 1), Picking = false, Table = null, Vision = null, Jpeg = null };
+    }
+    public Task UpdateAsync(CancellationToken cancellation = default)
+    {
+        lock (gate)
+        {
+            ThrowIfDisposed(); cancellation.ThrowIfCancellationRequested();
+            if (pending is { IsCompleted: false }) return pending;
+            if (state.Source is null || state.Calibration is null || state.Picking) return Task.CompletedTask;
+            var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var admitted = state; var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellation); active = linked;
+            pending = completed.Task;
+            _ = RunUpdateAsync(admitted, linked, completed);
+            return pending;
+        }
+    }
+    async Task RunUpdateAsync(TableAnalysisSnapshot admitted, CancellationTokenSource linked, TaskCompletionSource completed)
+    {
+        try
+        {
+            var frame = await frames.ReadAsync(admitted.Source!, linked.Token).ConfigureAwait(false);
+            await analyzerGate.WaitAsync(linked.Token).ConfigureAwait(false);
+            VisionResult detected;
+            try { detected = await Task.Run(() => analyzer.Analyze(frame.Jpeg, admitted.Calibration!, linked.Token), linked.Token).ConfigureAwait(false); }
+            finally { analyzerGate.Release(); }
+            lock (gate)
+            {
+                linked.Token.ThrowIfCancellationRequested();
+                if (!disposed && state.Generation == admitted.Generation && state.Source == admitted.Source && state.Calibration == admitted.Calibration && !state.Picking)
+                {
+                    if (state.Table is null || lastTimeline != frame.Timeline || frame.CapturedAt > state.Table.CapturedAt)
+                    {
+                        var table = tracker.Observe(state.CalibrationId, frame.Timeline, frame.CapturedAt, detected.Balls, group, detected.Uncertain, detected.Obstructed);
+                        state = state with { Table = table, Vision = detected, Jpeg = frame.Jpeg }; lastTimeline = frame.Timeline;
+                    }
+                }
+            }
+            completed.TrySetResult();
+        }
+        catch (OperationCanceledException) { ClearFailedAnalysis(admitted.Generation); completed.TrySetCanceled(); }
+        catch (Exception e) { ClearFailedAnalysis(admitted.Generation); completed.TrySetException(e); }
+        finally { lock (gate) { if (active == linked) active = null; } linked.Dispose(); }
+    }
+    void ClearFailedAnalysis(long generation)
+    {
+        lock (gate) { if (!disposed && state.Generation == generation) InvalidateLocked(); }
+    }
+    public async Task<CalibrationDraft> PrepareCalibrationAsync(CancellationToken cancellation = default)
+    {
+        TableAnalysisSnapshot admitted; CancellationTokenSource linked;
+        lock (gate)
+        {
+            ThrowIfDisposed(); cancellation.ThrowIfCancellationRequested();
+            if (state.Source is null) throw new InvalidOperationException("Connect to an active camera and become host before calibrating.");
+            InvalidateLocked(); state = state with { Picking = true }; admitted = state;
+            linked = CancellationTokenSource.CreateLinkedTokenSource(cancellation); active = linked;
+        }
+        try
+        {
+            var frame = await frames.ReadAsync(admitted.Source!, linked.Token).ConfigureAwait(false);
+            await analyzerGate.WaitAsync(linked.Token).ConfigureAwait(false);
+            Point[]? proposed;
+            try { proposed = await Task.Run(() => analyzer.FindCorners(frame.Jpeg), linked.Token).ConfigureAwait(false); }
+            finally { analyzerGate.Release(); }
+            lock (gate)
+            {
+                linked.Token.ThrowIfCancellationRequested();
+                if (disposed || state.Generation != admitted.Generation || state.Source != admitted.Source || !state.Picking)
+                    throw new InvalidOperationException("The camera or calibration changed. Select a fresh table view.");
+                state = state with { Jpeg = frame.Jpeg };
+                return new(state.Generation, frame.Jpeg, proposed);
+            }
+        }
+        catch
+        {
+            lock (gate) { if (!disposed && state.Generation == admitted.Generation) InvalidateLocked(); }
+            throw;
+        }
+        finally { lock (gate) { if (active == linked) active = null; } linked.Dispose(); }
+    }
+    public void ApplyCalibration(long expectedGeneration, Point[] corners)
+    {
+        lock (gate)
+        {
+            ThrowIfDisposed();
+            if (state.Generation != expectedGeneration || !state.Picking || state.Source is null || state.CameraIdentity is null)
+                throw new InvalidOperationException("The camera or calibration changed. Select a fresh table view.");
+            var calibration = new TableCalibration(corners);
+            calibrations?.Save(state.CameraIdentity, calibration.Corners);
+            InvalidateLocked(); state = state with { Calibration = calibration, CalibrationId = Guid.NewGuid().ToString("N") };
+        }
+    }
+    public TableState Confirm(long expectedVersion)
+    {
+        lock (gate)
+        {
+            CheckEdit(expectedVersion); var table = tracker.Confirm(time.GetUtcNow()); state = state with { Table = table }; return table;
+        }
+    }
+    public TableState Correct(long expectedVersion, string text)
+    {
+        lock (gate)
+        {
+            CheckEdit(expectedVersion);
+            if (text.Length > 4096) throw new ArgumentException("Include at most sixteen balls.");
+            var lines = text.Split('\n', StringSplitOptions.RemoveEmptyEntries); if (lines.Length > 16) throw new ArgumentException("Include at most sixteen balls.");
+            var balls = lines.Select((line, i) =>
+            {
+                var fields = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (fields.Length != 3 || fields[0] is not ("cue" or "red" or "yellow" or "black")) throw new ArgumentException("Each line needs a ball colour and two coordinates.");
+                if (!double.TryParse(fields[1], NumberStyles.Float, CultureInfo.InvariantCulture, out var x) || !double.TryParse(fields[2], NumberStyles.Float, CultureInfo.InvariantCulture, out var y)
+                    || !double.IsFinite(x) || !double.IsFinite(y) || x is < 0 or > 2 || y is < 0 or > 1) throw new ArgumentException("Coordinates must be within the table.");
+                return new Ball("manual-" + i, fields[0], new(x, y), 1);
+            }).ToArray();
+            if (balls.Count(b => b.Kind == "cue") != 1 || balls.Count(b => b.Kind == "black") > 1 || balls.Count(b => b.Kind == "red") > 7 || balls.Count(b => b.Kind == "yellow") > 7)
+                throw new ArgumentException("Include one cue ball, at most one black, seven reds and seven yellows.");
+            var table = tracker.Correct(balls, time.GetUtcNow()); state = state with { Table = table }; return table;
+        }
+    }
+    void CheckEdit(long expectedVersion)
+    {
+        ThrowIfDisposed();
+        if (state.Source is null || state.Picking || state.Table?.Version != expectedVersion)
+            throw new InvalidOperationException("The layout changed while you were editing. Check the current frame and try again.");
+    }
+    void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(disposed, this);
+    public void Dispose() { lock (gate) { if (disposed) return; InvalidateLocked(); disposed = true; } }
+}
