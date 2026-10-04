@@ -33,12 +33,12 @@ public sealed class SceneProjection
         if (!ValidSize(viewportWidth, viewportHeight) || !ValidSize(imageWidth, imageHeight)) throw new ArgumentException("The video size is unavailable.");
         // Extend past the cloth to retain pocket mouths and cushions. If the
         // source cannot contain that border, keep the entire camera frame.
-        const double border = .12;
-        Point[] outer = [new(-border, -border), new(2 + border, -border), new(2 + border, 1 + border), new(-border, 1 + border)];
+        const double endBorder = .18, sideBorder = .12;
+        Point[] outer = [new(-endBorder, -sideBorder), new(2 + endBorder, -sideBorder), new(2 + endBorder, 1 + sideBorder), new(-endBorder, 1 + sideBorder)];
         var source = outer.Select(calibration.Unmap).ToArray();
         if (source.Any(p => !InImage(p))) return Portrait(viewportWidth, viewportHeight, imageWidth, imageHeight, "Calibration has too little pocket border. Showing the whole camera.");
-        double scale = Math.Min(viewportWidth / (1 + 2 * border), viewportHeight / (2 + 2 * border));
-        double width = (1 + 2 * border) * scale, height = (2 + 2 * border) * scale;
+        double scale = Math.Min(viewportWidth / (1 + 2 * sideBorder), viewportHeight / (2 + 2 * endBorder));
+        double width = (1 + 2 * sideBorder) * scale, height = (2 + 2 * endBorder) * scale;
         double left = (viewportWidth - width) / 2, top = (viewportHeight - height) / 2;
         Point[] target = [new(left + width, top), new(left + width, top + height), new(left, top + height), new(left, top)];
         try { return new(left, top, width, height, Solve(source, target), framed: true); }
