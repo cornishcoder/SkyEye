@@ -1,0 +1,32 @@
+@using SkyEye.Core.Application
+<section class="control-section" aria-label="Shot choices">
+    <h2>Shot choices</h2>
+    <p class="hint" role="status">@Session.CandidateStatus</p>
+    <p class="hint">Phone: @Mode(Session.ShotPresentation.Phone) · TV: @Mode(Session.ShotPresentation.Tv)</p>
+    <label for="shot-screen">Apply to</label>
+    <select id="shot-screen" @bind="target">
+        <option value="@SceneTarget.Both">Phone and TV</option>
+        <option value="@SceneTarget.Phone">Phone only</option>
+        <option value="@SceneTarget.Tv">TV only</option>
+    </select>
+    <button class="primary" disabled="@(Busy || !Session.CanShowChoices)" @onclick="Cycle">Show candidate shots</button>
+    <button class="secondary" disabled="@Busy" @onclick="Live">Clear candidates · show live</button>
+    <p class="hint">Choices cycle every 2 seconds and check a new frame every 10 seconds. Pin a current choice to hold it until the layout changes.</p>
+    @{ var catalogVersion = Session.ChoiceTableVersion; }
+    @foreach (var choice in Session.ShotChoices)
+    {
+        var number = Session.ShotChoices.ToList().IndexOf(choice) + 1;
+        <button class="secondary" disabled="@Busy" @onclick="() => Pin(choice, catalogVersion)">Pin candidate @number · @choice.Type · pocket @(choice.Pocket + 1)</button>
+    }
+</section>
+
+@code {
+    [Parameter, EditorRequired] public ShellSession Session { get; set; } = default!;
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public long Version { get; set; }
+    SceneTarget target = SceneTarget.Both;
+    static string Mode(SurfacePresentation surface) => surface.Mode switch { ShotDisplayMode.Cycling => "cycling choices", ShotDisplayMode.Pinned => "pinned choice", _ => "live" };
+    Task Cycle() => Session.SetShotDisplayAsync(Version, target, ShotDisplayMode.Cycling);
+    Task Live() => Session.SetShotDisplayAsync(Version, target, ShotDisplayMode.Live);
+    Task Pin(ShotChoice choice, long catalogVersion) => Session.PinShotAsync(Version, target, catalogVersion, choice.Id);
+}

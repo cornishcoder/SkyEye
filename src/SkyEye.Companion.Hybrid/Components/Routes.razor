@@ -31,6 +31,7 @@
                 <p class="hint" role="status">@Session.FramingStatus</p>
                 <button class="secondary" disabled="@(busy || !Session.CanFrameTable && !Session.FrameTableRequested)" @onclick="() => Session.SetTableFraming(!Session.FrameTableRequested)">@(Session.FrameTableRequested ? "Show whole camera" : "Frame table")</button>
                 </section>
+                <ShotControls Session="Session" Busy="busy" Version="Session.Agent.State.Value.Version" />
                 <section class="control-section" aria-label="TV viewing">
                 <h2>TV</h2><p class="hint" role="status">@Session.TvStatus</p>
                 <button class="secondary" disabled="@busy" @onclick="ChooseTv">Choose TV</button>

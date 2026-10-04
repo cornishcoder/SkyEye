@@ -34,6 +34,7 @@ public final class CastBridge {
             String key=kind+":"+playing;if(playing&&!key.equals(observed)){observed=key;listener.onStatus(kind.equals("candidates")?"TV playing candidate overlay":kind.equals("scene")?"TV playing shared table scene":"TV playing live camera");}
         }metrics=report.toString();}catch(Exception ignored){metrics="{}";}}
     public void load(){if(!enabled||url==null||url.isEmpty())return;CastSession session=context.getSessionManager().getCurrentCastSession();if(session==null||!session.isConnected())return;
+        observed="";
         MediaMetadata metadata=new MediaMetadata(MediaMetadata.MEDIA_TYPE_MOVIE);metadata.putString(MediaMetadata.KEY_TITLE,"SkyEye · pool table");
         MediaInfo media=new MediaInfo.Builder(url).setContentType("application/x-mpegURL").setStreamType(MediaInfo.STREAM_TYPE_LIVE).setMetadata(metadata).build();
         session.getRemoteMediaClient().load(new MediaLoadRequestData.Builder().setMediaInfo(media).setAutoplay(true).build()).setResultCallback(result->listener.onStatus(result.getStatus().isSuccess()?"Casting silently in landscape":"TV could not load camera stream"));

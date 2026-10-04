@@ -82,6 +82,7 @@ public sealed partial class ShellSession : IDisposable
     public void Detach(Bridge.PlayerBridge owner)
     {
         if (player != owner) return;
+        StopShotScenes();
         ClearSceneCheck();
         player = null; cast = null; Playing = false; selection.Suspend();
         lastScene = null;
@@ -147,7 +148,7 @@ public sealed partial class ShellSession : IDisposable
         var state = app.State.Camera; var view = effects.Latest;
         if (state.Reachability != CameraReachability.Reachable || view?.Connection != state || state.Capture != CaptureState.Active)
         {
-            if (selection.Source is not null) { ClearSceneCheck(); player?.Stop(); cast?.Configure("", true); }
+            if (selection.Source is not null) { StopShotScenes(); ClearSceneCheck(); player?.Stop(); cast?.Configure("", true); }
             selection.Observe(generation, ViewingSource.Live, null);
             Playing = false;
             Playback = state.Reachability == CameraReachability.Unreachable ? "Camera unreachable" : "Waiting for your table";
@@ -159,21 +160,24 @@ public sealed partial class ShellSession : IDisposable
     void PlayCurrent()
     {
         if (!active || selection.Source is not { } source || player is null) return;
+        StopShotScenes();
         ClearSceneCheck();
         player.SetPortrait(selection.Kind != ViewingSource.LocalClip);
         player.SetMuted(selection.Kind != ViewingSource.LocalClip); player.Play(source);
         Android.Util.Log.Info("SkyEyeShell", "Native playback started: " + selection.Kind);
         selection.Started();
         cast?.Configure(selection.Kind == ViewingSource.Live ? source : "", true);
+        EnsureShotLoop();
     }
     public void Stop()
     {
         if (!MainThread.IsMainThread) { MainThread.BeginInvokeOnMainThread(Stop); return; }
-        ClearSceneCheck(); selection.Stop(); player?.Stop(); cast?.Configure("", true);
+        StopShotScenes(); ClearSceneCheck(); selection.Stop(); player?.Stop(); cast?.Configure("", true);
         Playing = false; Playback = "Waiting for your table"; Publish();
     }
     public void Suspend()
     {
+        StopShotScenes();
         ClearSceneCheck();
         active = false; foreground?.Cancel(); foreground?.Dispose(); foreground = null; StopDiscovery(); CloseKeyEditor();
         CloseTableEdit(invalidatePicking: true); table.Invalidate();
@@ -248,6 +252,8 @@ public sealed partial class ShellSession : IDisposable
         var state = app.State.Camera;
         InvalidateClipCatalog(state.ConnectionId);
         ObserveTable();
+        EnsureShotLoop();
+        RenderShotScenes();
         var camera = state.Reachability switch
         {
             CameraReachability.Connecting => "Connecting…",

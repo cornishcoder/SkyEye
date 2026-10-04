@@ -59,16 +59,21 @@ public sealed partial class ShellSession
         try { await table.UpdateAsync(token); }
         catch (OperationCanceledException) { }
         catch (Exception) { if (!token.IsCancellationRequested && !disposed) await MainThread.InvokeOnMainThreadAsync(() => ShowError("Table analysis interrupted. Check the camera and try again.")); }
-        if (!token.IsCancellationRequested && !disposed) await MainThread.InvokeOnMainThreadAsync(Publish);
+        if (!token.IsCancellationRequested && !disposed) await MainThread.InvokeOnMainThreadAsync(async () => { await ReconcileShotCatalogAsync(token); Publish(); });
     }
     public Task CalibrateTableAsync() => MainThread.InvokeOnMainThreadAsync(async () =>
     {
         if (!CanAnalyzeTable || foreground is null || EditingTable) return;
-        var token = foreground.Token; DismissNotice(); ClearSceneCheck(); player?.SetOverlay("{}");
-        var draft = await table.PrepareCalibrationAsync(token);
-        if (token.IsCancellationRequested || disposed || draft.Generation != table.State.Generation) return;
-        frozenFrame = draft.Jpeg; edit.BeginCalibration(draft.Generation, draft.Proposed);
-        SheetOpen = false; chrome.SetEditing(true); Message = "Review the frozen table corners."; Publish();
+        var token = foreground.Token; DismissNotice(); suppressShotLoop = true; StopShotScenes(); ClearSceneCheck();
+        try
+        {
+            await ClearShotCatalogAsync(token); player?.SetOverlay("{}");
+            var draft = await table.PrepareCalibrationAsync(token);
+            if (token.IsCancellationRequested || disposed || draft.Generation != table.State.Generation) return;
+            frozenFrame = draft.Jpeg; edit.BeginCalibration(draft.Generation, draft.Proposed);
+            SheetOpen = false; chrome.SetEditing(true); Message = "Review the frozen table corners."; Publish();
+        }
+        finally { suppressShotLoop = EditingTable; Publish(); }
     });
     public Task CorrectTableAsync() => MainThread.InvokeOnMainThreadAsync(async () =>
     {
@@ -76,9 +81,15 @@ public sealed partial class ShellSession
         var token = foreground.Token; await UpdateTableAsync(token);
         var snapshot = table.State;
         if (token.IsCancellationRequested || disposed || snapshot is not { Calibration: { } calibration, Table: { } layout, Jpeg: { } jpeg }) return;
-        DismissNotice(); ClearSceneCheck(); player?.SetOverlay("{}"); frozenFrame = jpeg;
-        edit.BeginCorrection(snapshot.Generation, layout, calibration);
-        SheetOpen = false; chrome.SetEditing(true); Message = "Review every ball on this frozen frame."; Publish();
+        DismissNotice(); suppressShotLoop = true; StopShotScenes(); ClearSceneCheck();
+        try
+        {
+            await ClearShotCatalogAsync(token);
+            if (token.IsCancellationRequested || disposed || snapshot.Generation != table.State.Generation) return;
+            player?.SetOverlay("{}"); frozenFrame = jpeg; edit.BeginCorrection(snapshot.Generation, layout, calibration);
+            SheetOpen = false; chrome.SetEditing(true); Message = "Review every ball on this frozen frame."; Publish();
+        }
+        finally { suppressShotLoop = EditingTable; Publish(); }
     });
     public async Task ApplyTableEditAsync()
     {
@@ -104,7 +115,7 @@ public sealed partial class ShellSession
     void CloseTableEdit(bool invalidatePicking)
     {
         if (invalidatePicking && edit.Mode == TableEditMode.Calibration) table.Invalidate();
-        edit.Clear(); frozenFrame = null; chrome.SetEditing(SheetOpen);
+        edit.Clear(); frozenFrame = null; suppressShotLoop = false; chrome.SetEditing(SheetOpen);
     }
     public void EditTable(Action<TableEditDraft> change)
     {

@@ -12,7 +12,7 @@ import androidx.media3.exoplayer.ExoPlayer;
 public final class PlayerBridge {
     public interface Listener { void onError(String error); void onPlaying(boolean playing); }
     private final ExoPlayer player;private final TextureView texture;private final Listener listener;
-    private final FrameLayout container;private final View overlay;private final CandidateOverlay drawing=new CandidateOverlay();private final TableSceneOverlay tableDrawing=new TableSceneOverlay();
+    private final FrameLayout container;private final View overlay;private final CandidateOverlay drawing=new CandidateOverlay();private final TableSceneOverlay tableDrawing=new TableSceneOverlay(),tvDrawing=new TableSceneOverlay();
     private volatile String phoneScene="{}";
     private final android.os.Handler retry=new android.os.Handler(android.os.Looper.getMainLooper());private long generation;private String activeUrl="";private boolean released;
     private int rotation;private int videoWidth=1920,videoHeight=1080;private org.json.JSONObject scene;private boolean sceneApplied;
@@ -32,9 +32,11 @@ public final class PlayerBridge {
         });
     }
     public View getView(){return container;}
-    public void setOverlay(String json){tableDrawing.clear();drawing.set(json);overlay.invalidate();}
-    public boolean setTableScene(String json){boolean accepted=tableDrawing.set(json,generation);if(accepted){drawing.set("{}");overlay.invalidate();}return accepted;}
-    public void clearTableScene(){tableDrawing.clear();overlay.invalidate();}
+    public void setOverlay(String json){tableDrawing.clear();tvDrawing.clear();drawing.set(json);overlay.invalidate();}
+    public boolean setTableScene(String json){return setTableSceneForTarget(json,false)&&setTableSceneForTarget(json,true);}
+    public boolean setTableSceneForTarget(String json,boolean tv){boolean accepted=(tv?tvDrawing:tableDrawing).set(json,generation);if(accepted){drawing.set("{}");overlay.invalidate();}return accepted;}
+    public void clearTableScene(){tableDrawing.clear();tvDrawing.clear();overlay.invalidate();}
+    public void clearTableSceneForTarget(boolean tv){(tv?tvDrawing:tableDrawing).clear();overlay.invalidate();}
     public String sceneMetrics(){return phoneScene;}
     public String presentation(){return drawing.metrics();}
     public String playbackMetrics(){try{return new org.json.JSONObject().put("playing",player.isPlaying()).put("mediaGeneration",generation).put("volume",player.getVolume()).put("rotation",rotation).put("width",videoWidth).put("height",videoHeight).put("positionMs",player.getCurrentPosition()).toString();}catch(Exception ignored){return "{}";}}
@@ -53,12 +55,12 @@ public final class PlayerBridge {
         output.eraseColor(android.graphics.Color.BLACK);
         if(texture.getBitmap(output)==null)return null;
         // Copy only the video surface, then this content renderer. Never capture the window, sheet or key editor.
-        org.json.JSONObject snapshot=tableDrawing.snapshot(System.currentTimeMillis());long position=player.getCurrentPosition();Canvas canvas=new Canvas(output);
-        drawing.draw(canvas,output.getWidth(),output.getHeight());tableDrawing.geometry(canvas,output.getWidth(),output.getHeight(),videoWidth/(float)videoHeight,snapshot);tableDrawing.textLayer(canvas,output.getWidth(),output.getHeight(),new Matrix(),snapshot);
-        return tableDrawing.metrics(snapshot,generation,position).toString();
+        org.json.JSONObject snapshot=tvDrawing.snapshot(System.currentTimeMillis());long position=player.getCurrentPosition();Canvas canvas=new Canvas(output);
+        drawing.draw(canvas,output.getWidth(),output.getHeight());tvDrawing.geometry(canvas,output.getWidth(),output.getHeight(),videoWidth/(float)videoHeight,snapshot);tvDrawing.textLayer(canvas,output.getWidth(),output.getHeight(),new Matrix(),snapshot);
+        return tvDrawing.metrics(snapshot,generation,position).toString();
     }
-    public void play(String url){generation++;tableDrawing.reset();drawing.set("{}");phoneScene="{}";activeUrl=url;player.setMediaItem(MediaItem.fromUri(url));player.prepare();player.play();}
-    public void stop(){generation++;tableDrawing.reset();drawing.set("{}");phoneScene="{}";activeUrl="";player.stop();player.clearMediaItems();}
+    public void play(String url){generation++;tableDrawing.reset();tvDrawing.reset();drawing.set("{}");phoneScene="{}";activeUrl=url;player.setMediaItem(MediaItem.fromUri(url));player.prepare();player.play();}
+    public void stop(){generation++;tableDrawing.reset();tvDrawing.reset();drawing.set("{}");phoneScene="{}";activeUrl="";player.stop();player.clearMediaItems();}
     public void setMuted(boolean muted){player.setVolume(muted?0:1);}
     public void setPortrait(boolean portrait){rotation=portrait?90:0;transform();}
     private void transform(){float w=texture.getWidth(),h=texture.getHeight();if(w<=0||h<=0)return;sceneApplied=false;texture.setClipBounds(null);

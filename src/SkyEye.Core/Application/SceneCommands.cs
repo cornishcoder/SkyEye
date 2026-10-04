@@ -50,8 +50,9 @@ public sealed partial class AppCoordinator
         var now = sceneClock.GetUtcNow();
         return catalog.TableVersion > 0 && catalog.Matches(state.Camera, state.Advice.TargetGroup, now)
             && (now - catalog.CapturedAt).TotalSeconds is >= -2 and <= 6 && catalog.ExpiresAt == catalog.CapturedAt.AddSeconds(15)
-            && !catalog.Choices.IsDefault && catalog.Choices.Length <= 3 && catalog.Choices.Select(c => c.Id).Distinct().Count() == catalog.Choices.Length
-            && catalog.Choices.All(c => c is not null && c.Id is { Length: > 0 and <= 160 } && c.Pocket is >= 0 and < 6 && c.Type is "direct" or "bank" or "kick" or "bank-and-kick");
+            && !catalog.Choices.IsDefault && catalog.Choices.Length <= 3
+            && catalog.Choices.All(c => c is not null && c.Id is { Length: > 0 and <= 160 } && c.Pocket is >= 0 and < 6 && c.Type is "direct" or "bank" or "kick" or "bank-and-kick")
+            && catalog.Choices.Select(c => c.Id).Distinct().Count() == catalog.Choices.Length;
     }
     static PresentationPreferences ForTarget(PresentationPreferences value, SceneTarget target, SurfacePresentation surface)
         => WithSurfaces(value, target is SceneTarget.Phone or SceneTarget.Both ? surface : value.Phone, target is SceneTarget.Tv or SceneTarget.Both ? surface : value.Tv);

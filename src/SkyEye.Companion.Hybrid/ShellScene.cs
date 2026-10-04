@@ -19,6 +19,9 @@ public sealed partial class ShellSession
     {
         if (SceneCheck) { ClearSceneCheck(); Publish(); return; }
         if (!CanSceneCheck || player is null || foreground is null) return;
+        suppressShotLoop = true; StopShotScenes();
+        try { await sceneRelayClosing.WaitAsync(foreground.Token); }
+        catch (OperationCanceledException) { suppressShotLoop = false; return; }
         var owner = player;
         using var metrics = JsonDocument.Parse(owner.PlaybackMetrics()!);
         var generation = metrics.RootElement.GetProperty("mediaGeneration").GetInt64();
@@ -29,10 +32,10 @@ public sealed partial class ShellSession
             [new(new(.5, .55), "Shared highlight")], $"Scene check v{version} · no shot advice", new("Demo A", 2, "Demo B", 1));
         // Exercise the actual Android publication gate, not just the C# serializer.
         if (owner.SetTableScene(JsonSerializer.Serialize(Create(generation + 1, version), sceneJson))) throw new InvalidOperationException("Scene accepted an unrelated media source.");
-        if (!owner.SetTableScene(JsonSerializer.Serialize(Create(generation, version), sceneJson))) { ShowError("Video changed. Try the scene check again."); return; }
+        if (!owner.SetTableScene(JsonSerializer.Serialize(Create(generation, version), sceneJson))) { suppressShotLoop = false; ShowError("Video changed. Try the scene check again."); return; }
         if (owner.SetTableScene(JsonSerializer.Serialize(Create(generation, version), sceneJson))) throw new InvalidOperationException("Scene accepted a duplicate revision.");
         Android.Util.Log.Info("SkyEyeShell", "Scene gate passed: wrong source and duplicate revision rejected");
-        SceneCheck = true;
+        SceneCheck = true; suppressShotLoop = false;
         sceneLifetime = CancellationTokenSource.CreateLinkedTokenSource(foreground.Token);
         var token = sceneLifetime.Token;
         try
@@ -55,14 +58,16 @@ public sealed partial class ShellSession
 
     void ClearSceneCheck()
     {
+        if (!SceneCheck && sceneRelay is null && sceneLifetime is null) return;
         sceneLifetime?.Cancel(); sceneLifetime?.Dispose(); sceneLifetime = null;
         player?.ClearTableScene();
         var relay = sceneRelay; sceneRelay = null;
         // Only replace this relay's receiver content. Another app may have taken over the TV.
         if (relay is not null) cast?.ReturnToSourceIfOwned(relay.Url, CanCastLive && effects.Latest is { } view ? view.Stream : "");
-        if (relay is not null) _ = relay.DisposeAsync();
+        if (relay is not null) sceneRelayClosing = relay.DisposeAsync().AsTask();
         sceneRelayListener?.Dispose(); sceneRelayListener = null;
         SceneCheck = false; SceneCheckStatus = "Scene cleared · live camera remains available";
+        lastPhoneShot = lastTvShot = "";
     }
     sealed class SceneRelayListener(ShellSession owner) : Java.Lang.Object, Bridge.OverlayEncoder.IListener
     {

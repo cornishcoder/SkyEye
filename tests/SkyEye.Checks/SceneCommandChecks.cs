@@ -14,6 +14,7 @@ static class SceneCommandChecks
         var catalog = new ShotChoiceCatalog(app.State.Camera.Scope, 7, AdviceTargetGroup.Open, clock.GetUtcNow(), clock.GetUtcNow().AddSeconds(15), [new("7:r1:0", "direct", 0), new("7:r2:1", "bank", 1)]);
         Check(!(await Send(new PublishShotCatalog(catalog))).Succeeded, "touch cannot publish its own candidate proof");
         Check((await Send(new PublishShotCatalog(catalog), CommandOrigin.System)).Succeeded, "validated system catalog accepted");
+        Check(!(await Send(new PublishShotCatalog(catalog with { Choices = [null!] }), CommandOrigin.System)).Succeeded, "malformed catalog rejected without throwing");
         Check(!(await Send(new PinShot(SceneTarget.Phone, 6, "7:r1:0"))).Succeeded && !(await Send(new PinShot(SceneTarget.Phone, 7, "7:missing"))).Succeeded, "wrong version or missing candidate rejected");
         var pin = new CommandEnvelope(Guid.NewGuid(), CommandOrigin.Touch, app.State.Version, new PinShot(SceneTarget.Phone, 7, "7:r1:0"));
         Check((await app.DispatchAsync(pin)).Succeeded && app.State.Presentation.Phone.Mode == ShotDisplayMode.Pinned && app.State.Presentation.Tv.Mode == ShotDisplayMode.Cycling, "pin is target-specific");
@@ -36,6 +37,12 @@ static class SceneCommandChecks
         Check(!(await Send(new PublishShotCatalog(catalog), CommandOrigin.System)).Succeeded, "late old-camera catalog rejected");
         await Send(new ShowShotChoices(true));
         Check(app.State.Presentation.Phone.Mode == ShotDisplayMode.Cycling && app.State.Presentation.Tv.Mode == ShotDisplayMode.Cycling, "legacy choices retain both-surface behavior");
+        var calibration = new TableCalibration([new(0, 0), new(1, 0), new(1, 1), new(0, 1)]);
+        var shot = new Shot("1:r:0", "r", 0, new(.7, .4), new(.8, .4), new(2, 0), .5, "fixture", 1)
+            { CuePath = [new(.2, .2), new(.7, .4)], TargetPath = [new(.8, .4), new(2, 0)] };
+        var scene = SkyEye.Core.Analysis.ShotSceneProjection.Create(shot, calibration, 1, 2, clock.GetUtcNow(), clock.GetUtcNow().AddSeconds(5), "Pinned fixture", true);
+        Check(Math.Abs(scene.Paths[0].Points[0].X - .1) < 1e-10 && Math.Abs(scene.Paths[0].Points[0].Y - .2) < 1e-10
+            && scene.Paths.All(p => p.Selected) && scene.Markers.Length == 3 && scene.TableVersion == 1, "shot scene uses calibrated original-image coordinates, pin styling and table provenance");
         Console.WriteLine("PASS target-specific live/cycle/pin/clear, scoped catalog, expired/stale references, duplicate pins, group/camera invalidation and score gate");
     }
     sealed class Clock : TimeProvider { DateTimeOffset now = DateTimeOffset.UtcNow; public override DateTimeOffset GetUtcNow() => now; public void Advance(int seconds) => now = now.AddSeconds(seconds); }
