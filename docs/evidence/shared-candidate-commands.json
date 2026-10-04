@@ -1,0 +1,619 @@
+{
+  "checkedAt": "2026-10-04T09:37:33.7582571+01:00",
+  "unit": "S02",
+  "package": "uk.co.skyeye.companion.commands.lab",
+  "configuration": "Debug",
+  "device": "Pixel 11 Pro",
+  "cameraDevice": "Pixel 10 Pro",
+  "sdkLane": "10.0.400",
+  "buildErrors": 0,
+  "buildWarnings": 11,
+  "observed": [
+    "Touch overlay on/off commits canonical state versions 1/3/4/5",
+    "Touch red group selection commits canonical version 2 and table group red",
+    "Live native phone overlay visibly draws a candidate and ghost ball",
+    "Encoded viewing feed ready at 960x540/10fps",
+    "Native viewing feed reports candidate indices 0, 1 and 2 with three candidates",
+    "Candidate scene republishes after fresh analyses about every ten seconds",
+    "Unsettled/uncertain detections clear candidates and automatic recovery resumes them",
+    "Stale manual layout correction rejected",
+    "Test capture stopped and test host released; camera remains armed"
+  ],
+  "cycleMilliseconds": 2000,
+  "refreshMilliseconds": 10000,
+  "samples": [
+    {
+      "at": 1791102854170,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102845217,
+        "updatedAt": 1791102848076,
+        "expiresAt": 1791102860217,
+        "candidateIndex": 1
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102854725,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102845217,
+        "updatedAt": 1791102848076,
+        "expiresAt": 1791102860217,
+        "candidateIndex": 1
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102855296,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102845217,
+        "updatedAt": 1791102848076,
+        "expiresAt": 1791102860217,
+        "candidateIndex": 1
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102855908,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102855218,
+        "updatedAt": 1791102858712,
+        "expiresAt": 1791102870218,
+        "candidateIndex": 2
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102856464,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102855218,
+        "updatedAt": 1791102858712,
+        "expiresAt": 1791102870218,
+        "candidateIndex": 2
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102856992,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102855218,
+        "updatedAt": 1791102858712,
+        "expiresAt": 1791102870218,
+        "candidateIndex": 2
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102857531,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102855218,
+        "updatedAt": 1791102858712,
+        "expiresAt": 1791102870218,
+        "candidateIndex": 0
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102858168,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102855218,
+        "updatedAt": 1791102858712,
+        "expiresAt": 1791102870218,
+        "candidateIndex": 0
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102858809,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102855218,
+        "updatedAt": 1791102858712,
+        "expiresAt": 1791102870218,
+        "candidateIndex": 0
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102859356,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102855218,
+        "updatedAt": 1791102858712,
+        "expiresAt": 1791102870218,
+        "candidateIndex": 0
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102860014,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102855218,
+        "updatedAt": 1791102858712,
+        "expiresAt": 1791102870218,
+        "candidateIndex": 1
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102860625,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102855218,
+        "updatedAt": 1791102858712,
+        "expiresAt": 1791102870218,
+        "candidateIndex": 1
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102861244,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102855218,
+        "updatedAt": 1791102858712,
+        "expiresAt": 1791102870218,
+        "candidateIndex": 1
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102861849,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102855218,
+        "updatedAt": 1791102858712,
+        "expiresAt": 1791102870218,
+        "candidateIndex": 2
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102862400,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102855218,
+        "updatedAt": 1791102858712,
+        "expiresAt": 1791102870218,
+        "candidateIndex": 2
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102862989,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102855218,
+        "updatedAt": 1791102858712,
+        "expiresAt": 1791102870218,
+        "candidateIndex": 2
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102863600,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102855218,
+        "updatedAt": 1791102858712,
+        "expiresAt": 1791102870218,
+        "candidateIndex": 0
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102864215,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102855218,
+        "updatedAt": 1791102858712,
+        "expiresAt": 1791102870218,
+        "candidateIndex": 0
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102864818,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102855218,
+        "updatedAt": 1791102858712,
+        "expiresAt": 1791102870218,
+        "candidateIndex": 0
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102865362,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102865219,
+        "updatedAt": 1791102868249,
+        "expiresAt": 1791102880219,
+        "candidateIndex": 0
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102865906,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102865219,
+        "updatedAt": 1791102868249,
+        "expiresAt": 1791102880219,
+        "candidateIndex": 1
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102866570,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102865219,
+        "updatedAt": 1791102868249,
+        "expiresAt": 1791102880219,
+        "candidateIndex": 1
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102867169,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102865219,
+        "updatedAt": 1791102868249,
+        "expiresAt": 1791102880219,
+        "candidateIndex": 1
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102867791,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102865219,
+        "updatedAt": 1791102868249,
+        "expiresAt": 1791102880219,
+        "candidateIndex": 2
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102868402,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102865219,
+        "updatedAt": 1791102868249,
+        "expiresAt": 1791102880219,
+        "candidateIndex": 2
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102868951,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102865219,
+        "updatedAt": 1791102868249,
+        "expiresAt": 1791102880219,
+        "candidateIndex": 2
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102869486,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102865219,
+        "updatedAt": 1791102868249,
+        "expiresAt": 1791102880219,
+        "candidateIndex": 0
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102870046,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102865219,
+        "updatedAt": 1791102868249,
+        "expiresAt": 1791102880219,
+        "candidateIndex": 0
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102870585,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102865219,
+        "updatedAt": 1791102868249,
+        "expiresAt": 1791102880219,
+        "candidateIndex": 0
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102871130,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102865219,
+        "updatedAt": 1791102868249,
+        "expiresAt": 1791102880219,
+        "candidateIndex": 0
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102871672,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102865219,
+        "updatedAt": 1791102868249,
+        "expiresAt": 1791102880219,
+        "candidateIndex": 1
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102872294,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102865219,
+        "updatedAt": 1791102868249,
+        "expiresAt": 1791102880219,
+        "candidateIndex": 1
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102872922,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102865219,
+        "updatedAt": 1791102868249,
+        "expiresAt": 1791102880219,
+        "candidateIndex": 1
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102873538,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102865219,
+        "updatedAt": 1791102868249,
+        "expiresAt": 1791102880219,
+        "candidateIndex": 2
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102874087,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102865219,
+        "updatedAt": 1791102868249,
+        "expiresAt": 1791102880219,
+        "candidateIndex": 2
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102874631,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102865219,
+        "updatedAt": 1791102868249,
+        "expiresAt": 1791102880219,
+        "candidateIndex": 2
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102875272,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102865219,
+        "updatedAt": 1791102868249,
+        "expiresAt": 1791102880219,
+        "candidateIndex": 2
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102875905,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 0,
+        "capturedAt": 1791102874220,
+        "updatedAt": 1791102878663,
+        "expiresAt": 0,
+        "candidateIndex": -1
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102876505,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 0,
+        "capturedAt": 1791102874220,
+        "updatedAt": 1791102878663,
+        "expiresAt": 0,
+        "candidateIndex": -1
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102877050,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 0,
+        "capturedAt": 1791102874220,
+        "updatedAt": 1791102878663,
+        "expiresAt": 0,
+        "candidateIndex": -1
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102877596,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 0,
+        "capturedAt": 1791102874220,
+        "updatedAt": 1791102878663,
+        "expiresAt": 0,
+        "candidateIndex": -1
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102878177,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 0,
+        "capturedAt": 1791102874220,
+        "updatedAt": 1791102878663,
+        "expiresAt": 0,
+        "candidateIndex": -1
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102878748,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 0,
+        "capturedAt": 1791102874220,
+        "updatedAt": 1791102878663,
+        "expiresAt": 0,
+        "candidateIndex": -1
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102879368,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102878220,
+        "updatedAt": 1791102882036,
+        "expiresAt": 1791102893220,
+        "candidateIndex": 1
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102879905,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102878220,
+        "updatedAt": 1791102882036,
+        "expiresAt": 1791102893220,
+        "candidateIndex": 2
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102880440,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102878220,
+        "updatedAt": 1791102882036,
+        "expiresAt": 1791102893220,
+        "candidateIndex": 2
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102881012,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102878220,
+        "updatedAt": 1791102882036,
+        "expiresAt": 1791102893220,
+        "candidateIndex": 2
+      },
+      "ready": true
+    },
+    {
+      "at": 1791102881606,
+      "presentation": {
+        "enabled": true,
+        "candidateCount": 3,
+        "capturedAt": 1791102878220,
+        "updatedAt": 1791102882036,
+        "expiresAt": 1791102893220,
+        "candidateIndex": 0
+      },
+      "ready": true
+    }
+  ],
+  "caveats": [
+    "Black ball bright number patch intermittently detected as a second cue; camera/vision issue remains",
+    "Touching-ball detections initially prevented eligible advice; user separated central balls",
+    "Manual colour correction was attempted but rejected as stale; automatic detections later recovered and supplied verified candidates",
+    "Existing product screen is intentional for S02; portrait Hybrid shell remains H01",
+    "No actual Cast receiver playback tested",
+    "Production companion installation and remote lab launch blocked by automatic approval review with only blocked by policy; user opened separate lab manually"
+  ],
+  "cleanup": {
+    "clipCount": 7,
+    "host": null,
+    "state": "Stopped",
+    "clipsCreatedByTest": 0,
+    "error": "",
+    "armed": true
+  },
+  "apkSha256": "E640F02CC9729972EF710BCCA234A2C109A3157F1DCC345A0882E3DC4FEB5D45"
+}

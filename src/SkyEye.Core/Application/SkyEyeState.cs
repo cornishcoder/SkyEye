@@ -2,7 +2,7 @@ namespace SkyEye.Core.Application;
 
 public enum AdviceTargetGroup { Open, Red, Yellow, Black }
 public sealed record AdvicePreferences(AdviceTargetGroup TargetGroup);
-public sealed record PresentationPreferences(bool ShotChoicesVisible);
+public sealed record PresentationPreferences(bool ShotChoicesEnabled);
 
 /// <summary>Canonical, immutable app snapshot. Platform credentials never belong here.
 /// Connection, table and game projections are added with their verified command slices.</summary>

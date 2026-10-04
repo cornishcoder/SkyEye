@@ -13,9 +13,14 @@ using Bridge = UK.CO.Skyeye.Companion.Nativebridge;
 
 namespace SkyEye.Companion;
 
-[Activity(Name = "uk.co.skyeye.companion.MainActivity", Label = "SkyEye", MainLauncher = true, Exported = true, ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize)]
+[Activity(Name = "uk.co.skyeye.companion.MainActivity", Label = MainActivity.AppTitle, MainLauncher = true, Exported = true, ConfigurationChanges = ConfigChanges.Orientation | ConfigChanges.ScreenSize)]
 public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActivity
 {
+#if SKYEYE_COMMAND_LAB
+    internal const string AppTitle = "SkyEye Commands Lab";
+#else
+    internal const string AppTitle = "SkyEye";
+#endif
     readonly CameraClient client = new();
     readonly CancellationTokenSource lifetime = new();
     readonly SemaphoreSlim connectionGate = new(1);
@@ -39,7 +44,7 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
         base.OnCreate(savedInstanceState); clipDir = Path.Combine(FilesDir!.AbsolutePath, "clips"); Directory.CreateDirectory(clipDir);
         var root = new LinearLayout(this) { Orientation = Orientation.Vertical }; root.SetPadding(20, 24, 20, 20); root.SetBackgroundColor(Color.Rgb(10, 19, 28));
         var scroll = new ScrollView(this); scroll.AddView(root); SetContentView(scroll);
-        root.AddView(Label("SkyEye", 30)); root.AddView(Label("Your table. Every shot.", 15));
+        root.AddView(Label(AppTitle, 30)); root.AddView(Label("Your table. Every shot.", 15));
         var settings = GetSharedPreferences("skyeye", FileCreationMode.Private)!;
         address = new EditText(this) { Hint = "Camera address · IP:8765", Text = settings.GetString("camera", "") }; address.SetSingleLine(true); address.SetTextColor(Color.White); address.SetHintTextColor(Color.Gray); root.AddView(address);
         var connectRow = Row(root); Add(connectRow, "Connect", () => _ = ConnectAsync()); Add(connectRow, "Find camera", () => discovery.Start());
@@ -188,7 +193,7 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
             if (clip is null || !Guid.TryParseExact(clip.Id, "N", out _)) continue; string video = Path.Combine(clipDir, clip.Id + ".mp4"); if (!File.Exists(video)) continue;
             localClips.AddView(Label(clip.Name + " · available offline", 14)); var row = Row(localClips);
             Add(row, "Play", () => { offline = true; player.SetPortrait(false); player.SetMuted(false); player.Play(Android.Net.Uri.FromFile(new Java.IO.File(video))!.ToString()!); });
-            Add(row, "Share", () => { var uri = AndroidX.Core.Content.FileProvider.GetUriForFile(this, "uk.co.skyeye.companion.files", new Java.IO.File(video)); var intent = new Intent(Intent.ActionSend).SetType("video/mp4").PutExtra(Intent.ExtraStream, uri).AddFlags(ActivityFlags.GrantReadUriPermission); StartActivity(Intent.CreateChooser(intent, "Share your shot")); });
+            Add(row, "Share", () => { var uri = AndroidX.Core.Content.FileProvider.GetUriForFile(this, PackageName + ".files", new Java.IO.File(video)); var intent = new Intent(Intent.ActionSend).SetType("video/mp4").PutExtra(Intent.ExtraStream, uri).AddFlags(ActivityFlags.GrantReadUriPermission); StartActivity(Intent.CreateChooser(intent, "Share your shot")); });
         }
     }
     void SetupKey()
@@ -210,7 +215,7 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
     async Task EndMaeveAsync() { var session = maeve; maeve = null; try { if (session is not null) await session.CloseAsync(); } finally { StopService(new Intent(this, typeof(VoiceService))); } }
     protected override void OnResume() { base.OnResume(); resumed = true; StartPolling(); if (overlayEnabled) StartCandidateOverlay(); }
     protected override void OnPause() { resumed = false; PauseCandidateOverlay(); discovery.Stop(); if (maeve is null) InvalidateTable("Return for a fresh table view."); base.OnPause(); }
-    protected override void OnDestroy() { lifetime.Cancel(); ++tableGeneration; PauseCandidateOverlay(); tableBitmap?.Dispose(); exporter?.Cancel(); _ = EndMaeveAsync(); player.Release(); cast?.Release(); discovery.Stop(); client.Dispose(); base.OnDestroy(); }
+    protected override void OnDestroy() { appSubscription?.Dispose(); lifetime.Cancel(); ++tableGeneration; PauseCandidateOverlay(); tableBitmap?.Dispose(); exporter?.Cancel(); _ = EndMaeveAsync(); player.Release(); cast?.Release(); discovery.Stop(); client.Dispose(); base.OnDestroy(); }
     sealed class PlayerListener(MainActivity owner) : Java.Lang.Object, Bridge.PlayerBridge.IListener { public void OnError(string? error) => owner.Say(error ?? "Viewing interrupted"); public void OnPlaying(bool playing) => owner.RunOnUiThread(() => owner.viewerStatus.Text = playing ? owner.offline ? "Playing downloaded clip" : "Live · delayed · silent" : "Waiting for video…"); }
     sealed class CastListener(MainActivity owner) : Java.Lang.Object, Bridge.CastBridge.IListener { public void OnStatus(string? status) => owner.Say(status ?? "TV status changed"); }
     sealed class DiscoveryListener(MainActivity owner) : Java.Lang.Object, Bridge.DiscoveryBridge.IListener

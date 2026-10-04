@@ -4,6 +4,7 @@ using Android.Views;
 using Android.Widget;
 using SkyEye.Core;
 using SkyEye.Core.Analysis;
+using SkyEye.Core.Application;
 using SkyEye.Vision.Android;
 using System.Globalization;
 using System.Text.Json;
@@ -14,7 +15,7 @@ namespace SkyEye.Companion;
 public sealed partial class MainActivity
 {
     TableCalibration? calibration;
-    string calibrationId = "", group = "open";
+    string calibrationId = "";
     TableState? tableState;
     Bitmap? tableBitmap;
     TextView tableLabel = null!;
@@ -25,7 +26,7 @@ public sealed partial class MainActivity
     Task? tableUpdate;
     VisionResult? lastVision;
     CancellationTokenSource? analysisCancellation;
-    bool overlayEnabled;
+    Spinner groupSelector = null!;
     string selectedShotId = "";
     TableView tableView = null!;
     string CalibrationKey() => "calibration-" + Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(client.Address)));
@@ -49,8 +50,8 @@ public sealed partial class MainActivity
         tableLabel = Label("Calibrate before using pool advice. Confirm or correct detections when the layout changes.", 13); root.AddView(tableLabel);
         tableView = new TableView(this); root.AddView(tableView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, (int)(220 * Resources!.DisplayMetrics!.Density)));
         var row = Row(root); Add(row, "Calibrate", () => _ = ActionAsync(CalibrateAsync)); Add(row, "Confirm balls", () => _ = ActionAsync(async () => { await UpdateTableAsync(); tableState = tableTracker.Confirm(DateTimeOffset.UtcNow); ShowTable(); if (maeve is not null) await maeve.UpdateTableAsync(tableState); })); Add(row, "Correct layout", CorrectLayout);
-        var groups = new Spinner(this); groups.Adapter = new ArrayAdapter<string>(this, Android.Resource.Layout.SimpleSpinnerDropDownItem, ["Open table", "I'm reds", "I'm yellows", "I'm on the black"]);
-        groups.ItemSelected += (_, e) => { group = new[] { "open", "red", "yellow", "black" }[e.Position]; if (tableState is not null) { tableState = tableTracker.SetGroup(group); ClearCandidatePresentation("Checking your selected group…"); overlayRefreshAt = 0; ShowTable(); if (maeve is not null) _ = maeve.UpdateTableAsync(tableState!); } }; root.AddView(groups);
+        groupSelector = new Spinner(this); groupSelector.Adapter = new ArrayAdapter<string>(this, Android.Resource.Layout.SimpleSpinnerDropDownItem, ["Open table", "I'm reds", "I'm yellows", "I'm on the black"]);
+        groupSelector.ItemSelected += (sender, e) => { _ = DispatchAppAsync(new SetTargetGroup((AdviceTargetGroup)e.Position)); }; root.AddView(groupSelector);
     }
     async Task CalibrateAsync()
     {

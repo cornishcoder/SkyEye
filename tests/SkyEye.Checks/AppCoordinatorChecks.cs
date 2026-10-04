@@ -12,8 +12,8 @@ static class AppCoordinatorChecks
         var original = app.State;
         var show = new CommandEnvelope(Guid.NewGuid(), CommandOrigin.Touch, 0, new ShowShotChoices(true));
         var shown = await app.DispatchAsync(show);
-        Check(shown.Succeeded && shown.DecisionVersion == 1 && app.State.Presentation.ShotChoicesVisible, "touch preference commit");
-        Check(!original.Presentation.ShotChoicesVisible && original.Version == 0, "previous snapshot is immutable");
+        Check(shown.Succeeded && shown.DecisionVersion == 1 && app.State.Presentation.ShotChoicesEnabled, "touch preference commit");
+        Check(!original.Presentation.ShotChoicesEnabled && original.Version == 0, "previous snapshot is immutable");
         var group = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Sky, 1, new SetTargetGroup(AdviceTargetGroup.Red)));
         Check(group.Succeeded && app.State.Version == 2 && app.State.Advice.TargetGroup == AdviceTargetGroup.Red, "Sky uses the same writer");
         var duplicate = await app.DispatchAsync(show);
@@ -21,7 +21,7 @@ static class AppCoordinatorChecks
         var conflict = await app.DispatchAsync(show with { Command = new ShowShotChoices(false) });
         Check(conflict.Outcome == CommandOutcome.Conflict && app.State.Version == 2, "operation ID cannot change its payload");
         var stale = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Sky, 1, new ShowShotChoices(false)));
-        Check(stale.Outcome == CommandOutcome.Stale && app.State.Presentation.ShotChoicesVisible, "stale request cannot mutate state");
+        Check(stale.Outcome == CommandOutcome.Stale && app.State.Presentation.ShotChoicesEnabled, "stale request cannot mutate state");
         var unchanged = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, 2, new ShowShotChoices(true)));
         Check(unchanged.Outcome == CommandOutcome.Unchanged && app.State.Version == 2, "idempotent preference does not create a new version");
         var invalid = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, 2, new SetTargetGroup((AdviceTargetGroup)99)));

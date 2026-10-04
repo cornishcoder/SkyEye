@@ -1,6 +1,7 @@
 using Android.Widget;
 using SkyEye.Core;
 using SkyEye.Core.Analysis;
+using SkyEye.Core.Application;
 using System.Text.Json;
 using Bridge = UK.CO.Skyeye.Companion.Nativebridge;
 
@@ -20,13 +21,9 @@ public sealed partial class MainActivity
     void BuildCandidateOverlayUi(LinearLayout root)
     {
         overlayToggle = Add(root, "Candidate overlay: off", () =>
-        {
-            overlayEnabled = !overlayEnabled;
-            overlayToggle.Text = overlayEnabled ? "Candidate overlay: on" : "Candidate overlay: off";
-            if (overlayEnabled) { if (connected && currentState == "Active") { offline = false; player.SetMuted(true); player.Play(stream); } StartCandidateOverlay(); }
-            else { PauseCandidateOverlay(); ClearCandidatePresentation("Candidate overlay is off."); }
-        });
+            _ = DispatchAppAsync(new ShowShotChoices(!renderedAppState.Presentation.ShotChoicesEnabled)));
         overlayStatus = Label("Turn on to cycle shots every 2 seconds; refresh every 10 seconds.", 13); root.AddView(overlayStatus);
+        BindAppState();
     }
     void ConfigureCandidateCast(bool owns)
         => cast?.Configure(overlayEnabled && resumed && overlayRelay is { Ready: true } ? overlayRelay.Url : stream, owns);
