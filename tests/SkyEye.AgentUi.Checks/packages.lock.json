@@ -117,6 +117,9 @@
         "type": "Transitive",
         "resolved": "11.0.0-rc.1.26425.128",
         "contentHash": "W9eq1a1pEEaSx5msYyU+7z650Lhe4AuKGkvNYl9OOXn9nzlksULlF9FfAbhES7HgVLh9nVm1m7fq4I28DTQ7iw=="
+      },
+      "skyeye.core": {
+        "type": "Project"
       }
     }
   }

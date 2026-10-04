@@ -58,8 +58,9 @@ public sealed partial class ShellSession : IDisposable
         });
         app = new(cameraControls: effects);
         InitializeClips();
+        InitializeTable();
         Agent = new(agentClient, _ => { }, new ShellViewState());
-        subscription = app.Subscribe(_ => MainThread.BeginInvokeOnMainThread(Publish));
+        subscription = app.Subscribe(state => { BindTable(state); MainThread.BeginInvokeOnMainThread(Publish); });
     }
     public void SetSheet(bool open) { SheetOpen = open; chrome.SetEditing(open); Changed?.Invoke(); }
     public void RevealControls() { chrome.Reveal(); Changed?.Invoke(); }
@@ -169,6 +170,7 @@ public sealed partial class ShellSession : IDisposable
     public void Suspend()
     {
         active = false; foreground?.Cancel(); foreground?.Dispose(); foreground = null; StopDiscovery(); CloseKeyEditor();
+        CloseTableEdit(invalidatePicking: true); table.Invalidate();
         player?.Stop(); Playing = false; selection.Suspend(); Publish();
     }
     public void Resume()
@@ -212,7 +214,7 @@ public sealed partial class ShellSession : IDisposable
         try
         {
             using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
-            do { await RefreshAsync(token); } while (await timer.WaitForNextTickAsync(token));
+            do { await RefreshAsync(token); await UpdateTableAsync(token); } while (await timer.WaitForNextTickAsync(token));
         }
         catch (OperationCanceledException) { }
     }
@@ -239,6 +241,7 @@ public sealed partial class ShellSession : IDisposable
         if (disposed) return;
         var state = app.State.Camera;
         InvalidateClipCatalog(state.ConnectionId);
+        ObserveTable();
         var camera = state.Reachability switch
         {
             CameraReachability.Connecting => "Connecting…",
@@ -253,6 +256,7 @@ public sealed partial class ShellSession : IDisposable
     {
         if (disposed) return;
         Suspend(); disposed = true; clipLifetime.Cancel(); CancelClipTransfer(); clipLifetime.Dispose();
+        table.Dispose();
         subscription.Dispose(); client.Dispose(); Agent.Dispose(); agentClient.Dispose();
     }
     // H01 only projects canonical state. Voice/tool transport is connected in A02.

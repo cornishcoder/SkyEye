@@ -3,6 +3,12 @@
 
 <AgentBoundary Agent="Session.Agent">
     <main class="shell @(Session.SheetOpen ? "expanded" : "")">
+        @if (Session.EditingTable)
+        {
+            <TableEditor Session="Session" Busy="busy" Apply="ApplyTable" />
+        }
+        else
+        {
         @if (Session.SheetOpen)
         {
             <section class="sheet" aria-label="Table controls">
@@ -29,6 +35,7 @@
                 <button class="secondary" disabled="@(busy || !Session.CanCastLive || !Session.TvConnected)" @onclick="Session.PlayTv">Play live on TV</button>
                 <button class="quiet" disabled="@(busy || !Session.TvConnected)" @onclick="Session.StopTv">Disconnect TV</button>
                 </section>
+                <TableControls Session="Session" Busy="busy" Version="Session.Agent.State.Value.Version" Calibrate="CalibrateTable" Correct="CorrectTable" Confirm="ConfirmTable" />
                 <ClipControls Session="Session" Busy="busy" Share="ShareClip" />
                 <section class="control-section" aria-label="Personal voice setup">
                 <h2>Sky voice</h2><p class="hint" role="status">@Session.KeyStatus</p>
@@ -53,6 +60,7 @@
         {
             <footer class="resting"><button class="sky-rest" @onclick="Session.RevealControls" aria-label="Show table controls"><span class="sky-orb" aria-hidden="true"></span>Sky</button></footer>
         }
+        }
     </main>
 </AgentBoundary>
 
@@ -72,6 +80,10 @@
     async Task ChooseTv() => await Run(Session.ChooseTvAsync);
     async Task ShareClip(string id) => await Run(() => Session.ShareClipAsync(id));
     async Task SetupKey() => await Run(Session.SetupKeyAsync);
+    async Task CalibrateTable() => await Run(Session.CalibrateTableAsync);
+    async Task CorrectTable() => await Run(Session.CorrectTableAsync);
+    async Task ConfirmTable() => await Run(Session.ConfirmTableAsync);
+    async Task ApplyTable() => await Run(Session.ApplyTableEditAsync);
     async Task Run(Func<Task> action, bool close = false)
     {
         if (busy) return;

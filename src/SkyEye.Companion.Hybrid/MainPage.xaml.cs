@@ -25,11 +25,14 @@ public partial class MainPage : ContentPage
 	void OnChanged() => MainThread.BeginInvokeOnMainThread(ResizeControls);
 	void ResizeControls()
 	{
+		session.SetEditorLimit(Height * .6);
 		// The native scene stays attached at full size while the contextual region changes.
-		blazorWebView.HeightRequest = session.SheetOpen ? Math.Min(560 * session.FontScale, Math.Max(session.DockHeight, Height * .78)) : session.DockHeight;
+		blazorWebView.HeightRequest = session.EditingTable ? session.EditorHeight
+			: session.SheetOpen ? Math.Min(560 * session.FontScale, Math.Max(session.DockHeight, Height * .78)) : session.DockHeight;
 	}
 	protected override bool OnBackButtonPressed()
 	{
+		if (session.EditingTable) { session.CancelTableEdit(); return true; }
 		if (!session.SheetOpen) return base.OnBackButtonPressed();
 		session.SetSheet(false); return true;
 	}

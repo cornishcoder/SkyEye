@@ -1,0 +1,28 @@
+@using SkyEye.Core.Application
+
+<section class="control-section" aria-label="Table awareness">
+    <h2>Table awareness</h2><p class="hint" role="status">@Session.TableStatus</p>
+    <button class="secondary" disabled="@(Busy || !Session.CanAnalyzeTable)" @onclick="Calibrate">Calibrate table</button>
+    <div class="clip-actions">
+        <button class="secondary" disabled="@(Busy || !Session.CanCorrectTable)" @onclick="Confirm">Confirm balls</button>
+        <button class="secondary" disabled="@(Busy || !Session.CanCorrectTable)" @onclick="Correct">Correct layout</button>
+    </div>
+    <label for="target-group">My group</label>
+    <select id="target-group" disabled="@Busy" value="@Session.TargetGroup" @onchange="ChangeGroup">
+        <option value="Open">Open table</option><option value="Red">I'm reds</option>
+        <option value="Yellow">I'm yellows</option><option value="Black">I'm on the black</option>
+    </select>
+</section>
+
+@code {
+    [Parameter, EditorRequired] public ShellSession Session { get; set; } = null!;
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public long Version { get; set; }
+    [Parameter] public EventCallback Calibrate { get; set; }
+    [Parameter] public EventCallback Correct { get; set; }
+    [Parameter] public EventCallback Confirm { get; set; }
+    async Task ChangeGroup(ChangeEventArgs args)
+    {
+        if (Enum.TryParse<AdviceTargetGroup>(args.Value?.ToString(), out var group)) await Session.SetTableGroupAsync(Version, group);
+    }
+}

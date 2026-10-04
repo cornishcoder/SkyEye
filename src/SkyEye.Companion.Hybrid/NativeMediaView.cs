@@ -20,6 +20,7 @@ public sealed class NativeMediaHandler : ViewHandler<NativeMediaView, FrameLayou
     Android.Widget.TextView? placeholder;
     Android.Widget.TextView? title;
     FrameLayout? container;
+    FrozenTableSurface? frozen;
     float density;
     TouchListener? touchListener;
     public NativeMediaHandler() : base(Properties) { }
@@ -40,6 +41,8 @@ public sealed class NativeMediaHandler : ViewHandler<NativeMediaView, FrameLayou
         placeholder.SetTextColor(Android.Graphics.Color.Rgb(172, 192, 196));
         placeholder.ImportantForAccessibility = ImportantForAccessibility.Yes;
         container.AddView(placeholder, new FrameLayout.LayoutParams(-1, -1) { TopMargin = videoLayout.TopMargin, BottomMargin = videoLayout.BottomMargin });
+        frozen = new(activity, session) { Clickable = true, Focusable = true, Visibility = ViewStates.Gone };
+        container.AddView(frozen, new FrameLayout.LayoutParams(-1, -1) { TopMargin = videoLayout.TopMargin, BottomMargin = videoLayout.BottomMargin });
         title = new Android.Widget.TextView(activity) { Text = "SKYEYE", TextSize = 15, Gravity = GravityFlags.CenterVertical };
         title.SetTextColor(Android.Graphics.Color.White); title.SetPadding((int)(24 * density), 0, 0, 0);
         container.AddView(title, new FrameLayout.LayoutParams(-2, (int)(56 * density), GravityFlags.Top | GravityFlags.Left));
@@ -65,6 +68,7 @@ public sealed class NativeMediaHandler : ViewHandler<NativeMediaView, FrameLayou
         probe?.Detach(); player?.Release(); cast?.Release();
         placeholder = null;
         title = null; container = null; touchListener?.Dispose(); touchListener = null;
+        frozen?.Dispose(); frozen = null;
         player?.Dispose(); cast?.Dispose(); playerListener?.Dispose(); castListener?.Dispose();
         base.DisconnectHandler(platformView);
     }
@@ -74,13 +78,20 @@ public sealed class NativeMediaHandler : ViewHandler<NativeMediaView, FrameLayou
         if (session is not null && container is not null && player is not null)
         {
             int top = session.ControlsVisible ? (int)(64 * density) : 0;
-            int bottom = (int)(session.DockHeight * density);
+            int bottom = (int)((session.EditingTable ? session.EditorHeight : session.DockHeight) * density);
             var layout = (FrameLayout.LayoutParams)player.View!.LayoutParameters!;
             if (layout.TopMargin != top || layout.BottomMargin != bottom)
             {
                 layout.TopMargin = top; layout.BottomMargin = bottom; player.View.LayoutParameters = layout;
             }
             if (title is not null) title.Visibility = session.ControlsVisible ? ViewStates.Visible : ViewStates.Gone;
+            if (frozen is not null)
+            {
+                var frozenLayout = (FrameLayout.LayoutParams)frozen.LayoutParameters!;
+                if (frozenLayout.TopMargin != top || frozenLayout.BottomMargin != bottom)
+                { frozenLayout.TopMargin = top; frozenLayout.BottomMargin = bottom; frozen.LayoutParameters = frozenLayout; }
+                frozen.Bind(session.FrozenFrame);
+            }
             if (cast is not null) cast.Button!.Visibility = session.ControlsVisible ? ViewStates.Visible : ViewStates.Gone;
         }
     });

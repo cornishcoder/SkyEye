@@ -130,3 +130,33 @@ chrome.SetAccessibility(false); elapsed += TimeSpan.FromSeconds(6); chrome.Tick(
 Check(!chrome.Visible, "leaving accessibility interaction returns to normal fade behavior");
 chrome.Reveal(); Check(chrome.Visible, "tap or swipe restores controls");
 Console.WriteLine("PASS transient controls: idle/buffering, inactivity, editing, error acknowledgment, touch exploration and reveal");
+
+var fit = SkyEye.Companion.Hybrid.FrozenFrameFit.Fit(400, 600, 1920, 1080);
+var sourcePoint = new SkyEye.Core.Point(.2, .7);
+var mappedPoint = fit.Screen(sourcePoint);
+Check((fit.Image(mappedPoint)!.Value - sourcePoint).Length < 1e-10, "portrait frozen-frame mapping round trips touch and drawing");
+Check(fit.Image(new(0, 300)) is null, "letterbox space cannot become a corner or ball");
+Check(fit.Screen(new(0, 0)).X > fit.Screen(new(0, 1)).X && fit.Screen(new(1, 0)).Y > fit.Screen(new(0, 0)).Y, "camera corners rotate clockwise into portrait review order");
+var corners = new SkyEye.Core.Point[] { new(.1, .1), new(.9, .1), new(.9, .9), new(.1, .9) };
+var draft = new SkyEye.Companion.Hybrid.TableEditDraft();
+draft.BeginCalibration(4, corners); draft.MoveCorner(0, new(.12, .11));
+Check(corners[0] == new SkyEye.Core.Point(.1, .1) && draft.Corners[0] != corners[0], "adjusting proposed corners does not alter saved calibration or proposal");
+Check(draft.Matches(4, null) && !draft.Matches(5, null), "obsolete calibration draft cannot match a newer service generation");
+draft.ResetCorners(); draft.AddCorner(new(-.1, .5)); Check(draft.Corners.Count == 0, "manual corners reject points outside frozen image");
+foreach (var corner in corners) draft.AddCorner(corner);
+draft.AddCorner(new(.5, .5)); Check(draft.Corners.Count == 4, "calibration review retains exactly four corners until explicit acceptance");
+draft.UndoCorner(); Check(draft.Corners.Count == 3, "manual corner review supports undo");
+var calibration = new SkyEye.Core.TableCalibration(corners);
+var originalLayout = new SkyEye.Core.TableState(12, DateTimeOffset.UtcNow,
+    [new("cue", "cue", new(.4, .4), 1), new("red", "red", new(1.2, .5), 1)], "open", true, false, true, "mount");
+draft.BeginCorrection(8, originalLayout, calibration); draft.Select(1); draft.SetKind("yellow");
+draft.Place(calibration.Unmap(new(1.4, .6)));
+Check(originalLayout.Balls[1].Kind == "red" && originalLayout.Balls[1].Position == new SkyEye.Core.Point(1.2, .5), "ball preview cannot mutate confirmed layout before apply");
+Check(draft.Balls[1].Kind == "yellow" && (draft.Balls[1].Position - new SkyEye.Core.Point(1.4, .6)).Length < 1e-9, "drag and colour changes affect reviewed draft");
+Check(draft.Matches(8, 12) && !draft.Matches(8, 13) && !draft.Matches(9, 12), "layout or source changes invalidate reviewed correction");
+draft.AddBallMode(); draft.SetKind("black"); draft.Place(calibration.Unmap(new(1.6, .4)));
+Check(draft.Balls.Count == 3 && draft.Selected == 2 && draft.Balls[2].Kind == "black", "adding a ball needs a cloth location and chooses it for review");
+draft.DeleteSelected(); Check(draft.Balls.Count == 2 && draft.Selected == -1, "remove changes preview only");
+Check(draft.LayoutText().Contains("yellow"), "reviewed draft serializes to existing validated correction parser");
+draft.Clear(); Check(draft.Mode == SkyEye.Companion.Hybrid.TableEditMode.None && draft.Balls.Count == 0 && originalLayout.Balls.Length == 2, "reject clears preview while preserving canonical layout");
+Console.WriteLine("PASS frozen review: portrait inverse/letterbox mapping, manual corner adjustment/undo, isolated ball edits, apply scope and cancel");

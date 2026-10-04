@@ -20,7 +20,7 @@ public class MainActivity : MauiAppCompatActivity
     }
     void UpdateBack() => MainThread.BeginInvokeOnMainThread(() =>
     {
-        if (sheetBack is not null) sheetBack.Enabled = shell?.SheetOpen == true;
+        if (sheetBack is not null) sheetBack.Enabled = shell?.SheetOpen == true || shell?.EditingTable == true;
     });
     protected override void OnDestroy()
     {
@@ -30,7 +30,7 @@ public class MainActivity : MauiAppCompatActivity
     }
     sealed class SheetBackCallback(ShellSession shell) : AndroidX.Activity.OnBackPressedCallback(false)
     {
-        public override void HandleOnBackPressed() => shell.SetSheet(false);
+        public override void HandleOnBackPressed() { if (shell.EditingTable) shell.CancelTableEdit(); else shell.SetSheet(false); }
     }
     protected override void OnPause()
     {
