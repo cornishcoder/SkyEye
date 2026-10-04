@@ -24,9 +24,15 @@ public sealed class ShellSession : IDisposable
     Bridge.CastBridge? cast;
     CancellationTokenSource? foreground;
     readonly PlaybackSelection selection = new();
+    readonly System.Diagnostics.Stopwatch clock = System.Diagnostics.Stopwatch.StartNew();
+    readonly ControlChrome chrome;
     bool active, disposed;
     public UIAgent<ShellViewState> Agent { get; }
     public bool SheetOpen { get; private set; }
+    public bool ControlsVisible => chrome.Visible;
+    public bool NeedsAttention => chrome.Attention;
+    public double FontScale { get; private set; } = 1;
+    public double DockHeight => (ControlsVisible ? NeedsAttention ? 240 : 160 : 80) * FontScale;
     public string Message { get; private set; } = "Your table. Every shot.";
     public string Playback { get; private set; } = "Waiting for your table";
     public bool Playing { get; private set; }
@@ -35,12 +41,20 @@ public sealed class ShellSession : IDisposable
 
     public ShellSession()
     {
+        chrome = new(() => clock.Elapsed);
         effects = new(client);
         app = new(cameraControls: effects);
         Agent = new(agentClient, _ => { }, new ShellViewState());
         subscription = app.Subscribe(_ => MainThread.BeginInvokeOnMainThread(Publish));
     }
-    public void SetSheet(bool open) { SheetOpen = open; Changed?.Invoke(); }
+    public void SetSheet(bool open) { SheetOpen = open; chrome.SetEditing(open); Changed?.Invoke(); }
+    public void RevealControls() { chrome.Reveal(); Changed?.Invoke(); }
+    public void DismissNotice() { chrome.SetAttention(false); chrome.Reveal(); Changed?.Invoke(); }
+    public void ShowError(string message) { Message = message; chrome.SetAttention(true); Publish(); }
+    public void SetAccessibility(double fontScale, bool touchExploration)
+    {
+        FontScale = Math.Clamp(fontScale, 1, 2); chrome.SetAccessibility(touchExploration); Changed?.Invoke();
+    }
     public void Attach(Bridge.PlayerBridge player, Bridge.CastBridge cast)
     {
         this.player = player; this.cast = cast; player.SetPortrait(true);
@@ -55,25 +69,29 @@ public sealed class ShellSession : IDisposable
     }
     public void ReportPlaying(bool playing)
     {
+        if (playing && !Playing) chrome.Reveal();
         Playing = playing; Playback = playing ? "Live table · silent" : "Waiting for your table";
-        if (playing && selection.Kind == ViewingSource.Preview) Playback = "Table preview";
+        if (playing && selection.Kind == ViewingSource.Preview) Playback = "Test video";
+        if (playing) chrome.SetAttention(false);
         Publish();
     }
-    public void ReportError() { Playing = false; Playback = "Viewing interrupted"; Message = "The table view is reconnecting."; Publish(); }
+    public void ReportError() { Playing = false; Playback = "Viewing interrupted"; ShowError("The table view is reconnecting."); }
 
     public Task ConnectAsync(string address) => MainThread.InvokeOnMainThreadAsync(() => ConnectCoreAsync(address));
     async Task ConnectCoreAsync(string address)
     {
         if (!active || foreground is null) return;
+        DismissNotice();
         var cancellation = foreground.Token;
         if (await Permissions.RequestAsync<LocalNetworkPermission>() != PermissionStatus.Granted)
-        { Message = "Allow nearby devices to connect your camera."; Publish(); return; }
+        { ShowError("Allow nearby devices to connect your camera."); return; }
         cancellation.ThrowIfCancellationRequested();
         Stop(); var generation = selection.Begin(ViewingSource.Live);
         Message = "Connecting to your camera…"; Publish();
         var result = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, app.State.Version, new ConnectCamera(address)), cancellation);
         if (cancellation.IsCancellationRequested || generation != selection.Generation || disposed) return;
         Message = result.Succeeded ? "Camera connected." : result.Message;
+        chrome.SetAttention(!result.Succeeded);
         if (result.Succeeded) Preferences.Set("shell-camera", client.Address);
         ApplyCameraView(generation); Publish();
     }
@@ -127,8 +145,29 @@ public sealed class ShellSession : IDisposable
     {
         if (active || disposed) return;
         active = true; foreground = new();
+        chrome.Reveal();
         if (selection.Kind == ViewingSource.Preview) PlayCurrent();
         _ = PollAsync(foreground.Token);
+        _ = FadeAsync(foreground.Token);
+    }
+    async Task FadeAsync(CancellationToken token)
+    {
+        try
+        {
+            using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(250));
+            while (await timer.WaitForNextTickAsync(token))
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    if (!active || token.IsCancellationRequested) return;
+                    var manager = Android.App.Application.Context.GetSystemService(Android.Content.Context.AccessibilityService) as Android.Views.Accessibility.AccessibilityManager;
+                    bool wasVisible = chrome.Visible, wasAccessible = chrome.Accessible;
+                    chrome.SetAccessibility(manager?.IsTouchExplorationEnabled == true);
+                    chrome.CanFade = HasSource && Playing;
+                    bool tickChanged = chrome.Tick();
+                    if (tickChanged || wasVisible != chrome.Visible || wasAccessible != chrome.Accessible) Changed?.Invoke();
+                });
+        }
+        catch (OperationCanceledException) { }
     }
     async Task PollAsync(CancellationToken token)
     {
@@ -175,7 +214,7 @@ public sealed class ShellSession : IDisposable
         if (disposed) return;
         Suspend(); disposed = true; subscription.Dispose(); client.Dispose(); Agent.Dispose(); agentClient.Dispose();
     }
-    // H01 only projects canonical state. Voice/tool transport is connected in V03.
+    // H01 only projects canonical state. Voice/tool transport is connected in A02.
     sealed class ProjectionClient : IChatClient
     {
         public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)

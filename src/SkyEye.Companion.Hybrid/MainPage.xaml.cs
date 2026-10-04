@@ -4,7 +4,10 @@ public partial class MainPage : ContentPage
 {
 	readonly ShellSession session;
 	void WebViewInitialized(object? sender, Microsoft.AspNetCore.Components.WebView.BlazorWebViewInitializedEventArgs args)
-		=> args.WebView.SetBackgroundColor(Android.Graphics.Color.Transparent);
+	{
+		args.WebView.SetBackgroundColor(Android.Graphics.Color.Transparent);
+		args.WebView.Settings!.TextZoom = (int)(session.FontScale * 100);
+	}
 	public MainPage()
 	{
 		InitializeComponent();
@@ -23,6 +26,11 @@ public partial class MainPage : ContentPage
 	void ResizeControls()
 	{
 		// The native scene stays attached at full size while the contextual region changes.
-		blazorWebView.HeightRequest = session.SheetOpen ? Math.Min(560, Math.Max(160, Height * .78)) : 160;
+		blazorWebView.HeightRequest = session.SheetOpen ? Math.Min(560 * session.FontScale, Math.Max(session.DockHeight, Height * .78)) : session.DockHeight;
+	}
+	protected override bool OnBackButtonPressed()
+	{
+		if (!session.SheetOpen) return base.OnBackButtonPressed();
+		session.SetSheet(false); return true;
 	}
 }

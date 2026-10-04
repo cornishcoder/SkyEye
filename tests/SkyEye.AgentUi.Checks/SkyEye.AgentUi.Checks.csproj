@@ -8,5 +8,6 @@
     <PackageReference Include="Microsoft.AspNetCore.Components.AI" Version="0.1.0-preview.1.26466.103" />
     <Compile Include="../../src/SkyEye.Companion.Hybrid/Probes/ProbeChatClient.cs" Link="ProbeChatClient.cs" />
     <Compile Include="../../src/SkyEye.Companion.Hybrid/PlaybackSelection.cs" Link="PlaybackSelection.cs" />
+    <Compile Include="../../src/SkyEye.Companion.Hybrid/ControlChrome.cs" Link="ControlChrome.cs" />
   </ItemGroup>
 </Project>

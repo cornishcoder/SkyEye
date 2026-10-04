@@ -97,3 +97,26 @@ Check(!media.Observe(previewGeneration, SkyEye.Companion.Hybrid.ViewingSource.Pr
 Check(!media.Observe(nextGeneration, SkyEye.Companion.Hybrid.ViewingSource.Live, null) && media.NeedsStart, "loss of reachability removes media but permits validated recovery");
 Check(media.Observe(nextGeneration, SkyEye.Companion.Hybrid.ViewingSource.Live, "new-live-source"), "validated recovery can start after reachability loss");
 Console.WriteLine("PASS portrait media selection: inactive-to-active, stable refresh, resume/detach, stop, obsolete live/preview and recovery");
+
+var elapsed = TimeSpan.Zero;
+var chrome = new SkyEye.Companion.Hybrid.ControlChrome(() => elapsed);
+elapsed = TimeSpan.FromSeconds(30); chrome.Tick();
+Check(chrome.Visible, "empty or buffering table keeps connect controls visible");
+chrome.CanFade = true; chrome.Reveal(); elapsed += TimeSpan.FromSeconds(4.9); chrome.Tick();
+Check(chrome.Visible, "short inactivity threshold keeps controls available");
+elapsed += TimeSpan.FromSeconds(.1); chrome.Tick();
+Check(!chrome.Visible, "playing table rests after five seconds");
+chrome.SetEditing(true); elapsed += TimeSpan.FromMinutes(2); chrome.Tick();
+Check(chrome.Visible, "sheet editing pins controls beyond inactivity timeout");
+chrome.SetEditing(false); elapsed += TimeSpan.FromSeconds(4); chrome.Tick();
+Check(chrome.Visible, "closing sheet gives a fresh interaction window");
+elapsed += TimeSpan.FromSeconds(2); chrome.Tick(); Check(!chrome.Visible, "controls can rest again after editing");
+chrome.SetAttention(true); elapsed += TimeSpan.FromMinutes(2); chrome.Tick();
+Check(chrome.Visible, "actionable error pins controls");
+chrome.SetAttention(false); elapsed += TimeSpan.FromSeconds(6); chrome.Tick(); Check(!chrome.Visible, "acknowledged message releases pin");
+chrome.SetAccessibility(true); elapsed += TimeSpan.FromMinutes(2); chrome.Tick();
+Check(chrome.Visible, "touch exploration never fades available controls");
+chrome.SetAccessibility(false); elapsed += TimeSpan.FromSeconds(6); chrome.Tick();
+Check(!chrome.Visible, "leaving accessibility interaction returns to normal fade behavior");
+chrome.Reveal(); Check(chrome.Visible, "tap or swipe restores controls");
+Console.WriteLine("PASS transient controls: idle/buffering, inactivity, editing, error acknowledgment, touch exploration and reveal");

@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-04",
+  "unit": "H02",
+  "package": "uk.co.skyeye.companion.lab",
+  "configuration": "Release",
+  "device": "Pixel 11 Pro XL",
+  "transport": "USB",
+  "apkSha256": "C91834425E2E71FB7C9A56A331F1B6B9172274A503F4027D2A8A5B8F4D946290",
+  "buildErrors": 0,
+  "buildWarnings": 7,
+  "directlyObserved": [
+    "Offline native video fits portrait viewport without cropping after controls shrink",
+    "Resting hierarchy contains video and accessible Show table controls affordance",
+    "Native upward swipe opens contextual controls",
+    "Controls remain visible beyond fade timeout while sheet is open and test video is playing",
+    "Android Back closes sheet and keeps Hybrid lab foreground after native dispatcher fix",
+    "Signed Release installs and launches through USB without policy rejection",
+    "Action labels remain accessible and controls stay above gesture navigation"
+  ],
+  "automatedChecks": [
+    "Real Blazor AI stream/tool/proposed-state integration",
+    "Native media selection interruption and obsolete completion guards",
+    "Monotonic inactivity clock, editing and error pins, acknowledgment, touch exploration and reveal"
+  ],
+  "limitations": [
+    "TalkBack and enlarged Android font setting not changed on physical phone; native bindings and pin behavior are implemented, X02 covers full accessibility acceptance",
+    "No camera capture, clips or receiver playback used in this offline control check",
+    "USB improves connection stability; it does not establish a fix for intermittent upstream policy rejection"
+  ],
+  "camera": { "armed": true, "state": "Stopped", "hasHost": false, "error": "", "clipCount": 8 }
+}

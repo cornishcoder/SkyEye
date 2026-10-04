@@ -7,6 +7,31 @@ namespace SkyEye.Companion.Hybrid;
 [Activity(Name = "uk.co.skyeye.companion.lab.MainActivity", Theme = "@style/Maui.SplashTheme", MainLauncher = true, Exported = true, ScreenOrientation = ScreenOrientation.UserPortrait, ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation | ConfigChanges.UiMode | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize | ConfigChanges.Density)]
 public class MainActivity : MauiAppCompatActivity
 {
+    ShellSession? shell;
+    SheetBackCallback? sheetBack;
+    protected override void OnCreate(Bundle? savedInstanceState)
+    {
+        base.OnCreate(savedInstanceState);
+        shell = IPlatformApplication.Current!.Services.GetRequiredService<ShellSession>();
+        sheetBack = new(shell);
+        OnBackPressedDispatcher.AddCallback(this, sheetBack);
+        shell.Changed += UpdateBack;
+        UpdateBack();
+    }
+    void UpdateBack() => MainThread.BeginInvokeOnMainThread(() =>
+    {
+        if (sheetBack is not null) sheetBack.Enabled = shell?.SheetOpen == true;
+    });
+    protected override void OnDestroy()
+    {
+        if (shell is not null) shell.Changed -= UpdateBack;
+        sheetBack?.Remove(); sheetBack?.Dispose(); sheetBack = null;
+        base.OnDestroy();
+    }
+    sealed class SheetBackCallback(ShellSession shell) : AndroidX.Activity.OnBackPressedCallback(false)
+    {
+        public override void HandleOnBackPressed() => shell.SetSheet(false);
+    }
     protected override void OnPause()
     {
         IPlatformApplication.Current?.Services.GetService<Probes.NativeMediaProbe>()?.Suspend();

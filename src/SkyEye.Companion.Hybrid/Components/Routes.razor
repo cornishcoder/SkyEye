@@ -14,14 +14,22 @@
                 <p class="hint">Live viewing is silent. Your camera host controls recording.</p>
                 @if (Session.HasSource) { <button class="secondary" @onclick="Session.Stop">Stop viewing</button> }
                 @if (error.Length > 0) { <p class="notice" role="alert">@error</p> }
-                <details class="lab-tools"><summary>Lab checks</summary><button class="secondary" disabled="@busy" @onclick="Preview">Show table preview</button><p class="hint">A recorded preview, separate from your live table.</p></details>
+                <details class="lab-tools"><summary>Lab checks</summary><button class="secondary" disabled="@busy" @onclick="Preview">Play test video</button><p class="hint">A recorded playback check, separate from your live table.</p></details>
             </section>
         }
+        @if (Session.ControlsVisible)
+        {
         <footer class="dock">
             <div class="sky"><span class="sky-orb" aria-hidden="true"></span><div><strong>Sky</strong><span role="status">@Session.Playback</span></div></div>
-            <button class="controls" @onclick="Toggle" aria-expanded="@Session.SheetOpen" aria-label="Open table controls">@(Session.SheetOpen ? "Hide" : "Controls") <span aria-hidden="true">⌃</span></button>
+            <button class="controls" @onclick="Toggle" aria-expanded="@Session.SheetOpen" aria-label="@(Session.SheetOpen ? "Close table controls" : "Open table controls")">@(Session.SheetOpen ? "Hide" : "Controls") <span aria-hidden="true">⌃</span></button>
             <p class="message" role="status">@Session.Message</p>
+            @if (Session.NeedsAttention) { <button class="quiet acknowledge" @onclick="Session.DismissNotice">Dismiss message</button> }
         </footer>
+        }
+        else
+        {
+            <footer class="resting"><button class="sky-rest" @onclick="Session.RevealControls" aria-label="Show table controls"><span class="sky-orb" aria-hidden="true"></span>Sky</button></footer>
+        }
     </main>
 </AgentBoundary>
 
@@ -40,7 +48,7 @@
         busy = true; error = "";
         try { await action(); if (!disposed && close && Session.HasSource) Close(); }
         catch (OperationCanceledException) { }
-        catch (Exception) { error = "The table view could not open. Check the camera and try again."; }
+        catch (Exception) { error = "The table view could not open. Check the camera and try again."; Session.ShowError(error); }
         finally { busy = false; }
     }
     public void Dispose() { disposed = true; Session.Changed -= Changed; }

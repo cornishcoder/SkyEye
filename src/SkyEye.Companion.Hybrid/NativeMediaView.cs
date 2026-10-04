@@ -18,6 +18,10 @@ public sealed class NativeMediaHandler : ViewHandler<NativeMediaView, FrameLayou
     NativeMediaProbe? probe;
     ShellSession? session;
     Android.Widget.TextView? placeholder;
+    Android.Widget.TextView? title;
+    FrameLayout? container;
+    float density;
+    TouchListener? touchListener;
     public NativeMediaHandler() : base(Properties) { }
     protected override FrameLayout CreatePlatformView()
     {
@@ -26,21 +30,28 @@ public sealed class NativeMediaHandler : ViewHandler<NativeMediaView, FrameLayou
         session = MauiContext.Services.GetRequiredService<ShellSession>();
         playerListener = new(probe, session); castListener = new(probe);
         player = new(activity, playerListener); cast = new(activity, castListener);
-        var container = new FrameLayout(activity);
-        var density = activity.Resources!.DisplayMetrics!.Density;
+        container = new FrameLayout(activity);
+        density = activity.Resources!.DisplayMetrics!.Density;
+        session.SetAccessibility(activity.Resources.Configuration?.FontScale ?? 1,
+            (activity.GetSystemService(Android.Content.Context.AccessibilityService) as Android.Views.Accessibility.AccessibilityManager)?.IsTouchExplorationEnabled == true);
         var videoLayout = new FrameLayout.LayoutParams(-1, -1) { TopMargin = (int)(64 * density), BottomMargin = (int)(160 * density) };
         container.AddView(player.View, videoLayout);
         placeholder = new(activity) { Text = "Your table.\nEvery shot.", Gravity = GravityFlags.Center, TextSize = 27 };
         placeholder.SetTextColor(Android.Graphics.Color.Rgb(172, 192, 196));
         placeholder.ImportantForAccessibility = ImportantForAccessibility.Yes;
         container.AddView(placeholder, new FrameLayout.LayoutParams(-1, -1) { TopMargin = videoLayout.TopMargin, BottomMargin = videoLayout.BottomMargin });
-        var title = new Android.Widget.TextView(activity) { Text = "SKYEYE", TextSize = 15, Gravity = GravityFlags.CenterVertical };
+        title = new Android.Widget.TextView(activity) { Text = "SKYEYE", TextSize = 15, Gravity = GravityFlags.CenterVertical };
         title.SetTextColor(Android.Graphics.Color.White); title.SetPadding((int)(24 * density), 0, 0, 0);
         container.AddView(title, new FrameLayout.LayoutParams(-2, (int)(56 * density), GravityFlags.Top | GravityFlags.Left));
         cast.Configure("", true);
         int touchSize = (int)(56 * activity.Resources!.DisplayMetrics!.Density);
         container.AddView(cast.Button, new FrameLayout.LayoutParams(touchSize, touchSize, GravityFlags.Top | GravityFlags.Right));
         probe.Attach(player, cast);
+        touchListener = new(session, density);
+        player.View!.SetOnTouchListener(touchListener);
+        player.View.Click += Reveal;
+        player.View.Clickable = true; player.View.Focusable = true;
+        player.View.ContentDescription = "Table video. Tap to reveal controls or swipe up to open them.";
         session.Attach(player, cast); session.Changed += Update;
         Update();
         container.SetOnApplyWindowInsetsListener(new InsetsListener());
@@ -50,15 +61,53 @@ public sealed class NativeMediaHandler : ViewHandler<NativeMediaView, FrameLayou
     protected override void DisconnectHandler(FrameLayout platformView)
     {
         if (session is not null) { session.Changed -= Update; if (player is not null) session.Detach(player); }
+        if (player is not null) { player.View!.Click -= Reveal; player.View.SetOnTouchListener(null); }
         probe?.Detach(); player?.Release(); cast?.Release();
         placeholder = null;
+        title = null; container = null; touchListener?.Dispose(); touchListener = null;
         player?.Dispose(); cast?.Dispose(); playerListener?.Dispose(); castListener?.Dispose();
         base.DisconnectHandler(platformView);
     }
     void Update() => MainThread.BeginInvokeOnMainThread(() =>
     {
         if (placeholder is not null) placeholder.Visibility = session?.HasSource == true ? ViewStates.Gone : ViewStates.Visible;
+        if (session is not null && container is not null && player is not null)
+        {
+            int top = session.ControlsVisible ? (int)(64 * density) : 0;
+            int bottom = (int)(session.DockHeight * density);
+            var layout = (FrameLayout.LayoutParams)player.View!.LayoutParameters!;
+            if (layout.TopMargin != top || layout.BottomMargin != bottom)
+            {
+                layout.TopMargin = top; layout.BottomMargin = bottom; player.View.LayoutParameters = layout;
+            }
+            if (title is not null) title.Visibility = session.ControlsVisible ? ViewStates.Visible : ViewStates.Gone;
+            if (cast is not null) cast.Button!.Visibility = session.ControlsVisible ? ViewStates.Visible : ViewStates.Gone;
+        }
     });
+    void Reveal(object? sender, EventArgs args) => session?.RevealControls();
+    sealed class TouchListener(ShellSession session, float density) : Java.Lang.Object, Android.Views.View.IOnTouchListener
+    {
+        float x, y; bool tracking;
+        public bool OnTouch(Android.Views.View? view, MotionEvent? motion)
+        {
+            if (motion is null || view is null) return false;
+            if (motion.PointerCount != 1) { tracking = false; return true; }
+            switch (motion.ActionMasked)
+            {
+                case MotionEventActions.Down: x = motion.GetX(); y = motion.GetY(); tracking = true; break;
+                case MotionEventActions.Cancel: tracking = false; break;
+                case MotionEventActions.Up:
+                    if (tracking)
+                    {
+                        float dx = motion.GetX() - x, dy = motion.GetY() - y;
+                        if (dy < -48 * density && Math.Abs(dy) > Math.Abs(dx)) session.SetSheet(true);
+                        else if (Math.Abs(dx) < 24 * density && Math.Abs(dy) < 24 * density) view.PerformClick();
+                    }
+                    tracking = false; break;
+            }
+            return true;
+        }
+    }
     sealed class InsetsListener : Java.Lang.Object, Android.Views.View.IOnApplyWindowInsetsListener
     {
         public WindowInsets OnApplyWindowInsets(Android.Views.View? view, WindowInsets? insets)
