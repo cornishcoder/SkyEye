@@ -1,0 +1,43 @@
+{
+  "unit": "H05",
+  "date": "2026-10-04",
+  "package": "uk.co.skyeye.companion.lab",
+  "configuration": "Release",
+  "device": "Pixel 11 Pro XL",
+  "transport": "USB",
+  "finalApkSha256": "87A1E3E37E010DD20B1935C8F46DAD0F896960422E58905052FD6D575594C1FD",
+  "build": { "errors": 0, "warnings": 7 },
+  "directlyObserved": [
+    "Signed installation and launch execute without policy rejection",
+    "Frozen native scene shows the entire upright table with numbered proposed corners",
+    "Reset disables acceptance; portrait-order taps, undo and dragging change reviewed corners",
+    "Explicit Use corners accepts manually selected cloth boundaries and returns Table update applied",
+    "Saved calibration restores after signed reinstall and process restart",
+    "Frozen ball outlines remain on the original scene during ongoing tracking",
+    "Selecting and dragging a ball moves its reviewed marker",
+    "Direct colour buttons recolour a red preview marker yellow without a native popup",
+    "Add places a selected yellow preview marker on the cloth; Remove removes that marker",
+    "A newer live layout disables Apply with an instruction to cancel and check a fresh frame",
+    "Android Back and Cancel each dismiss review and return to live viewing",
+    "Calibration Cancel retains the previous mount calibration",
+    "Stop and Release succeed; independent status confirms stopped, armed, unowned, no error and eight clips"
+  ],
+  "automatedChecks": [
+    "Actual portrait mapping round trips and rejects letterbox coordinates",
+    "Proposed corner and ball preview changes do not mutate original calibration or canonical balls",
+    "Manual corner bounds, four-point review and undo",
+    "Camera generations and table versions reject obsolete drafts",
+    "Ball selection, colour, drag, add, remove, cancellation and existing correction-parser serialization",
+    "Adding after an unknown detection chooses a supported colour without changing that detection",
+    "Existing extracted table session single-flight, current group, freshness, correction/count/overlap, stale calibration, reconnect, authority loss and cancellation",
+    "Core and real HTTP checks; real Blazor AI, predictive-state decisions, playback selection and transient-control checks"
+  ],
+  "limitations": [
+    "Actively played table still produces uncertain or incomplete detections; perception gates remain unchanged",
+    "A valid correction apply is service-fixture verified; the uncertain moving physical scene is not forced into a confirmed layout",
+    "Physical TalkBack and large-font acceptance remains X02",
+    "Native whole-frame portrait fit remains in use; GPU table framing is H06",
+    "No clip, private key or remote voice service is used"
+  ],
+  "cleanup": { "capture": "Stopped", "armed": true, "hasHost": false, "error": "", "clipCount": 8 }
+}
