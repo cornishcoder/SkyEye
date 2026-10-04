@@ -234,7 +234,7 @@ The previous eight milestones were not sufficiently small as individual commits.
 | G05 | Amendment/undo commands plus score HUD and Sky tools | Correct winner/group/foul repairs dependent projections |
 | T01 | Generalize shared native scene beyond candidate paths | Phone/encoded TV show same scene versions; sheets excluded |
 | T02 | Target-specific live/choices/pin/clear/score commands | Phone and TV can differ intentionally; 2s/10s cycling retained |
-| T03 | Buffered MP4 load and replay position callbacks | Real Cast plays a camera clip; current capture continues |
+| T03 | Buffered MP4 load and replay position callbacks — implemented 4 Oct | Chromecast plays a saved camera clip with position callbacks; phone stays live and current capture continues. Evidence: saved-clip-tv.json |
 | T04 | Pause/resume/seek/return-live commands | Phone and physical TV acknowledge requested operations |
 | T05 | Recent replay window and bounded temporary asset lifetime | Camera timeline selects correct window; library not cluttered |
 | T06 | Playback-rate support/fallback slow-motion proof | Physical TV plays measured 0.25x/0.5x when offered |

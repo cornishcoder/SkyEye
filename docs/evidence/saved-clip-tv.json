@@ -1,0 +1,136 @@
+{
+  "unit": "T03 saved camera clip TV playback",
+  "date": "2026-10-04",
+  "sourceSnapshotCommit": "d9fde7021a1430e3828ca152ad8fcb2acdef8cd8",
+  "replayVerificationCommit": "5b1778e",
+  "replayNativeAndSelectionCodeUnchangedInFinalNoticeFix": true,
+  "productionApkSha256": "6029913AD54CB94276AC2888768DC1F3F2D1C96395C84113151FF8DF8E2FD73F",
+  "package": "uk.co.skyeye.companion",
+  "device": "Pixel 11 via USB",
+  "installedInPlace": true,
+  "uidAndPrivateStorageRetained": true,
+  "checks": {
+    "baselineRelease": {
+      "errors": 0,
+      "warnings": 14,
+      "note": "same native Cast implementation; later changes are Hybrid notices"
+    },
+    "coreHttp": "passed",
+    "productionRelease": {
+      "errors": 0,
+      "warnings": 7
+    },
+    "agentUi": "passed",
+    "labRelease": {
+      "errors": 0,
+      "warnings": 7
+    }
+  },
+  "replay": {
+    "durationMs": 31369,
+    "name": "SkyEye 04 Oct 10:03:42",
+    "firstSample": {
+      "connected": true,
+      "playing": false,
+      "stream": "clip",
+      "positionMs": 0,
+      "playerState": 5,
+      "idleReason": 0,
+      "clipId": "ddcefc614f334743bdb74c66763e8797",
+      "request": "eeca309e90de4c0c851a44f668d30e13",
+      "durationMs": 31369,
+      "progressCallbacks": 1
+    },
+    "finishedSample": {
+      "connected": true,
+      "playing": false,
+      "stream": "clip",
+      "positionMs": 0,
+      "playerState": 1,
+      "idleReason": 1,
+      "clipId": "ddcefc614f334743bdb74c66763e8797",
+      "request": "eeca309e90de4c0c851a44f668d30e13",
+      "durationMs": 31369,
+      "progressCallbacks": 38
+    },
+    "progressCallbacksAtFinish": 38,
+    "cameraHostClaimRequired": false,
+    "repeatedRequest": "eeca309e90de4c0c851a44f668d30e13",
+    "recordedFraming": "original camera clip",
+    "phone": "Live table · silent",
+    "type": "buffered MP4",
+    "lastPlayingSample": {
+      "connected": true,
+      "playing": true,
+      "stream": "clip",
+      "positionMs": 30637,
+      "playerState": 2,
+      "idleReason": 0,
+      "clipId": "ddcefc614f334743bdb74c66763e8797",
+      "request": "eeca309e90de4c0c851a44f668d30e13",
+      "durationMs": 31369,
+      "progressCallbacks": 37
+    },
+    "clipId": "ddcefc614f334743bdb74c66763e8797",
+    "uiFinished": "0:32 / 0:32 · Finished",
+    "sampleCount": 32,
+    "firstRequest": "9ef00d5d82414f429be74c802e3df8e7",
+    "fullSamples": "saved-clip-tv-progress.json"
+  },
+  "capture": {
+    "newClipSaved": false,
+    "during": {
+      "state": "Active",
+      "sessionId": "50d79a8d453e404d8bf111b2da351e09",
+      "revision": 71,
+      "battery": 92,
+      "clipCount": 8,
+      "error": ""
+    },
+    "after": {
+      "state": "Active",
+      "sessionId": "50d79a8d453e404d8bf111b2da351e09",
+      "revision": 71,
+      "battery": 96,
+      "clipCount": 8,
+      "error": ""
+    },
+    "before": {
+      "state": "Active",
+      "sessionId": "50d79a8d453e404d8bf111b2da351e09",
+      "revision": 71,
+      "battery": 92,
+      "clipCount": 8,
+      "error": ""
+    }
+  },
+  "returnLive": {
+    "observedRectangularReceiverPlaying": true,
+    "existingLiveBufferingRemains": true,
+    "finalReceiver": {
+      "connected": true,
+      "playing": false,
+      "stream": "scene",
+      "positionMs": 125408,
+      "playerState": 4,
+      "idleReason": 0
+    },
+    "observedCameraReceiverPlaying": true,
+    "finalPhoneNotice": "Live table on TV · silent."
+  },
+  "limitations": [
+    "Physical TV pixels and audible room audio not separately reconfirmed by user this turn.",
+    "Camera must remain reachable for TV replay; downloaded portrait files are not served to TV.",
+    "Saved replay retains original framing; perspective replay composition is T07.",
+    "Pause/resume/seek command and acknowledgement work is T04.",
+    "Existing corrected live relay intermittently buffers and switches to camera fallback; X02 remains open."
+  ],
+  "cleanup": {
+    "ownedDiagnosticsReaderStopped": true,
+    "tvReturnedLive": true,
+    "ownedAdbForwardRemoved": true,
+    "personalKeyUsed": false,
+    "cameraLeftActive": true
+  },
+  "next": "T04 pause/resume/seek/return-live commands; voice remains deferred"
+}
