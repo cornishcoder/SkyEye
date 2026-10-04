@@ -1,0 +1,48 @@
+{
+  "unit": "A01",
+  "status": "complete",
+  "date": "2026-10-04",
+  "sourceSnapshotCommit": "ad5f8a4207522f705fda5a6b5580749682c9ce9c",
+  "provenance": "APK built from the code changes committed as this snapshot; README-only edits followed compilation",
+  "package": "uk.co.skyeye.companion",
+  "device": "Pixel 11 Pro XL",
+  "transport": "USB",
+  "installedApkSha256": "B054844CEFC0CD1A7D18F8E5F6A1528A46002E0071FFA718ADA7D4BBAB671CF9",
+  "builds": {
+    "productionRelease": { "errors": 0, "warnings": 14 },
+    "retainedBaselineRelease": { "errors": 0, "warnings": 14 },
+    "independentLabRelease": { "errors": 0, "warnings": 10 }
+  },
+  "implementation": [
+    "Native voice session class, references and lifecycle methods renamed to SkyVoiceSession/Sky",
+    "Main product UI, conversation status, mute/end controls and setup labels use Sky",
+    "Actual existing Live session request instructions identify the assistant as Sky",
+    "Notification display name/title use Sky; WebRTC user-facing error messages use Sky",
+    "README describes Sky and the production portrait build lane"
+  ],
+  "preservedContracts": [
+    "Existing package, stable launcher, registered voice service and FileProvider authority",
+    "Notification channel ID maeve, notification ID 2001 and existing channel preferences",
+    "Private maeve-*.jsonl archive namespace; no archive rename, deletion or re-encoding",
+    "Secret preference key openai and Android Keystore alias/envelope format",
+    "Camera, host, calibration and clip persistence layouts",
+    "Transport model, SDP setup, tools, voice/microphone configuration and sideband lifecycle"
+  ],
+  "directlyObserved": [
+    "Guarded signed production update succeeds and retains UID/storage identity",
+    "All H07 native inventory fields match the original production data: three clips, one calibration and readable encrypted key",
+    "More controls displays Sky pool partner, TALK TO SKY, END SKY and MUTE / UNMUTE SKY MICROPHONE",
+    "Native controls still display all three original offline clips",
+    "Android Back returns to the portrait production scene",
+    "Live native playback resumes with playing=true, volume=0, rotation=90 and 1920x1080 source",
+    "Portrait TV state still reports TV playing live camera after returning from native controls",
+    "User confirms the live TV picture is visible"
+  ],
+  "pending": [
+    "Actual spoken identity, microphone foreground notification and end-to-end voice transport are verified with A02 rather than starting a paid voice session for a branding change",
+    "Existing archives are preserved by unchanged storage namespace; archive-history UI/readability is not independently exercised"
+  ],
+  "privateKeyExposedOrSentToRemoteService": false,
+  "clipSavedDuringChecks": false,
+  "recordingAndCastingLeftRunning": true
+}

@@ -72,7 +72,8 @@
     "After charging above 10%, production Become host and Start change capture to Active and clear the protection error",
     "Production Watch live renders the complete upright table; native metrics report playing=true, volume=0, rotation=90, 1920x1080 source",
     "The original production calibration is restored; framing reports too little pocket border and safely preserves the complete camera image without modifying the saved calibration",
-    "Production Choose TV lists Chromecast and accepted live load progresses to observed TV playing live camera"
+    "Production Choose TV lists Chromecast and accepted live load progresses to observed TV playing live camera",
+    "User confirms the live table picture is visible on the TV"
   ],
   "latestCameraObservation": {
     "capture": "Active",
@@ -84,7 +85,6 @@
     "restartAttemptedOnlyAfterBatteryAbove10": true
   },
   "pending": [
-    "Actual TV pixels remain unconfirmed by the user",
     "Actual microphone foreground-service and voice transport re-verification remains A02",
     "Audible room sound is not independently heard by the assistant",
     "Installation of a higher-version rollback build is documented but not exercised on real production data",
