@@ -1,5 +1,6 @@
 {
   "unit": "S05",
+  "checkedAt": "2026-10-04T11:20:28+01:00",
   "package": "uk.co.skyeye.companion.commands.lab",
   "configuration": "Release",
   "apkSha256": "5B7BD2F73951798D6106BC8904146A0ECBA80467BED67C349F60C8BD6B31EE00",
@@ -8,7 +9,7 @@
     "labRelease": { "errors": 0, "warnings": 7 }
   },
   "installed": true,
-  "deviceChecks": "Release portrait download/playback passed; live calibration/group/correction-dialog check pending",
+  "deviceChecks": "Release portrait download/playback and live table service flow verified; stopped/released cleanup independently confirmed",
   "tableServiceChecks": [
     "One in-flight frame shared by concurrent requests",
     "Current group applied to late analysis",
@@ -39,7 +40,9 @@
     "Actual camera transport passes through extracted clip library"
   ],
   "limitations": [
-    "Physical live table check pending; user confirms portrait playback and room audio, assistant observes successful publication",
+    "Live table view contains false detections (33 circles and invalid colour counts); unchanged vision thresholds correctly withhold advice",
+    "Intermediate calibration review/correction-dialog cancellation and portrait playback/audio are user-reported; assistant observes resulting native UI",
+    "Accepted complete correction, obsolete-edit and native cancellation failure cases are covered by fixtures rather than induced on the phone",
     "Failure, cancellation, obsolete edits and reconnect races verified in core/real HTTP fixtures; not induced on the phone",
     "Calibration acceptance and complete layout parsing preserve existing source fidelity and advice gates; vision accuracy is unchanged",
     "App cancellation/publication recovery is not arbitrary hardware-failure durability",
@@ -56,6 +59,34 @@
       "Portrait clip available locally, with room audio.",
       "Newest camera clip marked DOWNLOADED - PLAY BELOW",
       "Camera remains stopped, armed, unowned, no error and 8 clips"
+    ]
+  },
+  "liveTableDeviceCheck": {
+    "checkedAt": "2026-10-04T11:16:10+01:00",
+    "userReported": "Reviewed/applied calibration, selected yellows, opened/cancelled complete correction dialog",
+    "directlyObserved": [
+      "Downloaded clip listed as available offline with Play and Share controls",
+      "Table image and cyan reviewed calibration boundary render",
+      "Selected group displays I'm yellows and analysis state displays yellow",
+      "Live source age 3.2 seconds and analysis 265 milliseconds",
+      "33 detected circles, 2 red, 0 yellow, 3 cue and 4 black in one sampled frame",
+      "Uncertain/obstructed state with invalid-count and physical-obstruction warnings",
+      "Camera remains active, armed, hosted and without error; clip count remains 8"
+    ],
+    "accuracy": "Service/native flow verified; this observation does not establish detection accuracy or eligible candidates"
+  },
+  "cleanup": {
+    "armed": true,
+    "state": "Stopped",
+    "host": null,
+    "error": "",
+    "clipCount": 8,
+    "revision": 24,
+    "directlyObservedUi": [
+      "Stopped and Host available",
+      "Host control released.",
+      "Capture/release buttons hidden",
+      "Advice cleared; fresh active camera and host control required"
     ]
   }
 }
