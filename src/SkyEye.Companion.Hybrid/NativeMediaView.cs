@@ -51,6 +51,7 @@ public sealed class NativeMediaHandler : ViewHandler<NativeMediaView, FrameLayou
     {
         if (session is not null) { session.Changed -= Update; if (player is not null) session.Detach(player); }
         probe?.Detach(); player?.Release(); cast?.Release();
+        placeholder = null;
         player?.Dispose(); cast?.Dispose(); playerListener?.Dispose(); castListener?.Dispose();
         base.DisconnectHandler(platformView);
     }

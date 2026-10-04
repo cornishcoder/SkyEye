@@ -1,0 +1,30 @@
+{
+  "date": "2026-10-04",
+  "unit": "H01",
+  "package": "uk.co.skyeye.companion.lab",
+  "configuration": "Release",
+  "device": "Pixel 11 Pro XL",
+  "buildErrors": 0,
+  "buildWarnings": 7,
+  "finalApkSha256": "363F643922EB4B99D19E49FEB299B5547E6A3BA5BDB4D54234545E5EEDA46DD7",
+  "directlyObserved": [
+    "Release installed and launched; full portrait native surface with Sky dock and native Cast button",
+    "Controls opens contextual Razor sheet; address and camera status accessible in Android hierarchy",
+    "Connect observes stopped camera as ready without starting capture",
+    "Core and real camera HTTP checks pass",
+    "Real UIAgent integration and playback-selection interruption/race checks pass",
+    "Camera cleanup independently observed stopped, armed, unowned, no error, 8 clips"
+  ],
+  "userReported": [
+    "Live portrait table worked with whole table upright",
+    "Stop and release cleanup completed"
+  ],
+  "limitations": [
+    "Live layout confirmation was user-operated after a generic pre-execution policy rejection of a status/launch/connect batch",
+    "Final recovery fix tested with deterministic media-selection fixtures; not induced on physical phone",
+    "Contextual-region fallback used; full-screen transparent WebView stacking not claimed",
+    "H02 gestures/fade, H03 host/session controls, H04 clip/key controls, H05 editing and H06 table rectification remain separate units",
+    "No voice session or actual Cast receiver playback tested",
+    "Production package/storage migration remains H07"
+  ]
+}

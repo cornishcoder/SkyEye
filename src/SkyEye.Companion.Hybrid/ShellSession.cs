@@ -23,15 +23,14 @@ public sealed class ShellSession : IDisposable
     Bridge.PlayerBridge? player;
     Bridge.CastBridge? cast;
     CancellationTokenSource? foreground;
-    string? source;
-    bool liveSource, active, disposed, playbackNeedsStart;
-    long sourceGeneration;
+    readonly PlaybackSelection selection = new();
+    bool active, disposed;
     public UIAgent<ShellViewState> Agent { get; }
     public bool SheetOpen { get; private set; }
     public string Message { get; private set; } = "Your table. Every shot.";
     public string Playback { get; private set; } = "Waiting for your table";
     public bool Playing { get; private set; }
-    public bool HasSource => source is not null;
+    public bool HasSource => selection.Source is not null;
     public event Action? Changed;
 
     public ShellSession()
@@ -45,18 +44,19 @@ public sealed class ShellSession : IDisposable
     public void Attach(Bridge.PlayerBridge player, Bridge.CastBridge cast)
     {
         this.player = player; this.cast = cast; player.SetPortrait(true);
-        if (active && source is not null && !liveSource) PlayCurrent();
-        if (active && liveSource) _ = RefreshAsync(foreground?.Token ?? CancellationToken.None);
+        selection.Suspend();
+        if (active && selection.Kind == ViewingSource.Preview) PlayCurrent();
+        if (active && selection.Kind == ViewingSource.Live) _ = RefreshAsync(foreground?.Token ?? CancellationToken.None);
     }
     public void Detach(Bridge.PlayerBridge owner)
     {
         if (player != owner) return;
-        player = null; cast = null; Playing = false;
+        player = null; cast = null; Playing = false; selection.Suspend();
     }
     public void ReportPlaying(bool playing)
     {
         Playing = playing; Playback = playing ? "Live table · silent" : "Waiting for your table";
-        if (playing && !liveSource) Playback = "Table preview";
+        if (playing && selection.Kind == ViewingSource.Preview) Playback = "Table preview";
         Publish();
     }
     public void ReportError() { Playing = false; Playback = "Viewing interrupted"; Message = "The table view is reconnecting."; Publish(); }
@@ -69,10 +69,10 @@ public sealed class ShellSession : IDisposable
         if (await Permissions.RequestAsync<LocalNetworkPermission>() != PermissionStatus.Granted)
         { Message = "Allow nearby devices to connect your camera."; Publish(); return; }
         cancellation.ThrowIfCancellationRequested();
-        Stop(); var generation = sourceGeneration;
+        Stop(); var generation = selection.Begin(ViewingSource.Live);
         Message = "Connecting to your camera…"; Publish();
         var result = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, app.State.Version, new ConnectCamera(address)), cancellation);
-        if (cancellation.IsCancellationRequested || generation != sourceGeneration || disposed) return;
+        if (cancellation.IsCancellationRequested || generation != selection.Generation || disposed) return;
         Message = result.Succeeded ? "Camera connected." : result.Message;
         if (result.Succeeded) Preferences.Set("shell-camera", client.Address);
         ApplyCameraView(generation); Publish();
@@ -82,51 +82,52 @@ public sealed class ShellSession : IDisposable
     async Task FixtureCoreAsync()
     {
         if (!active || foreground is null) return;
-        var token = foreground.Token; Stop(); var generation = sourceGeneration;
+        var token = foreground.Token; Stop(); var generation = selection.Begin(ViewingSource.Preview);
         var path = Path.Combine(FileSystem.CacheDirectory, "skyeye-table-preview.mp4");
         await using (var input = await FileSystem.OpenAppPackageFileAsync("probe.mp4"))
         await using (var output = File.Create(path)) await input.CopyToAsync(output, token);
-        if (token.IsCancellationRequested || generation != sourceGeneration || disposed) return;
-        source = new Uri(path).AbsoluteUri; liveSource = false; Message = "Preview only · connect for your live table";
+        if (token.IsCancellationRequested || generation != selection.Generation || disposed) return;
+        selection.Observe(generation, ViewingSource.Preview, new Uri(path).AbsoluteUri); Message = "Preview only · connect for your live table";
         PlayCurrent(); Publish();
     }
     void ApplyCameraView(long generation)
     {
-        if (generation != sourceGeneration || !active) return;
+        if (generation != selection.Generation || selection.Kind != ViewingSource.Live || !active) return;
         var state = app.State.Camera; var view = effects.Latest;
         if (state.Reachability != CameraReachability.Reachable || view?.Connection != state || state.Capture != CaptureState.Active)
         {
-            if (liveSource) { player?.Stop(); source = null; cast?.Configure("", true); }
+            if (selection.Source is not null) { player?.Stop(); cast?.Configure("", true); }
+            selection.Observe(generation, ViewingSource.Live, null);
             Playing = false;
             Playback = state.Reachability == CameraReachability.Unreachable ? "Camera unreachable" : "Waiting for your table";
             return;
         }
         // Repeated telemetry/sheet renders must not reload ExoPlayer.
-        if (source != view.Stream || !liveSource || playbackNeedsStart) { source = view.Stream; liveSource = true; PlayCurrent(); }
+        if (selection.Observe(generation, ViewingSource.Live, view.Stream)) PlayCurrent();
     }
     void PlayCurrent()
     {
-        if (!active || source is null || player is null) return;
+        if (!active || selection.Source is not { } source || player is null) return;
         player.SetPortrait(true); player.SetMuted(true); player.Play(source);
-        playbackNeedsStart = false;
-        cast?.Configure(liveSource ? source : "", true);
+        selection.Started();
+        cast?.Configure(selection.Kind == ViewingSource.Live ? source : "", true);
     }
     public void Stop()
     {
         if (!MainThread.IsMainThread) { MainThread.BeginInvokeOnMainThread(Stop); return; }
-        ++sourceGeneration; source = null; liveSource = false; player?.Stop(); cast?.Configure("", true);
+        selection.Stop(); player?.Stop(); cast?.Configure("", true);
         Playing = false; Playback = "Waiting for your table"; Publish();
     }
     public void Suspend()
     {
         active = false; foreground?.Cancel(); foreground?.Dispose(); foreground = null;
-        player?.Stop(); Playing = false; playbackNeedsStart = true; Publish();
+        player?.Stop(); Playing = false; selection.Suspend(); Publish();
     }
     public void Resume()
     {
         if (active || disposed) return;
         active = true; foreground = new();
-        if (source is not null && !liveSource) PlayCurrent();
+        if (selection.Kind == ViewingSource.Preview) PlayCurrent();
         _ = PollAsync(foreground.Token);
     }
     async Task PollAsync(CancellationToken token)
@@ -141,7 +142,7 @@ public sealed class ShellSession : IDisposable
     async Task RefreshAsync(CancellationToken token)
     {
         var state = app.State; if (state.Camera.ConnectionId == Guid.Empty || state.Camera.Reachability == CameraReachability.Connecting) return;
-        var generation = sourceGeneration;
+        var generation = selection.Generation;
         try
         {
             await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.System, state.Version, new RefreshCamera(state.Camera.ConnectionId)), token);
@@ -149,7 +150,7 @@ public sealed class ShellSession : IDisposable
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
                 // Only a live selection may resume automatically; stopping/previewing overrides a late refresh.
-                if (generation == sourceGeneration && liveSource) ApplyCameraView(generation);
+                if (generation == selection.Generation && selection.Kind == ViewingSource.Live) ApplyCameraView(generation);
                 Publish();
             });
         }

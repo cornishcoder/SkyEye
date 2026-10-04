@@ -73,3 +73,27 @@ await cancelledPreview.Turn;
 ProbeAgent.Resolve(previewAgent, previewClient, false);
 Check(previewClient.State.Version == 3 && !previewAgent.State.HasPendingPredictiveState, "cancel preview preserves canonical state");
 Console.WriteLine("PASS real AgentContext predictive preview, registered UI action, accept/reject, duplicate and stale version handling");
+
+// Drive native media effect selection through interruption and competing requests.
+var media = new SkyEye.Companion.Hybrid.PlaybackSelection();
+var liveGeneration = media.Begin(SkyEye.Companion.Hybrid.ViewingSource.Live);
+Check(!media.Observe(liveGeneration, SkyEye.Companion.Hybrid.ViewingSource.Live, null), "inactive camera waits without cancelling live selection");
+Check(media.Kind == SkyEye.Companion.Hybrid.ViewingSource.Live && media.Source is null, "waiting camera retains viewing intent");
+Check(media.Observe(liveGeneration, SkyEye.Companion.Hybrid.ViewingSource.Live, "private-live-source"), "active camera starts after waiting");
+media.Started();
+Check(!media.Observe(liveGeneration, SkyEye.Companion.Hybrid.ViewingSource.Live, "private-live-source"), "unchanged observation or sheet render never reloads media");
+media.Suspend();
+Check(media.Observe(liveGeneration, SkyEye.Companion.Hybrid.ViewingSource.Live, "private-live-source"), "foreground or handler replacement restarts validated source");
+media.Started();
+Check(!media.Observe(liveGeneration, SkyEye.Companion.Hybrid.ViewingSource.Live, "private-live-source"), "resume restarts once");
+media.Stop();
+Check(!media.Observe(liveGeneration, SkyEye.Companion.Hybrid.ViewingSource.Live, "obsolete-source") && media.Source is null, "late refresh cannot undo stop");
+var previewGeneration = media.Begin(SkyEye.Companion.Hybrid.ViewingSource.Preview);
+Check(!media.Observe(liveGeneration, SkyEye.Companion.Hybrid.ViewingSource.Live, "obsolete-source"), "live reply cannot replace selected preview");
+Check(media.Observe(previewGeneration, SkyEye.Companion.Hybrid.ViewingSource.Preview, "private-local-file"), "current preview publishes");
+media.Started();
+var nextGeneration = media.Begin(SkyEye.Companion.Hybrid.ViewingSource.Live);
+Check(!media.Observe(previewGeneration, SkyEye.Companion.Hybrid.ViewingSource.Preview, "late-export-file"), "late preview cannot replace reconnect");
+Check(!media.Observe(nextGeneration, SkyEye.Companion.Hybrid.ViewingSource.Live, null) && media.NeedsStart, "loss of reachability removes media but permits validated recovery");
+Check(media.Observe(nextGeneration, SkyEye.Companion.Hybrid.ViewingSource.Live, "new-live-source"), "validated recovery can start after reachability loss");
+Console.WriteLine("PASS portrait media selection: inactive-to-active, stable refresh, resume/detach, stop, obsolete live/preview and recovery");
