@@ -13,7 +13,7 @@ namespace SkyEye.Vision.Android;
 
 /// <summary>C# port of the upstream HSV/morphology/Hough pipeline with calibrated
 /// pocket masks, cue-reference normalization and bounded C# colour clustering.</summary>
-public sealed class VisionAnalyzer : ITableAnalyzer
+public sealed partial class VisionAnalyzer : ITableAnalyzer
 {
     static readonly object loadGate = new(); static bool loaded;
     readonly AnalysisCoordinates coordinates;

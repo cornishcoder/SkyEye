@@ -45,6 +45,21 @@ public sealed class SceneProjection
         catch (ArgumentException) { return Portrait(viewportWidth, viewportHeight, imageWidth, imageHeight, "Calibration cannot frame this view. Showing the whole camera."); }
     }
     public Point Screen(Point image) => Map(Values, image);
+    public static SceneProjection Pockets(double viewportWidth, double viewportHeight, double imageWidth, double imageHeight, TableCalibration pockets, bool portrait = true)
+    {
+        if (!ValidSize(viewportWidth, viewportHeight) || !ValidSize(imageWidth, imageHeight)) throw new ArgumentException("The video size is unavailable.");
+        // Pocket centres define the exact inner rectangle; retain a modest outer
+        // border for the mouths. Missing source pixels stay black rather than stretch.
+        const double border = .075;
+        double across = portrait ? 1 + 2 * border : 2 + 2 * border, along = portrait ? 2 + 2 * border : 1 + 2 * border;
+        double scale = Math.Min(viewportWidth / across, viewportHeight / along);
+        double width = across * scale, height = along * scale, left = (viewportWidth - width) / 2, top = (viewportHeight - height) / 2;
+        double margin = border * scale;
+        Point[] target = portrait
+            ? [new(left + width - margin, top + margin), new(left + width - margin, top + height - margin), new(left + margin, top + height - margin), new(left + margin, top + margin)]
+            : [new(left + margin, top + margin), new(left + width - margin, top + margin), new(left + width - margin, top + height - margin), new(left + margin, top + height - margin)];
+        return new(left, top, width, height, Solve(pockets.Corners, target), framed: true);
+    }
     public Point? Image(Point screen)
     {
         if (!double.IsFinite(screen.X) || !double.IsFinite(screen.Y) || screen.X < Left || screen.X > Left + Width || screen.Y < Top || screen.Y > Top + Height) return null;

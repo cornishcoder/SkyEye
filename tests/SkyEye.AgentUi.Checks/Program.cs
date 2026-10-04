@@ -188,3 +188,11 @@ var fallback = SkyEye.Companion.Hybrid.SceneProjection.Table(1080, 1920, 1920, 1
 Check(!fallback.Framed && fallback.Fallback is not null && (fallback.Screen(sourcePoint) - SkyEye.Companion.Hybrid.SceneProjection.Portrait(1080, 1920, 1920, 1080).Screen(sourcePoint)).Length < 1e-9, "missing pocket border keeps whole-camera fallback");
 Check(framed.Image(new(-1, 500)) is null, "framed picking ignores letterbox space");
 Console.WriteLine("PASS scene framing: perspective rectification, six retained pockets, inverse hits, path alignment and whole-camera fallback");
+foreach (bool portrait in new[] { true, false })
+{
+    var pockets = SkyEye.Companion.Hybrid.SceneProjection.Pockets(portrait ? 1080 : 1920, portrait ? 1920 : 1080, 1920, 1080, skewed, portrait);
+    var points = skewed.Corners.Select(pockets.Screen).ToArray();
+    Check(Math.Abs(points[0].X - points[portrait ? 1 : 3].X) < 1e-8 && Math.Abs(points[0].Y - points[portrait ? 3 : 1].Y) < 1e-8, "detected pocket centres define exact portrait/landscape rectangle corners");
+    foreach (var p in skewed.Corners) Check((pockets.Image(pockets.Screen(p))!.Value - p).Length < 1e-9, "pocket rectangle inverse agrees with video and overlays");
+}
+Console.WriteLine("PASS exact pocket-centre rectangle for phone and TV with shared inverse mapping");

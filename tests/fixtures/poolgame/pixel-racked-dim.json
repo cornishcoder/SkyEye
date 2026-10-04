@@ -7,6 +7,13 @@
   "height": 1080,
   "lighting": "Table lights off; ambient room light",
   "groundTruth": { "cue": 1, "red": 7, "yellow": 7, "black": 1, "racked": true },
+  "pocketCentresMeaning": "Manually inspected approximate hole centres in image order TL, TR, BR, BL; normalized centre tolerance 0.02.",
+  "pocketCentres": [
+    { "x": 0.069, "y": 0.137 },
+    { "x": 0.910, "y": 0.052 },
+    { "x": 0.908, "y": 0.896 },
+    { "x": 0.078, "y": 0.851 }
+  ],
   "calibrationMeaning": "Approximate cloth corners manually inspected for negative-regression testing only; not applied to a user's camera calibration.",
   "calibration": [
     { "x": 0.091, "y": 0.164 },

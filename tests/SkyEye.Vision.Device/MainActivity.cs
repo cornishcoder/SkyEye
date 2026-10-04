@@ -70,6 +70,14 @@ public sealed class MainActivity : Activity
                     .Select(p => new SkyEye.Core.Point(p.GetProperty("x").GetDouble(), p.GetProperty("y").GetDouble())).ToArray());
                 using var rackInput = Assets.Open("pixel-racked-dim.jpg"); using var rackBytes = new MemoryStream(); rackInput.CopyTo(rackBytes);
                 var rack = analyzer.Analyze(rackBytes.ToArray(), rackCalibration);
+                var rackPockets = analyzer.FindPockets(rackBytes.ToArray()) ?? throw new Exception("Automatic pockets missing on real dim rack");
+                var expectedPockets = rackLabels.RootElement.GetProperty("pocketCentres").EnumerateArray()
+                    .Select(p => new SkyEye.Core.Point(p.GetProperty("x").GetDouble(), p.GetProperty("y").GetDouble())).ToArray();
+                double pocketError = rackPockets.Corners.Zip(expectedPockets).Max(p => (p.First - p.Second).Length);
+                if (pocketError > .02) throw new Exception("Automatic pocket centre outside labelled tolerance: " + pocketError);
+                using var emptyInput = Assets.Open("synthetic-empty.jpg"); using var emptyBytes = new MemoryStream(); emptyInput.CopyTo(emptyBytes);
+                if (analyzer.FindPockets(emptyBytes.ToArray()) is not null) throw new Exception("Invented pockets on empty image");
+                negativeResults.Add(new { name = "automatic-dim-rack-pockets", rackPockets, maximumCentreError = pocketError });
                 // Fresh/settled/confirmed is deliberately the strongest possible admission attempt.
                 // This replay timestamp is test input, not a claim about the recorded frame's capture time.
                 var rackNow = DateTimeOffset.UtcNow;

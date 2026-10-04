@@ -220,6 +220,7 @@ The previous eight milestones were not sufficiently small as individual commits.
 | H04 | Clips and key setup through platform adapters | Offline play/share work; key never appears in DOM/state snapshots |
 | H05 | In-surface frozen calibration and correction workflow | Preview/reject/adjust works; applying invalidates old advice |
 | H06 | GPU table-framing spike and shared coordinate mapping | Pockets and paths align; fallback remains usable |
+| H06b | Automatic pocket detection and rectangular phone/TV view | Four detected corner-pocket centres map to exact rectangle corners; detection retries without manual corner picking; uncertain views fall back whole-camera |
 | H07 | Production package/signing/storage migration | In-place update retains clips, key, calibration and launch/service behavior |
 | A01 | Rename Maeve to Sky in product and assistant identity | UI/spoken identity agrees; legacy data remains readable |
 | A02 | Bridge real voice events into IChatClient/custom AI blocks | Continuous events, turn cancellation and interruption do not double-execute tools |
@@ -260,3 +261,5 @@ The previous eight milestones were not sufficiently small as individual commits.
 On 4 October, the user chooses to defer Sky voice/API-key work until they revisit key setup. Leave A02-A05 deferred; do not use the saved personal credential for voice testing meanwhile. The non-voice work can proceed independently.
 
 Recommended next: T01 shared native phone/TV scene, then T02's touch/live/candidate controls in the portrait UI (retain two-second cycling and ten-second refresh). Score presentation waits for G01-G05's ledger. Follow with T03-T04 playback of existing saved clips on TV, pause/seek and return live. G01-G05 session/player scoring, restart recovery and undo can also proceed without an API key. Existing native More controls remains available until each replacement touch flow is verified. Keep the small checked-commit and physical-device gates for these reordered chunks.
+
+The user now prioritises H06b ahead of saved-clip TV playback. Locate actual corner pockets automatically, including tonight's dim/racked frame. Pocket-centre framing is a distinct display transform from cloth calibration used for ball analysis; do not silently overwrite the latter. Keep a small outer margin so complete pocket mouths remain visible while their centres define a perfect rectangle. Verify phone texture and encoded TV geometry with the same mapping, and clear/re-detect on camera change. Automatic detection must not require manual corner selection; uncertain or obstructed results keep the whole-camera view and retry. A single tuning frame does not establish general pocket accuracy.
