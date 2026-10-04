@@ -8,5 +8,6 @@ public sealed record PresentationPreferences(bool ShotChoicesEnabled);
 /// Connection, table and game projections are added with their verified command slices.</summary>
 public sealed record SkyEyeState(long Version, AdvicePreferences Advice, PresentationPreferences Presentation)
 {
+    public CameraConnection Camera { get; init; } = CameraConnection.Empty;
     public static SkyEyeState Empty { get; } = new(0, new(AdviceTargetGroup.Open), new(false));
 }
