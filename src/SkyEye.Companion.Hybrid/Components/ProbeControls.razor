@@ -1,13 +1,35 @@
+@implements IDisposable
 <div class="actions">
     <button disabled="@running" @onclick="Run">Run stream</button>
+    <button disabled="@running" @onclick="Propose">Preview group</button>
     @if (running) { <button @onclick="Cancel">Cancel</button> }
 </div>
 @if (error.Length > 0) { <p role="alert">@error</p> }
+@if (Client.PendingProposal is not null)
+{
+    <p role="status">Preview: @Agent.State.Value.Group · committed: @Client.State.Group</p>
+    <div class="actions">
+        <button @onclick="Accept">Accept</button>
+        <button @onclick="Reject">Reject</button>
+        <button @onclick="ChangeLayout">Change layout</button>
+    </div>
+}
+@if (decision.Length > 0) { <p role="status">@decision</p> }
 
 @code {
     [CascadingParameter] public AgentContext Context { get; set; } = null!;
+    [Parameter] public ProbeChatClient Client { get; set; } = null!;
+    [Parameter] public UIAgent<ProbeState> Agent { get; set; } = null!;
     bool running;
     string error = "";
+    string decision = "";
+    UIActionBlock? review;
+    IDisposable? subscription;
+    protected override void OnInitialized() => subscription = Context.RegisterOnBlockAdded((turn, block) =>
+    {
+        if (block is UIActionBlock action) { review = action; _ = InvokeAsync(StateHasChanged); }
+    });
+    public void Dispose() => subscription?.Dispose();
     async Task Run()
     {
         if (running) return;
@@ -18,4 +40,29 @@
         finally { running = false; }
     }
     Task Cancel() => Context.CancelAsync();
+    async Task Propose()
+    {
+        if (running) return;
+        running = true; error = ""; decision = "";
+        try { await Context.SendMessageAsync("Propose a fixture group"); }
+        catch (OperationCanceledException) { decision = "Preview cancelled."; }
+        catch (Exception) { error = "The fixture preview failed."; }
+        finally { ProbeAgent.Resolve(Agent, Client, false); review = null; running = false; }
+    }
+    async Task Accept()
+    {
+        if (review is null) return;
+        bool current = Client.PendingProposal?.ExpectedVersion == Client.State.Version;
+        Client.ProposalDecision = true;
+        await review.InvokeAsync();
+        decision = current ? "Proposal accepted." : "Proposal expired; current layout preserved.";
+    }
+    async Task Reject()
+    {
+        if (review is null) return;
+        Client.ProposalDecision = false;
+        await review.InvokeAsync();
+        decision = "Proposal rejected; committed state preserved.";
+    }
+    void ChangeLayout() { Client.ChangeLayout(); decision = "Layout changed. The old proposal can no longer apply."; }
 }

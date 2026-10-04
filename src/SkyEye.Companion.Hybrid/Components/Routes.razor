@@ -9,8 +9,11 @@
         <p>These choices are test data, not live table advice.</p>
         <p role="status">State @agent.State.Value.Version · @agent.State.Value.Group · @agent.State.Value.CandidateCount choices</p>
         <AgentBoundary Agent="agent">
-            <ProbeControls />
+            <ProbeControls Client="client" Agent="agent" />
             <MessageList>
+                <BlockRenderer TBlock="UIActionBlock" Context="review">
+                    <p>@(review.IsComplete ? "Decision recorded." : "Waiting for your fixture decision.")</p>
+                </BlockRenderer>
                 <BlockRenderer TBlock="ProbeShotBlock" Context="shot">
                     <div class="tool-result" role="status">
                         @(shot.HasResult ? $"Ready: {shot.CandidateCount} fixture choices for {shot.Group}" : $"Checking choices for {shot.Group}…")

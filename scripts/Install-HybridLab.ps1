@@ -13,7 +13,9 @@ if ($LASTEXITCODE -ne 0 -or $taskAbi -ne 'arm64-v8a') { throw 'The lab APK requi
 if (-not $SkipBuild) { & (Join-Path $PSScriptRoot 'Build-SkyEye.ps1') -Target Hybrid -Configuration $Configuration }
 $taskApk = Join-Path $taskRoot "src\SkyEye.Companion.Hybrid\bin\$Configuration\net11.0-android\android-arm64\uk.co.skyeye.companion.lab-Signed.apk"
 if (-not (Test-Path -LiteralPath $taskApk -PathType Leaf)) { throw "Lab APK missing: $taskApk" }
-& $AdbPath -s $CompanionSerial install -r $taskApk
+& $AdbPath -s $CompanionSerial shell am force-stop uk.co.skyeye.companion.lab
+if ($LASTEXITCODE -ne 0) { throw 'Could not stop the previous lab process.' }
+& $AdbPath -s $CompanionSerial install --no-incremental -r $taskApk
 if ($LASTEXITCODE -ne 0) { throw 'Lab installation failed.' }
 & $AdbPath -s $CompanionSerial shell am start -n uk.co.skyeye.companion.lab/uk.co.skyeye.companion.lab.MainActivity
 if ($LASTEXITCODE -ne 0) { throw 'Lab launch failed.' }
