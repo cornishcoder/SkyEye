@@ -16,9 +16,7 @@ public sealed class CameraClient : IDisposable
     public ClipSaveScope? SaveScope { get; private set; }
     public void Connect(string input)
     {
-        var text = input.Trim(); if (!text.Contains("://")) text = "http://" + text;
-        if (!Uri.TryCreate(text, UriKind.Absolute, out var uri) || uri.Scheme != "http" || !string.IsNullOrEmpty(uri.UserInfo) || uri.Query.Length > 0 || uri.AbsolutePath != "/") throw new ArgumentException("Enter the camera's local address, for example 192.168.1.100:8765.");
-        Address = uri.GetLeftPart(UriPartial.Authority); ReadToken = ""; SaveScope = null;
+        Address = CameraEndpoint.Parse(input); ReadToken = ""; SaveScope = null;
     }
     public string MediaUrl(string path) => Address + path;
     public async Task<JsonElement> StatusAsync(CancellationToken ct = default)
@@ -31,7 +29,7 @@ public sealed class CameraClient : IDisposable
             ReadToken = status.GetProperty("readToken").GetString()!;
             var host = status.GetProperty("host");
             SaveScope = host.ValueKind == JsonValueKind.Null ? null : new(
-                Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(requestAddress.ToLowerInvariant()))),
+                CameraEndpoint.Identity(requestAddress),
                 status.GetProperty("sessionId").GetString()!, host.GetProperty("generation").GetInt64(), status.GetProperty("revision").GetInt64());
         }
         return status;

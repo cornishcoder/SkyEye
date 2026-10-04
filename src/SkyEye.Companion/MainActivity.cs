@@ -7,6 +7,7 @@ using Android.OS;
 using Android.Views;
 using Android.Widget;
 using SkyEye.Core;
+using SkyEye.Core.Application;
 using System.Text.Json;
 using Path = System.IO.Path;
 using Bridge = UK.CO.Skyeye.Companion.Nativebridge;
@@ -23,7 +24,6 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
 #endif
     readonly CameraClient client = new();
     readonly CancellationTokenSource lifetime = new();
-    readonly SemaphoreSlim connectionGate = new(1);
     TextView status = null!, message = null!, viewerStatus = null!;
     EditText address = null!;
     LinearLayout controls = null!, remoteClips = null!, localClips = null!, discoveries = null!;
@@ -34,9 +34,10 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
     Bridge.DiscoveryBridge discovery = null!;
     Bridge.PortraitExporter? exporter;
     PlayerListener playerListener = null!; CastListener? castListener; DiscoveryListener discoveryListener = null!; ExportListener? exportListener;
-    bool resumed, connected, polling, busy, portrait, offline;
-    string currentState = "", clipDir = "", stream = "";
-    DateTimeOffset lastHeartbeat;
+    bool resumed, polling, busy, portrait, offline;
+    bool connected => app.State.Camera.ConnectionId != Guid.Empty && app.State.Camera.Reachability is CameraReachability.Reachable or CameraReachability.Unreachable;
+    string currentState => app.State.Camera.Capture?.ToString() ?? "";
+    string clipDir = "", stream = "";
     MaeveSession? maeve;
     public override void OnConfigurationChanged(Android.Content.Res.Configuration config) { base.OnConfigurationChanged(config); }
     protected override void OnCreate(Bundle? savedInstanceState)
@@ -51,10 +52,10 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
         discoveries = new LinearLayout(this) { Orientation = Orientation.Vertical }; root.AddView(discoveries);
         status = Label("Connect to your armed camera", 16); root.AddView(status);
         message = Label("", 14); root.AddView(message);
-        var hostRow = Row(root); claim = Add(hostRow, "Become host", () => _ = ActionAsync(async () => { var result = await client.PostAsync("host/claim", new { owner = Android.OS.Build.Model ?? "SkyEye companion" }); client.HostToken = result.GetProperty("token").GetString(); settings.Edit()!.PutString("host", client.HostToken)!.Apply(); await RefreshAsync(); }));
-        release = Add(hostRow, "Release control", () => _ = ActionAsync(async () => { await client.PostAsync("host/release", new { }); client.HostToken = null; settings.Edit()!.Remove("host")!.Apply(); await EndMaeveAsync(); await RefreshAsync(); }));
+        var hostRow = Row(root); claim = Add(hostRow, "Become host", () => HostCommand(true));
+        release = Add(hostRow, "Release control", () => HostCommand(false));
         controls = new LinearLayout(this) { Orientation = Orientation.Vertical }; root.AddView(controls);
-        var sessionRow = Row(controls); Add(sessionRow, "Start", () => Command("session/start")); Add(sessionRow, "Pause", () => Command("session/pause")); Add(sessionRow, "Resume", () => Command("session/resume")); Add(sessionRow, "Stop", () => Command("session/stop"));
+        var sessionRow = Row(controls); Add(sessionRow, "Start", () => CaptureCommand(CaptureAction.Start)); Add(sessionRow, "Pause", () => CaptureCommand(CaptureAction.Pause)); Add(sessionRow, "Resume", () => CaptureCommand(CaptureAction.Resume)); Add(sessionRow, "Stop", () => CaptureCommand(CaptureAction.Stop));
         var replayRow = Row(controls);
         duration = new Spinner(this); duration.Adapter = new ArrayAdapter<string>(this, Android.Resource.Layout.SimpleSpinnerDropDownItem, ["30 seconds", "1 minute", "2 minutes", "5 minutes", "10 minutes"]); replayRow.AddView(duration);
         Add(replayRow, "Save last…", () => _ = ActionAsync(SaveClipUiAsync));
@@ -66,7 +67,7 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
         root.AddView(player.View, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, (int)(260 * Resources!.DisplayMetrics!.Density)));
         viewerStatus = Label("Live viewing is silent. Saved clips include room sound.", 13); root.AddView(viewerStatus);
         BuildCandidateOverlayUi(root);
-        var viewRow = Row(root); Add(viewRow, "Watch live", () => _ = ActionAsync(async () => { await RefreshAsync(); offline = false; player.SetMuted(true); player.Play(stream); }));
+        var viewRow = Row(root); Add(viewRow, "Watch live", () => _ = ActionAsync(async () => { await RefreshAsync(); if (app.State.Camera.Reachability != CameraReachability.Reachable || app.State.Camera.Capture != CaptureState.Active) { Say("An active, reachable camera is needed for live viewing."); return; } offline = false; player.SetMuted(true); player.Play(stream); }));
         Add(viewRow, "Portrait / landscape", () => { portrait = !portrait; player.SetPortrait(portrait); });
         try { castListener = new CastListener(this); cast = new Bridge.CastBridge(this, castListener); viewRow.AddView(cast.Button, new LinearLayout.LayoutParams(56, 56)); }
         catch { root.AddView(Label("Cast is unavailable on this device.", 13)); }
@@ -78,7 +79,11 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
         var keyRow = Row(root); Add(keyRow, "Set API key", SetupKey); Add(keyRow, "Talk to Maeve", StartMaeve); Add(keyRow, "End Maeve", () => _ = EndMaeveAsync());
         Add(root, "Mute / unmute Maeve microphone", () => { voiceMuted = !voiceMuted; maeve?.SetMuted(voiceMuted); Say(voiceMuted ? "Maeve microphone muted" : "Maeve microphone enabled"); });
         discoveryListener = new DiscoveryListener(this); discovery = new Bridge.DiscoveryBridge(this, discoveryListener);
-        client.HostToken = settings.GetString("host", null); controls.Visibility = ViewStates.Gone; release.Visibility = ViewStates.Gone;
+        // Bind a restored native credential to its saved endpoint before a new
+        // connect can compare identities. Authority is still unknown until proof.
+        try { var savedCamera = settings.GetString("camera", ""); if (!string.IsNullOrWhiteSpace(savedCamera)) { client.Connect(savedCamera); client.HostToken = settings.GetString("host", null); } }
+        catch (ArgumentException) { settings.Edit()!.Remove("host")!.Apply(); }
+        controls.Visibility = ViewStates.Gone; release.Visibility = ViewStates.Gone; claim.Enabled = false;
         var initial = Intent?.GetStringExtra("camera"); if (!string.IsNullOrWhiteSpace(initial)) { address.Text = initial; _ = ConnectAsync(); }
     }
     TextView Label(string text, int size) { var view = new TextView(this) { Text = text, TextSize = size }; view.SetTextColor(Color.Rgb(205, 230, 235)); view.SetPadding(0, 7, 0, 7); return view; }
@@ -91,51 +96,6 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
         try { await work(); }
         catch (Exception e) { Say(e.Message); }
         finally { busy = false; }
-    }
-    async Task ConnectAsync()
-    {
-        await ActionAsync(async () =>
-        {
-            await connectionGate.WaitAsync(lifetime.Token);
-            try
-            {
-                var previousAddress = client.Address; client.Connect(address.Text ?? "");
-                if (previousAddress.Length > 0 && !string.Equals(previousAddress, client.Address, StringComparison.OrdinalIgnoreCase)) { client.HostToken = null; calibration = null; tableView.Picking = false; tableView.Picks.Clear(); InvalidateTable("Camera changed; calibrate and check its table."); await EndMaeveAsync(); }
-                await RefreshAsync(); connected = true; RestoreCalibration();
-                GetSharedPreferences("skyeye", FileCreationMode.Private)!.Edit()!.PutString("camera", client.Address)!.Apply();
-                Say("Connected. Watch as a guest or claim available host control."); await LoadClipsAsync();
-                if (currentState == "Active") { offline = false; player.SetMuted(true); player.Play(stream); }
-                StartPolling();
-            }
-            finally { connectionGate.Release(); }
-        });
-    }
-    void Command(string path) => _ = ActionAsync(async () => { await client.PostAsync(path, new { commandId = Guid.NewGuid().ToString("N") }); await RefreshAsync(); if (currentState == "Active") { offline = false; player.SetMuted(true); player.Play(stream); } });
-    async Task RefreshAsync()
-    {
-        var state = await client.StatusAsync(lifetime.Token); string next = state.GetProperty("state").GetString()!;
-        var host = state.GetProperty("host"); bool owns = false;
-        if (client.HostToken is not null)
-        {
-            if ((DateTimeOffset.UtcNow - lastHeartbeat).TotalSeconds >= 5)
-            {
-                try { await client.PostAsync("host/heartbeat", new { }, lifetime.Token); lastHeartbeat = DateTimeOffset.UtcNow; owns = true; }
-                catch (CameraRequestException e) when (e.StatusCode == System.Net.HttpStatusCode.Forbidden) { client.HostToken = null; await EndMaeveAsync(); }
-            }
-            else owns = true;
-        }
-        stream = client.MediaUrl(state.GetProperty("streamPath").GetString()!);
-        RunOnUiThread(() =>
-        {
-            status.Text = $"{next} · Battery {state.GetProperty("battery").GetInt32()}% · {state.GetProperty("temperatureC").GetDouble():0.0}°C\nReplay available: {state.GetProperty("historySeconds").GetDouble():0}s · " + (owns ? "You control this session" : host.ValueKind == JsonValueKind.Null ? "Host available" : "Host: " + host.GetProperty("owner").GetString());
-            controls.Visibility = owns ? ViewStates.Visible : ViewStates.Gone; release.Visibility = controls.Visibility; claim.Visibility = owns ? ViewStates.Gone : ViewStates.Visible;
-            claim.Enabled = host.ValueKind == JsonValueKind.Null;
-            ConfigureCandidateCast(owns);
-            if (next != "Active" && !offline) { player.Stop(); viewerStatus.Text = "Capture is " + next.ToLowerInvariant(); }
-            if (next == "Active" && currentState != "Active" && !offline) player.Play(stream);
-            currentState = next;
-            if ((!owns || next != "Active") && tableState is not null) InvalidateTable("A fresh active camera view and host control are needed for table advice.");
-        });
     }
     void StartPolling()
     {
@@ -156,7 +116,7 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
                 // Downloads/export can occupy the action slot longer than a frame's
                 // advice lifetime. Expire displayed paths even while analysis is skipped.
                 if (tableState is not null) ShowTable();
-                if (!overlayEnabled && !busy && client.HostToken is not null && currentState == "Active" && calibration is not null) try { await UpdateTableAsync(); } catch { InvalidateTable("Table analysis unavailable; wait for a fresh view and confirm it."); }
+                if (!overlayEnabled && !busy && app.State.Camera.CanControl && currentState == "Active" && calibration is not null) try { await UpdateTableAsync(); } catch { InvalidateTable("Table analysis unavailable; wait for a fresh view and confirm it."); }
                 // Aim for 2.5 seconds between starts, including network and analysis
                 // time. Remain sequential even when a cycle exceeds that budget.
                 delayMs = (int)Math.Max(250, 2500 - cycle.ElapsedMilliseconds);
@@ -206,7 +166,7 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
     }
     void StartMaeve()
     {
-        if (client.HostToken is null) { Say("Claim host control before starting Maeve."); return; }
+        if (!app.State.Camera.CanControl) { Say("Claim host control before starting Maeve."); return; }
         if (CheckSelfPermission(Manifest.Permission.RecordAudio) != Permission.Granted) { RequestPermissions([Manifest.Permission.RecordAudio], 2); return; }
         if (maeve is not null) { Say("Maeve is already connected."); return; }
         var key = SecretStore.Get(this, "openai"); if (string.IsNullOrWhiteSpace(key)) { SetupKey(); return; }
@@ -216,7 +176,7 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
         _ = ActionAsync(async () => { try { await session.StartAsync(); } catch { if (maeve == session) maeve = null; StopService(new Intent(this, typeof(VoiceService))); throw; } });
     }
     async Task EndMaeveAsync() { var session = maeve; maeve = null; try { if (session is not null) await session.CloseAsync(); } finally { StopService(new Intent(this, typeof(VoiceService))); } }
-    protected override void OnResume() { base.OnResume(); resumed = true; StartPolling(); if (overlayEnabled) StartCandidateOverlay(); }
+    protected override void OnResume() { base.OnResume(); resumed = true; if (connected) _ = RefreshOnResumeAsync(); StartPolling(); if (overlayEnabled) StartCandidateOverlay(); }
     protected override void OnPause() { resumed = false; PauseCandidateOverlay(); discovery.Stop(); if (maeve is null) InvalidateTable("Return for a fresh table view."); base.OnPause(); }
     protected override void OnDestroy() { appSubscription?.Dispose(); lifetime.Cancel(); ++tableGeneration; PauseCandidateOverlay(); tableBitmap?.Dispose(); exporter?.Cancel(); _ = EndMaeveAsync(); player.Release(); cast?.Release(); discovery.Stop(); client.Dispose(); base.OnDestroy(); }
     sealed class PlayerListener(MainActivity owner) : Java.Lang.Object, Bridge.PlayerBridge.IListener { public void OnError(string? error) => owner.Say(error ?? "Viewing interrupted"); public void OnPlaying(bool playing) => owner.RunOnUiThread(() => owner.viewerStatus.Text = playing ? owner.offline ? "Playing downloaded clip" : "Live · delayed · silent" : "Waiting for video…"); }

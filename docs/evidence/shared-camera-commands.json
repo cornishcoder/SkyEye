@@ -1,0 +1,42 @@
+{
+  "unit": "S04",
+  "checkedAt": "2026-10-04T10:36:21+01:00",
+  "package": "uk.co.skyeye.companion.commands.lab",
+  "configuration": "Release",
+  "apkSha256": "7F838A48A2A08438AF109E27DE3802CA3FB85493BBFCFD2BA612DE79B2EA1A6A",
+  "builds": {
+    "productionRelease": { "errors": 0, "warnings": 7 },
+    "labRelease": { "errors": 0, "warnings": 7 }
+  },
+  "installed": true,
+  "deviceChecks": "pending user-operated capture transitions and background host expiry",
+  "coreChecks": [
+    "Typed guest/authority/transition admission",
+    "Pending and completed duplicate handling across command types",
+    "Queued operations recheck connection and capture scope",
+    "Slow camera effects permit preference commands",
+    "Same-endpoint reconnect invalidates late responses",
+    "Invalid observations and lost transport leave control facts unknown",
+    "System-only native observations and cancellation"
+  ],
+  "adapterChecks": [
+    "Real HTTP framing and original capture operation IDs",
+    "Fresh host heartbeat plus matching-generation status proves control",
+    "Pause/resume and release update observed state",
+    "Apparent capture no-op still proves host authority",
+    "Same-endpoint reconnect uses new epoch and fresh authority",
+    "31-second host expiry clears native credential while recording remains active",
+    "Displayed host name and invalid token do not prove ownership",
+    "Lost start acknowledgement stays uncertain with separately verified active state",
+    "Duplicate/stale operations send no second capture mutation",
+    "Canonical camera state excludes native credentials and viewing URLs"
+  ],
+  "limitations": [
+    "Physical transition and background-expiry gate pending",
+    "Automatic approval review previously blocked remote launch and camera-control taps with only blocked by policy and no specific reason; not retried",
+    "Production installation previously blocked; built APK is ready but not installed",
+    "Lost acknowledgement, queued races and invalid credentials verified in core/HTTP fixtures, not induced on the phone",
+    "Camera controls retain bounded in-process receipts; durable replay protection remains specific to clip saves"
+  ],
+  "beforeDeviceCheck": { "armed": true, "state": "Stopped", "host": null, "error": "", "clipCount": 8 }
+}

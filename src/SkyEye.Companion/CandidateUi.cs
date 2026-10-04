@@ -38,7 +38,7 @@ public sealed partial class MainActivity
     {
         ++overlayRun; var relay = overlayRelay; overlayRelay = null;
         if (relay is not null) _ = relay.DisposeAsync();
-        player.SetOverlay("{}"); cast?.Configure(stream, client.HostToken is not null);
+        player.SetOverlay("{}"); cast?.Configure(stream, app.State.Camera.CanControl);
         carousel.Clear(); if (tableView is not null) RefreshCandidates();
     }
     async Task RunCandidateOverlayAsync(int run)
@@ -47,7 +47,7 @@ public sealed partial class MainActivity
         {
             while (run == overlayRun && overlayEnabled && resumed && !lifetime.IsCancellationRequested)
             {
-                if (!connected || client.HostToken is null || currentState != "Active") ClearCandidatePresentation("Connect to an active camera and become host to see candidates.");
+                if (!connected || !app.State.Camera.CanControl || currentState != "Active") ClearCandidatePresentation("Connect to an active camera and become host to see candidates.");
                 else
                 {
                     if (overlayRelay is null && Android.OS.SystemClock.ElapsedRealtime() >= overlayRelayRetryAt)
@@ -115,6 +115,6 @@ public sealed partial class MainActivity
     }
     sealed class OverlayListener(MainActivity owner) : Java.Lang.Object, Bridge.OverlayEncoder.IListener
     {
-        public void OnError(string? message) => owner.RunOnUiThread(() => { var relay = owner.overlayRelay; owner.overlayRelay = null; owner.overlayRelayRetryAt = Android.OS.SystemClock.ElapsedRealtime() + 30000; if (relay is not null) _ = relay.DisposeAsync(); owner.cast?.Configure(owner.stream, owner.client.HostToken is not null); owner.Say(message ?? "TV candidate view unavailable."); });
+        public void OnError(string? message) => owner.RunOnUiThread(() => { var relay = owner.overlayRelay; owner.overlayRelay = null; owner.overlayRelayRetryAt = Android.OS.SystemClock.ElapsedRealtime() + 30000; if (relay is not null) _ = relay.DisposeAsync(); owner.cast?.Configure(owner.stream, owner.app.State.Camera.CanControl); owner.Say(message ?? "TV candidate view unavailable."); });
     }
 }

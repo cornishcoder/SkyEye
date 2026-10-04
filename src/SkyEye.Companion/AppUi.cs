@@ -6,13 +6,23 @@ namespace SkyEye.Companion;
 public sealed partial class MainActivity
 {
     AppCoordinator app = null!;
+    CameraControlEffect cameraEffects = null!;
     IDisposable? appSubscription;
     SkyEyeState renderedAppState = SkyEyeState.Empty;
     bool overlayEnabled => app.State.Presentation.ShotChoicesEnabled;
     string group => app.State.Advice.TargetGroup.ToString().ToLowerInvariant();
 
-    void InitializeApp() => app = new(e => Android.Util.Log.Warn("SkyEye", $"App state observer: {e.GetType().Name}"),
-        new ClipSaveExecutor(System.IO.Path.Combine(FilesDir!.AbsolutePath, "save-operations"), new CameraClipSaveEffect(client)));
+    void InitializeApp()
+    {
+        cameraEffects = new(client, token =>
+        {
+            var edit = GetSharedPreferences("skyeye", Android.Content.FileCreationMode.Private)!.Edit()!;
+            if (token is null) edit.Remove("host"); else edit.PutString("host", token);
+            edit.Apply();
+        });
+        app = new(e => Android.Util.Log.Warn("SkyEye", $"App state observer: {e.GetType().Name}"),
+            new ClipSaveExecutor(System.IO.Path.Combine(FilesDir!.AbsolutePath, "save-operations"), new CameraClipSaveEffect(client)), cameraEffects);
+    }
 
 #if SKYEYE_COMMAND_LAB
     // Lab-only retry lets device checks submit exactly the same request, including
@@ -52,7 +62,7 @@ public sealed partial class MainActivity
     async Task SaveClipUiAsync()
     {
         await RefreshAsync();
-        if (client.SaveScope is not { } scope || client.HostToken is null) { Say("Connect and become host before saving a clip."); return; }
+        if (!app.State.Camera.CanControl || client.SaveScope is not { } scope || client.HostToken is null) { Say("Connect and become host before saving a clip."); return; }
         var envelope = new CommandEnvelope(Guid.NewGuid(), CommandOrigin.Touch, renderedAppState.Version,
             new SaveClip(ReplaySelection.Durations[duration.SelectedItemPosition], scope));
 #if SKYEYE_COMMAND_LAB
@@ -83,6 +93,7 @@ public sealed partial class MainActivity
         var previous = renderedAppState;
         if (next.Version <= previous.Version) return;
         renderedAppState = next;
+        if (previous.Camera != next.Camera) ApplyCameraState(previous.Camera, next.Camera);
         overlayToggle.Text = next.Presentation.ShotChoicesEnabled ? "Candidate overlay: on" : "Candidate overlay: off";
         if (previous.Advice != next.Advice)
         {

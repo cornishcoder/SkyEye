@@ -56,8 +56,8 @@ public sealed partial class AppCoordinator
         if (command is not ChangeCapture capture || !Enum.IsDefined(capture.Action)) return Receipt(envelope, CommandOutcome.Rejected, "Unsupported camera control.");
         bool unchanged = capture.Action == CaptureAction.Start && connection.Capture == CaptureState.Active
             || capture.Action == CaptureAction.Stop && connection.Capture is CaptureState.Ready or CaptureState.Stopped;
-        if (unchanged) return Receipt(envelope, CommandOutcome.Unchanged, "Capture is already in that state.");
-        bool allowed = capture.Action switch
+        // Even an apparent no-op must verify current native authority and scope.
+        bool allowed = unchanged || capture.Action switch
         {
             CaptureAction.Start => connection.Armed == true && connection.Capture is CaptureState.Ready or CaptureState.Stopped,
             CaptureAction.Resume => connection.Armed == true && connection.Capture == CaptureState.Paused,
