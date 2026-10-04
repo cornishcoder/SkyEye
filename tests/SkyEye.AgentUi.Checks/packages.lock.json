@@ -1,0 +1,123 @@
+{
+  "version": 1,
+  "dependencies": {
+    "net11.0": {
+      "Microsoft.AspNetCore.Components.AI": {
+        "type": "Direct",
+        "requested": "[0.1.0-preview.1.26466.103, )",
+        "resolved": "0.1.0-preview.1.26466.103",
+        "contentHash": "lNA0dijFfgRYzapshyyRkgTKSo4S+FRXvSO1FROyyU2fVNCp5kSAevmDwNBo+Y0QK4CUT9oXWyKV4bTFc9HOOw==",
+        "dependencies": {
+          "Microsoft.AspNetCore.Components.Web": "11.0.0-rc.1.26425.128",
+          "Microsoft.Extensions.AI.Abstractions": "10.6.0"
+        }
+      },
+      "Microsoft.AspNetCore.Authorization": {
+        "type": "Transitive",
+        "resolved": "11.0.0-rc.1.26425.128",
+        "contentHash": "Q/moRems7ElghORW4/ZxFSIQSrQ0cXcXQQgc0pvHRj3i865c1UsCmdDD0MQ499pShEKaWGrVSBOOjec22HEsQg==",
+        "dependencies": {
+          "Microsoft.AspNetCore.Metadata": "11.0.0-rc.1.26425.128",
+          "Microsoft.Extensions.Diagnostics": "11.0.0-rc.1.26425.128"
+        }
+      },
+      "Microsoft.AspNetCore.Components": {
+        "type": "Transitive",
+        "resolved": "11.0.0-rc.1.26425.128",
+        "contentHash": "eFZG6WwG7rHfJdp39uC9SerBFCiND3+y9+n8Nm7qAKFIpwm/WmNorkvxXbSjt2IYaJCPKrKaol/NNUUUZCXwlA==",
+        "dependencies": {
+          "Microsoft.AspNetCore.Authorization": "11.0.0-rc.1.26425.128",
+          "Microsoft.AspNetCore.Components.Analyzers": "11.0.0-rc.1.26425.128"
+        }
+      },
+      "Microsoft.AspNetCore.Components.Analyzers": {
+        "type": "Transitive",
+        "resolved": "11.0.0-rc.1.26425.128",
+        "contentHash": "ub8f8MMfoWhOoPlo6H9PNbp4yZ9fm1fe95sMjDMJ8KpxLRpCNXxYTCiQm9riqlxbYVbSDQ3DMXBmoqFzXQB7sg=="
+      },
+      "Microsoft.AspNetCore.Components.Forms": {
+        "type": "Transitive",
+        "resolved": "11.0.0-rc.1.26425.128",
+        "contentHash": "b9PfvQhi+EM/QjknU8GRfBd+Sd+7PM6XbSMqLxFnpRKFyTaCn923diCudbZnW1IYpM27AXvwEi+4t2v98e8wdg==",
+        "dependencies": {
+          "Microsoft.AspNetCore.Components": "11.0.0-rc.1.26425.128",
+          "Microsoft.Extensions.Validation": "11.0.0-rc.1.26425.128"
+        }
+      },
+      "Microsoft.AspNetCore.Components.Web": {
+        "type": "Transitive",
+        "resolved": "11.0.0-rc.1.26425.128",
+        "contentHash": "DPU74ckRAjS0W2KKj70EhYh2l/As5QbvAd+sXB1PVodaPPyl9G7pE4S+EXIpB3+UNLoq7jvaoV8RK+DeEc38jA==",
+        "dependencies": {
+          "Microsoft.AspNetCore.Components": "11.0.0-rc.1.26425.128",
+          "Microsoft.AspNetCore.Components.Forms": "11.0.0-rc.1.26425.128",
+          "Microsoft.Extensions.DependencyInjection": "11.0.0-rc.1.26425.128",
+          "Microsoft.JSInterop": "11.0.0-rc.1.26425.128"
+        }
+      },
+      "Microsoft.AspNetCore.Metadata": {
+        "type": "Transitive",
+        "resolved": "11.0.0-rc.1.26425.128",
+        "contentHash": "WaXd7xvRDuXxrGQZRQFNkWNPcfBvd5O5v7PxDDNii1JgLmlrvhBJBl0JLWcP8fPQ9pyv4cVXYDpC1+7HFnelSw=="
+      },
+      "Microsoft.Extensions.AI.Abstractions": {
+        "type": "Transitive",
+        "resolved": "10.6.0",
+        "contentHash": "JCkVoyqBqi9r3Vs5Qo5PfZobT0+CWeOx+9y9yggBxtW9s/X5CAoa7Iw/tP/rfUdz+nxRKMSBmrytYgwmu60lgA=="
+      },
+      "Microsoft.Extensions.Configuration": {
+        "type": "Transitive",
+        "resolved": "11.0.0-rc.1.26425.128",
+        "contentHash": "67EIKOU5pzuMcTHoezn/hmv1hyMcxpiSIlVL9oT6Uc3bcErYhkTBuZCuVqHuNjJBm0nqmpJb1v644M/NV7Q0Vw=="
+      },
+      "Microsoft.Extensions.Configuration.Binder": {
+        "type": "Transitive",
+        "resolved": "11.0.0-rc.1.26425.128",
+        "contentHash": "1AI7GybRhwcPmOgi275FOlxDP3PL/pspE1R4itBxLgQ771sRy0LhYi4usSYNvixnocxcPp0aZqJ27CyYdM9Aaw==",
+        "dependencies": {
+          "Microsoft.Extensions.Configuration": "11.0.0-rc.1.26425.128"
+        }
+      },
+      "Microsoft.Extensions.DependencyInjection": {
+        "type": "Transitive",
+        "resolved": "11.0.0-rc.1.26425.128",
+        "contentHash": "r9VvtUpwM0MZ21DaTQWDqmsm6ABmuuXA/4aqa9LJVZET0HGlIG0Z5eN2esarFAQW2xtgGFyIYcnWs5uxUUizgg=="
+      },
+      "Microsoft.Extensions.Diagnostics": {
+        "type": "Transitive",
+        "resolved": "11.0.0-rc.1.26425.128",
+        "contentHash": "4O8+S1awKr1nwX0KboSyMszc1TGlxI1rSZsuFfvoByNnvlOj2C0Zg0/DUTFaBTpKAMCGvBZomDbY3uOtUvhvTw==",
+        "dependencies": {
+          "Microsoft.Extensions.Configuration": "11.0.0-rc.1.26425.128",
+          "Microsoft.Extensions.Options.ConfigurationExtensions": "11.0.0-rc.1.26425.128"
+        }
+      },
+      "Microsoft.Extensions.Localization.Abstractions": {
+        "type": "Transitive",
+        "resolved": "11.0.0-rc.1.26425.128",
+        "contentHash": "HqlwIvc+4nduvwp1Zfecta0DYAbDGaMX5g+rUbD8yBGsWQBgfM3pJZUz03BUNb0jsbVn9m61yPPxnDdDuzN2AA=="
+      },
+      "Microsoft.Extensions.Options.ConfigurationExtensions": {
+        "type": "Transitive",
+        "resolved": "11.0.0-rc.1.26425.128",
+        "contentHash": "z3K4AJwVQeNAHUfU4DSvs3Yvnzak7vbbD/rtcU4eKMxCKmmw3PA3sTefMTUUcIrePEhpIEODGtiOGJ00b/dNzg==",
+        "dependencies": {
+          "Microsoft.Extensions.Configuration.Binder": "11.0.0-rc.1.26425.128"
+        }
+      },
+      "Microsoft.Extensions.Validation": {
+        "type": "Transitive",
+        "resolved": "11.0.0-rc.1.26425.128",
+        "contentHash": "oHMCZz6vD3a6SfRnKEo1ftQfWJ7OFn0PdT7gLZ10+d/XQ1RgE8hrpfdfL2F7BxCoO5MzbH08LdCHnFHBSFbMnA==",
+        "dependencies": {
+          "Microsoft.Extensions.Localization.Abstractions": "11.0.0-rc.1.26425.128"
+        }
+      },
+      "Microsoft.JSInterop": {
+        "type": "Transitive",
+        "resolved": "11.0.0-rc.1.26425.128",
+        "contentHash": "W9eq1a1pEEaSx5msYyU+7z650Lhe4AuKGkvNYl9OOXn9nzlksULlF9FfAbhES7HgVLh9nVm1m7fq4I28DTQ7iw=="
+      }
+    }
+  }
+}

@@ -1,0 +1,21 @@
+<div class="actions">
+    <button disabled="@running" @onclick="Run">Run stream</button>
+    @if (running) { <button @onclick="Cancel">Cancel</button> }
+</div>
+@if (error.Length > 0) { <p role="alert">@error</p> }
+
+@code {
+    [CascadingParameter] public AgentContext Context { get; set; } = null!;
+    bool running;
+    string error = "";
+    async Task Run()
+    {
+        if (running) return;
+        running = true; error = "";
+        try { await Context.SendMessageAsync("Show the fixture shots"); }
+        catch (OperationCanceledException) { }
+        catch (Exception) { error = "The fixture stream failed."; }
+        finally { running = false; }
+    }
+    Task Cancel() => Context.CancelAsync();
+}

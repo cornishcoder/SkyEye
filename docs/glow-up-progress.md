@@ -15,7 +15,8 @@ The full implementation plan is in [glow-up-plan.md](glow-up-plan.md). Work star
 |---|---|---|
 | P01 | Complete | Root resolves SDK 10.0.400; Hybrid directory resolves SDK 11.0.100-rc.1.26425.128. Existing core checks pass. Full baseline Release build succeeds: 0 errors, 9 existing generated/native packaging warnings |
 | P02 | Complete | SDK 11 workload set 11.0.100-rc.1.26460.1 installed/pinned; MAUI 11.0.0-rc.1.26451.6, Android 37.0.0-rc.1.2257, AI 0.1.0-preview.1.26466.103 restored with a package lock. Android 37 SDK installed in ignored work/android-sdk-11. Debug build: 0 errors/warnings. Separate Lab package launches and renders the real AI assembly on Pixel 11 |
-| P03–P05 | Pending | Streaming/proposals/native media and Release runtime checks must pass before production migration |
+| P03 | Complete | Real UIAgent fixture streams text, source-generated typed tool pending/result and an observable state snapshot on Pixel 11. Repeated Run stream increments state and renders three fixture choices. Desktop checks run the same adapter through the real package and prove cancellation before the effect leaves canonical state unchanged. Debug build: 0 warnings/errors |
+| P04–P05 | Pending | Proposals/native media and Release runtime checks must pass before production migration |
 
 No device testing is implied by a build or template listing.
 

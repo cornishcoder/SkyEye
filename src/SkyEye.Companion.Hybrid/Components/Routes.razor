@@ -1,10 +1,34 @@
+@implements IDisposable
+
 <main>
     <p class="eyebrow">SKYEYE LAB</p>
     <h1>Sky's new home</h1>
     <p>Android Hybrid compatibility check</p>
-    <section class="card" role="status">
-        <strong>Blazor AI components loaded</strong>
-        <p>@typeof(UIAgent).Assembly.GetName().Name</p>
-        <p>Native media and agent interaction checks follow.</p>
+    <section class="card">
+        <strong>Agent stream fixture</strong>
+        <p>These choices are test data, not live table advice.</p>
+        <p role="status">State @agent.State.Value.Version · @agent.State.Value.Group · @agent.State.Value.CandidateCount choices</p>
+        <AgentBoundary Agent="agent">
+            <ProbeControls />
+            <MessageList>
+                <BlockRenderer TBlock="ProbeShotBlock" Context="shot">
+                    <div class="tool-result" role="status">
+                        @(shot.HasResult ? $"Ready: {shot.CandidateCount} fixture choices for {shot.Group}" : $"Checking choices for {shot.Group}…")
+                    </div>
+                </BlockRenderer>
+            </MessageList>
+        </AgentBoundary>
     </section>
 </main>
+
+@code {
+    readonly ProbeChatClient client = new();
+    UIAgent<ProbeState> agent = null!;
+    IDisposable? subscription;
+    protected override void OnInitialized()
+    {
+        agent = ProbeAgent.Create(client);
+        subscription = agent.State.OnChanged(() => _ = InvokeAsync(StateHasChanged));
+    }
+    public void Dispose() { subscription?.Dispose(); agent.Dispose(); client.Dispose(); }
+}

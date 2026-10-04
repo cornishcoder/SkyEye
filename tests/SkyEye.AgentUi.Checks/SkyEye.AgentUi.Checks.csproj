@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.AI" Version="0.1.0-preview.1.26466.103" />
+    <Compile Include="../../src/SkyEye.Companion.Hybrid/Probes/ProbeChatClient.cs" Link="ProbeChatClient.cs" />
+  </ItemGroup>
+</Project>
