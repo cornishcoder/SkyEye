@@ -1,0 +1,37 @@
+{
+  "checkedAt": "2026-10-04T08:57:23.2114266+01:00",
+  "package": "uk.co.skyeye.companion.lab",
+  "configuration": "Release",
+  "apkSha256": "FDA2C1C2C88C253072BCEC8640D669999206FF20F9BF565F27A4392D84569218",
+  "apkBytes": 44417389,
+  "runtime": "CoreCLR .NET 11.0.0-rc.1.26425.128",
+  "device": "Pixel 11 Pro",
+  "androidApi": 37,
+  "physicalPageBytes": 4096,
+  "buildErrors": 0,
+  "buildWarnings": 10,
+  "trimMode": "partial",
+  "apkSignatureV3Verified": true,
+  "zip16KbAligned": true,
+  "arm64Elf16KbAligned": true,
+  "observed": [
+    "Release launch and Razor assets",
+    "ExoPlayer fixture playback",
+    "Pixel 10 LAN HLS playing alongside typed agent result",
+    "OpenCV 4.14.0 native matrix sum 28",
+    "WebRTC factory create/dispose",
+    "Preview while canonical remains red",
+    "Reject preserves red version 1",
+    "Accept commits yellow version 2",
+    "Stale accept preserves changed version 3",
+    "Background/foreground retains state and restores native playback",
+    "Native Cast picker opens and is dismissed"
+  ],
+  "exclusions": [
+    "No actual Cast receiver playback tested by this gate",
+    "No physical 16 KB device execution",
+    "No voice/model/microphone session",
+    "Full-screen transparent native/Razor stack remains H01",
+    "Production package/storage migration remains H07"
+  ]
+}
