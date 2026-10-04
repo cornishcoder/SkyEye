@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+  <PropertyGroup>
+    <TargetFramework>net11.0-android</TargetFramework>
+    <RuntimeIdentifier>android-arm64</RuntimeIdentifier>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>SkyEye.Companion.Hybrid</RootNamespace>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <EnableDefaultCssItems>false</EnableDefaultCssItems>
+    <MauiVersion>11.0.0-rc.1.26451.6</MauiVersion>
+    <ApplicationTitle>SkyEye Lab</ApplicationTitle>
+    <ApplicationId>uk.co.skyeye.companion.lab</ApplicationId>
+    <ApplicationDisplayVersion>0.1</ApplicationDisplayVersion>
+    <ApplicationVersion>1</ApplicationVersion>
+    <SupportedOSPlatformVersion>33</SupportedOSPlatformVersion>
+    <AndroidSdkDirectory Condition="'$(AndroidSdkDirectory)' == '' and Exists('$(MSBuildThisFileDirectory)..\..\work\android-sdk-11')">$(MSBuildThisFileDirectory)..\..\work\android-sdk-11</AndroidSdkDirectory>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <AndroidPackageFormats>apk</AndroidPackageFormats>
+    <TrimMode>partial</TrimMode>
+  </PropertyGroup>
+  <ItemGroup>
+    <MauiIcon Include="Resources/AppIcon/appicon.svg" ForegroundFile="Resources/AppIcon/appiconfg.svg" Color="#0A131C" />
+    <MauiSplashScreen Include="Resources/Splash/splash.svg" Color="#0A131C" BaseSize="128,128" />
+    <PackageReference Include="Microsoft.Maui.Controls" Version="$(MauiVersion)" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebView.Maui" Version="$(MauiVersion)" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.AI" Version="0.1.0-preview.1.26466.103" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="11.0.0-rc.1.26425.128" />
+  </ItemGroup>
+</Project>

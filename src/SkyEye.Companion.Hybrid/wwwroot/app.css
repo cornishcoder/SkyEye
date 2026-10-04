@@ -1,0 +1,11 @@
+:root { color-scheme: dark; font-family: system-ui, sans-serif; background: #0a131c; color: #d6e8ec; }
+body { margin: 0; }
+main { max-width: 42rem; padding: 2rem 1.25rem; margin: auto; }
+h1 { font-size: 2rem; font-weight: 600; }
+p { line-height: 1.5; }
+.eyebrow { letter-spacing: .15em; font-size: .75rem; color: #70d3dc; }
+.card { border: 1px solid #27434f; border-radius: 1rem; padding: 1.25rem; margin-top: 2rem; background: #10222c; }
+button { min-height: 48px; border: 0; border-radius: 1rem; padding: .75rem 1.25rem; background: #77dce2; color: #0a131c; font: inherit; font-weight: 600; }
+button:disabled { opacity: .5; }
+#blazor-error-ui { display: none; padding: 1rem; background: #601e2a; position: fixed; bottom: 0; width: 100%; }
+#blazor-error-ui a { color: white; }
