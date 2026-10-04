@@ -8,7 +8,7 @@
     "labRelease": { "errors": 0, "warnings": 7 }
   },
   "installed": true,
-  "deviceChecks": "pending user-operated portrait download/playback and table calibration/group/correction-dialog check",
+  "deviceChecks": "Release portrait download/playback passed; live calibration/group/correction-dialog check pending",
   "tableServiceChecks": [
     "One in-flight frame shared by concurrent requests",
     "Current group applied to late analysis",
@@ -39,12 +39,23 @@
     "Actual camera transport passes through extracted clip library"
   ],
   "limitations": [
-    "Physical portrait export/playback and live table check pending",
+    "Physical live table check pending; user confirms portrait playback and room audio, assistant observes successful publication",
     "Failure, cancellation, obsolete edits and reconnect races verified in core/real HTTP fixtures; not induced on the phone",
     "Calibration acceptance and complete layout parsing preserve existing source fidelity and advice gates; vision accuracy is unchanged",
     "App cancellation/publication recovery is not arbitrary hardware-failure durability",
     "Production build is ready but installation was previously blocked and is not retried",
     "Remote launch/camera-control taps previously rejected by automatic approval review with only blocked by policy and no specific reason"
   ],
-  "beforeDeviceCheck": { "armed": true, "state": "Stopped", "host": null, "error": "", "clipCount": 8 }
+  "beforeDeviceCheck": { "armed": true, "state": "Stopped", "host": null, "error": "", "clipCount": 8 },
+  "portraitDeviceCheck": {
+    "checkedAt": "2026-10-04T11:12:23+01:00",
+    "installedAt": "2026-10-04 11:10:28",
+    "existingClipId": "ddcefc614f334743bdb74c66763e8797",
+    "userConfirmed": "Upright local playback with room audio",
+    "directlyObserved": [
+      "Portrait clip available locally, with room audio.",
+      "Newest camera clip marked DOWNLOADED - PLAY BELOW",
+      "Camera remains stopped, armed, unowned, no error and 8 clips"
+    ]
+  }
 }
