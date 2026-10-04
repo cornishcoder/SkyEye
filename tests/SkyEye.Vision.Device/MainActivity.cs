@@ -71,6 +71,11 @@ public sealed class MainActivity : Activity
                 }
                 if (spreadError > .025) throw new Exception("Dim spread centre outside tolerance: " + spreadError);
                 negativeResults.Add(new { name = "pixel-spread-dim", spread, maximumCentreError = spreadError });
+                using var snapshotInput = Assets.Open("pixel-spread-snapshot.jpg"); using var snapshotBytes = new MemoryStream(); snapshotInput.CopyTo(snapshotBytes);
+                var spreadSnapshot = analyzer.Analyze(snapshotBytes.ToArray(), spreadCalibration);
+                if (spreadSnapshot.Uncertain || spreadSnapshot.Balls.Length != 16 || spreadSnapshot.Balls.Count(b => b.Kind == "red") != 7 || spreadSnapshot.Balls.Count(b => b.Kind == "yellow") != 7 || spreadSnapshot.Balls.Count(b => b.Kind == "cue") != 1 || spreadSnapshot.Balls.Count(b => b.Kind == "black") != 1)
+                    throw new Exception("Live snapshot regression: " + JsonSerializer.Serialize(spreadSnapshot));
+                negativeResults.Add(new { name = "pixel-spread-snapshot", spread = spreadSnapshot });
                 foreach (string name in new[] { "pixel-later-light", "pixel-cushion-shadow", "synthetic-empty", "synthetic-dim", "synthetic-dark", "synthetic-obstruction", "synthetic-edge-obstruction", "synthetic-pocket-ball" })
                 {
                     using var input = Assets.Open(name + ".jpg"); using var buffer = new MemoryStream(); input.CopyTo(buffer);

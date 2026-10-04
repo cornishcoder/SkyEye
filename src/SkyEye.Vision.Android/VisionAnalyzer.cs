@@ -106,8 +106,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer
                 ForPixels(c, .85, (x, y) =>
                 {
                     int offset = (y * coordinates.Width + x) * 3; int difference = Math.Abs(pixels[offset] - clothHue); sampled++;
-                    if (Math.Min(difference, 180 - difference) <= Math.Max(12, settings.HueBand) &&
-                        pixels[offset + 1] > 20 && pixels[offset + 1] < Math.Max(60, clothRange.SaturationFloor / .45 * 1.5) &&
+                    if ((Math.Min(difference, 180 - difference) <= Math.Max(12, settings.HueBand) || pixels[offset + 1] < 45) &&
+                        pixels[offset + 1] < Math.Max(60, clothRange.SaturationFloor / .45 * 1.5) &&
                         pixels[offset + 2] > 20 && pixels[offset + 2] < Math.Max(80, clothRange.ValueFloor / .45 * 1.8)) cloth++;
                 });
                 if (sampled > 0 && cloth / (double)sampled > .9) continue;
@@ -162,19 +162,29 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer
         double Median(IEnumerable<double> values) { var sorted = values.Order().ToArray(); return sorted[sorted.Length / 2]; }
         return (hue, (int)Math.Clamp(Median(cloth.Select(p => p.S)) * .45, 8, 60), (int)Math.Clamp(Median(cloth.Select(p => p.V)) * .45, 15, 60));
     }
-    MatLease ClothMask(Mat hsv, byte[] pixels)
+    MatLease ClothMask(Mat hsv, byte[] pixels, bool separateBalls = true)
     {
         int w = coordinates.Width; var range = ClothRange(pixels); int hue = range.Hue;
+        int band = separateBalls ? settings.HueBand : Math.Max(12, settings.HueBand);
         var mask = new MatLease(new Mat());
         try
         {
-            using var low = new Scalar(Math.Max(0, hue - settings.HueBand), range.SaturationFloor, range.ValueFloor); using var high = new Scalar(Math.Min(179, hue + settings.HueBand), 255, 255);
+            // Warm cloth and the cue/yellows can share a hue. Bound saturation
+            // by the sampled cloth rather than treating every matching hue as cloth.
+            double saturationCeiling = separateBalls ? Math.Clamp(range.SaturationFloor / .45 * 1.8, 90, 255) : 255;
+            using var low = new Scalar(Math.Max(0, hue - band), range.SaturationFloor, range.ValueFloor); using var high = new Scalar(Math.Min(179, hue + band), saturationCeiling, 255);
             Cv.InRange(hsv, low, high, mask.Value);
-            if (hue < settings.HueBand || hue > 179 - settings.HueBand)
+            if (hue < band || hue > 179 - band)
             {
-                using var wrapped = new MatLease(new Mat()); using var l = new Scalar(hue < settings.HueBand ? 180 + hue - settings.HueBand : 0, range.SaturationFloor, range.ValueFloor); using var u = new Scalar(hue < settings.HueBand ? 179 : hue + settings.HueBand - 180, 255, 255);
+                using var wrapped = new MatLease(new Mat()); using var l = new Scalar(hue < band ? 180 + hue - band : 0, range.SaturationFloor, range.ValueFloor); using var u = new Scalar(hue < band ? 179 : hue + band - 180, saturationCeiling, 255);
                 Cv.InRange(hsv, l, u, wrapped.Value); Cv.Bitwise_or(mask.Value, wrapped.Value, mask.Value);
             }
+            // Video snapshot decoders quantize dim neutral cloth: its hue can
+            // swing wildly while saturation stays low. Bright cue paint and
+            // genuinely dark black bodies fall outside this bounded fallback.
+            using var neutral = new MatLease(new Mat()); using var neutralLow = new Scalar(0, 0, range.ValueFloor);
+            using var neutralHigh = new Scalar(179, 45, Math.Min(130, Math.Max(80, range.ValueFloor / .45 * 1.8)));
+            Cv.InRange(hsv, neutralLow, neutralHigh, neutral.Value); Cv.Bitwise_or(mask.Value, neutral.Value, mask.Value);
             int kernelWidth = Math.Max(3, (int)Math.Round(settings.MorphologyKernel * w / 1000.0) | 1); using var size = new Size(kernelWidth, kernelWidth);
             using var kernel = new MatLease(Imgproc.GetStructuringElement(Imgproc.MorphRect, size));
             Imgproc.MorphologyEx(mask.Value, mask.Value, Imgproc.MorphClose, kernel.Value); Imgproc.MorphologyEx(mask.Value, mask.Value, Imgproc.MorphOpen, kernel.Value);
@@ -186,7 +196,9 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer
     }
     bool LargeObstruction(Mat hsv, byte[] pixels)
     {
-        using var mask = ClothMask(hsv, pixels); Cv.Bitwise_not(mask.Value, mask.Value);
+        // Obstruction checks retain the broad cloth range: local saturation
+        // variations in shadows are not themselves evidence of a large object.
+        using var mask = ClothMask(hsv, pixels, separateBalls: false); Cv.Bitwise_not(mask.Value, mask.Value);
         // Crop only the uncertain calibration border; a hand connected to an image
         // edge must still count as an obstruction inside the playable surface.
         int border = (int)(65 * coordinates.Width / 1000.0);
