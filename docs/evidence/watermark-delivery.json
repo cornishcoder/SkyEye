@@ -1,0 +1,54 @@
+{
+  "unit": "Supplied watermark on companion viewing and rendered clips",
+  "date": "2026-10-06",
+  "sourceSnapshotCommit": "899de9b",
+  "assetSha256": "B2747DF369CE10F15B978AD54375D1E9EDD9B9A1D416BF31DA3AF89606864BC0",
+  "productionApkSha256": "38B2F5400232A1A3CEF811D417D0A263678674D00659471890E1751C9E9F3EEF",
+  "placement": "Output-space top-left, 8 percent of short edge, 2 percent margin, 85 percent opacity; original transparent artwork retained. Trim alpha noise below 9 with two pixels of edge padding, preserving proportions.",
+  "paths": [
+    "Phone live overlay after perspective transformation",
+    "Foreground composed TV feed, including whole-camera mode when framing and choices are off",
+    "Corrected portrait and landscape saved/recent derivatives",
+    "Existing retained-original cache invalidated by asset/style profile",
+    "Share/export default MP4 pixels",
+    "Legacy More-controls download, local play and share routed through separate corrected store"
+  ],
+  "pixels": {
+    "landscape": "watermark-landscape-checks.json",
+    "portrait": "watermark-portrait-checks.json",
+    "method": "Decode independently rendered marked and plain MP4s at 0.5 seconds; compare output-space region with Canvas reference using the supplied asset. Both orientations pass, mean channel error approximately 3.74 of 255.",
+    "audio": "AAC sample hash, count and start/end timestamps retained exactly in both orientations",
+    "live": "Round shape visually inspected on Pixel 11; encoded-frame metadata confirms watermark after TV framing; human confirmed white round logo at top-left on Chromecast"
+  },
+  "existingClip": "watermark-old-clip-profile.json: original retained, both derivative hashes verified against current watermark-v2 profile. TV clip reached natural completion; Android chooser offered portrait.mp4 and WhatsApp; chooser cancelled without sending.",
+  "checks": {
+    "core": "passed including profile invalidation and atomic paired publication",
+    "agentUi": "passed",
+    "nativeRelease": {
+      "warnings": 11,
+      "errors": 0
+    },
+    "productionRelease": {
+      "warnings": 7,
+      "errors": 0
+    },
+    "baselineRelease": {
+      "warnings": 10,
+      "errors": 0
+    },
+    "labRelease": {
+      "warnings": 10,
+      "errors": 0
+    }
+  },
+  "capture": "Camera remains Active in original session/revision/timeline, battery 100 percent, eight saved camera clips unchanged. Camera app was not updated.",
+  "limits": [
+    "Branding is a companion display/derivative layer; private camera originals and direct camera URLs remain unbranded.",
+    "Live TV branding depends on the companion live view remaining active. Independent background/local-phone-view TV composition is still T13.",
+    "Existing historical corner-detection fallback remains; watermark does not fabricate geometry.",
+    "T12 still needs to bake historical annotation journals into MP4 pixels.",
+    "TV showed intermittent buffering and a failed session resume during testing; closing test companions and reconnecting production restored playback. This is not a long-session stability acceptance.",
+    "Legacy corrected clip routes compile; their on-device share migration was not separately exercised."
+  ],
+  "upstreamOverlayReference": "https://developer.android.com/reference/androidx/media3/effect/StaticOverlaySettings.Builder"
+}
