@@ -1,12 +1,16 @@
 using SkyEye.Core.Analysis;
+using System.Collections.Immutable;
 
 namespace SkyEye.Core.Application;
 
-public sealed record ObserveTable(CameraScope Source, long AnalysisGeneration, long MediaGeneration, bool ReviewFrame = false) : SkyEyeCommand;
+public sealed record ObserveTable(CameraScope Source, long AnalysisGeneration, long MediaGeneration, bool ReviewFrame = false, bool IncludeChoices = false) : SkyEyeCommand;
 public enum ObservationOutcome { Ready, Unsettled, Unclear }
 public sealed record TableObservation(CameraScope Source, long AnalysisGeneration, long MediaGeneration, string Timeline,
     DateTimeOffset CapturedAt, long? SourceTimeUs, double FrameAgeMs, double AcquisitionMs, double VisionMs, double DurationMs,
-    long TableVersion, ObservationOutcome Outcome, string FrameSource);
+    long TableVersion, ObservationOutcome Outcome, string FrameSource)
+{
+    public ShotChoiceCatalog? Choices { get; init; }
+}
 public interface ITableObservationEffect
 {
     bool IsCurrent(ObserveTable request);
@@ -24,6 +28,15 @@ public sealed class TableObservationEffect(Func<TableAnalysisSession> session, F
         await session().UpdateAsync(cancellation, request.ReviewFrame).WaitAsync(cancellation).ConfigureAwait(false);
         cancellation.ThrowIfCancellationRequested();
         if (!IsCurrent(request) || session().State.Observation is not { } observed) throw new InvalidOperationException("The source changed. Request a fresh observation.");
+        if (request.IncludeChoices)
+        {
+            var timer = System.Diagnostics.Stopwatch.StartNew();
+            var shots = observed.Outcome == ObservationOutcome.Ready ? session().ComputeChoices(request.AnalysisGeneration, observed.TableVersion) : [];
+            var table = session().State.Table!;
+            var group = Enum.Parse<AdviceTargetGroup>(table.Group, ignoreCase: true);
+            observed = observed with { Choices = new(request.Source, table.Version, group, table.CapturedAt, table.CapturedAt.AddSeconds(15),
+                shots.Select(s => new ShotChoice(s.Id, s.Type, s.Pocket)).ToImmutableArray()), DurationMs = observed.DurationMs + timer.Elapsed.TotalMilliseconds };
+        }
         return observed with { MediaGeneration = request.MediaGeneration };
     }
 }
@@ -67,7 +80,13 @@ public sealed partial class AppCoordinator
                 receipt = Receipt(envelope, CommandOutcome.Failed, error ?? "The displayed frame is too old for current advice.");
             else
             {
-                Volatile.Write(ref state, state with { Observation = result, Version = checked(state.Version + 1) });
+                var next = state;
+                if (result.Choices is { } catalog)
+                {
+                    var published = SceneCommand(new(envelope.OperationId, CommandOrigin.System, state.Version, new PublishShotCatalog(catalog)));
+                    if (published is not null) next = published;
+                }
+                Volatile.Write(ref state, next with { Observation = result, Version = checked(state.Version + 1) });
                 Notify(state);
                 receipt = Receipt(envelope, CommandOutcome.Applied, result.Outcome switch
                 { ObservationOutcome.Ready => "Table observed.", ObservationOutcome.Unclear => "Table unclear. Review the frame before requesting advice.", _ => "Table observed; settlement is not established. Request another observation when the balls are still." }) with { Observation = result };

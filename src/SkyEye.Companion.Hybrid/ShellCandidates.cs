@@ -34,20 +34,42 @@ public sealed partial class ShellSession
         if (!active || foreground is null || EditingTable) return;
         if (expectedVersion != app.State.Version) { ShowError("The controls changed. Try again."); return; }
         ClearSceneCheck();
-        if (mode == ShotDisplayMode.Cycling)
-        {
-            await RefreshShotChoicesAsync(foreground.Token);
-            expectedVersion = app.State.Version;
-        }
-        var result = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, expectedVersion, new SetShotDisplay(target, mode)), foreground.Token);
+        var result = await ExecuteApplicationCommandAsync(new(Guid.NewGuid(), CommandOrigin.Touch, expectedVersion, new SetShotDisplay(target, mode)), foreground.Token);
         if (!result.Succeeded) ShowError(result.Message);
         else { shotLoopFaulted = false; EnsureShotLoop(); RenderShotScenes(); Publish(); }
     });
     public Task PinShotAsync(long expectedVersion, SceneTarget target, long tableVersion, string id) => MainThread.InvokeOnMainThreadAsync(async () =>
     {
         if (!active || foreground is null || EditingTable || !CurrentShotCatalog) { ShowError("That layout changed. Check the latest choices."); return; }
-        var result = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, expectedVersion, new PinShot(target, tableVersion, id)), foreground.Token);
+        var result = await ExecuteApplicationCommandAsync(new(Guid.NewGuid(), CommandOrigin.Touch, expectedVersion, new PinShot(target, tableVersion, id)), foreground.Token);
         if (!result.Succeeded) ShowError(result.Message); else { RenderShotScenes(); Publish(); }
+    });
+    public Task ShowRequestedChoicesAsync(long expectedVersion, SceneTarget target) => MainThread.InvokeOnMainThreadAsync(async () =>
+    {
+        if (!active || foreground is null || EditingTable || expectedVersion != app.State.Version) return;
+        await RefreshShotChoicesAsync(foreground.Token);
+        await SetShotDisplayAsync(app.State.Version, target, ShotDisplayMode.Cycling);
+    });
+    public SkyEyeState CommandState => app.State;
+    public Task ShowCuePathAsync(long expectedVersion, long tableVersion, string id) => ExecuteApplicationCommandAsync(
+        new(Guid.NewGuid(), CommandOrigin.Touch, expectedVersion, new ShowAnnotation(SceneTarget.Phone, tableVersion, id, ShotAnnotations.CueBallPath)));
+    public ObserveTable? ObservationRequest => player is null || table.State.Source is not { } source ? null : new(source, table.State.Generation, MediaGeneration());
+    public Task<CommandReceipt> ExecuteApplicationCommandAsync(CommandEnvelope request, CancellationToken cancellation = default) => MainThread.InvokeOnMainThreadAsync(async () =>
+    {
+        if (!active || disposed || EditingTable) return new CommandReceipt(request.OperationId, CommandOutcome.Rejected, app.State.Version, "Use the active application surface.");
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellation, foreground?.Token ?? CancellationToken.None);
+        var receipt = await app.DispatchAsync(request, linked.Token);
+        if (receipt.Succeeded)
+        {
+            if (request.Command is ObserveTable { IncludeChoices: true } && table.State.Table is { } observed)
+                shotCarousel.Use(table.State.Choices, observed.CapturedAt);
+            var target = request.Command switch { SetShotDisplay c => c.Target, PinShot c => c.Target, ShowShot c => c.Target, ShowAnnotation c => c.Target, ClearAnnotations c => c.Target, _ => (SceneTarget?)null };
+            if (target is SceneTarget.Tv or SceneTarget.Both && TvReplaySelected) { tvReplay.Clear(); tvLive.Clear(); PlayTv(); }
+            if (target is SceneTarget.Phone or SceneTarget.Both && selection.Kind == ViewingSource.LocalClip
+                && request.Command is ClearAnnotations or SetShotDisplay { Mode: ShotDisplayMode.Live }) await WatchLiveAsync();
+            RenderShotScenes(); Publish();
+        }
+        return receipt;
     });
     void EnsureShotLoop()
     {
@@ -99,7 +121,7 @@ public sealed partial class ShellSession
         shotMessage = "Checking table…";
         try
         {
-            await UpdateTableAsync(token);
+            await UpdateTableAsync(token, includeChoices: true);
             token.ThrowIfCancellationRequested();
             var snapshot = table.State; var layout = snapshot.Table;
             if (!CanAnalyzeTable || EditingTable || snapshot.Source != app.State.Camera.Scope || layout is null || !layout.Settled || layout.Occluded)
@@ -107,13 +129,8 @@ public sealed partial class ShellSession
                 shotMessage = layout?.Occluded == true ? "Table unclear or obstructed. Request again when clear." : "Settlement is not established. Request again when the balls are still.";
                 await ClearShotCatalogAsync(token); return;
             }
-            var confirmed = table.Confirm(layout.Version);
-            shotCarousel.Update(confirmed, DateTimeOffset.UtcNow);
-            var catalog = new ShotChoiceCatalog(snapshot.Source, confirmed.Version, app.State.Advice.TargetGroup, confirmed.CapturedAt, shotCarousel.ExpiresAt,
-                shotCarousel.Candidates.Select(s => new ShotChoice(s.Id, s.Type, s.Pocket)).ToImmutableArray());
-            var result = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.System, app.State.Version, new PublishShotCatalog(catalog)), token);
-            if (!result.Succeeded) { await ClearShotCatalogAsync(token); shotMessage = "Layout changed. Request fresh choices."; }
-            else shotMessage = shotCarousel.Candidates.Length == 0 ? "No clear candidate for this layout and group." : "";
+            shotCarousel.Use(snapshot.Choices, layout.CapturedAt);
+            shotMessage = shotCarousel.Candidates.Length == 0 ? "No clear candidate for this layout and group." : "";
         }
         catch (OperationCanceledException) { throw; }
         catch (Exception) { await ClearShotCatalogAsync(token); shotMessage = "Table view unavailable. Request again when useful."; }
@@ -135,14 +152,14 @@ public sealed partial class ShellSession
                 ShotDisplayMode.Pinned => shotCarousel.Candidates.FirstOrDefault(s => s.Id == surface.ShotId && s.TableVersion == surface.TableVersion),
                 _ => null
             } : null;
-            var key = $"{mediaGeneration}:{surface.Mode}:{shot?.Id}:{app.State.ShotChoices.ExpiresAt.ToUnixTimeMilliseconds()}:{shotMessage}:{CanAnalyzeTable}:{EditingTable}:{Playing}:{(shot is null ? Android.OS.SystemClock.ElapsedRealtime() / 2000 : 0)}";
+            var key = $"{mediaGeneration}:{surface.Mode}:{surface.Annotations}:{shot?.Id}:{app.State.ShotChoices.ExpiresAt.ToUnixTimeMilliseconds()}:{shotMessage}:{CanAnalyzeTable}:{EditingTable}:{Playing}:{(shot is null ? Android.OS.SystemClock.ElapsedRealtime() / 2000 : 0)}";
             if (last == key) return;
             last = key;
-            if (surface.Mode == ShotDisplayMode.Live || selection.Kind != ViewingSource.Live || EditingTable || !Playing) { player.ClearTableSceneForTarget(tv); return; }
+            if (surface.Mode is not (ShotDisplayMode.Cycling or ShotDisplayMode.Pinned) || selection.Kind != ViewingSource.Live || EditingTable || !Playing) { player.ClearTableSceneForTarget(tv); return; }
             var caption = shot is null ? CandidateStatus : $"{(surface.Mode == ShotDisplayMode.Pinned ? "Pinned" : "Candidate " + (index + 1) + " / " + shotCarousel.Candidates.Length)} · {shot.Type} · pocket {shot.Pocket + 1}";
             try
             {
-                var scene = shot is not null ? ShotSceneProjection.Create(shot, snapshot.Calibration!, ++sceneRevision, mediaGeneration, now, app.State.ShotChoices.ExpiresAt, caption, surface.Mode == ShotDisplayMode.Pinned)
+                var scene = shot is not null ? ShotSceneProjection.Create(shot, snapshot.Calibration!, ++sceneRevision, mediaGeneration, now, app.State.ShotChoices.ExpiresAt, caption, surface.Mode == ShotDisplayMode.Pinned, surface.Annotations)
                     : new TableScene(++sceneRevision, mediaGeneration, snapshot.Table?.Version ?? 0, now, TimeSpan.FromSeconds(3), [], [], [], caption);
                 if (!player.SetTableSceneForTarget(JsonSerializer.Serialize(scene, sceneJson), tv)) last = "";
             }

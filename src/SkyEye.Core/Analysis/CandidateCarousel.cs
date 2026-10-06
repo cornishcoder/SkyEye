@@ -15,6 +15,7 @@ public sealed class CandidateCarousel
         Candidates = ShotPlanner.Suggest(state, now);
         ExpiresAt = state.CapturedAt.AddSeconds(15);
     }
+    public void Use(Shot[] computed, DateTimeOffset capturedAt) { Candidates = computed; ExpiresAt = capturedAt.AddSeconds(15); }
     public int Index(long monotonicMilliseconds, DateTimeOffset now) => Candidates.Length == 0 || now >= ExpiresAt ? -1
         : (int)(Math.Max(0, monotonicMilliseconds - OriginMilliseconds) / CycleMilliseconds % Candidates.Length);
     public Shot? Current(long monotonicMilliseconds, DateTimeOffset now)

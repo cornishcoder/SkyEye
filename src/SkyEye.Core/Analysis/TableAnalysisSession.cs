@@ -31,6 +31,8 @@ public sealed record TableAnalysisSnapshot(long Generation, CameraScope? Source,
     string CalibrationId, bool Picking, TableState? Table, VisionResult? Vision, byte[]? Jpeg)
 {
     public TableObservation? Observation { get; init; }
+    public Shot[] Choices { get; init; } = [];
+    public bool ChoicesComputed { get; init; }
 }
 public sealed record CalibrationDraft(long Generation, byte[] Jpeg, Point[]? Proposed);
 
@@ -66,7 +68,7 @@ public sealed class TableAnalysisSession(ITableFrameSource frames, ITableAnalyze
                 state = state with { Source = source, CameraIdentity = camera.CameraIdentity,
                     Calibration = changedCamera ? null : state.Calibration, CalibrationId = changedCamera ? "" : state.CalibrationId };
             }
-            if (group != targetGroup) { group = targetGroup; state = state with { Table = tracker.SetGroup(group) }; }
+            if (group != targetGroup) { group = targetGroup; state = state with { Table = tracker.SetGroup(group), Choices = [], ChoicesComputed = false }; }
         }
     }
     public bool RestoreCalibration()
@@ -89,7 +91,7 @@ public sealed class TableAnalysisSession(ITableFrameSource frames, ITableAnalyze
     void InvalidateLocked()
     {
         active?.Cancel(); tracker.Reset(); lastTimeline = null;
-        state = state with { Generation = checked(state.Generation + 1), Picking = false, Table = null, Vision = null, Jpeg = null, Observation = null };
+        state = state with { Generation = checked(state.Generation + 1), Picking = false, Table = null, Vision = null, Jpeg = null, Observation = null, Choices = [], ChoicesComputed = false };
     }
     public Task UpdateAsync(CancellationToken cancellation = default, bool reviewFrame = false)
     {
@@ -130,7 +132,7 @@ public sealed class TableAnalysisSession(ITableFrameSource frames, ITableAnalyze
                     {
                         using var post = PipelineDiagnostics.Measure("postProcessingMs");
                         var table = tracker.Observe(state.CalibrationId, frame.Timeline, frame.CapturedAt, detected.Balls, group, detected.Uncertain, detected.Obstructed);
-                        state = state with { Table = table, Vision = detected, Jpeg = reviewFrame ? frame.ReviewImage() : frame.Jpeg.Length == 0 ? null : frame.Jpeg,
+                        state = state with { Table = table, Vision = detected, Choices = [], ChoicesComputed = false, Jpeg = reviewFrame ? frame.ReviewImage() : frame.Jpeg.Length == 0 ? null : frame.Jpeg,
                             Observation = new(admitted.Source!, admitted.Generation, 0, frame.Timeline, frame.CapturedAt, frame.SourceTimeUs,
                                 (time.GetUtcNow() - frame.CapturedAt).TotalMilliseconds, acquisitionMs, detected.ElapsedMs, watch.Elapsed.TotalMilliseconds,
                                 table.Version, table.Occluded ? ObservationOutcome.Unclear : table.Settled ? ObservationOutcome.Ready : ObservationOutcome.Unsettled, frame.FrameSource) }; lastTimeline = frame.Timeline;
@@ -200,6 +202,18 @@ public sealed class TableAnalysisSession(ITableFrameSource frames, ITableAnalyze
             CheckEdit(expectedVersion); var table = tracker.Confirm(time.GetUtcNow()); state = state with { Table = table }; return table;
         }
     }
+    public Shot[] ComputeChoices(long expectedGeneration, long expectedTableVersion)
+    {
+        lock (gate)
+        {
+            if (state.Generation != expectedGeneration) throw new InvalidOperationException("The observation source changed.");
+            CheckEdit(expectedTableVersion);
+            var confirmed = tracker.Confirm(time.GetUtcNow());
+            if (state.ChoicesComputed) return state.Choices;
+            var choices = ShotPlanner.Suggest(confirmed, time.GetUtcNow());
+            state = state with { Table = confirmed, Choices = choices, ChoicesComputed = true }; return choices;
+        }
+    }
     public TableState Correct(long expectedVersion, string text)
     {
         lock (gate)
@@ -218,7 +232,7 @@ public sealed class TableAnalysisSession(ITableFrameSource frames, ITableAnalyze
             if (balls.Count(b => b.Kind == "cue") != 1 || balls.Count(b => b.Kind == "black") > 1 || balls.Count(b => b.Kind == "red") > 7 || balls.Count(b => b.Kind == "yellow") > 7)
                 throw new ArgumentException("Include one cue ball, at most one black, seven reds and seven yellows.");
             var table = tracker.Correct(balls, time.GetUtcNow()); active?.Cancel();
-            state = state with { Table = table, Generation = checked(state.Generation + 1), Observation = null }; return table;
+            state = state with { Table = table, Generation = checked(state.Generation + 1), Observation = null, Choices = [], ChoicesComputed = false }; return table;
         }
     }
     void CheckEdit(long expectedVersion)

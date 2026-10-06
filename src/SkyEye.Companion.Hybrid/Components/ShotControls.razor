@@ -19,6 +19,7 @@
     {
         var number = Session.ShotChoices.ToList().IndexOf(choice) + 1;
         <button class="secondary" disabled="@Busy" @onclick="() => Pin(choice, catalogVersion)">Pin candidate @number · @choice.Type · pocket @(choice.Pocket + 1)</button>
+        <button class="quiet" disabled="@Busy" @onclick="() => Session.ShowCuePathAsync(Version, catalogVersion, choice.Id)">Cue-ball path on phone · candidate @number</button>
     }
 </section>
 
@@ -28,7 +29,7 @@
     [Parameter] public long Version { get; set; }
     SceneTarget target = SceneTarget.Both;
     static string Mode(SurfacePresentation surface) => surface.Mode switch { ShotDisplayMode.Cycling => "cycling choices", ShotDisplayMode.Pinned => "pinned choice", _ => "live" };
-    Task Cycle() => Session.SetShotDisplayAsync(Version, target, ShotDisplayMode.Cycling);
+    Task Cycle() => Session.ShowRequestedChoicesAsync(Version, target);
     Task Live() => Session.SetShotDisplayAsync(Version, target, ShotDisplayMode.Live);
     Task Pin(ShotChoice choice, long catalogVersion) => Session.PinShotAsync(Version, target, catalogVersion, choice.Id);
 }

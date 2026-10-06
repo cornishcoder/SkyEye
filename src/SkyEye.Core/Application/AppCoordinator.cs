@@ -68,7 +68,7 @@ public sealed partial class AppCoordinator
                 {
                     SkyEyeState? updated = envelope.Command switch
                     {
-                        ShowShotChoices show => state with { Presentation = new(show.Enabled) },
+                        ShowShotChoices show => state with { Presentation = ForTarget(state.Presentation, SceneTarget.Both, new(show.Enabled ? ShotDisplayMode.Cycling : ShotDisplayMode.Live)) },
                         SetTargetGroup group when Enum.IsDefined(group.Group) => group.Group == state.Advice.TargetGroup ? state : ClearShotCatalog(state with { Advice = new(group.Group) }),
                         _ => SceneCommand(envelope)
                     };

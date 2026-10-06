@@ -4,6 +4,8 @@ public enum AdviceTargetGroup { Open, Red, Yellow, Black }
 public sealed record AdvicePreferences(AdviceTargetGroup TargetGroup);
 public sealed record PresentationPreferences(bool ShotChoicesEnabled)
 {
+    public bool PhoneCorrected { get; init; } = true;
+    public bool TvCorrected { get; init; }
     public SurfacePresentation Phone { get; init; } = new(ShotChoicesEnabled ? ShotDisplayMode.Cycling : ShotDisplayMode.Live);
     public SurfacePresentation Tv { get; init; } = new(ShotChoicesEnabled ? ShotDisplayMode.Cycling : ShotDisplayMode.Live);
 }

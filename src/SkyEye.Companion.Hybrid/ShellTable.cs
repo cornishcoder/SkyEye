@@ -55,14 +55,14 @@ public sealed partial class ShellSession
                 : state.Occluded ? "Uncertain or obstructed. Check the detections."
                 : !state.Settled ? "Wait for the table to settle." : state.Confirmed ? "Layout confirmed." : "Check every ball before confirming.");
     }
-    async Task UpdateTableAsync(CancellationToken token, bool reviewFrame = false)
+    async Task UpdateTableAsync(CancellationToken token, bool reviewFrame = false, bool includeChoices = false)
     {
         if (!CanAnalyzeTable) return;
         try
         {
             if (player is null || table.State.Source is not { } source) return;
             var receipt = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, app.State.Version,
-                new ObserveTable(source, table.State.Generation, MediaGeneration(), reviewFrame)), token);
+                new ObserveTable(source, table.State.Generation, MediaGeneration(), reviewFrame, includeChoices)), token);
             if (!receipt.Succeeded) shotMessage = receipt.Message;
         }
         catch (OperationCanceledException) { }

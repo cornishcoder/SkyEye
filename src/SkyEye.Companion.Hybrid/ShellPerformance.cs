@@ -36,10 +36,28 @@ public sealed partial class ShellSession
                 return await MainThread.InvokeOnMainThreadAsync(async () =>
                 {
                     if (player is null || table.State.Source is null) return HttpResponse.Json(new { error = "No active source" }, 409);
-                    var result = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Sky, app.State.Version,
-                        new ObserveTable(table.State.Source, table.State.Generation, MediaGeneration())), ct);
+                    var result = await ExecuteApplicationCommandAsync(new(Guid.NewGuid(), CommandOrigin.Sky, app.State.Version,
+                        new ObserveTable(table.State.Source, table.State.Generation, MediaGeneration(), IncludeChoices: r.Query.GetValueOrDefault("choices") == "1")), ct);
                     return HttpResponse.Json(result);
                 });
+            }
+            if (r.Method == "POST" && r.Path == "/command")
+            {
+                var input = r.Json<PerformanceSceneCommand>();
+                SkyEyeCommand command = input.Name switch
+                {
+                    "set_phone_presentation" => new SetShotDisplay(SceneTarget.Phone, input.Mode),
+                    "set_tv_presentation" => new SetShotDisplay(SceneTarget.Tv, input.Mode),
+                    "show_shot_choices" => new SetShotDisplay(input.Target, ShotDisplayMode.Cycling),
+                    "show_shot" => new ShowShot(input.Target, input.TableVersion, input.Number),
+                    "show_annotation" => new ShowAnnotation(input.Target, input.TableVersion, input.ShotId, input.Annotations),
+                    "clear_annotations" => new ClearAnnotations(input.Target),
+                    "set_table_correction" => new SetTableCorrection(input.Target, input.Enabled),
+                    _ => throw new ArgumentException("Unsupported presentation command")
+                };
+                var result = await ExecuteApplicationCommandAsync(new(input.OperationId == Guid.Empty ? Guid.NewGuid() : input.OperationId, input.Origin,
+                    input.ExpectedVersion ?? app.State.Version, command), ct);
+                return HttpResponse.Json(result);
             }
             if (r.Method != "GET" || r.Path != "/metrics") return HttpResponse.Json(new { error = "Not found" }, 404);
             return await MainThread.InvokeOnMainThreadAsync(() => HttpResponse.Json(new
@@ -50,6 +68,8 @@ public sealed partial class ShellSession
                 annotations = JsonSerializer.Deserialize<JsonElement>(player?.AnnotationMetrics() ?? "{}"),
                 encoder = JsonSerializer.Deserialize<JsonElement>(shotRelay?.Metrics ?? "{}"),
                 presentation = app.State.Presentation,
+                version = app.State.Version, choices = app.State.ShotChoices,
+                vision = table.State.Vision is { } vision ? new { vision.CircleCount, vision.Warnings, vision.ElapsedMs } : null,
                 capture = app.State.Camera.Capture.ToString(),
                 host = app.State.Camera.CanControl,
                 calibrated = HasTableCalibration
@@ -59,6 +79,9 @@ public sealed partial class ShellSession
         performanceServer.Start();
     }
     sealed record PerformanceCapture(CaptureAction Action);
+    sealed record PerformanceSceneCommand(string Name, SceneTarget Target = SceneTarget.Both, ShotDisplayMode Mode = ShotDisplayMode.Live,
+        long TableVersion = 0, int Number = 0, string ShotId = "", ShotAnnotations Annotations = ShotAnnotations.All, bool Enabled = false,
+        long? ExpectedVersion = null, Guid OperationId = default, CommandOrigin Origin = CommandOrigin.Sky);
     void StopPerformance() { if (performanceServer is not null) _ = performanceServer.DisposeAsync(); performanceServer = null; PipelineDiagnostics.Enabled = false; }
 }
 #endif
