@@ -31,7 +31,8 @@ public sealed class TableObservationEffect(Func<TableAnalysisSession> session, F
         cancellation.ThrowIfCancellationRequested();
         var snapshot = session().State;
         if (!IsCurrent(request) || snapshot.Observation is not { } observed || snapshot.Table is not { } layout
-            || layout.Version != observed.TableVersion || layout.CapturedAt != observed.CapturedAt)
+            || layout.Version != observed.TableVersion || layout.CapturedAt != observed.CapturedAt
+            || observed.DecodedReceipt is { } decoded && decoded.MediaGeneration != request.MediaGeneration)
             throw new InvalidOperationException("The source changed. Request a fresh observation.");
         observed = observed with { GameEvidence = new(new(snapshot.CameraIdentity!, observed.Timeline, request.AnalysisGeneration + 1, snapshot.CalibrationId, request.Source.ConnectionId.ToString("N")),
             layout.Balls.Select(b => new SkyEye.GameState.ObservedBall(b.Id, Enum.TryParse<SkyEye.GameState.BallColour>(b.Kind, true, out var colour) ? colour : SkyEye.GameState.BallColour.Unknown,

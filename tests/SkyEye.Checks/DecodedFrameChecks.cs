@@ -22,6 +22,14 @@ static class DecodedFrameChecks
         await session.UpdateAsync(reviewFrame: true);
         Check(frames.Last!.Disposed && frames.Last.Encodes == 1 && session.State.Jpeg?.SequenceEqual(new byte[] { 4, 5, 6 }) == true,
             "only a requested editor retains an encoded review image");
+        var effect = new TableObservationEffect(() => session, () => 8, () => true);
+        try
+        {
+            await effect.ExecuteAsync(new(camera.Scope!, session.State.Generation, 8), CancellationToken.None);
+            throw new Exception("Expected native generation rejection");
+        }
+        catch (InvalidOperationException) { }
+        Check(frames.Last!.Disposed, "a mismatched native decoder generation cannot escape through a current command");
         analyzer.Fail = true;
         try { await session.UpdateAsync(); throw new Exception("Expected native failure"); } catch (IOException) { }
         Check(frames.Last!.Disposed && session.State.Observation is null, "native error disposes image and clears old observation");
