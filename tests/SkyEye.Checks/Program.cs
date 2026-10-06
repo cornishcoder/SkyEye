@@ -105,6 +105,7 @@ await CameraControlAdapterChecks.Run();
 await TableAnalysisChecks.Run();
 await ClipLibraryChecks.Run();
 await RecentReplayChecks.Run();
+await RecentReplayHttpChecks.Run();
 await CameraReadEffectChecks.Run();
 
 sealed class TestTime : TimeProvider { DateTimeOffset current = DateTimeOffset.UtcNow; public override DateTimeOffset GetUtcNow() => current; public void Advance(int seconds) => current = current.AddSeconds(seconds); }

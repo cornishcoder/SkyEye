@@ -32,6 +32,7 @@ public sealed class CameraService : Service
     Engine? engine;
     Listener? captureListener;
     LocalHttpServer? server;
+    RecentReplayStore recentReplays = null!;
     PowerManager.WakeLock? wake;
     NsdManager? discovery;
     Registration? registration;
@@ -46,6 +47,7 @@ public sealed class CameraService : Service
         base.OnCreate(); Instance = this;
         root = FilesDir!.AbsolutePath; buffer = Path.Combine(root, "buffer"); clipDir = Path.Combine(root, "clips");
         Directory.CreateDirectory(buffer); Directory.CreateDirectory(clipDir);
+        recentReplays = new RecentReplayStore(Path.Combine(root, "recent-replays"));
         // Rolling history is ephemeral across process death; durable completed clips survive.
         foreach (var file in Directory.GetFiles(buffer)) File.Delete(file);
         foreach (var file in Directory.GetFiles(clipDir, "*.part")) File.Delete(file);
@@ -85,7 +87,7 @@ public sealed class CameraService : Service
             temperatureC = (battery?.GetIntExtra(BatteryManager.ExtraTemperature, 0) ?? 0) / 10.0,
             availableBytes = new StatFs(root).AvailableBytes, uptimeSeconds = (DateTimeOffset.UtcNow - armedAt).TotalSeconds,
             historySeconds = history.Where(x => x.Timeline == timeline).Sum(x => x.Duration),
-            error, readToken, sourceTimeUs = Engine.TimeUs(),
+            error, readToken, sourceTimeUs = Engine.TimeUs(), timeline, recentReplayVersion = 1,
             streamPath = $"/live/index.m3u8?access={readToken}", clipCount = clips.Count, addresses = Addresses(),
             width = 1920, height = 1080, fps = 30, bitrate = 6000000, completedFrames
         };
@@ -94,6 +96,22 @@ public sealed class CameraService : Service
     {
         if (request.Method == "OPTIONS") return HttpResponse.Text("");
         if (request.Path == "/status" && request.Method == "GET") return HttpResponse.Json(Status());
+        if (request.Method == "POST" && request.Path == "/replays/recent")
+        {
+            RequireViewing(request);
+            var replay = request.Json<RecentReplayRequest>(); RecentReplay.Validate(replay);
+            await mutations.WaitAsync(ct);
+            try
+            {
+                if (Authority.State != CaptureState.Active || replay.Timeline != timeline)
+                    throw new InvalidOperationException("An active camera recording is needed for recent replay.");
+                if (new StatFs(root).AvailableBytes < 256L * 1024 * 1024)
+                    throw new InvalidOperationException("Camera storage is low. Recent replay is unavailable.");
+                var asset = await recentReplays.CreateAsync(replay, (path, token) => AssembleRecentAsync(replay, path, token), ct);
+                return HttpResponse.Json(asset);
+            }
+            finally { mutations.Release(); }
+        }
         if (request.Path == "/table/snapshot" && request.Method == "GET")
         {
             Authority.Require(request.HostToken);
@@ -109,7 +127,13 @@ public sealed class CameraService : Service
         }
         if (request.Method is "GET" or "HEAD")
         {
-            if (!request.Query.TryGetValue("access", out var access) || access != readToken) throw new UnauthorizedAccessException("Reconnect to the camera to refresh viewing access.");
+            RequireViewing(request);
+            if (request.Path.StartsWith("/replays/"))
+            {
+                var id = request.Path[9..]; var asset = recentReplays.Find(id); var path = recentReplays.MediaPath(id);
+                if (asset is null || path is null) return HttpResponse.Json(new { error = "Temporary replay expired. Request recent footage again." }, 410);
+                return new(200, "video/mp4", FilePath: path, Headers: new() { ["ETag"] = '"' + asset.Clip.Sha256 + '"' });
+            }
             if (request.Path == "/clips") { lock (historyGate) return HttpResponse.Json(clips.ToArray()); }
             if (request.Path == "/live/index.m3u8") return Playlist();
             if (request.Path.StartsWith("/live/"))
@@ -188,6 +212,37 @@ public sealed class CameraService : Service
             return HttpResponse.Text(text.ToString(), "application/vnd.apple.mpegurl");
         }
     }
+    void RequireViewing(HttpRequest request)
+    {
+        if (!request.Query.TryGetValue("access", out var access) || access != readToken)
+            throw new UnauthorizedAccessException("Reconnect to the camera to refresh viewing access.");
+    }
+    async Task<(double Duration, long StartUs, long EndUs)> AssembleRecentAsync(RecentReplayRequest request, string output, CancellationToken ct)
+    {
+        // Capture end is fixed by the camera status sampled before this request.
+        // Closing an encoder segment does not stop or pause recording.
+        long now = Engine.TimeUs();
+        if (request.EndUs > now || now - request.EndUs > 30_000_000)
+            throw new InvalidOperationException("This replay request is too old. Request recent footage again.");
+        Task wait; lock (historyGate) wait = nextSegment.Task;
+        engine!.RequestBoundary();
+        try { await wait.WaitAsync(TimeSpan.FromSeconds(15), ct); }
+        catch (TimeoutException) { throw new InvalidOperationException("Camera is still finalising recent footage. Try again shortly."); }
+        RecentReplayWindow window;
+        lock (historyGate)
+        {
+            window = RecentReplay.Select(history, request, timeline, Engine.TimeUs());
+            foreach (var segment in window.Segments) pins[segment.Name] = pins.GetValueOrDefault(segment.Name) + 1;
+        }
+        try
+        {
+            await Task.Run(() => Engine.JoinClips(window.Segments.Select(s => Path.Combine(buffer, s.Name + ".mp4")).ToArray(),
+                window.Segments.Select(s => s.StartUs).ToArray(), window.EndUs, output));
+            ct.ThrowIfCancellationRequested();
+            return (Engine.Duration(output), window.StartUs, window.EndUs);
+        }
+        finally { lock (historyGate) foreach (var segment in window.Segments) { if (--pins[segment.Name] == 0) pins.Remove(segment.Name); } }
+    }
     async Task<HttpResponse> SaveAsync(int seconds, CancellationToken ct)
     {
         if (!ReplaySelection.Durations.Contains(seconds)) throw new ArgumentException("Unsupported replay duration.");
@@ -251,6 +306,7 @@ public sealed class CameraService : Service
             while (!lifetime.IsCancellationRequested)
             {
                 await Task.Delay(TimeSpan.FromSeconds(10), lifetime.Token);
+                recentReplays.Cleanup();
                 var status = JsonSerializer.Serialize(Status(), JsonDefaults.Options);
                 // Credentials and viewing/control tokens are deliberately omitted from metrics.
                 using var document = JsonDocument.Parse(status); var s = document.RootElement;
