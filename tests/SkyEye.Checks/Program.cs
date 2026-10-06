@@ -106,6 +106,7 @@ await TableAnalysisChecks.Run();
 await ClipLibraryChecks.Run();
 await RecentReplayChecks.Run();
 await RecordedGeometryChecks.Run();
+await RecordedRenderChecks.Run();
 await RecentReplayHttpChecks.Run();
 await CameraReadEffectChecks.Run();
 

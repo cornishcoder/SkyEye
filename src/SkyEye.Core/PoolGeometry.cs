@@ -40,6 +40,7 @@ public sealed class TableCalibration
         double denominator = coefficients[6] * image.X + coefficients[7] * image.Y + 1;
         return new((coefficients[0] * image.X + coefficients[1] * image.Y + coefficients[2]) / denominator, (coefficients[3] * image.X + coefficients[4] * image.Y + coefficients[5]) / denominator);
     }
+    public double[] MatrixValues() => coefficients.Append(1d).ToArray();
     public Point Unmap(Point table)
     {
         double a = coefficients[0], b = coefficients[1], c = coefficients[2], d = coefficients[3], e = coefficients[4], f = coefficients[5], g = coefficients[6], h = coefficients[7];
