@@ -1,0 +1,315 @@
+{
+  "unit": "T08 historical automatic pocket geometry and recording provenance",
+  "date": "2026-10-06",
+  "sourceSnapshotCommit": "2f79d2a16264fc812c0f0863a39f43c8abc41fa6",
+  "cameraImplementationCommit": "e83e50a57671a8d236e307e43e82662f3189979a",
+  "sourceChangeAfterCameraBuild": "Only geometry-journal malformed/null recovery changed; camera stamping and capture code unchanged.",
+  "productionApkSha256": "E54A79FA529663FAD543B5B4311E8346ADCE0293077C27BF609B303B95FDF5FE",
+  "cameraApkSha256": "AA1DC1524D682D15C7116E69CB2D5FAB137346919A9DA10A940ADFD660ED8012",
+  "deviceTestApkSha256": "BCFF8BF6A11B510AB75BF56B4662B40DD176BEDD8B40E613F8FBD74C69C9588B",
+  "updates": {
+    "uninstallOrClearData": false,
+    "userApprovedBriefCaptureBreak": true,
+    "cameraAndProductionInstalledInPlace": true,
+    "userPerformedStopReleaseAndArmRestart": true,
+    "signaturesUidAndStorageVerified": true
+  },
+  "checks": {
+    "labRelease": {
+      "errors": 0,
+      "warnings": 7
+    },
+    "retainedCompanionRelease": {
+      "errors": 0,
+      "warnings": 10
+    },
+    "cameraRelease": {
+      "errors": 0,
+      "warnings": 0
+    },
+    "coreHttp": "passed including geometry history/window/recovery and raw-before-export sequencing",
+    "agentUi": "passed",
+    "productionRelease": {
+      "errors": 0,
+      "warnings": 10
+    },
+    "nativeTestRelease": {
+      "errors": 0,
+      "warnings": 8
+    }
+  },
+  "schema": {
+    "unknown": "Changed/covered/weak/gapped observations and unobserved tail explicitly have null geometry",
+    "extractionVersion": 2,
+    "samples": "Actual extractor keyframe PTS, two-second requested cadence; agreement between adjacent observations only",
+    "scope": "Checksum, clock domain, timeline/origin, dimensions, rotation and extraction/transform version",
+    "clockDomains": {
+      "clipRelative": 0,
+      "cameraRecording": 1
+    },
+    "transformVersion": 1,
+    "version": 1,
+    "geometryScore": "Pocket contrast feature, not calibrated confidence"
+  },
+  "fixture": {
+    "meaning": "Twenty-second H.264 fixture derived from one labelled still with synthetic translation/dimming/cover/recovery. Not general detector accuracy.",
+    "report": "recorded-geometry-fixture.json",
+    "manifest": {
+      "source": "tests/fixtures/poolgame/pixel-racked-dim.jpg",
+      "sourceSha256": "2FB78E4BF06918F656F6FE30297B99695CEEBA738020E8E3105AAEC8BA5EA080",
+      "outputSha256": "6B7EAA71B3E2D21BFDE1083340E9C2FEF3B11BDAB32BD86FBF43BD2BA073A758",
+      "width": 1920,
+      "height": 1080,
+      "fps": 10,
+      "keyframeIntervalSeconds": 2,
+      "segments": [
+        {
+          "name": "original",
+          "startSeconds": 0,
+          "endSeconds": 4
+        },
+        {
+          "name": "moved",
+          "startSeconds": 4,
+          "endSeconds": 8
+        },
+        {
+          "name": "dim",
+          "startSeconds": 8,
+          "endSeconds": 12
+        },
+        {
+          "name": "covered",
+          "startSeconds": 12,
+          "endSeconds": 16
+        },
+        {
+          "name": "recovered",
+          "startSeconds": 16,
+          "endSeconds": 20
+        }
+      ],
+      "changes": {
+        "movementPixels": [
+          40,
+          20
+        ],
+        "dimMultiplier": 0.65,
+        "coveredRectanglePixels": [
+          0,
+          0,
+          300,
+          300
+        ]
+      },
+      "meaning": "Controlled fixture derived from one labelled still, not evidence of general moving-camera or dim-light accuracy."
+    }
+  },
+  "actualReplay": {
+    "sourceChecksumVerified": true,
+    "acknowledgement": {
+      "clip": {
+        "id": "f0886d81ca2647aeb5b8e0e49d211942",
+        "name": "Recent replay",
+        "duration": 15.035,
+        "bytes": 11584350,
+        "sha256": "49315162AE0320AB901BFDDA3AA6AC157833B2051C6A8FD1B0E521B8966E3267",
+        "createdAt": "2026-10-06T09:29:39.7011985+01:00",
+        "portraitRotation": 90,
+        "recordingOrigin": {
+          "timeline": "afbdc86e83d44dd8aaa7702bcc1dcc38",
+          "startUs": 3524323012,
+          "width": 1920,
+          "height": 1080,
+          "rotation": 0
+        }
+      },
+      "timeline": "afbdc86e83d44dd8aaa7702bcc1dcc38",
+      "startUs": 3524323012,
+      "endUs": 3539336932,
+      "expiresAt": "2026-10-06T09:39:39.7011985+01:00"
+    },
+    "acceptedGeometrySeconds": 13.000922,
+    "permanentClipCreated": false,
+    "report": "recorded-geometry-real.json",
+    "originAndRestartRecoveryVerified": true
+  },
+  "productionDownload": {
+    "nativeGeometry": {
+      "clipId": "ddcefc614f334743bdb74c66763e8797",
+      "source": {
+        "contentSha256": "56529E5B1E9D02F04B4D52967E8E93F0D7687CDF4470C41EE00FCE51CE81A95B",
+        "clock": 0,
+        "timeline": "56529E5B1E9D02F04B4D52967E8E93F0D7687CDF4470C41EE00FCE51CE81A95B",
+        "startUs": 0,
+        "durationUs": 31369300,
+        "width": 1920,
+        "height": 1080,
+        "rotation": 0,
+        "transformVersion": 1,
+        "extractionVersion": 2,
+        "endUs": 31369300
+      },
+      "intervalCount": 9,
+      "acceptedGeometrySeconds": 12.001210999999998,
+      "firstAccepted": {
+        "startUs": 0,
+        "endUs": 2000222,
+        "geometryVersion": 1,
+        "layout": {
+          "corners": [
+            {
+              "x": 0.06052083174387614,
+              "y": 0.14907407407407408,
+              "length": 0.16089080345381176
+            },
+            {
+              "x": 0.9005208333333333,
+              "y": 0.0712962962962963,
+              "length": 0.9033387698604164
+            },
+            {
+              "x": 0.9005208333333333,
+              "y": 0.911296307599103,
+              "length": 1.2811708439982235
+            },
+            {
+              "x": 0.06635416746139526,
+              "y": 0.8698147809063946,
+              "length": 0.8723420364872566
+            }
+          ],
+          "sidePockets": [
+            {
+              "x": 0.445520814259847,
+              "y": 0.10759258976689091,
+              "length": 0.4583284426167588
+            },
+            {
+              "x": 0.45135415395100914,
+              "y": 0.8931481255425348,
+              "length": 1.000716816311675
+            }
+          ],
+          "contrast": 0.5372549019607843
+        }
+      }
+    },
+    "clock": "Legacy clip-relative: original camera timeline absent; never borrowed current live corners",
+    "availableUi": [
+      {
+        "text": "Portrait clip available locally, with room audio.",
+        "enabled": "true",
+        "bounds": "[123,1291][1221,1363]"
+      },
+      {
+        "text": "SkyEye 04 Oct 10:03:42 · 31s",
+        "enabled": "true",
+        "bounds": "[123,1900][1221,1978]"
+      },
+      {
+        "text": "Saved on this phone",
+        "enabled": "true",
+        "bounds": "[123,2233][1221,2311]"
+      },
+      {
+        "text": "Saved on this phone",
+        "enabled": "true",
+        "bounds": "[123,2884][1221,2884]"
+      },
+      {
+        "text": "Saved on this phone",
+        "enabled": "true",
+        "bounds": "[123,2884][1221,2884]"
+      },
+      {
+        "text": "Saved on this phone",
+        "enabled": "true",
+        "bounds": "[123,2884][1221,2884]"
+      },
+      {
+        "text": "SkyEye 04 Oct 10:03:42· available offline",
+        "enabled": "true",
+        "bounds": "[123,2884][1221,2884]"
+      },
+      {
+        "text": "Personal key saved on this phone.",
+        "enabled": "true",
+        "bounds": "[123,2884][1221,2884]"
+      }
+    ],
+    "currentExport": "Existing portrait pixels, not perspective correction. Geometry now prepared first.",
+    "clipId": "ddcefc614f334743bdb74c66763e8797"
+  },
+  "capture": {
+    "before": {
+      "state": "Active",
+      "sessionId": "8deaede270b046c99a653573025c6f31",
+      "revision": 3,
+      "clipCount": 8,
+      "battery": 17,
+      "error": ""
+    },
+    "savedCatalogueUnchanged": true,
+    "beforeUpdate": {
+      "state": "Stopped",
+      "sessionId": "8deaede270b046c99a653573025c6f31",
+      "revision": 6,
+      "clipCount": 8,
+      "battery": 13,
+      "error": ""
+    },
+    "final": {
+      "state": "Active",
+      "sessionId": "a061183702574b4b837c57fc2f61fe7e",
+      "revision": 3,
+      "timeline": "afbdc86e83d44dd8aaa7702bcc1dcc38",
+      "clipCount": 8,
+      "battery": 43,
+      "error": ""
+    },
+    "restarted": {
+      "state": "Active",
+      "sessionId": "a061183702574b4b837c57fc2f61fe7e",
+      "revision": 2,
+      "timeline": "afbdc86e83d44dd8aaa7702bcc1dcc38",
+      "historySeconds": 80.99842233333335,
+      "clipCount": 8,
+      "battery": 14,
+      "error": ""
+    }
+  },
+  "finalTv": {
+    "connected": true,
+    "playing": true,
+    "stream": "scene",
+    "positionMs": 258324,
+    "playerState": 2,
+    "idleReason": 0
+  },
+  "approvalReview": {
+    "specificRationaleProvided": false,
+    "reason": "blocked by policy",
+    "rejectedActions": [
+      "Combined camera stop/update/restart",
+      "Camera re-arm with context brief"
+    ],
+    "resolvedForTask": "User performed capture controls; guarded installers and read-only replay checks succeeded",
+    "briefOrUsbFixProven": false
+  },
+  "limitations": [
+    "Video perspective correction not rendered by T08; T09/T10 do that, T11/T12 record and bake annotations.",
+    "Sparse keyframe sampling can miss movement between agreeing samples. Uncertain intervals remain safe fallback.",
+    "Real footage has a roughly two-second detector gap and final 33.4 ms uncertain tail.",
+    "New permanent-save origin implemented/built; actual origin route tested through temporary replay to avoid a permanent test clip.",
+    "Long-session resource/latency and broader detector accuracy remain separate acceptance gates."
+  ],
+  "cleanup": {
+    "nativeTestCompleted": true,
+    "ownedAdbForwardRemoved": true,
+    "personalKeyUsed": false,
+    "cameraLeftActive": true,
+    "tvReturnedToLive": true
+  },
+  "next": "T09 recorded/paused compositor, then T10 corrected self-contained shared MP4s"
+}
