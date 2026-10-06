@@ -84,7 +84,7 @@ public sealed partial class MainActivity
         var scope = tableAnalysis.State;
         if (scope.Source is null || scope.Calibration is null) return;
         var receipt = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, app.State.Version,
-            new ObserveTable(scope.Source, scope.Generation, LegacyMediaGeneration())), lifetime.Token);
+            new ObserveTable(scope.Source, scope.Generation, LegacyMediaGeneration(), ReviewFrame: true)), lifetime.Token);
         if (!receipt.Succeeded) { Say(receipt.Message); return; }
         if (lifetime.IsCancellationRequested) return;
         if (tableAnalysis.State.Jpeg is { } jpeg) SetTableImage(jpeg);

@@ -32,7 +32,7 @@ public sealed partial class MainActivity
                 try { new AnnotationJournalStore(System.IO.Path.Combine(FilesDir!.AbsolutePath,"recorded-annotations")).Preserve(clip); }
                 catch(Exception) { Android.Util.Log.Warn("SkyEyeAnnotations","Saved clip acknowledged; annotation retention unavailable."); }
             })), cameraEffects, observations: new TableObservationEffect(() => tableAnalysis, LegacyMediaGeneration, () => resumed && !offline));
-        tableAnalysis = new(new CameraTableFrameSource(client, () => app.State.Camera), new VisionAnalyzer(),
+        tableAnalysis = new(new PlayerTableFrameSource(() => player, () => app.State.Camera, () => resumed && !offline), new VisionAnalyzer(),
             new CameraCalibrationStore(ApplicationContext!, () => client.Address));
         // Service binding runs before UI observers; delayed UI notifications must
         // not leave a late frame/edit attached to an obsolete camera or group.
@@ -136,7 +136,7 @@ public sealed partial class MainActivity
         {
             if (next.Presentation.ShotChoicesEnabled)
             {
-                if (connected && currentState == "Active") { offline = false; player.SetMuted(true); player.Play(stream); }
+                if (connected && currentState == "Active" && offline) { offline = false; player.SetMuted(true); player.Play(PhoneStream); }
                 StartCandidateOverlay();
             }
             else { PauseCandidateOverlay(); ClearCandidatePresentation("Candidate overlay is off."); }

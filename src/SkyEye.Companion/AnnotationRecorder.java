@@ -46,6 +46,12 @@ final class AnnotationRecorder {
         }catch(JSONException ignored){}
     }
     synchronized String drain(){String result=observations.toString();observations=new JSONArray();return result;}
+    synchronized String frameMetrics(long media){try{
+        long now=System.nanoTime();long[] selected=null;for(long[] f:frames)if(f[1]<=now)selected=f;
+        if(media!=generation||selected==null||timeline.isEmpty()||android.os.SystemClock.elapsedRealtime()-referenceAt>10000||now-selected[1]>250000000L)return "{}";
+        double age=(referenceUs-selected[0])/1000d+android.os.SystemClock.elapsedRealtime()-referenceAt;
+        return new JSONObject().put("mediaGeneration",generation).put("timeline",timeline).put("sourceUs",selected[0]).put("ageEstimateMs",age).toString();
+    }catch(Exception ignored){return "{}";}}
     synchronized String metrics(){try{return new JSONObject().put("mapped",!timeline.isEmpty()&&!frames.isEmpty())
         .put("phoneSourceUs",phoneUs).put("tvSourceUs",tvUs).put("pending",observations.length()).put("overflow",overflow)
         .put("sourceAgeEstimateMs",phoneUs<0?JSONObject.NULL:(referenceUs-phoneUs)/1000d+android.os.SystemClock.elapsedRealtime()-referenceAt)

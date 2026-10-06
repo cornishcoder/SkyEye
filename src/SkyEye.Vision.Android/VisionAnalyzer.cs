@@ -33,8 +33,21 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer
     }
     public VisionResult Analyze(byte[] jpeg, TableCalibration calibration, CancellationToken cancellation = default)
     {
-        Load(); cancellation.ThrowIfCancellationRequested(); var watch = Stopwatch.StartNew(); var warnings = new List<string>();
-        using var source = Decode(jpeg); using var warped = Warp(source.Value, calibration);
+        Load(); using var source = Decode(jpeg); return AnalyzePixels(source.Value, calibration, cancellation);
+    }
+    public VisionResult Analyze(TableFrame frame, TableCalibration calibration, CancellationToken cancellation = default)
+    {
+        if (frame.Image is not BitmapTableImage pixels) return Analyze(frame.Jpeg, calibration, cancellation);
+        Load(); cancellation.ThrowIfCancellationRequested();
+        using var rgba = new MatLease(new Mat()); using var bgr = new MatLease(new Mat());
+        using (PipelineDiagnostics.Measure("bitmapConversionMs"))
+        { Utils.BitmapToMat(pixels.Bitmap, rgba.Value); Imgproc.CvtColor(rgba.Value, bgr.Value, Imgproc.ColorRgba2bgr); }
+        return AnalyzePixels(bgr.Value, calibration, cancellation);
+    }
+    VisionResult AnalyzePixels(Mat source, TableCalibration calibration, CancellationToken cancellation)
+    {
+        cancellation.ThrowIfCancellationRequested(); var watch = Stopwatch.StartNew(); var warnings = new List<string>();
+        using var warped = Warp(source, calibration);
         using var hsv = new MatLease(new Mat()); Imgproc.CvtColor(warped.Value, hsv.Value, Imgproc.ColorBgr2hsv);
         byte[] pixels = Read(hsv.Value); var circles = Detect(hsv.Value, pixels, settings.InitialVotes);
         var first = circles.Select(c => Classify(c, pixels)).ToArray();

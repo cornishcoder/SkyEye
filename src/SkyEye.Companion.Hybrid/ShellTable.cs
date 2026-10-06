@@ -20,7 +20,7 @@ public sealed partial class ShellSession
     public void SetEditorLimit(double height) { if (height > 0 && Math.Abs(editorLimit - height) > .5) { editorLimit = height; Changed?.Invoke(); } }
     public bool CanAnalyzeTable => app.State.Camera is { CanControl: true, Capture: CaptureState.Active } && selection.Kind == ViewingSource.Live;
     public bool HasTableCalibration => table.State.Calibration is not null;
-    public bool CanCorrectTable => CanAnalyzeTable && table.State is { Calibration: not null, Table: not null, Jpeg: not null };
+    public bool CanCorrectTable => CanAnalyzeTable && table.State is { Calibration: not null, Table: not null };
     public bool CanApplyTableEdit => CanAnalyzeTable && edit.Matches(table.State.Generation, table.State.Table?.Version)
         && (edit.Mode == TableEditMode.Correction || edit.Corners.Count == 4);
     public AdviceTargetGroup TargetGroup => app.State.Advice.TargetGroup;
@@ -31,7 +31,7 @@ public sealed partial class ShellSession
         : edit.Mode == TableEditMode.Correction ? edit.AddingBall ? "Tap the cloth to add the selected colour." : "Tap a ball to select it. Drag it to adjust its position."
         : edit.Corners.Count == 4 ? "Use these points only if they match the cloth boundary." : "Tap the cloth corners in order: top right, bottom right, bottom left, top left.";
 
-    void InitializeTable() => table = new(new CameraTableFrameSource(client, () => app.State.Camera), new VisionAnalyzer(),
+    void InitializeTable() => table = new(new PlayerTableFrameSource(() => player, () => app.State.Camera, () => active && selection.Kind == ViewingSource.Live), new VisionAnalyzer(),
         new CameraCalibrationStore(Android.App.Application.Context, () => client.Address));
     void BindTable(SkyEyeState state) => table.Bind(state.Camera, state.Advice.TargetGroup.ToString().ToLowerInvariant());
     void ObserveTable()
@@ -55,14 +55,14 @@ public sealed partial class ShellSession
                 : state.Occluded ? "Uncertain or obstructed. Check the detections."
                 : !state.Settled ? "Wait for the table to settle." : state.Confirmed ? "Layout confirmed." : "Check every ball before confirming.");
     }
-    async Task UpdateTableAsync(CancellationToken token)
+    async Task UpdateTableAsync(CancellationToken token, bool reviewFrame = false)
     {
         if (!CanAnalyzeTable) return;
         try
         {
             if (player is null || table.State.Source is not { } source) return;
             var receipt = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, app.State.Version,
-                new ObserveTable(source, table.State.Generation, MediaGeneration())), token);
+                new ObserveTable(source, table.State.Generation, MediaGeneration(), reviewFrame)), token);
             if (!receipt.Succeeded) shotMessage = receipt.Message;
         }
         catch (OperationCanceledException) { }
@@ -86,7 +86,7 @@ public sealed partial class ShellSession
     public Task CorrectTableAsync() => MainThread.InvokeOnMainThreadAsync(async () =>
     {
         if (!CanAnalyzeTable || foreground is null || EditingTable) return;
-        var token = foreground.Token; await UpdateTableAsync(token);
+        var token = foreground.Token; await UpdateTableAsync(token, reviewFrame: true);
         var snapshot = table.State;
         if (token.IsCancellationRequested || disposed || snapshot is not { Calibration: { } calibration, Table: { } layout, Jpeg: { } jpeg }) return;
         DismissNotice(); suppressShotLoop = true; StopShotScenes(closeRelay:false); ClearSceneCheck();

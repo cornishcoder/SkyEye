@@ -2,7 +2,7 @@ using SkyEye.Core.Analysis;
 
 namespace SkyEye.Core.Application;
 
-public sealed record ObserveTable(CameraScope Source, long AnalysisGeneration, long MediaGeneration) : SkyEyeCommand;
+public sealed record ObserveTable(CameraScope Source, long AnalysisGeneration, long MediaGeneration, bool ReviewFrame = false) : SkyEyeCommand;
 public enum ObservationOutcome { Ready, Unsettled, Unclear }
 public sealed record TableObservation(CameraScope Source, long AnalysisGeneration, long MediaGeneration, string Timeline,
     DateTimeOffset CapturedAt, long? SourceTimeUs, double FrameAgeMs, double AcquisitionMs, double VisionMs, double DurationMs,
@@ -21,7 +21,7 @@ public sealed class TableObservationEffect(Func<TableAnalysisSession> session, F
     public async Task<TableObservation> ExecuteAsync(ObserveTable request, CancellationToken cancellation)
     {
         if (!IsCurrent(request) || session().State.Calibration is null) throw new InvalidOperationException("Calibrate an active live table before observing it.");
-        await session().UpdateAsync(cancellation).WaitAsync(cancellation).ConfigureAwait(false);
+        await session().UpdateAsync(cancellation, request.ReviewFrame).WaitAsync(cancellation).ConfigureAwait(false);
         cancellation.ThrowIfCancellationRequested();
         if (!IsCurrent(request) || session().State.Observation is not { } observed) throw new InvalidOperationException("The source changed. Request a fresh observation.");
         return observed with { MediaGeneration = request.MediaGeneration };

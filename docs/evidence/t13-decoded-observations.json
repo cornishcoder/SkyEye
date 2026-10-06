@@ -1,0 +1,781 @@
+{
+  "receipts": [
+    {
+      "operationId": "949ee68d-df62-4419-baad-8d047d9c7c7a",
+      "outcome": 0,
+      "decisionVersion": 4,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "17c7485d-9b81-4883-b6c2-a28d854017de",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "6b89aadb6bce4e5a9f9b1a6b478884e9",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+        "capturedAt": "2026-10-06T15:50:09.5056884+01:00",
+        "sourceTimeUs": 26369313522,
+        "frameAgeMs": 857.8401,
+        "acquisitionMs": 10.7674,
+        "visionMs": 244.8391,
+        "durationMs": 277.8309,
+        "tableVersion": 1,
+        "outcome": 2,
+        "frameSource": "decoded-live-texture"
+      },
+      "succeeded": true
+    },
+    {
+      "operationId": "89f86ee9-ac76-4524-be4d-d33557645278",
+      "outcome": 0,
+      "decisionVersion": 5,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "17c7485d-9b81-4883-b6c2-a28d854017de",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "6b89aadb6bce4e5a9f9b1a6b478884e9",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+        "capturedAt": "2026-10-06T15:50:10.1387277+01:00",
+        "sourceTimeUs": 26369946911,
+        "frameAgeMs": 751.4398,
+        "acquisitionMs": 6.8612,
+        "visionMs": 145.6978,
+        "durationMs": 170.4701,
+        "tableVersion": 1,
+        "outcome": 2,
+        "frameSource": "decoded-live-texture"
+      },
+      "succeeded": true
+    },
+    {
+      "operationId": "c7502014-a70c-4ace-905c-d51b2777dadc",
+      "outcome": 0,
+      "decisionVersion": 6,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "17c7485d-9b81-4883-b6c2-a28d854017de",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "6b89aadb6bce4e5a9f9b1a6b478884e9",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+        "capturedAt": "2026-10-06T15:50:10.6391852+01:00",
+        "sourceTimeUs": 26370446955,
+        "frameAgeMs": 741.9393,
+        "acquisitionMs": 9.7801,
+        "visionMs": 117.3124,
+        "durationMs": 143.9413,
+        "tableVersion": 1,
+        "outcome": 2,
+        "frameSource": "decoded-live-texture"
+      },
+      "succeeded": true
+    },
+    {
+      "operationId": "86ca3874-483e-479f-b246-42e4f1d47acc",
+      "outcome": 0,
+      "decisionVersion": 7,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "17c7485d-9b81-4883-b6c2-a28d854017de",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "6b89aadb6bce4e5a9f9b1a6b478884e9",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+        "capturedAt": "2026-10-06T15:50:11.1387163+01:00",
+        "sourceTimeUs": 26370947000,
+        "frameAgeMs": 742.1483,
+        "acquisitionMs": 11.8037,
+        "visionMs": 126.0455,
+        "durationMs": 153.2163,
+        "tableVersion": 1,
+        "outcome": 2,
+        "frameSource": "decoded-live-texture"
+      },
+      "succeeded": true
+    },
+    {
+      "operationId": "c1fbb4ce-59cb-4795-8fe0-e239320f35ce",
+      "outcome": 0,
+      "decisionVersion": 8,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "17c7485d-9b81-4883-b6c2-a28d854017de",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "6b89aadb6bce4e5a9f9b1a6b478884e9",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+        "capturedAt": "2026-10-06T15:50:11.6728915+01:00",
+        "sourceTimeUs": 26371480377,
+        "frameAgeMs": 737.6443,
+        "acquisitionMs": 19.1251,
+        "visionMs": 114.6964,
+        "durationMs": 149.2788,
+        "tableVersion": 2,
+        "outcome": 2,
+        "frameSource": "decoded-live-texture"
+      },
+      "succeeded": true
+    },
+    {
+      "operationId": "9f82797d-0e50-4b41-bbfa-0bee398370f2",
+      "outcome": 0,
+      "decisionVersion": 9,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "17c7485d-9b81-4883-b6c2-a28d854017de",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "6b89aadb6bce4e5a9f9b1a6b478884e9",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+        "capturedAt": "2026-10-06T15:50:12.1392464+01:00",
+        "sourceTimeUs": 26371947088,
+        "frameAgeMs": 736.6603,
+        "acquisitionMs": 14.548,
+        "visionMs": 106.524,
+        "durationMs": 141.5119,
+        "tableVersion": 3,
+        "outcome": 2,
+        "frameSource": "decoded-live-texture"
+      },
+      "succeeded": true
+    },
+    {
+      "operationId": "23d3804c-d458-4b55-bb46-63b332655171",
+      "outcome": 0,
+      "decisionVersion": 10,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "17c7485d-9b81-4883-b6c2-a28d854017de",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "6b89aadb6bce4e5a9f9b1a6b478884e9",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+        "capturedAt": "2026-10-06T15:50:12.6723746+01:00",
+        "sourceTimeUs": 26372480344,
+        "frameAgeMs": 705.8757,
+        "acquisitionMs": 13.2466,
+        "visionMs": 107.9873,
+        "durationMs": 135.725,
+        "tableVersion": 4,
+        "outcome": 2,
+        "frameSource": "decoded-live-texture"
+      },
+      "succeeded": true
+    },
+    {
+      "operationId": "200687d3-ecd7-42df-83ed-b8222270db97",
+      "outcome": 0,
+      "decisionVersion": 11,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "17c7485d-9b81-4883-b6c2-a28d854017de",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "6b89aadb6bce4e5a9f9b1a6b478884e9",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+        "capturedAt": "2026-10-06T15:50:13.1393612+01:00",
+        "sourceTimeUs": 26372947044,
+        "frameAgeMs": 709.2487,
+        "acquisitionMs": 13.5568,
+        "visionMs": 110.8757,
+        "durationMs": 142.1102,
+        "tableVersion": 5,
+        "outcome": 2,
+        "frameSource": "decoded-live-texture"
+      },
+      "succeeded": true
+    },
+    {
+      "operationId": "0e5b32de-ddff-4993-b34f-9510b584f956",
+      "outcome": 0,
+      "decisionVersion": 12,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "17c7485d-9b81-4883-b6c2-a28d854017de",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "6b89aadb6bce4e5a9f9b1a6b478884e9",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+        "capturedAt": "2026-10-06T15:50:13.6062545+01:00",
+        "sourceTimeUs": 26373413755,
+        "frameAgeMs": 704.8712,
+        "acquisitionMs": 10.9607,
+        "visionMs": 99.3641,
+        "durationMs": 125.8316,
+        "tableVersion": 6,
+        "outcome": 2,
+        "frameSource": "decoded-live-texture"
+      },
+      "succeeded": true
+    },
+    {
+      "operationId": "c5c84c34-e013-4d64-b1ce-eadbbe3e8333",
+      "outcome": 0,
+      "decisionVersion": 13,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "17c7485d-9b81-4883-b6c2-a28d854017de",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "6b89aadb6bce4e5a9f9b1a6b478884e9",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+        "capturedAt": "2026-10-06T15:50:14.0722143+01:00",
+        "sourceTimeUs": 26373880466,
+        "frameAgeMs": 730.1916,
+        "acquisitionMs": 11.9752,
+        "visionMs": 103.573,
+        "durationMs": 132.8941,
+        "tableVersion": 7,
+        "outcome": 2,
+        "frameSource": "decoded-live-texture"
+      },
+      "succeeded": true
+    },
+    {
+      "operationId": "50ce06f3-46d6-42d8-a957-0355c840beb5",
+      "outcome": 0,
+      "decisionVersion": 14,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "17c7485d-9b81-4883-b6c2-a28d854017de",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "6b89aadb6bce4e5a9f9b1a6b478884e9",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+        "capturedAt": "2026-10-06T15:50:14.5432473+01:00",
+        "sourceTimeUs": 26374347344,
+        "frameAgeMs": 731.4462,
+        "acquisitionMs": 8.6904,
+        "visionMs": 122.3822,
+        "durationMs": 153.2957,
+        "tableVersion": 7,
+        "outcome": 2,
+        "frameSource": "decoded-live-texture"
+      },
+      "succeeded": true
+    },
+    {
+      "operationId": "255303a4-b6a8-4da2-a7af-30c521c04c92",
+      "outcome": 0,
+      "decisionVersion": 15,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "17c7485d-9b81-4883-b6c2-a28d854017de",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "6b89aadb6bce4e5a9f9b1a6b478884e9",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+        "capturedAt": "2026-10-06T15:50:15.0384606+01:00",
+        "sourceTimeUs": 26374843166,
+        "frameAgeMs": 815.674,
+        "acquisitionMs": 10.2633,
+        "visionMs": 186.1858,
+        "durationMs": 213.9052,
+        "tableVersion": 8,
+        "outcome": 2,
+        "frameSource": "decoded-live-texture"
+      },
+      "succeeded": true
+    },
+    {
+      "operationId": "232e152e-ef66-41a9-87a2-81d6f03be416",
+      "outcome": 0,
+      "decisionVersion": 16,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "17c7485d-9b81-4883-b6c2-a28d854017de",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "6b89aadb6bce4e5a9f9b1a6b478884e9",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+        "capturedAt": "2026-10-06T15:50:15.6434214+01:00",
+        "sourceTimeUs": 26375447388,
+        "frameAgeMs": 687.7247,
+        "acquisitionMs": 14.7396,
+        "visionMs": 93.5243,
+        "durationMs": 124.6438,
+        "tableVersion": 9,
+        "outcome": 2,
+        "frameSource": "decoded-live-texture"
+      },
+      "succeeded": true
+    },
+    {
+      "operationId": "beee3dc9-7cfb-4068-808a-21fadc51fb56",
+      "outcome": 0,
+      "decisionVersion": 17,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "17c7485d-9b81-4883-b6c2-a28d854017de",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "6b89aadb6bce4e5a9f9b1a6b478884e9",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+        "capturedAt": "2026-10-06T15:50:16.1099192+01:00",
+        "sourceTimeUs": 26375914100,
+        "frameAgeMs": 692.6168,
+        "acquisitionMs": 7.485,
+        "visionMs": 105.0266,
+        "durationMs": 128.9627,
+        "tableVersion": 9,
+        "outcome": 2,
+        "frameSource": "decoded-live-texture"
+      },
+      "succeeded": true
+    },
+    {
+      "operationId": "78b17004-7fcf-4911-9d8f-3ba11a42993f",
+      "outcome": 0,
+      "decisionVersion": 18,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "17c7485d-9b81-4883-b6c2-a28d854017de",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "6b89aadb6bce4e5a9f9b1a6b478884e9",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+        "capturedAt": "2026-10-06T15:50:16.5434377+01:00",
+        "sourceTimeUs": 26376347477,
+        "frameAgeMs": 717.3823,
+        "acquisitionMs": 9.4894,
+        "visionMs": 99.3824,
+        "durationMs": 129.1474,
+        "tableVersion": 9,
+        "outcome": 2,
+        "frameSource": "decoded-live-texture"
+      },
+      "succeeded": true
+    },
+    {
+      "operationId": "728d9d79-0263-42a2-9a04-50ddc7ccc8c2",
+      "outcome": 0,
+      "decisionVersion": 19,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "17c7485d-9b81-4883-b6c2-a28d854017de",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "6b89aadb6bce4e5a9f9b1a6b478884e9",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+        "capturedAt": "2026-10-06T15:50:17.0097303+01:00",
+        "sourceTimeUs": 26376814177,
+        "frameAgeMs": 733.1204,
+        "acquisitionMs": 10.4606,
+        "visionMs": 128.8523,
+        "durationMs": 157.5623,
+        "tableVersion": 10,
+        "outcome": 2,
+        "frameSource": "decoded-live-texture"
+      },
+      "succeeded": true
+    },
+    {
+      "operationId": "17fc0ba8-f638-431a-b5f4-5d359f41c5cb",
+      "outcome": 0,
+      "decisionVersion": 20,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "17c7485d-9b81-4883-b6c2-a28d854017de",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "6b89aadb6bce4e5a9f9b1a6b478884e9",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+        "capturedAt": "2026-10-06T15:50:17.509902+01:00",
+        "sourceTimeUs": 26377314222,
+        "frameAgeMs": 761.4543,
+        "acquisitionMs": 7.2228,
+        "visionMs": 144.3413,
+        "durationMs": 166.6739,
+        "tableVersion": 11,
+        "outcome": 2,
+        "frameSource": "decoded-live-texture"
+      },
+      "succeeded": true
+    },
+    {
+      "operationId": "39966d50-994c-47cc-8345-6490f836590f",
+      "outcome": 0,
+      "decisionVersion": 21,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "17c7485d-9b81-4883-b6c2-a28d854017de",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "6b89aadb6bce4e5a9f9b1a6b478884e9",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+        "capturedAt": "2026-10-06T15:50:18.0099424+01:00",
+        "sourceTimeUs": 26377814266,
+        "frameAgeMs": 746.0486,
+        "acquisitionMs": 8.9685,
+        "visionMs": 134.6463,
+        "durationMs": 162.0799,
+        "tableVersion": 12,
+        "outcome": 2,
+        "frameSource": "decoded-live-texture"
+      },
+      "succeeded": true
+    },
+    {
+      "operationId": "45bbd16a-b75f-4de1-b3b9-fd241d707719",
+      "outcome": 0,
+      "decisionVersion": 22,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "17c7485d-9b81-4883-b6c2-a28d854017de",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "6b89aadb6bce4e5a9f9b1a6b478884e9",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+        "capturedAt": "2026-10-06T15:50:18.5428916+01:00",
+        "sourceTimeUs": 26378347644,
+        "frameAgeMs": 757.3239,
+        "acquisitionMs": 8.3676,
+        "visionMs": 158.5649,
+        "durationMs": 182.1343,
+        "tableVersion": 12,
+        "outcome": 2,
+        "frameSource": "decoded-live-texture"
+      },
+      "succeeded": true
+    },
+    {
+      "operationId": "13b9d9ee-dac2-4db7-b9f3-17749199403b",
+      "outcome": 0,
+      "decisionVersion": 23,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "17c7485d-9b81-4883-b6c2-a28d854017de",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "6b89aadb6bce4e5a9f9b1a6b478884e9",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+        "capturedAt": "2026-10-06T15:50:19.076384+01:00",
+        "sourceTimeUs": 26378881022,
+        "frameAgeMs": 715.0915,
+        "acquisitionMs": 7.5239,
+        "visionMs": 117.7609,
+        "durationMs": 139.4312,
+        "tableVersion": 12,
+        "outcome": 2,
+        "frameSource": "decoded-live-texture"
+      },
+      "succeeded": true
+    }
+  ],
+  "metrics": {
+    "measuredAt": "2026-10-06T15:50:20.1191619+01:00",
+    "pipeline": {
+      "counts": {
+        "analysisRequests": 20,
+        "fullAnalyses": 20
+      },
+      "stages": {
+        "textureCopyMs": {
+          "n": 20,
+          "mean": 10.65248,
+          "p50": 9.7408,
+          "p95": 14.6948,
+          "latest": 7.4925
+        },
+        "frameAcquisitionMs": {
+          "n": 20,
+          "mean": 10.777880000000001,
+          "p50": 10.2591,
+          "p95": 14.7359,
+          "latest": 7.5217
+        },
+        "frameAgeMs": {
+          "n": 20,
+          "mean": 593.0551250000001,
+          "p50": 590.0016,
+          "p95": 609.7013,
+          "latest": 583.1877
+        },
+        "bitmapConversionMs": {
+          "n": 20,
+          "mean": 11.300945,
+          "p50": 11.2192,
+          "p95": 15.2338,
+          "latest": 9.1371
+        },
+        "visionMs": {
+          "n": 20,
+          "mean": 145.55355,
+          "p50": 131.839,
+          "p95": 203.5585,
+          "latest": 131.839
+        },
+        "postProcessingMs": {
+          "n": 20,
+          "mean": 0.13466499999999998,
+          "p50": 0.0463,
+          "p95": 0.5188,
+          "latest": 0.0442
+        },
+        "observationMs": {
+          "n": 20,
+          "mean": 160.00849000000002,
+          "p50": 147.4381,
+          "p95": 217.1774,
+          "latest": 142.9547
+        }
+      }
+    },
+    "player": {
+      "playing": true,
+      "mediaGeneration": 2,
+      "volume": 0,
+      "rotation": 90,
+      "width": 1920,
+      "height": 1080,
+      "positionMs": 34062,
+      "liveOffsetMs": null,
+      "bufferedMs": 274,
+      "decodedFrames": 1024,
+      "textureFrames": 896,
+      "textureFps": 22.024933350774447,
+      "releaseToTextureMs": -35.220186,
+      "textureAgeMs": 9.461979
+    },
+    "annotations": {
+      "mapped": true,
+      "phoneSourceUs": 26379214388,
+      "tvSourceUs": 26379281066,
+      "pending": 0,
+      "overflow": false,
+      "sourceAgeEstimateMs": 754.8769999742508,
+      "clockSampleAgeMs": 404
+    },
+    "encoder": {
+      "width": 1920,
+      "height": 1080,
+      "fps": 10,
+      "bitrate": 6000000,
+      "frames": 78,
+      "skipped": 0,
+      "segments": 5,
+      "failed": false,
+      "encodedPtsUs": 10320578,
+      "encodedFrame": {
+        "sceneVersion": 0,
+        "mediaGeneration": 2,
+        "tableVersion": 0,
+        "sourcePositionMs": 33816,
+        "paths": 0,
+        "markers": 0,
+        "watermarked": true,
+        "rectangular": true,
+        "pocketPixels": [
+          [
+            66.97675323486328,
+            93.48837280273438
+          ],
+          [
+            1853.023193359375,
+            93.48837280273438
+          ],
+          [
+            1853.0234375,
+            986.51171875
+          ],
+          [
+            66.97675323486328,
+            986.5116577148438
+          ]
+        ]
+      },
+      "phoneFrame": {
+        "sceneVersion": 0,
+        "mediaGeneration": 2,
+        "tableVersion": 0,
+        "sourcePositionMs": 33929,
+        "paths": 0,
+        "markers": 0
+      },
+      "presentation": {
+        "enabled": false,
+        "candidateCount": 0,
+        "capturedAt": 0,
+        "updatedAt": 0,
+        "expiresAt": 0,
+        "candidateIndex": -1
+      }
+    },
+    "presentation": {
+      "shotChoicesEnabled": false,
+      "phone": {
+        "mode": 0,
+        "shotId": null,
+        "tableVersion": 0
+      },
+      "tv": {
+        "mode": 0,
+        "shotId": null,
+        "tableVersion": 0
+      }
+    },
+    "capture": "Active",
+    "host": true,
+    "calibrated": true,
+    "observation": {
+      "source": {
+        "connectionId": "17c7485d-9b81-4883-b6c2-a28d854017de",
+        "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+        "sessionId": "6b89aadb6bce4e5a9f9b1a6b478884e9",
+        "hostGeneration": 2,
+        "captureRevision": 4
+      },
+      "analysisGeneration": 3,
+      "mediaGeneration": 2,
+      "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+      "capturedAt": "2026-10-06T15:50:19.076384+01:00",
+      "sourceTimeUs": 26378881022,
+      "frameAgeMs": 715.0915,
+      "acquisitionMs": 7.5239,
+      "visionMs": 117.7609,
+      "durationMs": 139.4312,
+      "tableVersion": 12,
+      "outcome": 2,
+      "frameSource": "decoded-live-texture"
+    }
+  }
+}

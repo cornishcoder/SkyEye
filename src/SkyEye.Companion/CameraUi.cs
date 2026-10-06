@@ -99,7 +99,7 @@ public sealed partial class MainActivity
             }
             else if (newConnection || previous.Reachability != CameraReachability.Reachable || previous.Capture != CaptureState.Active)
             {
-                player.SetMuted(true); player.Play(stream);
+                player.SetMuted(true); player.Play(PhoneStream);
             }
         }
     }
@@ -117,6 +117,8 @@ public sealed partial class MainActivity
         if (cameraEffects.Latest is not { } view || view.Connection != app.State.Camera) return;
         stream = view.Stream;
         var state = view.Status;
+        if (!offline && state.TryGetProperty("timeline", out var timeline) && state.TryGetProperty("sourceTimeUs", out var sourceTime))
+            player.SetRecordingClock(timeline.GetString()!, sourceTime.GetInt64(), LegacyMediaGeneration());
         status.Text = $"{view.Connection.Capture} · Battery {state.GetProperty("battery").GetInt32()}% · {state.GetProperty("temperatureC").GetDouble():0.0}°C\nReplay available: {state.GetProperty("historySeconds").GetDouble():0}s · " + OwnershipText(view.Connection);
         ConfigureCandidateCast(view.Connection.CanControl);
     }

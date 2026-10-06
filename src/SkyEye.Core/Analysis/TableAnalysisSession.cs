@@ -8,12 +8,17 @@ public sealed record VisionResult(Ball[] Balls, bool Uncertain, string[] Warning
 public interface ITableAnalyzer
 {
     VisionResult Analyze(byte[] jpeg, TableCalibration calibration, CancellationToken cancellation = default);
+    VisionResult Analyze(TableFrame frame, TableCalibration calibration, CancellationToken cancellation = default) => Analyze(frame.Jpeg, calibration, cancellation);
     Point[]? FindCorners(byte[] jpeg);
 }
-public sealed record TableFrame(byte[] Jpeg, DateTimeOffset CapturedAt, string Timeline)
+public interface ITableFrameImage : IDisposable { byte[] EncodeForReview(); }
+public sealed record TableFrame(byte[] Jpeg, DateTimeOffset CapturedAt, string Timeline) : IDisposable
 {
+    public ITableFrameImage? Image { get; init; }
     public long? SourceTimeUs { get; init; }
     public string FrameSource { get; init; } = "camera-snapshot";
+    public byte[] ReviewImage() => Jpeg.Length > 0 ? Jpeg : Image?.EncodeForReview() ?? throw new IOException("Review frame unavailable.");
+    public void Dispose() => Image?.Dispose();
 }
 public interface ITableFrameSource { Task<TableFrame> ReadAsync(CameraScope source, CancellationToken cancellation); }
 public interface ICalibrationStore
@@ -86,7 +91,7 @@ public sealed class TableAnalysisSession(ITableFrameSource frames, ITableAnalyze
         active?.Cancel(); tracker.Reset(); lastTimeline = null;
         state = state with { Generation = checked(state.Generation + 1), Picking = false, Table = null, Vision = null, Jpeg = null, Observation = null };
     }
-    public Task UpdateAsync(CancellationToken cancellation = default)
+    public Task UpdateAsync(CancellationToken cancellation = default, bool reviewFrame = false)
     {
         PipelineDiagnostics.Count("analysisRequests");
         lock (gate)
@@ -97,11 +102,11 @@ public sealed class TableAnalysisSession(ITableFrameSource frames, ITableAnalyze
             var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var admitted = state; var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellation); active = linked;
             pending = completed.Task;
-            _ = RunUpdateAsync(admitted, linked, completed);
+            _ = RunUpdateAsync(admitted, linked, completed, reviewFrame);
             return pending;
         }
     }
-    async Task RunUpdateAsync(TableAnalysisSnapshot admitted, CancellationTokenSource linked, TaskCompletionSource completed)
+    async Task RunUpdateAsync(TableAnalysisSnapshot admitted, CancellationTokenSource linked, TaskCompletionSource completed, bool reviewFrame)
     {
         var watch = System.Diagnostics.Stopwatch.StartNew();
         using var total = PipelineDiagnostics.Measure("observationMs");
@@ -109,11 +114,12 @@ public sealed class TableAnalysisSession(ITableFrameSource frames, ITableAnalyze
         {
             TableFrame frame;
             using (PipelineDiagnostics.Measure("frameAcquisitionMs")) frame = await frames.ReadAsync(admitted.Source!, linked.Token).ConfigureAwait(false);
+            using var frameLifetime = frame;
             var acquisitionMs = watch.Elapsed.TotalMilliseconds;
             PipelineDiagnostics.Sample("frameAgeMs", (time.GetUtcNow() - frame.CapturedAt).TotalMilliseconds);
             await analyzerGate.WaitAsync(linked.Token).ConfigureAwait(false);
             VisionResult detected;
-            try { PipelineDiagnostics.Count("fullAnalyses"); using var vision = PipelineDiagnostics.Measure("visionMs"); detected = await Task.Run(() => analyzer.Analyze(frame.Jpeg, admitted.Calibration!, linked.Token), linked.Token).ConfigureAwait(false); }
+            try { PipelineDiagnostics.Count("fullAnalyses"); using var vision = PipelineDiagnostics.Measure("visionMs"); detected = await Task.Run(() => analyzer.Analyze(frame, admitted.Calibration!, linked.Token), linked.Token).ConfigureAwait(false); }
             finally { analyzerGate.Release(); }
             lock (gate)
             {
@@ -124,7 +130,7 @@ public sealed class TableAnalysisSession(ITableFrameSource frames, ITableAnalyze
                     {
                         using var post = PipelineDiagnostics.Measure("postProcessingMs");
                         var table = tracker.Observe(state.CalibrationId, frame.Timeline, frame.CapturedAt, detected.Balls, group, detected.Uncertain, detected.Obstructed);
-                        state = state with { Table = table, Vision = detected, Jpeg = frame.Jpeg,
+                        state = state with { Table = table, Vision = detected, Jpeg = reviewFrame ? frame.ReviewImage() : frame.Jpeg.Length == 0 ? null : frame.Jpeg,
                             Observation = new(admitted.Source!, admitted.Generation, 0, frame.Timeline, frame.CapturedAt, frame.SourceTimeUs,
                                 (time.GetUtcNow() - frame.CapturedAt).TotalMilliseconds, acquisitionMs, detected.ElapsedMs, watch.Elapsed.TotalMilliseconds,
                                 table.Version, table.Occluded ? ObservationOutcome.Unclear : table.Settled ? ObservationOutcome.Ready : ObservationOutcome.Unsettled, frame.FrameSource) }; lastTimeline = frame.Timeline;
@@ -153,18 +159,19 @@ public sealed class TableAnalysisSession(ITableFrameSource frames, ITableAnalyze
         }
         try
         {
-            var frame = await frames.ReadAsync(admitted.Source!, linked.Token).ConfigureAwait(false);
+            using var frame = await frames.ReadAsync(admitted.Source!, linked.Token).ConfigureAwait(false);
+            var review = frame.ReviewImage();
             await analyzerGate.WaitAsync(linked.Token).ConfigureAwait(false);
             Point[]? proposed;
-            try { proposed = await Task.Run(() => analyzer.FindCorners(frame.Jpeg), linked.Token).ConfigureAwait(false); }
+            try { proposed = await Task.Run(() => analyzer.FindCorners(review), linked.Token).ConfigureAwait(false); }
             finally { analyzerGate.Release(); }
             lock (gate)
             {
                 linked.Token.ThrowIfCancellationRequested();
                 if (disposed || state.Generation != admitted.Generation || state.Source != admitted.Source || !state.Picking)
                     throw new InvalidOperationException("The camera or calibration changed. Select a fresh table view.");
-                state = state with { Jpeg = frame.Jpeg };
-                return new(state.Generation, frame.Jpeg, proposed);
+                state = state with { Jpeg = review };
+                return new(state.Generation, review, proposed);
             }
         }
         catch

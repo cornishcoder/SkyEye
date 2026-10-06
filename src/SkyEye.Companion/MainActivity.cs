@@ -42,6 +42,7 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
     bool connected => app.State.Camera.ConnectionId != Guid.Empty && app.State.Camera.Reachability is CameraReachability.Reachable or CameraReachability.Unreachable;
     string currentState => app.State.Camera.Capture?.ToString() ?? "";
     string stream = "";
+    string PhoneStream => cameraEffects.Latest?.PhoneStream ?? stream;
     SkyVoiceSession? sky;
     public override void OnConfigurationChanged(Android.Content.Res.Configuration config) { base.OnConfigurationChanged(config); }
     protected override void OnCreate(Bundle? savedInstanceState)
@@ -76,7 +77,7 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
         root.AddView(player.View, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, (int)(260 * Resources!.DisplayMetrics!.Density)));
         viewerStatus = Label("Live viewing is silent. Saved clips include room sound.", 13); root.AddView(viewerStatus);
         BuildCandidateOverlayUi(root);
-        var viewRow = Row(root); Add(viewRow, "Watch live", () => _ = ActionAsync(async () => { await RefreshAsync(); if (app.State.Camera.Reachability != CameraReachability.Reachable || app.State.Camera.Capture != CaptureState.Active) { Say("An active, reachable camera is needed for live viewing."); return; } offline = false; player.SetMuted(true); player.Play(stream); }));
+        var viewRow = Row(root); Add(viewRow, "Watch live", () => _ = ActionAsync(async () => { await RefreshAsync(); if (app.State.Camera.Reachability != CameraReachability.Reachable || app.State.Camera.Capture != CaptureState.Active) { Say("An active, reachable camera is needed for live viewing."); return; } offline = false; player.SetMuted(true); player.Play(PhoneStream); }));
         Add(viewRow, "Portrait / landscape", () => { portrait = !portrait; player.SetPortrait(portrait); });
         try { castListener = new CastListener(this); cast = new Bridge.CastBridge(this, castListener); viewRow.AddView(cast.Button, new LinearLayout.LayoutParams(56, 56)); }
         catch { root.AddView(Label("Cast is unavailable on this device.", 13)); }
