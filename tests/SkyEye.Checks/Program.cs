@@ -107,6 +107,7 @@ await ClipLibraryChecks.Run();
 await RecentReplayChecks.Run();
 await RecordedGeometryChecks.Run();
 await RecordedRenderChecks.Run();
+await RecordedAnnotationChecks.Run();
 await CorrectedClipChecks.Run();
 await RecentReplayHttpChecks.Run();
 await CameraReadEffectChecks.Run();
