@@ -1,0 +1,63 @@
+{
+  "measuredAt": "2026-10-06T18:39:33.0068351+01:00",
+  "service": {
+    "ready": true,
+    "video": {
+      "serviceOwned": true,
+      "gpuVideo": true,
+      "cpuVideoCopies": 0,
+      "playing": true,
+      "generation": 2,
+      "frames": 545,
+      "replacedFrames": 0,
+      "segments": 16,
+      "encodedSourceUs": 36532586688,
+      "frame": {
+        "sceneVersion": 0,
+        "mediaGeneration": 2,
+        "tableVersion": 0,
+        "sourcePositionMs": 0,
+        "paths": 0,
+        "markers": 0,
+        "sourceUs": 36532620033,
+        "rectangular": true,
+        "watermarked": true
+      },
+      "error": ""
+    },
+    "source": {
+      "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+      "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+      "geometry": "39EC59CE82DFFC0DC5E3971790BC511379D9D8A7D9B013FFABDF50F46D340A12"
+    }
+  },
+  "cast": {
+    "connected": true,
+    "playing": false,
+    "stream": "scene",
+    "positionMs": 17602,
+    "playerState": 4,
+    "idleReason": 0,
+    "liveEdgeLagMs": 1113,
+    "liveEdgeOutcome": "accepted"
+  },
+  "pipeline": {
+    "counts": {},
+    "stages": {}
+  },
+  "playlistTags": [
+    "#EXTM3U",
+    "#EXT-X-VERSION:3",
+    "#EXT-X-INDEPENDENT-SEGMENTS",
+    "#EXT-X-TARGETDURATION:1",
+    "#EXT-X-MEDIA-SEQUENCE:29",
+    "#EXTINF:0.566711,",
+    "#EXTINF:0.600056,",
+    "#EXTINF:0.600055,",
+    "#EXTINF:0.500045,",
+    "#EXTINF:0.500044,",
+    "#EXTINF:0.500045,",
+    "#EXTINF:0.500044,",
+    "#EXTINF:0.500044,"
+  ]
+}

@@ -1,0 +1,66 @@
+{
+  "wifiDisabledSeconds": 12,
+  "before": {
+    "ready": true,
+    "video": {
+      "serviceOwned": true,
+      "gpuVideo": true,
+      "cpuVideoCopies": 0,
+      "playing": true,
+      "generation": 3,
+      "frames": 9859,
+      "replacedFrames": 0,
+      "segments": 16,
+      "encodedSourceUs": 34481883122,
+      "frame": {
+        "sceneVersion": 0,
+        "mediaGeneration": 3,
+        "tableVersion": 0,
+        "sourcePositionMs": 0,
+        "paths": 0,
+        "markers": 0,
+        "sourceUs": 34481916466,
+        "rectangular": true,
+        "watermarked": true
+      },
+      "error": ""
+    },
+    "source": {
+      "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+      "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+      "geometry": "39EC59CE82DFFC0DC5E3971790BC511379D9D8A7D9B013FFABDF50F46D340A12"
+    }
+  },
+  "immediatelyAfter": {
+    "ready": true,
+    "video": {
+      "serviceOwned": true,
+      "gpuVideo": true,
+      "cpuVideoCopies": 0,
+      "playing": false,
+      "generation": 3,
+      "frames": 9882,
+      "replacedFrames": 0,
+      "segments": 16,
+      "encodedSourceUs": 34482816544,
+      "frame": {
+        "sceneVersion": 0,
+        "mediaGeneration": 3,
+        "tableVersion": 0,
+        "sourcePositionMs": 0,
+        "paths": 0,
+        "markers": 0,
+        "sourceUs": 34482816544,
+        "rectangular": true,
+        "watermarked": true
+      },
+      "error": ""
+    },
+    "source": {
+      "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+      "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+      "geometry": "39EC59CE82DFFC0DC5E3971790BC511379D9D8A7D9B013FFABDF50F46D340A12"
+    }
+  },
+  "result": "Wi-Fi was enabled again but Android did not rejoin; user restarted Pixel 11. Receiver lease stopped the service after its grace period. Automatic outage recovery not passed."
+}

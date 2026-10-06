@@ -2,6 +2,8 @@
 
 The canonical requirement is the T14 section of `glow-up-plan.md`. T13 performance gates remain independently open. Preserve its requested-only perception and stored phone GPU correction.
 
+Required stored-rendering acceptance: with full table perception idle, Pixel 11 continuously displays a smooth perspective-corrected live table using the stored calibration transform. No periodic `VisionAnalyzer` or pocket detection is required to maintain that view. Phone rendering and requested composed TV delivery have independent owners.
+
 1. Add a bounded, source-scoped delivery lease and regression checks for foreground/background/lock/local replay, clear, source replacement and receiver-loss grace.
 2. Replace production TV texture readback with an independent service-owned Media3 decoder, external GLES texture, perspective/annotation compositor and hardware encoder. No activity, window or UI pixels enter this path. Start it only for an explicit connected-TV correction/annotation request. Plain live keeps this pipeline idle.
 3. Keep source-clock journalling and HTTP media delivery alive in the foreground media-playback service. Fence reconnection/source/geometry changes, expire advice, retain stable stored rendering and bounded segment storage. Test actual corrected TV moving pixels, background, lock and local playback separately.

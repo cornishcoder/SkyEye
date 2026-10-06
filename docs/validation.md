@@ -59,5 +59,9 @@ Saved clips use independent atomic metadata journals, rather than the proposed S
 
 ## T13 live-first runtime
 
-See [the engineering report](t13-performance-report.md) for physical measurements, source-scoped requested observations, zero idle perception, stored GPU rendering, native mux/command/geometry checks and explicit unpassed acceptance gates. T13 remains open; builds do not prove the 500 ms target or moving corrected TV footage.
+See [the engineering report](t13-performance-report.md) for physical measurements, source-scoped requested observations, zero idle perception, stored GPU rendering, native mux/command/geometry checks and explicit unpassed acceptance gates. The 500 ms target remains open; subsequent moving corrected TV evidence is in T14.
+
+## T14 independent background TV
+
+See [the T14 report](t14-report.md) for independent GPU decode/composition/encoding, camera-clock journalling, interrupted-export recovery and physical foreground/background/lock/local-preview checks. The user confirmed moving corrected watermarked Chromecast footage. The network interruption required a Pixel 11 restart; automatic recovery and the full endurance/audio/latency gate remain open. File-store fixtures pass frozen-journal retry, corrupt-source rejection and bounded recovery.
 

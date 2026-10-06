@@ -1,0 +1,26 @@
+{
+  "ready": true,
+  "video": {
+    "serviceOwned": true,
+    "gpuVideo": true,
+    "cpuVideoCopies": 0,
+    "playing": true,
+    "generation": 2,
+    "frames": 1985,
+    "replacedFrames": 0,
+    "segments": 16,
+    "encodedSourceUs": 34202391888,
+    "frame": {
+      "sceneVersion": 0,
+      "mediaGeneration": 2,
+      "tableVersion": 0,
+      "sourcePositionMs": 0,
+      "paths": 0,
+      "markers": 0,
+      "sourceUs": 34202425222,
+      "rectangular": true,
+      "watermarked": true
+    },
+    "error": ""
+  }
+}

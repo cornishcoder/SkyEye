@@ -1,0 +1,136 @@
+{
+  "before": {
+    "ready": true,
+    "video": {
+      "serviceOwned": true,
+      "gpuVideo": true,
+      "cpuVideoCopies": 0,
+      "playing": true,
+      "generation": 4,
+      "frames": 2664,
+      "replacedFrames": 0,
+      "segments": 16,
+      "encodedSourceUs": 36616290455,
+      "frame": {
+        "sceneVersion": 0,
+        "mediaGeneration": 4,
+        "tableVersion": 0,
+        "sourcePositionMs": 0,
+        "paths": 0,
+        "markers": 0,
+        "sourceUs": 36616323988,
+        "rectangular": true,
+        "watermarked": true
+      },
+      "error": ""
+    },
+    "source": {
+      "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+      "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+      "geometry": "39EC59CE82DFFC0DC5E3971790BC511379D9D8A7D9B013FFABDF50F46D340A12"
+    }
+  },
+  "during": {
+    "ready": true,
+    "video": {
+      "serviceOwned": true,
+      "gpuVideo": true,
+      "cpuVideoCopies": 0,
+      "playing": true,
+      "generation": 4,
+      "frames": 3249,
+      "replacedFrames": 0,
+      "segments": 16,
+      "encodedSourceUs": 36638283766,
+      "frame": {
+        "sceneVersion": 0,
+        "mediaGeneration": 4,
+        "tableVersion": 0,
+        "sourcePositionMs": 0,
+        "paths": 0,
+        "markers": 0,
+        "sourceUs": 36638317300,
+        "rectangular": true,
+        "watermarked": true
+      },
+      "error": ""
+    },
+    "source": {
+      "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+      "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+      "geometry": "39EC59CE82DFFC0DC5E3971790BC511379D9D8A7D9B013FFABDF50F46D340A12"
+    }
+  },
+  "phone": {
+    "playing": true,
+    "mediaGeneration": 5,
+    "volume": 1,
+    "rotation": 0,
+    "width": 1080,
+    "height": 1920,
+    "positionMs": 4960,
+    "liveOffsetMs": null,
+    "bufferedMs": 5374,
+    "decodedFrames": 3994,
+    "textureFrames": 3719,
+    "textureFps": 22.772090767234975,
+    "releaseToTextureMs": -39.402117,
+    "textureAgeMs": 19.861198
+  },
+  "cast": {
+    "connected": true,
+    "playing": true,
+    "stream": "scene",
+    "positionMs": 121126,
+    "playerState": 2,
+    "idleReason": 0,
+    "liveEdgeLagMs": 2363,
+    "liveEdgeOutcome": "accepted"
+  },
+  "pipeline": {
+    "counts": {},
+    "stages": {}
+  },
+  "measuredAt": "2026-10-06T18:41:17.7547251+01:00",
+  "later": {
+    "ready": true,
+    "video": {
+      "serviceOwned": true,
+      "gpuVideo": true,
+      "cpuVideoCopies": 0,
+      "playing": true,
+      "generation": 4,
+      "frames": 4131,
+      "replacedFrames": 0,
+      "segments": 16,
+      "encodedSourceUs": 36670724855,
+      "frame": {
+        "sceneVersion": 0,
+        "mediaGeneration": 4,
+        "tableVersion": 0,
+        "sourcePositionMs": 0,
+        "paths": 0,
+        "markers": 0,
+        "sourceUs": 36670758477,
+        "rectangular": true,
+        "watermarked": true
+      },
+      "error": ""
+    },
+    "source": {
+      "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+      "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+      "geometry": "39EC59CE82DFFC0DC5E3971790BC511379D9D8A7D9B013FFABDF50F46D340A12"
+    }
+  },
+  "laterCast": {
+    "connected": true,
+    "playing": true,
+    "stream": "scene",
+    "positionMs": 153822,
+    "playerState": 2,
+    "idleReason": 0,
+    "liveEdgeLagMs": 2363,
+    "liveEdgeOutcome": "accepted"
+  }
+}
