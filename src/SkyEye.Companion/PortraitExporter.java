@@ -19,7 +19,10 @@ public final class PortraitExporter {
             }
             public void onError(Composition composition,ExportResult result,ExportException exception){listener.onError("Portrait export failed: "+exception.getMessage());}
         }).build();
-        EditedMediaItem item=new EditedMediaItem.Builder(MediaItem.fromUri(android.net.Uri.fromFile(new java.io.File(input)))).setEffects(new Effects(Collections.emptyList(),Collections.singletonList(new ScaleAndRotateTransformation.Builder().setRotationDegrees(rotation).build()))).build();
+        android.media.MediaMetadataRetriever metadata=new android.media.MediaMetadataRetriever();int width,height;
+        try{metadata.setDataSource(input);width=Integer.parseInt(metadata.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH));height=Integer.parseInt(metadata.extractMetadata(android.media.MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT));}finally{try{metadata.release();}catch(java.io.IOException ignored){}}
+        if(rotation%180!=0){int swap=width;width=height;height=swap;}
+        EditedMediaItem item=new EditedMediaItem.Builder(MediaItem.fromUri(android.net.Uri.fromFile(new java.io.File(input)))).setEffects(new Effects(Collections.emptyList(),java.util.Arrays.asList(new ScaleAndRotateTransformation.Builder().setRotationDegrees(rotation).build(),WatermarkRenderer.effect(context,width,height)))).build();
         transformer.start(item,output);
     }
     public void cancel(){if(transformer!=null)transformer.cancel();}

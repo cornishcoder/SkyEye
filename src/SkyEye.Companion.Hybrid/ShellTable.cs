@@ -64,7 +64,7 @@ public sealed partial class ShellSession
     public Task CalibrateTableAsync() => MainThread.InvokeOnMainThreadAsync(async () =>
     {
         if (!CanAnalyzeTable || foreground is null || EditingTable) return;
-        var token = foreground.Token; DismissNotice(); suppressShotLoop = true; StopShotScenes(); ClearSceneCheck();
+        var token = foreground.Token; DismissNotice(); suppressShotLoop = true; StopShotScenes(closeRelay:false); ClearSceneCheck();
         try
         {
             await ClearShotCatalogAsync(token); player?.SetOverlay("{}");
@@ -81,7 +81,7 @@ public sealed partial class ShellSession
         var token = foreground.Token; await UpdateTableAsync(token);
         var snapshot = table.State;
         if (token.IsCancellationRequested || disposed || snapshot is not { Calibration: { } calibration, Table: { } layout, Jpeg: { } jpeg }) return;
-        DismissNotice(); suppressShotLoop = true; StopShotScenes(); ClearSceneCheck();
+        DismissNotice(); suppressShotLoop = true; StopShotScenes(closeRelay:false); ClearSceneCheck();
         try
         {
             await ClearShotCatalogAsync(token);

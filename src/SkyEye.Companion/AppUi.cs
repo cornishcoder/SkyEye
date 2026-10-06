@@ -11,6 +11,7 @@ public sealed partial class MainActivity
     CameraControlEffect cameraEffects = null!;
     TableAnalysisSession tableAnalysis = null!;
     CompanionClipService clipService = null!;
+    CompanionCorrectedClips correctedMedia = null!;
     IDisposable? effectSubscription;
     IDisposable? appSubscription;
     SkyEyeState renderedAppState = SkyEyeState.Empty;
@@ -38,6 +39,8 @@ public sealed partial class MainActivity
         effectSubscription = app.Subscribe(state => tableAnalysis.Bind(state.Camera, state.Advice.TargetGroup.ToString().ToLowerInvariant()));
         clipService = new(client, () => app.State.Camera,
             new ClipLibrary(System.IO.Path.Combine(FilesDir!.AbsolutePath, "clips")), new AndroidPortraitClipExporter(ApplicationContext!));
+        correctedMedia=new(client,()=>app.State.Camera,clipService,System.IO.Path.Combine(FilesDir!.AbsolutePath,"corrected-legacy-clips"),
+            new AndroidCorrectedClipRenderer(ApplicationContext!),new AnnotationJournalStore(System.IO.Path.Combine(FilesDir.AbsolutePath,"recorded-annotations")),port:8769);
     }
 
 #if SKYEYE_COMMAND_LAB

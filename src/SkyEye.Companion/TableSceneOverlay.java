@@ -34,7 +34,7 @@ final class TableSceneOverlay {
             if(marker.optInt("kind")==1){c.drawLine(x-rx,y,x+rx,y,p);c.drawLine(x,y-ry,x,y+ry,p);}}
     }
     void textLayer(Canvas c,int w,int h,Matrix imageMatrix,JSONObject value){if(value==null)return;Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);p.setTextSize(Math.max(16,Math.min(w,h)/25f));float pad=Math.max(10,Math.min(w,h)/50f),line=p.getTextSize()+pad;
-        String caption=value.optString("caption");if(!caption.isEmpty())banner(c,p,caption,pad,pad+line,w);
+        String caption=value.optString("caption");if(!caption.isEmpty())banner(c,p,caption,pad+Math.min(w,h)*.1f,pad+line,w);
         JSONObject score=value.optJSONObject("score");if(score!=null)banner(c,p,score.optString("leftName")+"  "+score.optInt("leftScore")+"     ·     "+score.optInt("rightScore")+"  "+score.optString("rightName"),pad,h-pad,w);
         JSONArray notes=value.optJSONArray("annotations");for(int i=0;i<notes.length();i++){JSONObject note=notes.optJSONObject(i),at=note.optJSONObject("point");float[] xy={(float)at.optDouble("x")*w,(float)at.optDouble("y")*h};imageMatrix.mapPoints(xy);float x=Math.max(pad,Math.min(w-pad-p.measureText(note.optString("text")),xy[0])),y=Math.max(line,Math.min(h-pad-line,xy[1]));banner(c,p,note.optString("text"),x,y,w);}
     }

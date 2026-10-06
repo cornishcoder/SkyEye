@@ -28,7 +28,15 @@ public sealed partial class MainActivity
         BindAppState();
     }
     void ConfigureCandidateCast(bool owns)
-        => cast?.Configure(overlayEnabled && resumed && overlayRelay is { Ready: true } ? overlayRelay.Url : stream, owns);
+    {
+        if(resumed&&connected&&!offline&&currentState=="Active"&&overlayRelay is null&&Android.OS.SystemClock.ElapsedRealtime()>=overlayRelayRetryAt)
+        {
+            overlayListener=new OverlayListener(this);
+            try{overlayRelay=new OverlayRelay(this,player,client.Address,overlayListener,()=>cast?.Metrics()??"{}");}
+            catch{overlayRelayRetryAt=Android.OS.SystemClock.ElapsedRealtime()+30000;}
+        }
+        cast?.Configure(resumed&&overlayRelay is{Ready:true}?overlayRelay.Url:stream,owns);
+    }
     void StartCandidateOverlay()
     {
         if (!resumed || lifetime.IsCancellationRequested) return;

@@ -171,7 +171,7 @@ public sealed partial class ShellSession : IDisposable
         player.SetMuted(selection.Kind != ViewingSource.LocalClip); player.Play(source);
         Android.Util.Log.Info("SkyEyeShell", "Native playback started: " + selection.Kind);
         selection.Started();
-        if (!TvReplaySelected) cast?.Configure(selection.Kind == ViewingSource.Live ? source : "", true);
+        if (!TvReplaySelected) cast?.Configure("", true); // Wait for the composed, watermarked live feed.
         EnsureShotLoop();
     }
     public void Stop()

@@ -45,7 +45,7 @@ public sealed partial class ShellSession
     });
     void EnsureShotLoop()
     {
-        if (!active || foreground is null || suppressShotLoop || shotLoopFaulted || EditingTable || table.State.Picking || SceneCheck || selection.Kind != ViewingSource.Live || !(app.State.Presentation.ShotChoicesEnabled || FrameTableRequested) || shotLifetime is not null) return;
+        if (!active || foreground is null || suppressShotLoop || shotLoopFaulted || EditingTable || table.State.Picking || SceneCheck || selection.Kind != ViewingSource.Live || shotLifetime is not null) return;
         shotLifetime = CancellationTokenSource.CreateLinkedTokenSource(foreground.Token);
         shotCarousel.Start(Android.OS.SystemClock.ElapsedRealtime()); nextShotRefresh = 0;
         _ = ShotLoopAsync(shotLifetime.Token);
@@ -58,7 +58,7 @@ public sealed partial class ShellSession
             do
             {
                 if (!active || token.IsCancellationRequested) return;
-                if (!(app.State.Presentation.ShotChoicesEnabled || FrameTableRequested)) { StopShotScenes(); return; }
+
                 if (!app.State.Presentation.ShotChoicesEnabled || !CanAnalyzeTable || !HasTableCalibration || EditingTable) await ClearShotCatalogAsync(token);
                 else if (Android.OS.SystemClock.ElapsedRealtime() >= nextShotRefresh)
                 {
@@ -157,7 +157,7 @@ public sealed partial class ShellSession
     void ManageShotRelay()
     {
         bool needed = !TvReplaySelected && active && Playing && selection.Kind == ViewingSource.Live && CanCastLive && !EditingTable
-            && (app.State.Presentation.Tv.Mode != ShotDisplayMode.Live || FrameTableRequested && AutomaticPocketsCurrent);
+            && true; // The composed feed also carries the permanent watermark in whole-camera mode.
         if (!needed) { CloseShotRelay(); return; }
         if (shotRelay is null && sceneRelayClosing.IsCompleted && Android.OS.SystemClock.ElapsedRealtime() >= relayRetryAt)
         {
@@ -176,10 +176,10 @@ public sealed partial class ShellSession
         if (relay is not null) { cast?.ReturnToSourceIfOwned(relay.Url, CanCastLive && effects.Latest is { } view ? view.Stream : ""); sceneRelayClosing = relay.DisposeAsync().AsTask(); }
         shotRelayListener?.Dispose(); shotRelayListener = null;
     }
-    void StopShotScenes()
+    void StopShotScenes(bool closeRelay=true)
     {
         shotLifetime?.Cancel(); shotLifetime?.Dispose(); shotLifetime = null;
-        CloseShotRelay(); shotCarousel.Clear(); player?.ClearTableScene(); lastPhoneShot = lastTvShot = "";
+        if(closeRelay)CloseShotRelay(); shotCarousel.Clear(); player?.ClearTableScene(); lastPhoneShot = lastTvShot = "";
     }
     sealed class ShotRelayListener(ShellSession owner) : Java.Lang.Object, Bridge.OverlayEncoder.IListener
     {
