@@ -1,0 +1,94 @@
+@using SkyEye.Core.Application
+@using G = SkyEye.GameState
+@{ var match = Session.Match; var disabled = Busy || working || !Session.CanManageMatch; }
+<section class="control-section match-controls" aria-label="Match controls">
+    <h2>Match</h2>
+    @if (!Session.CanManageMatch) { <p class="hint">Become camera host to manage this match.</p> }
+    @if (Session.MatchError is { } error) { <p class="notice" role="alert">@error</p> }
+    @if (match.Id is not null)
+    {
+        <p class="match-summary" role="status">@match.Score · race to @match.Target</p>
+        <p class="hint">@match.Status</p>
+        @if (match.CanStartFrame)
+        {
+            <p class="hint">Who starts @(match.FrameId is null ? "the first" : "the next") frame?</p>
+            @foreach (var player in match.Players)
+            { <button class="secondary" disabled="@disabled" @onclick="() => Run(() => Session.StartNextFrameAsync(match.Version, player.Id))">@player.Name starts the frame</button> }
+        }
+        @if (match.PlayingFrame)
+        {
+            <div class="match-actions">
+            @foreach (var player in match.Players)
+            { <button class="secondary" disabled="@(disabled || match.CurrentPlayer == player.Id)" @onclick="() => Run(() => Session.SetMatchTurnAsync(match.Version, player.Id))">@player.Name's turn</button> }
+            </div>
+            <p class="hint">Declare colours for @match.Name(match.CurrentPlayer)</p>
+            <div class="match-actions">
+                <button class="secondary" disabled="@disabled" @onclick="() => Run(() => Session.DeclareMatchColoursAsync(match.Version, match.CurrentPlayer, G.BallColour.Red))">Reds</button>
+                <button class="secondary" disabled="@disabled" @onclick="() => Run(() => Session.DeclareMatchColoursAsync(match.Version, match.CurrentPlayer, G.BallColour.Yellow))">Yellows</button>
+            </div>
+            <button class="quiet" disabled="@disabled" @onclick="() => Run(() => Session.DeclareMatchColoursAsync(match.Version))">Open table</button>
+            <p class="hint">Foul: @(match.Foul is null ? "not declared" : match.Foul.Value ? "declared" : "no foul")</p>
+            <div class="match-actions">
+                <button class="secondary" disabled="@disabled" @onclick="() => Run(() => Session.SetMatchFoulAsync(match.Version, true))">Declare foul</button>
+                <button class="secondary" disabled="@disabled" @onclick="() => Run(() => Session.SetMatchFoulAsync(match.Version, false))">No foul</button>
+            </div>
+            @foreach (var player in match.Players)
+            { <button class="primary" disabled="@disabled" @onclick="() => Run(() => Session.SetFrameWinnerAsync(match.Version, match.FrameId!, player.Id))">@player.Name won this frame</button> }
+        }
+        <details class="match-history">
+            <summary>Frames and corrections (@match.Frames.Length)</summary>
+            @foreach (var frame in match.Frames)
+            {
+                <div class="match-frame" @key="frame.Id">
+                    <p>Frame @frame.Number · @frame.Result</p>
+                    <div class="match-actions">
+                    @foreach (var player in match.Players)
+                    { <button class="secondary" disabled="@disabled" aria-label="@($"Set {player.Name} as winner of frame {frame.Number}")" @onclick="() => Run(() => Session.SetFrameWinnerAsync(match.Version, frame.Id, player.Id))">@player.Name won</button> }
+                    </div>
+                </div>
+            }
+        </details>
+        @if (match.UndoInputId is { } undo)
+        { <button class="secondary" disabled="@disabled" @onclick="() => Run(() => Session.UndoMatchDecisionAsync(match.Version, undo))">Undo last decision</button> }
+        <p class="hint">@match.Frames.Count(f => f.WinnerId is not null) of @match.Frames.Length frame results recorded. Results are player-declared.</p>
+        @if (!match.Finished)
+        {
+            <details><summary>End this match</summary><p class="hint">Keep its results and history, then allow a new match.</p>
+                <button class="secondary" disabled="@disabled" @onclick="() => Run(() => Session.FinishManualMatchAsync(match.Version))">Finish match and keep history</button>
+            </details>
+        }
+    }
+    @if (match.CanStartMatch)
+    {
+        <form @onsubmit="() => Run(() => Session.StartManualMatchAsync(firstName, secondName, target, match.Version))" @onsubmit:preventDefault>
+            <label for="match-first-player">First player</label><input id="match-first-player" maxlength="40" autocomplete="off" @bind="firstName" disabled="@disabled" />
+            <label for="match-second-player">Second player</label><input id="match-second-player" maxlength="40" autocomplete="off" @bind="secondName" disabled="@disabled" />
+            <label for="match-target">Frames to win</label><input id="match-target" type="number" min="1" max="100" inputmode="numeric" @bind="target" disabled="@disabled" />
+            <button class="primary" type="submit" disabled="@(disabled || string.IsNullOrWhiteSpace(firstName) || string.IsNullOrWhiteSpace(secondName) || target is < 1 or > 100)">Start match</button>
+            <p class="hint">The first player starts the first frame. You can change the turn.</p>
+        </form>
+    }
+    @if (match.Archives.Length > 0)
+    {
+        <details><summary>Previous matches (@match.Archives.Length)</summary>
+        @foreach (var archive in match.Archives)
+        { <div class="match-frame"><p>@archive.Score · race to @archive.Target</p><p class="hint">@archive.Outcome · @archive.RecordedFrames of @archive.TotalFrames results recorded</p></div> }
+        </details>
+    }
+</section>
+@code {
+    [Parameter, EditorRequired] public ShellSession Session { get; set; } = null!;
+    [Parameter] public bool Busy { get; set; }
+    string firstName = "", secondName = "";
+    int target = 3;
+    bool working;
+    async Task Run(Func<Task<bool>> action)
+    {
+        if (working || Busy) return;
+        working = true;
+        try { await action(); }
+        catch (OperationCanceledException) { }
+        catch (Exception) { Session.ShowError("The match change could not be saved. Your previous result is retained."); }
+        finally { working = false; }
+    }
+}

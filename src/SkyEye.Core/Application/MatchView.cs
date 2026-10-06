@@ -5,7 +5,7 @@ namespace SkyEye.Core.Application;
 
 public sealed record MatchPlayerView(string Id, string Name, int Score, string Group);
 public sealed record MatchFrameView(string Id, int Number, string? WinnerId, string Result, bool Current);
-public sealed record MatchArchiveView(string Id, string Score, string Outcome, int RecordedFrames, int TotalFrames, DateTimeOffset At);
+public sealed record MatchArchiveView(string Id, string Score, string Outcome, int Target, int RecordedFrames, int TotalFrames, DateTimeOffset At);
 public sealed record MatchView(long Version, string? Id, string? FrameId, int Target, ImmutableArray<MatchPlayerView> Players,
     ImmutableArray<MatchFrameView> Frames, ImmutableArray<MatchArchiveView> Archives, string? CurrentPlayer,
     bool? Foul, string? Winner, bool Finished, Guid? UndoInputId)
@@ -25,7 +25,7 @@ public sealed record MatchView(long Version, string? Id, string? FrameId, int Ta
         var archives = state.Archives.Select(a => new MatchArchiveView(a.Match.Id,
             $"{a.Match.Players[0].Name} {a.Match.Score(a.Match.Players[0].Id)}–{a.Match.Score(a.Match.Players[1].Id)} {a.Match.Players[1].Name}",
             a.Match.Winner is { } winner ? $"{a.Match.Players.Single(p => p.Id == winner).Name} won" : "Ended before a match winner was declared",
-            a.Match.FrameWinners.Count, a.Match.Frames.Length, a.Match.FinishedAt ?? a.ArchivedAt)).Reverse().ToImmutableArray();
+            a.Match.Target, a.Match.FrameWinners.Count, a.Match.Frames.Length, a.Match.FinishedAt ?? a.ArchivedAt)).Reverse().ToImmutableArray();
         if (state.Match is not { } match) return Empty with { Version = state.Version, Archives = archives };
         var undone = session.History.Where(e => e.Event is DecisionUndoneEvent).Select(e => ((DecisionUndoneEvent)e.Event).InputId).ToHashSet();
         var undo = session.History.LastOrDefault(e => e.MatchId == match.Id && !undone.Contains(e.InputId) && GameSession.CanUndo(e));

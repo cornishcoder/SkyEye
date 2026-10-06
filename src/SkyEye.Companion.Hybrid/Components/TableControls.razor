@@ -7,11 +7,15 @@
         <button class="secondary" disabled="@(Busy || !Session.CanCorrectTable)" @onclick="Confirm">Confirm balls</button>
         <button class="secondary" disabled="@(Busy || !Session.CanCorrectTable)" @onclick="Correct">Correct layout</button>
     </div>
+    @if (Session.Match.Id is null || Session.Match.Finished)
+    {
     <label for="target-group">My group</label>
     <select id="target-group" disabled="@Busy" value="@Session.TargetGroup" @onchange="ChangeGroup">
         <option value="Open">Open table</option><option value="Red">I'm reds</option>
         <option value="Yellow">I'm yellows</option><option value="Black">I'm on the black</option>
     </select>
+    }
+    else { <p class="hint">Shot targets follow the current player's declared match colours.</p> }
 </section>
 
 @code {

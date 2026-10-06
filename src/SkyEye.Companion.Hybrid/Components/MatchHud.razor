@@ -1,0 +1,9 @@
+@using SkyEye.Core.Application
+@if (Match.Id is not null)
+{
+    <div class="match-hud" role="status" aria-label="@($"{Match.Score}. Race to {Match.Target}. {Match.Status}")">
+        <div class="match-score"><span>@Match.Players[0].Name</span><strong>@Match.Players[0].Score–@Match.Players[1].Score</strong><span>@Match.Players[1].Name</span></div>
+        <p>@Match.Status <span class="match-target">· race to @Match.Target</span></p>
+    </div>
+}
+@code { [Parameter, EditorRequired] public MatchView Match { get; set; } = MatchView.Empty; }

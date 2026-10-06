@@ -33,7 +33,7 @@ public sealed partial class ShellSession : IDisposable
     public bool ControlsVisible => chrome.Visible;
     public bool NeedsAttention => chrome.Attention;
     public double FontScale { get; private set; } = 1;
-    public double DockHeight => (ControlsVisible ? NeedsAttention ? 240 : 160 : 80) * FontScale;
+    public double DockHeight => ((ControlsVisible ? NeedsAttention ? 240 : 160 : 80) + (Match.Id is not null ? 76 : 0)) * FontScale;
     public string Message { get; private set; } = "Your table. Every shot.";
     public string Playback { get; private set; } = "Waiting for your table";
     public bool Playing { get; private set; }

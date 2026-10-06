@@ -14,6 +14,7 @@
             <section class="sheet" aria-label="Table controls">
                 <div class="sheet-heading"><h1>Your table</h1><button class="quiet" @onclick="Close" aria-label="Close controls">Close</button></div>
                 <p class="camera-state" role="status">@Session.Agent.State.Value.Camera</p>
+                <MatchControls Session="Session" Busy="busy" />
                 <section class="control-section" aria-label="Camera connection">
                 <h2>Camera</h2>
                 <button class="secondary" disabled="@(busy || Session.FindingCamera)" @onclick="Find">@(Session.FindingCamera ? "Finding cameras…" : "Find camera")</button>
@@ -67,6 +68,7 @@
         @if (Session.ControlsVisible)
         {
         <footer class="dock">
+            <MatchHud Match="Session.Match" />
             <div class="sky"><span class="sky-orb" aria-hidden="true"></span><div><strong>Sky</strong><span role="status">@Session.Playback</span></div></div>
             <button class="controls" @onclick="Toggle" aria-expanded="@Session.SheetOpen" aria-label="@(Session.SheetOpen ? "Close table controls" : "Open table controls")">@(Session.SheetOpen ? "Hide" : "Controls") <span aria-hidden="true">⌃</span></button>
             <p class="message" role="status">@Session.Message</p>
@@ -75,7 +77,7 @@
         }
         else
         {
-            <footer class="resting"><button class="sky-rest" @onclick="Session.RevealControls" aria-label="Show table controls"><span class="sky-orb" aria-hidden="true"></span>Sky</button></footer>
+            <footer class="resting"><MatchHud Match="Session.Match" /><button class="sky-rest" @onclick="Session.RevealControls" aria-label="Show table controls"><span class="sky-orb" aria-hidden="true"></span>Sky</button></footer>
         }
         }
     </main>

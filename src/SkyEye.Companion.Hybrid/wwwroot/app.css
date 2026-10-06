@@ -17,6 +17,20 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px 
 .message { grid-column: 1 / -1; margin: 0; font-size: 12px; color: #a6babc; line-height: 1.4; }
 .acknowledge { grid-column: 1 / -1; padding: 4px 8px; }
 .resting { display: flex; justify-content: center; min-height: 64px; align-items: center; }
+.resting { flex-direction: column; gap: 8px; }
+.match-hud { grid-column: 1 / -1; width: 100%; padding: 6px 12px; border-radius: 14px; background: #0d191bf5; }
+.match-score { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); gap: 12px; align-items: center; font-size: 14px; }
+.match-score span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.match-score span:last-child { text-align: right; }
+.match-score strong { color: #88e0cd; font-size: 19px; }
+.match-hud p { font-size: 12px; line-height: 1.4; margin: 5px 0 0; color: #d4e4e4; }
+.match-target { color: #a6babc; }
+.match-summary { font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.match-actions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
+.match-actions button { padding: 10px 8px; font-size: 13px; }
+.match-history { margin-top: 16px; }
+.match-frame { border-top: 1px solid #263a3b; padding: 10px 0; }
+.match-frame p { font-size: 13px; }
 .sky-rest { display: flex; align-items: center; gap: 12px; background: #0d191bf5; border: 1px solid #263a3b; color: #e9f2f3; padding: 8px 18px; }
 .sky-rest .sky-orb { width: 24px; height: 24px; flex-basis: 24px; }
 .sheet { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 22px; margin-bottom: 10px; border: 1px solid #263a3b; border-radius: 26px; background: #101e20; }
