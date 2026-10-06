@@ -29,7 +29,7 @@ public sealed record SequenceLabels(int SchemaVersion, string SequenceId, string
 public static class CorpusJson
 {
     public static JsonSerializerOptions Options { get; } = new(JsonSerializerDefaults.Web)
-    { WriteIndented = true, Converters = { new JsonStringEnumConverter() }, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow };
+    { WriteIndented = true, NewLine = "\n", Converters = { new JsonStringEnumConverter() }, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow };
     public static T Read<T>(string path) => JsonSerializer.Deserialize<T>(File.ReadAllBytes(path), Options) ?? throw new InvalidDataException("Empty JSON document: " + path);
     public static string Write<T>(T value) => JsonSerializer.Serialize(value, Options);
 }

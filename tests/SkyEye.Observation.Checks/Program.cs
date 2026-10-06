@@ -25,6 +25,7 @@ try
     var sequence = new CorpusSequence("contracts", "session", CorpusKind.Synthetic, CorpusSplit.Regression, SequencePurpose.Contract, source, "frames.jsonl", "labels.json", "Not real shots", []);
     File.WriteAllText(Path.Combine(root, "labels.json"), CorpusJson.Write(new SequenceLabels(1, "contracts", "fixture", "cal-v1", false, [], [])));
     var manifest = new CorpusManifest(1, "test", [sequence]);
+    Check(!CorpusJson.Write(manifest).Contains('\r'), "Frozen JSON uses LF on every platform");
     var audit = CorpusValidation.Validate(manifest, files);
     Check(!audit.AccuracyGateReady && audit.RealShotSequences == 0, "Synthetic contracts cannot satisfy real accuracy coverage");
     var report = FrameReplay.Run(sequence, files);

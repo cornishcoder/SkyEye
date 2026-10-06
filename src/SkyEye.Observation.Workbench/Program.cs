@@ -51,7 +51,7 @@ try
     }
     else Console.WriteLine(json);
 }
-catch (Exception e) when (e is ArgumentException or IOException or System.Text.Json.JsonException or FormatException or InvalidOperationException)
+catch (Exception e) when (e is ArgumentException or IOException or InvalidDataException or System.Text.Json.JsonException or FormatException or InvalidOperationException)
 {
     Console.Error.WriteLine(e.Message); Environment.ExitCode = 1;
 }
