@@ -46,9 +46,11 @@ public final class RecordedFrameReader implements java.io.Closeable {
         Bitmap scaled=null;
         try {
             frameWidth=bitmap.getWidth();frameHeight=bitmap.getHeight();
-            double scale=Math.min(1,960.0/Math.max(frameWidth,frameHeight));
+            // The detector performs its own resize. Preserve source detail first
+            // to avoid double resampling/JPEG degradation of pocket boundaries.
+            double scale=Math.min(1,1920.0/Math.max(frameWidth,frameHeight));
             scaled=Bitmap.createScaledBitmap(bitmap,Math.max(1,(int)Math.round(frameWidth*scale)),Math.max(1,(int)Math.round(frameHeight*scale)),true);
-            ByteArrayOutputStream output=new ByteArrayOutputStream();scaled.compress(Bitmap.CompressFormat.JPEG,92,output);return output.toByteArray();
+            ByteArrayOutputStream output=new ByteArrayOutputStream();scaled.compress(Bitmap.CompressFormat.JPEG,95,output);return output.toByteArray();
         } finally {if(scaled!=null&&scaled!=bitmap)scaled.recycle();bitmap.recycle();}
     }
     public void close(){if(closed)return;closed=true;try{extractor.release();}finally{try{reader.release();}catch(java.io.IOException ignored){}}}

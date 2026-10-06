@@ -25,6 +25,8 @@ public sealed class CompanionClipService(CameraClient current, Func<CameraConnec
         var result = await request.PostAsync("replays/recent?access=" + Uri.EscapeDataString(request.ReadToken), command, cancellation).ConfigureAwait(false);
         var asset = result.Deserialize<RecentReplayAsset>(JsonDefaults.Options) ?? throw new InvalidOperationException("Missing recent replay acknowledgement.");
         ClipLibrary.Validate(asset.Clip);
+        if (asset.Clip.RecordingOrigin is { } origin && (origin.Timeline != asset.Timeline || origin.StartUs != asset.StartUs))
+            throw new InvalidOperationException("Camera returned inconsistent replay recording provenance.");
         if (asset.Timeline != command.Timeline || asset.EndUs != command.EndUs || asset.StartUs < 0 || asset.StartUs >= asset.EndUs
             || asset.EndUs - asset.StartUs > (seconds + 4) * 1_000_000L || asset.Clip.Duration > seconds + 5
             || asset.Clip.Bytes > RecentReplayStore.MaximumBytes || asset.ExpiresAt - asset.Clip.CreatedAt != RecentReplayStore.Retention)

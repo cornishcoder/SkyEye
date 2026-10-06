@@ -108,7 +108,8 @@ public sealed class CameraService : Service
                 if (new StatFs(root).AvailableBytes < 256L * 1024 * 1024)
                     throw new InvalidOperationException("Camera storage is low. Recent replay is unavailable.");
                 var asset = await recentReplays.CreateAsync(replay, (path, token) => AssembleRecentAsync(replay, path, token), ct);
-                return HttpResponse.Json(asset);
+                return HttpResponse.Json(asset with { Clip = asset.Clip with {
+                    RecordingOrigin = new SkyEye.Core.Analysis.ClipRecordingOrigin(asset.Timeline, asset.StartUs, 1920, 1080, 0) } });
             }
             finally { mutations.Release(); }
         }

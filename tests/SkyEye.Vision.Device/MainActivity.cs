@@ -21,6 +21,7 @@ public sealed class MainActivity : Activity
     protected override void OnCreate(Bundle? state)
     {
         base.OnCreate(state); var text = new TextView(this) { Text = "Checking C# OpenCV image operations…", TextSize = 18 }; SetContentView(text);
+        if (Intent?.GetBooleanExtra("recordedGeometry", false) == true) { _ = CheckRecordedGeometryAsync(text); return; }
         _ = Task.Run(() =>
         {
             object result;
@@ -151,4 +152,34 @@ public sealed class MainActivity : Activity
         });
     }
     sealed class MatLease(Mat value) : IDisposable { public Mat Value { get; } = value; public void Dispose() { Value.Release(); Value.Dispose(); } }
+    async Task CheckRecordedGeometryAsync(TextView text)
+    {
+        object result;
+        try
+        {
+            string external = GetExternalFilesDir(null)!.AbsolutePath, path = Path.Combine(external, "geometry-fixture.mp4");
+            var geometry = new SkyEye.Companion.AndroidRecordedGeometry(Path.Combine(FilesDir!.AbsolutePath, "recorded-geometry"));
+            await using var file = File.OpenRead(path); string hash = Convert.ToHexString(await System.Security.Cryptography.SHA256.HashDataAsync(file)); file.Close();
+            var watch = Stopwatch.StartNew();
+            var journal = await geometry.AnalyzeAsync(path, hash, null, default);
+            if (journal.Spans.Count(s => s.Layout is not null) < 2 || journal.Spans.Count(s => s.Layout is null) < 2
+                || journal.Spans.Where(s=>s.Layout is not null).Select(s=>s.GeometryVersion).Distinct().Count() < 2)
+                throw new Exception("Recorded mount/obstruction fixture did not produce historical geometry and uncertain gaps: " + JsonSerializer.Serialize(journal));
+            if (journal.At(journal.Source,1_000_000)?.Layout is not { } original || journal.At(journal.Source,5_000_000)?.Layout is not { } moved
+                || RecordedGeometry.Same(original,moved) || journal.At(journal.Source,3_000_000)?.Layout is not null
+                || journal.At(journal.Source,9_000_000)?.Layout is null || journal.At(journal.Source,13_000_000)?.Layout is not null
+                || journal.At(journal.Source,17_000_000)?.Layout is null || journal.At(journal.Source,19_000_000)?.Layout is not null)
+                throw new Exception("Recorded fixture geometry does not match source-time mount/dim/covered/recovery intervals: " + JsonSerializer.Serialize(journal));
+            var recovered = await new SkyEye.Companion.AndroidRecordedGeometry(Path.Combine(FilesDir!.AbsolutePath, "recorded-geometry")).AnalyzeAsync(path, hash, null, default);
+            if (JsonSerializer.Serialize(journal) != JsonSerializer.Serialize(recovered)) throw new Exception("Recorded geometry restart changed intervals");
+            bool checksumRejected = false;
+            try { await geometry.AnalyzeAsync(path, new string('0',64), null, default); } catch(IOException) { checksumRejected = true; }
+            if (!checksumRejected) throw new Exception("Wrong recorded checksum accepted");
+            result = new { passed=true, model=Build.Model, journal, recovered=true, checksumRejected, elapsedMs=watch.ElapsedMilliseconds };
+        }
+        catch(Exception error) { result = new { passed=false,error=error.ToString() }; }
+        string json=JsonSerializer.Serialize(result,JsonDefaults.Options);
+        File.WriteAllText(Path.Combine(GetExternalFilesDir(null)!.AbsolutePath,"recorded-geometry-checks.json"),json);
+        RunOnUiThread(()=>text.Text=json);
+    }
 }

@@ -34,7 +34,9 @@ public sealed class AndroidPortraitClipExporter(Context context) : IPortraitClip
     {
         var journal = await geometry.AnalyzeAsync(verifiedSource, clip.Sha256, clip.RecordingOrigin, cancellation);
         // Safe provenance only; no file path, endpoint, token or table image.
-        Android.Util.Log.Info("SkyEyeGeometry", JsonSerializer.Serialize(new { clipId = clip.Id, journal.Source, spans = journal.Spans }, JsonDefaults.Options));
+        Android.Util.Log.Info("SkyEyeGeometry", JsonSerializer.Serialize(new { clipId = clip.Id, journal.Source,
+            intervalCount = journal.Spans.Length, acceptedGeometrySeconds = journal.Spans.Where(s => s.Layout is not null).Sum(s => (s.EndUs - s.StartUs) / 1_000_000d),
+            firstAccepted = journal.Spans.FirstOrDefault(s => s.Layout is not null) }, JsonDefaults.Options));
     }
     public async Task ExportAsync(string input, string output, int rotation, CancellationToken cancellation)
     {

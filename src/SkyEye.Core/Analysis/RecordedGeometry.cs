@@ -7,14 +7,14 @@ namespace SkyEye.Core.Analysis;
 public enum RecordedGeometryClock { ClipRelative, CameraRecording }
 public sealed record ClipRecordingOrigin(string Timeline, long StartUs, int Width, int Height, int Rotation);
 public sealed record RecordedGeometrySource(string ContentSha256, RecordedGeometryClock Clock, string Timeline,
-    long StartUs, long DurationUs, int Width, int Height, int Rotation, int TransformVersion = 1)
+    long StartUs, long DurationUs, int Width, int Height, int Rotation, int TransformVersion = 1, int ExtractionVersion = 2)
 {
     public long EndUs => checked(StartUs + DurationUs);
     public void Validate()
     {
         if (ContentSha256 is not { Length: 64 } || !ContentSha256.All(Uri.IsHexDigit) || !Enum.IsDefined(Clock)
             || StartUs < 0 || DurationUs is <= 0 or > 605_000_000 || StartUs > long.MaxValue - DurationUs
-            || Width is < 16 or > 8192 || Height is < 16 or > 8192 || Rotation is not (0 or 90 or 180 or 270) || TransformVersion != 1
+            || Width is < 16 or > 8192 || Height is < 16 or > 8192 || Rotation is not (0 or 90 or 180 or 270) || TransformVersion != 1 || ExtractionVersion != 2
             || Clock == RecordedGeometryClock.ClipRelative && (StartUs != 0 || Timeline != ContentSha256)
             || Clock == RecordedGeometryClock.CameraRecording && !Guid.TryParseExact(Timeline, "N", out _))
             throw new ArgumentException("Invalid recorded geometry source.");
