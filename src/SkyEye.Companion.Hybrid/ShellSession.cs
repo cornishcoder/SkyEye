@@ -180,7 +180,7 @@ public sealed partial class ShellSession : IDisposable
     {
         if (!MainThread.IsMainThread) { MainThread.BeginInvokeOnMainThread(Stop); return; }
         CollectAnnotations();
-        StopPocketFraming(); StopShotScenes(); ClearSceneCheck(); selection.Stop(); player?.Stop(); if (!TvReplaySelected) cast?.Configure("", true);
+        StopPocketFraming(); StopShotScenes(); ClearSceneCheck(); selection.Stop(); player?.Stop(); if (!TvReplaySelected && BackgroundTvService.Instance is null) cast?.Configure("", true);
         Playing = false; Playback = "Waiting for your table"; Publish();
     }
     public void Suspend()
@@ -269,6 +269,7 @@ public sealed partial class ShellSession : IDisposable
         EnsurePocketLoop();
         EnsureShotLoop();
         RenderShotScenes();
+        if (active && tvDeliveryRequested) EnsureBackgroundTv();
         var camera = state.Reachability switch
         {
             CameraReachability.Connecting => "Connecting…",

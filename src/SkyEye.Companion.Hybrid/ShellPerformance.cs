@@ -19,6 +19,15 @@ public sealed partial class ShellSession
         {
             if (r.Method == "POST" && r.Path == "/connect")
             { await ConnectAsync(SavedAddress); return HttpResponse.Json(new { connected = app.State.Camera.Reachability.ToString() }); }
+            if (r.Method == "POST" && r.Path == "/fixture")
+            { await FixtureAsync(); return HttpResponse.Json(new { source = "labelled local fixture" }); }
+            if (r.Method == "POST" && r.Path == "/local")
+            {
+                var choice = LocalClips.FirstOrDefault();
+                if (choice is null) return HttpResponse.Json(new { error = "No saved local clip" }, 409);
+                await PlayClipAsync(choice.Id);
+                return HttpResponse.Json(new { source = "saved local clip", playback = Playback });
+            }
             if (r.Method == "POST" && r.Path == "/host")
             {
                 await ControlCameraAsync(new(app.State.Version, new ClaimCameraHost(app.State.Camera.Scope!, HostName)));

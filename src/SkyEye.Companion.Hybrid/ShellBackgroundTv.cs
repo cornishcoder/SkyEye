@@ -16,7 +16,7 @@ public sealed partial class ShellSession
         if (disposed || TvReplaySelected || effects.Latest is not { } view || !CanCastLive) { StopBackgroundTv(); return; }
         var needed = TvCorrectionRequested || app.State.Presentation.Tv.Mode is ShotDisplayMode.Cycling or ShotDisplayMode.Pinned;
         if (!needed) { StopBackgroundTv(); cast?.Configure(view.Stream, true); return; }
-        if (!TvConnected && !tvDeliveryRequested) return;
+        if (!TvConnected && BackgroundTvService.Instance is null) return;
         if (!view.Status.TryGetProperty("timeline", out var timelineValue) || timelineValue.GetString() is not { } timeline) return;
         var calibration = table.State.Calibration; var geometry = "";
         if (TvCorrectionRequested && calibration is not null)
@@ -25,9 +25,10 @@ public sealed partial class ShellSession
             geometry = JsonSerializer.Serialize(new { width = 960, height = 540, values = projection.Values });
         }
         BackgroundTvService.Request(new(new(app.State.Camera.CameraIdentity!, timeline, AnnotationJournalStore.Fingerprint(geometry)),
-            client.Address, view.PhoneStream, geometry, timeline, annotations, () => { ObserveCast(); return TvConnected; }));
+            client.Address, view.PhoneStream, geometry, timeline, annotations));
         tvDeliveryRequested = true;
-        if (tvDeliveryLifetime is null) { tvDeliveryLifetime = new(); _ = BackgroundTvLoopAsync(tvDeliveryLifetime.Token); }
+        if (tvDeliveryLifetime is null || tvDeliveryLifetime.IsCancellationRequested)
+        { tvDeliveryLifetime?.Dispose(); tvDeliveryLifetime = new(); _ = BackgroundTvLoopAsync(tvDeliveryLifetime.Token); }
         if (BackgroundTvUrl.Length > 0) { tvDeliverySource = BackgroundTvUrl; cast?.Configure(tvDeliverySource, true); }
     }
     async Task BackgroundTvLoopAsync(CancellationToken token)

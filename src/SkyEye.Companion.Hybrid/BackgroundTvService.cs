@@ -13,16 +13,18 @@ using Bridge = UK.CO.Skyeye.Companion.Nativebridge;
 namespace SkyEye.Companion.Hybrid;
 
 public sealed record BackgroundTvRequest(DeliverySource Source, string Address, string Stream, string Geometry,
-    string Timeline, AnnotationJournalStore Journal, Func<bool> ReceiverConnected);
+    string Timeline, AnnotationJournalStore Journal);
 
 [Service(Name = "uk.co.skyeye.companion.BackgroundTvService", Exported = false, ForegroundServiceType = ForegroundService.TypeMediaPlayback)]
-[Android.Runtime.Preserve(AllMembers = true)]
 public sealed class BackgroundTvService : Service
 {
+    public BackgroundTvService() { }
+    public BackgroundTvService(IntPtr handle, Android.Runtime.JniHandleOwnership ownership) : base(handle, ownership) { }
     static BackgroundTvRequest? requested;
     public static BackgroundTvService? Instance { get; private set; }
     readonly BackgroundDeliveryLease lease = new();
     readonly CancellationTokenSource lifetime = new();
+    CancellationTokenSource? pipelineLifetime;
     readonly string access = Guid.NewGuid().ToString("N");
     Bridge.LiveGpuCompositor? compositor;
     Listener? listener;
@@ -34,6 +36,7 @@ public sealed class BackgroundTvService : Service
     public string Url { get; private set; } = "";
     public bool Ready => compositor?.Ready() == true;
     public string Metrics => compositor?.Metrics() ?? "{}";
+    [System.Diagnostics.CodeAnalysis.DynamicDependency(System.Diagnostics.CodeAnalysis.DynamicallyAccessedMemberTypes.PublicConstructors, typeof(BackgroundTvService))]
     public static void Request(BackgroundTvRequest request)
     {
         requested = request;
@@ -62,6 +65,13 @@ public sealed class BackgroundTvService : Service
     public override void OnCreate()
     {
         base.OnCreate(); Instance = this;
+        // A process kill can leave segments behind. Only this service's generated
+        // UUID directories in the private cache are eligible for reclamation.
+        var cache = Path.GetFullPath(CacheDir!.AbsolutePath);
+        foreach (var stale in Directory.EnumerateDirectories(cache, "tv-service-*"))
+            if (Path.GetDirectoryName(Path.GetFullPath(stale)) == cache &&
+                Guid.TryParseExact(Path.GetFileName(stale)[11..], "N", out _))
+                try { Directory.Delete(stale, true); } catch (IOException) { }
         var manager = (NotificationManager)GetSystemService(NotificationService)!;
         manager.CreateNotificationChannel(new NotificationChannel("tv-delivery", "SkyEye TV playback", NotificationImportance.Low));
         using var open = PackageManager!.GetLaunchIntentForPackage(PackageName!)!;
@@ -70,23 +80,23 @@ public sealed class BackgroundTvService : Service
             .SetContentText("Corrected TV playback continues while this phone is locked.").SetSmallIcon(Android.Resource.Drawable.IcMediaPlay)
             .SetContentIntent(pending).SetOngoing(true).Build();
         StartForeground(141, notification, ForegroundService.TypeMediaPlayback);
-        wake = ((PowerManager)GetSystemService(PowerService)!).NewWakeLock(WakeLockFlags.Partial, "SkyEye:TvDelivery"); wake.Acquire();
+        wake = ((PowerManager)GetSystemService(PowerService)!).NewWakeLock(WakeLockFlags.Partial, "SkyEye:TvDelivery"); wake?.Acquire();
     }
     public override StartCommandResult OnStartCommand(Intent? intent, StartCommandFlags flags, int startId)
     {
         if (requested is not { } next) { StopSelf(); return StartCommandResult.NotSticky; }
         if (request?.Source == next.Source) return StartCommandResult.NotSticky;
-        request = next; lease.Request(next.Source, true);
         ClosePipeline();
+        request = next; lease.Request(next.Source, true);
         try
         {
             directory = Path.Combine(CacheDir!.AbsolutePath, "tv-service-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(directory);
-            listener = new(this); compositor = new(this, directory, listener);
+            listener = new(); compositor = new(this, directory, listener);
             compositor.SetGeometry(next.Geometry);
             using var route = new Socket(AddressFamily.InterNetwork, SocketType.Dgram, ProtocolType.Udp); route.Connect(new Uri(next.Address).Host, 8765);
             Url = $"http://{((IPEndPoint)route.LocalEndPoint!).Address}:8766/live/index.m3u8?access={access}&scene=1";
             server = new(8766, HandleAsync); server.Start(); compositor.Start(next.Stream);
-            camera = new(); camera.Connect(next.Address); _ = PollAsync(lifetime.Token);
+            camera = new(); camera.Connect(next.Address); pipelineLifetime = CancellationTokenSource.CreateLinkedTokenSource(lifetime.Token); _ = PollAsync(pipelineLifetime.Token);
         }
         catch (Exception error) { Android.Util.Log.Warn("SkyEyeTv", error.GetType().Name); StopSelf(); }
         return StartCommandResult.NotSticky;
@@ -95,7 +105,7 @@ public sealed class BackgroundTvService : Service
     {
         if (r.Method == "OPTIONS") return Task.FromResult(HttpResponse.Text(""));
         if (r.Method is not ("GET" or "HEAD")) return Task.FromResult(HttpResponse.Json(new { error = "Read-only media" }, 405));
-        if (r.Path == "/status") return Task.FromResult(HttpResponse.Json(new { ready = Ready, video = JsonSerializer.Deserialize<JsonElement>(Metrics), source = request?.Source }));
+        if (r.Path == "/status") return Task.FromResult(HttpResponse.Json(new { ready = Ready, streamPath = $"/live/index.m3u8?access={access}", video = JsonSerializer.Deserialize<JsonElement>(Metrics), source = request?.Source }));
         if (r.Query.GetValueOrDefault("access") != access) throw new UnauthorizedAccessException("Reconnect to TV playback.");
         if (r.Path == "/live/index.m3u8")
         { var text = compositor?.Playlist(access) ?? ""; return Task.FromResult(text.Length == 0 ? HttpResponse.Json(new { error = "Preparing TV" }, 503) : HttpResponse.Text(text, "application/vnd.apple.mpegurl")); }
@@ -108,9 +118,19 @@ public sealed class BackgroundTvService : Service
     {
         try
         {
+            long? unavailableAt = null;
             while (!token.IsCancellationRequested && request is { } current && compositor is { } owner && camera is { } client)
             {
-                var status = await client.StatusAsync(token);
+                JsonElement status;
+                try { status = await client.StatusAsync(token); unavailableAt = null; }
+                catch (Exception error) when (error is HttpRequestException or IOException or TaskCanceledException && !token.IsCancellationRequested)
+                {
+                    unavailableAt ??= System.Diagnostics.Stopwatch.GetTimestamp();
+                    if (System.Diagnostics.Stopwatch.GetElapsedTime(unavailableAt.Value) >= TimeSpan.FromSeconds(30))
+                    { await MainThread.InvokeOnMainThreadAsync(StopSelf); return; }
+                    await Task.Delay(1000, token); continue;
+                }
+                token.ThrowIfCancellationRequested();
                 if (status.GetProperty("state").GetString() != "Active" || status.GetProperty("timeline").GetString() != current.Timeline)
                 { await MainThread.InvokeOnMainThreadAsync(StopSelf); return; }
                 owner.SetClock(current.Timeline, status.GetProperty("sourceTimeUs").GetInt64());
@@ -132,12 +152,12 @@ public sealed class BackgroundTvService : Service
         catch (Exception error) { Android.Util.Log.Warn("SkyEyeTv", "Source unavailable: " + error.GetType().Name); await MainThread.InvokeOnMainThreadAsync(StopSelf); }
     }
     void ClosePipeline()
-    { compositor?.Close(); compositor?.Dispose(); compositor = null; listener?.Dispose(); listener = null; camera?.Dispose(); camera = null; if (server is not null) _ = server.DisposeAsync(); server = null; }
+    { pipelineLifetime?.Cancel(); pipelineLifetime?.Dispose(); pipelineLifetime = null; compositor?.Close(); compositor?.Dispose(); compositor = null; listener?.Dispose(); listener = null; camera?.Dispose(); camera = null; if (server is not null) _ = server.DisposeAsync(); server = null; }
     public override void OnDestroy()
     {
         lifetime.Cancel(); lease.Clear(); ClosePipeline(); if (wake?.IsHeld == true) wake.Release(); wake?.Dispose();
         if (Instance == this) Instance = null; base.OnDestroy();
     }
-    sealed class Listener(BackgroundTvService owner) : Java.Lang.Object, Bridge.LiveGpuCompositor.IListener
+    sealed class Listener : Java.Lang.Object, Bridge.LiveGpuCompositor.IListener
     { public void OnError(string? message) => Android.Util.Log.Warn("SkyEyeTv", message ?? "Compositor interrupted"); }
 }

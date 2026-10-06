@@ -42,6 +42,27 @@ static class CorrectedClipChecks
             Check(frozen.Manifest.Render.Profile=="scene1"&&File.ReadAllText(frozen.Portrait)=="scene1"&&File.ReadAllText(frozen.Landscape)=="scene1","mutable live journal cannot change one orientation midway through frozen render");
             var amended=await snapshotStore.PrepareAsync(clip,transfer,snapshotRenderer);
             Check(amended.Manifest.Render.Profile=="scene2"&&File.ReadAllText(amended.Portrait)=="scene2","amended journal invalidates prior derivative and publishes a new frozen pair");
+            var interruptedRoot=Path.Combine(root,"interrupted-journal");
+            var interruptedRenderer=new SnapshotRenderer { Fail=true };
+            var interruptedStore=new CorrectedClipStore(interruptedRoot,metadata:(c,path)=>File.WriteAllText(Path.Combine(path,"annotations.json"),interruptedRenderer.Version.ToString()));
+            try{await interruptedStore.PrepareAsync(clip,transfer,interruptedRenderer);throw new Exception("Expected frozen render interruption");}catch(IOException){}
+            interruptedRenderer.Fail=false;interruptedRenderer.Version=99;
+            int downloadsBeforeFrozenRetry=transfer.Downloads;
+            var retried=await new CorrectedClipStore(interruptedRoot,metadata:(c,path)=>File.WriteAllText(Path.Combine(path,"annotations.json"),"99")).PrepareAsync(clip,transfer,interruptedRenderer);
+            Check(transfer.Downloads==downloadsBeforeFrozenRetry&&retried.Manifest.Render.Profile=="scene1"&&File.ReadAllText(retried.Portrait)=="scene1"&&File.ReadAllText(retried.Landscape)=="scene1","restart preserves frozen historical journal instead of current advice");
+            var boundedRoot=Path.Combine(root,"bounded-recovery");var bounded=new CorrectedClipStore(boundedRoot);renderer.Fail=true;
+            for(int i=0;i<3;i++)
+            {
+                var failedClip=clip with{Id=Guid.NewGuid().ToString("N")};
+                try{await bounded.PrepareAsync(failedClip,transfer,renderer);throw new Exception("Expected recovery fixture failure");}catch(IOException){}
+            }
+            Check(Directory.EnumerateDirectories(boundedRoot,"*.recovery").Count()==2&&bounded.Catalogue().Length==0,"failed preparations retain at most two recovery sources and no partial publication");
+            string retainedRecovery=Directory.EnumerateDirectories(boundedRoot,"*.recovery").First();
+            var corruptClip=clip with{Id=Path.GetFileName(retainedRecovery)[..^9]};
+            await File.WriteAllBytesAsync(Path.Combine(retainedRecovery,"original.mp4"),[9,9,9,9,9]);
+            renderer.Fail=false;int downloadsBeforeCorruptRetry=transfer.Downloads;
+            var repaired=await new CorrectedClipStore(boundedRoot).PrepareAsync(corruptClip,transfer,renderer);
+            Check(transfer.Downloads==downloadsBeforeCorruptRetry+1&&File.ReadAllBytes(repaired.Original).SequenceEqual(bytes),"restart rejects corrupt recovery original and downloads a verified replacement");
             Console.WriteLine("PASS corrected derivatives: originals, paired atomic publication, restart/hash/geometry invalidation, retained-source repair, cancellation/failure, temporary isolation/capacity/expiry and interrupted publication recovery");
         }
         finally{if(!Path.GetFullPath(root).StartsWith(Path.GetFullPath(Path.GetTempPath()),StringComparison.OrdinalIgnoreCase))throw new Exception("Unexpected fixture root");Directory.Delete(root,true);}
@@ -50,12 +71,12 @@ static class CorrectedClipChecks
     sealed class Renderer:ICorrectedClipRenderer{public int Renders,Version=1;public bool Fail;public CancellationTokenSource? Cancel;public Task<CorrectedRenderInfo> PrepareAsync(Clip clip,string source,CancellationToken ct)=>Task.FromResult(new CorrectedRenderInfo("profile"+Version,new string('A',64),10,15));public async Task RenderAsync(Clip clip,string source,string portrait,string landscape,CorrectedRenderInfo expected,CancellationToken ct){Renders++;await File.WriteAllTextAsync(portrait,"portrait"+Version,ct);if(Fail)throw new IOException("fixture failure");Cancel?.Cancel();ct.ThrowIfCancellationRequested();await File.WriteAllTextAsync(landscape,"landscape"+Version,ct);}}
     sealed class SnapshotRenderer:ICorrectedClipRenderer,ICorrectedClipSnapshotRenderer
     {
-        public int Version=1;
+        public int Version=1;public bool Fail;
         static CorrectedRenderInfo Info(int version)=>new("scene"+version,new string('A',64),10,15);
         public Task<CorrectedRenderInfo> PrepareAsync(Clip clip,string original,CancellationToken ct)=>Task.FromResult(Info(Version));
         public Task<CorrectedRenderInfo> PrepareSnapshotAsync(Clip clip,string original,CancellationToken ct)=>Task.FromResult(Info(int.Parse(File.ReadAllText(Path.Combine(Path.GetDirectoryName(original)!,"annotations.json")))));
         public async Task RenderAsync(Clip clip,string original,string portrait,string landscape,CorrectedRenderInfo expected,CancellationToken ct)
-        {await File.WriteAllTextAsync(portrait,expected.Profile,ct);Version=2;await File.WriteAllTextAsync(landscape,expected.Profile,ct);}
+        {await File.WriteAllTextAsync(portrait,expected.Profile,ct);Version=2;if(Fail)throw new IOException("fixture interrupted snapshot");await File.WriteAllTextAsync(landscape,expected.Profile,ct);}
     }
     sealed class Clock:TimeProvider{long ticks;public override long GetTimestamp()=>ticks;public override long TimestampFrequency=>TimeSpan.TicksPerSecond;public void Advance(int seconds)=>ticks+=seconds*TimeSpan.TicksPerSecond;}
 }
