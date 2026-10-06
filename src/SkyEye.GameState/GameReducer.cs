@@ -46,6 +46,19 @@ public static class GameReducer
             case TableSettledEvent:
                 return s with { Table = s.Table with { Motion = TableMotion.Settled,
                     LastSettled = !s.Table.Uncertain ? new(e.InputId, e.At, e.SourceTimeUs, e.Source!) : s.Table.LastSettled } };
+            case PocketApproachedEvent p:
+                return s with { Shot = s.Shot! with { Approaches = s.Shot.Approaches.SetItem(p.BallId, new(p.BallId, p.Pocket, e.Confidence, e.InputId)) } };
+            case BallEvidenceEvent b:
+                var known = new KnownBall(b.Ball.Id, b.Ball.Colour, b.Ball.Position, new(b.Presence, e.Provenance, b.Ball.Confidence ?? e.Confidence, e.InputId));
+                return s with { Table = s.Table with { Balls = s.Table.Balls.SetItem(known.Id, known),
+                    Uncertain = s.Table.Uncertain || b.Presence == BallPresence.Missing } };
+            case BallPottedEvent p:
+                var ball = s.Table.Balls[p.BallId];
+                var presence = Fact(BallPresence.Potted, e);
+                return s with { Table = s.Table with { Balls = s.Table.Balls.SetItem(ball.Id, ball with { Presence = presence, Position = null }) },
+                    Frame = s.Frame! with { Pots = s.Frame.Pots.Add(e.EventId, new(e.EventId, p.ShotId, p.BallId, p.Pocket, presence)) } };
+            case ShotResolvedEvent:
+                return s with { Shot = s.Shot! with { Resolved = true } };
             default: throw new ArgumentException("Unsupported event.");
         }
     }

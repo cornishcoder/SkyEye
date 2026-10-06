@@ -77,6 +77,14 @@ public sealed class GameSession
             ShotEnded s when State.Shot is { Ended: false } shot && shot.Id == s.ShotId => new ShotEndedEvent(s.ShotId),
             MotionStopped s when State.Shot is { Ended: false } shot && shot.Id == s.ShotId => new ShotEndedEvent(s.ShotId),
             TableSettled when State.Table.Balls.Count > 0 => new TableSettledEvent(),
+            PossiblePocketEvent p when State.Shot is { Ended: false } shot && shot.Id == p.ShotId && shot.Before.ContainsKey(p.BallId)
+                && Enum.IsDefined(p.Pocket) => new PocketApproachedEvent(p.ShotId, p.BallId, p.Pocket),
+            BallObserved b when ValidBall(b.Ball) => new BallEvidenceEvent(b.Ball, BallPresence.OnTable),
+            BallAppeared b when ValidBall(b.Ball) => new BallEvidenceEvent(b.Ball, BallPresence.OnTable),
+            BallMoved b when State.Table.Balls.TryGetValue(b.BallId, out var ball) && ValidPosition(b.Position)
+                => new BallEvidenceEvent(new(ball.Id, ball.Colour, b.Position, input.Confidence), BallPresence.OnTable),
+            BallMissing b when State.Table.Balls.TryGetValue(b.BallId, out var ball)
+                => new BallEvidenceEvent(new(ball.Id, ball.Colour, ball.Position, input.Confidence), BallPresence.Missing),
             _ => null
         };
         return change is null ? Refuse(InputOutcome.Rejected, "Unsupported, invalid or phase-incompatible evidence.") : Commit(input, fingerprint, [change]);
@@ -85,9 +93,10 @@ public sealed class GameSession
     bool CanStartShot(string id) => State.Table.Motion == TableMotion.Settled && !State.Table.Uncertain
         && (State.Shot is null || State.Shot.Ended) && !History.Any(e => e.FrameId == State.Frame!.Id && e.Event is ShotStartedEvent s && s.ShotId == id);
     static bool ValidObservation(TableObservation o) => !o.Balls.IsDefault && o.Balls.Length <= 16
-        && o.Balls.All(b => b is not null && Text(b.Id) && Enum.IsDefined(b.Colour) && Confidence(b.Confidence) && ValidPosition(b.Position))
+        && o.Balls.All(ValidBall)
         && o.Balls.Select(b => b.Id).Distinct().Count() == o.Balls.Length;
     static bool ValidPosition(TablePosition? p) => p is null || double.IsFinite(p.X) && double.IsFinite(p.Y) && p.X is >= 0 and <= 1 && p.Y is >= 0 and <= 1;
+    static bool ValidBall(ObservedBall b) => b is not null && Text(b.Id) && Enum.IsDefined(b.Colour) && Confidence(b.Confidence) && ValidPosition(b.Position);
     static bool Confidence(double? value) => value is null || double.IsFinite(value.Value) && value is >= 0 and <= 1;
     static bool Text(string? value) => !string.IsNullOrWhiteSpace(value) && value.Length <= 128;
     static bool ValidSource(EvidenceSource s) => Text(s.Camera) && Text(s.Timeline) && Text(s.Calibration) && s.Generation > 0;
@@ -95,6 +104,27 @@ public sealed class GameSession
     {
         var events = changes.Select((e, i) => new EventEnvelope(1, History.Length + i + 1, Guid.NewGuid(), input.Id, fingerprint,
             input.MatchId, input.FrameId, input.At, input.Source, input.SourceTimeUs, input.Provenance, input.Confidence, e)).ToImmutableArray();
-        return new(InputOutcome.Applied, "Game state updated.", new(History.AddRange(events)));
+        var history = History.AddRange(events);
+        var proposed = new GameSession(history);
+        if (input.Input is TableObservation or TableSettled or ShotEnded or MotionStopped
+            && proposed.State is { Shot: { Ended: true, Resolved: false } shot, Table: { Motion: TableMotion.Settled, Uncertain: false } table })
+        {
+            foreach (var missing in table.Balls.Values.OrderBy(b => b.Id, StringComparer.Ordinal))
+            {
+                // This conservative vertical slice needs supplied pocket and identity confidence.
+                // It is an inferred outcome, never a calibrated probability or a rule decision.
+                if (missing.Presence.Value != BallPresence.Missing || !shot.Before.TryGetValue(missing.Id, out var before)
+                    || before.Presence.Value != BallPresence.OnTable || before.Presence.Confidence is not >= .8
+                    || !shot.Approaches.TryGetValue(missing.Id, out var pocket) || pocket.Confidence is not >= .8) continue;
+                var pot = new BallPottedEvent(shot.Id, missing.Id, pocket.Pocket, missing.Colour == BallColour.Cue,
+                    [before.Presence.EvidenceId, pocket.EvidenceId, missing.Presence.EvidenceId]);
+                history = history.Add(new(1, history.Length + 1, Guid.NewGuid(), input.Id, fingerprint, input.MatchId, input.FrameId, input.At,
+                    input.Source, input.SourceTimeUs, Provenance.Inferred, Math.Min(before.Presence.Confidence.Value, pocket.Confidence.Value), pot));
+            }
+            history = history.Add(new(1, history.Length + 1, Guid.NewGuid(), input.Id, fingerprint, input.MatchId, input.FrameId, input.At,
+                input.Source, input.SourceTimeUs, input.Provenance, input.Confidence, new ShotResolvedEvent()));
+            proposed = new(history);
+        }
+        return new(InputOutcome.Applied, "Game state updated.", proposed);
     }
 }
