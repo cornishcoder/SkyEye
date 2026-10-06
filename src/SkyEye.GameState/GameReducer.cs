@@ -8,12 +8,14 @@ public static class GameReducer
     public static GameSnapshot Rebuild(IEnumerable<EventEnvelope> events)
     {
         var history = events.ToArray();
-        var amendments = history.Where(e => e.Event is StateCorrectedEvent { CorrectedPot: not null })
+        var undone = history.Where(e => e.Event is DecisionUndoneEvent).Select(e => ((DecisionUndoneEvent)e.Event).InputId).ToHashSet();
+        var amendments = history.Where(e => !undone.Contains(e.InputId) && e.Event is StateCorrectedEvent { CorrectedPot: not null })
             .GroupBy(e => ((StateCorrectedEvent)e.Event).CorrectedPot!.Value).ToDictionary(g => g.Key, g => g.Last());
         var state = GameSnapshot.Empty;
         foreach (var e in history)
         {
             if (e.SchemaVersion != 1 || e.Sequence != state.Version + 1) throw new ArgumentException("Invalid event schema or sequence.");
+            if (undone.Contains(e.InputId) || e.Event is DecisionUndoneEvent) { state = state with { Version = e.Sequence }; continue; }
             // A historical amendment replaces the fact at its original position.
             // Later real shots still reduce after it; arrival of the amendment cannot erase them.
             if (e.Event is BallPottedEvent pot && amendments.TryGetValue(e.EventId, out var correction))
@@ -85,6 +87,12 @@ public static class GameReducer
             case ColourAssignedEvent c:
                 if (s.Frame!.Colours.TryGetValue(c.PlayerId, out var colour) && colour.Source > e.Provenance) return s;
                 return s with { Frame = s.Frame with { Colours = s.Frame.Colours.SetItem(c.PlayerId, Fact<BallColour?>(c.Colour, e)) } };
+            case ColoursDeclaredEvent c:
+                var colours = ImmutableDictionary<string, Fact<BallColour?>>.Empty;
+                if (c.PlayerId is not null)
+                    foreach (var player in s.Match!.Players)
+                        colours = colours.Add(player.Id, Fact<BallColour?>(player.Id == c.PlayerId ? c.Colour : c.Colour == BallColour.Red ? BallColour.Yellow : BallColour.Red, e));
+                return s with { Frame = s.Frame! with { Colours = colours } };
             case TurnChangedEvent t:
                 if (s.Frame!.CurrentPlayer.Source > e.Provenance) return s;
                 return s with { Frame = s.Frame with { CurrentPlayer = Fact(t.PlayerId, e), Visit = s.Frame.Visit + (s.Frame.CurrentPlayer.Value == t.PlayerId ? 0 : 1),

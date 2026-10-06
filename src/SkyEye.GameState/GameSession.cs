@@ -33,6 +33,13 @@ public sealed class GameSession
                 && e.MatchId == correction.MatchId && e.FrameId == correction.FrameId && e.Event is BallPottedEvent p && p.BallId == c.BallId))
                 throw new ArgumentException("Invalid amendment reference.");
         }
+        var undoTargets = new HashSet<Guid>();
+        foreach (var undo in history.Where(e => e.Event is DecisionUndoneEvent))
+        {
+            var target = ((DecisionUndoneEvent)undo.Event).InputId;
+            if (!undoTargets.Add(target) || !history.Any(e => e.InputId == target && e.Sequence < undo.Sequence
+                && e.MatchId == undo.MatchId && CanUndo(e))) throw new ArgumentException("Invalid undo reference.");
+        }
         return new(history);
     }
 
@@ -60,6 +67,13 @@ public sealed class GameSession
             return Commit(input, fingerprint, [new MatchStartedEvent(m.Players, m.Target)]);
         }
         if (State.Match?.Id != input.MatchId || !Text(input.FrameId)) return Refuse(InputOutcome.Stale, "Input belongs to another match/frame.");
+        if (input.Input is UndoDecision undo)
+        {
+            if (History.Any(e => e.Event is DecisionUndoneEvent u && u.InputId == undo.InputId)
+                || !History.Any(e => e.InputId == undo.InputId && e.MatchId == input.MatchId && CanUndo(e)))
+                return Refuse(InputOutcome.Rejected, "Choose an existing player decision that has not already been undone.");
+            return Commit(input with { Provenance = Provenance.PlayerCorrected }, fingerprint, [new DecisionUndoneEvent(undo.InputId)]);
+        }
         if (input.Input is FinishMatch)
         {
             if (State.Match.Finished) return Refuse(InputOutcome.Rejected, "The match is already finished.");
@@ -76,6 +90,13 @@ public sealed class GameSession
             && State.Match.Frames.Any(frame => frame.Id == input.FrameId);
         if (State.Frame?.Id != input.FrameId && !historicalWinner)
             return Refuse(InputOutcome.Stale, "Input belongs to an inactive frame.");
+        if (input.Input is DeclareColours groups)
+        {
+            if (State.Match.Finished || State.Frame!.Winner is not null || !(groups.PlayerId is null && groups.Colour is null
+                || groups.PlayerId is not null && PlayerExists(groups.PlayerId) && groups.Colour is BallColour.Red or BallColour.Yellow))
+                return Refuse(InputOutcome.Rejected, "Declare open table or the current frame's complementary colours.");
+            return Commit(input with { Provenance = Provenance.PlayerConfirmed }, fingerprint, [new ColoursDeclaredEvent(groups.PlayerId, groups.Colour)]);
+        }
         if (input.Input is PlayerCorrection or SkyCorrection)
         {
             var correction = input.Input is PlayerCorrection player ? player.Correction : ((SkyCorrection)input.Input).Correction;
@@ -140,6 +161,8 @@ public sealed class GameSession
         return change is null ? Refuse(InputOutcome.Rejected, "Unsupported, invalid or phase-incompatible evidence.") : Commit(input, fingerprint, [change]);
     }
     bool PlayerExists(string id) => State.Match!.Players.Any(p => p.Id == id);
+    public static bool CanUndo(EventEnvelope e) => e.Provenance >= Provenance.PlayerConfirmed
+        && e.Event is ColourAssignedEvent or ColoursDeclaredEvent or TurnChangedEvent or FoulRecordedEvent or FrameWonEvent or StateCorrectedEvent;
     bool CanStartShot(string id) => State.Table.Motion == TableMotion.Settled && !State.Table.Uncertain
         && (State.Shot is null || State.Shot.Ended) && !History.Any(e => e.FrameId == State.Frame!.Id && e.Event is ShotStartedEvent s && s.ShotId == id);
     static bool ValidObservation(TableObservation o) => !o.Balls.IsDefault && o.Balls.Length <= 64

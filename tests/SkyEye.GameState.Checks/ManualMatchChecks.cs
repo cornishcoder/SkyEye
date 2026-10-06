@@ -29,6 +29,26 @@ static class ManualMatchChecks
         Apply(Input(new StartFrame("a"), match: "next-match"));
         Scenarios.Check(game.State.Archives.Single().Match.Score("rich") == 1 && game.State.Archives.Single().Match.Score("mike") == 1
             && game.State.Match!.Score("a") == 0, "Starting another match retains the completed ledger and resets only the new match");
+        var groups = Input(new DeclareColours("a", BallColour.Red), match: "next-match");
+        Apply(groups);
+        Scenarios.Check(game.State.Frame!.Colours["a"].Value == BallColour.Red && game.State.Frame.Colours["b"].Value == BallColour.Yellow,
+            "One explicit group declaration sets complementary colours for both players");
+        Apply(Input(new UndoDecision(groups.Id), match: "next-match"));
+        Scenarios.Check(game.State.Frame.OpenTable && game.History.Any(e => e.InputId == groups.Id), "Undo restores open table while preserving the original decision");
+        Scenarios.Check(!game.Accept(Input(new UndoDecision(groups.Id), match: "next-match")).Accepted, "A decision cannot be undone twice");
+        var turn = Input(new PlayerCorrection(new ChangeTurn("b")), match: "next-match");
+        Apply(turn);
+        Apply(Input(new PlayerCorrection(new SetFoul(true)), match: "next-match"));
+        Apply(Input(new UndoDecision(turn.Id), match: "next-match"));
+        Scenarios.Check(game.State.Frame.CurrentPlayer.Value == "a" && game.State.Frame.Foul!.Value == true,
+            "Undo of a turn preserves later explicitly declared facts");
+        var award = Input(new PlayerCorrection(new SetFrameWinner("a")), match: "next-match");
+        Apply(award);
+        Apply(Input(new StartFrame("b"), "next-frame", "next-match"));
+        Apply(Input(new UndoDecision(award.Id), match: "next-match"));
+        Scenarios.Check(game.State.Match!.Score("a") == 0 && game.State.Frame!.Id == "next-frame"
+            && game.State.Match.Frames[0].Winner is null && game.State.Match.Frames[0].Closed, "Undo an earlier result without deleting the later frame");
+        Scenarios.Check(GameJson.WriteState(GameSession.Restore(game.History).State) == GameJson.WriteState(game.State), "Groups and undo reconstruct through the same journal codec");
         Console.WriteLine("PASS manual match ledger: two frames, earlier winner correction, duplicate, rebuild, explicit finish and retained match archive");
     }
 }
