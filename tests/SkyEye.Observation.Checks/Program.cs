@@ -48,6 +48,15 @@ try
     Check(score.SpatialTruePositives == 1 && score.FalsePositives == 1 && score.MissedVisible == 1 && score.ColourCorrect == 0,
         "Visible ground truth, wrong colours, extra circles and misses remain separate");
     Throws<InvalidDataException>(() => DetectorBaseline.Score(truth, detection with { PixelSha256 = new string('0',64) }, .027));
+    // A nearest-first greedy match loses B: A must be reassigned to the alternative.
+    var crowdedTruth = truth with { Balls = [new("A", "red", .20, .3, LabelVisibility.Visible), new("B", "yellow", .24, .3, LabelVisibility.Visible)] };
+    var crowdedDetection = detection with { Balls = [new("shared", "yellow", .22, .3, null), new("alternative", "red", .17, .3, null)] };
+    var crowded = DetectorBaseline.Score(crowdedTruth, crowdedDetection, .035);
+    Check(crowded.SpatialTruePositives == 2 && crowded.FalsePositives == 0 && crowded.MissedVisible == 0,
+        "Maximum association avoids the greedy crowded-ball miss");
+    Check(CorpusJson.Write(crowded) == CorpusJson.Write(DetectorBaseline.Score(crowdedTruth,
+        crowdedDetection with { Balls = crowdedDetection.Balls.Reverse().ToImmutableArray() }, .035)),
+        "Stored detection order cannot change association or metrics");
     // Minimal SOF fixture checks the dimension contract without image decoding or CV.
     var jpeg = new byte[] { 0xff,0xd8,0xff,0xc0,0,11,8,0,8,0,8,1,1,0x11,0,0xff,0xd9 };
     var jpegFrame = frames[0] with { Encoding = PixelEncoding.Jpeg, EmbeddedFrameId = false };

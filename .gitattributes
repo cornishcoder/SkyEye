@@ -1,0 +1,3 @@
+# Frozen observation locks hash exact asset bytes; preserve their generated LF form.
+tests/fixtures/observations/** text eol=lf
+tests/fixtures/observations/**/*.gray -text
