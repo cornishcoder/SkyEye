@@ -13,7 +13,31 @@ public sealed record RecordedRenderPlan(RecordedGeometrySource Source, int Width
             throw new ArgumentException("Unsupported or mismatched recorded render source.");
         var spans=journal.Spans.Select(span => new RecordedRenderSpan(span.StartUs-source.StartUs,span.EndUs-source.StartUs,span.Layout is not null,
             Matrix(source,width,height,portrait,span.Layout).ToImmutableArray())).ToImmutableArray();
-        return new(source,width,height,portrait,spans);
+        var plan=new RecordedRenderPlan(source,width,height,portrait,spans);plan.Validate();return plan;
+    }
+    public void Validate()
+    {
+        if(Source is null)throw new ArgumentException("Missing render source.");Source.Validate();
+        if(Version!=1||Source.Rotation!=0||Width is <16 or >3840||Height is <16 or >3840||Width%2!=0||Height%2!=0||Spans.IsDefaultOrEmpty||Spans.Length>512)throw new ArgumentException("Invalid render plan.");
+        long cursor=0;
+        foreach(var span in Spans)
+        {
+            if(span is null||span.StartUs!=cursor||span.EndUs<=cursor||span.EndUs>Source.DurationUs||span.Matrix.IsDefault||span.Matrix.Length!=9||span.Matrix.Any(v=>!double.IsFinite(v)))throw new ArgumentException("Invalid render interval.");
+            cursor=span.EndUs;
+        }
+        if(cursor!=Source.DurationUs)throw new ArgumentException("Render extent differs from source.");
+    }
+    public static double[] PocketPixels(TableCalibration pockets,double width,double height,bool portrait)
+    {
+        if(!double.IsFinite(width)||!double.IsFinite(height)||width<=0||height<=0)throw new ArgumentException("Invalid projection viewport.");
+        const double border=.075;
+        double scale=Math.Min(width/(portrait?1+2*border:2+2*border),height/(portrait?2+2*border:1+2*border));
+        double across=(portrait?1+2*border:2+2*border)*scale,along=(portrait?2+2*border:1+2*border)*scale;
+        double left=(width-across)/2,top=(height-along)/2,margin=border*scale;
+        double[] target=portrait?[0,-scale,left+across-margin,scale,0,top+margin,0,0,1]:[scale,0,left+margin,0,scale,top+margin,0,0,1];
+        var result=Multiply(target,pockets.MatrixValues());
+        if(result.Any(v=>!double.IsFinite(v))||new[]{new Point(0,0),new(1,0),new(1,1),new(0,1)}.Any(p=>result[6]*p.X+result[7]*p.Y+result[8]<=1e-6))throw new ArgumentException("Invalid perspective horizon.");
+        return result;
     }
     public RecordedRenderSpan? At(long presentationTimeUs) => presentationTimeUs < 0 || presentationTimeUs >= Source.DurationUs ? null
         : Spans.FirstOrDefault(s => presentationTimeUs >= s.StartUs && presentationTimeUs < s.EndUs);
@@ -37,13 +61,8 @@ public sealed record RecordedRenderPlan(RecordedGeometrySource Source, int Width
         }
         else
         {
-            const double border=.075;
-            double scale=Math.Min(width/(portrait?1+2*border:2+2*border),height/(portrait?2+2*border:1+2*border));
-            double across=(portrait?1+2*border:2+2*border)*scale,along=(portrait?2+2*border:1+2*border)*scale;
-            double left=(width-across)/2,top=(height-along)/2,margin=border*scale;
-            double[] target=portrait ? [0,-scale/width,(left+across-margin)/width,scale/height,0,(top+margin)/height,0,0,1]
-                : [scale/width,0,(left+margin)/width,0,scale/height,(top+margin)/height,0,0,1];
-            image=Multiply(target,new TableCalibration(pockets.Corners.ToArray()).MatrixValues());
+            image=PocketPixels(new TableCalibration(pockets.Corners.ToArray()),width,height,portrait);
+            for(int i=0;i<3;i++){image[i]/=width;image[i+3]/=height;}
         }
         double[] normalized=Multiply([2,0,-1,0,-2,1,0,0,1],Multiply(image,[.5,0,.5,0,-.5,.5,0,0,1]));
         double divisor=normalized[8]; normalized=normalized.Select(v=>v/divisor).ToArray();

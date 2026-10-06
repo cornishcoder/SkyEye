@@ -55,10 +55,7 @@ public sealed class SceneProjection
         double scale = Math.Min(viewportWidth / across, viewportHeight / along);
         double width = across * scale, height = along * scale, left = (viewportWidth - width) / 2, top = (viewportHeight - height) / 2;
         double margin = border * scale;
-        Point[] target = portrait
-            ? [new(left + width - margin, top + margin), new(left + width - margin, top + height - margin), new(left + margin, top + height - margin), new(left + margin, top + margin)]
-            : [new(left + margin, top + margin), new(left + width - margin, top + margin), new(left + width - margin, top + height - margin), new(left + margin, top + height - margin)];
-        return new(left, top, width, height, Solve(pockets.Corners, target), framed: true);
+        return new(left, top, width, height, SkyEye.Core.Analysis.RecordedRenderPlan.PocketPixels(pockets,viewportWidth,viewportHeight,portrait), framed: true);
     }
     public Point? Image(Point screen)
     {

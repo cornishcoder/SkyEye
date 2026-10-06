@@ -3,4 +3,6 @@
   <ItemGroup><ProjectReference Include="../../src/SkyEye.Vision.Android/SkyEye.Vision.Android.csproj"/><AndroidAsset Include="../fixtures/poolgame/*.jpg" Link="%(Filename)%(Extension)"/><AndroidAsset Include="../fixtures/poolgame/pixel-table.json" Link="pixel-table.json"/><AndroidAsset Include="../fixtures/poolgame/pixel-racked-dim.json" Link="pixel-racked-dim.json"/></ItemGroup>
   <ItemGroup><AndroidAsset Include="../fixtures/poolgame/pixel-spread-dim.json" Link="pixel-spread-dim.json"/></ItemGroup>
   <ItemGroup><Compile Include="../../src/SkyEye.Companion/AndroidRecordedGeometry.cs" Link="AndroidRecordedGeometry.cs"/><AndroidJavaSource Include="../../src/SkyEye.Companion/RecordedFrameReader.java" Link="RecordedFrameReader.java"/></ItemGroup>
+  <ItemGroup><PackageReference Include="Xamarin.AndroidX.Media3.Transformer" Version="1.10.1.1"/><Compile Include="../../src/SkyEye.Companion/AndroidRecordedRenderer.cs" Link="AndroidRecordedRenderer.cs"/><AndroidJavaSource Include="../../src/SkyEye.Companion/RecordedVideoRenderer.java" Link="RecordedVideoRenderer.java"/></ItemGroup>
+  <PropertyGroup><AndroidPackageFormats>apk</AndroidPackageFormats></PropertyGroup>
 </Project>
