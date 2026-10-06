@@ -75,8 +75,13 @@ public final class PlayerBridge {
         if(releaseAge>250000000L||releaseAge< -100000000L)return copyFailure("stale-or-far-future-surface");
         JSONObject clock=liveUrl(activeUrl)?annotationRecorder.exactFrameMetrics(stamp,media):new JSONObject();
         if(clock==null)return copyFailure("unmapped-source-clock");
-        Bitmap bitmap=texture.getBitmap(paired.width,paired.height);if(bitmap==null)return copyFailure("no-bitmap");
+        // Allocate explicitly so a failed/throwing TextureView copy cannot leak
+        // an internally allocated bitmap. An untouched transparent buffer is
+        // not a successful opaque AVC decoder copy.
+        Bitmap bitmap=Bitmap.createBitmap(paired.width,paired.height,Bitmap.Config.ARGB_8888);
         try{
+            if(texture.getBitmap(bitmap)==null||android.graphics.Color.alpha(bitmap.getPixel(paired.width/2,paired.height/2))==0)
+                return copyFailure("empty-copy");
             copyAfter=surface.getTimestamp();
             if(media!=generation||surface!=texture.getSurfaceTexture()||stamp!=copyAfter
                 ||decodedLedger.match(media,stamp)!=paired)return copyFailure("changed-during-copy");
