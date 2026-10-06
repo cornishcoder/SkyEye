@@ -2,7 +2,7 @@
 <section class="control-section" aria-label="Shot choices">
     <h2>Shot choices</h2>
     <p class="hint" role="status">@Session.CandidateStatus</p>
-    <p class="hint">Phone: @Mode(Session.ShotPresentation.Phone) · TV: @(Session.TvReplaySelected ? "saved clip" : Mode(Session.ShotPresentation.Tv))</p>
+    <p class="hint">Phone: @Mode(Session.ShotPresentation.Phone) · TV: @(Session.TvReplaySelected ? Session.TvReplayKind : Mode(Session.ShotPresentation.Tv))</p>
     @if (Session.TvReplaySelected) { <p class="hint">TV choices appear when you play live on TV again.</p> }
     <label for="shot-screen">Apply to</label>
     <select id="shot-screen" @bind="target">

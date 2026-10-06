@@ -6,6 +6,7 @@ namespace SkyEye.Companion.Hybrid;
 public sealed partial class ShellSession
 {
     CameraRecentReplay? recentReplay;
+    public string TvReplayKind => TvReplaySelected && recentReplay?.Asset.Clip.Id == tvReplay.ClipId ? "recent replay" : "saved clip";
     public bool PreparingRecentReplay { get; private set; }
     public bool RecentReplaySupported => effects.Latest is { } view && view.Connection == app.State.Camera
         && view.Status.TryGetProperty("recentReplayVersion", out var version) && version.GetInt32() == 1;

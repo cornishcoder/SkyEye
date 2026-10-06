@@ -102,6 +102,7 @@ public sealed partial class ShellSession
         if (!TvReplaySelected && status is "TV playing live camera" or "TV playing shared table scene" or "TV playing candidate overlay")
             Message = "Live table on TV · silent.";
         TvStatus = status switch { "Casting silently in landscape" => "TV accepted the live playback request",
+            "TV playing saved clip" when TvReplayKind == "recent replay" => "TV playing recent replay",
             "TV playing shared table scene" => AutomaticPocketsCurrent && FrameTableRequested ? "TV playing rectangular table" : "TV playing table overlay", _ => status ?? "TV status changed" };
         Publish();
     }
