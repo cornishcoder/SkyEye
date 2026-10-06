@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using SkyEye.GameState;
 
 namespace SkyEye.Core.Application;
@@ -17,7 +18,6 @@ public sealed class GameJournalStore(string directory) : IGameJournal
     const int MaximumBytes = 16 * 1024 * 1024;
     readonly object gate = new();
     readonly string root = Path.GetFullPath(directory);
-    sealed record Document(int SchemaVersion, string Sha256, ImmutableArray<EventEnvelope> History);
 
     public GameSession Load()
     {
@@ -33,8 +33,8 @@ public sealed class GameJournalStore(string directory) : IGameJournal
             if (next.History.Length < previous.History.Length || !Same(next.History.Take(previous.History.Length).ToImmutableArray(), previous.History))
                 throw new ArgumentException("Game history must be append-only.");
             if (Same(previous.History, next.History)) return;
-            var history = JsonSerializer.SerializeToUtf8Bytes(next.History);
-            var bytes = JsonSerializer.SerializeToUtf8Bytes(new Document(1, Convert.ToHexString(SHA256.HashData(history)), next.History));
+            var history = GameJson.WriteHistory(next.History);
+            var bytes = JsonSerializer.SerializeToUtf8Bytes(new GameJournalDocument(1, Convert.ToHexString(SHA256.HashData(history)), next.History), GameJournalJsonContext.Default.GameJournalDocument);
             if (bytes.Length > MaximumBytes) throw new IOException("Game journal capacity reached.");
             var target = Path.Combine(root, "game.json");
             var temporary = Path.Combine(root, "game-" + Guid.NewGuid().ToString("N") + ".tmp");
@@ -59,15 +59,19 @@ public sealed class GameJournalStore(string directory) : IGameJournal
         if (new FileInfo(path).Length > MaximumBytes) throw new InvalidDataException("Game journal exceeds capacity.");
         try
         {
-            var document = JsonSerializer.Deserialize<Document>(File.ReadAllBytes(path));
+            var document = JsonSerializer.Deserialize(File.ReadAllBytes(path), GameJournalJsonContext.Default.GameJournalDocument);
             if (document is null || document.SchemaVersion != 1 || document.History.IsDefault || document.History.Length > 10000
-                || document.Sha256 != Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(document.History))))
+                || document.Sha256 != Convert.ToHexString(SHA256.HashData(GameJson.WriteHistory(document.History))))
                 throw new InvalidDataException("Game journal schema or checksum is invalid.");
             return GameSession.Restore(document.History);
         }
-        catch (Exception e) when (e is JsonException or ArgumentException or InvalidOperationException or NullReferenceException)
+        catch (Exception e) when (e is JsonException or ArgumentException or InvalidOperationException or NullReferenceException or NotSupportedException)
         { throw new InvalidDataException("Game journal cannot be reconstructed; preserve it for repair.", e); }
     }
     static bool Same(ImmutableArray<EventEnvelope> first, ImmutableArray<EventEnvelope> second)
-        => JsonSerializer.Serialize(first) == JsonSerializer.Serialize(second);
+        => GameJson.WriteHistory(first).AsSpan().SequenceEqual(GameJson.WriteHistory(second));
 }
+
+internal sealed record GameJournalDocument(int SchemaVersion, string Sha256, ImmutableArray<EventEnvelope> History);
+[JsonSerializable(typeof(GameJournalDocument))]
+internal partial class GameJournalJsonContext : JsonSerializerContext;

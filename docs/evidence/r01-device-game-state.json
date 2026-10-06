@@ -1,0 +1,26 @@
+{
+  "observedAt": "2026-10-06T20:07:07.0242883+01:00",
+  "liveObservation": {
+    "outcome": 2,
+    "sourceTimeUs": 41787204766,
+    "frameSource": "decoded-live-texture",
+    "detectedBalls": 15,
+    "canonicalBalls": 15,
+    "uncertain": true,
+    "timestampPreserved": true,
+    "rebuilt": true
+  },
+  "declaredScenario": {
+    "inferredPot": true,
+    "provenance": 1,
+    "confidence": 0.9,
+    "remainingBeforeCorrection": 0,
+    "remainingAfterCorrection": 1,
+    "correctedVisitPots": 0,
+    "historyEvents": 10,
+    "rebuilt": true,
+    "durableDuplicate": true
+  },
+  "productionJournalUntouched": true,
+  "capture": "Active"
+}

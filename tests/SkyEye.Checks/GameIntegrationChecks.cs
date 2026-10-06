@@ -42,6 +42,30 @@ static class GameIntegrationChecks
             vision.Unknown = true; clock.Advance(3); await Observe();
             Check(app.State.Observation!.GameEvidence!.Balls.Any(b => b.Colour == G.BallColour.Unknown), "Unknown CV colours do not fail the observation effect");
             vision.Unknown = false; vision.Shift = false; clock.Advance(3); await Observe(); clock.Advance(3); await Observe();
+            // The future tracker supplies stable shot/pocket identities through this typed seam.
+            // This sequence is declared evidence, not a claim that today's CV detects pots.
+            var gameSource = app.State.Game.Table.Source!;
+            var yellowId = app.State.Game.Table.Balls.Values.Single(b => b.Colour == G.BallColour.Yellow).Id;
+            async Task Signal(G.GameInput signal, double? confidence = null)
+            {
+                clock.Advance(1);
+                var evidence = Input(signal) with { Source = gameSource, SourceTimeUs = clock.GetUtcNow().ToUnixTimeMilliseconds() * 1000,
+                    Provenance = G.Provenance.Observed, Confidence = confidence };
+                Check((await Send(evidence)).Succeeded, "Declared tracker evidence uses the shared application command surface");
+            }
+            await Signal(new G.ShotStarted("declared-shot"));
+            Check(!app.State.GameTableCurrent, "Motion invalidates live settled-table projection");
+            await Signal(new G.PossiblePocketEvent("declared-shot", yellowId, G.Pocket.BottomRight), .9);
+            await Signal(new G.ShotEnded("declared-shot"));
+            var cue = app.State.Game.Table.Balls.Values.Single(b => b.Colour == G.BallColour.Cue);
+            await Signal(new G.TableObservation([new(cue.Id, cue.Colour, cue.Position, .9)], true));
+            Check(app.State.Game.Frame!.Pots.Count == 1 && app.State.Game.Table.Remaining(G.BallColour.Yellow) == 0,
+                "Full application vertical slice records the declared tracker pot");
+            var pot = store.Load().History.Single(e => e.Event is G.BallPottedEvent);
+            Check((await Send(Input(new G.PlayerCorrection(new G.SetBallPresence(yellowId, G.BallPresence.OnTable, pot.EventId))))).Succeeded,
+                "Application correction appends its amendment durably");
+            Check(app.State.Game.Frame.Pots.Count == 0 && app.State.Game.Table.Remaining(G.BallColour.Yellow) == 1,
+                "Canonical application state repairs the declared pot/visit");
             var rebuilt = new AppCoordinator(cameraControls: new Camera(), gameJournal: store);
             Check(JsonSerializer.Serialize(rebuilt.State.Game) == JsonSerializer.Serialize(app.State.Game) && !rebuilt.State.GameTableCurrent,
                 "Restart restores match history but never marks recovered imagery as current live state");
@@ -72,7 +96,12 @@ static class GameIntegrationChecks
                 "Observation admitted for the previous frame cannot seed a replacement frame");
             Console.WriteLine("PASS game integration: matching existing observations, normalized positions, conservative identities, unknown colours, host/stale fences, restart freshness and failed-save atomicity");
         }
-        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        finally
+        {
+            if (Path.GetDirectoryName(Path.GetFullPath(root)) != Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar)
+                || !Path.GetFileName(root).StartsWith("skyeye-game-app-")) throw new InvalidOperationException("Unsafe test cleanup path.");
+            if (Directory.Exists(root)) Directory.Delete(root, true);
+        }
     }
     static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
     sealed class Clock : TimeProvider

@@ -36,7 +36,12 @@ static class GameJournalChecks
             Check(new GameJournalStore(root).Load().State.Frame!.CurrentPlayer.Value == "rich", "Failed writes preserve recoverable accepted history");
             Console.WriteLine("PASS durable game journal: restart, duplicates, append-only/concurrent-owner fences, corruption/truncation/schema refusal");
         }
-        finally { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
+        finally
+        {
+            if (Path.GetDirectoryName(Path.GetFullPath(root)) != Path.GetTempPath().TrimEnd(Path.DirectorySeparatorChar)
+                || !Path.GetFileName(root).StartsWith("skyeye-game-")) throw new InvalidOperationException("Unsafe test cleanup path.");
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
     }
     static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
     static void Throws<T>(Action action) where T : Exception { try { action(); } catch (T) { return; } throw new Exception("Expected " + typeof(T).Name); }

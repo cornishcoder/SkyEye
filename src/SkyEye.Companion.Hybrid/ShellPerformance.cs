@@ -52,6 +52,11 @@ public sealed partial class ShellSession
                     return HttpResponse.Json(result);
                 });
             }
+            if (r.Method == "POST" && r.Path == "/game-check")
+            {
+                try { return await MainThread.InvokeOnMainThreadAsync(() => CheckGameStateAsync(ct)); }
+                catch (Exception e) { return HttpResponse.Json(new { error = e.Message, exception = e.GetType().FullName, inner = e.InnerException?.Message }, 500); }
+            }
             if (r.Method == "POST" && r.Path == "/command")
             {
                 var input = r.Json<PerformanceSceneCommand>();

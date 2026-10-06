@@ -32,7 +32,7 @@ static class Scenarios
         game = Apply(game, Input(new ShotEnded("shot"), 4));
         game = Apply(game, Input(new TableSettled(), 5));
         var json = JsonSerializer.Serialize(game.History);
-        Check(JsonSerializer.Serialize(GameSession.Restore(JsonSerializer.Deserialize<ImmutableArray<EventEnvelope>>(json)).State) == JsonSerializer.Serialize(game.State), "Ordered history reconstructs deterministically");
+        Check(GameJson.WriteState(GameSession.Restore(JsonSerializer.Deserialize<ImmutableArray<EventEnvelope>>(json)).State) == GameJson.WriteState(game.State), "Ordered history reconstructs deterministically");
         game = Apply(game, Input(new SelectSource(), 6, Source with { Timeline = "new", Generation = 2 }));
         Check(game.State.Match!.Id == "match" && game.State.Table.Motion == TableMotion.Unknown && game.State.Table.LastSettled is null, "Source change preserves match but invalidates live facts");
         Check(game.Accept(Input(new TableObservation([], true), 7)).Outcome == InputOutcome.Stale, "Previous source cannot return late");
@@ -96,7 +96,7 @@ static class Scenarios
         game = Apply(game, Input(new TableObservation([new("R1", BallColour.Red, new(.2, .5), .9)], true), 17));
         Check(game.State.Table.Balls["Y3"].Presence.Value == BallPresence.Potted, "A later actual shot releases same-shot presence protection");
         var json = JsonSerializer.Serialize(game.History);
-        Check(JsonSerializer.Serialize(GameSession.Restore(JsonSerializer.Deserialize<ImmutableArray<EventEnvelope>>(json)).State) == JsonSerializer.Serialize(game.State), "Amended history reproduces corrected state deterministically");
+        Check(GameJson.WriteState(GameSession.Restore(JsonSerializer.Deserialize<ImmutableArray<EventEnvelope>>(json)).State) == GameJson.WriteState(game.State), "Amended history reproduces corrected state deterministically");
         var later = YellowPot();
         var earlierPot = later.History.Single(e => e.Event is BallPottedEvent);
         later = Apply(later, Input(new TableObservation([new("Y3", BallColour.Yellow, new(.5, .5), .9), new("R1", BallColour.Red, new(.2, .5), .9)], true), 7));
@@ -138,6 +138,20 @@ static class Scenarios
         Check(reconnected.State.Table.Uncertain && reconnected.State.Table.LastSettled is null, "A new connection can restart observation generation without promoting old live facts");
         var unknown = Apply(OpenTable(), Input(new BallObserved(new("unclassified", BallColour.Unknown, new(.5, .5))), 3));
         Check(unknown.State.Table.Uncertain && unknown.State.Table.Remaining(BallColour.Red) is null, "An individual unknown-colour signal cannot claim reliable counts");
+        var excessive = Enumerable.Range(0, 17).Select(i => new ObservedBall("false-circle-" + i, BallColour.Red, new(.1 + i * .01, .5))).ToImmutableArray();
+        var imperfect = Apply(OpenTable(), Input(new TableObservation(excessive, true), 3));
+        Check(imperfect.State.Table.Uncertain && imperfect.State.Table.Balls.Count == 2,
+            "Excess detections remain timestamped uncertain evidence rather than inventing a 17-ball table");
+        var seed = OpenTable();
+        var repeated = Enumerable.Range(0, 9993).Select(i => seed.History[2] with { Sequence = i + 4, EventId = Guid.NewGuid(), InputId = Guid.NewGuid(),
+            At = DateTimeOffset.UnixEpoch.AddSeconds(i + 3), SourceTimeUs = (i + 3) * 1_000_000L, Event = new TableSettledEvent() });
+        var nearlyFull = GameSession.Restore(seed.History.AddRange(repeated));
+        nearlyFull = Apply(nearlyFull, Input(new ShotStarted("last-shot"), 20000));
+        nearlyFull = Apply(nearlyFull, Input(new PossiblePocketEvent("last-shot", "Y3", Pocket.TopLeft), 20001) with { Confidence = .9 });
+        nearlyFull = Apply(nearlyFull, Input(new ShotEnded("last-shot"), 20002));
+        var full = nearlyFull.Accept(Input(new TableObservation([new("R1", BallColour.Red, new(.2, .5), .9)], true), 20003));
+        Check(full.Outcome == InputOutcome.Rejected && full.Session.History.Length == 9999,
+            "Capacity refusal is atomic for observation plus inferred pot and resolution, never a partial history");
         Console.WriteLine("PASS evidence boundaries: same-frame replay, PTS, invalid confidence/coordinates, amendment references, conflicting pockets and reconnect generation");
     }
 }

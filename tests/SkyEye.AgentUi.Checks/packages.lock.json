@@ -119,6 +119,12 @@
         "contentHash": "W9eq1a1pEEaSx5msYyU+7z650Lhe4AuKGkvNYl9OOXn9nzlksULlF9FfAbhES7HgVLh9nVm1m7fq4I28DTQ7iw=="
       },
       "skyeye.core": {
+        "type": "Project",
+        "dependencies": {
+          "SkyEye.GameState": "[1.0.0, )"
+        }
+      },
+      "skyeye.gamestate": {
         "type": "Project"
       }
     }

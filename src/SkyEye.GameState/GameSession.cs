@@ -111,7 +111,8 @@ public sealed class GameSession
         GameEvent? change = input.Input switch
         {
             TableObservation o when ValidObservation(o) && !(last?.Event is TableObservedEvent && input.At == last.At)
-                => new TableObservedEvent(o.Balls, o.Settled, o.Uncertain || !o.IdentitiesResolved || o.Balls.Any(b => b.Colour == BallColour.Unknown), o.IdentitiesResolved),
+                => new TableObservedEvent(o.Balls, o.Settled, o.Uncertain || !o.IdentitiesResolved || o.Balls.Length > 16 || o.Balls.Any(b => b.Colour == BallColour.Unknown),
+                    o.IdentitiesResolved && o.Balls.Length <= 16),
             ShotStarted s when Text(s.ShotId) && CanStartShot(s.ShotId) => new ShotStartedEvent(s.ShotId),
             MotionStarted s when Text(s.ShotId) && CanStartShot(s.ShotId) => new ShotStartedEvent(s.ShotId),
             ShotEnded s when State.Shot is { Ended: false } shot && shot.Id == s.ShotId => new ShotEndedEvent(s.ShotId),
@@ -132,7 +133,7 @@ public sealed class GameSession
     bool PlayerExists(string id) => State.Match!.Players.Any(p => p.Id == id);
     bool CanStartShot(string id) => State.Table.Motion == TableMotion.Settled && !State.Table.Uncertain
         && (State.Shot is null || State.Shot.Ended) && !History.Any(e => e.FrameId == State.Frame!.Id && e.Event is ShotStartedEvent s && s.ShotId == id);
-    static bool ValidObservation(TableObservation o) => !o.Balls.IsDefault && o.Balls.Length <= 16
+    static bool ValidObservation(TableObservation o) => !o.Balls.IsDefault && o.Balls.Length <= 64
         && o.Balls.All(ValidBall)
         && o.Balls.Select(b => b.Id).Distinct().Count() == o.Balls.Length;
     static bool ValidPosition(TablePosition? p) => p is null || double.IsFinite(p.X) && double.IsFinite(p.Y) && p.X is >= 0 and <= 1 && p.Y is >= 0 and <= 1;
@@ -165,6 +166,8 @@ public sealed class GameSession
                 input.Source, input.SourceTimeUs, input.Provenance, input.Confidence, new ShotResolvedEvent()));
             proposed = new(history);
         }
-        return new(InputOutcome.Applied, "Game state updated.", proposed);
+        return proposed.History.Length > 10000
+            ? new(InputOutcome.Rejected, "Game history has insufficient capacity for this complete transition.", this)
+            : new(InputOutcome.Applied, "Game state updated.", proposed);
     }
 }
