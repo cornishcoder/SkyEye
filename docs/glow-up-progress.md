@@ -4,7 +4,7 @@ The full implementation plan is in [glow-up-plan.md](glow-up-plan.md). Work star
 
 ## Current priority — 6 October 2026
 
-**Match & Table State** is the new epic for immediate planning and delivery. Its first mission is **R01 — Establish the Match & Table State Core**, currently **planned, not implemented**. The [canonical user brief](r01-match-table-state-brief.md) and [delivery chunks R01.01-R01.07](r01-match-table-state-plan.md) are checked into the roadmap. Start with R01.01: the pure C# library and minimal typed contracts/scenario checks.
+**Match & Table State** is the new epic for immediate planning and delivery. Its first mission is **R01 — Establish the Match & Table State Core**, currently **in progress**. The [canonical user brief](r01-match-table-state-brief.md) and [delivery chunks R01.01-R01.07](r01-match-table-state-plan.md) define its scope. R01.01 adds the pure C# library and minimal typed contracts/scenario checks; event admission/reduction is next.
 
 R01 will establish authoritative match/frame/table state, ordered meaningful events, deterministic reconstruction, confidence/provenance and player corrections, with minimal existing-observation integration. Replay, coaching, scoring, rules, shot reconstruction and future 3D simulation consume this model. R01 does not implement those consumers or complete pool rules.
 
@@ -24,6 +24,7 @@ This checkout's former R01 is the rules-outcome task; it is preserved as **R04**
 | Unit | Status | Evidence |
 |---|---|---|
 | R01 | Planned — next delivery | New Match & Table State epic; [brief](r01-match-table-state-brief.md), [bounded delivery plan](r01-match-table-state-plan.md). Existing rules-outcome R01 preserved as R04; implementation and scenario/device acceptance remain outstanding |
+| R01.01 | Complete | `SkyEye.GameState` and pure .NET executable checks added to the solution. Typed state/evidence/commands/events, normalized positions and explicit unknown facts; contract fixtures verify two players/open table/settled layout and uncertain counts. `dotnet run --project tests/SkyEye.GameState.Checks` passes; reducer and application integration remain next |
 | T13 | Runtime implemented; acceptance open | [Performance report](t13-performance-report.md): requested-only decoded observations, shared commands and faster phone delivery; calibrated <500 ms timing and full physical acceptance remain open |
 | T14 | Runtime implemented; acceptance open | [Background delivery report](t14-report.md): independent corrected TV, background/lock/local-phone evidence and interrupted export recovery; automatic network recovery, unplugged endurance, physical audio sync and annotation correlation remain open |
 | P01 | Complete | Root resolves SDK 10.0.400; Hybrid directory resolves SDK 11.0.100-rc.1.26425.128. Existing core checks pass. Full baseline Release build succeeds: 0 errors, 9 existing generated/native packaging warnings |
