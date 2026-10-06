@@ -126,26 +126,28 @@ public sealed class TableAnalysisSession(ITableFrameSource frames, ITableAnalyze
         {
             TableFrame frame;
             using (PipelineDiagnostics.Measure("frameAcquisitionMs")) frame = await frames.ReadAsync(admitted.Source!, linked.Token).ConfigureAwait(false);
-            using var frameLifetime = frame;
-            var acquisitionMs = watch.Elapsed.TotalMilliseconds;
-            PipelineDiagnostics.Sample("frameAgeMs", (time.GetUtcNow() - frame.CapturedAt).TotalMilliseconds);
-            await analyzerGate.WaitAsync(linked.Token).ConfigureAwait(false);
-            VisionResult detected;
-            try { PipelineDiagnostics.Count("fullAnalyses"); using var vision = PipelineDiagnostics.Measure("visionMs"); detected = await Task.Run(() => analyzer.Analyze(frame, admitted.Calibration!, linked.Token), linked.Token).ConfigureAwait(false); }
-            finally { analyzerGate.Release(); }
-            lock (gate)
+            using (frame)
             {
-                linked.Token.ThrowIfCancellationRequested();
-                if (!disposed && state.Generation == admitted.Generation && state.Source == admitted.Source && state.Calibration == admitted.Calibration && !state.Picking)
+                var acquisitionMs = watch.Elapsed.TotalMilliseconds;
+                PipelineDiagnostics.Sample("frameAgeMs", (time.GetUtcNow() - frame.CapturedAt).TotalMilliseconds);
+                await analyzerGate.WaitAsync(linked.Token).ConfigureAwait(false);
+                VisionResult detected;
+                try { PipelineDiagnostics.Count("fullAnalyses"); using var vision = PipelineDiagnostics.Measure("visionMs"); detected = await Task.Run(() => analyzer.Analyze(frame, admitted.Calibration!, linked.Token), linked.Token).ConfigureAwait(false); }
+                finally { analyzerGate.Release(); }
+                lock (gate)
                 {
-                    if (state.Table is null || lastTimeline != frame.Timeline || frame.CapturedAt > state.Table.CapturedAt)
+                    linked.Token.ThrowIfCancellationRequested();
+                    if (!disposed && state.Generation == admitted.Generation && state.Source == admitted.Source && state.Calibration == admitted.Calibration && !state.Picking)
                     {
-                        using var post = PipelineDiagnostics.Measure("postProcessingMs");
-                        var table = tracker.Observe(state.CalibrationId, frame.Timeline, frame.CapturedAt, detected.Balls, group, detected.Uncertain, detected.Obstructed);
-                        state = state with { Table = table, Vision = detected, Choices = [], ChoicesComputed = false, Jpeg = reviewFrame ? frame.ReviewImage() : frame.Jpeg.Length == 0 ? null : frame.Jpeg,
-                            Observation = new(admitted.Source!, admitted.Generation, 0, frame.Timeline, frame.CapturedAt, frame.SourceTimeUs,
-                                (time.GetUtcNow() - frame.CapturedAt).TotalMilliseconds, acquisitionMs, detected.ElapsedMs, watch.Elapsed.TotalMilliseconds,
-                                table.Version, table.Occluded ? ObservationOutcome.Unclear : table.Settled ? ObservationOutcome.Ready : ObservationOutcome.Unsettled, frame.FrameSource) }; lastTimeline = frame.Timeline;
+                        if (state.Table is null || lastTimeline != frame.Timeline || frame.CapturedAt > state.Table.CapturedAt)
+                        {
+                            using var post = PipelineDiagnostics.Measure("postProcessingMs");
+                            var table = tracker.Observe(state.CalibrationId, frame.Timeline, frame.CapturedAt, detected.Balls, group, detected.Uncertain, detected.Obstructed);
+                            state = state with { Table = table, Vision = detected, Choices = [], ChoicesComputed = false, Jpeg = reviewFrame ? frame.ReviewImage() : frame.Jpeg.Length == 0 ? null : frame.Jpeg,
+                                Observation = new(admitted.Source!, admitted.Generation, 0, frame.Timeline, frame.CapturedAt, frame.SourceTimeUs,
+                                    (time.GetUtcNow() - frame.CapturedAt).TotalMilliseconds, acquisitionMs, detected.ElapsedMs, watch.Elapsed.TotalMilliseconds,
+                                    table.Version, table.Occluded ? ObservationOutcome.Unclear : table.Settled ? ObservationOutcome.Ready : ObservationOutcome.Unsettled, frame.FrameSource) }; lastTimeline = frame.Timeline;
+                        }
                     }
                 }
             }
