@@ -1,0 +1,91 @@
+{
+  "passed": true,
+  "reference": "Independent OpenCV point-to-point homography, full-frame fallback, same labelled source intervals",
+  "meanChannelErrorLimit": 12,
+  "results": [
+    {
+      "portrait": false,
+      "seconds": 1,
+      "corrected": true,
+      "meanChannelError": 0.3745725750923157,
+      "p95ChannelError": 2.0
+    },
+    {
+      "portrait": false,
+      "seconds": 3,
+      "corrected": false,
+      "meanChannelError": 0.20897778868675232,
+      "p95ChannelError": 1.0
+    },
+    {
+      "portrait": false,
+      "seconds": 5,
+      "corrected": true,
+      "meanChannelError": 0.35689541697502136,
+      "p95ChannelError": 2.0
+    },
+    {
+      "portrait": false,
+      "seconds": 9,
+      "corrected": true,
+      "meanChannelError": 0.2622487545013428,
+      "p95ChannelError": 1.0
+    },
+    {
+      "portrait": false,
+      "seconds": 13,
+      "corrected": false,
+      "meanChannelError": 0.17167308926582336,
+      "p95ChannelError": 1.0
+    },
+    {
+      "portrait": false,
+      "seconds": 17,
+      "corrected": true,
+      "meanChannelError": 0.2640782594680786,
+      "p95ChannelError": 1.0
+    },
+    {
+      "portrait": true,
+      "seconds": 1,
+      "corrected": true,
+      "meanChannelError": 0.8750424385070801,
+      "p95ChannelError": 3.0
+    },
+    {
+      "portrait": true,
+      "seconds": 3,
+      "corrected": false,
+      "meanChannelError": 0.21147778630256653,
+      "p95ChannelError": 1.0
+    },
+    {
+      "portrait": true,
+      "seconds": 5,
+      "corrected": true,
+      "meanChannelError": 0.8549830913543701,
+      "p95ChannelError": 3.0
+    },
+    {
+      "portrait": true,
+      "seconds": 9,
+      "corrected": true,
+      "meanChannelError": 0.5704538226127625,
+      "p95ChannelError": 2.0
+    },
+    {
+      "portrait": true,
+      "seconds": 13,
+      "corrected": false,
+      "meanChannelError": 0.17222125828266144,
+      "p95ChannelError": 1.0
+    },
+    {
+      "portrait": true,
+      "seconds": 17,
+      "corrected": true,
+      "meanChannelError": 0.5771632194519043,
+      "p95ChannelError": 2.0
+    }
+  ]
+}

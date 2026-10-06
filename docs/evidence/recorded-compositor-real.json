@@ -1,0 +1,126 @@
+{
+  "passed": true,
+  "real": true,
+  "portrait": false,
+  "model": "Pixel 11 Pro XL",
+  "plan": {
+    "source": {
+      "contentSha256": "49315162AE0320AB901BFDDA3AA6AC157833B2051C6A8FD1B0E521B8966E3267",
+      "clock": 1,
+      "timeline": "afbdc86e83d44dd8aaa7702bcc1dcc38",
+      "startUs": 3524323012,
+      "durationUs": 15034500,
+      "width": 1920,
+      "height": 1080,
+      "rotation": 0,
+      "transformVersion": 1,
+      "extractionVersion": 2,
+      "endUs": 3539357512
+    },
+    "width": 1920,
+    "height": 1080,
+    "portrait": false,
+    "spans": [
+      {
+        "startUs": 0,
+        "endUs": 10000922,
+        "corrected": true,
+        "matrix": [
+          1.1188040331667921,
+          0.008595377524493785,
+          0.10955897318642235,
+          -0.02365855881688231,
+          1.0548284253030566,
+          -0.03130824622468926,
+          0.09734342251830494,
+          0.009240030838830965,
+          1
+        ]
+      },
+      {
+        "startUs": 10000922,
+        "endUs": 12001100,
+        "corrected": false,
+        "matrix": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      {
+        "startUs": 12001100,
+        "endUs": 15001100,
+        "corrected": true,
+        "matrix": [
+          1.1122632888197135,
+          0.014976623427467693,
+          0.10189260317525409,
+          -0.017559335515786822,
+          1.051607845828334,
+          -0.03425364479125203,
+          0.0927718222702641,
+          0.004681661276017846,
+          1
+        ]
+      },
+      {
+        "startUs": 15001100,
+        "endUs": 15034500,
+        "corrected": false,
+        "matrix": [
+          1,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          1
+        ]
+      }
+    ],
+    "version": 1
+  },
+  "report": {
+    "before": {
+      "width": 1920,
+      "height": 1080,
+      "rotation": 0,
+      "videoDurationUs": 15034500,
+      "videoSamples": 451,
+      "videoStartUs": 0,
+      "videoEndUs": 15001100,
+      "audioSha256": "7859765F559694B8B853DD94F3173F6F5787B0DDF257966DCD7A7D5352B38AA4",
+      "audioSamples": 673,
+      "audioStartUs": 20500,
+      "audioEndUs": 14996458,
+      "audioMime": "audio/mp4a-latm"
+    },
+    "after": {
+      "audioSha256": "7859765F559694B8B853DD94F3173F6F5787B0DDF257966DCD7A7D5352B38AA4",
+      "audioSamples": 673,
+      "audioStartUs": 20500,
+      "audioEndUs": 14996458,
+      "audioMime": "audio/mp4a-latm",
+      "width": 1920,
+      "height": 1080,
+      "rotation": 0,
+      "videoDurationUs": 15034300,
+      "videoSamples": 451,
+      "videoStartUs": 0,
+      "videoEndUs": 15001100
+    },
+    "correctedFrameCallbacks": 390,
+    "fallbackFrameCallbacks": 61
+  },
+  "wrongSourceRefused": true,
+  "outputSha256": "F087F273F74FD88F551A677EA7CC0649ADC1A8C18107330D6EF693E399FAAAF4",
+  "elapsedMs": 3472
+}

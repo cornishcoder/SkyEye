@@ -1,0 +1,223 @@
+{
+  "unit": "T09 recorded perspective compositor and standalone MP4 proof",
+  "date": "2026-10-06",
+  "sourceSnapshotCommit": "b40903bd1cbb8e6625dd1d79daa9e25cd0ba8c25",
+  "productionApkSha256": "6F117AE9EF257C7B8E1C95A70D3185762B679ABB6E5793B30D5AC1D6C107C999",
+  "testApkSha256": "FE40102976DAA9B547B09AAC47E410B5B022EAA33B25400F1377146087C8B435",
+  "checks": {
+    "nativeTestRelease": {
+      "warnings": 4,
+      "errors": 0
+    },
+    "productionRelease": {
+      "warnings": 14,
+      "errors": 0
+    },
+    "coreHttp": "passed",
+    "baselineRelease": {
+      "warnings": 14,
+      "errors": 0
+    },
+    "labRelease": {
+      "warnings": 7,
+      "errors": 0
+    },
+    "agentUi": "passed including shared live/recorded coordinate comparison"
+  },
+  "rendering": {
+    "unknownGeometry": "Whole-camera fit at unknown intervals; no current/live geometry substitution",
+    "independentPixels": "recorded-compositor-pixels.json",
+    "orientations": [
+      "1920x1080 landscape",
+      "1080x1920 portrait"
+    ],
+    "sourceProtection": "Checksum and decoder shape/rotation validated; new derivative target only; temporary publication/cancellation cleanup",
+    "implementation": "Media3 timestamped GPU matrix effect, H264 derivative, AAC samples/timestamps verified unchanged",
+    "outputs": {
+      "landscape": {
+        "elapsedMs": 1520,
+        "report": "recorded-compositor-landscape.json",
+        "audioUnchanged": true,
+        "outputSha256": "FF3702346B7AF2B2ADCF045B09D73485CC863611C25C6E52221FEC143A554637"
+      },
+      "portrait": {
+        "elapsedMs": 1988,
+        "report": "recorded-compositor-portrait.json",
+        "audioUnchanged": true,
+        "outputSha256": "EB718362E548214A5923A385EB439F3208768F9E11F1DB44C0DE6098A88DD762"
+      },
+      "real": {
+        "elapsedMs": 3472,
+        "report": "recorded-compositor-real.json",
+        "audioUnchanged": true,
+        "outputSha256": "F087F273F74FD88F551A677EA7CC0649ADC1A8C18107330D6EF693E399FAAAF4"
+      },
+      "real-portrait": {
+        "elapsedMs": 3154,
+        "report": "recorded-compositor-real-portrait.json",
+        "audioUnchanged": true,
+        "outputSha256": "FE2A3A8E56A04E1B1701FA4F0898D3EE1DBBBC2641A7A2B1BD6C0B4EC0DCC063"
+      }
+    },
+    "sharedProjection": "Live phone/TV and recorded pixels use the same pocket-centre helper"
+  },
+  "phone": {
+    "seek": {
+      "phonePlaying": false,
+      "phonePositionMs": 0,
+      "cast": {
+        "connected": false
+      }
+    },
+    "playing": {
+      "phonePlaying": true,
+      "phonePositionMs": 4876,
+      "cast": {
+        "connected": true,
+        "playing": false,
+        "stream": "clip",
+        "positionMs": 2972,
+        "playerState": 3,
+        "idleReason": 0,
+        "clipId": "0b16d34831f4452b833cbe35be27d38c",
+        "request": "f7adc65f1ff644dc86e3bcd6b494dc29",
+        "durationMs": 15034,
+        "progressCallbacks": 140,
+        "canPause": true,
+        "canSeek": true,
+        "commandId": "c7ea26df14df4bcf961f5eb568e58dd6",
+        "commandRequest": "f7adc65f1ff644dc86e3bcd6b494dc29",
+        "commandAction": "pause",
+        "commandTargetMs": 0,
+        "commandOutcome": "accepted"
+      }
+    },
+    "portraitPixelsVisuallyInspected": true,
+    "paused": {
+      "phonePlaying": false,
+      "phonePositionMs": 4754,
+      "cast": {
+        "connected": false
+      }
+    }
+  },
+  "tv": {
+    "media": "Camera-time-scoped landscape derivative, served by a test-only scoped read-token endpoint",
+    "acceptedCommands": [
+      {
+        "connected": true,
+        "playing": false,
+        "stream": "clip",
+        "positionMs": 0,
+        "playerState": 3,
+        "idleReason": 0,
+        "clipId": "0b16d34831f4452b833cbe35be27d38c",
+        "request": "f7adc65f1ff644dc86e3bcd6b494dc29",
+        "durationMs": 15034,
+        "progressCallbacks": 70,
+        "canPause": true,
+        "canSeek": true,
+        "commandId": "1fa63c8456d54220aaea07e9ce8f2687",
+        "commandRequest": "f7adc65f1ff644dc86e3bcd6b494dc29",
+        "commandAction": "seek",
+        "commandTargetMs": 0,
+        "commandOutcome": "accepted"
+      },
+      {
+        "connected": true,
+        "playing": false,
+        "stream": "clip",
+        "positionMs": 2972,
+        "playerState": 3,
+        "idleReason": 0,
+        "clipId": "0b16d34831f4452b833cbe35be27d38c",
+        "request": "f7adc65f1ff644dc86e3bcd6b494dc29",
+        "durationMs": 15034,
+        "progressCallbacks": 77,
+        "canPause": true,
+        "canSeek": true,
+        "commandId": "c7ea26df14df4bcf961f5eb568e58dd6",
+        "commandRequest": "f7adc65f1ff644dc86e3bcd6b494dc29",
+        "commandAction": "pause",
+        "commandTargetMs": 0,
+        "commandOutcome": "accepted"
+      },
+      {
+        "connected": true,
+        "playing": true,
+        "stream": "clip",
+        "positionMs": 0,
+        "playerState": 2,
+        "idleReason": 0,
+        "clipId": "0b16d34831f4452b833cbe35be27d38c",
+        "request": "f7adc65f1ff644dc86e3bcd6b494dc29",
+        "durationMs": 15034,
+        "progressCallbacks": 73,
+        "canPause": true,
+        "canSeek": true,
+        "commandId": "f61b3b3cd0c94540bd2b3f370f0d7198",
+        "commandRequest": "f7adc65f1ff644dc86e3bcd6b494dc29",
+        "commandAction": "resume",
+        "commandTargetMs": 0,
+        "commandOutcome": "accepted"
+      }
+    ],
+    "userConfirmation": {
+      "answer": "yes",
+      "question": "Straight rectangular table with aligned corner pockets; pause, backward jump and resume correct?"
+    }
+  },
+  "capture": {
+    "final": {
+      "state": "Active",
+      "sessionId": "a061183702574b4b837c57fc2f61fe7e",
+      "revision": 3,
+      "timeline": "afbdc86e83d44dd8aaa7702bcc1dcc38",
+      "clipCount": 8,
+      "battery": 61,
+      "error": ""
+    },
+    "stopOrRestartPerformed": false,
+    "before": {
+      "state": "Active",
+      "sessionId": "a061183702574b4b837c57fc2f61fe7e",
+      "revision": 3,
+      "clipCount": 8,
+      "battery": 47,
+      "error": ""
+    },
+    "permanentCameraClipCreated": false,
+    "personalKeyUsed": false
+  },
+  "finalTv": {
+    "connected": true,
+    "playing": false,
+    "stream": "scene",
+    "positionMs": 15601,
+    "playerState": 4,
+    "idleReason": 0
+  },
+  "diskSpace": {
+    "deletionPerformed": false,
+    "remainingFreeBytes": 2832961536,
+    "cleanupReview": "Deletion of two generated obj directories rejected with only blocked by policy",
+    "safeResolution": "Build test APK only; omit unnecessary app bundle",
+    "initialFailure": "App bundle generation exhausted remaining laptop disk"
+  },
+  "cleanup": {
+    "owned18767And18766ForwardsRemoved": true,
+    "productionUpdatedInPlace": true,
+    "uidAndPrivateStorageRetained": true,
+    "testPreviewStopped": true,
+    "cameraLeftActive": true,
+    "tvReturnedLive": true
+  },
+  "limitations": [
+    "Normal production clip/replay/download/share routing still uses original framing until T10.",
+    "Uncertain source intervals retain original perspective; broader/denser geometry coverage remains a quality gate.",
+    "Encoded source rotation other than zero is refused. HDR/unusual codecs and long-session resource/latency acceptance unverified.",
+    "Actual historical annotations are T11/T12; no invented annotations added.",
+    "Cancellation cleanup implemented; no physical encoder interruption was forced in this gate."
+  ],
+  "next": "T10 integrate corrected derivative manifests/cache and default self-contained replay/download/share"
+}
