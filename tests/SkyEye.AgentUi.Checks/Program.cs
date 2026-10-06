@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Components.AI;
+using System.Collections.Immutable;
 using Microsoft.Extensions.AI;
 using SkyEye.Companion.Hybrid.Probes;
 
@@ -258,6 +259,12 @@ foreach (bool portrait in new[] { true, false })
 {
     var pockets = SkyEye.Companion.Hybrid.SceneProjection.Pockets(portrait ? 1080 : 1920, portrait ? 1920 : 1080, 1920, 1080, skewed, portrait);
     var points = skewed.Corners.Select(pockets.Screen).ToArray();
+    var renderHash=new string('A',64);
+    var renderSource=new SkyEye.Core.Analysis.RecordedGeometrySource(renderHash,SkyEye.Core.Analysis.RecordedGeometryClock.ClipRelative,renderHash,0,4_000_000,1920,1080,0);
+    var renderPockets=new SkyEye.Core.Analysis.PocketLayout(skewed.Corners.ToImmutableArray(),[new(.5,.1)],.3);
+    var renderJournal=SkyEye.Core.Analysis.RecordedGeometry.Build(renderSource,[new(0,renderPockets),new(2_000_000,renderPockets)]);
+    var recorded=SkyEye.Core.Analysis.RecordedRenderPlan.Create(renderJournal,renderSource,portrait?1080:1920,portrait?1920:1080,portrait);
+    foreach(var point in skewed.Corners)Check((recorded.Pixel(1_000_000,point)!.Value-pockets.Screen(point)).Length<1e-8,"recorded GPU matrix and live video/overlay mapping agree");
     Check(Math.Abs(points[0].X - points[portrait ? 1 : 3].X) < 1e-8 && Math.Abs(points[0].Y - points[portrait ? 3 : 1].Y) < 1e-8, "detected pocket centres define exact portrait/landscape rectangle corners");
     foreach (var p in skewed.Corners) Check((pockets.Image(pockets.Screen(p))!.Value - p).Length < 1e-9, "pocket rectangle inverse agrees with video and overlays");
 }
