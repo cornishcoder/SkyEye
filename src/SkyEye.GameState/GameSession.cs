@@ -67,9 +67,22 @@ public sealed class GameSession
             return Commit(input, fingerprint, [new MatchStartedEvent(m.Players, m.Target)]);
         }
         if (State.Match?.Id != input.MatchId || !Text(input.FrameId)) return Refuse(InputOutcome.Stale, "Input belongs to another match/frame.");
+        if (input.Input is ApplyShotRuling recorded)
+        {
+            var ruling = recorded.Ruling;
+            if (State.Frame?.Id != input.FrameId || State.Match.Finished || ruling is null || ruling.Position is null || ruling.Facts is null
+                || !PlayerExists(ruling.Shooter) || !PlayerExists(ruling.Position.Player) || ruling.Position.Winner is { } win && !PlayerExists(win)
+                || ruling.Position.Reds is < 0 or > 7 || ruling.Position.Yellows is < 0 or > 7
+                || !Text(ruling.Position.Profile) || string.IsNullOrWhiteSpace(ruling.Position.Reason) || ruling.Position.Reason.Length > 500
+                || ruling.ReplacesInputId is { } replaced && (History.LastOrDefault()?.InputId != replaced
+                    || !History.Any(e => e.InputId == replaced && e.Event is RulesShotRecordedEvent)))
+                return Refuse(InputOutcome.Rejected, "Invalid ruling or correction; correct the latest recorded shot before later decisions.");
+            if (State.Frame.Winner is not null && ruling.ReplacesInputId is null) return Refuse(InputOutcome.Rejected, "The frame has ended.");
+            return Commit(input with { Provenance = Provenance.PlayerConfirmed }, fingerprint, [new RulesShotRecordedEvent(ruling)]);
+        }
         if (input.Input is UndoDecision undo)
         {
-            if (History.Any(e => e.Event is DecisionUndoneEvent u && u.InputId == undo.InputId)
+            if (GameRevisions.Suppressed(History).Contains(undo.InputId)
                 || !History.Any(e => e.InputId == undo.InputId && e.MatchId == input.MatchId && CanUndo(e)))
                 return Refuse(InputOutcome.Rejected, "Choose an existing player decision that has not already been undone.");
             return Commit(input with { Provenance = Provenance.PlayerCorrected }, fingerprint, [new DecisionUndoneEvent(undo.InputId)]);
@@ -162,7 +175,7 @@ public sealed class GameSession
     }
     bool PlayerExists(string id) => State.Match!.Players.Any(p => p.Id == id);
     public static bool CanUndo(EventEnvelope e) => e.Provenance >= Provenance.PlayerConfirmed
-        && e.Event is ColourAssignedEvent or ColoursDeclaredEvent or TurnChangedEvent or FoulRecordedEvent or FrameWonEvent or StateCorrectedEvent;
+        && e.Event is ColourAssignedEvent or ColoursDeclaredEvent or TurnChangedEvent or FoulRecordedEvent or FrameWonEvent or StateCorrectedEvent or RulesShotRecordedEvent;
     bool CanStartShot(string id) => State.Table.Motion == TableMotion.Settled && !State.Table.Uncertain
         && (State.Shot is null || State.Shot.Ended) && !History.Any(e => e.FrameId == State.Frame!.Id && e.Event is ShotStartedEvent s && s.ShotId == id);
     static bool ValidObservation(TableObservation o) => !o.Balls.IsDefault && o.Balls.Length <= 64

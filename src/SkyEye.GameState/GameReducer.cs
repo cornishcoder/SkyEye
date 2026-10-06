@@ -8,7 +8,7 @@ public static class GameReducer
     public static GameSnapshot Rebuild(IEnumerable<EventEnvelope> events)
     {
         var history = events.ToArray();
-        var undone = history.Where(e => e.Event is DecisionUndoneEvent).Select(e => ((DecisionUndoneEvent)e.Event).InputId).ToHashSet();
+        var undone = GameRevisions.Suppressed(history);
         var amendments = history.Where(e => !undone.Contains(e.InputId) && e.Event is StateCorrectedEvent { CorrectedPot: not null })
             .GroupBy(e => ((StateCorrectedEvent)e.Event).CorrectedPot!.Value).ToDictionary(g => g.Key, g => g.Last());
         var state = GameSnapshot.Empty;
@@ -92,14 +92,28 @@ public static class GameReducer
                 if (c.PlayerId is not null)
                     foreach (var player in s.Match!.Players)
                         colours = colours.Add(player.Id, Fact<BallColour?>(player.Id == c.PlayerId ? c.Colour : c.Colour == BallColour.Red ? BallColour.Yellow : BallColour.Red, e));
-                return s with { Frame = s.Frame! with { Colours = colours } };
+                return s with { Frame = s.Frame! with { Colours = colours, Rules = null } };
+            case RulesShotRecordedEvent recorded:
+                var ruling = recorded.Ruling;
+                var position = ruling.Position with { LastInputId = e.InputId };
+                var groups = s.Frame!.Colours;
+                if (ruling.Position.PlayerGroup is { } assignedGroup)
+                    foreach (var player in s.Match!.Players)
+                        groups = groups.SetItem(player.Id, new(player.Id == ruling.Shooter ? assignedGroup : assignedGroup == BallColour.Red ? BallColour.Yellow : BallColour.Red,
+                            Provenance.Inferred, null, e.InputId));
+                var next = s with { Frame = s.Frame with { Rules = position, Colours = groups,
+                    CurrentPlayer = new(position.Player, Provenance.Inferred, null, e.InputId),
+                    Visit = s.Frame.Visit + (position.Player == s.Frame.CurrentPlayer.Value ? 0 : 1),
+                    Foul = position.Foul is null ? null : new(position.Foul, Provenance.Inferred, null, e.InputId) },
+                    Table = s.Table with { Motion = TableMotion.Unknown, Uncertain = true }, Shot = null };
+                return position.Winner is null ? next : Apply(next, e with { Event = new FrameWonEvent(position.Winner), Provenance = Provenance.Inferred });
             case TurnChangedEvent t:
                 if (s.Frame!.CurrentPlayer.Source > e.Provenance) return s;
                 return s with { Frame = s.Frame with { CurrentPlayer = Fact(t.PlayerId, e), Visit = s.Frame.Visit + (s.Frame.CurrentPlayer.Value == t.PlayerId ? 0 : 1),
-                    Foul = s.Frame.CurrentPlayer.Value == t.PlayerId ? s.Frame.Foul : null } };
+                    Foul = s.Frame.CurrentPlayer.Value == t.PlayerId ? s.Frame.Foul : null, Rules = null } };
             case FoulRecordedEvent f:
                 if (s.Frame!.Foul is { } foul && foul.Source > e.Provenance) return s;
-                return s with { Frame = s.Frame with { Foul = Fact<bool?>(f.Foul, e) } };
+                return s with { Frame = s.Frame with { Foul = Fact<bool?>(f.Foul, e), Rules = null } };
             case FrameWonEvent f:
                 if (s.Match!.FrameWinners.TryGetValue(e.FrameId, out var winner) && winner.Source > e.Provenance) return s;
                 var result = Fact(f.PlayerId, e);

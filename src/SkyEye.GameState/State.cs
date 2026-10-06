@@ -36,6 +36,7 @@ public sealed record FrameState(string Id, Fact<string> CurrentPlayer, int Visit
     ImmutableDictionary<string, Fact<BallColour?>> Colours, Fact<bool?>? Foul,
     Fact<string>? Winner, ImmutableDictionary<Guid, Pot> Pots)
 {
+    public RulePosition? Rules { get; init; }
     public bool OpenTable => Colours.Count == 0;
 }
 public sealed record TableState(ImmutableDictionary<string, KnownBall> Balls, TableMotion Motion,
