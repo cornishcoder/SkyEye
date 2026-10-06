@@ -1,0 +1,74 @@
+{
+  "unit": "T11 durable source-time annotation journal",
+  "date": "2026-10-06",
+  "sourceSnapshotCommit": "d38a0fd521d75e553cad6d34ac0d034ab1276e9a",
+  "artifacts": {
+    "productionApkSha256": "C76DA913D9B81AB3C6A4053107000EA1F9B1BCCF8BAC702CC73C675F3654E590",
+    "labApkSha256": "6BC53B180D80C087F6B781EB9C4C4EEAFD91AC4171CA9E425991373A66C46189",
+    "clockTestApkSha256": "39894AB82948C9B757C7CFF2F57223CC15F3F5E00A7FC8235DA286DCA1D72185"
+  },
+  "checks": {
+    "core": "passed: delayed source PTS, cycling/pin/clear/expiry, target separation, geometry/layout fences, gaps, legacy absence, rolling trim, retained clip history, restart and corruption",
+    "agentUi": "passed",
+    "productionRelease": {
+      "warnings": 10,
+      "errors": 0
+    },
+    "labRelease": {
+      "warnings": 10,
+      "errors": 0
+    },
+    "baselineRelease": {
+      "warnings": 10,
+      "errors": 0
+    },
+    "nativeClockRelease": {
+      "warnings": 13,
+      "errors": 0
+    }
+  },
+  "nativeProof": {
+    "clock": "annotation-clock-checks.json",
+    "live": "annotation-live-checks.json",
+    "device": "Pixel 11 Pro XL, USB",
+    "rawClock": "Video frame metadata PTS minus the HLS extractor timestamp adjustment; camera monotonic status disambiguates 33-bit TS wrap only",
+    "sceneObservation": "phone overlay draw and TV composed-frame capture; future/frozen/duplicate/unrelated frames rejected; clear/expiry observed as null content",
+    "liveFixture": "Declared synthetic candidate 1, candidate 2, pinned, explicit clear, one-second expiry. Both targets contain seven spans. Reload matches the in-memory historical window. The synthetic clip ID/hash in this proof does not claim an actual saved MP4.",
+    "scope": "Native clock proof spans multiple TS epochs; real scene proof uses the unchanged mounted camera. Moved mount/layout rejection is covered by core fixtures."
+  },
+  "durability": {
+    "coordinates": "source-image-normalized-v1; bounded scene geometry/text/score only",
+    "rolling": "620 source seconds; gaps over 750ms are not interpolated; at most four timeline files, 12000 spans and 4MB per file",
+    "checkpoint": "one-second background IO plus suspend/detach checkpoints; last unobserved tail remains absent after interruption",
+    "saved": "Verified save acknowledgements immediately retain observed history through the existing Save last workflow; duplicate/refused/uncertain saves are tested not to create extra bindings. Camera catalogue polling also preserves current timeline clips every ten seconds. Sidecars accompany corrected bundle publication.",
+    "recent": "annotation sidecar is inside the temporary corrected bundle and shares its expiry",
+    "scoping": "clip checksum, recording timeline/start/duration, target, table version and geometry fingerprint; historical lookup never evaluates present-day live TTL",
+    "exclusions": "credentials, camera URLs, UI sheets, controls and general transcript absent from journal"
+  },
+  "production": {
+    "installedInPlace": true,
+    "uidAndPrivateDataRetained": true,
+    "nativeMappingObserved": true,
+    "defaultNoScene": "production live observations correctly have sceneVersion zero while choices are off",
+    "captureUninterrupted": true,
+    "sessionId": "a061183702574b4b837c57fc2f61fe7e",
+    "captureRevision": 3,
+    "recordingTimeline": "afbdc86e83d44dd8aaa7702bcc1dcc38",
+    "savedCameraClips": 8,
+    "final": "phone live; Chromecast recovered from transient buffering to PLAYING with advancing scene-feed position; owned ADB forwards removed"
+  },
+  "remaining": [
+    "T12 must bake the retained historical scenes into corrected MP4 pixels; T11 alone changes no exported pixels.",
+    "Legacy native More-controls scene workflows are outside the production Hybrid journalling path.",
+    "T13 background/lock, interruption and long-session media acceptance remains pending.",
+    "Historical pocket-detection coverage remains the T10 visual acceptance gap.",
+    "No new physical TV observation or standalone annotation MP4 playback is claimed in T11.",
+    "The final save-acknowledgement hook is verified through real HTTP fixture checks; no additional physical camera save was requested."
+  ],
+  "upstreamReferences": [
+    "https://github.com/androidx/media/blob/1.10.1/libraries/exoplayer_hls/src/main/java/androidx/media3/exoplayer/hls/HlsExtractorFactory.java",
+    "https://github.com/androidx/media/blob/1.10.1/libraries/common/src/main/java/androidx/media3/common/util/TimestampAdjuster.java",
+    "https://github.com/androidx/media/blob/1.10.1/libraries/exoplayer/src/main/java/androidx/media3/exoplayer/video/MediaCodecVideoRenderer.java"
+  ],
+  "liveLabProofSourceSnapshot": "ae8a372"
+}
