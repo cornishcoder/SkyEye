@@ -1,0 +1,56 @@
+{
+  "unit": "T10 corrected clip delivery",
+  "date": "2026-10-06",
+  "sourceSnapshotCommit": "7b796da",
+  "productionApkSha256": "E309A0AC6F1524FE23ECC5B0A61B311E6BEBB42E0807B6F5C015BED55E124729",
+  "checks": {
+    "core": "passed including paired publication, restart reuse, hash/geometry invalidation, repair, cancellation, expiry and recovery",
+    "agentUi": "passed",
+    "productionRelease": {
+      "warnings": 10,
+      "errors": 0
+    },
+    "labReleaseBeforeFinalShellStatusFix": {
+      "warnings": 7,
+      "errors": 0
+    },
+    "baselineRelease": {
+      "warnings": 10,
+      "errors": 0
+    }
+  },
+  "storage": {
+    "originalRetained": true,
+    "portrait": "1080x1920",
+    "landscape": "1920x1080",
+    "publication": "verified paired outputs and manifest published atomically",
+    "cacheValidation": "source, output hashes, geometry fingerprint and render profile",
+    "recent": "separate two-bundle 512MiB cache; monotonic ten-minute expiry; periodic sweep; cleared on restart",
+    "share": "FileProvider grants corrected portrait MP4 only; native credentials and paths never cross Razor boundary"
+  },
+  "device": {
+    "savedClip": "ddcefc614f334743bdb74c66763e8797",
+    "savedDurationSeconds": 31.3693,
+    "savedAcceptedGeometrySeconds": 12.001211,
+    "savedAudioSha256": "36E93D27F2B9113669A0EC571CD2A7D084B952246BC888DCD45D9CFCFB19D354",
+    "savedAudioSamples": 1405,
+    "savedLocalPlayback": "production phone opened corrected portrait derivative",
+    "savedTv": "receiver position reached 31.369 seconds then finished",
+    "share": "Android chooser accepted portrait.mp4 and offered WhatsApp; cancelled, no sending",
+    "recentClip": "5fd4d161a5384b8cbb0779623e356b03",
+    "recentDurationSeconds": 16.7674,
+    "recentAcceptedGeometrySeconds": 1.999367,
+    "recentAudioSha256": "7A386F0B0485A6798BDE1194DF7A98DB09B25BAE35D414786BC30B455F1C73D3",
+    "recentAudioSamples": 755,
+    "recentControls": "receiver confirmed pause at approximately four seconds and accepted resume",
+    "recentReuse": "Watch recent replay again admitted a new TV request for the same prepared asset; no renderer invocation in available log buffer",
+    "finalInstall": "in-place production update; UID/private data retained",
+    "capture": "Active throughout; same session and revision 3; eight saved camera clips unchanged; no camera update"
+  },
+  "limits": [
+    "Dim footage had sparse reliable historical corner geometry. Unknown intervals retain whole-camera view; this is not proof of universally rectangular footage.",
+    "T09 provides independent compositor pixel/audio proof; T10 native render inspection confirms paired dimensions and identical AAC sample hashes/timestamps. No new physical TV or external WhatsApp playback confirmation was requested in T10.",
+    "Production Hybrid flows use corrected derivatives. Legacy native More-controls workflows have not been migrated.",
+    "Background live correction remains T13; recorded annotations remain T11/T12."
+  ]
+}
