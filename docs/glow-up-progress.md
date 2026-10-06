@@ -2,6 +2,16 @@
 
 The full implementation plan is in [glow-up-plan.md](glow-up-plan.md). Work starts from `f6ea29c`; production capture and the existing companion remain usable while the new host is proved.
 
+## Current priority — 6 October 2026
+
+**Match & Table State** is the new epic for immediate planning and delivery. Its first mission is **R01 — Establish the Match & Table State Core**, currently **planned, not implemented**. The [canonical user brief](r01-match-table-state-brief.md) and [delivery chunks R01.01-R01.07](r01-match-table-state-plan.md) are checked into the roadmap. Start with R01.01: the pure C# library and minimal typed contracts/scenario checks.
+
+R01 will establish authoritative match/frame/table state, ordered meaningful events, deterministic reconstruction, confidence/provenance and player corrections, with minimal existing-observation integration. Replay, coaching, scoring, rules, shot reconstruction and future 3D simulation consume this model. R01 does not implement those consumers or complete pool rules.
+
+Current order: **R01 → remaining T13/T14 acceptance → T06 → T07**. T13/T14 runtime work is implemented but their full acceptance remains open; see their reports below. A02-A05 voice/API-key work remains deferred. Earlier next-step recommendations in this log are historical and superseded by this priority.
+
+This checkout's former R01 is the rules-outcome task; it is preserved as **R04**. R02/R03 and the T-series replay/media IDs are unchanged. This update adds planning documents only: no state library, runtime, detector, device deployment or new passing acceptance result is claimed.
+
 ## SDK lanes
 
 - Repository root: SDK **10.0.400** for the existing camera, companion, vision and core checks.
@@ -13,6 +23,9 @@ The full implementation plan is in [glow-up-plan.md](glow-up-plan.md). Work star
 
 | Unit | Status | Evidence |
 |---|---|---|
+| R01 | Planned — next delivery | New Match & Table State epic; [brief](r01-match-table-state-brief.md), [bounded delivery plan](r01-match-table-state-plan.md). Existing rules-outcome R01 preserved as R04; implementation and scenario/device acceptance remain outstanding |
+| T13 | Runtime implemented; acceptance open | [Performance report](t13-performance-report.md): requested-only decoded observations, shared commands and faster phone delivery; calibrated <500 ms timing and full physical acceptance remain open |
+| T14 | Runtime implemented; acceptance open | [Background delivery report](t14-report.md): independent corrected TV, background/lock/local-phone evidence and interrupted export recovery; automatic network recovery, unplugged endurance, physical audio sync and annotation correlation remain open |
 | P01 | Complete | Root resolves SDK 10.0.400; Hybrid directory resolves SDK 11.0.100-rc.1.26425.128. Existing core checks pass. Full baseline Release build succeeds: 0 errors, 9 existing generated/native packaging warnings |
 | P02 | Complete | SDK 11 workload set 11.0.100-rc.1.26460.1 installed/pinned; MAUI 11.0.0-rc.1.26451.6, Android 37.0.0-rc.1.2257, AI 0.1.0-preview.1.26466.103 restored with a package lock. Android 37 SDK installed in ignored work/android-sdk-11. Debug build: 0 errors/warnings. Separate Lab package launches and renders the real AI assembly on Pixel 11 |
 | P03 | Complete | Real UIAgent fixture streams text, source-generated typed tool pending/result and an observable state snapshot on Pixel 11. Repeated Run stream increments state and renders three fixture choices. Desktop checks run the same adapter through the real package and prove cancellation before the effect leaves canonical state unchanged. Debug build: 0 warnings/errors |
@@ -398,7 +411,7 @@ Remaining limits: uncertain geometry intervals deliberately retain original fram
 
 Final production/lab/baseline/native-test Release builds pass with zero errors and 14/7/14/4 warnings respectively. The guarded production update retains UID/private storage. The preview is stopped and its owned ADB forwarding is removed; production returns to the corrected live scene stream. Final receiver telemetry observes the existing BUFFERING state, so immediate moving live pixels are not re-claimed as verified in this cleanup sample. Camera capture remains Active in the same session/timeline, eight saved clips, 61% battery and no error. Intermittent live buffering remains X02.
 
-## Roadmap reprioritisation - 6 October
+## Historical roadmap reprioritisation - T13, 6 October
 
 The user replaces the next T13 with **Make SkyEye Sing: Live-First Performance & Sky Orchestration**. The original background/quality/recovery T13 is renumbered **T14**. Historical progress and evidence descriptions keep their original IDs; old-T13 references in them now mean T14. Current sequence is T13 live-first performance/orchestration, then T14 background/endurance, then T06/T07 slow motion and freeze/zoom.
 
@@ -411,3 +424,9 @@ Sequential commits instrument the original pipeline, remove timer-driven full/po
 Physical measurement improves user-observed delay from about ten seconds to less than one second. Twenty requested decoded observations measure total p50/p95 147/217 ms, versus baseline 940/1150 ms; frame acquisition falls from 771/976 to 10/15 ms. Idle perception is zero. The user identifies loss of correction after reconnect; transient unknown video dimensions are fixed and regression checked, with actual metrics retaining correction across media generations. Camera recording is Active after the approved update break, saved count eight and no error.
 
 T13 is NOT marked complete: calibrated physical <500 ms timing, smooth corrected-TV playback, real-layout shot/annotation parity and the full post-change physical media/recovery smoke remain open. Chromecast corrected-feed samples report Buffering. The engineering report in t13-performance-report.md records measured limits, rejected buffer tuning, expensive work, transport disposition, evidence and follow-up. T14's broader background/endurance scope remains separate; no voice/key work or unrelated features are added.
+
+## T14 background delivery update — 6 October 2026
+
+The subsequent [T14 report](t14-report.md) records an independent foreground GPU media service and source-clock scene journal, verified corrected moving Chromecast output, continued service frames through home/background/lock and independent local phone playback, plus frozen-journal interrupted-export retry. Camera geometry is now independent of phone clip dimensions and survives return to live. Shorter segments improved user-observed TV delay from about 11 seconds to 3.5–4 seconds; the user confirmed the final normal release was smooth. This supersedes the earlier T13 buffering observation for the reported final T14 run.
+
+T14 remains open: the network interruption required a Pixel 11 restart, and automatic recovery, sustained unplugged endurance, physical room-audio sync and moving annotation/clear/expiry correlation still need evidence. These are existing report results, not new tests from this roadmap update. R01 is now the next delivery mission; remaining T13/T14 gates stay recorded.

@@ -2,7 +2,7 @@
 
 Status: runtime implementation landed in sequential commits; integrated physical acceptance remains open. See the [engineering report](t13-performance-report.md) for measured results and unmet gates. The [user's full mission brief](t13-live-first-brief.md) is canonical. Passing builds do not mark T13 complete.
 
-The previous T13 is now **T14: background corrected delivery and media resource acceptance**. Sequence: **T13 -> T14 -> T06 -> T07**. More perception accuracy, physics, game intelligence and UI features wait until this performance mission is handled.
+The previous T13 is now **T14: background corrected delivery and media resource acceptance**. The original sequence was **T13 -> T14 -> T06 -> T07**. The subsequent [Match & Table State priority](glow-up-plan.md#current-delivery-priority--match--table-state) makes **R01 the next delivery**, followed by remaining T13/T14 acceptance and T06/T07. T13's own acceptance requirements remain open; they are not prerequisites for starting the pure state core.
 
 ## Runtime contract
 

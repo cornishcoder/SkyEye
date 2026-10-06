@@ -1,8 +1,18 @@
 # SkyEye glow-up implementation plan
 
-4 October 2026 · Revised for the installed .NET 11 RC1 SDK and actual Blazor AI components. Planning only; no application changes or workloads installed by this revision.
+4 October 2026 · Roadmap updated 6 October for immediate Match & Table State planning and delivery. This revision changes documentation only.
 
 Based on the complete three-turn conversation **SkyEye Agentic UI Benefits** and the current `C:\code\SkyEye` checkout at `f6ea29c`. The working tree was clean when reviewed.
+
+## Current delivery priority — Match & Table State
+
+**R01 — Establish the Match & Table State Core** is the next mission for immediate planning and delivery, in the new **Match & Table State** epic. The [user brief](r01-match-table-state-brief.md) is canonical; the [delivery plan](r01-match-table-state-plan.md) defines bounded implementation chunks and acceptance. Status: planned, not implemented. Start with R01.01.
+
+The new pure C# `SkyEye.GameState` library will own canonical match/frame/table state, ordered meaningful events, deterministic reduction, provenance and corrections. Replay, coaching, scoring, rules, shot reconstruction and future 3D simulation consume this model. R01 is not replay functionality and does not require those consumers, complete rules, new detectors or GPT integration.
+
+Current order: **R01 → remaining T13/T14 acceptance → T06 → T07**, with G/O/rules/coaching work consuming the R01 model as it is delivered. T13/T14 runtime work is implemented with open acceptance gates; this reprioritisation does not mark those gates complete or require them to close before starting R01. See [progress](glow-up-progress.md), [T13 report](t13-performance-report.md) and [T14 report](t14-report.md). Earlier execution-order notes below are historical and superseded by this priority.
+
+The supplied brief describes moving R01 out of Replay; this checkout instead assigns R01 to rules outcomes in a flat backlog. Preserve that existing mission as **R04 — Apply accepted shot outcomes to turn/groups/entitlements**. R02/R03 and all T-series replay/media IDs remain unchanged. R04 depends on R01 plus accepted observation evidence and the reviewed rules profile.
 
 ## Product outcome
 
@@ -40,7 +50,9 @@ No new Azure subscription, Microsoft Foundry deployment, Aspire CLI or AG-UI ser
 
 Sources: [MAUI BlazorWebView hosting](https://learn.microsoft.com/hi-in/dotnet/maui/user-interface/controls/blazorwebview?view=net-maui-10.0), [Android MAUI installation](https://learn.microsoft.com/en-us/dotnet/maui/get-started/installation?tabs=visual-studio-code), [workload installation](https://learn.microsoft.com/en-us/dotnet/core/tools/dotnet-workload-install), [Blazor AI shared/custom state](https://learn.microsoft.com/en-us/aspnet/core/release-notes/aspnetcore-11#experimental-blazor-ai-components-for-agentic-user-interfaces). The MAUI hosting guide describes the hosting model; it does not establish compatibility with this experimental .NET 11 package.
 
-## What exists and what needs building
+## Original baseline — what existed and needed building
+
+This table records the 4 October planning baseline. Current delivery status is in [progress](glow-up-progress.md); the R01 priority above supersedes the original game-state ownership and execution order.
 
 | Area | Current implementation | Required change |
 |---|---|---|
@@ -70,9 +82,9 @@ Vision proposals ──┘             │
                        Phone      TV     Sky context
 ```
 
-Keep platform-independent state and rules in `SkyEye.Core`. Put orchestration, persistence and Android adapters in companion services, extracting them from `MainActivity`. Add a Razor UI library and an Android-only MAUI Hybrid host. Validate the host with a separate development package ID before replacing the existing companion. The production migration retains `uk.co.skyeye.companion`, signing identity, private storage and launch/service contracts. Leave camera capture working through its existing protocol until the observation/replay extensions are independently verified.
+Keep canonical match/frame/table state and its deterministic event reducer in the new platform-independent `SkyEye.GameState`. `SkyEye.Core` retains application commands, analysis and consumer projections; rules consume the state/event model rather than owning a competing ledger. Put orchestration, persistence and Android adapters in companion services, extracting them from `MainActivity`. Add a Razor UI library and an Android-only MAUI Hybrid host. Validate the host with a separate development package ID before replacing the existing companion. The production migration retains `uk.co.skyeye.companion`, signing identity, private storage and launch/service contracts. Leave camera capture working through its existing protocol until the observation/replay extensions are independently verified.
 
-**One source of truth:** the coordinator owns canonical `SkyEyeState`. `UIAgent<SkyEyeViewState>` holds a sanitized observable projection, not a second independently mutable game state. State mappers accept validated application snapshots/proposals; model-produced patches cannot directly set a winner, group or calibration. Tool/UI requests dispatch typed commands and the resulting coordinator state updates both the Blazor projection and native scene. Preview state remains separate until accepted against the original version.
+**One source of truth:** the coordinator owns the application snapshot `SkyEyeState`, which exposes the authoritative game snapshot reduced by `SkyEye.GameState`. `UIAgent<SkyEyeViewState>` holds a sanitized observable projection, not a second independently mutable game state. State mappers accept validated application snapshots/proposals; model-produced patches cannot directly set a winner, group or calibration. Game observations and corrections enter through typed domain inputs and append events. Tool/UI requests dispatch typed commands and the resulting coordinator state updates both the Blazor projection and native scene. Preview state remains separate until accepted against the original version.
 
 **One command executor:** a local `IChatClient`/event adapter bridges actual voice/tool/activity events into the Blazor block model. Prove unsolicited continuous-voice events and cancellation early; do not assume a request/response chat API automatically fits the existing voice session. The voice transport and Blazor tool pipeline must not both execute the same call. Tool IDs and command IDs correlate one execution with its rendered pending/result blocks. App-originated progress can use custom content without requiring remote AG-UI endpoints.
 
@@ -135,6 +147,8 @@ Use the existing user-started continuous conversation initially. Saying “Sky�
 
 ### 4. Add durable two-player match management
 
+Depends on R01's Match & Table State core. G01-G05 extend its commands, journal and projections for complete match management; they must not introduce a separate game ledger. R01 proves only the minimal two-player frame/shot/correction slice, without complete rules or score UI.
+
 1. Introduce Session → Frames → Turns → Shots; start with player-declared events and a reviewed, versioned implementation of the currently referenced rules profile. Verify its exact break, assignment, foul and black-ball rules before encoding them. Add other profiles only with their own rule fixtures.
 2. Implement start/end session, start/reset frame, breaker/current-player selection, assign/correct groups, declare/correct foul, record/correct winner and undo. Resetting a frame must not erase earlier frame wins.
 3. Derive score and legal-target state from committed events. Render a restrained current-player/group/score HUD only when a match exists. Add match controls/history to the sheet and equivalent voice tools.
@@ -156,9 +170,11 @@ This makes scoring and game-aware advice useful before automatic refereeing is r
 
 **Gate:** On the physical TV: show legal choices, select one, clear, show score, show replay, pause, seek back two seconds, play at supported slow speeds and return to live. Confirm receiver acknowledgements and inspect TV pixels; sender output alone is insufficient. Account for HLS delay and attach annotations to the correct source timeline.
 
-The existing annotated stream depends on the visible companion and falls back to raw camera when backgrounded. That remains the current limitation, not the target behavior for universally corrected footage. T14 must prove a service-owned decoder/compositor/encoder, or a measured camera-side equivalent, can maintain corrected TV output and durable annotation recording without a visible activity. Merely moving the current view into a service is insufficient. A custom Cast receiver is an alternative only if the native relay cannot meet measured presentation requirements.
+T14 now implements a service-owned GPU decoder/compositor/encoder and source-clock journal independent of activity visibility and phone playback. Corrected moving TV, background/lock and separate local-phone playback are recorded in the [T14 report](t14-report.md). Automatic network recovery, unplugged endurance, physical latency/audio sync and moving annotation correlation remain open acceptance gates. Plain TV releases the compositor. A custom Cast receiver remains an alternative only if the native relay cannot meet measured presentation requirements.
 
 ### 6. Build shot observations and proposed game events
+
+O01-O05 supply richer timestamped evidence to R01's typed input seams. The state library contains no CV implementation or timers. T13/T14's bounded decoded-frame architecture is the integration basis; preserve requested-only expensive perception while later missions add measured motion/shot tracking.
 
 1. Capture a labelled sequence corpus under the user's standard lighting: pots/misses, cue-ball loss/replacement, black pots, break/rerack, hand/cue obstruction, shadows, near-pocket balls, close collisions and camera interruption. Keep held-out sequences separate from tuning fixtures.
 2. Measure a lightweight motion detector and temporal tracking over decoded frames, retaining native media timestamps. Run expensive colour/circle analysis on stable observations. The current one-snapshot-per-completed-segment endpoint and 10-second candidate refresh cannot be the shot-event source.
@@ -168,6 +184,8 @@ The existing annotated stream depends on the visible companion and falls back to
 **Gate:** Run annotated held-out video through the pipeline and report shot-boundary accuracy, false pots, missed pots, scratch proposals and uncertain-event rate. On-device testing measures latency, CPU, memory and battery. No automatic score or group change follows a one-frame disappearance.
 
 ### 7. Connect observations to rules and corrections
+
+Rules R04/R02 and quiet-mode R03 consume the Match & Table State events and canonical state. The domain correction seam is established in R01; conversational/touch workflows and complete rule decisions follow here.
 
 1. Evaluate accepted shot events using the chosen rules profile: open table, group assignment, legal targets, turn continuation/change, foul entitlement and frame result.
 2. Start automation with reliably supported settled-table outcomes. Keep first contact, cushion requirements, simultaneous pots and other contact-dependent calls pending/manual until a higher-rate pipeline proves the evidence needed for each rule.
@@ -179,6 +197,8 @@ The existing annotated stream depends on the visible companion and falls back to
 Counting remaining reds/yellows helps validate a frame; it cannot identify the player at the table, prove first contact or settle every foul. Missing balls must not automatically enable a black shot.
 
 ### 8. Add contextual coaching and session analytics
+
+C01-C03, replay reconstruction and future 3D/actual-versus-predicted analysis consume R01's canonical state and event/evidence history. Presentation replay T03-T12 retains its existing media scope and IDs; it does not own the game model.
 
 1. Implement the first coaching slice: tap/reference a red, ask why it cannot be potted, run geometry and highlight the verified blocker/path on the table and optionally TV. Expose structured rejected-route reasons where today's planner only returns a boolean.
 2. Extend shot/replay explanations using actual observation evidence. Describe candidate difficulty as geometric ranking, not a calibrated pot probability. “Safest” needs an explicit supported criterion, not a renamed score.
@@ -204,7 +224,15 @@ Before each release, run the existing core/native checks plus the relevant new s
 
 ## Commit-sized execution backlog
 
-The previous eight milestones were not sufficiently small as individual commits. Use the following **48 bounded work units**. A row normally ends in a checked commit; split it again if a compatibility problem expands its scope. Preserve the old companion until the replacement passes its migration checks. Commit production changes only after relevant checks pass; device-gated work must record a blocked/unverified check if devices are unavailable, rather than claiming completion.
+The previous eight milestones were not sufficiently small as individual commits. Use the following bounded work units. A row normally ends in a checked commit; split it again if a compatibility problem expands its scope. Preserve the old companion until the replacement passes its migration checks. Commit production changes only after relevant checks pass; device-gated work must record a blocked/unverified check if devices are unavailable, rather than claiming completion.
+
+### Match & Table State epic — immediate
+
+| ID | Bounded result | Verification before proceeding |
+|---|---|---|
+| R01 | Establish the Match & Table State Core — planned, next delivery | Pure C# `SkyEye.GameState`; minimal typed evidence/commands/events; canonical match/frame/table state; ordered append-only history and deterministic reducer; confidence/provenance and player corrections; realistic yellow-pot/correction/rebuild scenario; stale/duplicate/uncertain evidence checks; minimal existing-app integration and restart recovery. See [brief](r01-match-table-state-brief.md) and [chunks R01.01-R01.07](r01-match-table-state-plan.md) |
+
+### Existing delivery backlog
 
 | ID | Bounded result | Verification before proceeding |
 |---|---|---|
@@ -248,14 +276,14 @@ The previous eight milestones were not sufficiently small as individual commits.
 | T10 | Corrected replay, library, download/share/export derivatives (implemented 6 Oct) | Recent and saved clips use automatic correction everywhere by default; final MP4 pixels are corrected, audio/sync retained, publication verified and source footage preserved |
 | T11 | Durable annotation journal tied to recording time (implemented 6 Oct) | Scene/cycle/pin/clear/score changes survive restart and select the correct historical frame; unrelated/stale scenes are rejected; no current annotation is invented for old footage |
 | T12 | Bake historical annotations into saved/shared clips (implemented 6 Oct) | MP4 contains recorded table overlays without needing SkyEye to play it; phone/TV/export agree after seek, clear and geometry changes; originals and sidecars retained |
-| T13 | Make SkyEye Sing: live-first performance and Sky orchestration | Actual-device baseline before changes; idle full-table/candidate analyses = 0; one bounded fresh observation per request; shared Sky/touch commands and independent presentation; measured camera-to-phone latency target below 500 ms; no continuous annotation encoding for plain live surfaces. See [mission brief](t13-live-first-brief.md) and [implementation chunks](t13-live-first-plan.md) |
-| T14 | Background corrected delivery and media resource acceptance (formerly T13) | TV remains corrected when companion backgrounds/locks; scene journal and file exports recover from interruption; bounded queues/cache, measured quality, sync, latency and thermal behavior |
+| T13 | Make SkyEye Sing: live-first performance and Sky orchestration — runtime implemented, acceptance open | Actual-device baseline before changes; idle full-table/candidate analyses = 0; one bounded fresh observation per request; shared Sky/touch commands and independent presentation; measured camera-to-phone latency target below 500 ms; no continuous annotation encoding for plain live surfaces. See [mission brief](t13-live-first-brief.md), [implementation chunks](t13-live-first-plan.md) and [report](t13-performance-report.md) |
+| T14 | Background corrected delivery and media resource acceptance (formerly T13) — runtime implemented, acceptance open | TV remains corrected when companion backgrounds/locks; scene journal and file exports recover from interruption; bounded queues/cache, measured quality, sync, latency and thermal behavior. See [report and remaining gates](t14-report.md) |
 | O01 | Labelled sequence corpus and held-out split | Manifest records cases, ground truth and split provenance |
 | O02 | Timestamped decoded-frame feed plus lightweight motion benchmark | Bounded queue; no use of 10s snapshot cadence as shot evidence |
 | O03 | Shot boundary state machine | Held-out boundaries and interruptions scored |
 | O04 | Temporal association and pot/scratch/rack proposals | One-frame loss/obstruction cannot become a committed pot |
 | O05 | Proposed-event UI and accept/reject/correction tools | Accepted event references evidence; rejected proposal does not recur unchanged |
-| R01 | Apply accepted shot outcomes to turn/groups/entitlements | Rules fixtures cover open table, continuation and foul cases |
+| R04 | Apply accepted shot outcomes to turn/groups/entitlements (previous R01; rules consumer of R01) | Rules fixtures cover open table, continuation and foul cases |
 | R02 | Black/frame outcome checks and history corrections | Ambiguous evidence stays pending; corrections repair later state |
 | R03 | Quiet-mode proactive settlement/rerack hints | No repeated prompts or speech over a shot |
 | C01 | Structured blocked-route reason and on-table explanation | Highlighted obstruction is geometrically verified |
@@ -265,9 +293,9 @@ The previous eight milestones were not sufficiently small as individual commits.
 | X02 | Long-session thermal/battery/latency and accessibility acceptance | Recorded device evidence and explicit remaining limits |
 | X03 | Final migration report, signed APK, source snapshot and rollback instructions | Artifact provenance matches tested commit |
 
-**First action when implementation is authorized:** P01, then P02–P05. The first user-visible application slice is S02. Release A is not dependent on automatic refereeing, and Release B is not dependent on contact-level vision. Background TV composition, a custom Cast receiver, wake-word listening and advanced cue-ball physics remain separate gated extensions rather than hidden prerequisites.
+**Current first action:** R01.01, then the bounded R01 delivery chunks. The original P01-P05/S02 starting sequence is completed historical work. Release A is not dependent on automatic refereeing, and Release B is not dependent on contact-level vision. T13/T14 retain their outstanding physical acceptance gates; wake-word listening and advanced cue-ball physics remain separately scoped.
 
-## Execution order update — voice deferred
+## Historical execution order update — voice deferred
 
 On 4 October, the user chooses to defer Sky voice/API-key work until they revisit key setup. Leave A02-A05 deferred; do not use the saved personal credential for voice testing meanwhile. The non-voice work can proceed independently.
 
@@ -333,7 +361,7 @@ Evidence: `evidence/recorded-annotation-compositor.json` and linked fixture/actu
 
 T13 is next: measured live-first performance, on-demand perception and shared Sky/touch orchestration. T14 then handles independent composition during background/lock/local-phone playback, interrupted-export recovery and sustained resource/quality acceptance. Historical pocket coverage remains a separate visual gap. Voice A02-A05 remains deferred; the verified scene content is declared lab advice published through the real scene renderer.
 
-### Priority update - new T13, 6 October
+### Historical priority update - new T13, 6 October
 
 The user adopts **T13 - Make SkyEye Sing: Live-First Performance & Sky Orchestration** as the next mission. Its [full brief](t13-live-first-brief.md) is canonical; [the implementation plan](t13-live-first-plan.md) divides it into independently verifiable commits. The previous T13 is now **T14** and retains its background, recovery and long-session acceptance scope. Existing evidence reports that mention the old T13 retain their historical wording; those references now map to T14.
 
