@@ -10,7 +10,7 @@ namespace SkyEye.Companion;
 
 public sealed class AndroidRecordedRenderer(Context context)
 {
-    public async Task<JsonElement> RenderAsync(string input,string output,RecordedRenderPlan plan,CancellationToken cancellation=default)
+    public async Task<JsonElement> RenderAsync(string input,string output,RecordedRenderPlan plan,CancellationToken cancellation=default,bool watermark=true)
     {
         if(Path.GetFullPath(input)==Path.GetFullPath(output)||File.Exists(output))throw new IOException("Render output must be a new derivative file.");
         plan.Validate();
@@ -20,7 +20,7 @@ public sealed class AndroidRecordedRenderer(Context context)
         Bridge.RecordedVideoRenderer? renderer=null;RenderListener? listener=null;bool success=false;
         try
         {
-            await MainAsync(()=>{cancellation.ThrowIfCancellationRequested();listener=new(finished);renderer=new();renderer.Start(context,input,part,JsonSerializer.Serialize(plan,JsonDefaults.Options),listener);});
+            await MainAsync(()=>{cancellation.ThrowIfCancellationRequested();listener=new(finished);renderer=new();renderer.Start(context,input,part,JsonSerializer.Serialize(plan,JsonDefaults.Options),watermark,listener);});
             string report=await finished.Task.WaitAsync(TimeSpan.FromMinutes(20),cancellation);
             cancellation.ThrowIfCancellationRequested();
             using var parsed=JsonDocument.Parse(report);

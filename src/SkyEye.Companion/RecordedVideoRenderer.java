@@ -16,7 +16,7 @@ import java.security.MessageDigest;
 public final class RecordedVideoRenderer {
     public interface Listener {void onComplete(String report);void onError(String error);}
     private Transformer transformer;
-    public void start(Context context,String input,String output,String planJson,Listener listener) throws Exception {
+    public void start(Context context,String input,String output,String planJson,boolean watermark,Listener listener) throws Exception {
         JSONObject plan=new JSONObject(planJson),source=plan.getJSONObject("source");
         int width=plan.getInt("width"),height=plan.getInt("height");
         JSONArray spans=plan.getJSONArray("spans");
@@ -51,12 +51,12 @@ public final class RecordedVideoRenderer {
                     if(before.has("audioSha256")&&(!after.has("audioSha256")||!before.getString("audioSha256").equals(after.getString("audioSha256"))
                         ||Math.abs(after.getLong("audioStartUs")-before.getLong("audioStartUs"))>1000||Math.abs(after.getLong("audioEndUs")-before.getLong("audioEndUs"))>1000))
                         throw new java.io.IOException("Rendered room audio changed unexpectedly");
-                    listener.onComplete(new JSONObject().put("before",before).put("after",after).put("correctedFrameCallbacks",counts[0]).put("fallbackFrameCallbacks",counts[1]).toString());
+                    listener.onComplete(new JSONObject().put("before",before).put("after",after).put("correctedFrameCallbacks",counts[0]).put("fallbackFrameCallbacks",counts[1]).put("watermarked",watermark).toString());
                 }catch(Exception e){listener.onError("Recorded render verification failed: "+e.getMessage());}}
                 public void onError(Composition composition,ExportResult result,ExportException error){listener.onError("Recorded render failed: "+error.getMessage());}
             }).build();
         EditedMediaItem item=new EditedMediaItem.Builder(MediaItem.fromUri(android.net.Uri.fromFile(new java.io.File(input))))
-            .setEffects(new Effects(Collections.emptyList(),Collections.singletonList(effect))).build();
+            .setEffects(new Effects(Collections.emptyList(),watermark?java.util.Arrays.asList(effect,WatermarkRenderer.effect(context,width,height)):Collections.singletonList(effect))).build();
         transformer.start(item,output);
     }
     public void cancel(){if(transformer!=null)transformer.cancel();}

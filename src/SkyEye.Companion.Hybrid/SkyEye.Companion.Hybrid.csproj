@@ -47,6 +47,7 @@
     <AndroidMavenLibrary Include="io.github.webrtc-sdk:android" Version="150.7871.01" Bind="false" />
     <ProjectReference Include="../SkyEye.Vision.Android/SkyEye.Vision.Android.csproj" />
     <AndroidJavaSource Include="../SkyEye.Companion/AnnotationRecorder.java" Link="Native/AnnotationRecorder.java" />
+    <AndroidJavaSource Include="../SkyEye.Companion/WatermarkRenderer.java" Link="Native/WatermarkRenderer.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/PlayerBridge.java" Link="Native/PlayerBridge.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/CandidateOverlay.java" Link="Native/CandidateOverlay.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/TableSceneOverlay.java" Link="Native/TableSceneOverlay.java" />
@@ -74,4 +75,5 @@
     <AndroidResource Include="../SkyEye.Companion/Resources/xml/file_paths.xml" Link="Resources/xml/file_paths.xml" />
     <MauiAsset Include="Resources/Raw/probe.mp4" LogicalName="probe.mp4" />
   </ItemGroup>
+  <ItemGroup><AndroidAsset Include="../../watermark.png" Link="watermark.png" /></ItemGroup>
 </Project>
