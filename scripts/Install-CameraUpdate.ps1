@@ -1,5 +1,6 @@
 param(
     [Parameter(Mandatory)][string]$CameraSerial,
+    [string]$CameraAddress,
     [string]$AdbPath='C:\Program Files (x86)\Android\android-sdk\platform-tools\adb.exe'
 )
 $ErrorActionPreference='Stop'
@@ -31,7 +32,12 @@ if((Invoke-CameraAdb @('get-state')) -ne 'device'){throw 'Camera debugging is no
 # Updating a running capture would erase rolling history. Wait for an explicit
 # stopped camera rather than silently stopping recording during installation.
 $taskPid=& $AdbPath -s $CameraSerial shell pidof $taskPackage 2>$null
-if($taskPid){throw 'Camera app is running. Stop recording and close the camera app before updating.'}
+if($taskPid){
+    if(-not $CameraAddress){throw 'Camera app is running. Supply its address to verify recording is stopped before updating.'}
+    $taskStatus=Invoke-RestMethod -Uri ($CameraAddress.TrimEnd('/') + '/status') -TimeoutSec 5
+    if($taskStatus.state -notin @('Ready','Stopped')){throw 'Recording is active or paused. Stop recording before updating the camera.'}
+    Invoke-CameraAdb @('shell','am','force-stop',$taskPackage) | Out-Null
+}
 $taskManifest=& (Join-Path $taskTools 'aapt2.exe') dump badging $taskApk 2>&1
 if($LASTEXITCODE -ne 0 -or ($taskManifest -join "`n") -notmatch "package: name='uk.co.skyeye.camera' versionCode='(\d+)'"){throw 'Wrong camera APK'}
 $taskVersion=[long]$Matches[1]

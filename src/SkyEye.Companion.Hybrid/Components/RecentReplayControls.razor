@@ -1,0 +1,18 @@
+<details class="control-section" aria-label="Recent replay">
+    <summary>Recent replay</summary>
+    <p class="hint" role="status">@Session.RecentReplayStatus</p>
+    <p class="hint">Uses the camera's recording time. The first keyframe may add a little extra footage; a newly started recording may be shorter.</p>
+    @foreach (var seconds in SkyEye.Core.RecentReplay.Durations)
+    {
+        <button class="secondary" disabled="@(Busy || !Session.CanRequestRecentReplay)" @onclick="() => Prepare.InvokeAsync(seconds)">Replay recent @seconds seconds on TV</button>
+    }
+    <button class="secondary" disabled="@(Busy || !Session.CanWatchRecentReplay)" @onclick="Watch">Watch recent replay again</button>
+    <p class="hint">Temporary replays expire after ten minutes. Up to two can be available at once; your saved clips are kept separately.</p>
+</details>
+
+@code {
+    [Parameter, EditorRequired] public ShellSession Session { get; set; } = null!;
+    [Parameter] public bool Busy { get; set; }
+    [Parameter] public EventCallback<int> Prepare { get; set; }
+    [Parameter] public EventCallback Watch { get; set; }
+}
