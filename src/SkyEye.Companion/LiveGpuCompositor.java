@@ -39,7 +39,7 @@ public final class LiveGpuCompositor {
         encoder=MediaCodec.createEncoderByType("video/avc");encoder.configure(format,null,null,MediaCodec.CONFIGURE_FLAG_ENCODE);encoderInput=encoder.createInputSurface();encoder.start();
         gpu=new Gpu(encoderInput);decoderTexture=new SurfaceTexture(gpu.external);decoderTexture.setDefaultBufferSize(W,H);decoderOutput=new Surface(decoderTexture);
         decoderTexture.setOnFrameAvailableListener(t->{if(closed)return;if(!framePending.compareAndSet(false,true)){replaced++;return;}gl.post(this::frame);},gl);
-        main.post(()->{if(closed)return;player=new ExoPlayer.Builder(context).setLoadControl(new DefaultLoadControl.Builder().setBufferDurationsMs(250,2000,100,250).build()).build();
+        main.post(()->{if(closed)return;player=new ExoPlayer.Builder(context).setLoadControl(new DefaultLoadControl.Builder().setBufferDurationsMs(250,2000,100,250).setPrioritizeTimeOverSizeThresholds(true).build()).build();
             player.setVideoSurface(decoderOutput);player.setVolume(0);player.setVideoFrameMetadataListener((pts,release,f,m)->recorder.frame(pts,release));
             player.addListener(new Player.Listener(){public void onIsPlayingChanged(boolean value){playing=value;}
                 public void onPlayerError(PlaybackException e){playing=false;main.postDelayed(()->{if(!closed)play(url);},1000);}
@@ -80,7 +80,7 @@ public final class LiveGpuCompositor {
             Canvas canvas=new Canvas(overlay);canvas.save();canvas.concat(image);scenes.geometry(canvas,W,H,W/(float)H,snapshot);canvas.restore();scenes.textLayer(canvas,W,H,image,snapshot);WatermarkRenderer.draw(context,canvas,W,H);gpu.overlay(overlay);
         }finally{overlay.recycle();}}
         gpu.draw(textureMatrix,matrix,sourceUs);frames++;recorder.drawn(snapshot,geometry,true,generation);
-        frameMetrics=scenes.metrics(snapshot,generation,0).put("sourceUs",sourceUs).put("rectangular",corrected).put("watermarked",true).toString();drain();
+        frameMetrics=scenes.metrics(snapshot,generation,0).put("sourceUs",sourceUs).put("sourceAgeEstimateMs",source.optDouble("ageEstimateMs",-1)).put("rectangular",corrected).put("watermarked",true).toString();drain();
     }catch(Exception e){fail(e);}}
     private final Runnable drainLoop=new Runnable(){public void run(){if(closed)return;try{drain();}catch(Exception e){fail(e);}if(!closed)gl.postDelayed(this,10);}};
     private void drain()throws Exception{MediaCodec.BufferInfo info=new MediaCodec.BufferInfo();for(int n=0;n<64;n++){
