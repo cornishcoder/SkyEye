@@ -14,7 +14,7 @@ This checkout's former R01 rules-outcome task is preserved as **R04**. R02/R03 a
 
 ## SDK lanes
 
-Manual match delivery is now in progress: [bounded plan](manual-match-plan.md). The first checked chunk extends R01 with a frame ledger, earlier-result correction and retained match history. G01-G05's manual controls/recovery portions and frame-result summaries are being delivered; complete rules, voice and TV score acceptance remain separate.
+Manual match delivery is implemented: [report](manual-match-report.md), [bounded plan](manual-match-plan.md) and [phone proof](evidence/manual-match-phone.json). G01-G05's declared controls/recovery portions and frame-result summaries are delivered; complete rules, voice and TV score acceptance remain separate.
 
 - Repository root: SDK **10.0.400** for the existing camera, companion, vision and core checks.
 - `src/SkyEye.Companion.Hybrid`: SDK **11.0.100-rc.1.26425.128** for the Android MAUI Blazor compatibility host.
@@ -25,6 +25,11 @@ Manual match delivery is now in progress: [bounded plan](manual-match-plan.md). 
 
 | Unit | Status | Evidence |
 |---|---|---|
+| G01/G03 manual | Complete within declared slice | Two-player/race setup, ordered frame ledger, phone HUD and winner controls. Declared scores and earlier-frame correction reconstruct; new frames preserve score. Full rule-profile implementation remains open |
+| G02 manual | Complete within declared slice | Turn/complementary colours/open-table declarations project the current player's shot group; legacy overrides are refused. Phone verifies Rich reds → Mike yellows; full rule-derived targets/entitlements remain open |
+| G04/G05 manual | Complete within declared slice | Supported player-decision undo, earlier-frame result repair, process restart/resume, explicit match finish and retained previous-match history. Actual phone returns 1-1 after restart; old R01 schema reconstructs new projections. Voice/general archived-match edits remain open |
+| C03 frame summaries | Complete within declared slice | Read-only recorded-frame coverage and previous match results. No inferred pot/miss/run statistics. [Completion report](manual-match-report.md) |
+| Manual production delivery | Installed | Signed normal Release updated in place with UID/storage retained. Empty match setup verified on Pixel 11; fake matches remain in Lab. [Production proof](evidence/manual-match-production.json). No table observation/TV/voice testing |
 | R01 | Implemented and verified within its slice | Pure state core, scenario/correction/rebuild and minimal application integration. [Completion report](r01-match-table-state-report.md) and [device proof](evidence/r01-device-game-state.json); actual pot recognition, full rules and match/voice UI remain deferred |
 | R01.01 | Complete | `SkyEye.GameState` and pure .NET executable checks added to the solution. Typed state/evidence/commands/events, normalized positions and explicit unknown facts; contract fixtures verify two players/open table/settled layout and uncertain counts. `dotnet run --project tests/SkyEye.GameState.Checks` passes; subsequent reducer/integration checks are recorded below |
 | R01.02 | Complete | Immutable game-session proposals, append-only sequenced events and pure reducer. Scenario checks pass actual match/frame/settled-table/shot transitions, duplicate/conflicting IDs, old timestamps, wrong timelines, explicit source replacement and JSON history reconstruction. No clocks or I/O in the domain |

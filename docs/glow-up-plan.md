@@ -1,6 +1,6 @@
 # SkyEye glow-up implementation plan
 
-4 October 2026 · Updated 6 October after delivering the Match & Table State core in checked chunks.
+4 October 2026 · Updated 6 October after delivering the Match & Table State core and declared phone match management in checked chunks.
 
 The original planning baseline was the three-turn conversation **SkyEye Agentic UI Benefits** and the `C:\code\SkyEye` checkout at `f6ea29c`. Current delivery status and evidence are recorded below and in the progress log.
 
@@ -11,6 +11,8 @@ The original planning baseline was the three-turn conversation **SkyEye Agentic 
 The pure C# `SkyEye.GameState` library owns canonical match/frame/table state, ordered meaningful events, deterministic reduction, provenance and corrections. Both companion hosts persist events and expose the canonical game snapshot through the shared coordinator. Replay, coaching, scoring, rules, shot reconstruction and future 3D simulation consume this model. R01 is not replay functionality and does not implement complete rules, new detectors or GPT integration.
 
 Delivered: **R01**. Next: **remaining T13/T14 acceptance → T06 → T07**, with G/O/rules/coaching work consuming the state model. T13/T14 runtime work is implemented with open acceptance gates; R01 does not close them. See [progress](glow-up-progress.md), [T13 report](t13-performance-report.md) and [T14 report](t14-report.md). Earlier execution-order notes below are historical.
+
+The user then prioritises work needing little table/TV testing. The [manual match slice](manual-match-report.md) delivers the declared setup/score/turn/group/winner/correction/undo/recovery/history portions of G01-G05 and frame summaries from C03 on the phone. Its [bounded plan](manual-match-plan.md) and phone-only Lab proof preserve the earlier media gates. Complete rules, automatic refereeing, voice and TV score presentation remain open. For continued low-table work, extend declared history/controls and reviewed rule fixtures; physical O-series tracking and T-series acceptance require separate device/table evidence.
 
 The supplied brief describes moving R01 out of Replay; this checkout instead assigns R01 to rules outcomes in a flat backlog. Preserve that existing mission as **R04 — Apply accepted shot outcomes to turn/groups/entitlements**. R02/R03 and all T-series replay/media IDs remain unchanged. R04 depends on R01 plus accepted observation evidence and the reviewed rules profile.
 
@@ -264,6 +266,7 @@ The previous eight milestones were not sufficiently small as individual commits.
 | G03 | Frame result/score commands with duplicate protection | Repeated winner call counts one win |
 | G04 | Durable event journal and restart recovery | Recovered score agrees; live facts are revalidated |
 | G05 | Amendment/undo commands plus score HUD and Sky tools | Correct winner/group/foul repairs dependent projections |
+| G01-G05 / C03 manual slice | Implemented 6 October: phone match setup/score, declared groups/turns/results, earlier-frame correction, supported undo, recovery and previous-match summaries | Pure/core fixtures and actual Pixel 11 Lab touch/restart/archive scenario pass; no camera observation/TV test. [Report](manual-match-report.md). Complete rules, voice, TV HUD and shot statistics remain separate |
 | T01 | Generalize shared native scene beyond candidate paths | Phone/encoded TV show same scene versions; sheets excluded |
 | T02 | Target-specific live/choices/pin/clear/score commands | Phone and TV can differ intentionally; display cycling retained, timer-driven analysis superseded by T13 |
 | T03 | Buffered MP4 load and replay position callbacks — implemented 4 Oct | Chromecast plays a saved camera clip with position callbacks; phone stays live and current capture continues. Evidence: saved-clip-tv.json |

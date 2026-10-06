@@ -1,6 +1,6 @@
 # Manual match management — evening delivery
 
-6 October 2026. Extend R01 for declared match play without requiring table or TV testing. Use existing G01-G05/C03 work; complete the manual slice without claiming a complete rules profile, automatic scoring or voice integration.
+6 October 2026. All five chunks implemented for declared match play without table or TV testing. See the [completion report](manual-match-report.md) and [phone proof](evidence/manual-match-phone.json). Use existing G01-G05/C03 work without claiming a complete rules profile, automatic scoring or voice integration.
 
 | Chunk | Deliverable | Verification |
 |---|---|---|

@@ -1,0 +1,14 @@
+{
+  "verifiedAt": "2026-10-06T20:37:01.0727478+00:00",
+  "sourceCommit": "993f417d76e74eae9aaeef1f0558802978058cb7",
+  "package": "uk.co.skyeye.companion",
+  "normalRelease": true,
+  "apkSha256": "2F16CC98210AFE1C5EBAAF413D49B9DBA9DDE0AC8CCBCEE2ABA931DF2FF9949A",
+  "signingUidAndPrivateStorageVerified": true,
+  "matchSetupVisible": true,
+  "productionTestPlayersAbsent": true,
+  "fakeMatchesIsolatedInLab": true,
+  "cameraOrTableTesting": false,
+  "tvTesting": false,
+  "voiceOrKeyUse": false
+}
