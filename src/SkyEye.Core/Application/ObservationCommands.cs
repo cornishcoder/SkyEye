@@ -56,6 +56,11 @@ public sealed partial class AppCoordinator
     Task<CommandReceipt> BeginObservation(CommandEnvelope envelope, CancellationToken cancellation)
     {
         var request = (ObserveTable)envelope.Command;
+        if (request.IncludeChoices && game.State.Frame?.Rules?.Pending == true)
+        {
+            var rejected = Receipt(envelope, CommandOutcome.Rejected, "Resolve the pending shot decision before requesting legal choices.");
+            Remember(envelope, rejected); return Task.FromResult(rejected);
+        }
         if (observations is null || request.Source != state.Camera.Scope || !state.Camera.CanControl || state.Camera.Capture != CaptureState.Active
             || request.MediaGeneration <= 0 || !ObservationCurrent(request) || envelope.ExpectedVersion != state.Version || effectPending.Count >= 16)
         {

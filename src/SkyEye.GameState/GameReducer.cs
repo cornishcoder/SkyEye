@@ -97,7 +97,7 @@ public static class GameReducer
                 var ruling = recorded.Ruling;
                 var position = ruling.Position with { LastInputId = e.InputId };
                 var groups = s.Frame!.Colours;
-                if (ruling.Position.PlayerGroup is { } assignedGroup)
+                if (groups.Count == 0 && ruling.Position.PlayerGroup is { } assignedGroup)
                     foreach (var player in s.Match!.Players)
                         groups = groups.SetItem(player.Id, new(player.Id == ruling.Shooter ? assignedGroup : assignedGroup == BallColour.Red ? BallColour.Yellow : BallColour.Red,
                             Provenance.Inferred, null, e.InputId));

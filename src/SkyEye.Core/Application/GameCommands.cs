@@ -15,7 +15,10 @@ public sealed partial class AppCoordinator
     {
         if (gameUnavailable) return Receipt(envelope, CommandOutcome.Failed, state.GameError!);
         bool declared = command.Input?.Input is StartMatch or StartFrame or FinishMatch or DeclareColours or UndoDecision or PlayerCorrection;
-        bool local = declared && command.Input!.Source is null && state.Camera.ConnectionId == Guid.Empty && envelope.Origin is CommandOrigin.Touch or CommandOrigin.Sky;
+        bool trustedRuling = command.Input?.Input is ApplyShotRuling && envelope.Origin == CommandOrigin.System;
+        if (command.Input?.Input is ApplyShotRuling && !trustedRuling) return Receipt(envelope, CommandOutcome.Rejected, "Submit declared facts through the rules command.");
+        bool local = command.Input?.Source is null && state.Camera.ConnectionId == Guid.Empty
+            && (declared && envelope.Origin is CommandOrigin.Touch or CommandOrigin.Sky || trustedRuling);
         if (command.Input is null || envelope.OperationId != command.Input.Id || !(local || state.Camera.CanControl)
             || envelope.Origin == CommandOrigin.Vision && (declared
                 || command.Input.Provenance is Provenance.PlayerConfirmed or Provenance.PlayerCorrected)
@@ -31,12 +34,14 @@ public sealed partial class AppCoordinator
         try { gameJournal?.Save(game, proposal.Session); }
         catch (IOException) { return Receipt(envelope, CommandOutcome.Failed, "Game history could not be saved. Previous state retained."); }
         game = proposal.Session;
-        var group = game.State.Frame is { Winner: null } frame && game.State.Match is { Finished: false }
+        var group = game.State.Frame?.Rules is { } rules ? rules.Target switch
+            { LegalTarget.Red => AdviceTargetGroup.Red, LegalTarget.Yellow => AdviceTargetGroup.Yellow, LegalTarget.Black => AdviceTargetGroup.Black, _ => AdviceTargetGroup.Open }
+            : game.State.Frame is { Winner: null } frame && game.State.Match is { Finished: false }
             && frame.Colours.TryGetValue(frame.CurrentPlayer.Value, out var assigned)
                 ? assigned.Value == BallColour.Red ? AdviceTargetGroup.Red : assigned.Value == BallColour.Yellow ? AdviceTargetGroup.Yellow : AdviceTargetGroup.Open
                 : AdviceTargetGroup.Open;
         var updated = ClearShotCatalog(state) with { Version = checked(state.Version + 1), Game = game.State, Match = MatchView.From(game), Advice = new(group),
-            GameTableCurrent = command.Input.Input is not (StartMatch or StartFrame or SelectSource or FinishMatch or UndoDecision)
+            GameTableCurrent = command.Input.Input is not (StartMatch or StartFrame or SelectSource or FinishMatch or UndoDecision or ApplyShotRuling)
                 && state.GameTableCurrent && !game.State.Table.Uncertain && game.State.Table.Motion == TableMotion.Settled };
         Volatile.Write(ref state, updated); Notify(state);
         return Receipt(envelope, CommandOutcome.Applied, proposal.Message);

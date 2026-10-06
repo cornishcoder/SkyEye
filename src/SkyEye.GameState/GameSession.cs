@@ -74,7 +74,7 @@ public sealed class GameSession
                 || !PlayerExists(ruling.Shooter) || !PlayerExists(ruling.Position.Player) || ruling.Position.Winner is { } win && !PlayerExists(win)
                 || ruling.Position.Reds is < 0 or > 7 || ruling.Position.Yellows is < 0 or > 7
                 || !Text(ruling.Position.Profile) || string.IsNullOrWhiteSpace(ruling.Position.Reason) || ruling.Position.Reason.Length > 500
-                || ruling.ReplacesInputId is { } replaced && (History.LastOrDefault()?.InputId != replaced
+                || ruling.ReplacesInputId is { } replaced && (History.LastOrDefault(e => e.Event is not DecisionUndoneEvent && !GameRevisions.Suppressed(History).Contains(e.InputId))?.InputId != replaced
                     || !History.Any(e => e.InputId == replaced && e.Event is RulesShotRecordedEvent)))
                 return Refuse(InputOutcome.Rejected, "Invalid ruling or correction; correct the latest recorded shot before later decisions.");
             if (State.Frame.Winner is not null && ruling.ReplacesInputId is null) return Refuse(InputOutcome.Rejected, "The frame has ended.");

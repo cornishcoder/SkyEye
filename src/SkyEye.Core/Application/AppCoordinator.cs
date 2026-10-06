@@ -44,6 +44,7 @@ public sealed partial class AppCoordinator
             if (envelope.OperationId == Guid.Empty || envelope.ExpectedVersion < 0 || !Enum.IsDefined(envelope.Origin) || envelope.Command is null)
                 return Receipt(envelope, CommandOutcome.Rejected, "Invalid command envelope.");
             if (envelope.Command is SubmitGameInput gameInput) return GameCommand(envelope, gameInput);
+            if (envelope.Command is DeclareShotOutcome declaredShot) return RulesCommand(envelope, declaredShot);
             if (effectPending.TryGetValue(envelope.OperationId, out var running))
                 pendingEffect = running.Envelope == envelope ? DuplicateAsync(running.Pending)
                     : Task.FromResult(Receipt(envelope, CommandOutcome.Conflict, "Operation ID was already used for a different request."));
