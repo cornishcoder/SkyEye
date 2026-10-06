@@ -2,3 +2,4 @@
 tests/fixtures/observations/** text eol=lf
 tests/fixtures/observations/**/*.gray -text
 docs/evidence/o01-*.json text eol=lf
+docs/evidence/o02-*.json text eol=lf

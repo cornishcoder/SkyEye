@@ -29,7 +29,9 @@ Phone **Controls → Match** now supports player/race setup, declared turn/colou
 
 **Declare or correct a shot** adds the version-pinned International 2c rules consumer: player-declared facts drive turn/group/target, cue-placement and supported frame decisions. Unknowns stay pending. Latest-shot replacement/undo and restart retain profile/clause references. See [declared rules delivery](docs/declared-rules-report.md); this works without reliable low-light perception and does not claim automatic referee accuracy.
 
-**O01 offline observation workbench** validates indexed pixel/source-time receipts, freezes session-grouped splits, replays continuity contracts and scores stored detector results without Android or a table. See the [corpus guide](docs/observation-corpus-guide.md) and [delivery report](docs/o01-workbench-report.md). The frozen seed is a tuned real still plus synthetic contracts; real timed-shot collection, held-out accuracy and O02 native pixel/PTS pairing remain open.
+**O01 offline observation workbench** validates indexed pixel/source-time receipts, freezes session-grouped splits, replays continuity contracts and scores stored detector results without Android or a table. See the [corpus guide](docs/observation-corpus-guide.md) and [delivery report](docs/o01-workbench-report.md). The frozen seed is a tuned real still plus synthetic contracts; real timed-shot collection and held-out accuracy remain open.
+
+**O02 decoded-frame pairing** replaces separate pixel/timestamp reads with an owned receipt matched to the actual surface timestamp. Controlled Pixel tests cover MP4, live TS source time, restart and the C# bitmap handoff. See the [pairing report](docs/o02-frame-pairing-report.md). The enabled active/latest tracking feed, ROI measurements, real 1080p cadence and held-out shot accuracy remain open.
 
 APKs embed their managed assemblies and can be installed directly using ADB or Android's installer. Use the ARM64 APKs for the physical phones. Apps have separate package IDs (`uk.co.skyeye.camera`, `uk.co.skyeye.companion`), leaving Maeve Watch intact.
 

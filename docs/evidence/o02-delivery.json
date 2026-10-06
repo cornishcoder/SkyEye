@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-06",
+  "sourceCommit": "0bb6f20858821916b71718281d37e54125b024f5",
+  "scope": "O02.01-O02.03 atomic requested-frame pairing; O02.04-O02.05 remain open",
+  "device": "Pixel 11 Pro XL",
+  "checks": {
+    "hostNativeLedger": "pass",
+    "core": "pass including native decoder-generation mismatch rejection",
+    "agentUi": "pass",
+    "nativePairing": "125 matches, zero pixel-ID/time mismatches",
+    "csharpAdapter": "10 matches, raw bitmaps, no analysis JPEG; cancellation rejected",
+    "sourceClock": "exact matching and four TS epoch cases pass"
+  },
+  "releaseBuilds": {
+    "test": {
+      "warnings": 17,
+      "errors": 0,
+      "apkSha256": "D1911F90D189E89CF7B9FEF326FBB13E9AEC3E87274588F0E21C6BC575908D5F"
+    },
+    "retainedCompanion": {
+      "warnings": 14,
+      "errors": 0
+    },
+    "production": {
+      "warnings": 14,
+      "errors": 0,
+      "apkSha256": "FF605E94BEEB8DD7F63C6626DBC9F4CA8555D5092740424969E8D284079B08F0"
+    },
+    "lab": {
+      "warnings": 7,
+      "errors": 0
+    }
+  },
+  "installation": {
+    "package": "uk.co.skyeye.companion",
+    "guardedUpdate": "pass: original signer, UID and private-storage identity retained",
+    "installedApkSha256": "FF605E94BEEB8DD7F63C6626DBC9F4CA8555D5092740424969E8D284079B08F0",
+    "installedArtifactMatchesBuild": true,
+    "foregroundActivity": "uk.co.skyeye.companion.MainActivity observed after final update",
+    "processRunning": true,
+    "latestRollbackApk": "work/production/backups/20261006-232948/before.apk",
+    "personalKeyUse": 0,
+    "explicitCameraCaptureOrControlOperations": 0,
+    "explicitCastOperations": 0
+  },
+  "reports": [
+    "o02-frame-pairing.json",
+    "o02-frame-binding.json",
+    "o02-source-clock.json"
+  ],
+  "limits": [
+    "Synthetic 640x360/30Hz controlled source, not real-table/1080p tracking accuracy or cadence",
+    "One-active/one-latest enabled feed and ROI/flow are not implemented in this slice",
+    "Real timed-shot and held-out O01 corpus remains zero"
+  ],
+  "cacheCleanup": {
+    "target": "tests/SkyEye.Vision.Device/obj",
+    "result": "Automatic approval review rejected removal: blocked by policy. No deletion performed."
+  }
+}

@@ -1,0 +1,147 @@
+{
+  "passed": true,
+  "samples": [
+    {
+      "sourceTimeUs": 1466666,
+      "receipt": {
+        "mediaGeneration": 5,
+        "frameId": 1,
+        "presentationTimeUs": 66666,
+        "surfaceTimestampNs": 18163572513761,
+        "width": 640,
+        "height": 360
+      },
+      "pixelFrameId": 0,
+      "expectedFrameId": 0,
+      "noAnalysisJpeg": true
+    },
+    {
+      "sourceTimeUs": 1500000,
+      "receipt": {
+        "mediaGeneration": 5,
+        "frameId": 2,
+        "presentationTimeUs": 100000,
+        "surfaceTimestampNs": 18163669783813,
+        "width": 640,
+        "height": 360
+      },
+      "pixelFrameId": 1,
+      "expectedFrameId": 1,
+      "noAnalysisJpeg": true
+    },
+    {
+      "sourceTimeUs": 1566666,
+      "receipt": {
+        "mediaGeneration": 5,
+        "frameId": 4,
+        "presentationTimeUs": 166666,
+        "surfaceTimestampNs": 18163736417812,
+        "width": 640,
+        "height": 360
+      },
+      "pixelFrameId": 3,
+      "expectedFrameId": 3,
+      "noAnalysisJpeg": true
+    },
+    {
+      "sourceTimeUs": 1600000,
+      "receipt": {
+        "mediaGeneration": 5,
+        "frameId": 5,
+        "presentationTimeUs": 200000,
+        "surfaceTimestampNs": 18163769751144,
+        "width": 640,
+        "height": 360
+      },
+      "pixelFrameId": 4,
+      "expectedFrameId": 4,
+      "noAnalysisJpeg": true
+    },
+    {
+      "sourceTimeUs": 1633333,
+      "receipt": {
+        "mediaGeneration": 5,
+        "frameId": 6,
+        "presentationTimeUs": 233333,
+        "surfaceTimestampNs": 18163803084476,
+        "width": 640,
+        "height": 360
+      },
+      "pixelFrameId": 5,
+      "expectedFrameId": 5,
+      "noAnalysisJpeg": true
+    },
+    {
+      "sourceTimeUs": 1733333,
+      "receipt": {
+        "mediaGeneration": 5,
+        "frameId": 9,
+        "presentationTimeUs": 333333,
+        "surfaceTimestampNs": 18163874792899,
+        "width": 640,
+        "height": 360
+      },
+      "pixelFrameId": 8,
+      "expectedFrameId": 8,
+      "noAnalysisJpeg": true
+    },
+    {
+      "sourceTimeUs": 1766666,
+      "receipt": {
+        "mediaGeneration": 5,
+        "frameId": 10,
+        "presentationTimeUs": 366666,
+        "surfaceTimestampNs": 18163908132755,
+        "width": 640,
+        "height": 360
+      },
+      "pixelFrameId": 9,
+      "expectedFrameId": 9,
+      "noAnalysisJpeg": true
+    },
+    {
+      "sourceTimeUs": 1800000,
+      "receipt": {
+        "mediaGeneration": 5,
+        "frameId": 11,
+        "presentationTimeUs": 400000,
+        "surfaceTimestampNs": 18163954821288,
+        "width": 640,
+        "height": 360
+      },
+      "pixelFrameId": 10,
+      "expectedFrameId": 10,
+      "noAnalysisJpeg": true
+    },
+    {
+      "sourceTimeUs": 1900000,
+      "receipt": {
+        "mediaGeneration": 5,
+        "frameId": 14,
+        "presentationTimeUs": 500000,
+        "surfaceTimestampNs": 18164054844804,
+        "width": 640,
+        "height": 360
+      },
+      "pixelFrameId": 13,
+      "expectedFrameId": 13,
+      "noAnalysisJpeg": true
+    },
+    {
+      "sourceTimeUs": 1933333,
+      "receipt": {
+        "mediaGeneration": 5,
+        "frameId": 15,
+        "presentationTimeUs": 533333,
+        "surfaceTimestampNs": 18164088185976,
+        "width": 640,
+        "height": 360
+      },
+      "pixelFrameId": 14,
+      "expectedFrameId": 14,
+      "noAnalysisJpeg": true
+    }
+  ],
+  "cancelledAcquisitionRejected": true,
+  "source": "Synthetic loopback TS through production PlayerTableFrameSource; not real table accuracy"
+}
