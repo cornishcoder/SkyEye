@@ -10,17 +10,18 @@ namespace SkyEye.Companion;
 
 public sealed class AndroidRecordedRenderer(Context context)
 {
-    public async Task<JsonElement> RenderAsync(string input,string output,RecordedRenderPlan plan,CancellationToken cancellation=default,bool watermark=true)
+    public async Task<JsonElement> RenderAsync(string input,string output,RecordedRenderPlan plan,CancellationToken cancellation=default,bool watermark=true,RecordedAnnotationPlan? annotations=null)
     {
         if(Path.GetFullPath(input)==Path.GetFullPath(output)||File.Exists(output))throw new IOException("Render output must be a new derivative file.");
-        plan.Validate();
+        plan.Validate();annotations?.Validate();
+        if(annotations is not null&&(annotations.Source!=plan.Source||annotations.Width!=plan.Width||annotations.Height!=plan.Height))throw new IOException("Annotations differ from render source.");
         await using(var file=File.OpenRead(input))if(Convert.ToHexString(await SHA256.HashDataAsync(file,cancellation))!=plan.Source.ContentSha256)throw new IOException("Render source checksum differs from geometry.");
         string part=output+"."+Guid.NewGuid().ToString("N")+".part.mp4";
         var finished=new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
         Bridge.RecordedVideoRenderer? renderer=null;RenderListener? listener=null;bool success=false;
         try
         {
-            await MainAsync(()=>{cancellation.ThrowIfCancellationRequested();listener=new(finished);renderer=new();renderer.Start(context,input,part,JsonSerializer.Serialize(plan,JsonDefaults.Options),watermark,listener);});
+            await MainAsync(()=>{cancellation.ThrowIfCancellationRequested();listener=new(finished);renderer=new();renderer.Start(context,input,part,JsonSerializer.Serialize(plan,JsonDefaults.Options),annotations is null||annotations.Spans.IsEmpty?null:JsonSerializer.Serialize(annotations,JsonDefaults.Options),watermark,listener);});
             string report=await finished.Task.WaitAsync(TimeSpan.FromMinutes(20),cancellation);
             cancellation.ThrowIfCancellationRequested();
             using var parsed=JsonDocument.Parse(report);

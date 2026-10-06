@@ -29,7 +29,7 @@ public sealed class CompanionCorrectedClips:IDisposable
     public async Task<CorrectedClip> SavedAsync(CameraClipCatalog catalog,Clip clip,Action<ClipTransferProgress>? progress,CancellationToken ct)
     {
         _=clips.TvSource(catalog,clip);using var transfer=new CameraClipTransfer(current);
-        var prepared=await saved.PrepareAsync(clip,transfer,renderer,progress,ct);Check(catalog.ConnectionId,catalog.CameraIdentity);PreserveAnnotations(prepared,false);return prepared;
+        var prepared=await saved.PrepareAsync(clip,transfer,renderer,progress,ct);Check(catalog.ConnectionId,catalog.CameraIdentity);return prepared;
     }
     public async Task<CorrectedClip> LocalAsync(string id,CancellationToken ct)
     {
@@ -42,14 +42,14 @@ public sealed class CompanionCorrectedClips:IDisposable
     public async Task<CorrectedClip> RecentAsync(CameraRecentReplay replay,CancellationToken ct)
     {
         _=clips.TvSource(replay);using var transfer=new ReplayTransfer(current,replay.Asset.Clip);
-        var prepared=await recent.PrepareAsync(replay.Asset.Clip,transfer,renderer,cancellation:ct);Check(replay.ConnectionId,replay.CameraIdentity);PreserveAnnotations(prepared,true);return prepared;
+        var prepared=await recent.PrepareAsync(replay.Asset.Clip,transfer,renderer,cancellation:ct);Check(replay.ConnectionId,replay.CameraIdentity);return prepared;
     }
     void PreserveAnnotations(CorrectedClip clip,bool temporary)=>WriteAnnotations(clip.Manifest.Clip,Path.GetDirectoryName(clip.Original)!,temporary);
     void WriteAnnotations(Clip clip,string directory,bool temporary)
     {
-        if(annotations is null)return;
-        if(!temporary)annotations.Preserve(clip);
-        var journal=temporary?annotations.Window(clip):annotations.Preserved(clip)??annotations.Window(clip);
+        var history=annotations??new AnnotationJournalStore(Path.Combine(Android.App.Application.Context.FilesDir!.AbsolutePath,"recorded-annotations"));
+        if(!temporary)history.Preserve(clip);
+        var journal=temporary?history.Window(clip):history.Preserved(clip)??history.Window(clip);
         AnnotationJournalStore.WriteClip(Path.Combine(directory,"annotations.json"),journal);
     }
     void Check(Guid id,string identity){var camera=connection();if(camera.ConnectionId!=id||camera.CameraIdentity!=identity||camera.Reachability!=CameraReachability.Reachable)throw new InvalidOperationException("Camera changed during corrected replay preparation.");}

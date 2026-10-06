@@ -16,7 +16,7 @@ import java.security.MessageDigest;
 public final class RecordedVideoRenderer {
     public interface Listener {void onComplete(String report);void onError(String error);}
     private Transformer transformer;
-    public void start(Context context,String input,String output,String planJson,boolean watermark,Listener listener) throws Exception {
+    public void start(Context context,String input,String output,String planJson,String annotationJson,boolean watermark,Listener listener) throws Exception {
         JSONObject plan=new JSONObject(planJson),source=plan.getJSONObject("source");
         int width=plan.getInt("width"),height=plan.getInt("height");
         JSONArray spans=plan.getJSONArray("spans");
@@ -39,6 +39,10 @@ public final class RecordedVideoRenderer {
             public Size configure(int inputWidth,int inputHeight){if(inputWidth!=source.optInt("width")||inputHeight!=source.optInt("height"))throw new IllegalArgumentException("Decoded source shape changed");return new Size(width,height);}
             public Matrix getMatrix(long time){for(int i=0;i<starts.length;i++)if(time>=starts[i]&&time<ends[i]){counts[corrected[i]?0:1]++;return matrices[i];}throw new IllegalArgumentException("Decoder timestamp outside recorded plan");}
         };
+        RecordedSceneOverlay annotations=annotationJson==null?null:new RecordedSceneOverlay(annotationJson,width,height,source.getInt("width"),source.getInt("height"));
+        java.util.List<Effect> videoEffects=new java.util.ArrayList<>();videoEffects.add(effect);
+        if(annotations!=null)videoEffects.add(new androidx.media3.effect.OverlayEffect(com.google.common.collect.ImmutableList.of(annotations)));
+        if(watermark)videoEffects.add(WatermarkRenderer.effect(context,width,height));
         transformer=new Transformer.Builder(context).setPortraitEncodingEnabled(true)
             .setEncoderFactory(new DefaultEncoderFactory.Builder(context).setRequestedVideoEncoderSettings(new VideoEncoderSettings.Builder().setBitrate(8000000).build()).setEnableFallback(false).build())
             .setVideoMimeType(MimeTypes.VIDEO_H264).setAudioMimeType(MimeTypes.AUDIO_AAC)
@@ -51,12 +55,12 @@ public final class RecordedVideoRenderer {
                     if(before.has("audioSha256")&&(!after.has("audioSha256")||!before.getString("audioSha256").equals(after.getString("audioSha256"))
                         ||Math.abs(after.getLong("audioStartUs")-before.getLong("audioStartUs"))>1000||Math.abs(after.getLong("audioEndUs")-before.getLong("audioEndUs"))>1000))
                         throw new java.io.IOException("Rendered room audio changed unexpectedly");
-                    listener.onComplete(new JSONObject().put("before",before).put("after",after).put("correctedFrameCallbacks",counts[0]).put("fallbackFrameCallbacks",counts[1]).put("watermarked",watermark).toString());
+                    listener.onComplete(new JSONObject().put("before",before).put("after",after).put("correctedFrameCallbacks",counts[0]).put("fallbackFrameCallbacks",counts[1]).put("watermarked",watermark).put("annotatedFrameCallbacks",annotations==null?0:annotations.annotatedFrames()).toString());
                 }catch(Exception e){listener.onError("Recorded render verification failed: "+e.getMessage());}}
                 public void onError(Composition composition,ExportResult result,ExportException error){listener.onError("Recorded render failed: "+error.getMessage());}
             }).build();
         EditedMediaItem item=new EditedMediaItem.Builder(MediaItem.fromUri(android.net.Uri.fromFile(new java.io.File(input))))
-            .setEffects(new Effects(Collections.emptyList(),watermark?java.util.Arrays.asList(effect,WatermarkRenderer.effect(context,width,height)):Collections.singletonList(effect))).build();
+            .setEffects(new Effects(Collections.emptyList(),videoEffects)).build();
         transformer.start(item,output);
     }
     public void cancel(){if(transformer!=null)transformer.cancel();}

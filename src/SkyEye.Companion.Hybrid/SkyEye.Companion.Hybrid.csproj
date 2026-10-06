@@ -57,6 +57,7 @@
     <AndroidJavaSource Include="../SkyEye.Companion/DiscoveryBridge.java" Link="Native/DiscoveryBridge.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/PortraitExporter.java" Link="Native/PortraitExporter.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/RecordedFrameReader.java" Link="Native/RecordedFrameReader.java" />
+    <AndroidJavaSource Include="../SkyEye.Companion/RecordedSceneOverlay.java" Link="Native/RecordedSceneOverlay.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/RecordedVideoRenderer.java" Link="Native/RecordedVideoRenderer.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/SkyEyeCastOptions.java" Link="Native/SkyEyeCastOptions.java" />
     <AndroidJavaSource Include="NativeCompatibilityProbe.java" />

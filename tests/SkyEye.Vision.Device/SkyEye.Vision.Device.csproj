@@ -9,4 +9,5 @@
   <ItemGroup><PackageReference Include="Xamarin.GooglePlayServices.Cast.Framework" Version="122.3.1.2"/><AndroidJavaSource Include="../../src/SkyEye.Companion/CastBridge.java" Link="CastBridge.java"/><AndroidJavaSource Include="../../src/SkyEye.Companion/SkyEyeCastOptions.java" Link="SkyEyeCastOptions.java"/></ItemGroup>
   <ItemGroup><AndroidAsset Include="../../watermark.png" Link="watermark.png" /></ItemGroup>
   <ItemGroup><AndroidJavaSource Include="../../src/SkyEye.Companion/WatermarkRenderer.java" Link="WatermarkRenderer.java" /></ItemGroup>
+  <ItemGroup><AndroidJavaSource Include="../../src/SkyEye.Companion/RecordedSceneOverlay.java" Link="RecordedSceneOverlay.java" /><AndroidJavaSource Include="../../src/SkyEye.Companion/TableSceneOverlay.java" Link="TableSceneOverlay.java" /></ItemGroup>
 </Project>
