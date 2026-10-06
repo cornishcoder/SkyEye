@@ -6,7 +6,7 @@ namespace SkyEye.Companion;
 
 /// <summary>Credentials remain native. Freeze the endpoint/token for this request,
 /// refresh its non-secret scope, and prove authority before sending a save.</summary>
-public sealed class CameraClipSaveEffect(CameraClient current) : IClipSaveEffect
+public sealed class CameraClipSaveEffect(CameraClient current, Action<Clip>? saved = null) : IClipSaveEffect
 {
     public async Task<Clip> SaveAsync(Guid operationId, SaveClip command, CancellationToken cancellation)
     {
@@ -23,7 +23,8 @@ public sealed class CameraClipSaveEffect(CameraClient current) : IClipSaveEffect
             await request.PostAsync("host/heartbeat", new { }, cancellation).ConfigureAwait(false);
             saveSent = true;
             var result = await request.PostAsync("clips/save", new { commandId = operationId.ToString("N"), seconds = command.Seconds }, cancellation).ConfigureAwait(false);
-            return result.Deserialize<Clip>(JsonDefaults.Options) ?? throw new IOException("Missing clip acknowledgement.");
+            var clip=result.Deserialize<Clip>(JsonDefaults.Options) ?? throw new IOException("Missing clip acknowledgement.");
+            ClipLibrary.Validate(clip);saved?.Invoke(clip);return clip;
         }
         catch (CameraRequestException e) when (!saveSent || e.StatusCode is System.Net.HttpStatusCode.BadRequest or System.Net.HttpStatusCode.Forbidden || KnownPreSaveRefusal(e))
         {

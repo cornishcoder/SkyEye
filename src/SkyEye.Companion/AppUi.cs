@@ -26,7 +26,11 @@ public sealed partial class MainActivity
             edit.Apply();
         });
         app = new(e => Android.Util.Log.Warn("SkyEye", $"App state observer: {e.GetType().Name}"),
-            new ClipSaveExecutor(System.IO.Path.Combine(FilesDir!.AbsolutePath, "save-operations"), new CameraClipSaveEffect(client)), cameraEffects);
+            new ClipSaveExecutor(System.IO.Path.Combine(FilesDir!.AbsolutePath, "save-operations"), new CameraClipSaveEffect(client, clip =>
+            {
+                try { new AnnotationJournalStore(System.IO.Path.Combine(FilesDir!.AbsolutePath,"recorded-annotations")).Preserve(clip); }
+                catch(Exception) { Android.Util.Log.Warn("SkyEyeAnnotations","Saved clip acknowledged; annotation retention unavailable."); }
+            })), cameraEffects);
         tableAnalysis = new(new CameraTableFrameSource(client, () => app.State.Camera), new VisionAnalyzer(),
             new CameraCalibrationStore(ApplicationContext!, () => client.Address));
         // Service binding runs before UI observers; delayed UI notifications must

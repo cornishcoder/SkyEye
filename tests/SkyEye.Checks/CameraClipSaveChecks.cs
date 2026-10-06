@@ -43,11 +43,13 @@ static class CameraClipSaveChecks
         {
             await client.StatusAsync();
             var scope = client.SaveScope!;
-            var app = new AppCoordinator(clipSaves: new(root, new CameraClipSaveEffect(client)));
+            int retained=0;
+            var app = new AppCoordinator(clipSaves: new(root, new CameraClipSaveEffect(client,_=>retained++)));
             CommandEnvelope Request(ClipSaveScope? target = null) => new(Guid.NewGuid(), CommandOrigin.Touch, app.State.Version, new SaveClip(30, target ?? scope));
             var first = Request(); var result = await app.DispatchAsync(first);
             Check(result.Succeeded && result.SavedClip is not null && saves == 1 && heartbeats == 1 && sentId == first.OperationId, "real native adapter proves host and sends original command ID once");
             Check((await app.DispatchAsync(first)).Duplicate && saves == 1 && heartbeats == 1, "durable replay avoids even preflight HTTP");
+            Check(retained==1,"annotation retention receives only the verified first acknowledgement, not a duplicate save");
             Check((await app.DispatchAsync(Request(scope with { CaptureRevision = scope.CaptureRevision + 1 }))).Outcome == CommandOutcome.Failed && saves == 1, "changed capture revision cannot save");
             client.HostToken = null;
             Check((await app.DispatchAsync(Request())).Outcome == CommandOutcome.Failed && saves == 1, "guest cannot save");
@@ -69,6 +71,7 @@ static class CameraClipSaveChecks
             clock.Advance(31);
             Check((await app.DispatchAsync(Request())).Outcome == CommandOutcome.Failed && saves == 4, "expired lease cannot dispatch save");
             Check((await app.DispatchAsync(first)).Succeeded && saves == 4, "historical acknowledgement stays historical after lease expiry");
+            Check(retained==2,"failed, uncertain, rejected and duplicate saves do not create invented clip annotation bindings");
             var content = string.Join("", Directory.EnumerateFiles(root, "*.json").Select(File.ReadAllText));
             Check(!content.Contains(lease.Token) && !content.Contains("fixture-invalid-host-token") && !content.Contains("fixture-viewing-access") && !content.Contains(client.Address), "native credentials and endpoint never enter operation journal");
             Console.WriteLine("PASS real camera HTTP save adapter: command ID, host proof/expiry, scoped capture, guest/refused/ambiguous outcomes, frozen endpoint and secret boundary");

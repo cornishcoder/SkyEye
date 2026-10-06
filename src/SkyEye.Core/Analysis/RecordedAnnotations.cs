@@ -63,10 +63,11 @@ public sealed class AnnotationJournalStore
 {
     public const long RetentionUs = 620_000_000, MaximumGapUs = 750_000;
     readonly string root;
-    readonly object gate = new();
+    static readonly System.Collections.Concurrent.ConcurrentDictionary<string,object> gates=new(StringComparer.OrdinalIgnoreCase);
+    readonly object gate;
     readonly Dictionary<string, List<AnnotationSpan>> timelines = new();
     readonly Dictionary<(string, SceneTarget), AnnotationObservation> last = new();
-    public AnnotationJournalStore(string directory) { root = Path.GetFullPath(directory); Directory.CreateDirectory(root); }
+    public AnnotationJournalStore(string directory) { root = Path.GetFullPath(directory);gate=gates.GetOrAdd(root,_=>new()); Directory.CreateDirectory(root); }
     string FileName(string timeline)
     {
         if (!Guid.TryParseExact(timeline, "N", out _)) throw new ArgumentException("Invalid recording timeline.");
