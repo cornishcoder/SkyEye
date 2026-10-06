@@ -1,0 +1,57 @@
+{
+  "schemaVersion": 1,
+  "id": "skyeye-observation-seed-v1",
+  "sequences": [
+    {
+      "id": "pixel-table-still",
+      "session": "pixel-layout-tuning-2026-10-03",
+      "kind": "Real",
+      "split": "Regression",
+      "purpose": "StillRegression",
+      "source": {
+        "id": "pixel-10",
+        "origin": "2026-10-03 mounted Pixel camera still; exact source PTS unavailable",
+        "file": "poolgame/pixel-table.jpg",
+        "sha256": "8BC034E99A81114E11A67E435E730CF1D69799CED243E98954BB8E6E72E80831",
+        "width": 1920,
+        "height": 1080,
+        "clock": "Unknown",
+        "calibrationVersion": "manual-pixel-table-2026-10-03",
+        "nominalFps": null
+      },
+      "indexFile": "observations/v1/still.jsonl",
+      "labelsFile": "observations/v1/still-labels.json",
+      "notes": "Existing tuned fixture. No exact source timestamp or temporal ground truth.",
+      "tags": [
+        "tuning",
+        "still",
+        "not-heldout"
+      ]
+    },
+    {
+      "id": "receipt-contracts",
+      "session": "synthetic-contract-v1",
+      "kind": "Synthetic",
+      "split": "Regression",
+      "purpose": "Contract",
+      "source": {
+        "id": "synthetic-camera",
+        "origin": "Generated receipt-contract pixels; no physical shot",
+        "file": "observations/v1/start.gray",
+        "sha256": "16ABAB341FB7F370E27E4DADCF81766DD0DFD0AE64469477BB2CF6614938B2AF",
+        "width": 8,
+        "height": 8,
+        "clock": "SyntheticMicroseconds",
+        "calibrationVersion": "synthetic-cal-v1",
+        "nominalFps": 30
+      },
+      "indexFile": "observations/v1/contract.jsonl",
+      "labelsFile": "observations/v1/contract-labels.json",
+      "notes": "Injected duplicate/backward/gap/reset/mismatched pairing; no tracking accuracy evidence.",
+      "tags": [
+        "synthetic",
+        "contracts"
+      ]
+    }
+  ]
+}

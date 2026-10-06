@@ -34,6 +34,15 @@ public sealed class CorpusFiles
             yield return System.Text.Json.JsonSerializer.Deserialize<IndexedFrame>(line, CorpusJson.Options) ?? throw new InvalidDataException("Empty indexed frame.");
         }
     }
+    public void VerifyMedia(string relative, string expectedHash)
+    {
+        if (!IsHash(expectedHash)) throw new InvalidDataException("Expected a SHA-256 source fingerprint.");
+        var path = Resolve(relative);
+        if (new FileInfo(path).Length > 1024L * 1024 * 1024) throw new InvalidDataException("Source exceeds 1 GiB offline bound.");
+        using var stream = File.OpenRead(path);
+        if (!Convert.ToHexString(SHA256.HashData(stream)).Equals(expectedHash, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Source checksum mismatch: " + relative);
+    }
     public static string Hash(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes));
     public static bool IsHash(string? hash) => hash is { Length: 64 } && hash.All(Uri.IsHexDigit);
     public static bool Text(string? value) => !string.IsNullOrWhiteSpace(value) && value.Length <= 500 && !value.Any(char.IsControl);

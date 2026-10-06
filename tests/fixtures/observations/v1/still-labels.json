@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "sequenceId": "pixel-table-still",
+  "annotator": "Original human fixture labels; workbench table transform",
+  "calibrationVersion": "manual-pixel-table-2026-10-03",
+  "reviewed": true,
+  "frames": [
+    {
+      "sampleId": "pixel-table-regression",
+      "pixelSha256": "8BC034E99A81114E11A67E435E730CF1D69799CED243E98954BB8E6E72E80831",
+      "coordinateSpace": "table-2x1",
+      "balls": [
+        {
+          "id": "red-truth-0",
+          "colour": "red",
+          "x": 0.6433854977762605,
+          "y": 0.2760598544755185,
+          "visibility": "Visible"
+        },
+        {
+          "id": "red-truth-1",
+          "colour": "red",
+          "x": 1.3429449516825809,
+          "y": 0.20446417441096176,
+          "visibility": "Visible"
+        },
+        {
+          "id": "red-truth-2",
+          "colour": "red",
+          "x": 1.6946378081928593,
+          "y": 0.31721526134875205,
+          "visibility": "Visible"
+        },
+        {
+          "id": "red-truth-3",
+          "colour": "red",
+          "x": 0.5755485418767401,
+          "y": 0.39642184434708205,
+          "visibility": "Visible"
+        },
+        {
+          "id": "red-truth-4",
+          "colour": "red",
+          "x": 1.1169616645572502,
+          "y": 0.5141854195702376,
+          "visibility": "Visible"
+        },
+        {
+          "id": "red-truth-5",
+          "colour": "red",
+          "x": 1.074774915450948,
+          "y": 0.6541002901239567,
+          "visibility": "Visible"
+        },
+        {
+          "id": "red-truth-6",
+          "colour": "red",
+          "x": 1.4413968144560387,
+          "y": 0.7787864948319103,
+          "visibility": "Visible"
+        },
+        {
+          "id": "yellow-truth-7",
+          "colour": "yellow",
+          "x": 1.6000453603646063,
+          "y": 0.057768091452869146,
+          "visibility": "Visible"
+        },
+        {
+          "id": "yellow-truth-8",
+          "colour": "yellow",
+          "x": 0.8964398774412635,
+          "y": 0.21816670576191088,
+          "visibility": "Visible"
+        },
+        {
+          "id": "yellow-truth-9",
+          "colour": "yellow",
+          "x": 0.7677507266979837,
+          "y": 0.5702438593399343,
+          "visibility": "Visible"
+        },
+        {
+          "id": "yellow-truth-10",
+          "colour": "yellow",
+          "x": 1.1424456473801523,
+          "y": 0.5678873865529256,
+          "visibility": "Visible"
+        },
+        {
+          "id": "yellow-truth-11",
+          "colour": "yellow",
+          "x": 0.9088899749514553,
+          "y": 0.6440559518917006,
+          "visibility": "Visible"
+        },
+        {
+          "id": "yellow-truth-12",
+          "colour": "yellow",
+          "x": 1.5570215063654622,
+          "y": 0.6722451109090487,
+          "visibility": "Visible"
+        },
+        {
+          "id": "yellow-truth-13",
+          "colour": "yellow",
+          "x": 0.41951672578958016,
+          "y": 0.7978076361863827,
+          "visibility": "Visible"
+        },
+        {
+          "id": "cue-truth-14",
+          "colour": "cue",
+          "x": 0.40505944587364623,
+          "y": 0.5396631142734872,
+          "visibility": "Visible"
+        },
+        {
+          "id": "black-truth-15",
+          "colour": "black",
+          "x": 0.4361485845994281,
+          "y": 0.29969407116247043,
+          "visibility": "Visible"
+        }
+      ],
+      "notes": "Derived by the existing calibration from human image centres; a tuned still, not held-out shot truth."
+    }
+  ],
+  "intervals": []
+}

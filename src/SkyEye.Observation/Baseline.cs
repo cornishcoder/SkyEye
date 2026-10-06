@@ -21,6 +21,8 @@ public static class DetectorBaseline
             || detection.Balls.Length > 64 || !CorpusFiles.Text(detection.Model) || !CorpusFiles.Text(detection.Provenance)
             || detection.Balls.Select(b => b.Id).Distinct().Count() != detection.Balls.Length
             || detection.Balls.Any(b => !CorpusFiles.Text(b.Id) || !double.IsFinite(b.X) || !double.IsFinite(b.Y)
+                || b.X < 0 || b.X > (labels.CoordinateSpace == "table-2x1" ? 2 : 1) || b.Y is < 0 or > 1
+                || b.Colour is not ("red" or "yellow" or "cue" or "black" or "unknown")
                 || b.Confidence is { } confidence && (!double.IsFinite(confidence) || confidence is < 0 or > 1)))
             throw new InvalidDataException("Detection provenance, frame identity, coordinates or threshold is invalid.");
         var truth = labels.Balls.Where(b => b.Visibility == LabelVisibility.Visible).OrderBy(b => b.Id, StringComparer.Ordinal).ToArray();

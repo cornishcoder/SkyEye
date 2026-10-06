@@ -18,7 +18,13 @@ public static class CorpusValidation
         foreach (var source in manifest.Sequences.GroupBy(s => s.Source?.Sha256))
             if (source.Any(s => s.Split == CorpusSplit.Holdout) && source.Any(s => s.Split is CorpusSplit.Development or CorpusSplit.Regression))
                 throw new InvalidDataException("The same source asset leaks across splits.");
-        foreach (var sequence in manifest.Sequences) ValidateSequence(sequence, files);
+        var sampleIds = new HashSet<string>();
+        foreach (var sequence in manifest.Sequences)
+        {
+            ValidateSequence(sequence, files);
+            foreach (var frame in files.Index(sequence.IndexFile))
+                if (!sampleIds.Add(frame.SampleId)) throw new InvalidDataException("Sample IDs must be unique across the corpus.");
+        }
         int real = manifest.Sequences.Count(s => s.Kind == CorpusKind.Real && s.Purpose == SequencePurpose.Shot);
         int held = manifest.Sequences.Count(s => s.Kind == CorpusKind.Real && s.Purpose == SequencePurpose.Shot && s.Split == CorpusSplit.Holdout);
         return new(real, held, manifest.Sequences.Count(s => s.Kind == CorpusKind.Real && s.Purpose == SequencePurpose.StillRegression),
@@ -35,7 +41,7 @@ public static class CorpusValidation
             || s.Kind == CorpusKind.Synthetic && s.Split == CorpusSplit.Holdout
             || s.Purpose == SequencePurpose.Shot && source.Clock == SourceClock.Unknown)
             throw new InvalidDataException("Invalid source or split: " + s.Id);
-        files.Verified(source.File, source.Sha256);
+        files.VerifyMedia(source.File, source.Sha256);
         var labels = CorpusJson.Read<SequenceLabels>(files.Resolve(s.LabelsFile));
         if (labels.SchemaVersion != 1 || labels.SequenceId != s.Id || labels.CalibrationVersion != source.CalibrationVersion
             || !CorpusFiles.Text(labels.Annotator) || labels.Frames.IsDefault || labels.Intervals.IsDefault
@@ -47,7 +53,7 @@ public static class CorpusValidation
         foreach (var frame in indexed)
         {
             ValidateFrame(frame, source);
-            files.Verified(frame.PixelFile, frame.PixelSha256);
+            PixelDimensions.Verify(frame, files.Verified(frame.PixelFile, frame.PixelSha256));
         }
         foreach (var label in labels.Frames)
         {

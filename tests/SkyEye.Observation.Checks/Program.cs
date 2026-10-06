@@ -29,6 +29,7 @@ try
     Check(!audit.AccuracyGateReady && audit.RealShotSequences == 0, "Synthetic contracts cannot satisfy real accuracy coverage");
     var report = FrameReplay.Run(sequence, files);
     Check(report.Processed == 4 && report.Rejected == 3 && report.ScopeResets == 1 && report.GapResets == 1, "Drops/gaps/resets have exact accounting");
+    Check(report.MissingSourceFrameIds == 5, "Missing indexed frame IDs are counted separately from rejected samples");
     Check(report.Receipts[^1].Status == ReplayStatus.PixelIdMismatch, "Payload frame identity must match the indexed receipt");
     Check(CorpusJson.Write(report) == CorpusJson.Write(FrameReplay.Run(sequence, files)), "Fixed inputs/config reproduce byte-identical reports");
     Throws<InvalidDataException>(() => files.Resolve("../outside"));
@@ -47,6 +48,16 @@ try
     Check(score.SpatialTruePositives == 1 && score.FalsePositives == 1 && score.MissedVisible == 1 && score.ColourCorrect == 0,
         "Visible ground truth, wrong colours, extra circles and misses remain separate");
     Throws<InvalidDataException>(() => DetectorBaseline.Score(truth, detection with { PixelSha256 = new string('0',64) }, .027));
+    // Minimal SOF fixture checks the dimension contract without image decoding or CV.
+    var jpeg = new byte[] { 0xff,0xd8,0xff,0xc0,0,11,8,0,8,0,8,1,1,0x11,0,0xff,0xd9 };
+    var jpegFrame = frames[0] with { Encoding = PixelEncoding.Jpeg, EmbeddedFrameId = false };
+    PixelDimensions.Verify(jpegFrame, jpeg);
+    Throws<InvalidDataException>(() => PixelDimensions.Verify(jpegFrame with { Width = 9 }, jpeg));
+    Throws<InvalidDataException>(() => PixelDimensions.Verify(jpegFrame, jpeg[..8]));
+    var collision = Frame("receipt-conflict", 1, 1001, pixelId: 1);
+    File.WriteAllLines(Path.Combine(root, "conflicts.jsonl"), new[] { frames[0], collision }.Select(f => JsonSerializer.Serialize(f, new JsonSerializerOptions(CorpusJson.Options) { WriteIndented = false })));
+    Check(FrameReplay.Run(sequence with { IndexFile = "conflicts.jsonl" }, files).Receipts[1].Status == ReplayStatus.PairConflict,
+        "A frame ID cannot name another timestamp/payload receipt");
     File.WriteAllBytes(Path.Combine(root, "next.gray"), new byte[64]);
     Throws<InvalidDataException>(() => FrameReplay.Run(sequence, files));
     Console.WriteLine("PASS observation corpus/replay: deterministic receipts, duplicates/backwards, gaps/scope resets, pixel-ID pairing, checksums, split leakage and synthetic coverage limits");
