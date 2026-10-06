@@ -59,7 +59,26 @@ static class MotionFeedChecks
             feed.Start(); await source.Reading.Task; var stop = feed.StopAsync(); source.Push(1, 1000); await stop;
             Check(leases.Alive == 0 && worker.Contexts.Count == 0, "A late acquisition after stop is disposed without processing");
         }
-        Console.WriteLine("PASS motion feed: two-frame ownership bound, overload replacement, exact disposal, source/generation fences, duplicate/backwards, source-time gaps, stale/cancel/failure and late-result suppression");
+        leases = new(); var peek = new PeekSource(clock, leases); worker = new();
+        await using (var feed = new TableMotionFeed(peek, worker, scope, () => true, new(60), clock))
+        {
+            feed.Start(); await worker.Entered.Task; await Until(() => feed.Snapshot.Acquired == 2);
+            await Until(() => feed.Snapshot.DuplicateOrBackwards >= 3);
+            Check(feed.Snapshot.Pending == 1 && feed.Snapshot.Replaced == 0 && leases.Alive == 2,
+                "Repeated decoder polls retain the valid latest pending frame without another bitmap copy");
+            var stop = feed.StopAsync(); worker.Release.TrySetResult(); await stop;
+            Check(leases.Alive == 0, "Candidate peek path drains both leases");
+        }
+        leases = new(); source = new(clock, leases); worker = new();
+        await using (var feed = new TableMotionFeed(source, worker, scope, () => true, new(60), clock))
+        {
+            feed.Start(); source.Push(1, 1000); await worker.Entered.Task; clock.Advance(3); worker.Release.TrySetResult();
+            await Until(() => feed.Snapshot.Stale == 1); worker.Block = false; source.Push(2, 34000);
+            await Until(() => feed.Snapshot.Processed == 1);
+            Check(worker.Contexts[1].Reset, "An aged worker result invalidates its history before the next measurement");
+            await feed.StopAsync(); Check(leases.Alive == 0, "Aged-worker discard releases pixels");
+        }
+        Console.WriteLine("PASS motion feed: two-frame ownership bound, overload replacement, exact disposal, source/generation fences, duplicate/backwards, source-time gaps, stale/cancel/failure, pending candidate retention and late-result suppression");
     }
     static void Check(bool ok, string why) { if (!ok) throw new Exception(why); }
     static async Task Until(Func<bool> ready)
@@ -100,6 +119,18 @@ static class MotionFeedChecks
             Contexts.Add(context); Entered.TrySetResult(); if (Block) await Release.Task;
             if (Fail) throw new IOException("Synthetic worker failure");
             return new(context.SourceTimeUs, [], 0, 0);
+        }
+    }
+    sealed class PeekSource(Clock clock, Leases leases) : ITableMotionFrameSource
+    {
+        int reads;
+        public Task<bool> HasNewFrameAsync(MotionFeedScope scope, long afterFrameId, long afterSourceTimeUs, CancellationToken cancellation)
+            => Task.FromResult(Volatile.Read(ref reads) < 2);
+        public Task<TableFrame> ReadAsync(CameraScope source, CancellationToken cancellation)
+        {
+            int id = Interlocked.Increment(ref reads);
+            return Task.FromResult(new TableFrame([], clock.GetUtcNow(), "timeline-one")
+            { Image = new Pixels(leases), SourceTimeUs = id * 33000, DecodedReceipt = new(7, id, id * 33000, 100, 640, 360) });
         }
     }
 }

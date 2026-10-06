@@ -23,6 +23,10 @@ public interface ITableMotionProcessor
 {
     Task<MotionMeasurement> MeasureAsync(TableFrame frame, MotionFrameContext context, CancellationToken cancellation);
 }
+public interface ITableMotionFrameSource : ITableFrameSource
+{
+    Task<bool> HasNewFrameAsync(MotionFeedScope scope, long afterFrameId, long afterSourceTimeUs, CancellationToken cancellation);
+}
 public sealed record MotionFeedSnapshot(long Acquired, long Processed, long Replaced, long DuplicateOrBackwards, long Stale,
     long AcquisitionFailures, long ScopeRejected, long WorkerFailures, long GapResets, int Active, int Pending,
     string? StopReason, MotionMeasurement? Latest, double LastAcquisitionMs, double LastWorkerMs, double LastResultAgeMs);
@@ -94,6 +98,13 @@ public sealed class TableMotionFeed : IAsyncDisposable
             do
             {
                 if (!Current()) { Stop("Source, calibration or enablement changed"); break; }
+                // A decoder can be polled faster than its source. Keep a valid
+                // pending frame when the native source has no newer candidate.
+                if (source is ITableMotionFrameSource peek)
+                {
+                    if (!await peek.HasNewFrameAsync(scope, lastReceivedId, lastReceivedUs, stopped.Token).ConfigureAwait(false))
+                    { lock (gate) duplicate++; continue; }
+                }
                 // Dispose the previous pending frame BEFORE allocating another copy.
                 // Even transient native ownership therefore stays at active + acquisition/latest.
                 TableFrame? discard;
@@ -134,6 +145,7 @@ public sealed class TableMotionFeed : IAsyncDisposable
             } while (await cadence.WaitForNextTickAsync(stopped.Token).ConfigureAwait(false));
         }
         catch (OperationCanceledException) when (stopped.IsCancellationRequested) { }
+        catch (Exception) { lock (gate) scopeRejected++; Stop("Candidate/source failed"); }
         finally { Stop(stopReason ?? "Acquisition ended"); }
     }
     bool Fresh(TableFrame frame)

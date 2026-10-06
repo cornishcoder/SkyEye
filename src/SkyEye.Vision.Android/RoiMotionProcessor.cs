@@ -66,40 +66,39 @@ public sealed class RoiMotionProcessor : ITableMotionProcessor, IDisposable
     static RoiMotion Measure(string id, Mat before, Mat after, double delta)
     {
         using var corners = new NativeMat(new MatOfPoint()); Imgproc.GoodFeaturesToTrack(before, (MatOfPoint)corners.Value, 32, .05, 4);
-        var found = ((MatOfPoint)corners.Value).ToArray();
-        try
+        int count = (int)corners.Value.Total();
+        if (count < 4) return new(id, count, 0, null, null, null, null, "insufficient-texture");
+        using var first = new NativeMat(new MatOfPoint2f()); using var next = new NativeMat(new MatOfPoint2f());
+        corners.Value.ConvertTo(first.Value, CvType.Cv32f);
+        using var back = new NativeMat(new MatOfPoint2f()); using var forwardStatus = new NativeMat(new MatOfByte());
+        using var backwardStatus = new NativeMat(new MatOfByte()); using var error = new NativeMat(new MatOfFloat());
+        using var reverseError = new NativeMat(new MatOfFloat()); using var window = new Size(21, 21);
+        OpticalFlow.CalcOpticalFlowPyrLK(before, after, (MatOfPoint2f)first.Value, (MatOfPoint2f)next.Value,
+            (MatOfByte)forwardStatus.Value, (MatOfFloat)error.Value, window, 2);
+        OpticalFlow.CalcOpticalFlowPyrLK(after, before, (MatOfPoint2f)next.Value, (MatOfPoint2f)back.Value,
+            (MatOfByte)backwardStatus.Value, (MatOfFloat)reverseError.Value, window, 2);
+        // One JNI call per coordinate buffer, rather than Point objects and
+        // hundreds of individual JNI field reads for every ROI/frame.
+        var found = new float[count * 2]; var moved = new float[count * 2]; var returned = new float[count * 2];
+        first.Value.Get(0, 0, found); next.Value.Get(0, 0, moved); back.Value.Get(0, 0, returned);
+        var flags = ((MatOfByte)forwardStatus.Value).ToArray(); var reverse = ((MatOfByte)backwardStatus.Value).ToArray();
+        var errors = ((MatOfFloat)error.Value).ToArray(); var dx = new List<double>(); var dy = new List<double>();
+        int columns = after.Cols(), rows = after.Rows();
+        for (int i = 0; i < count; i++)
         {
-            if (found.Length < 4) return new(id, found.Length, 0, null, null, null, null, "insufficient-texture");
-            using var first = new NativeMat(new MatOfPoint2f(found)); using var next = new NativeMat(new MatOfPoint2f());
-            using var back = new NativeMat(new MatOfPoint2f()); using var forwardStatus = new NativeMat(new MatOfByte());
-            using var backwardStatus = new NativeMat(new MatOfByte()); using var error = new NativeMat(new MatOfFloat());
-            using var reverseError = new NativeMat(new MatOfFloat()); using var window = new Size(21, 21);
-            OpticalFlow.CalcOpticalFlowPyrLK(before, after, (MatOfPoint2f)first.Value, (MatOfPoint2f)next.Value,
-                (MatOfByte)forwardStatus.Value, (MatOfFloat)error.Value, window, 2);
-            OpticalFlow.CalcOpticalFlowPyrLK(after, before, (MatOfPoint2f)next.Value, (MatOfPoint2f)back.Value,
-                (MatOfByte)backwardStatus.Value, (MatOfFloat)reverseError.Value, window, 2);
-            var moved = ((MatOfPoint2f)next.Value).ToArray(); var returned = ((MatOfPoint2f)back.Value).ToArray();
-            try
-            {
-                var flags = ((MatOfByte)forwardStatus.Value).ToArray(); var reverse = ((MatOfByte)backwardStatus.Value).ToArray();
-                var errors = ((MatOfFloat)error.Value).ToArray(); var dx = new List<double>(); var dy = new List<double>();
-                for (int i = 0; i < found.Length; i++)
-                {
-                    if (flags[i] == 0 || reverse[i] == 0 || !float.IsFinite(errors[i]) || errors[i] > 12
-                        || moved[i].X < 1 || moved[i].Y < 1 || moved[i].X >= after.Cols() - 1 || moved[i].Y >= after.Rows() - 1
-                        || Math.Sqrt(Math.Pow(returned[i].X - found[i].X, 2) + Math.Pow(returned[i].Y - found[i].Y, 2)) > 1) continue;
-                    dx.Add(moved[i].X - found[i].X); dy.Add(moved[i].Y - found[i].Y);
-                }
-                if (dx.Count < 4 || dx.Count < found.Length / 2d) return new(id, found.Length, dx.Count, null, null, null, null, "unresolved");
-                var x = Median(dx); var y = Median(dy);
-                var spread = dx.Select((value, i) => Math.Sqrt(Math.Pow(value - x, 2) + Math.Pow(dy[i] - y, 2))).Order().ToArray();
-                if (!double.IsFinite(x) || !double.IsFinite(y) || spread[(int)Math.Ceiling(.95 * spread.Length) - 1] > 1.5)
-                    return new(id, found.Length, dx.Count, null, null, null, null, "inconsistent-flow");
-                return new(id, found.Length, dx.Count, x, y, x / delta, y / delta, "supported");
-            }
-            finally { foreach (var point in moved.Concat(returned)) point.Dispose(); }
+            int xIndex = i * 2, yIndex = xIndex + 1;
+            if (flags[i] == 0 || reverse[i] == 0 || !float.IsFinite(errors[i]) || errors[i] > 12
+                || !float.IsFinite(moved[xIndex]) || !float.IsFinite(moved[yIndex]) || !float.IsFinite(returned[xIndex]) || !float.IsFinite(returned[yIndex])
+                || moved[xIndex] < 1 || moved[yIndex] < 1 || moved[xIndex] >= columns - 1 || moved[yIndex] >= rows - 1
+                || Math.Sqrt(Math.Pow(returned[xIndex] - found[xIndex], 2) + Math.Pow(returned[yIndex] - found[yIndex], 2)) > 1) continue;
+            dx.Add(moved[xIndex] - found[xIndex]); dy.Add(moved[yIndex] - found[yIndex]);
         }
-        finally { foreach (var point in found) point.Dispose(); }
+        if (dx.Count < 4 || dx.Count < count / 2d) return new(id, count, dx.Count, null, null, null, null, "unresolved");
+        var x = Median(dx); var y = Median(dy);
+        var spread = dx.Select((value, i) => Math.Sqrt(Math.Pow(value - x, 2) + Math.Pow(dy[i] - y, 2))).Order().ToArray();
+        if (!double.IsFinite(x) || !double.IsFinite(y) || spread[(int)Math.Ceiling(.95 * spread.Length) - 1] > 1.5)
+            return new(id, count, dx.Count, null, null, null, null, "inconsistent-flow");
+        return new(id, count, dx.Count, x, y, x / delta, y / delta, "supported");
     }
     static double Median(List<double> values) { var sorted = values.Order().ToArray(); return (sorted[(sorted.Length - 1) / 2] + sorted[sorted.Length / 2]) / 2; }
     void ClearPrevious() { foreach (var mat in previous) Release(mat); previous = []; }

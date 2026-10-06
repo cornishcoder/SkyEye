@@ -91,6 +91,14 @@ public final class PlayerBridge {
             DecodedFrameSnapshot result=new DecodedFrameSnapshot(bitmap,metadata);bitmap=null;return result;
         }catch(org.json.JSONException invalid){return null;}finally{if(bitmap!=null)bitmap.recycle();}
     }
+    public String decodedFrameCandidate(){
+        if(android.os.Looper.myLooper()!=android.os.Looper.getMainLooper())throw new IllegalStateException("Candidate query requires player looper");
+        if(released||!player.isPlaying()||!texture.isAvailable())return null;
+        android.graphics.SurfaceTexture surface=texture.getSurfaceTexture();if(surface==null)return null;
+        long stamp=surface.getTimestamp();DecodedFrameLedger.Stamp frame=decodedLedger.match(generation,stamp);if(frame==null)return null;
+        JSONObject clock=annotationRecorder.exactFrameMetrics(stamp,generation);if(clock==null)return null;
+        try{return clock.put("mediaGeneration",generation).put("frameId",frame.frameId).toString();}catch(org.json.JSONException invalid){return null;}
+    }
     public String framingMetrics(){return phoneFraming;}
     private String calculateFramingMetrics(){try{org.json.JSONObject result=new org.json.JSONObject().put("applied",sceneApplied).put("framed",sceneApplied&&scene.optBoolean("framed")).put("hardware",texture.isHardwareAccelerated()).put("viewportWidth",texture.getWidth()).put("viewportHeight",texture.getHeight()).put("mediaGeneration",generation).put("playing",player.isPlaying()).put("positionMs",player.getCurrentPosition());
         org.json.JSONArray mapped=new org.json.JSONArray();org.json.JSONArray points=sceneApplied?scene.optJSONArray("guides"):null;Matrix matrix=texture.getTransform(new Matrix());

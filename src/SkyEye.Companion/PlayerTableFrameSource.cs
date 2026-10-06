@@ -6,9 +6,30 @@ using Bridge = UK.CO.Skyeye.Companion.Nativebridge;
 
 namespace SkyEye.Companion;
 
-public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Func<CameraConnection> connection, Func<bool> live) : ITableFrameSource
+public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Func<CameraConnection> connection, Func<bool> live) : ITableMotionFrameSource
 {
     readonly global::Android.OS.Handler main = new(global::Android.OS.Looper.MainLooper!);
+    public Task<bool> HasNewFrameAsync(MotionFeedScope scope, long afterFrameId, long afterSourceTimeUs, CancellationToken cancellation)
+    {
+        var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        main.Post(() =>
+        {
+            try
+            {
+                cancellation.ThrowIfCancellationRequested();
+                if (player() is not { } owner || !live() || connection().Scope != scope.Source || !connection().CanControl)
+                    throw new InvalidOperationException("Motion source changed.");
+                var json = owner.DecodedFrameCandidate();
+                if (json is null) { completion.TrySetResult(false); return; }
+                using var candidate = JsonDocument.Parse(json); var stamp = candidate.RootElement;
+                completion.TrySetResult(stamp.GetProperty("mediaGeneration").GetInt64() != scope.MediaGeneration
+                    || stamp.GetProperty("timeline").GetString() != scope.Timeline
+                    || stamp.GetProperty("frameId").GetInt64() > afterFrameId && stamp.GetProperty("sourceUs").GetInt64() > afterSourceTimeUs);
+            }
+            catch (Exception error) { completion.TrySetException(error); }
+        });
+        return completion.Task;
+    }
     public Task<TableFrame> ReadAsync(CameraScope source, CancellationToken cancellation)
     {
         var completion = new TaskCompletionSource<TableFrame>(TaskCreationOptions.RunContinuationsAsynchronously);
