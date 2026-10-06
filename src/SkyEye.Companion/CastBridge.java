@@ -19,6 +19,7 @@ public final class CastBridge {
     private RemoteMediaClient watched;private long progressCallbacks;private String lastLoggedKey="",liveRequest="";
     private String commandId="",commandRequest="",commandOutcome="",commandAction="";private long commandTarget;
     private final HashSet<String> commandIds=new HashSet<>();
+    private boolean liveEdgePending;private String liveEdgeOutcome="";
     private final RemoteMediaClient.Callback mediaEvents=new RemoteMediaClient.Callback(){
         @Override public void onStatusUpdated(){updateMetrics();}
         @Override public void onMetadataUpdated(){updateMetrics();}
@@ -69,6 +70,16 @@ public final class CastBridge {
         if(connected){watch(session);RemoteMediaClient client=session.getRemoteMediaClient();MediaStatus state=client==null?null:client.getMediaStatus();MediaInfo info=state==null?null:state.getMediaInfo();JSONObject data=info==null?null:info.getCustomData();boolean clip=info!=null&&info.getStreamType()==MediaInfo.STREAM_TYPE_BUFFERED&&data!=null&&"skyeye-clip".equals(data.optString("kind"));String kind=info==null?"none":clip?"clip":info.getContentId().contains(":8766/")?(info.getContentId().contains("scene=1")?"scene":"candidates"):"camera";boolean playing=state!=null&&state.getPlayerState()==MediaStatus.PLAYER_STATE_PLAYING;
             report.put("playing",playing);report.put("stream",kind);report.put("positionMs",client==null?0:client.getApproximateStreamPosition());report.put("playerState",state==null?0:state.getPlayerState());
             report.put("idleReason",state==null?0:state.getIdleReason());
+            if(!clip&&info!=null&&info.getStreamType()==MediaInfo.STREAM_TYPE_LIVE&&state.getLiveSeekableRange()!=null){
+                report.put("liveEdgeLagMs",Math.max(0,client.getApproximateLiveSeekableRangeEnd()-client.getApproximateStreamPosition()));
+                report.put("liveEdgeOutcome",liveEdgeOutcome);
+                // One live-edge request per owned composed-stream load. Never
+                // seek clips, another sender's media, or chase the edge on a timer.
+                if(liveEdgePending&&playing&&info.getContentId().equals(url)&&state.isMediaCommandSupported(MediaStatus.COMMAND_SEEK)){
+                    liveEdgePending=false;liveEdgeOutcome="pending";final long expected=loadGeneration;final CastSession owner=session;
+                    client.seek(new MediaSeekOptions.Builder().setIsSeekToInfinite(true).setResumeState(MediaSeekOptions.RESUME_STATE_PLAY).build()).setResultCallback(result->{if(expected!=loadGeneration||context.getSessionManager().getCurrentCastSession()!=owner)return;liveEdgeOutcome=result.getStatus().isSuccess()?"accepted":"rejected";});
+                }
+            }
             if(clip){String actualId=data.optString("clipId"),actualRequest=data.optString("request");if(actualId.matches("[0-9a-fA-F]{32}")&&actualRequest.matches("[0-9a-fA-F]{32}")){report.put("clipId",actualId);report.put("request",actualRequest);report.put("durationMs",info.getStreamDuration());report.put("progressCallbacks",progressCallbacks);report.put("canPause",state.isMediaCommandSupported(MediaStatus.COMMAND_PAUSE));report.put("canSeek",state.isMediaCommandSupported(MediaStatus.COMMAND_SEEK));if(!commandId.isEmpty()&&commandRequest.equals(actualRequest)){report.put("commandId",commandId);report.put("commandRequest",commandRequest);report.put("commandAction",commandAction);report.put("commandTargetMs",commandTarget);report.put("commandOutcome",commandOutcome);}String logKey=report.optLong("positionMs")/1000+":"+state.getPlayerState()+":"+commandId+":"+commandOutcome;if(buffered&&request.equals(actualRequest)&&!logKey.equals(lastLoggedKey)){lastLoggedKey=logKey;Log.i("SkyEyeCast",report.toString());}}}
             else if(info!=null&&data!=null&&"skyeye-live".equals(data.optString("kind"))&&data.optString("request").matches("[0-9a-fA-F]{32}")){report.put("liveRequest",data.optString("request"));}
             String key=kind+":"+playing;if(playing&&!key.equals(observed)){observed=key;listener.onStatus(clip?"TV playing saved clip":kind.equals("candidates")?"TV playing candidate overlay":kind.equals("scene")?"TV playing shared table scene":"TV playing live camera");}
@@ -76,6 +87,7 @@ public final class CastBridge {
     public void load(){if(!enabled||url==null||url.isEmpty())return;CastSession session=context.getSessionManager().getCurrentCastSession();if(session==null||!session.isConnected())return;
         observed="";
         watch(session);final long generation=++loadGeneration;final boolean clip=buffered;
+        liveEdgePending=!clip&&url.contains(":8766/");liveEdgeOutcome="";
         commandId=commandRequest=commandOutcome=commandAction="";commandIds.clear();
         MediaMetadata metadata=new MediaMetadata(MediaMetadata.MEDIA_TYPE_MOVIE);metadata.putString(MediaMetadata.KEY_TITLE,title);
         MediaInfo.Builder builder=new MediaInfo.Builder(url).setContentType(clip?"video/mp4":"application/x-mpegURL").setStreamType(clip?MediaInfo.STREAM_TYPE_BUFFERED:MediaInfo.STREAM_TYPE_LIVE).setMetadata(metadata);
