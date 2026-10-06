@@ -16,5 +16,6 @@ Check(typeof(GameSnapshot).Assembly.GetReferencedAssemblies().All(a => !a.Name!.
 Console.WriteLine("PASS R01 contracts: two players, open frame, settled layout and explicit uncertainty; pure .NET");
 Scenarios.Ordering();
 Scenarios.PotStory();
+Scenarios.Corrections();
 
 static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }

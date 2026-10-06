@@ -69,4 +69,48 @@ static class Scenarios
         Check(!obscured.History.Any(e => e.Event is BallPottedEvent) && obscured.State.Table.Remaining(BallColour.Red) is null, "Occlusion keeps the shot uncertain");
         Console.WriteLine("PASS yellow-pot story: before/pocket/after evidence, inferred visit/table facts, weak confidence, disappearance and obstruction");
     }
+    public static void Corrections()
+    {
+        var game = YellowPot();
+        var original = game.History.Single(e => e.Event is BallPottedEvent);
+        game = Apply(game, Input(new PlayerCorrection(new SetBallPresence("Y3", BallPresence.OnTable, original.EventId)), 7));
+        Check(game.State.Table.Remaining(BallColour.Yellow) == 1 && game.State.Frame!.Pots.Count == 0,
+            "Player correction repairs the inferred pot, remaining count and visit outcome");
+        Check(game.State.Table.Balls["Y3"].Presence.Source == Provenance.PlayerCorrected && game.History.Contains(original), "Original evidence remains explainable");
+        game = Apply(game, Input(new TableObservation([new("R1", BallColour.Red, new(.2, .5), .9)], true), 8));
+        Check(game.State.Table.Balls["Y3"].Presence.Value == BallPresence.OnTable, "Machine disappearance cannot undo the same-shot player correction");
+        game = Apply(game, Input(new SkyCorrection(new AssignColour("rich", BallColour.Yellow)), 9) with { Confidence = .78 });
+        Check(game.State.Frame!.Colours["rich"] is { Source: Provenance.Inferred, Confidence: .78 }, "Machine assignment retains uncertainty");
+        game = Apply(game, Input(new PlayerCorrection(new AssignColour("rich", BallColour.Yellow)), 10));
+        Check(game.State.Frame!.Colours["rich"].Source == Provenance.PlayerConfirmed, "I'm yellows confirms the uncertain assignment");
+        game = Apply(game, Input(new SkyCorrection(new AssignColour("rich", BallColour.Red)), 11));
+        Check(game.State.Frame!.Colours["rich"].Value == BallColour.Yellow, "Machine inference cannot override player confirmation");
+        game = Apply(game, Input(new PlayerCorrection(new SetFoul(false)), 12));
+        game = Apply(game, Input(new PlayerCorrection(new ChangeTurn("mike")), 13));
+        Check(game.State.Frame!.CurrentPlayer.Value == "mike" && game.State.Frame.Visit == 2 && game.State.Frame.Foul!.Value == false, "His turn and that wasn't a foul are typed facts");
+        game = Apply(game, Input(new ShotStarted("next-shot"), 14));
+        game = Apply(game, Input(new PossiblePocketEvent("next-shot", "Y3", Pocket.TopLeft), 15) with { Confidence = .9 });
+        // The before snapshot retains the player's confidence rather than inventing detector certainty.
+        game = Apply(game, Input(new ShotEnded("next-shot"), 16));
+        game = Apply(game, Input(new TableObservation([new("R1", BallColour.Red, new(.2, .5), .9)], true), 17));
+        Check(game.State.Table.Balls["Y3"].Presence.Value == BallPresence.Missing, "A later actual shot releases same-shot presence protection");
+        var json = JsonSerializer.Serialize(game.History);
+        Check(JsonSerializer.Serialize(GameSession.Restore(JsonSerializer.Deserialize<ImmutableArray<EventEnvelope>>(json)).State) == JsonSerializer.Serialize(game.State), "Amended history reproduces corrected state deterministically");
+        var later = YellowPot();
+        var earlierPot = later.History.Single(e => e.Event is BallPottedEvent);
+        later = Apply(later, Input(new TableObservation([new("Y3", BallColour.Yellow, new(.5, .5), .9), new("R1", BallColour.Red, new(.2, .5), .9)], true), 7));
+        later = Apply(later, Input(new ShotStarted("later"), 8));
+        later = Apply(later, Input(new PossiblePocketEvent("later", "Y3", Pocket.TopLeft), 9) with { Confidence = .9 });
+        later = Apply(later, Input(new ShotEnded("later"), 10));
+        later = Apply(later, Input(new TableObservation([new("R1", BallColour.Red, new(.2, .5), .9)], true), 11));
+        later = Apply(later, Input(new PlayerCorrection(new SetBallPresence("Y3", BallPresence.OnTable, earlierPot.EventId)), 12));
+        Check(later.State.Table.Balls["Y3"].Presence.Value == BallPresence.Potted && later.State.Frame!.Pots.Count == 1,
+            "Correcting an earlier pot preserves the later real pot and repairs dependent ledger counts");
+        game = Apply(game, Input(new PlayerCorrection(new SetFrameWinner("rich")), 18));
+        game = Apply(game, Input(new PlayerCorrection(new SetFrameWinner("rich")), 19));
+        Check(game.State.Match!.Score("rich") == 1, "Duplicate winner declarations do not count twice");
+        game = Apply(game, Input(new PlayerCorrection(new SetFrameWinner("mike")), 20));
+        Check(game.State.Match!.Score("rich") == 0 && game.State.Match.Score("mike") == 1, "That's my frame repairs the declared scoreboard");
+        Console.WriteLine("PASS first-class corrections: amended pot/visit, confirmed colour, foul/turn/winner, machine precedence, later shot and deterministic rebuild");
+    }
 }

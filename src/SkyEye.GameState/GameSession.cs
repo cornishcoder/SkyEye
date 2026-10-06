@@ -55,8 +55,33 @@ public sealed class GameSession
                 return Refuse(InputOutcome.Rejected, "Declare a player and a new frame after resolving the previous frame.");
             return Commit(input, fingerprint, [new FrameStartedEvent(f.CurrentPlayer)]);
         }
-        if (State.Frame?.Id != input.FrameId || State.Frame.Winner is not null)
+        if (State.Frame?.Id != input.FrameId)
             return Refuse(InputOutcome.Stale, "Input belongs to an inactive frame.");
+        if (input.Input is PlayerCorrection or SkyCorrection)
+        {
+            var correction = input.Input is PlayerCorrection player ? player.Correction : ((SkyCorrection)input.Input).Correction;
+            var provenance = input.Input is PlayerCorrection ? Provenance.PlayerCorrected : Provenance.Inferred;
+            GameEvent? amended = correction switch
+            {
+                AssignColour c when PlayerExists(c.PlayerId) && c.Colour is BallColour.Red or BallColour.Yellow => new ColourAssignedEvent(c.PlayerId, c.Colour),
+                ChangeTurn c when PlayerExists(c.PlayerId) => new TurnChangedEvent(c.PlayerId),
+                SetFoul c => new FoulRecordedEvent(c.Foul),
+                SetFrameWinner c when PlayerExists(c.PlayerId) => new FrameWonEvent(c.PlayerId),
+                SetBallPresence c when Enum.IsDefined(c.Presence) && State.Table.Balls.ContainsKey(c.BallId)
+                    && (c.CorrectedPot is null || History.Any(e => e.EventId == c.CorrectedPot && e.FrameId == input.FrameId
+                        && e.Event is BallPottedEvent p && p.BallId == c.BallId) && c.Presence != BallPresence.Potted)
+                    => new StateCorrectedEvent(c.BallId, c.Presence, c.CorrectedPot),
+                _ => null
+            };
+            if (amended is null) return Refuse(InputOutcome.Rejected, "Unsupported correction or invalid fact reference.");
+            if (correction is AssignColour assigned && input.Input is PlayerCorrection
+                && (!State.Frame.Colours.TryGetValue(assigned.PlayerId, out var existing) || existing.Value == assigned.Colour))
+                provenance = Provenance.PlayerConfirmed;
+            if (input.Input is SkyCorrection && correction is SetBallPresence { CorrectedPot: not null })
+                return Refuse(InputOutcome.Rejected, "A machine cannot revoke a committed pot; ask the player.");
+            return Commit(input with { Provenance = provenance }, fingerprint, [amended]);
+        }
+        if (State.Frame.Winner is not null) return Refuse(InputOutcome.Stale, "The frame has ended.");
         if (input.Input is SelectSource)
         {
             if (input.Source is null || input.Source == State.Table.Source || State.Table.Source is { } old && input.Source.Camera == old.Camera && input.Source.Generation < old.Generation)

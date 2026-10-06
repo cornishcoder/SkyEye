@@ -14,7 +14,7 @@ public sealed record TablePosition(double X, double Y);
 // Source time is microseconds on this source's monotonic media timeline only.
 public sealed record EvidenceSource(string Camera, string Timeline, long Generation, string Calibration);
 public sealed record ObservedBall(string Id, BallColour Colour, TablePosition? Position, double? Confidence = null);
-public sealed record KnownBall(string Id, BallColour Colour, TablePosition? Position, Fact<BallPresence> Presence);
+public sealed record KnownBall(string Id, BallColour Colour, TablePosition? Position, Fact<BallPresence> Presence, string? ProtectedThroughShot = null);
 public sealed record SettledObservation(Guid EvidenceId, DateTimeOffset At, long? SourceTimeUs, EvidenceSource Source);
 public sealed record Pot(Guid EventId, string ShotId, string BallId, Pocket Pocket, Fact<BallPresence> Presence);
 public sealed record PocketApproach(string BallId, Pocket Pocket, double? Confidence, Guid EvidenceId);
