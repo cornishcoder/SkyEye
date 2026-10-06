@@ -12,11 +12,14 @@ public interface ITableAnalyzer
     Point[]? FindCorners(byte[] jpeg);
 }
 public interface ITableFrameImage : IDisposable { byte[] EncodeForReview(); }
+public sealed record DecodedFrameReceipt(long MediaGeneration, long FrameId, long PresentationTimeUs,
+    long SurfaceTimestampNs, int Width, int Height);
 public sealed record TableFrame(byte[] Jpeg, DateTimeOffset CapturedAt, string Timeline) : IDisposable
 {
     public ITableFrameImage? Image { get; init; }
     public long? SourceTimeUs { get; init; }
     public string FrameSource { get; init; } = "camera-snapshot";
+    public DecodedFrameReceipt? DecodedReceipt { get; init; }
     public byte[] ReviewImage() => Jpeg.Length > 0 ? Jpeg : Image?.EncodeForReview() ?? throw new IOException("Review frame unavailable.");
     public void Dispose() => Image?.Dispose();
 }
@@ -146,7 +149,8 @@ public sealed class TableAnalysisSession(ITableFrameSource frames, ITableAnalyze
                             state = state with { Table = table, Vision = detected, Choices = [], ChoicesComputed = false, Jpeg = reviewFrame ? frame.ReviewImage() : frame.Jpeg.Length == 0 ? null : frame.Jpeg,
                                 Observation = new(admitted.Source!, admitted.Generation, 0, frame.Timeline, frame.CapturedAt, frame.SourceTimeUs,
                                     (time.GetUtcNow() - frame.CapturedAt).TotalMilliseconds, acquisitionMs, detected.ElapsedMs, watch.Elapsed.TotalMilliseconds,
-                                    table.Version, table.Occluded ? ObservationOutcome.Unclear : table.Settled ? ObservationOutcome.Ready : ObservationOutcome.Unsettled, frame.FrameSource) }; lastTimeline = frame.Timeline;
+                                    table.Version, table.Occluded ? ObservationOutcome.Unclear : table.Settled ? ObservationOutcome.Ready : ObservationOutcome.Unsettled, frame.FrameSource)
+                                    { DecodedReceipt = frame.DecodedReceipt } }; lastTimeline = frame.Timeline;
                         }
                     }
                 }

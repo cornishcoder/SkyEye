@@ -17,6 +17,8 @@ static class DecodedFrameChecks
             "decoded pixels reach vision directly and are disposed without JPEG solely for analysis");
         Check(session.State.Observation?.SourceTimeUs == 1234 && session.State.Observation.FrameSource == "decoded-live-texture",
             "source PTS and acquisition provenance survive observation");
+        Check(session.State.Observation!.DecodedReceipt == Frames.Receipt,
+            "exact native pixel identity/dimensions survive image disposal and observation projection");
         await session.UpdateAsync(reviewFrame: true);
         Check(frames.Last!.Disposed && frames.Last.Encodes == 1 && session.State.Jpeg?.SequenceEqual(new byte[] { 4, 5, 6 }) == true,
             "only a requested editor retains an encoded review image");
@@ -33,9 +35,10 @@ static class DecodedFrameChecks
     }
     sealed class Frames : ITableFrameSource
     {
+        public static readonly DecodedFrameReceipt Receipt = new(7, 9, 456, 987654321, 1920, 1080);
         public Pixels? Last;
         public Task<TableFrame> ReadAsync(CameraScope source, CancellationToken cancellation)
-            => Task.FromResult(new TableFrame([], DateTimeOffset.UtcNow, "fixture") { Image = Last = new(), SourceTimeUs = 1234, FrameSource = "decoded-live-texture" });
+            => Task.FromResult(new TableFrame([], DateTimeOffset.UtcNow, "fixture") { Image = Last = new(), SourceTimeUs = 1234, FrameSource = "decoded-live-texture", DecodedReceipt = Receipt });
     }
     sealed class Analyzer : ITableAnalyzer
     {

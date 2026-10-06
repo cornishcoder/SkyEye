@@ -11,6 +11,7 @@ public sealed record TableObservation(CameraScope Source, long AnalysisGeneratio
 {
     public ShotChoiceCatalog? Choices { get; init; }
     public GameObservationEvidence? GameEvidence { get; init; }
+    public DecodedFrameReceipt? DecodedReceipt { get; init; }
 }
 public interface ITableObservationEffect
 {

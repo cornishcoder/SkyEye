@@ -35,7 +35,12 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
                     if (player() != owner || !live() || connection().Scope != source || !connection().CanControl)
                         throw new InvalidOperationException("Live observation source changed during frame acquisition.");
                     completion.TrySetResult(new([], DateTimeOffset.UtcNow.AddMilliseconds(-Math.Max(0, age)), stamp.GetProperty("timeline").GetString()!)
-                    { Image = pixels, SourceTimeUs = stamp.GetProperty("sourceUs").GetInt64(), FrameSource = "decoded-live-texture" });
+                    {
+                        Image = pixels, SourceTimeUs = stamp.GetProperty("sourceUs").GetInt64(), FrameSource = "decoded-live-texture",
+                        DecodedReceipt = new(stamp.GetProperty("mediaGeneration").GetInt64(), stamp.GetProperty("frameId").GetInt64(),
+                            stamp.GetProperty("presentationUs").GetInt64(), stamp.GetProperty("surfaceTimestampNs").GetInt64(),
+                            stamp.GetProperty("width").GetInt32(), stamp.GetProperty("height").GetInt32())
+                    });
                 }
                 finally { snapshot.Close(); }
             }
