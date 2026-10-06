@@ -48,6 +48,7 @@ public sealed partial class ShellSession
         if (admitted is null || clip is null) { ShowError("Refresh camera clips before playing this shot on TV."); return; }
         try
         {
+            preparingCorrected=true;
             var token=foreground.Token;var previousClip=tvReplay.Request;var previousLive=tvLive.Request;var connection=app.State.Camera.ConnectionId;
             ClipStatus="Preparing corrected TV footage…";Publish();
             var prepared=await correctedClips.SavedAsync(admitted,clip,null,token);
@@ -63,6 +64,7 @@ public sealed partial class ShellSession
             DismissNotice(); Publish();
         }
         catch (Exception) { ShowError("The clip could not be sent. Refresh camera clips and try again."); }
+        finally{preparingCorrected=false;if(!disposed)Publish();}
     });
     bool ObserveTvReplay(JsonElement metrics)
     {

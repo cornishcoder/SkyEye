@@ -10,6 +10,7 @@ public sealed class CompanionCorrectedClips:IDisposable
     readonly CorrectedClipStore saved,recent;readonly ICorrectedClipRenderer renderer;
     readonly LocalHttpServer server;readonly string access=Guid.NewGuid().ToString("N");
     readonly object gate=new();string? servedPath,servedId;long servedAt;bool servedTemporary;
+    readonly CancellationTokenSource lifetime=new();
     public CompanionCorrectedClips(CameraClient current,Func<CameraConnection> connection,CompanionClipService clips,string directory,ICorrectedClipRenderer renderer)
     {
         this.current=current;this.connection=connection;this.clips=clips;this.renderer=renderer;
@@ -17,9 +18,9 @@ public sealed class CompanionCorrectedClips:IDisposable
         saved=new(Path.Combine(directory,"saved"),availableBytes:space);recent=new(Path.Combine(directory,"recent"),true,availableBytes:space);
         server=new(8767,(request,ct)=>{
             lock(gate){if(request.Path=="/status")return Task.FromResult(HttpResponse.Json(new{serving=servedPath is not null,temporary=servedTemporary}));
-                if(servedPath is null||request.Path!="/corrected/"+servedId||request.Query.GetValueOrDefault("access")!=access||servedTemporary&&System.Diagnostics.Stopwatch.GetElapsedTime(servedAt)>=RecentReplayStore.Retention)
+                if(servedPath is null||!File.Exists(servedPath)||request.Path!="/corrected/"+servedId||request.Query.GetValueOrDefault("access")!=access||servedTemporary&&System.Diagnostics.Stopwatch.GetElapsedTime(servedAt)>=RecentReplayStore.Retention)
                     return Task.FromResult(HttpResponse.Json(new{error="Corrected replay unavailable"},410));
-                return Task.FromResult(new HttpResponse(200,"video/mp4",FilePath:servedPath));}});server.Start();
+                return Task.FromResult(new HttpResponse(200,"video/mp4",FilePath:servedPath));}});server.Start();_=CleanupAsync();
     }
     public Clip[] Local()=>saved.Catalogue();
     public async Task<CorrectedClip> SavedAsync(CameraClipCatalog catalog,Clip clip,Action<ClipTransferProgress>? progress,CancellationToken ct)
@@ -50,7 +51,8 @@ public sealed class CompanionCorrectedClips:IDisposable
             return $"http://{ip}:8767/corrected/{servedId}?access={access}";}
     }
     public void ClearServing(){lock(gate){servedPath=servedId=null;}}
-    public void Dispose(){_=server.DisposeAsync();}
+    async Task CleanupAsync(){try{while(!lifetime.IsCancellationRequested){await Task.Delay(TimeSpan.FromSeconds(10),lifetime.Token);recent.Cleanup();}}catch(OperationCanceledException){}}
+    public void Dispose(){lifetime.Cancel();_=server.DisposeAsync();}
     sealed class UnavailableTransfer:IClipTransfer{public Task<Clip[]> ListAsync(CancellationToken ct)=>throw new IOException("Original clip unavailable offline");public Task DownloadAsync(Clip clip,string path,Action<long> progress,CancellationToken ct)=>throw new IOException("Original clip unavailable offline");public void Dispose(){}}
     sealed class ReplayTransfer:IClipTransfer
     {

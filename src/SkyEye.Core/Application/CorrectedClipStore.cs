@@ -22,7 +22,7 @@ public sealed class CorrectedClipStore
     static readonly ConcurrentDictionary<string,SemaphoreSlim> locks=new(StringComparer.OrdinalIgnoreCase);
     readonly string root;readonly bool temporary;readonly TimeProvider clock;readonly SemaphoreSlim writer;
     readonly Func<long> freeBytes;
-    readonly Dictionary<string,long> timestamps=[];
+    readonly ConcurrentDictionary<string,long> timestamps=[];
     public CorrectedClipStore(string directory,bool temporary=false,TimeProvider? clock=null,Func<long>? availableBytes=null)
     {
         root=Path.GetFullPath(directory);this.temporary=temporary;this.clock=clock??TimeProvider.System;Directory.CreateDirectory(root);writer=locks.GetOrAdd(root,_=>new(1));
@@ -61,7 +61,7 @@ public sealed class CorrectedClipStore
         await writer.WaitAsync(cancellation);string stage=Path.Combine(root,Guid.NewGuid().ToString("N")+".part");
         try
         {
-            Cleanup();if(await FindAsync(clip,renderer,cancellation) is{} available)return available;
+            CleanupCore();if(await FindAsync(clip,renderer,cancellation) is{} available)return available;
             if(temporary&&(timestamps.Count>=2||TotalBytes()+clip.Bytes*4>TemporaryBudgetBytes))throw new InvalidOperationException("Recent replay storage is full. Wait for an earlier replay to expire.");
             if(freeBytes()<clip.Bytes*4+128L*1024*1024)throw new InvalidOperationException("Not enough space to prepare corrected footage.");
             Directory.CreateDirectory(stage);string original=Path.Combine(stage,"original.mp4"),portrait=Path.Combine(stage,"portrait.mp4"),landscape=Path.Combine(stage,"landscape.mp4");
@@ -87,5 +87,6 @@ public sealed class CorrectedClipStore
         finally{try{if(Directory.Exists(stage))Drop(stage);}finally{writer.Release();}}
     }
     long TotalBytes()=>Directory.EnumerateDirectories(root).Select(path=>Read(path)?.Bytes??0).Sum();
-    public void Cleanup(){if(!temporary)return;foreach(var item in timestamps.ToArray())if(clock.GetElapsedTime(item.Value)>=RecentReplayStore.Retention){Drop(Folder(item.Key));timestamps.Remove(item.Key);}}
+    void CleanupCore(){if(!temporary)return;foreach(var item in timestamps.ToArray())if(clock.GetElapsedTime(item.Value)>=RecentReplayStore.Retention){Drop(Folder(item.Key));timestamps.TryRemove(item.Key,out _);}}
+    public void Cleanup(){if(!writer.Wait(0))return;try{CleanupCore();}finally{writer.Release();}}
 }
