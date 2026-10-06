@@ -138,7 +138,8 @@ public sealed partial class ShellSession
         tvReplay.Clear();
         correctedClips.ClearServing();
         var compose = TvCorrectionRequested || app.State.Presentation.Tv.Mode is SkyEye.Core.Application.ShotDisplayMode.Cycling or SkyEye.Core.Application.ShotDisplayMode.Pinned;
-        var liveSource=sceneRelay is { Ready:true }?sceneRelay.Url:shotRelay is { Ready:true }?shotRelay.Url:!compose?view.Stream:null;
+        EnsureBackgroundTv();
+        var liveSource=sceneRelay is { Ready:true }?sceneRelay.Url:BackgroundTvUrl.Length > 0?BackgroundTvUrl:!compose?view.Stream:null;
         if(liveSource is null){TvStatus="Preparing the live table feed…";EnsureShotLoop();Publish();return;}
         var request = tvLive.Begin(app.State.Camera.ConnectionId, DateTimeOffset.UtcNow);
         Message = "Sending the live table to TV…";
@@ -148,6 +149,6 @@ public sealed partial class ShellSession
     {
         if (!MainThread.IsMainThread) { MainThread.BeginInvokeOnMainThread(StopTv); return; }
         if (!active) return;
-        tvReplay.Clear(); tvLive.Clear(); cast?.Stop(); TvStatus = "Disconnecting TV…"; Publish();
+        StopBackgroundTv(); tvReplay.Clear(); tvLive.Clear(); cast?.Stop(); TvStatus = "Disconnecting TV…"; Publish();
     }
 }

@@ -52,6 +52,7 @@
     <AndroidJavaSource Include="../SkyEye.Companion/CandidateOverlay.java" Link="Native/CandidateOverlay.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/TableSceneOverlay.java" Link="Native/TableSceneOverlay.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/OverlayEncoder.java" Link="Native/OverlayEncoder.java" />
+    <AndroidJavaSource Include="../SkyEye.Companion/LiveGpuCompositor.java" Link="Native/LiveGpuCompositor.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/OverlayTsWriter.java" Link="Native/OverlayTsWriter.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/CastBridge.java" Link="Native/CastBridge.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/DiscoveryBridge.java" Link="Native/DiscoveryBridge.java" />

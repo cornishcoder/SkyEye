@@ -67,7 +67,7 @@ public sealed partial class ShellSession
                 player = JsonSerializer.Deserialize<JsonElement>(player?.PlaybackMetrics() ?? "{}"),
                 annotations = JsonSerializer.Deserialize<JsonElement>(player?.AnnotationMetrics() ?? "{}"),
                 framing = JsonSerializer.Deserialize<JsonElement>(player?.FramingMetrics() ?? "{}"),
-                encoder = JsonSerializer.Deserialize<JsonElement>(shotRelay?.Metrics ?? "{}"),
+                encoder = JsonSerializer.Deserialize<JsonElement>(BackgroundTvService.Instance?.Metrics ?? shotRelay?.Metrics ?? "{}"),
                 cast = JsonSerializer.Deserialize<JsonElement>(cast?.Metrics() ?? "{}"),
                 presentation = app.State.Presentation,
                 version = app.State.Version, choices = app.State.ShotChoices,

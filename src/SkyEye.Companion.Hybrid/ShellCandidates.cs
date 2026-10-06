@@ -166,13 +166,16 @@ public sealed partial class ShellSession
             var key = $"{mediaGeneration}:{surface.Mode}:{surface.Annotations}:{shot?.Id}:{app.State.ShotChoices.ExpiresAt.ToUnixTimeMilliseconds()}:{shotMessage}:{CanAnalyzeTable}:{EditingTable}:{Playing}:{(shot is null ? Android.OS.SystemClock.ElapsedRealtime() / 2000 : 0)}";
             if (last == key) return;
             last = key;
-            if (surface.Mode is not (ShotDisplayMode.Cycling or ShotDisplayMode.Pinned) || selection.Kind != ViewingSource.Live || EditingTable || !Playing) { player.ClearTableSceneForTarget(tv); return; }
+            if (surface.Mode is not (ShotDisplayMode.Cycling or ShotDisplayMode.Pinned) || selection.Kind != ViewingSource.Live || EditingTable || !Playing)
+            { player.ClearTableSceneForTarget(tv); if (tv && active) BackgroundTvService.Scene(""); return; }
             var caption = shot is null ? CandidateStatus : $"{(surface.Mode == ShotDisplayMode.Pinned ? "Pinned" : "Candidate " + (index + 1) + " / " + shotCarousel.Candidates.Length)} · {shot.Type} · pocket {shot.Pocket + 1}";
             try
             {
                 var scene = shot is not null ? ShotSceneProjection.Create(shot, snapshot.Calibration!, ++sceneRevision, mediaGeneration, now, app.State.ShotChoices.ExpiresAt, caption, surface.Mode == ShotDisplayMode.Pinned, surface.Annotations)
                     : new TableScene(++sceneRevision, mediaGeneration, snapshot.Table?.Version ?? 0, now, TimeSpan.FromSeconds(3), [], [], [], caption);
-                if (!player.SetTableSceneForTarget(JsonSerializer.Serialize(scene, sceneJson), tv)) last = "";
+                var json = JsonSerializer.Serialize(scene, sceneJson);
+                if (!player.SetTableSceneForTarget(json, tv)) last = "";
+                if (tv) BackgroundTvService.Scene(json);
             }
             catch (ArgumentException) { player.ClearTableSceneForTarget(tv); shotMessage = "Candidate is outside the camera view. Check calibration."; }
         }
@@ -181,24 +184,7 @@ public sealed partial class ShellSession
     }
     void ManageShotRelay()
     {
-        bool needed = TvConnected && !TvReplaySelected && active && Playing && selection.Kind == ViewingSource.Live && CanCastLive && !EditingTable
-            && (TvCorrectionRequested || app.State.Presentation.Tv.Mode is ShotDisplayMode.Cycling or ShotDisplayMode.Pinned);
-        if (!needed)
-        {
-            CloseShotRelay();
-            if (!TvReplaySelected && CanCastLive && effects.Latest is { } live) cast?.Configure(live.Stream, true);
-            return;
-        }
-        if (shotRelay is null && sceneRelayClosing.IsCompleted && Android.OS.SystemClock.ElapsedRealtime() >= relayRetryAt)
-        {
-            try
-            {
-                shotRelayListener = new(this);
-                shotRelay = new(Platform.CurrentActivity!, player!, client.Address, shotRelayListener, () => cast?.Metrics() ?? "{}", sharedScene: true);
-            }
-            catch { relayRetryAt = Android.OS.SystemClock.ElapsedRealtime() + 30000; shotMessage = "TV overlay unavailable. Phone choices remain available."; }
-        }
-        if (shotRelay is { Ready: true }) cast?.Configure(shotRelay.Url, true);
+        EnsureBackgroundTv();
     }
     void CloseShotRelay()
     {

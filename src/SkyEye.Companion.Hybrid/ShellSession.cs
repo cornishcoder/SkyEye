@@ -173,7 +173,7 @@ public sealed partial class ShellSession : IDisposable
         player.SetMuted(selection.Kind != ViewingSource.LocalClip); player.Play(source);
         Android.Util.Log.Info("SkyEyeShell", "Native playback started: " + selection.Kind);
         selection.Started();
-        if (!TvReplaySelected) cast?.Configure("", true); // Wait for the composed, watermarked live feed.
+        if (!TvReplaySelected && BackgroundTvService.Instance is null) cast?.Configure("", true);
         EnsureShotLoop();
     }
     public void Stop()
@@ -282,6 +282,7 @@ public sealed partial class ShellSession : IDisposable
     public void Dispose()
     {
         if (disposed) return;
+        StopBackgroundTv();
 #if SKYEYE_PERFORMANCE
         StopPerformance();
 #endif
