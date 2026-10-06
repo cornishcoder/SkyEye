@@ -23,6 +23,7 @@ public sealed class CorrectedClipStore
 {
     public const long MaximumSourceBytes=512L*1024*1024;
     public const long TemporaryBudgetBytes=512L*1024*1024;
+    public const long RecoveryBudgetBytes=1024L*1024*1024;
     static readonly ConcurrentDictionary<string,SemaphoreSlim> locks=new(StringComparer.OrdinalIgnoreCase);
     readonly string root;readonly bool temporary;readonly TimeProvider clock;readonly SemaphoreSlim writer;
     readonly Func<long> freeBytes;
@@ -32,15 +33,33 @@ public sealed class CorrectedClipStore
     {
         root=Path.GetFullPath(directory);this.temporary=temporary;this.clock=clock??TimeProvider.System;Directory.CreateDirectory(root);writer=locks.GetOrAdd(root,_=>new(1));
         freeBytes=availableBytes??(()=>new DriveInfo(Path.GetPathRoot(root)!).AvailableFreeSpace);this.metadata=metadata;
+        if(writer.Wait(0))try
+        {
         foreach(var previous in Directory.EnumerateDirectories(root,"*.previous")){string id=Path.GetFileName(previous)[..^9];if(Guid.TryParseExact(id,"N",out _)&&!Directory.Exists(Folder(id)))Shift(previous,Folder(id));}
         // Temporary references do not survive companion process restart. Sweep
         // only generated complete directories in this explicitly separate root.
         if(temporary)foreach(var directoryPath in Directory.EnumerateDirectories(root)){if(Guid.TryParseExact(Path.GetFileName(directoryPath),"N",out _))Drop(directoryPath);}
+        // Incomplete derivatives are never published. Verified originals alone may
+        // survive a killed process, within a bounded recovery cache.
+        foreach(var partial in Directory.EnumerateDirectories(root,"*.part"))Drop(partial);
+        TrimRecovery();
+        }finally{writer.Release();}
     }
     void Scoped(string path){if(!Path.GetFullPath(path).StartsWith(root+Path.DirectorySeparatorChar,StringComparison.OrdinalIgnoreCase))throw new IOException("Generated media path is outside its store.");}
     void Drop(string path){Scoped(path);Directory.Delete(path,true);}
     void Shift(string from,string to){Scoped(from);Scoped(to);Directory.Move(from,to);}
     string Folder(string id)=>Path.Combine(root,id);
+    string Recovery(string id)=>Folder(id)+".recovery";
+    void TrimRecovery()
+    {
+        long bytes=0;int count=0;
+        foreach(var path in Directory.EnumerateDirectories(root,"*.recovery").OrderByDescending(Directory.GetLastWriteTimeUtc))
+        {
+            string id=Path.GetFileName(path)[..^9];long size=Directory.EnumerateFiles(path).Sum(p=>new FileInfo(p).Length);
+            if(temporary||!Guid.TryParseExact(id,"N",out _)||++count>2||size>MaximumSourceBytes+8*1024*1024||bytes+size>RecoveryBudgetBytes)Drop(path);
+            else bytes+=size;
+        }
+    }
     public Clip[] Catalogue()=>Directory.EnumerateDirectories(root).Select(path=>Read(path)?.Clip).Where(clip=>clip is not null).Cast<Clip>().OrderByDescending(c=>c.CreatedAt).ToArray();
     static CorrectedClipManifest? Read(string directory)
     {
@@ -71,10 +90,22 @@ public sealed class CorrectedClipStore
             if(freeBytes()<clip.Bytes*4+128L*1024*1024)throw new InvalidOperationException("Not enough space to prepare corrected footage.");
             Directory.CreateDirectory(stage);string original=Path.Combine(stage,"original.mp4"),portrait=Path.Combine(stage,"portrait.mp4"),landscape=Path.Combine(stage,"landscape.mp4");
             var old=Read(Folder(clip.Id));string retained=Path.Combine(Folder(clip.Id),"original.mp4");
-            if(old?.Clip==clip&&await Matches(retained,clip.Sha256,cancellation))File.Copy(retained,original);
+            string recovery=Recovery(clip.Id),recoveredOriginal=Path.Combine(recovery,"original.mp4");
+            if(await Matches(recoveredOriginal,clip.Sha256,cancellation)&&new FileInfo(recoveredOriginal).Length==clip.Bytes)File.Copy(recoveredOriginal,original);
+            else if(old?.Clip==clip&&await Matches(retained,clip.Sha256,cancellation))File.Copy(retained,original);
             else{progress?.Invoke(new(ClipTransferStage.Downloading,0,clip.Bytes));await transfer.DownloadAsync(clip,original,n=>progress?.Invoke(new(ClipTransferStage.Downloading,n,clip.Bytes)),cancellation);}
             if(new FileInfo(original).Length!=clip.Bytes||!await Matches(original,clip.Sha256,cancellation))throw new IOException("Corrected export source verification failed.");
-            progress?.Invoke(new(ClipTransferStage.Preparing,clip.Bytes,clip.Bytes));metadata?.Invoke(clip,stage);
+            if(!temporary)
+            {
+                Directory.CreateDirectory(recovery);string pending=Path.Combine(recovery,"original.part");File.Copy(original,pending,true);
+                File.Move(pending,recoveredOriginal,true);TrimRecovery();
+            }
+            progress?.Invoke(new(ClipTransferStage.Preparing,clip.Bytes,clip.Bytes));
+            string frozenAnnotations=Path.Combine(recovery,"annotations.json"),stageAnnotations=Path.Combine(stage,"annotations.json");
+            if(!temporary&&File.Exists(frozenAnnotations)&&new FileInfo(frozenAnnotations).Length is >0 and <=8*1024*1024)File.Copy(frozenAnnotations,stageAnnotations);
+            else metadata?.Invoke(clip,stage);
+            if(!temporary&&File.Exists(stageAnnotations))
+            {string pendingAnnotations=frozenAnnotations+".part";File.Copy(stageAnnotations,pendingAnnotations,true);File.Move(pendingAnnotations,frozenAnnotations,true);}
             var info=renderer is ICorrectedClipSnapshotRenderer snapshot?await snapshot.PrepareSnapshotAsync(clip,original,cancellation):await renderer.PrepareAsync(clip,original,cancellation);
             await renderer.RenderAsync(clip,original,portrait,landscape,info,cancellation);cancellation.ThrowIfCancellationRequested();
             foreach(var path in new[]{portrait,landscape})if(new FileInfo(path) is not{Exists:true,Length:>0})throw new IOException("Corrected output unavailable.");
@@ -88,6 +119,7 @@ public sealed class CorrectedClipStore
             if(Directory.Exists(destination))Shift(destination,backup);
             try{Shift(stage,destination);}catch{if(Directory.Exists(backup))Shift(backup,destination);throw;}
             if(Directory.Exists(backup))Drop(backup);if(temporary)timestamps[clip.Id]=clock.GetTimestamp();
+            if(Directory.Exists(recovery))Drop(recovery);
             progress?.Invoke(new(ClipTransferStage.Available,clip.Bytes,clip.Bytes));
             return new(manifest,Path.Combine(destination,"original.mp4"),Path.Combine(destination,"portrait.mp4"),Path.Combine(destination,"landscape.mp4"));
         }

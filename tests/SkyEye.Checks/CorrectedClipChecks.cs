@@ -20,6 +20,11 @@ static class CorrectedClipChecks
             Check(store.Catalogue().Length==1&&!Directory.EnumerateDirectories(Path.Combine(root,"saved"),"*.part").Any(),"failure publishes no partial pair and preserves existing clip");renderer.Fail=false;
             using var cancel=new CancellationTokenSource();renderer.Cancel=cancel;try{await store.PrepareAsync(other,transfer,renderer,cancellation:cancel.Token);throw new Exception("Expected cancellation");}catch(OperationCanceledException){}
             Check(store.Catalogue().Length==1&&!Directory.EnumerateDirectories(Path.Combine(root,"saved"),"*.part").Any(),"cancellation removes staged media without adding library entry");renderer.Cancel=null;
+            var beforeRecovery=transfer.Downloads;
+            var resumed=await new CorrectedClipStore(Path.Combine(root,"saved")).PrepareAsync(other,transfer,renderer);
+            Check(transfer.Downloads==beforeRecovery&&File.ReadAllBytes(resumed.Original).SequenceEqual(bytes),"interrupted preparation reuses only verified original across restart");
+            // Isolate the recovery fixture from the existing permanent-catalogue assertions.
+            Directory.Delete(Path.GetDirectoryName(resumed.Original)!,true);
             var clock=new Clock();var temporary=new CorrectedClipStore(Path.Combine(root,"recent"),true,clock);
             await temporary.PrepareAsync(clip,transfer,renderer);await temporary.PrepareAsync(other,transfer,renderer);
             try{await temporary.PrepareAsync(clip with{Id=Guid.NewGuid().ToString("N")},transfer,renderer);throw new Exception("Expected temporary capacity refusal");}catch(InvalidOperationException){}
