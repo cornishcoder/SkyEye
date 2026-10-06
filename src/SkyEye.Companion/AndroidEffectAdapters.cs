@@ -27,8 +27,15 @@ public sealed class CameraCalibrationStore(Context context, Func<string> address
         .PutString(Key(cameraIdentity), JsonSerializer.Serialize(corners, JsonDefaults.Options))!.Apply();
 }
 
-public sealed class AndroidPortraitClipExporter(Context context) : IPortraitClipExporter
+public sealed class AndroidPortraitClipExporter(Context context) : IPortraitClipExporter, IClipGeometryPreparation
 {
+    readonly AndroidRecordedGeometry geometry = new(Path.Combine(context.FilesDir!.AbsolutePath, "recorded-geometry"));
+    public async Task PrepareGeometryAsync(Clip clip, string verifiedSource, CancellationToken cancellation)
+    {
+        var journal = await geometry.AnalyzeAsync(verifiedSource, clip.Sha256, clip.RecordingOrigin, cancellation);
+        // Safe provenance only; no file path, endpoint, token or table image.
+        Android.Util.Log.Info("SkyEyeGeometry", JsonSerializer.Serialize(new { clipId = clip.Id, journal.Source, spans = journal.Spans }, JsonDefaults.Options));
+    }
     public async Task ExportAsync(string input, string output, int rotation, CancellationToken cancellation)
     {
         var finished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

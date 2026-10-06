@@ -267,7 +267,8 @@ public sealed class CameraService : Service
         {
             await Task.Run(() => Engine.JoinClips(selected.Select(x => Path.Combine(buffer, x.Name + ".mp4")).ToArray(), selected.Select(x => x.StartUs).ToArray(), end, temporary), ct);
             await using var source = File.OpenRead(temporary); string hash = Convert.ToHexString(await SHA256.HashDataAsync(source, ct));
-            var clip = new Clip(id, "SkyEye " + DateTime.Now.ToString("dd MMM HH:mm:ss"), Engine.Duration(temporary), source.Length, hash, DateTimeOffset.UtcNow);
+            var clip = new Clip(id, "SkyEye " + DateTime.Now.ToString("dd MMM HH:mm:ss"), Engine.Duration(temporary), source.Length, hash, DateTimeOffset.UtcNow,
+                RecordingOrigin: new SkyEye.Core.Analysis.ClipRecordingOrigin(selected[0].Timeline, selected[0].StartUs, 1920, 1080, 0));
             source.Close();
             // The independent metadata journal survives a crash without rewriting a global catalogue.
             string metadata = Path.Combine(clipDir, id + ".json");

@@ -29,7 +29,7 @@
   </PropertyGroup>
   <ItemGroup Condition="'$(SkyEyeProduction)' == 'true'">
     <!-- Preserve existing save, candidates and voice workflows until their new UI adapters land. -->
-    <Compile Include="../SkyEye.Companion/*.cs" Exclude="../SkyEye.Companion/CameraClient.cs;../SkyEye.Companion/CameraControlEffect.cs;../SkyEye.Companion/CameraReadEffects.cs;../SkyEye.Companion/CompanionClipService.cs;../SkyEye.Companion/AndroidEffectAdapters.cs;../SkyEye.Companion/SecretStore.cs;../SkyEye.Companion/MigrationAudit.cs;../SkyEye.Companion/OverlayRelay.cs" Link="MoreControls/%(Filename)%(Extension)" />
+    <Compile Include="../SkyEye.Companion/*.cs" Exclude="../SkyEye.Companion/CameraClient.cs;../SkyEye.Companion/CameraControlEffect.cs;../SkyEye.Companion/CameraReadEffects.cs;../SkyEye.Companion/CompanionClipService.cs;../SkyEye.Companion/AndroidEffectAdapters.cs;../SkyEye.Companion/AndroidRecordedGeometry.cs;../SkyEye.Companion/SecretStore.cs;../SkyEye.Companion/MigrationAudit.cs;../SkyEye.Companion/OverlayRelay.cs" Link="MoreControls/%(Filename)%(Extension)" />
     <AndroidJavaSource Include="../SkyEye.Companion/SkyEyeRtcSession.java" Link="Native/SkyEyeRtcSession.java" />
   </ItemGroup>
   <ItemGroup>
@@ -54,6 +54,7 @@
     <AndroidJavaSource Include="../SkyEye.Companion/CastBridge.java" Link="Native/CastBridge.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/DiscoveryBridge.java" Link="Native/DiscoveryBridge.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/PortraitExporter.java" Link="Native/PortraitExporter.java" />
+    <AndroidJavaSource Include="../SkyEye.Companion/RecordedFrameReader.java" Link="Native/RecordedFrameReader.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/SkyEyeCastOptions.java" Link="Native/SkyEyeCastOptions.java" />
     <AndroidJavaSource Include="NativeCompatibilityProbe.java" />
     <Compile Include="../SkyEye.Companion/CameraClient.cs" Link="Services/CameraClient.cs" />
@@ -61,6 +62,7 @@
     <Compile Include="../SkyEye.Companion/CameraReadEffects.cs" Link="Services/CameraReadEffects.cs" />
     <Compile Include="../SkyEye.Companion/CompanionClipService.cs" Link="Services/CompanionClipService.cs" />
     <Compile Include="../SkyEye.Companion/AndroidEffectAdapters.cs" Link="Services/AndroidEffectAdapters.cs" />
+    <Compile Include="../SkyEye.Companion/AndroidRecordedGeometry.cs" Link="Services/AndroidRecordedGeometry.cs" />
     <Compile Include="../SkyEye.Companion/SecretStore.cs" Link="Services/SecretStore.cs" />
     <Compile Include="../SkyEye.Companion/MigrationAudit.cs" Link="Services/MigrationAudit.cs" />
     <Compile Include="../SkyEye.Companion/OverlayRelay.cs" Link="Services/OverlayRelay.cs" />
