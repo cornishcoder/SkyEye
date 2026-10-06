@@ -81,10 +81,11 @@ public sealed class TableAnalysisSession(ITableFrameSource frames, ITableAnalyze
     }
     public Task UpdateAsync(CancellationToken cancellation = default)
     {
+        PipelineDiagnostics.Count("analysisRequests");
         lock (gate)
         {
             ThrowIfDisposed(); cancellation.ThrowIfCancellationRequested();
-            if (pending is { IsCompleted: false }) return pending;
+            if (pending is { IsCompleted: false }) { PipelineDiagnostics.Count("coalescedRequests"); return pending; }
             if (state.Source is null || state.Calibration is null || state.Picking) return Task.CompletedTask;
             var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var admitted = state; var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellation); active = linked;
@@ -95,12 +96,15 @@ public sealed class TableAnalysisSession(ITableFrameSource frames, ITableAnalyze
     }
     async Task RunUpdateAsync(TableAnalysisSnapshot admitted, CancellationTokenSource linked, TaskCompletionSource completed)
     {
+        using var total = PipelineDiagnostics.Measure("observationMs");
         try
         {
-            var frame = await frames.ReadAsync(admitted.Source!, linked.Token).ConfigureAwait(false);
+            TableFrame frame;
+            using (PipelineDiagnostics.Measure("frameAcquisitionMs")) frame = await frames.ReadAsync(admitted.Source!, linked.Token).ConfigureAwait(false);
+            PipelineDiagnostics.Sample("frameAgeMs", (time.GetUtcNow() - frame.CapturedAt).TotalMilliseconds);
             await analyzerGate.WaitAsync(linked.Token).ConfigureAwait(false);
             VisionResult detected;
-            try { detected = await Task.Run(() => analyzer.Analyze(frame.Jpeg, admitted.Calibration!, linked.Token), linked.Token).ConfigureAwait(false); }
+            try { PipelineDiagnostics.Count("fullAnalyses"); using var vision = PipelineDiagnostics.Measure("visionMs"); detected = await Task.Run(() => analyzer.Analyze(frame.Jpeg, admitted.Calibration!, linked.Token), linked.Token).ConfigureAwait(false); }
             finally { analyzerGate.Release(); }
             lock (gate)
             {
@@ -109,6 +113,7 @@ public sealed class TableAnalysisSession(ITableFrameSource frames, ITableAnalyze
                 {
                     if (state.Table is null || lastTimeline != frame.Timeline || frame.CapturedAt > state.Table.CapturedAt)
                     {
+                        using var post = PipelineDiagnostics.Measure("postProcessingMs");
                         var table = tracker.Observe(state.CalibrationId, frame.Timeline, frame.CapturedAt, detected.Balls, group, detected.Uncertain, detected.Obstructed);
                         state = state with { Table = table, Vision = detected, Jpeg = frame.Jpeg }; lastTimeline = frame.Timeline;
                     }

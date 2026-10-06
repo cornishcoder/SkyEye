@@ -90,6 +90,8 @@ public static class ShotPlanner
     }
     public static Shot[] Suggest(TableState state, DateTimeOffset now)
     {
+        PipelineDiagnostics.Count("predictionCalls");
+        using var timing = PipelineDiagnostics.Measure("predictionMs");
         if (!Eligible(state, now)) return [];
         var coordinates = new AnalysisCoordinates(); var cue = state.Balls.Single(b => b.Kind == "cue");
         var targets = state.Balls.Where(b => state.Group switch { "red" => b.Kind == "red", "yellow" => b.Kind == "yellow", "black" => b.Kind == "black", "open" => b.Kind is "red" or "yellow", _ => false });

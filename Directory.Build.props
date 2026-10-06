@@ -9,4 +9,7 @@
   <PropertyGroup Condition="'$(SkyEyeMigrationAudit)' == 'true'">
     <DefineConstants>$(DefineConstants);SKYEYE_MIGRATION_AUDIT</DefineConstants>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(SkyEyePerformance)' == 'true'">
+    <DefineConstants>$(DefineConstants);SKYEYE_PERFORMANCE</DefineConstants>
+  </PropertyGroup>
 </Project>

@@ -18,6 +18,7 @@ sealed class OverlayRelay : IAsyncDisposable
     readonly Bridge.PlayerBridge player;
     public string Url { get; }
     public bool Ready => encoder.Ready();
+    public string Metrics => encoder.Metrics() ?? "{}";
     public OverlayRelay(Android.App.Activity activity, Bridge.PlayerBridge player, string cameraAddress, Bridge.OverlayEncoder.IListener listener, Func<string> castMetrics, bool sharedScene = false)
     {
         this.castMetrics = castMetrics;

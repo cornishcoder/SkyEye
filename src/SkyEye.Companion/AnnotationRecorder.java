@@ -47,5 +47,7 @@ final class AnnotationRecorder {
     }
     synchronized String drain(){String result=observations.toString();observations=new JSONArray();return result;}
     synchronized String metrics(){try{return new JSONObject().put("mapped",!timeline.isEmpty()&&!frames.isEmpty())
-        .put("phoneSourceUs",phoneUs).put("tvSourceUs",tvUs).put("pending",observations.length()).put("overflow",overflow).toString();}catch(Exception ignored){return "{}";}}
+        .put("phoneSourceUs",phoneUs).put("tvSourceUs",tvUs).put("pending",observations.length()).put("overflow",overflow)
+        .put("sourceAgeEstimateMs",phoneUs<0?JSONObject.NULL:(referenceUs-phoneUs)/1000d+android.os.SystemClock.elapsedRealtime()-referenceAt)
+        .put("clockSampleAgeMs",android.os.SystemClock.elapsedRealtime()-referenceAt).toString();}catch(Exception ignored){return "{}";}}
 }

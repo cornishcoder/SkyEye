@@ -1,0 +1,142 @@
+{
+  "measuredAt": "2026-10-06T15:10:04.2140867+01:00",
+  "pipeline": {
+    "counts": {
+      "analysisRequests": 29,
+      "fullAnalyses": 29
+    },
+    "stages": {
+      "frameAcquisitionMs": {
+        "n": 29,
+        "mean": 765.4692758620688,
+        "p50": 771.0136,
+        "p95": 975.9636,
+        "latest": 771.9938
+      },
+      "frameAgeMs": {
+        "n": 29,
+        "mean": 3192.251755172414,
+        "p50": 3301.604,
+        "p95": 3915.5217,
+        "latest": 2438.1342
+      },
+      "visionMs": {
+        "n": 29,
+        "mean": 191.16692413793106,
+        "p50": 194.1538,
+        "p95": 255.211,
+        "latest": 148.0204
+      },
+      "postProcessingMs": {
+        "n": 29,
+        "mean": 0.1322206896551724,
+        "p50": 0.049,
+        "p95": 0.4941,
+        "latest": 0.0694
+      },
+      "observationMs": {
+        "n": 29,
+        "mean": 957.1723448275862,
+        "p50": 939.7635,
+        "p95": 1150.1131,
+        "latest": 920.2145
+      }
+    }
+  },
+  "player": {
+    "playing": true,
+    "mediaGeneration": 2,
+    "volume": 0,
+    "rotation": 90,
+    "width": 1920,
+    "height": 1080,
+    "positionMs": 2283,
+    "liveOffsetMs": 12806,
+    "bufferedMs": 9717,
+    "decodedFrames": 4451,
+    "textureFrames": 3768,
+    "textureFps": 23.299684775564405,
+    "releaseToTextureMs": -35.722881,
+    "textureAgeMs": 1.065198
+  },
+  "annotations": {
+    "mapped": true,
+    "phoneSourceUs": 23952281011,
+    "tvSourceUs": 23952381022,
+    "pending": 2,
+    "overflow": false,
+    "sourceAgeEstimateMs": 11765.78100001812,
+    "clockSampleAgeMs": 1456
+  },
+  "encoder": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 10,
+    "bitrate": 6000000,
+    "frames": 1050,
+    "skipped": 0,
+    "segments": 16,
+    "failed": false,
+    "encodedPtsUs": 147810488,
+    "encodedFrame": {
+      "sceneVersion": 0,
+      "mediaGeneration": 2,
+      "tableVersion": 0,
+      "sourcePositionMs": 2078,
+      "paths": 0,
+      "markers": 0,
+      "watermarked": true,
+      "rectangular": true,
+      "pocketPixels": [
+        [
+          66.97673797607422,
+          93.48837280273438
+        ],
+        [
+          1853.0233154296875,
+          93.48837280273438
+        ],
+        [
+          1853.0233154296875,
+          986.5115966796875
+        ],
+        [
+          66.97675323486328,
+          986.5115966796875
+        ]
+      ]
+    },
+    "phoneFrame": {
+      "sceneVersion": 0,
+      "mediaGeneration": 2,
+      "tableVersion": 0,
+      "sourcePositionMs": 2179,
+      "paths": 0,
+      "markers": 0
+    },
+    "presentation": {
+      "enabled": false,
+      "candidateCount": 0,
+      "capturedAt": 0,
+      "updatedAt": 0,
+      "expiresAt": 0,
+      "candidateIndex": -1
+    }
+  },
+  "presentation": {
+    "shotChoicesEnabled": false,
+    "phone": {
+      "mode": 0,
+      "shotId": null,
+      "tableVersion": 0
+    },
+    "tv": {
+      "mode": 0,
+      "shotId": null,
+      "tableVersion": 0
+    }
+  },
+  "capture": "Active",
+  "host": true,
+  "calibrated": true
+}

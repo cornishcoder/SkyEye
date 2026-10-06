@@ -8,6 +8,7 @@ import android.view.*;
 import android.widget.FrameLayout;
 import androidx.media3.common.*;
 import androidx.media3.exoplayer.ExoPlayer;
+import org.json.JSONObject;
 
 public final class PlayerBridge {
     public interface Listener { void onError(String error); void onPlaying(boolean playing); }
@@ -17,6 +18,8 @@ public final class PlayerBridge {
     private volatile String phoneScene="{}",phoneFraming="{}";
     private final android.os.Handler retry=new android.os.Handler(android.os.Looper.getMainLooper());private long generation;private String activeUrl="";private boolean released;
     private int rotation;private int videoWidth=1920,videoHeight=1080;private org.json.JSONObject scene,tvScene;private boolean sceneApplied;private Bitmap captureScratch;private final android.graphics.Paint videoPaint=new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG|android.graphics.Paint.FILTER_BITMAP_FLAG|android.graphics.Paint.DITHER_FLAG);
+    private boolean diagnostics;private long decodedFrames,textureFrames,measurementStart,lastTextureNs,lastReleaseNs;private double releaseToTextureMs;
+    public void setDiagnostics(boolean enabled){diagnostics=enabled;if(measurementStart==0)measurementStart=System.nanoTime();}
     public PlayerBridge(Activity context,Listener listener){
         this.listener=listener;texture=new TextureView(context);texture.setOpaque(false);player=new ExoPlayer.Builder(context).build();player.setVideoTextureView(texture);player.setVolume(0);
         container=new FrameLayout(context);container.setBackgroundColor(android.graphics.Color.BLACK);container.addView(texture,new FrameLayout.LayoutParams(-1,-1));
@@ -24,7 +27,10 @@ public final class PlayerBridge {
         overlay.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);container.addView(overlay,new FrameLayout.LayoutParams(-1,-1));
         retry.post(new Runnable(){public void run(){if(released)return;overlay.invalidate();retry.postDelayed(this,200);}});
         texture.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->transform());
-        player.setVideoFrameMetadataListener((pts,release,format,mediaFormat)->annotationRecorder.frame(pts,release));
+        player.setVideoFrameMetadataListener((pts,release,format,mediaFormat)->{annotationRecorder.frame(pts,release);if(diagnostics){decodedFrames++;lastReleaseNs=release;}});
+        // Preserve Media3's surface lifecycle listener; observe its texture callback.
+        TextureView.SurfaceTextureListener delegate=texture.getSurfaceTextureListener();
+        texture.setSurfaceTextureListener(new TextureView.SurfaceTextureListener(){public void onSurfaceTextureAvailable(android.graphics.SurfaceTexture t,int w,int h){delegate.onSurfaceTextureAvailable(t,w,h);}public void onSurfaceTextureSizeChanged(android.graphics.SurfaceTexture t,int w,int h){delegate.onSurfaceTextureSizeChanged(t,w,h);}public boolean onSurfaceTextureDestroyed(android.graphics.SurfaceTexture t){return delegate.onSurfaceTextureDestroyed(t);}public void onSurfaceTextureUpdated(android.graphics.SurfaceTexture t){delegate.onSurfaceTextureUpdated(t);if(diagnostics){textureFrames++;lastTextureNs=System.nanoTime();releaseToTextureMs=(lastTextureNs-lastReleaseNs)/1000000d;}}});
         player.addListener(new Player.Listener(){
             public void onPlayerError(PlaybackException e){listener.onError(activeUrl.contains(".m3u8")?"Viewing interrupted. Waiting for the live feed to recover.":"Downloaded clip could not be played.");long expected=generation;
                 if(activeUrl.contains(".m3u8"))retry.postDelayed(()->{if(!released&&expected==generation){player.prepare();player.play();}},3000);
@@ -44,7 +50,7 @@ public final class PlayerBridge {
     public String annotationMetrics(){return annotationRecorder.metrics();}
     public String sceneMetrics(){return phoneScene;}
     public String presentation(){return drawing.metrics();}
-    public String playbackMetrics(){try{return new org.json.JSONObject().put("playing",player.isPlaying()).put("mediaGeneration",generation).put("volume",player.getVolume()).put("rotation",rotation).put("width",videoWidth).put("height",videoHeight).put("positionMs",player.getCurrentPosition()).toString();}catch(Exception ignored){return "{}";}}
+    public String playbackMetrics(){try{return new org.json.JSONObject().put("playing",player.isPlaying()).put("mediaGeneration",generation).put("volume",player.getVolume()).put("rotation",rotation).put("width",videoWidth).put("height",videoHeight).put("positionMs",player.getCurrentPosition()).put("liveOffsetMs",player.getCurrentLiveOffset()==C.TIME_UNSET?JSONObject.NULL:player.getCurrentLiveOffset()).put("bufferedMs",player.getTotalBufferedDuration()).put("decodedFrames",decodedFrames).put("textureFrames",textureFrames).put("textureFps",measurementStart==0?0:textureFrames*1000000000d/(System.nanoTime()-measurementStart)).put("releaseToTextureMs",releaseToTextureMs).put("textureAgeMs",lastTextureNs==0?JSONObject.NULL:(System.nanoTime()-lastTextureNs)/1000000d).toString();}catch(Exception ignored){return "{}";}}
     public void setSceneTransform(String json){try{scene=json==null||json.isEmpty()?null:new org.json.JSONObject(json);}catch(Exception ignored){scene=null;}transform();}
     public void setTvSceneTransform(String json){try{tvScene=json==null||json.isEmpty()?null:new org.json.JSONObject(json);}catch(Exception ignored){tvScene=null;}}
     public byte[] snapshotForFraming(){if(!player.isPlaying()||!texture.isAvailable())return null;Bitmap bitmap=texture.getBitmap(960,540);if(bitmap==null)return null;try{java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream();bitmap.compress(Bitmap.CompressFormat.JPEG,90,bytes);return bytes.toByteArray();}finally{bitmap.recycle();}}

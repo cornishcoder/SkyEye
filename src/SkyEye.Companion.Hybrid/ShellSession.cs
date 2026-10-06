@@ -74,6 +74,7 @@ public sealed partial class ShellSession : IDisposable
     public void Attach(Bridge.PlayerBridge player, Bridge.CastBridge cast)
     {
         this.player = player; this.cast = cast; player.SetPortrait(true);
+        player.SetDiagnostics(SkyEye.Core.Analysis.PipelineDiagnostics.Enabled);
         lastScene = null;
         Android.Util.Log.Info("SkyEyeShell", "Native media handler attached");
         selection.Suspend();
@@ -280,6 +281,9 @@ public sealed partial class ShellSession : IDisposable
     public void Dispose()
     {
         if (disposed) return;
+#if SKYEYE_PERFORMANCE
+        StopPerformance();
+#endif
         Suspend(); disposed = true; clipLifetime.Cancel(); CancelClipTransfer(); clipLifetime.Dispose();
         table.Dispose();correctedClips?.Dispose();
         subscription.Dispose(); client.Dispose(); Agent.Dispose(); agentClient.Dispose();

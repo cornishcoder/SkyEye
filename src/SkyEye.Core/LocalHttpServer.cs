@@ -18,9 +18,9 @@ public sealed record HttpResponse(int Status, string ContentType, byte[]? Body =
 }
 
 // Small bounded HTTP/1.1 server used on Android; one request per connection.
-public sealed class LocalHttpServer(int port, Func<HttpRequest, CancellationToken, Task<HttpResponse>> handler) : IAsyncDisposable
+public sealed class LocalHttpServer(int port, Func<HttpRequest, CancellationToken, Task<HttpResponse>> handler, IPAddress? bindAddress = null) : IAsyncDisposable
 {
-    readonly TcpListener listener = new(IPAddress.Any, port);
+    readonly TcpListener listener = new(bindAddress ?? IPAddress.Any, port);
     readonly CancellationTokenSource lifetime = new();
     readonly SemaphoreSlim capacity = new(16);
     Task? run;

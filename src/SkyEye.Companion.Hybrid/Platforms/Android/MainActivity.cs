@@ -18,6 +18,9 @@ public class MainActivity : MauiAppCompatActivity
         SkyEye.Companion.MigrationAudit.Report(this);
         base.OnCreate(savedInstanceState);
         shell = IPlatformApplication.Current!.Services.GetRequiredService<ShellSession>();
+#if SKYEYE_PERFORMANCE
+        if (Intent?.GetBooleanExtra("skyeye-performance", false) == true) shell.EnablePerformance();
+#endif
         sheetBack = new(shell);
         OnBackPressedDispatcher.AddCallback(this, sheetBack);
         shell.Changed += UpdateBack;
