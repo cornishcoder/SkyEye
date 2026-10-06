@@ -25,6 +25,7 @@ public interface ICalibrationStore
 {
     Point[]? Load(string cameraIdentity);
     void Save(string cameraIdentity, Point[] corners);
+    void Forget(string cameraIdentity) { }
 }
 // Native frame bytes stay here, outside the app/agent control projection.
 public sealed record TableAnalysisSnapshot(long Generation, CameraScope? Source, string? CameraIdentity, TableCalibration? Calibration,
@@ -87,6 +88,15 @@ public sealed class TableAnalysisSession(ITableFrameSource frames, ITableAnalyze
     public void Invalidate()
     {
         lock (gate) { if (!disposed) InvalidateLocked(); }
+    }
+    public void InvalidateCalibration(bool forgetStored = false)
+    {
+        lock (gate)
+        {
+            ThrowIfDisposed();
+            if (forgetStored && state.CameraIdentity is { } identity) calibrations?.Forget(identity);
+            InvalidateLocked(); state = state with { Calibration = null, CalibrationId = "" };
+        }
     }
     void InvalidateLocked()
     {

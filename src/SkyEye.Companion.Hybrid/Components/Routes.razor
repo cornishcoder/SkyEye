@@ -39,6 +39,8 @@
                 @if (Session.TvLiveConfirmation.Length > 0) { <p class="hint" role="status">@Session.TvLiveConfirmation</p> }
                 <button class="secondary" disabled="@busy" @onclick="ChooseTv">Choose TV</button>
                 <button class="secondary" disabled="@(busy || !Session.CanCastLive || !Session.TvConnected)" @onclick="Session.PlayTv">Play live on TV</button>
+                <button class="secondary" disabled="@(busy || !Session.CanCastLive)" @onclick="() => Session.SetTvCorrectionAsync(!Session.TvCorrectionRequested)">@(Session.TvCorrectionRequested ? "Original live TV view" : "Corrected and branded TV view")</button>
+                <p class="hint">Original live TV uses camera framing. The corrected and branded view follows your stored calibration. Phone correction is independent.</p>
                 <button class="quiet" disabled="@(busy || !Session.TvConnected)" @onclick="Session.StopTv">Disconnect TV</button>
                 </section>
                 <TableControls Session="Session" Busy="busy" Version="Session.Agent.State.Value.Version" Calibrate="CalibrateTable" Correct="CorrectTable" Confirm="ConfirmTable" />

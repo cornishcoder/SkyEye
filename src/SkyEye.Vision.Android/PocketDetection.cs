@@ -11,6 +11,7 @@ public sealed partial class VisionAnalyzer
 {
     public PocketLayout? FindPockets(byte[] jpeg, CancellationToken cancellation = default)
     {
+        SkyEye.Core.Analysis.PipelineDiagnostics.Count("pocketDetections");
         Load(); cancellation.ThrowIfCancellationRequested();
         using var source = Decode(jpeg); using var frame = new MatLease(new Mat());
         double scale = Math.Min(1, 960.0 / source.Value.Cols());

@@ -32,7 +32,7 @@ public sealed partial class ShellSession
         : edit.Corners.Count == 4 ? "Use these points only if they match the cloth boundary." : "Tap the cloth corners in order: top right, bottom right, bottom left, top left.";
 
     void InitializeTable() => table = new(new PlayerTableFrameSource(() => player, () => app.State.Camera, () => active && selection.Kind == ViewingSource.Live), new VisionAnalyzer(),
-        new CameraCalibrationStore(Android.App.Application.Context, () => client.Address));
+        new CameraCalibrationStore(Android.App.Application.Context, () => client.Address, GeometryKey));
     void BindTable(SkyEyeState state) => table.Bind(state.Camera, state.Advice.TargetGroup.ToString().ToLowerInvariant());
     void ObserveTable()
     {
@@ -75,6 +75,7 @@ public sealed partial class ShellSession
         var token = foreground.Token; DismissNotice(); suppressShotLoop = true; StopShotScenes(closeRelay:false); ClearSceneCheck();
         try
         {
+            table.InvalidateCalibration(forgetStored: true);
             await ClearShotCatalogAsync(token); player?.SetOverlay("{}");
             var draft = await table.PrepareCalibrationAsync(token);
             if (token.IsCancellationRequested || disposed || draft.Generation != table.State.Generation) return;

@@ -271,6 +271,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer
     }
     public Point[]? FindCorners(byte[] jpeg)
     {
+        PipelineDiagnostics.Count("calibrationDetections");
         Load(); using var frame = Decode(jpeg); using var gray = new MatLease(new Mat()); using var edges = new MatLease(new Mat()); using var circles = new MatLease(new Mat()); using var size = new Size(7, 7);
         Imgproc.CvtColor(frame.Value, gray.Value, Imgproc.ColorBgr2gray); Imgproc.GaussianBlur(gray.Value, gray.Value, size, 0); Imgproc.Canny(gray.Value, edges.Value, 170, 200);
         double scale = Math.Min(frame.Value.Rows(), frame.Value.Cols()) / 1000.0;

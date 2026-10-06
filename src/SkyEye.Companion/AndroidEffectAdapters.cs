@@ -9,7 +9,7 @@ using Point = SkyEye.Core.Point;
 
 namespace SkyEye.Companion;
 
-public sealed class CameraCalibrationStore(Context context, Func<string> address) : ICalibrationStore
+public sealed class CameraCalibrationStore(Context context, Func<string> address, Func<string>? geometry = null) : ICalibrationStore
 {
     string Key(string identity)
     {
@@ -20,11 +20,18 @@ public sealed class CameraCalibrationStore(Context context, Func<string> address
     }
     public Point[]? Load(string cameraIdentity)
     {
-        var stored = context.GetSharedPreferences("skyeye", FileCreationMode.Private)!.GetString(Key(cameraIdentity), null);
+        var preferences = context.GetSharedPreferences("skyeye", FileCreationMode.Private)!;
+        var key = Key(cameraIdentity);
+        var storedGeometry = preferences.GetString(key + "-geometry", "1920x1080:fixed");
+        if (geometry is not null && storedGeometry != geometry()) return null;
+        var stored = preferences.GetString(key, null);
         return stored is null ? null : JsonSerializer.Deserialize<Point[]>(stored, JsonDefaults.Options);
     }
     public void Save(string cameraIdentity, Point[] corners) => context.GetSharedPreferences("skyeye", FileCreationMode.Private)!.Edit()!
-        .PutString(Key(cameraIdentity), JsonSerializer.Serialize(corners, JsonDefaults.Options))!.Apply();
+        .PutString(Key(cameraIdentity), JsonSerializer.Serialize(corners, JsonDefaults.Options))!
+        .PutString(Key(cameraIdentity) + "-geometry", geometry?.Invoke() ?? "1920x1080:fixed")!.Apply();
+    public void Forget(string cameraIdentity) => context.GetSharedPreferences("skyeye", FileCreationMode.Private)!.Edit()!
+        .Remove(Key(cameraIdentity))!.Remove(Key(cameraIdentity) + "-geometry")!.Apply();
 }
 
 public sealed class AndroidPortraitClipExporter(Context context) : IPortraitClipExporter, IClipGeometryPreparation

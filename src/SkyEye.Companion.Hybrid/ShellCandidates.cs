@@ -170,9 +170,14 @@ public sealed partial class ShellSession
     }
     void ManageShotRelay()
     {
-        bool needed = !TvReplaySelected && active && Playing && selection.Kind == ViewingSource.Live && CanCastLive && !EditingTable
-            && true; // The composed feed also carries the permanent watermark in whole-camera mode.
-        if (!needed) { CloseShotRelay(); return; }
+        bool needed = TvConnected && !TvReplaySelected && active && Playing && selection.Kind == ViewingSource.Live && CanCastLive && !EditingTable
+            && (TvCorrectionRequested || app.State.Presentation.Tv.Mode is ShotDisplayMode.Cycling or ShotDisplayMode.Pinned);
+        if (!needed)
+        {
+            CloseShotRelay();
+            if (!TvReplaySelected && CanCastLive && effects.Latest is { } live) cast?.Configure(live.Stream, true);
+            return;
+        }
         if (shotRelay is null && sceneRelayClosing.IsCompleted && Android.OS.SystemClock.ElapsedRealtime() >= relayRetryAt)
         {
             try

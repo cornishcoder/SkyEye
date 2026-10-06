@@ -66,6 +66,7 @@ public sealed partial class ShellSession
                 pipeline = PipelineDiagnostics.Snapshot(),
                 player = JsonSerializer.Deserialize<JsonElement>(player?.PlaybackMetrics() ?? "{}"),
                 annotations = JsonSerializer.Deserialize<JsonElement>(player?.AnnotationMetrics() ?? "{}"),
+                framing = JsonSerializer.Deserialize<JsonElement>(player?.FramingMetrics() ?? "{}"),
                 encoder = JsonSerializer.Deserialize<JsonElement>(shotRelay?.Metrics ?? "{}"),
                 presentation = app.State.Presentation,
                 version = app.State.Version, choices = app.State.ShotChoices,

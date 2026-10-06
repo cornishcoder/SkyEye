@@ -137,8 +137,9 @@ public sealed partial class ShellSession
         if (!TvConnected) { TvStatus = "Choose a TV before playing live"; Publish(); return; }
         tvReplay.Clear();
         correctedClips.ClearServing();
-        var liveSource=sceneRelay is { Ready:true }?sceneRelay.Url:shotRelay is { Ready:true }?shotRelay.Url:null;
-        if(liveSource is null){TvStatus="Preparing the live table feed�";EnsureShotLoop();Publish();return;}
+        var compose = TvCorrectionRequested || app.State.Presentation.Tv.Mode is SkyEye.Core.Application.ShotDisplayMode.Cycling or SkyEye.Core.Application.ShotDisplayMode.Pinned;
+        var liveSource=sceneRelay is { Ready:true }?sceneRelay.Url:shotRelay is { Ready:true }?shotRelay.Url:!compose?view.Stream:null;
+        if(liveSource is null){TvStatus="Preparing the live table feed…";EnsureShotLoop();Publish();return;}
         var request = tvLive.Begin(app.State.Camera.ConnectionId, DateTimeOffset.UtcNow);
         Message = "Sending the live table to TV…";
         cast.PlayLive(liveSource, request); TvStatus = "Sending the live table to TV…"; Publish();
