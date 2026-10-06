@@ -18,7 +18,7 @@ public sealed partial class AppCoordinator
     {
         this.observerError = observerError; this.clipSaves = clipSaves; this.cameraControls = cameraControls; sceneClock = clock ?? TimeProvider.System; this.observations = observations;
         this.gameJournal = gameJournal;
-        try { game = gameJournal?.Load() ?? SkyEye.GameState.GameSession.Empty; state = state with { Game = game.State }; }
+        try { game = gameJournal?.Load() ?? SkyEye.GameState.GameSession.Empty; state = state with { Game = game.State, Match = MatchView.From(game) }; }
         catch (IOException) { gameUnavailable = true; state = state with { GameError = "Game history unavailable. Preserve the journal and repair it before continuing." }; }
     }
     public SkyEyeState State => Volatile.Read(ref state);

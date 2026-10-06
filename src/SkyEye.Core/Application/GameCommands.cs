@@ -2,7 +2,7 @@ using SkyEye.GameState;
 
 namespace SkyEye.Core.Application;
 
-public sealed record SubmitGameInput(GameInputEnvelope Input) : SkyEyeCommand;
+public sealed record SubmitGameInput(GameInputEnvelope Input, long? ExpectedGameVersion = null) : SkyEyeCommand;
 
 public sealed partial class AppCoordinator
 {
@@ -14,22 +14,29 @@ public sealed partial class AppCoordinator
     CommandReceipt GameCommand(CommandEnvelope envelope, SubmitGameInput command)
     {
         if (gameUnavailable) return Receipt(envelope, CommandOutcome.Failed, state.GameError!);
-        if (command.Input is null || envelope.OperationId != command.Input.Id || !state.Camera.CanControl
-            || envelope.Origin == CommandOrigin.Vision && (command.Input.Input is PlayerCorrection or StartMatch or StartFrame
+        bool declared = command.Input?.Input is StartMatch or StartFrame or FinishMatch or DeclareColours or UndoDecision or PlayerCorrection;
+        bool local = declared && command.Input!.Source is null && state.Camera.ConnectionId == Guid.Empty && envelope.Origin is CommandOrigin.Touch or CommandOrigin.Sky;
+        if (command.Input is null || envelope.OperationId != command.Input.Id || !(local || state.Camera.CanControl)
+            || envelope.Origin == CommandOrigin.Vision && (declared
                 || command.Input.Provenance is Provenance.PlayerConfirmed or Provenance.PlayerCorrected)
             || command.Input.Source is { } scope && (scope.Camera != state.Camera.CameraIdentity
                 || scope.Connection is not null && scope.Connection != state.Camera.ConnectionId.ToString("N")))
-            return Receipt(envelope, CommandOutcome.Rejected, "Only the host can submit an explicit game command with its matching operation ID.");
+            return Receipt(envelope, CommandOutcome.Rejected, "Manage a local match before connecting, or become camera host. Use an explicit command with its matching operation ID.");
         var proposal = game.Accept(command.Input);
         if (proposal.Outcome == InputOutcome.Duplicate) return Receipt(envelope, CommandOutcome.Unchanged, proposal.Message) with { Duplicate = true };
         if (proposal.Outcome != InputOutcome.Applied) return Receipt(envelope, proposal.Outcome switch
         { InputOutcome.Stale => CommandOutcome.Stale, InputOutcome.Conflict => CommandOutcome.Conflict, _ => CommandOutcome.Rejected }, proposal.Message);
-        if (envelope.ExpectedVersion != state.Version) return Receipt(envelope, CommandOutcome.Stale, "The application changed; submit against its current version.");
+        if (command.ExpectedGameVersion is { } expected ? expected != game.State.Version : envelope.ExpectedVersion != state.Version)
+            return Receipt(envelope, CommandOutcome.Stale, "The match changed; use its current controls.");
         try { gameJournal?.Save(game, proposal.Session); }
         catch (IOException) { return Receipt(envelope, CommandOutcome.Failed, "Game history could not be saved. Previous state retained."); }
         game = proposal.Session;
-        var updated = ClearShotCatalog(state) with { Version = checked(state.Version + 1), Game = game.State,
-            GameTableCurrent = command.Input.Input is not (StartMatch or StartFrame or SelectSource)
+        var group = game.State.Frame is { Winner: null } frame && game.State.Match is { Finished: false }
+            && frame.Colours.TryGetValue(frame.CurrentPlayer.Value, out var assigned)
+                ? assigned.Value == BallColour.Red ? AdviceTargetGroup.Red : assigned.Value == BallColour.Yellow ? AdviceTargetGroup.Yellow : AdviceTargetGroup.Open
+                : AdviceTargetGroup.Open;
+        var updated = ClearShotCatalog(state) with { Version = checked(state.Version + 1), Game = game.State, Match = MatchView.From(game), Advice = new(group),
+            GameTableCurrent = command.Input.Input is not (StartMatch or StartFrame or SelectSource or FinishMatch or UndoDecision)
                 && state.GameTableCurrent && !game.State.Table.Uncertain && game.State.Table.Motion == TableMotion.Settled };
         Volatile.Write(ref state, updated); Notify(state);
         return Receipt(envelope, CommandOutcome.Applied, proposal.Message);
@@ -53,6 +60,6 @@ public sealed partial class AppCoordinator
         try { gameJournal?.Save(game, accepted.Session); }
         catch (IOException) { return next with { GameTableCurrent = false, GameError = "Observation received but game history could not be saved." }; }
         game = accepted.Session;
-        return next with { Game = game.State, GameTableCurrent = !game.State.Table.Uncertain && game.State.Table.Motion == TableMotion.Settled, GameError = null };
+        return next with { Game = game.State, Match = MatchView.From(game), GameTableCurrent = !game.State.Table.Uncertain && game.State.Table.Motion == TableMotion.Settled, GameError = null };
     }
 }

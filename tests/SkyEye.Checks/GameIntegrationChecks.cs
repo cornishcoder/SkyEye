@@ -82,8 +82,8 @@ static class GameIntegrationChecks
                 "Stale application command cannot mutate game state");
             Check((await app.DispatchAsync(new(stale.Id, CommandOrigin.Vision, app.State.Version, new SubmitGameInput(stale)))).Outcome == CommandOutcome.Rejected,
                 "Perception cannot impersonate player correction");
-            Check((await new AppCoordinator().DispatchAsync(new(match.Id, CommandOrigin.Touch, 0, new SubmitGameInput(match)))).Outcome == CommandOutcome.Rejected,
-                "Guest/unowned app cannot mutate game");
+            Check((await new AppCoordinator().DispatchAsync(new(match.Id, CommandOrigin.Touch, 0, new SubmitGameInput(match)))).Succeeded,
+                "A declared local match can start independently of camera connection");
             Check(!app.State.HasFreshGameTable(clock.GetUtcNow().AddSeconds(7)), "A retained table cannot claim fresh observation indefinitely");
             frames.Hold();
             var pending = Observe(); await frames.Entered.Task;
