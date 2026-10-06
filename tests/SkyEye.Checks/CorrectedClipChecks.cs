@@ -31,11 +31,26 @@ static class CorrectedClipChecks
             var failingMetadata=new CorrectedClipStore(Path.Combine(root,"failed-annotations"),metadata:(c,path)=>throw new IOException("fixture metadata failure"));
             try{await failingMetadata.PrepareAsync(clip,transfer,renderer);throw new Exception("Expected annotation publication failure");}catch(IOException){}
             Check(failingMetadata.Catalogue().Length==0&&!Directory.EnumerateDirectories(Path.Combine(root,"failed-annotations"),"*.part").Any(),"failed sidecar cannot publish incomplete media bundle");
+            var snapshotRenderer=new SnapshotRenderer();
+            var snapshotStore=new CorrectedClipStore(Path.Combine(root,"frozen"),metadata:(c,path)=>File.WriteAllText(Path.Combine(path,"annotations.json"),snapshotRenderer.Version.ToString()));
+            var frozen=await snapshotStore.PrepareAsync(clip,transfer,snapshotRenderer);
+            Check(frozen.Manifest.Render.Profile=="scene1"&&File.ReadAllText(frozen.Portrait)=="scene1"&&File.ReadAllText(frozen.Landscape)=="scene1","mutable live journal cannot change one orientation midway through frozen render");
+            var amended=await snapshotStore.PrepareAsync(clip,transfer,snapshotRenderer);
+            Check(amended.Manifest.Render.Profile=="scene2"&&File.ReadAllText(amended.Portrait)=="scene2","amended journal invalidates prior derivative and publishes a new frozen pair");
             Console.WriteLine("PASS corrected derivatives: originals, paired atomic publication, restart/hash/geometry invalidation, retained-source repair, cancellation/failure, temporary isolation/capacity/expiry and interrupted publication recovery");
         }
         finally{if(!Path.GetFullPath(root).StartsWith(Path.GetFullPath(Path.GetTempPath()),StringComparison.OrdinalIgnoreCase))throw new Exception("Unexpected fixture root");Directory.Delete(root,true);}
     }
     sealed class Transfer(byte[] bytes):IClipTransfer{public int Downloads;public Task<Clip[]> ListAsync(CancellationToken ct)=>Task.FromResult(Array.Empty<Clip>());public async Task DownloadAsync(Clip clip,string path,Action<long> progress,CancellationToken ct){Downloads++;await File.WriteAllBytesAsync(path,bytes,ct);progress(bytes.Length);}public void Dispose(){}}
     sealed class Renderer:ICorrectedClipRenderer{public int Renders,Version=1;public bool Fail;public CancellationTokenSource? Cancel;public Task<CorrectedRenderInfo> PrepareAsync(Clip clip,string source,CancellationToken ct)=>Task.FromResult(new CorrectedRenderInfo("profile"+Version,new string('A',64),10,15));public async Task RenderAsync(Clip clip,string source,string portrait,string landscape,CorrectedRenderInfo expected,CancellationToken ct){Renders++;await File.WriteAllTextAsync(portrait,"portrait"+Version,ct);if(Fail)throw new IOException("fixture failure");Cancel?.Cancel();ct.ThrowIfCancellationRequested();await File.WriteAllTextAsync(landscape,"landscape"+Version,ct);}}
+    sealed class SnapshotRenderer:ICorrectedClipRenderer,ICorrectedClipSnapshotRenderer
+    {
+        public int Version=1;
+        static CorrectedRenderInfo Info(int version)=>new("scene"+version,new string('A',64),10,15);
+        public Task<CorrectedRenderInfo> PrepareAsync(Clip clip,string original,CancellationToken ct)=>Task.FromResult(Info(Version));
+        public Task<CorrectedRenderInfo> PrepareSnapshotAsync(Clip clip,string original,CancellationToken ct)=>Task.FromResult(Info(int.Parse(File.ReadAllText(Path.Combine(Path.GetDirectoryName(original)!,"annotations.json")))));
+        public async Task RenderAsync(Clip clip,string original,string portrait,string landscape,CorrectedRenderInfo expected,CancellationToken ct)
+        {await File.WriteAllTextAsync(portrait,expected.Profile,ct);Version=2;await File.WriteAllTextAsync(landscape,expected.Profile,ct);}
+    }
     sealed class Clock:TimeProvider{long ticks;public override long GetTimestamp()=>ticks;public override long TimestampFrequency=>TimeSpan.TicksPerSecond;public void Advance(int seconds)=>ticks+=seconds*TimeSpan.TicksPerSecond;}
 }

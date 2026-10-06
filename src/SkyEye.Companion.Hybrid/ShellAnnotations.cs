@@ -107,4 +107,31 @@ public sealed partial class ShellSession
         catch(Exception e){SceneCheckStatus="Annotation journal check failed: "+e.Message;}
         finally{var result=SceneCheckStatus;ClearSceneCheck();SceneCheckStatus=result;if(!disposed)Publish();}
     });
+    CorrectedClip? checkedAnnotatedReplay;
+    public Task CheckAnnotatedExportAsync()=>MainThread.InvokeOnMainThreadAsync(async()=>
+    {
+        if(!IsLab||foreground is null||!CanSceneCheck)return;var token=foreground.Token;
+        try
+        {
+            await CheckAnnotationJournalAsync();
+            if(!SceneCheckStatus.StartsWith("Annotation journal passed"))return;
+            SceneCheckStatus="Preparing declared annotated replay…";Publish();
+            var replay=await clips.RecentAsync(30,token);var prepared=await correctedClips.RecentAsync(replay,token);
+            var journal=JsonSerializer.Deserialize<ClipAnnotationJournal>(File.ReadAllText(Path.Combine(Path.GetDirectoryName(prepared.Original)!,"annotations.json")),JsonDefaults.Options)!;
+            journal.Validate();if(journal.SourceSha256!=replay.Asset.Clip.Sha256||journal.Origin!=replay.Asset.Clip.RecordingOrigin
+                ||new[]{"Journal candidate 1","Journal candidate 2","Journal pinned","Journal expiry"}.Any(label=>!journal.Spans.Any(s=>s.Scene?.Caption==label)))throw new IOException("Actual replay history incomplete.");
+            string root=Android.App.Application.Context.GetExternalFilesDir(null)!.AbsolutePath;
+            foreach(var pair in new[]{(prepared.Original,"live-original.mp4"),(prepared.Portrait,"live-portrait.mp4"),(prepared.Landscape,"live-landscape.mp4")})File.Copy(pair.Item1,Path.Combine(root,pair.Item2),true);
+            await File.WriteAllTextAsync(Path.Combine(root,"live-annotations.json"),JsonSerializer.Serialize(journal,JsonDefaults.Options),token);
+            await File.WriteAllTextAsync(Path.Combine(root,"live-clip.json"),JsonSerializer.Serialize(replay.Asset.Clip,JsonDefaults.Options),token);
+            await File.WriteAllTextAsync(Path.Combine(root,"annotated-export-check.json"),JsonSerializer.Serialize(new{passed=true,declaredLiveFixture=true,clip=replay.Asset.Clip,prepared.Manifest.Render,
+                prepared.Manifest.PortraitSha256,prepared.Manifest.LandscapeSha256,journalSha256=RecordedAnnotationPlan.Fingerprint(journal)},JsonDefaults.Options),token);
+            checkedAnnotatedReplay=prepared;SceneCheckStatus="Annotated replay prepared · phone and TV files ready.";
+            if(TvConnected){var clip=replay.Asset.Clip;tvLive.Clear();var request=tvReplay.Begin(replay.ConnectionId,clip.Id,"Declared annotated replay",clip.Duration);
+                cast!.PlayClip(correctedClips.Serve(prepared,true),clip.Id,"Declared annotated replay",(long)Math.Ceiling(clip.Duration*1000),request);}
+        }
+        catch(OperationCanceledException){}
+        catch(Exception e){SceneCheckStatus="Annotated export check failed: "+e.Message;}
+        finally{if(!disposed)Publish();}
+    });
 }

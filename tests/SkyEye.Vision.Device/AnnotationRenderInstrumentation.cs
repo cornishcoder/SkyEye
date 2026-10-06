@@ -13,14 +13,15 @@ public sealed class AnnotationRenderInstrumentation:global::Android.App.Instrume
 {
     public AnnotationRenderInstrumentation() { }
     public AnnotationRenderInstrumentation(IntPtr handle,global::Android.Runtime.JniHandleOwnership ownership):base(handle,ownership) { }
-    bool portrait;
-    public override void OnCreate(global::Android.OS.Bundle? args){base.OnCreate(args);portrait=args?.GetString("portrait")=="true";Start();}
+    bool portrait,live;
+    public override void OnCreate(global::Android.OS.Bundle? args){base.OnCreate(args);portrait=args?.GetString("portrait")=="true";live=args?.GetString("mode")=="live";Start();}
     public override void OnStart(){base.OnStart();var json=RunAsync().GetAwaiter().GetResult();using var bundle=new global::Android.OS.Bundle();bundle.PutString("result",json);Finish(global::Android.App.Result.Ok,bundle);}
     async Task<string> RunAsync()
     {
         var context=TargetContext!;string root=context.GetExternalFilesDir(null)!.AbsolutePath;object result;
         try
         {
+            if(live)return await RunLiveAsync(context,root);
             string input=Path.Combine(root,"render-input.mp4"),output=Path.Combine(root,portrait?"annotated-portrait.mp4":"annotated-landscape.mp4"),plain=Path.Combine(root,"annotation-control.mp4");
             foreach(var path in new[]{output,plain})if(File.Exists(path))File.Delete(path);
             await using var file=File.OpenRead(input);string hash=Convert.ToHexString(await SHA256.HashDataAsync(file));file.Close();
@@ -44,4 +45,23 @@ public sealed class AnnotationRenderInstrumentation:global::Android.App.Instrume
         catch(Exception e){result=new{passed=false,portrait,error=e.ToString()};}
         var json=JsonSerializer.Serialize(result,JsonDefaults.Options);await File.WriteAllTextAsync(Path.Combine(root,portrait?"annotation-portrait-checks.json":"annotation-landscape-checks.json"),json);return json;
     }
+    async Task<string> RunLiveAsync(global::Android.Content.Context context,string root)
+    {
+        var clip=JsonSerializer.Deserialize<Clip>(File.ReadAllText(Path.Combine(root,"live-clip.json")),JsonDefaults.Options)!;
+        var annotations=JsonSerializer.Deserialize<ClipAnnotationJournal>(File.ReadAllText(Path.Combine(root,"live-annotations.json")),JsonDefaults.Options)!;
+        string input=Path.Combine(root,"live-original.mp4"),output=Path.Combine(root,portrait?"live-portrait.mp4":"live-landscape.mp4"),plain=Path.Combine(root,"live-control.mp4");
+        if(File.Exists(plain))File.Delete(plain);
+        var geometry=await new SkyEye.Companion.AndroidRecordedGeometry(Path.Combine(context.FilesDir!.AbsolutePath,"render-geometry")).AnalyzeAsync(input,clip.Sha256,clip.RecordingOrigin,default);
+        var video=RecordedRenderPlan.Create(geometry,geometry.Source,portrait?1080:1920,portrait?1920:1080,portrait);
+        var target=portrait?SceneTarget.Phone:SceneTarget.Tv;var plan=RecordedAnnotationPlan.Create(video,annotations,target);
+        var report=await new SkyEye.Companion.AndroidRecordedRenderer(context).RenderAsync(input,plain,video);
+        var labels=new[]{"Journal candidate 1","Journal candidate 2","Journal pinned"};
+        var points=labels.Select(label=>annotations.Spans.First(s=>s.Target==target&&s.Scene?.Caption==label))
+            .Concat(annotations.Spans.Where(s=>s.Target==target&&s.Scene is null&&s.EndUs-s.StartUs>300000).Take(2))
+            .Select(span=>{long pts=(span.StartUs+span.EndUs)/2-clip.RecordingOrigin!.StartUs;var p=video.Pixel(pts,new(.5,.5))!.Value;return new{ptsUs=pts,ink=span.Scene is null?-1:1,x=p.X,y=p.Y};}).ToArray();
+        var pixels=JsonSerializer.Deserialize<JsonElement>(UK.CO.Skyeye.Companion.Nativebridge.AnnotationPixelProof.Verify(output,plain,JsonSerializer.Serialize(points,JsonDefaults.Options))!);
+        var json=JsonSerializer.Serialize(new{passed=true,actualCameraReplay=true,declaredScenes=true,portrait,clip.Id,clip.Sha256,pixels,controlReport=report,outputSha256=Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(output)))},JsonDefaults.Options);
+        await File.WriteAllTextAsync(Path.Combine(root,portrait?"live-annotation-portrait-checks.json":"live-annotation-landscape-checks.json"),json);return json;
+    }
+
 }

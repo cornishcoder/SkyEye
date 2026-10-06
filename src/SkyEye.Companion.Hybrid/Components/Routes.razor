@@ -59,7 +59,7 @@
                     </section>
                 }
                 @if (error.Length > 0) { <p class="notice" role="alert">@error</p> }
-                @if (Session.IsLab) { <details class="lab-tools"><summary>Lab checks</summary><button class="secondary" disabled="@busy" @onclick="Preview">Play test video</button><p class="hint">A recorded playback check, separate from your live table.</p><button class="secondary" disabled="@(!Session.CanFrameTable)" @onclick="Session.ToggleFrameGuides">@(Session.FrameGuides ? "Hide framing guides" : "Show framing guides")</button><p class="hint">Alignment guides for this lab. They are not shot suggestions.</p><button class="secondary" disabled="@(!Session.SceneCheck && !Session.CanSceneCheck)" @onclick="SceneCheck">@(Session.SceneCheck ? "Clear scene check" : "Show scene check")</button><p class="hint">@Session.SceneCheckStatus</p><button class="secondary" disabled="@(!Session.CanSceneCheck || busy)" @onclick="JournalCheck">Check annotation journal</button></details> }
+                @if (Session.IsLab) { <details class="lab-tools"><summary>Lab checks</summary><button class="secondary" disabled="@busy" @onclick="Preview">Play test video</button><p class="hint">A recorded playback check, separate from your live table.</p><button class="secondary" disabled="@(!Session.CanFrameTable)" @onclick="Session.ToggleFrameGuides">@(Session.FrameGuides ? "Hide framing guides" : "Show framing guides")</button><p class="hint">Alignment guides for this lab. They are not shot suggestions.</p><button class="secondary" disabled="@(!Session.SceneCheck && !Session.CanSceneCheck)" @onclick="SceneCheck">@(Session.SceneCheck ? "Clear scene check" : "Show scene check")</button><p class="hint">@Session.SceneCheckStatus</p><button class="secondary" disabled="@(!Session.CanSceneCheck || busy)" @onclick="JournalCheck">Check annotation journal</button><button class="secondary" disabled="@(!Session.CanSceneCheck || busy)" @onclick="AnnotatedExportCheck">Check annotated replay export</button></details> }
             </section>
         }
         @if (Session.ControlsVisible)
@@ -88,6 +88,7 @@
     void Close() => Session.SetSheet(false);
     async Task Connect() => await Run(() => Session.ConnectAsync(address), close: true);
     async Task SceneCheck() => await Run(Session.ToggleSceneCheckAsync);
+    async Task AnnotatedExportCheck() => await Run(Session.CheckAnnotatedExportAsync);
     async Task JournalCheck() => await Run(Session.CheckAnnotationJournalAsync);
     async Task Preview() => await Run(Session.FixtureAsync, close: true);
     async Task Find() => await Run(Session.FindCamerasAsync);
