@@ -50,6 +50,10 @@ static class InternationalRulesChecks
         Check(Rule(new(false, DeclaredLegality.StandardFoul, BlackPotted: true, RedsBefore: 0), red).Winner == "mike", "6f(3): foul on black loses frame");
         try { Rule(new(false, DeclaredLegality.Legal, RedsPotted: 2, RedsBefore: 1), red); throw new Exception("Impossible count accepted"); }
         catch (ArgumentException) { }
+        try { Rule(new(false, DeclaredLegality.Legal, FirstContact: BallColour.Yellow), red); throw new Exception("Contradictory contact accepted"); }
+        catch (ArgumentException) { }
+        Check(Rule(new(false, DeclaredLegality.Legal, FirstContact: BallColour.Black), red).Pending,
+            "Unknown before-count cannot prove that first-contact black was on");
         Console.WriteLine("PASS International 2c declarations: break exceptions, open-table calls/groups, combinations, turn/foul, counts/black and uncertainty");
     }
     static void Check(bool yes, string message) { if (!yes) throw new Exception(message); }

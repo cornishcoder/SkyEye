@@ -40,12 +40,12 @@ public static class InternationalEightball
             if (!frame.OpenTable) return Pending("A break needs an open table; review the declared colours.", "4h");
             if (shot.LegalBreak != true) return Pending(shot.LegalBreak == false ? "Re-rack required; opponent chooses who breaks. Resolve this manually." : "Declare whether the break was legal.", "4f", "4g");
             if (shot.Legality == DeclaredLegality.Unknown) return Pending("Declare any other break foul before changing the turn.", "4j");
+            if (shot.Legality == DeclaredLegality.LossOfFrame) return Pending("Break frame-loss declarations need manual referee review.", "4");
             breakComplete = true;
             if (shot.CueBallPotted && shot.Legality != DeclaredLegality.StandardFoul)
                 return Result(opponent, false, CueBallEntitlement.Baulk, null, false, "Incoming player has one visit with cue ball in hand from baulk.", "4j(1)");
             if (shot.CueBallOffTable || shot.Legality == DeclaredLegality.StandardFoul)
                 return Result(opponent, true, CueBallEntitlement.Anywhere, null, false, "Incoming player has one visit with cue ball in hand anywhere.", "4j(2)", "6e");
-            if (shot.Legality == DeclaredLegality.LossOfFrame) return Pending("Break frame-loss declarations need manual referee review.", "4");
             bool continueBreak = shot.Legality == DeclaredLegality.Legal && shot.RedsPotted + shot.YellowsPotted > 0;
             return Result(continueBreak ? shooter : opponent, false, CueBallEntitlement.None, null, false,
                 shot.BlackPotted ? "Re-spot the black; groups remain open." : "Legal break recorded; groups remain open.", "4h", "4i");
@@ -54,6 +54,14 @@ public static class InternationalEightball
         if (shot.Legality == DeclaredLegality.LossOfFrame)
             return Result(opponent, true, CueBallEntitlement.None, opponent, false, "Declared frame-loss foul awards the frame to the opponent.", "6f");
         bool foul = shot.CueBallPotted || shot.CueBallOffTable || shot.Legality == DeclaredLegality.StandardFoul;
+        if (!foul && shot.Legality == DeclaredLegality.Legal && group is not null && shot.FirstContact is { } contact)
+        {
+            int? beforeOwn = group == BallColour.Red ? redBefore : yellowBefore;
+            if (contact == BallColour.Black && beforeOwn is null)
+                return Pending("Confirm the group's before-count to establish whether black was on at first contact.", "3", "6p");
+            var on = beforeOwn == 0 ? BallColour.Black : group;
+            if (contact != on) throw new ArgumentException("The declared first contact contradicts legal-shot status. Review the legality or contact.");
+        }
         if (shot.BlackPotted)
         {
             if (foul || shot.Legality == DeclaredLegality.LossOfTurn)
