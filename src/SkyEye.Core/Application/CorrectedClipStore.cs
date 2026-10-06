@@ -10,6 +10,10 @@ public interface ICorrectedClipRenderer
     Task<CorrectedRenderInfo> PrepareAsync(Clip clip,string original,CancellationToken cancellation);
     Task RenderAsync(Clip clip,string original,string portrait,string landscape,CorrectedRenderInfo expected,CancellationToken cancellation);
 }
+public interface ICorrectedClipSnapshotRenderer
+{
+    Task<CorrectedRenderInfo> PrepareSnapshotAsync(Clip clip,string original,CancellationToken cancellation);
+}
 public sealed record CorrectedClipManifest(int Schema,Clip Clip,CorrectedRenderInfo Render,string PortraitSha256,string LandscapeSha256,long Bytes,DateTimeOffset CreatedAt);
 public sealed record CorrectedClip(CorrectedClipManifest Manifest,string Original,string Portrait,string Landscape);
 
@@ -70,11 +74,12 @@ public sealed class CorrectedClipStore
             if(old?.Clip==clip&&await Matches(retained,clip.Sha256,cancellation))File.Copy(retained,original);
             else{progress?.Invoke(new(ClipTransferStage.Downloading,0,clip.Bytes));await transfer.DownloadAsync(clip,original,n=>progress?.Invoke(new(ClipTransferStage.Downloading,n,clip.Bytes)),cancellation);}
             if(new FileInfo(original).Length!=clip.Bytes||!await Matches(original,clip.Sha256,cancellation))throw new IOException("Corrected export source verification failed.");
-            progress?.Invoke(new(ClipTransferStage.Preparing,clip.Bytes,clip.Bytes));var info=await renderer.PrepareAsync(clip,original,cancellation);
+            progress?.Invoke(new(ClipTransferStage.Preparing,clip.Bytes,clip.Bytes));metadata?.Invoke(clip,stage);
+            var info=renderer is ICorrectedClipSnapshotRenderer snapshot?await snapshot.PrepareSnapshotAsync(clip,original,cancellation):await renderer.PrepareAsync(clip,original,cancellation);
             await renderer.RenderAsync(clip,original,portrait,landscape,info,cancellation);cancellation.ThrowIfCancellationRequested();
             foreach(var path in new[]{portrait,landscape})if(new FileInfo(path) is not{Exists:true,Length:>0})throw new IOException("Corrected output unavailable.");
             async Task<string> Digest(string path){await using var file=File.OpenRead(path);return Convert.ToHexString(await SHA256.HashDataAsync(file,cancellation));}
-            metadata?.Invoke(clip,stage);cancellation.ThrowIfCancellationRequested();
+            cancellation.ThrowIfCancellationRequested();
             long bytes=Directory.EnumerateFiles(stage).Sum(path=>new FileInfo(path).Length);if(temporary&&TotalBytes()+bytes>TemporaryBudgetBytes)throw new IOException("Corrected recent replay exceeds temporary storage budget.");
             var manifest=new CorrectedClipManifest(1,clip,info,await Digest(portrait),await Digest(landscape),bytes,clock.GetUtcNow());
             await File.WriteAllTextAsync(Path.Combine(stage,"manifest.json"),JsonSerializer.Serialize(manifest,JsonDefaults.Options),cancellation);cancellation.ThrowIfCancellationRequested();
