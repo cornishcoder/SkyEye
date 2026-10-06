@@ -1,0 +1,51 @@
+# T13 - Make SkyEye Sing: implementation plan
+
+Status: planned, next after completed T12. The [user's full mission brief](t13-live-first-brief.md) is canonical. This plan organizes that mission into small, verifiable commits; it does not claim any performance target has passed.
+
+The previous T13 is now **T14: background corrected delivery and media resource acceptance**. Sequence: **T13 -> T14 -> T06 -> T07**. More perception accuracy, physics, game intelligence and UI features wait until this performance mission is handled.
+
+## Runtime contract
+
+- Pixel 10 Pro owns overhead capture, hardware encode, streaming and recording. Pixel 11 Pro XL owns display, requested perception, Sky-compatible commands and presentation. Chromecast Ultra is a presentation target. Moving expensive analysis to the camera requires measured justification.
+- Default phone and TV state is plain live footage. Full table detection and shot prediction are idle until an explicit touch or Sky/programmatic command needs an observation. Camera/session telemetry polling remains separate from perception.
+- A request selects the newest usable frame, performs one bounded observation, and returns source timestamp, frame age and measured duration. An unsettled or unclear table returns an honest result; it must not quietly start periodic retries or a permanent observation loop.
+- Display cycling over an already computed catalogue can remain two-second cycling. The ten-second candidate **analysis refresh** is removed. Stale/expired choices are cleared rather than refreshed automatically.
+- Phone and TV presentation are independently versioned: Live, ShotChoices, SelectedShot or Replay. Existing paths, ball/ghost/pocket highlights and labels prove an extensible, separately controllable annotation model. Clear affects the requested target and returns it to live.
+- Typed commands are shared by touch and Sky-compatible tools. Establish equivalents of `observe_table`, `set_phone_presentation`, `set_tv_presentation`, `show_shot_choices`, `show_shot`, `show_annotation` and `clear_annotations`; reuse existing command vocabulary where appropriate. Actual voice transport/API-key work remains separately deferred to A02-A05. Programmatic commands are an explicitly permitted acceptance route.
+- Video/frame/analysis queues are bounded. Replaced work cannot publish a stale result after a newer request, source switch, layout change or cancellation. Latest wins; discarded work is counted.
+
+## Measurement-first chunks
+
+Implement sequentially, commit after each meaningful verified change, and keep Android build lanes serialized. The runtime can continue recording during companion-only checks. Any necessary camera update/buffer reset must be made concrete and scheduled as an explicit recording break.
+
+| Chunk | Change | Verification and exit gate |
+| --- | --- | --- |
+| T13.01 | Instrument the existing pipeline before changing scheduling or transport. Add a development-only measurement harness and capture the current physical-device baseline. | Separate capture/encode/transport/receive/decode/display, frame acquisition/conversion/copy, vision/post-processing, composition and TV costs wherever observable. Record FPS, frame age, request counts, dropped/replaced requests, presentation and encoder activity. Obtain camera-event-to-phone-display timing with clock uncertainty and a physical event/frame correlation; label any source-to-render estimate separately. Record baseline p50/p95 only with adequate samples. |
+| T13.02 | Introduce the shared, scoped observation command and one bounded observation scheduler; remove implicit perception from telemetry polling and fixed-cadence candidate refresh in both companion routes. | Actual Pixel idle full-table analyses per minute = 0; idle prediction calls = 0. One explicit request produces one observation/result and stops. Burst requests coalesce or replace older pending work without queue growth; cancellation and changed-source results cannot publish. Preserve computed-choice cycling, invalidation and clear behavior. |
+| T13.03 | Measure and improve the smallest coherent live-media path. Tune the existing Media3/HLS buffering/live offset and segment/queue policy where evidence supports it. | Before/after physical Pixel 10 -> Pixel 11 timing, FPS, drops and capture continuity. Target <500 ms glass-to-glass, stretch <250 ms. If conventional HLS cannot reasonably meet the responsive-view target, record the failed limits and select a measured lower-latency phone path. Keep the working HLS/segments for recording, replay and Chromecast where useful. Do not replace transport on theoretical claims. |
+| T13.04 | Feed requested observations from the latest usable decoded companion frame, preserving source timestamp/age. | Compare decoded-frame acquisition/copy/conversion with the camera snapshot/JPEG round trip. Prefer direct frame access; if the current surface makes that impractical, implement the least-copy measured alternative and document it. No stale-frame backlog, duplicate camera image transfer solely for analysis, or silent live/recorded-source mixing. Record real-device observation p50/p95 and frame age. |
+| T13.05 | Complete independent presentation and annotation commands on the shared application surface. | Touch and Sky/programmatic commands yield identical state and receipts. Observe -> show choices -> select number two on TV -> show an existing cue/path annotation on phone -> clear one/both surfaces. Reject stale numbers/layout versions and retain intentional phone/TV differences. No perception work is triggered merely by changing presentation or rotating cached choices. |
+| T13.06 | Make rendering/encoding conditional on actual surface needs; remove the always-on annotation/composition cost from the plain-live default. | Both live surfaces have idle full detection/prediction and no continuous annotation encoding. Annotated presentation activates only its required work; clear releases it. Measure hardware-decode display and annotation/TV composition separately. Preserve calibration, automatic corners, watermark, correction, casting, journal timestamps and export behavior; do not disable an existing capability to manufacture the idle/latency result. |
+| T13.07 | Run integrated physical acceptance and publish the concise engineering report. | Verify live start, bounded requested perception, command parity, phone/TV selection and clear, existing camera/session control, calibration/detection/prediction, recording/replay/save/download/casting/recovery smoke flows. Report before/after latency, FPS, p50/p95 analysis/frame age, remaining expensive work, thermal observations and the evidence-based transport decision. Longer background/lock/network endurance remains T14. |
+
+The first implementation action is **T13.01**, not a broad refactor or a detector replacement. During the baseline, inspect these existing paths:
+
+- `ShellSession.PollAsync` currently couples camera refresh to `UpdateTableAsync`.
+- `ShellCandidates` and legacy `CandidateUi` currently refresh candidates on a fixed interval, including automatic settle retries.
+- `CameraTableFrameSource` currently requests a camera snapshot/JPEG; `ShellPockets` also acquires a JPEG from the player texture. Measure their costs and cadence separately.
+- `PlayerBridge` owns the current hardware decode/visible texture and recording timestamp mapping.
+- `ShellCandidates.ManageShotRelay`, `OverlayEncoder` and legacy cast configuration currently keep a composed feed running for branding/correction. They must be included in the measured default cost.
+
+## Decisions that require evidence
+
+**Plain live, watermark and correction:** Plain means no requested shot/advice annotations; it is not permission to silently remove branding or the user's automatic correction capability. Compare the current continuous copy/composite/encode path with an appropriate hardware/receiver/media path that can retain those capabilities without continuous annotation encoding. Record which work each presentation actually requires. Automatic corner detection remains automatic; measurement-driven initialization/source invalidation/requested refresh must replace unnecessary repeated expensive work without substituting manual picking. If an existing optional setting incurs unavoidable measured work, state that clearly and verify the brief's plain-live gate independently.
+
+**Transport:** Tune first, measure, then choose. Separate the responsive phone-view path from the archive/replay/TV path if that is the smallest justified improvement. Include glass-to-glass evidence and timestamp uncertainty; do not label decoder callbacks alone as photons on the display. Account for any clock/PTS changes in T11/T12 journals and baked replay annotations.
+
+**Observation scope:** Explicit observation records source generation/timeline, frame timestamp, age, layout version, duration and outcome. An observation on replay must be identified as recorded footage; it cannot masquerade as the latest live table. No speculative autonomous policies, neural-detector/TPU migration or perception-accuracy expansion belongs to this mission.
+
+## Completion report
+
+Deliver the seven items in the canonical brief: measured original bottlenecks, architecture changes, before/after latency, requested-analysis timings, remaining expensive work, whether the live transport should remain or be replaced later, and follow-up missions justified by measurements. State sample counts, conditions, observed versus estimated timing and any unmet gate. A passing build or fixture does not satisfy physical-device performance acceptance.
+
+T14 retains the old background/lock/local-phone-view corrected delivery, journal/export interruption recovery, longer session resource/quality/sync/thermal behavior and endurance acceptance. T13 includes bounded queues and a representative development thermal check, but does not quietly absorb that larger mission.
