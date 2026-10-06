@@ -23,7 +23,7 @@ dotnet build SkyEye.sln -c Debug -m:1
 
 The existing solution is pinned to .NET SDK 10.0.400. The [glow-up](docs/glow-up-plan.md) is being developed in a separate .NET 11 MAUI Blazor Hybrid build lane. Use `scripts/Build-SkyEye.ps1 -Target Baseline`, `-Target Hybrid` or `-Target All`; SDK selection and Android builds are explicit and sequential. See [progress](docs/glow-up-progress.md) for compatibility gates.
 
-Next roadmap delivery: **Match & Table State — R01**, a planned pure C# `SkyEye.GameState` core for canonical match/table state, ordered events and player corrections. See the [brief](docs/r01-match-table-state-brief.md) and [delivery plan](docs/r01-match-table-state-plan.md). Replay, rules, scoring and coaching will consume this model; the library is not implemented yet. T13/T14's remaining acceptance stays open, and voice/API-key work remains deferred.
+**Match & Table State — R01** is implemented: pure C# `SkyEye.GameState` provides canonical match/table state, ordered events and player corrections, with durable companion integration. See the [completion report](docs/r01-match-table-state-report.md) for APIs, checked scenarios and actual-versus-declared Pixel 11 evidence. Run `dotnet run --project tests/SkyEye.GameState.Checks` without Android or video. Replay, rules, scoring and coaching consume this model; those consumers and T13/T14's remaining acceptance stay separate, and voice/API-key work remains deferred.
 
 APKs embed their managed assemblies and can be installed directly using ADB or Android's installer. Use the ARM64 APKs for the physical phones. Apps have separate package IDs (`uk.co.skyeye.camera`, `uk.co.skyeye.companion`), leaving Maeve Watch intact.
 

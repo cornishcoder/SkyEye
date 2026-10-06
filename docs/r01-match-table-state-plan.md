@@ -1,6 +1,6 @@
 # R01 — Establish the Match & Table State Core
 
-6 October 2026 · Match & Table State epic · Immediate planning and delivery · Planned, not implemented.
+6 October 2026 · Match & Table State epic · R01.01-R01.07 implemented and verified. See the [completion report](r01-match-table-state-report.md) for actual APIs, device evidence and intentional limits.
 
 The [user brief](r01-match-table-state-brief.md) is canonical. This plan makes it deliverable in small checked chunks. R01 establishes an authoritative understanding of a game unfolding over time. Replay, rules, scoring, coaching, shot reconstruction and future 3D simulation are consumers of that model.
 
@@ -25,7 +25,7 @@ Existing ball detections must not be assumed to have durable cross-shot identity
 
 ## Bounded delivery chunks
 
-Each chunk includes meaningful scenario checks. Complete R01.01 first, then proceed in order. These describe proposed contracts, not implemented APIs.
+Each chunk includes meaningful scenario checks. The following sequence has landed in checked commits; the completion report describes the resulting APIs and scoped acceptance.
 
 | Chunk | Result | Acceptance |
 |---|---|---|
@@ -75,4 +75,4 @@ G01-G05 extend match management, scoring, durable history and user-facing undo u
 
 R01 needs no API key. A02-A05 remain deferred. The new priority does not close outstanding T13/T14 acceptance or introduce timer-driven perception. Full rules, first-contact adjudication, exhaustive detectors, conversational correction parsing, score HUD/statistics, replay/3D and physics remain deferred.
 
-At completion report: the library's responsibility; core commands/observations/events/state types; reducer/transition design; confidence/provenance/corrections; demonstrated scenario; application integration points; and intentional deferrals. Update [glow-up plan](glow-up-plan.md) and [progress](glow-up-progress.md) with tested evidence and limits. Until then R01 is planned, not complete.
+The [completion report](r01-match-table-state-report.md) records the library's responsibility, core types, reducer/transition design, provenance/corrections, demonstrated scenario, integration points and deferrals. The [glow-up plan](glow-up-plan.md) and [progress](glow-up-progress.md) reflect the delivered slice and remaining consumer work.

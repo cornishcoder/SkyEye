@@ -1,0 +1,17 @@
+{
+  "verifiedAt": "2026-10-06T20:28:05.9776431+01:00",
+  "sourceCommit": "c4bc24d6cad4c57c3262352909e93e7eb6305eb4",
+  "normalRelease": true,
+  "apkSha256": "4E3348EB0F7CFF102075F6381E367A53722ED3229F44435D74085A1D72BDB049",
+  "packageIdentity": "package:uk.co.skyeye.companion uid:10644",
+  "signingUidAndPrivateStorageVerifiedByGuardedInstaller": true,
+  "cameraStatus": "Active",
+  "hostUi": "You control this camera · Active",
+  "phoneUi": "Live table · silent",
+  "storedPhoneCorrection": true,
+  "tvUi": "TV playing rectangular table",
+  "backgroundTvServiceObservedForeground": true,
+  "diagnosticEndpointAbsent": true,
+  "physicalTvPixelsReconfirmed": false,
+  "voiceOrKeyTesting": false
+}

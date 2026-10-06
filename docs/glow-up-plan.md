@@ -1,16 +1,16 @@
 # SkyEye glow-up implementation plan
 
-4 October 2026 · Roadmap updated 6 October for immediate Match & Table State planning and delivery. This revision changes documentation only.
+4 October 2026 · Updated 6 October after delivering the Match & Table State core in checked chunks.
 
-Based on the complete three-turn conversation **SkyEye Agentic UI Benefits** and the current `C:\code\SkyEye` checkout at `f6ea29c`. The working tree was clean when reviewed.
+The original planning baseline was the three-turn conversation **SkyEye Agentic UI Benefits** and the `C:\code\SkyEye` checkout at `f6ea29c`. Current delivery status and evidence are recorded below and in the progress log.
 
-## Current delivery priority — Match & Table State
+## Current delivery status — Match & Table State
 
-**R01 — Establish the Match & Table State Core** is the next mission for immediate planning and delivery, in the new **Match & Table State** epic. The [user brief](r01-match-table-state-brief.md) is canonical; the [delivery plan](r01-match-table-state-plan.md) defines bounded implementation chunks and acceptance. Status: planned, not implemented. Start with R01.01.
+**R01 — Establish the Match & Table State Core** is implemented and verified within its first vertical slice, in the **Match & Table State** epic. R01.01-R01.07 landed in small checked commits. The [user brief](r01-match-table-state-brief.md) is canonical; the [delivery plan](r01-match-table-state-plan.md) and [completion report](r01-match-table-state-report.md) record chunks, APIs, tests, actual device evidence and deferrals.
 
-The new pure C# `SkyEye.GameState` library will own canonical match/frame/table state, ordered meaningful events, deterministic reduction, provenance and corrections. Replay, coaching, scoring, rules, shot reconstruction and future 3D simulation consume this model. R01 is not replay functionality and does not require those consumers, complete rules, new detectors or GPT integration.
+The pure C# `SkyEye.GameState` library owns canonical match/frame/table state, ordered meaningful events, deterministic reduction, provenance and corrections. Both companion hosts persist events and expose the canonical game snapshot through the shared coordinator. Replay, coaching, scoring, rules, shot reconstruction and future 3D simulation consume this model. R01 is not replay functionality and does not implement complete rules, new detectors or GPT integration.
 
-Current order: **R01 → remaining T13/T14 acceptance → T06 → T07**, with G/O/rules/coaching work consuming the R01 model as it is delivered. T13/T14 runtime work is implemented with open acceptance gates; this reprioritisation does not mark those gates complete or require them to close before starting R01. See [progress](glow-up-progress.md), [T13 report](t13-performance-report.md) and [T14 report](t14-report.md). Earlier execution-order notes below are historical and superseded by this priority.
+Delivered: **R01**. Next: **remaining T13/T14 acceptance → T06 → T07**, with G/O/rules/coaching work consuming the state model. T13/T14 runtime work is implemented with open acceptance gates; R01 does not close them. See [progress](glow-up-progress.md), [T13 report](t13-performance-report.md) and [T14 report](t14-report.md). Earlier execution-order notes below are historical.
 
 The supplied brief describes moving R01 out of Replay; this checkout instead assigns R01 to rules outcomes in a flat backlog. Preserve that existing mission as **R04 — Apply accepted shot outcomes to turn/groups/entitlements**. R02/R03 and all T-series replay/media IDs remain unchanged. R04 depends on R01 plus accepted observation evidence and the reviewed rules profile.
 
@@ -226,11 +226,11 @@ Before each release, run the existing core/native checks plus the relevant new s
 
 The previous eight milestones were not sufficiently small as individual commits. Use the following bounded work units. A row normally ends in a checked commit; split it again if a compatibility problem expands its scope. Preserve the old companion until the replacement passes its migration checks. Commit production changes only after relevant checks pass; device-gated work must record a blocked/unverified check if devices are unavailable, rather than claiming completion.
 
-### Match & Table State epic — immediate
+### Match & Table State epic
 
 | ID | Bounded result | Verification before proceeding |
 |---|---|---|
-| R01 | Establish the Match & Table State Core — planned, next delivery | Pure C# `SkyEye.GameState`; minimal typed evidence/commands/events; canonical match/frame/table state; ordered append-only history and deterministic reducer; confidence/provenance and player corrections; realistic yellow-pot/correction/rebuild scenario; stale/duplicate/uncertain evidence checks; minimal existing-app integration and restart recovery. See [brief](r01-match-table-state-brief.md) and [chunks R01.01-R01.07](r01-match-table-state-plan.md) |
+| R01 | Establish the Match & Table State Core — implemented and verified 6 October | Pure C# state/evidence/events/reducer, provenance/corrections, durable journal, minimal shared-coordinator integration and readable yellow-pot/correction/rebuild checks. Pixel 11 verifies real uncertain decoded evidence and a separate declared scenario; no autonomous pot detector is claimed. See [completion report](r01-match-table-state-report.md), [brief](r01-match-table-state-brief.md) and [chunks](r01-match-table-state-plan.md) |
 
 ### Existing delivery backlog
 
@@ -293,7 +293,7 @@ The previous eight milestones were not sufficiently small as individual commits.
 | X02 | Long-session thermal/battery/latency and accessibility acceptance | Recorded device evidence and explicit remaining limits |
 | X03 | Final migration report, signed APK, source snapshot and rollback instructions | Artifact provenance matches tested commit |
 
-**Current first action:** R01.01, then the bounded R01 delivery chunks. The original P01-P05/S02 starting sequence is completed historical work. Release A is not dependent on automatic refereeing, and Release B is not dependent on contact-level vision. T13/T14 retain their outstanding physical acceptance gates; wake-word listening and advanced cue-ball physics remain separately scoped.
+**Current next work:** remaining T13/T14 acceptance, then T06/T07. R01.01-R01.07 and the original P01-P05/S02 starting sequence are delivered. G/O/R04/R02/R03/C work extends or consumes the new canonical state. Release A is not dependent on automatic refereeing, and Release B is not dependent on contact-level vision. Wake-word listening and advanced cue-ball physics remain separately scoped.
 
 ## Historical execution order update — voice deferred
 
