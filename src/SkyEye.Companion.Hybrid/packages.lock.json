@@ -1877,6 +1877,12 @@
         }
       },
       "skyeye.core": {
+        "type": "Project",
+        "dependencies": {
+          "SkyEye.GameState": "[1.0.0, )"
+        }
+      },
+      "skyeye.gamestate": {
         "type": "Project"
       },
       "skyeye.opencv.android": {

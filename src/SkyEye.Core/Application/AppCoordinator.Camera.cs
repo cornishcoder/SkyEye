@@ -120,7 +120,8 @@ public sealed partial class AppCoordinator
     {
         if (state.Camera == connection) return;
         var updated = state with { Version = checked(state.Version + 1), Camera = connection };
-        if (connection.Scope != state.Camera.Scope || !connection.CanControl) updated = updated with { Observation = null };
+        if (connection.Scope != state.Camera.Scope || !connection.CanControl || connection.Capture != CaptureState.Active)
+            updated = updated with { Observation = null, GameTableCurrent = false };
         if (!connection.CanControl || connection.Capture != CaptureState.Active || connection.Scope != state.Camera.Scope) updated = ClearShotCatalog(updated);
         Volatile.Write(ref state, updated); Notify(state);
     }

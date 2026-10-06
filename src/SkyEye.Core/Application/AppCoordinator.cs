@@ -14,8 +14,13 @@ public sealed partial class AppCoordinator
     readonly TimeProvider sceneClock;
     long nextSubscription;
     SkyEyeState state = SkyEyeState.Empty;
-    public AppCoordinator(Action<Exception>? observerError = null, ClipSaveExecutor? clipSaves = null, ICameraControlEffect? cameraControls = null, TimeProvider? clock = null, ITableObservationEffect? observations = null)
-    { this.observerError = observerError; this.clipSaves = clipSaves; this.cameraControls = cameraControls; sceneClock = clock ?? TimeProvider.System; this.observations = observations; }
+    public AppCoordinator(Action<Exception>? observerError = null, ClipSaveExecutor? clipSaves = null, ICameraControlEffect? cameraControls = null, TimeProvider? clock = null, ITableObservationEffect? observations = null, IGameJournal? gameJournal = null)
+    {
+        this.observerError = observerError; this.clipSaves = clipSaves; this.cameraControls = cameraControls; sceneClock = clock ?? TimeProvider.System; this.observations = observations;
+        this.gameJournal = gameJournal;
+        try { game = gameJournal?.Load() ?? SkyEye.GameState.GameSession.Empty; state = state with { Game = game.State }; }
+        catch (IOException) { gameUnavailable = true; state = state with { GameError = "Game history unavailable. Preserve the journal and repair it before continuing." }; }
+    }
     public SkyEyeState State => Volatile.Read(ref state);
 
     // Subscribe first, then read State for initial rendering. Observers must return
@@ -38,6 +43,7 @@ public sealed partial class AppCoordinator
             cancellation.ThrowIfCancellationRequested();
             if (envelope.OperationId == Guid.Empty || envelope.ExpectedVersion < 0 || !Enum.IsDefined(envelope.Origin) || envelope.Command is null)
                 return Receipt(envelope, CommandOutcome.Rejected, "Invalid command envelope.");
+            if (envelope.Command is SubmitGameInput gameInput) return GameCommand(envelope, gameInput);
             if (effectPending.TryGetValue(envelope.OperationId, out var running))
                 pendingEffect = running.Envelope == envelope ? DuplicateAsync(running.Pending)
                     : Task.FromResult(Receipt(envelope, CommandOutcome.Conflict, "Operation ID was already used for a different request."));

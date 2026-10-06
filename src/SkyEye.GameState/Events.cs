@@ -23,7 +23,7 @@ namespace SkyEye.GameState;
 public abstract record GameEvent;
 public sealed record MatchStartedEvent(ImmutableArray<Player> Players, int Target) : GameEvent;
 public sealed record FrameStartedEvent(string CurrentPlayer) : GameEvent;
-public sealed record TableObservedEvent(ImmutableArray<ObservedBall> Balls, bool Settled, bool Uncertain) : GameEvent;
+public sealed record TableObservedEvent(ImmutableArray<ObservedBall> Balls, bool Settled, bool Uncertain, bool IdentitiesResolved = true) : GameEvent;
 public sealed record ShotStartedEvent(string ShotId) : GameEvent;
 public sealed record ShotEndedEvent(string ShotId) : GameEvent;
 public sealed record TableSettledEvent : GameEvent;

@@ -17,5 +17,9 @@ public sealed record SkyEyeState(long Version, AdvicePreferences Advice, Present
     public CameraConnection Camera { get; init; } = CameraConnection.Empty;
     public ShotChoiceCatalog ShotChoices { get; init; } = ShotChoiceCatalog.Empty;
     public TableObservation? Observation { get; init; }
+    public SkyEye.GameState.GameSnapshot Game { get; init; } = SkyEye.GameState.GameSnapshot.Empty;
+    // Recovered history is authoritative but its last table image is not current live evidence.
+    public bool GameTableCurrent { get; init; }
+    public string? GameError { get; init; }
     public static SkyEyeState Empty { get; } = new(0, new(AdviceTargetGroup.Open), new(false));
 }

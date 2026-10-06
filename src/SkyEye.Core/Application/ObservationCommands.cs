@@ -10,6 +10,7 @@ public sealed record TableObservation(CameraScope Source, long AnalysisGeneratio
     long TableVersion, ObservationOutcome Outcome, string FrameSource)
 {
     public ShotChoiceCatalog? Choices { get; init; }
+    public GameObservationEvidence? GameEvidence { get; init; }
 }
 public interface ITableObservationEffect
 {
@@ -27,7 +28,13 @@ public sealed class TableObservationEffect(Func<TableAnalysisSession> session, F
         if (!IsCurrent(request) || session().State.Calibration is null) throw new InvalidOperationException("Calibrate an active live table before observing it.");
         await session().UpdateAsync(cancellation, request.ReviewFrame).WaitAsync(cancellation).ConfigureAwait(false);
         cancellation.ThrowIfCancellationRequested();
-        if (!IsCurrent(request) || session().State.Observation is not { } observed) throw new InvalidOperationException("The source changed. Request a fresh observation.");
+        var snapshot = session().State;
+        if (!IsCurrent(request) || snapshot.Observation is not { } observed || snapshot.Table is not { } layout
+            || layout.Version != observed.TableVersion || layout.CapturedAt != observed.CapturedAt)
+            throw new InvalidOperationException("The source changed. Request a fresh observation.");
+        observed = observed with { GameEvidence = new(new(snapshot.CameraIdentity!, observed.Timeline, request.AnalysisGeneration + 1, snapshot.CalibrationId, request.Source.ConnectionId.ToString("N")),
+            layout.Balls.Select(b => new SkyEye.GameState.ObservedBall(b.Id, Enum.TryParse<SkyEye.GameState.BallColour>(b.Kind, true, out var colour) ? colour : SkyEye.GameState.BallColour.Unknown,
+                new(b.Position.X / 2, b.Position.Y), b.Confidence)).ToImmutableArray()) };
         if (request.IncludeChoices)
         {
             var timer = System.Diagnostics.Stopwatch.StartNew();
@@ -86,6 +93,7 @@ public sealed partial class AppCoordinator
                     var published = SceneCommand(new(envelope.OperationId, CommandOrigin.System, state.Version, new PublishShotCatalog(catalog)));
                     if (published is not null) next = published;
                 }
+                next = AcceptGameObservation(next, result, envelope.OperationId);
                 Volatile.Write(ref state, next with { Observation = result, Version = checked(state.Version + 1) });
                 Notify(state);
                 receipt = Receipt(envelope, CommandOutcome.Applied, result.Outcome switch

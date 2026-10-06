@@ -84,7 +84,8 @@ public sealed class GameSession
         if (State.Frame.Winner is not null) return Refuse(InputOutcome.Stale, "The frame has ended.");
         if (input.Input is SelectSource)
         {
-            if (input.Source is null || input.Source == State.Table.Source || State.Table.Source is { } old && input.Source.Camera == old.Camera && input.Source.Generation < old.Generation)
+            if (input.Source is null || input.Source == State.Table.Source || State.Table.Source is { } old && input.Source.Camera == old.Camera
+                && input.Source.Connection == old.Connection && input.Source.Generation < old.Generation)
                 return Refuse(InputOutcome.Rejected, "Select a new current source explicitly.");
             return Commit(input, fingerprint, [new SourceSelectedEvent()]);
         }
@@ -96,7 +97,7 @@ public sealed class GameSession
         GameEvent? change = input.Input switch
         {
             TableObservation o when ValidObservation(o) && !(last?.Event is TableObservedEvent && input.At == last.At)
-                => new TableObservedEvent(o.Balls, o.Settled, o.Uncertain),
+                => new TableObservedEvent(o.Balls, o.Settled, o.Uncertain || !o.IdentitiesResolved || o.Balls.Any(b => b.Colour == BallColour.Unknown), o.IdentitiesResolved),
             ShotStarted s when Text(s.ShotId) && CanStartShot(s.ShotId) => new ShotStartedEvent(s.ShotId),
             MotionStarted s when Text(s.ShotId) && CanStartShot(s.ShotId) => new ShotStartedEvent(s.ShotId),
             ShotEnded s when State.Shot is { Ended: false } shot && shot.Id == s.ShotId => new ShotEndedEvent(s.ShotId),

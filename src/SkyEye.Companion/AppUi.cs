@@ -31,7 +31,8 @@ public sealed partial class MainActivity
             {
                 try { new AnnotationJournalStore(System.IO.Path.Combine(FilesDir!.AbsolutePath,"recorded-annotations")).Preserve(clip); }
                 catch(Exception) { Android.Util.Log.Warn("SkyEyeAnnotations","Saved clip acknowledged; annotation retention unavailable."); }
-            })), cameraEffects, observations: new TableObservationEffect(() => tableAnalysis, LegacyMediaGeneration, () => resumed && !offline));
+            })), cameraEffects, observations: new TableObservationEffect(() => tableAnalysis, LegacyMediaGeneration, () => resumed && !offline),
+            gameJournal: new GameJournalStore(System.IO.Path.Combine(FilesDir.AbsolutePath, "game-state")));
         tableAnalysis = new(new PlayerTableFrameSource(() => player, () => app.State.Camera, () => resumed && !offline), new VisionAnalyzer(),
             new CameraCalibrationStore(ApplicationContext!, () => client.Address));
         // Service binding runs before UI observers; delayed UI notifications must

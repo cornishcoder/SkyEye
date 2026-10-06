@@ -3,7 +3,7 @@ using System.Collections.Immutable;
 namespace SkyEye.GameState;
 
 public enum Provenance { Observed, Inferred, PlayerConfirmed, PlayerCorrected }
-public enum BallColour { Cue, Red, Yellow, Black }
+public enum BallColour { Cue, Red, Yellow, Black, Unknown }
 public enum BallPresence { Unknown, OnTable, Missing, Potted }
 public enum TableMotion { Unknown, Moving, Settled }
 public enum Pocket { TopLeft, TopMiddle, TopRight, BottomLeft, BottomMiddle, BottomRight }
@@ -12,7 +12,7 @@ public sealed record Player(string Id, string Name);
 // Normalized playable rectangle: (0,0) top left; (1,1) bottom right.
 public sealed record TablePosition(double X, double Y);
 // Source time is microseconds on this source's monotonic media timeline only.
-public sealed record EvidenceSource(string Camera, string Timeline, long Generation, string Calibration);
+public sealed record EvidenceSource(string Camera, string Timeline, long Generation, string Calibration, string? Connection = null);
 public sealed record ObservedBall(string Id, BallColour Colour, TablePosition? Position, double? Confidence = null);
 public sealed record KnownBall(string Id, BallColour Colour, TablePosition? Position, Fact<BallPresence> Presence, string? ProtectedThroughShot = null);
 public sealed record SettledObservation(Guid EvidenceId, DateTimeOffset At, long? SourceTimeUs, EvidenceSource Source);

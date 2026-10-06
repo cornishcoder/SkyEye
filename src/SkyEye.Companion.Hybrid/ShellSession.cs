@@ -56,7 +56,8 @@ public sealed partial class ShellSession : IDisposable
             if (token is null) edit.Remove("host"); else edit.PutString("host", token);
             edit.Apply();
         });
-        app = new(cameraControls: effects, observations: new TableObservationEffect(() => table, () => player is null ? 0 : MediaGeneration(), () => active && selection.Kind == ViewingSource.Live));
+        app = new(cameraControls: effects, observations: new TableObservationEffect(() => table, () => player is null ? 0 : MediaGeneration(), () => active && selection.Kind == ViewingSource.Live),
+            gameJournal: new GameJournalStore(Path.Combine(FileSystem.AppDataDirectory, "game-state")));
         InitializeAnnotations();
         InitializeClips();
         InitializeTable();

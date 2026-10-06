@@ -42,6 +42,7 @@ public static class GameReducer
             case SourceSelectedEvent:
                 return s with { Table = s.Table with { Source = e.Source, Motion = TableMotion.Unknown, LastSettled = null, Uncertain = true }, Shot = null };
             case TableObservedEvent o:
+                if (!o.IdentitiesResolved) return s with { Table = s.Table with { Source = e.Source, Motion = TableMotion.Unknown, Uncertain = true } };
                 var balls = s.Table.Balls;
                 var present = o.Balls.Select(b => b.Id).ToHashSet();
                 foreach (var old in balls.Values)
