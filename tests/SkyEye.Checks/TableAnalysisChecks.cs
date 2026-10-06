@@ -16,6 +16,8 @@ static class TableAnalysisChecks
         session.Bind(camera, "open"); Check(session.RestoreCalibration() && session.State.Calibration is not null, "existing mount calibration restores");
         frames.Hold(); var first = session.UpdateAsync(); await frames.Entered!.Task;
         Check(ReferenceEquals(first, session.UpdateAsync()), "duplicate polls share exactly one in-flight frame");
+        var burst = Enumerable.Range(0, 100).Select(_ => session.UpdateAsync()).ToArray();
+        Check(burst.All(t => ReferenceEquals(t, first)) && frames.Reads == 1, "burst coalesces into one frame without a pending queue");
         session.Bind(camera, "yellow"); frames.Release(); await first;
         Check(frames.Reads == 1 && session.State.Table?.Group == "yellow" && session.State.Table.Settled == false, "late analysis uses canonical current group, not admitted group");
         var duplicate = session.State; await session.UpdateAsync();

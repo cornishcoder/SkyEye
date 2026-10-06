@@ -14,8 +14,8 @@ public sealed partial class AppCoordinator
     readonly TimeProvider sceneClock;
     long nextSubscription;
     SkyEyeState state = SkyEyeState.Empty;
-    public AppCoordinator(Action<Exception>? observerError = null, ClipSaveExecutor? clipSaves = null, ICameraControlEffect? cameraControls = null, TimeProvider? clock = null)
-    { this.observerError = observerError; this.clipSaves = clipSaves; this.cameraControls = cameraControls; sceneClock = clock ?? TimeProvider.System; }
+    public AppCoordinator(Action<Exception>? observerError = null, ClipSaveExecutor? clipSaves = null, ICameraControlEffect? cameraControls = null, TimeProvider? clock = null, ITableObservationEffect? observations = null)
+    { this.observerError = observerError; this.clipSaves = clipSaves; this.cameraControls = cameraControls; sceneClock = clock ?? TimeProvider.System; this.observations = observations; }
     public SkyEyeState State => Volatile.Read(ref state);
 
     // Subscribe first, then read State for initial rendering. Observers must return
@@ -50,6 +50,8 @@ public sealed partial class AppCoordinator
                 if (durable is not null) return durable;
                 pendingEffect = BeginCameraCommand(envelope, cancellation);
             }
+            else if (envelope.Command is ObserveTable)
+                pendingEffect = BeginObservation(envelope, cancellation);
             else if (envelope.Command is SaveClip)
             {
                 if (clipSaves is null) return Receipt(envelope, CommandOutcome.Rejected, "Clip saving is unavailable.");

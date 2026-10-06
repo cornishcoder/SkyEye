@@ -13,7 +13,14 @@ public sealed partial class ShellSession
     string? pocketCamera;
     public bool AutomaticPocketsCurrent => automaticPockets is not null && pocketCamera == app.State.Camera.CameraIdentity
         && (DateTimeOffset.UtcNow - pocketsCheckedAt).TotalSeconds < 30;
-    long MediaGeneration() { using var metrics = JsonDocument.Parse(player!.PlaybackMetrics()!); return metrics.RootElement.GetProperty("mediaGeneration").GetInt64(); }
+    long mediaGeneration;
+    long MediaGeneration()
+    {
+        if (!MainThread.IsMainThread) return Interlocked.Read(ref mediaGeneration);
+        using var metrics = JsonDocument.Parse(player!.PlaybackMetrics()!);
+        var value = metrics.RootElement.GetProperty("mediaGeneration").GetInt64();
+        Interlocked.Exchange(ref mediaGeneration, value); return value;
+    }
     void EnsurePocketLoop()
     {
         if (!active || foreground is null || player is null || !Playing || !FrameTableRequested || EditingTable || selection.Kind != ViewingSource.Live || pocketLifetime is not null) return;

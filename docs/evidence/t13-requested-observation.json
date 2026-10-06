@@ -1,0 +1,366 @@
+{
+  "idleSamples": 60,
+  "idleFirst": {
+    "counts": {},
+    "stages": {}
+  },
+  "idleLast": {
+    "counts": {},
+    "stages": {}
+  },
+  "cameraFirst": {
+    "state": "Active",
+    "sessionId": "a061183702574b4b837c57fc2f61fe7e",
+    "revision": 4,
+    "timeline": "afbdc86e83d44dd8aaa7702bcc1dcc38",
+    "sourceTimeUs": 24308639605,
+    "frames": 626881,
+    "battery": 100,
+    "temperatureC": 36.9,
+    "clipCount": 8,
+    "error": "",
+    "statusRttMs": 30.359
+  },
+  "cameraLast": {
+    "state": "Active",
+    "sessionId": "a061183702574b4b837c57fc2f61fe7e",
+    "revision": 4,
+    "timeline": "afbdc86e83d44dd8aaa7702bcc1dcc38",
+    "sourceTimeUs": 24381998271,
+    "frames": 629071,
+    "battery": 100,
+    "temperatureC": 36.8,
+    "clipCount": 8,
+    "error": "",
+    "statusRttMs": 420.5281
+  },
+  "burstBefore": {
+    "counts": {
+      "analysisRequests": 1,
+      "fullAnalyses": 1
+    },
+    "stages": {
+      "frameAcquisitionMs": {
+        "n": 1,
+        "mean": 1504.0512,
+        "p50": null,
+        "p95": null,
+        "latest": 1504.0512
+      },
+      "frameAgeMs": {
+        "n": 1,
+        "mean": 2929.209,
+        "p50": null,
+        "p95": null,
+        "latest": 2929.209
+      },
+      "visionMs": {
+        "n": 1,
+        "mean": 260.3988,
+        "p50": null,
+        "p95": null,
+        "latest": 260.3988
+      },
+      "postProcessingMs": {
+        "n": 1,
+        "mean": 0.5325,
+        "p50": null,
+        "p95": null,
+        "latest": 0.5325
+      },
+      "observationMs": {
+        "n": 1,
+        "mean": 1766.6884,
+        "p50": null,
+        "p95": null,
+        "latest": 1766.6884
+      }
+    }
+  },
+  "receipts": [
+    {
+      "operationId": "406ba228-276d-4655-84b7-202ccbaf02ec",
+      "outcome": 0,
+      "decisionVersion": 9,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "99b4de94-9605-45da-9a96-614ac41090e0",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "a061183702574b4b837c57fc2f61fe7e",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "afbdc86e83d44dd8aaa7702bcc1dcc38",
+        "capturedAt": "2026-10-06T15:20:46.1497733+01:00",
+        "sourceTimeUs": null,
+        "frameAgeMs": 3694.7089,
+        "acquisitionMs": 695.1511,
+        "visionMs": 184.9953,
+        "durationMs": 887.148,
+        "tableVersion": 2,
+        "outcome": 2,
+        "frameSource": "camera-snapshot"
+      },
+      "succeeded": true
+    },
+    {
+      "operationId": "5d011044-f57e-42f6-a70d-6f78b2276ec1",
+      "outcome": 0,
+      "decisionVersion": 10,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "99b4de94-9605-45da-9a96-614ac41090e0",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "a061183702574b4b837c57fc2f61fe7e",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "afbdc86e83d44dd8aaa7702bcc1dcc38",
+        "capturedAt": "2026-10-06T15:20:46.1497733+01:00",
+        "sourceTimeUs": null,
+        "frameAgeMs": 3694.7089,
+        "acquisitionMs": 695.1511,
+        "visionMs": 184.9953,
+        "durationMs": 887.148,
+        "tableVersion": 2,
+        "outcome": 2,
+        "frameSource": "camera-snapshot"
+      },
+      "succeeded": true
+    },
+    {
+      "operationId": "158f5b2e-205a-4148-b89a-5aaa0d9eb1d1",
+      "outcome": 0,
+      "decisionVersion": 7,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "99b4de94-9605-45da-9a96-614ac41090e0",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "a061183702574b4b837c57fc2f61fe7e",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "afbdc86e83d44dd8aaa7702bcc1dcc38",
+        "capturedAt": "2026-10-06T15:20:46.1497733+01:00",
+        "sourceTimeUs": null,
+        "frameAgeMs": 3694.7089,
+        "acquisitionMs": 695.1511,
+        "visionMs": 184.9953,
+        "durationMs": 887.148,
+        "tableVersion": 2,
+        "outcome": 2,
+        "frameSource": "camera-snapshot"
+      },
+      "succeeded": true
+    },
+    {
+      "operationId": "ddc7540b-5891-47b0-8ee7-13693e80ca20",
+      "outcome": 0,
+      "decisionVersion": 6,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "99b4de94-9605-45da-9a96-614ac41090e0",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "a061183702574b4b837c57fc2f61fe7e",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "afbdc86e83d44dd8aaa7702bcc1dcc38",
+        "capturedAt": "2026-10-06T15:20:46.1497733+01:00",
+        "sourceTimeUs": null,
+        "frameAgeMs": 3694.7089,
+        "acquisitionMs": 695.1511,
+        "visionMs": 184.9953,
+        "durationMs": 887.148,
+        "tableVersion": 2,
+        "outcome": 2,
+        "frameSource": "camera-snapshot"
+      },
+      "succeeded": true
+    },
+    {
+      "operationId": "b2c1a24a-e613-42c8-8bb6-d44700720406",
+      "outcome": 0,
+      "decisionVersion": 4,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "99b4de94-9605-45da-9a96-614ac41090e0",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "a061183702574b4b837c57fc2f61fe7e",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "afbdc86e83d44dd8aaa7702bcc1dcc38",
+        "capturedAt": "2026-10-06T15:20:46.1497733+01:00",
+        "sourceTimeUs": null,
+        "frameAgeMs": 3694.7089,
+        "acquisitionMs": 695.1511,
+        "visionMs": 184.9953,
+        "durationMs": 887.148,
+        "tableVersion": 2,
+        "outcome": 2,
+        "frameSource": "camera-snapshot"
+      },
+      "succeeded": true
+    },
+    {
+      "operationId": "ea3ec56c-6db3-4e95-8a90-a852ce4350a8",
+      "outcome": 0,
+      "decisionVersion": 5,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "99b4de94-9605-45da-9a96-614ac41090e0",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "a061183702574b4b837c57fc2f61fe7e",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "afbdc86e83d44dd8aaa7702bcc1dcc38",
+        "capturedAt": "2026-10-06T15:20:46.1497733+01:00",
+        "sourceTimeUs": null,
+        "frameAgeMs": 3694.7089,
+        "acquisitionMs": 695.1511,
+        "visionMs": 184.9953,
+        "durationMs": 887.148,
+        "tableVersion": 2,
+        "outcome": 2,
+        "frameSource": "camera-snapshot"
+      },
+      "succeeded": true
+    },
+    {
+      "operationId": "7c555571-c185-43a4-a4da-be3655014df2",
+      "outcome": 0,
+      "decisionVersion": 8,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "99b4de94-9605-45da-9a96-614ac41090e0",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "a061183702574b4b837c57fc2f61fe7e",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "afbdc86e83d44dd8aaa7702bcc1dcc38",
+        "capturedAt": "2026-10-06T15:20:46.1497733+01:00",
+        "sourceTimeUs": null,
+        "frameAgeMs": 3694.7089,
+        "acquisitionMs": 695.1511,
+        "visionMs": 184.9953,
+        "durationMs": 887.148,
+        "tableVersion": 2,
+        "outcome": 2,
+        "frameSource": "camera-snapshot"
+      },
+      "succeeded": true
+    },
+    {
+      "operationId": "ae6bcbc5-fd59-4be4-88fa-522e8ecaf726",
+      "outcome": 0,
+      "decisionVersion": 11,
+      "message": "Table unclear. Review the frame before requesting advice.",
+      "duplicate": false,
+      "savedClip": null,
+      "observation": {
+        "source": {
+          "connectionId": "99b4de94-9605-45da-9a96-614ac41090e0",
+          "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+          "sessionId": "a061183702574b4b837c57fc2f61fe7e",
+          "hostGeneration": 2,
+          "captureRevision": 4
+        },
+        "analysisGeneration": 3,
+        "mediaGeneration": 2,
+        "timeline": "afbdc86e83d44dd8aaa7702bcc1dcc38",
+        "capturedAt": "2026-10-06T15:20:46.1497733+01:00",
+        "sourceTimeUs": null,
+        "frameAgeMs": 3694.7089,
+        "acquisitionMs": 695.1511,
+        "visionMs": 184.9953,
+        "durationMs": 887.148,
+        "tableVersion": 2,
+        "outcome": 2,
+        "frameSource": "camera-snapshot"
+      },
+      "succeeded": true
+    }
+  ],
+  "burstAfter": {
+    "counts": {
+      "analysisRequests": 9,
+      "fullAnalyses": 2,
+      "coalescedRequests": 7
+    },
+    "stages": {
+      "frameAcquisitionMs": {
+        "n": 2,
+        "mean": 1099.5830500000002,
+        "p50": null,
+        "p95": null,
+        "latest": 695.1149
+      },
+      "frameAgeMs": {
+        "n": 2,
+        "mean": 3215.9629,
+        "p50": null,
+        "p95": null,
+        "latest": 3502.7168
+      },
+      "visionMs": {
+        "n": 2,
+        "mean": 225.9851,
+        "p50": null,
+        "p95": null,
+        "latest": 191.5714
+      },
+      "postProcessingMs": {
+        "n": 2,
+        "mean": 0.3011,
+        "p50": null,
+        "p95": null,
+        "latest": 0.0697
+      },
+      "observationMs": {
+        "n": 2,
+        "mean": 1326.94415,
+        "p50": null,
+        "p95": null,
+        "latest": 887.1999
+      }
+    }
+  }
+}

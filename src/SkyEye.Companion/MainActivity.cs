@@ -126,7 +126,6 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
                 // Downloads/export can occupy the action slot longer than a frame's
                 // advice lifetime. Expire displayed paths even while analysis is skipped.
                 if (tableState is not null) ShowTable();
-                if ((resumed || sky is not null) && !overlayEnabled && !busy && app.State.Camera.CanControl && currentState == "Active" && calibration is not null) try { await UpdateTableAsync(); } catch { InvalidateTable("Table analysis unavailable; wait for a fresh view and confirm it."); }
                 // Aim for 2.5 seconds between starts, including network and analysis
                 // time. Remain sequential even when a cycle exceeds that budget.
                 delayMs = (int)Math.Max(250, 2500 - cycle.ElapsedMilliseconds);

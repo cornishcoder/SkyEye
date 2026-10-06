@@ -11,8 +11,9 @@
         <option value="@SceneTarget.Tv">TV only</option>
     </select>
     <button class="primary" disabled="@(Busy || !Session.CanShowChoices)" @onclick="Cycle">Show candidate shots</button>
+    <button class="secondary" disabled="@(Busy || !Session.CanAnalyzeTable)" @onclick="Session.ObserveTableAsync">Observe table once</button>
     <button class="secondary" disabled="@Busy" @onclick="Live">@(Session.TvReplaySelected ? "Clear candidates" : "Clear candidates · show live")</button>
-    <p class="hint">Choices cycle every 2 seconds and check a new frame every 10 seconds. Pin a current choice to hold it until the layout changes.</p>
+    <p class="hint">Show requests one observation. If settlement is not established, ask again when the balls are still. Computed choices cycle every 2 seconds and expire after 15 seconds.</p>
     @{ var catalogVersion = Session.ChoiceTableVersion; }
     @foreach (var choice in Session.ShotChoices)
     {

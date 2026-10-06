@@ -14,5 +14,6 @@ public sealed record SkyEyeState(long Version, AdvicePreferences Advice, Present
 {
     public CameraConnection Camera { get; init; } = CameraConnection.Empty;
     public ShotChoiceCatalog ShotChoices { get; init; } = ShotChoiceCatalog.Empty;
+    public TableObservation? Observation { get; init; }
     public static SkyEyeState Empty { get; } = new(0, new(AdviceTargetGroup.Open), new(false));
 }

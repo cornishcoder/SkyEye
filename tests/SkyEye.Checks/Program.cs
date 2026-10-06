@@ -103,6 +103,7 @@ await CameraClipSaveChecks.Run();
 await CameraCommandChecks.Run();
 await CameraControlAdapterChecks.Run();
 await TableAnalysisChecks.Run();
+await ObservationCommandChecks.Run();
 await ClipLibraryChecks.Run();
 await RecentReplayChecks.Run();
 await RecordedGeometryChecks.Run();

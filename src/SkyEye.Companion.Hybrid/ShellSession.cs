@@ -56,7 +56,7 @@ public sealed partial class ShellSession : IDisposable
             if (token is null) edit.Remove("host"); else edit.PutString("host", token);
             edit.Apply();
         });
-        app = new(cameraControls: effects);
+        app = new(cameraControls: effects, observations: new TableObservationEffect(() => table, () => player is null ? 0 : MediaGeneration(), () => active && selection.Kind == ViewingSource.Live));
         InitializeAnnotations();
         InitializeClips();
         InitializeTable();
@@ -235,7 +235,7 @@ public sealed partial class ShellSession : IDisposable
         try
         {
             using var timer = new PeriodicTimer(TimeSpan.FromSeconds(5));
-            do { await RefreshAsync(token); await UpdateTableAsync(token); } while (await timer.WaitForNextTickAsync(token));
+            do { await RefreshAsync(token); } while (await timer.WaitForNextTickAsync(token));
         }
         catch (OperationCanceledException) { }
     }

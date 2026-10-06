@@ -81,7 +81,11 @@ public sealed partial class MainActivity
     async Task UpdateTableAsync()
     {
         long previousVersion = tableState?.Version ?? -1;
-        await tableAnalysis.UpdateAsync(lifetime.Token);
+        var scope = tableAnalysis.State;
+        if (scope.Source is null || scope.Calibration is null) return;
+        var receipt = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, app.State.Version,
+            new ObserveTable(scope.Source, scope.Generation, LegacyMediaGeneration())), lifetime.Token);
+        if (!receipt.Succeeded) { Say(receipt.Message); return; }
         if (lifetime.IsCancellationRequested) return;
         if (tableAnalysis.State.Jpeg is { } jpeg) SetTableImage(jpeg);
         ShowTable();
@@ -136,7 +140,7 @@ public sealed partial class MainActivity
             try
             {
                 var corrected = tableAnalysis.Correct(expectedVersion, edit.Text ?? "");
-                ClearCandidatePresentation("Checking the corrected layout..."); overlayRefreshAt = 0; ShowTable();
+                ClearCandidatePresentation("Layout corrected. Request fresh choices."); ShowTable();
                 if (sky is not null) _ = sky.UpdateTableAsync(corrected);
             }
             catch (Exception e) { Say(e.Message); }

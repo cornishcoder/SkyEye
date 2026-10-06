@@ -14,5 +14,6 @@ public enum CommandOutcome { Applied, Unchanged, Stale, Rejected, Conflict, Fail
 /// A duplicate retains the original decision version even if later commands have committed.</summary>
 public sealed record CommandReceipt(Guid OperationId, CommandOutcome Outcome, long DecisionVersion, string Message, bool Duplicate = false, Clip? SavedClip = null)
 {
+    public TableObservation? Observation { get; init; }
     public bool Succeeded => Outcome is CommandOutcome.Applied or CommandOutcome.Unchanged;
 }

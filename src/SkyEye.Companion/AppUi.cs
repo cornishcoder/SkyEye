@@ -31,7 +31,7 @@ public sealed partial class MainActivity
             {
                 try { new AnnotationJournalStore(System.IO.Path.Combine(FilesDir!.AbsolutePath,"recorded-annotations")).Preserve(clip); }
                 catch(Exception) { Android.Util.Log.Warn("SkyEyeAnnotations","Saved clip acknowledged; annotation retention unavailable."); }
-            })), cameraEffects);
+            })), cameraEffects, observations: new TableObservationEffect(() => tableAnalysis, LegacyMediaGeneration, () => resumed && !offline));
         tableAnalysis = new(new CameraTableFrameSource(client, () => app.State.Camera), new VisionAnalyzer(),
             new CameraCalibrationStore(ApplicationContext!, () => client.Address));
         // Service binding runs before UI observers; delayed UI notifications must
@@ -41,6 +41,14 @@ public sealed partial class MainActivity
             new ClipLibrary(System.IO.Path.Combine(FilesDir!.AbsolutePath, "clips")), new AndroidPortraitClipExporter(ApplicationContext!));
         correctedMedia=new(client,()=>app.State.Camera,clipService,System.IO.Path.Combine(FilesDir!.AbsolutePath,"corrected-legacy-clips"),
             new AndroidCorrectedClipRenderer(ApplicationContext!),new AnnotationJournalStore(System.IO.Path.Combine(FilesDir.AbsolutePath,"recorded-annotations")),port:8769);
+    }
+    long legacyMediaGeneration;
+    long LegacyMediaGeneration()
+    {
+        if (Android.OS.Looper.MyLooper() != Android.OS.Looper.MainLooper) return Interlocked.Read(ref legacyMediaGeneration);
+        if (player is null) return 0;
+        using var metrics = System.Text.Json.JsonDocument.Parse(player.PlaybackMetrics()!);
+        var value = metrics.RootElement.GetProperty("mediaGeneration").GetInt64(); Interlocked.Exchange(ref legacyMediaGeneration, value); return value;
     }
 
 #if SKYEYE_COMMAND_LAB
@@ -120,7 +128,7 @@ public sealed partial class MainActivity
                 groupSelector.SetSelection((int)next.Advice.TargetGroup);
             if (tableState is not null)
             {
-                ClearCandidatePresentation("Checking your selected group…"); overlayRefreshAt = 0; ShowTable();
+                ClearCandidatePresentation("Group changed. Request fresh choices."); ShowTable();
                 if (sky is not null && tableState is not null) _ = sky.UpdateTableAsync(tableState);
             }
         }

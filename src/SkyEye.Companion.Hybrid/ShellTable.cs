@@ -24,6 +24,8 @@ public sealed partial class ShellSession
     public bool CanApplyTableEdit => CanAnalyzeTable && edit.Matches(table.State.Generation, table.State.Table?.Version)
         && (edit.Mode == TableEditMode.Correction || edit.Corners.Count == 4);
     public AdviceTargetGroup TargetGroup => app.State.Advice.TargetGroup;
+    public Task ObserveTableAsync() => MainThread.InvokeOnMainThreadAsync(async () =>
+    { if (active && foreground is not null && !EditingTable) await UpdateTableAsync(foreground.Token); });
     public string TableStatus { get; private set; } = "Calibrate your table to check its balls.";
     public string EditorHint => !CanApplyTableEdit && edit.Mode == TableEditMode.Correction ? "The layout changed. Cancel and check a fresh frame."
         : edit.Mode == TableEditMode.Correction ? edit.AddingBall ? "Tap the cloth to add the selected colour." : "Tap a ball to select it. Drag it to adjust its position."
@@ -47,7 +49,7 @@ public sealed partial class ShellSession
         var state = snapshot.Table;
         TableStatus = snapshot.Source is null ? "Watch an active camera as host to check the table."
             : snapshot.Calibration is null ? "Calibrate your table to check its balls."
-            : state is null ? "Checking the calibrated table…"
+            : state is null ? "Ready to observe when you ask."
             : $"{state.Balls.Count(b => b.Kind == "red")} reds · {state.Balls.Count(b => b.Kind == "yellow")} yellows · {state.Balls.Count(b => b.Kind == "cue")} cue · {state.Balls.Count(b => b.Kind == "black")} black. "
                 + ((DateTimeOffset.UtcNow - state.CapturedAt).TotalSeconds is > 6 or < -2 ? "Frame out of date."
                 : state.Occluded ? "Uncertain or obstructed. Check the detections."
@@ -56,7 +58,13 @@ public sealed partial class ShellSession
     async Task UpdateTableAsync(CancellationToken token)
     {
         if (!CanAnalyzeTable) return;
-        try { await table.UpdateAsync(token); }
+        try
+        {
+            if (player is null || table.State.Source is not { } source) return;
+            var receipt = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, app.State.Version,
+                new ObserveTable(source, table.State.Generation, MediaGeneration())), token);
+            if (!receipt.Succeeded) shotMessage = receipt.Message;
+        }
         catch (OperationCanceledException) { }
         catch (Exception) { if (!token.IsCancellationRequested && !disposed) await MainThread.InvokeOnMainThreadAsync(() => ShowError("Table analysis interrupted. Check the camera and try again.")); }
         if (!token.IsCancellationRequested && !disposed) await MainThread.InvokeOnMainThreadAsync(async () => { await ReconcileShotCatalogAsync(token); Publish(); });

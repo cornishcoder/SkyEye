@@ -15,16 +15,16 @@ public sealed partial class MainActivity
     Button overlayToggle = null!;
     TextView overlayStatus = null!;
     string overlayMessage = "Candidate overlay is off.";
-    long overlayRefreshAt;
     long overlayRelayRetryAt;
     int overlayRun;
     OverlayRelay? overlayRelay;
     OverlayListener? overlayListener;
     void BuildCandidateOverlayUi(LinearLayout root)
     {
-        overlayToggle = Add(root, "Candidate overlay: off", () =>
-            _ = DispatchAppAsync(new ShowShotChoices(!renderedAppState.Presentation.ShotChoicesEnabled)));
-        overlayStatus = Label("Turn on to cycle shots every 2 seconds; refresh every 10 seconds.", 13); root.AddView(overlayStatus);
+        overlayToggle = Add(root, "Candidate overlay: off", () => _ = RequestChoicesUiAsync());
+        Add(root, "Observe table / refresh choices", () => _ = ActionAsync(async () =>
+        { if (overlayEnabled) await RequestCandidatesAsync(overlayRun); else await UpdateTableAsync(); }));
+        overlayStatus = Label("Request choices to observe once; computed choices cycle every 2 seconds.", 13); root.AddView(overlayStatus);
         BindAppState();
     }
     void ConfigureCandidateCast(bool owns)
@@ -40,9 +40,15 @@ public sealed partial class MainActivity
     void StartCandidateOverlay()
     {
         if (!resumed || lifetime.IsCancellationRequested) return;
-        int run = ++overlayRun; carousel.Start(Android.OS.SystemClock.ElapsedRealtime()); overlayRefreshAt = 0;
+        int run = ++overlayRun; carousel.Start(Android.OS.SystemClock.ElapsedRealtime());
         ClearCandidatePresentation("Checking table…");
         _ = RunCandidateOverlayAsync(run);
+    }
+    async Task RequestChoicesUiAsync()
+    {
+        var enabled = !overlayEnabled;
+        await DispatchAppAsync(new ShowShotChoices(enabled));
+        if (enabled && overlayEnabled) await RequestCandidatesAsync(overlayRun);
     }
     void PauseCandidateOverlay()
     {
@@ -68,38 +74,32 @@ public sealed partial class MainActivity
                     }
                     ConfigureCandidateCast(true);
                     if (calibration is null) ClearCandidatePresentation("Calibrate the table below to see candidates.");
-                    else if (!busy && Android.OS.SystemClock.ElapsedRealtime() >= overlayRefreshAt)
-                    {
-                        overlayRefreshAt = Android.OS.SystemClock.ElapsedRealtime() + CandidateCarousel.RefreshMilliseconds;
-                        try { await RefreshAutomaticCandidatesAsync(run); }
-                        catch (OperationCanceledException) { }
-                        catch { if (run == overlayRun) ClearCandidatePresentation("Table view unavailable. Retrying automatically…"); }
-                    }
                 }
                 if (run != overlayRun) break;
                 RefreshCandidates();
                 int index = carousel.Index(Android.OS.SystemClock.ElapsedRealtime(), DateTimeOffset.UtcNow);
                 overlayStatus.Text = index < 0 ? carousel.Candidates.Length > 0 ? "Waiting for a fresh table view…" : overlayMessage
-                    : $"Candidate {index + 1} of {carousel.Candidates.Length} · {carousel.Candidates[index].Type} · refresh every 10 seconds";
+                    : $"Candidate {index + 1} of {carousel.Candidates.Length} · {carousel.Candidates[index].Type} · expires after 15 seconds";
                 await Task.Delay(200, lifetime.Token);
             }
         }
         catch (OperationCanceledException) { }
     }
+    async Task RequestCandidatesAsync(int run)
+    {
+        try { await RefreshAutomaticCandidatesAsync(run); }
+        catch (OperationCanceledException) { }
+        catch { if (run == overlayRun) ClearCandidatePresentation("Table view unavailable. Request again when useful."); }
+    }
     async Task RefreshAutomaticCandidatesAsync(int run)
     {
         await UpdateTableAsync();
         if (run != overlayRun || !overlayEnabled || !app.State.Camera.CanControl) return;
-        if (tableState is { Settled: false, Occluded: false })
-        {
-            ClearCandidatePresentation("Waiting for the balls to settle…");
-            await Task.Delay(2100, lifetime.Token); if (run != overlayRun || !overlayEnabled) return; await UpdateTableAsync();
-        }
         if (run != overlayRun || !overlayEnabled || !app.State.Camera.CanControl) return;
         var snapshot = tableAnalysis.State; var state = snapshot.Table;
         if (state is null || state.Occluded || !state.Settled || snapshot.Source != app.State.Camera.Scope)
         {
-            ClearCandidatePresentation(tableState?.Occluded == true ? "Table unclear or obstructed. Retrying automatically…" : "Waiting for the balls to settle…"); return;
+            ClearCandidatePresentation(tableState?.Occluded == true ? "Table unclear or obstructed. Request again when clear." : "Settlement is not established. Request again when the balls are still."); return;
         }
         var confirmed = tableAnalysis.Confirm(state.Version);
         carousel.Update(confirmed, DateTimeOffset.UtcNow);

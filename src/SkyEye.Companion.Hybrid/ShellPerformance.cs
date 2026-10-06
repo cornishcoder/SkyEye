@@ -24,6 +24,16 @@ public sealed partial class ShellSession
                 await ControlCameraAsync(new(app.State.Version, new ClaimCameraHost(app.State.Camera.Scope!, HostName)));
                 return HttpResponse.Json(new { host = app.State.Camera.CanControl });
             }
+            if (r.Method == "POST" && r.Path == "/observe")
+            {
+                return await MainThread.InvokeOnMainThreadAsync(async () =>
+                {
+                    if (player is null || table.State.Source is null) return HttpResponse.Json(new { error = "No active source" }, 409);
+                    var result = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Sky, app.State.Version,
+                        new ObserveTable(table.State.Source, table.State.Generation, MediaGeneration())), ct);
+                    return HttpResponse.Json(result);
+                });
+            }
             if (r.Method != "GET" || r.Path != "/metrics") return HttpResponse.Json(new { error = "Not found" }, 404);
             return await MainThread.InvokeOnMainThreadAsync(() => HttpResponse.Json(new
             {
@@ -36,6 +46,7 @@ public sealed partial class ShellSession
                 capture = app.State.Camera.Capture.ToString(),
                 host = app.State.Camera.CanControl,
                 calibrated = HasTableCalibration
+                ,observation = app.State.Observation
             }));
         }, IPAddress.Loopback);
         performanceServer.Start();

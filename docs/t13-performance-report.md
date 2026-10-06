@@ -17,3 +17,11 @@ Evidence: `evidence/t13-baseline-metrics.json`, with bounded counters/stage dist
 ## Build and measurement limits
 
 The instrumented production Release build and baseline core/HTTP checks passed. Capture/encode/transport/receive/decode are not individually isolated by this first harness. Decoder-to-texture pairing is approximate because Media3 may schedule future releases; negative offsets must not be interpreted as negative latency. Resource/transport changes and integrated acceptance follow this baseline.
+
+## Requested observations (T13.02)
+
+Both companion routes now separate telemetry from full table observations and remove ten-second candidate-analysis refresh and automatic settlement retries. Touch and Sky use `ObserveTable` on `AppCoordinator`. Receipts identify camera/session/capture scope, analysis/media generation, timeline, capture timestamp, frame age, acquisition/vision/total duration and honest Ready/Unsettled/Unclear outcome. Source, media, calibration/layout edits and cancellation fence publication; requests have a ten-second limit. Existing table-session single-flight work coalesces bursts; command admission is bounded to sixteen active effects. Duplicate operation IDs reuse the original receipt. No observation starts a loop.
+
+Physical Pixel 11 evidence: sixty idle samples contain zero full analyses and zero predictions. One explicit request performs one analysis and returns Unclear, rather than inventing a settled table. An eight-request burst performs one further analysis, with seven coalesced requests and eight scoped receipts. Recording stays Active in the original session/timeline and the camera catalogue stays eight clips. Evidence: `evidence/t13-requested-observation.json`. Core/HTTP checks cover 100 coalesced requests, cancellation, source/media fencing and duplicate commands; production and retained-native Release builds pass. Device testing exposed Media3 thread affinity in the completion check; native generation is now cached on the UI thread and failure checks always produce a bounded receipt.
+
+Automatic display-only pocket detection and the corrected/watermarked TV relay are still measured costs for T13.06. Source acquisition still uses the camera snapshot in this chunk. HLS tuning and decoded-frame observations follow; this chunk does not claim the latency target.

@@ -1,10 +1,10 @@
 namespace SkyEye.Core.Analysis;
 
-/// <summary>A bounded presentation cache for the requested ten-second refresh.
+/// <summary>A bounded presentation cache for explicitly requested observations.
 /// Advice tools still use ShotPlanner's stricter fresh-frame check.</summary>
 public sealed class CandidateCarousel
 {
-    public const int CycleMilliseconds = 2000, RefreshMilliseconds = 10000;
+    public const int CycleMilliseconds = 2000;
     public Shot[] Candidates { get; private set; } = [];
     public DateTimeOffset ExpiresAt { get; private set; }
     public long OriginMilliseconds { get; private set; }
