@@ -26,12 +26,13 @@ public sealed record RecordedGeometryJournal(int Schema, RecordedGeometrySource 
 {
     public void Validate()
     {
+        if (Source is null) throw new ArgumentException("Missing recorded geometry source.");
         Source.Validate();
         if (Schema != 1 || Spans.IsDefaultOrEmpty || Spans.Length > 512) throw new ArgumentException("Invalid recorded geometry journal.");
         long cursor = Source.StartUs;
         foreach (var span in Spans)
         {
-            if (span.StartUs != cursor || span.EndUs <= cursor || span.EndUs > Source.EndUs
+            if (span is null || span.StartUs != cursor || span.EndUs <= cursor || span.EndUs > Source.EndUs
                 || span.Layout is null && span.GeometryVersion != 0 || span.Layout is not null && (span.GeometryVersion <= 0 || !RecordedGeometry.Acceptable(span.Layout)))
                 throw new ArgumentException("Invalid recorded geometry interval.");
             cursor = span.EndUs;

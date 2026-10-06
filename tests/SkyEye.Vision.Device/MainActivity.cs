@@ -18,18 +18,31 @@ namespace SkyEye.Vision.Device;
 [Activity(Name = "uk.co.skyeye.visionchecks.MainActivity", Label = "SkyEye Vision Checks", MainLauncher = true, Exported = true)]
 public sealed class MainActivity : Activity
 {
+    TextView ProbeView()
+    {
+        var content = new LinearLayout(this) { Orientation = Orientation.Vertical };
+        content.SetPadding(24,320,24,24);
+        var text = new TextView(this) { Text = "Checking recorded geometry…", TextSize = 18 };
+        var fixture = new Button(this) { Text = "Recorded geometry v2" };
+        var real = new Button(this) { Text = "Real recording geometry v2" };
+        fixture.Click += async (_,_) => await CheckRecordedGeometryAsync(text,false);
+        real.Click += async (_,_) => await CheckRecordedGeometryAsync(text,true);
+        content.AddView(fixture); content.AddView(real);
+        var scroll = new ScrollView(this); scroll.AddView(text); content.AddView(scroll,new LinearLayout.LayoutParams(-1,0,1));
+        SetContentView(content); return text;
+    }
     protected override void OnNewIntent(global::Android.Content.Intent? intent)
     {
         base.OnNewIntent(intent); Intent = intent;
         if (intent?.GetBooleanExtra("recordedGeometry", false) == true)
         {
-            var text = new TextView(this) { Text = "Checking recorded geometry…", TextSize = 18 }; SetContentView(text);
+            var text = ProbeView();
             _ = CheckRecordedGeometryAsync(text);
         }
     }
     protected override void OnCreate(Bundle? state)
     {
-        base.OnCreate(state); var text = new TextView(this) { Text = "Checking C# OpenCV image operations…", TextSize = 18 }; SetContentView(text);
+        base.OnCreate(state); var text = ProbeView();
         if (Intent?.GetBooleanExtra("recordedGeometry", false) == true) { _ = CheckRecordedGeometryAsync(text); return; }
         _ = Task.Run(() =>
         {
@@ -157,17 +170,17 @@ public sealed class MainActivity : Activity
             // Test-only report export also works for trimmed, non-debuggable Release APKs.
             string? external = GetExternalFilesDir(null)?.AbsolutePath;
             if (external is not null) File.WriteAllText(Path.Combine(external, "vision-checks.json"), json);
-            RunOnUiThread(() => text.Text = json);
+            RunOnUiThread(() => text.Text = json.Length > 500 ? json[..500] + "\nFull report saved." : json);
         });
     }
     sealed class MatLease(Mat value) : IDisposable { public Mat Value { get; } = value; public void Dispose() { Value.Release(); Value.Dispose(); } }
-    async Task CheckRecordedGeometryAsync(TextView text)
+    async Task CheckRecordedGeometryAsync(TextView text, bool? realMode = null)
     {
         object result;
         try
         {
             string external = GetExternalFilesDir(null)!.AbsolutePath, path = Path.Combine(external, "geometry-fixture.mp4");
-            bool real = Intent?.GetBooleanExtra("realRecordedGeometry", false) == true;
+            bool real = realMode ?? (Intent?.GetBooleanExtra("realRecordedGeometry", false) == true);
             ClipRecordingOrigin? origin = null;
             string? expectedClipHash = null;
             if (real)
@@ -202,6 +215,6 @@ public sealed class MainActivity : Activity
         catch(Exception error) { result = new { passed=false,error=error.ToString() }; }
         string json=JsonSerializer.Serialize(result,JsonDefaults.Options);
         File.WriteAllText(Path.Combine(GetExternalFilesDir(null)!.AbsolutePath,"recorded-geometry-checks.json"),json);
-        RunOnUiThread(()=>text.Text=json);
+        RunOnUiThread(()=>text.Text=json.Length > 500 ? json[..500] + "\nFull report saved." : json);
     }
 }

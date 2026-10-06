@@ -39,6 +39,8 @@ static class RecordedGeometryChecks
             using var cancel = new CancellationTokenSource(); cancel.Cancel();
             try { await store.SaveAsync(timedJournal,cancel.Token); throw new Exception("Expected cancelled publication"); } catch(OperationCanceledException) { }
             Check(store.Load(timed) is null && !Directory.EnumerateFiles(root,"*.part").Any(), "cancelled publication leaves no partial journal");
+            await File.WriteAllTextAsync(Directory.GetFiles(root,"*.json").Single(),System.Text.Json.JsonSerializer.Serialize(new { schema=1,source,spans=new object?[]{null} },JsonDefaults.Options));
+            Check(store.Load(source) is null, "null interval in otherwise valid JSON cannot crash journal recovery");
             await File.WriteAllTextAsync(Directory.GetFiles(root,"*.json").Single(),"{");
             Check(store.Load(source) is null, "corrupt geometry metadata requests re-analysis rather than applying corners");
             Console.WriteLine("PASS recorded geometry: source/timeline/dimension fencing, moved mounts, dim/covered/gap fallback, recovery, exact windows and atomic restart/cancellation/corruption handling");
