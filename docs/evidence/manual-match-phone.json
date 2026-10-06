@@ -1,0 +1,20 @@
+{
+  "verifiedAt": "2026-10-06T20:30:52.4702795+00:00",
+  "package": "uk.co.skyeye.companion.lab",
+  "device": "Pixel 11",
+  "testMode": "Declared match without camera connection",
+  "players": "Rich / Mike",
+  "target": 3,
+  "twoDeclaredWins": "2–0",
+  "earlierResultCorrection": "1–1",
+  "undoCorrection": "2–0",
+  "processRestartScore": "1–1",
+  "newMatch": "Alice 0–0 Bob",
+  "previousMatchRetained": true,
+  "groupAndTurn": "Rich reds, then Mike yellows",
+  "foulControlsExercised": true,
+  "cameraOrTableObservationRequested": false,
+  "tvTesting": false,
+  "productionMatchJournalTouched": false,
+  "hudScreenshotInspected": true
+}

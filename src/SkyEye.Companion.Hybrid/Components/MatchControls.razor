@@ -2,7 +2,7 @@
 @using G = SkyEye.GameState
 @{ var match = Session.Match; var disabled = Busy || working || !Session.CanManageMatch; }
 <section class="control-section match-controls" aria-label="Match controls">
-    <h2>Match</h2>
+    <h2 tabindex="-1" @ref="heading">Match</h2>
     @if (!Session.CanManageMatch) { <p class="hint">Become camera host to manage this match.</p> }
     @if (Session.MatchError is { } error) { <p class="notice" role="alert">@error</p> }
     @if (match.Id is not null)
@@ -82,11 +82,17 @@
     string firstName = "", secondName = "";
     int target = 3;
     bool working;
+    ElementReference heading;
     async Task Run(Func<Task<bool>> action)
     {
         if (working || Busy) return;
         working = true;
-        try { await action(); }
+        var before = Session.Match.Id;
+        try
+        {
+            await action();
+            if (before != Session.Match.Id) { await InvokeAsync(StateHasChanged); await heading.FocusAsync(); }
+        }
         catch (OperationCanceledException) { }
         catch (Exception) { Session.ShowError("The match change could not be saved. Your previous result is retained."); }
         finally { working = false; }
