@@ -95,20 +95,22 @@ public sealed partial class ShellSession
     public Task PlayClipAsync(string id) => MainThread.InvokeOnMainThreadAsync(async () =>
     {
         if (!active || disposed || foreground is null || TransferringClip) return;
-        var token=foreground.Token;var previous=selection.Generation;preparingCorrected=true;ClipStatus="Preparing corrected playback…";Publish();
+        using var cancellation=CancellationTokenSource.CreateLinkedTokenSource(foreground.Token,clipLifetime.Token);
+        transferCancellation=cancellation;var token=cancellation.Token;var previous=selection.Generation;preparingCorrected=true;ClipStatus="Preparing corrected playback…";Publish();
         try{var local=await correctedClips.LocalAsync(id,token);if(token.IsCancellationRequested||disposed||!active||previous!=selection.Generation)return;
             Stop();var generation=selection.Begin(ViewingSource.LocalClip);selection.Observe(generation,ViewingSource.LocalClip,new Uri(local.Portrait).AbsoluteUri);
             Message="Playing corrected footage · with room audio.";PlayCurrent();SetSheet(false);RefreshLocalClips();Publish();}
-        catch(OperationCanceledException){}
+        catch(OperationCanceledException){if(!disposed)ClipStatus="Preparation cancelled. You can retry this clip.";}
         catch(Exception){ShowError("Connect the original camera to prepare corrected footage, then retry.");}
-        finally{preparingCorrected=false;if(!disposed)Publish();}
+        finally{if(transferCancellation==cancellation)transferCancellation=null;preparingCorrected=false;if(!disposed)Publish();}
     });
     public Task ShareClipAsync(string id) => MainThread.InvokeOnMainThreadAsync(async () =>
     {
         if (!active || disposed || foreground is null || TransferringClip) return;
-        var token=foreground.Token;preparingCorrected=true;ClipStatus="Preparing corrected share file…";Publish();
+        using var cancellation=CancellationTokenSource.CreateLinkedTokenSource(foreground.Token,clipLifetime.Token);
+        transferCancellation=cancellation;var token=cancellation.Token;preparingCorrected=true;ClipStatus="Preparing corrected share file…";Publish();
         CorrectedClip local;
-        try{local=await correctedClips.LocalAsync(id,token);}catch(OperationCanceledException){return;}catch(Exception){ShowError("Connect the original camera to prepare a corrected share file.");return;}finally{preparingCorrected=false;if(!disposed)Publish();}
+        try{local=await correctedClips.LocalAsync(id,token);ClipStatus="Corrected share file ready. Uncertain corner intervals keep the original view.";}catch(OperationCanceledException){if(!disposed)ClipStatus="Preparation cancelled. You can retry this clip.";return;}catch(Exception){ShowError("Connect the original camera to prepare a corrected share file.");return;}finally{if(transferCancellation==cancellation)transferCancellation=null;preparingCorrected=false;if(!disposed)Publish();}
         if(!active||disposed||token.IsCancellationRequested)return;
         var activity = Platform.CurrentActivity ?? throw new InvalidOperationException("Android activity required.");
         var uri = AndroidX.Core.Content.FileProvider.GetUriForFile(activity, activity.PackageName + ".files", new Java.IO.File(local.Portrait));

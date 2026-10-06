@@ -11,7 +11,7 @@ public sealed partial class ShellSession
     public bool PreparingRecentReplay { get; private set; }
     public bool RecentReplaySupported => effects.Latest is { } view && view.Connection == app.State.Camera
         && view.Status.TryGetProperty("recentReplayVersion", out var version) && version.GetInt32() == 1;
-    public bool CanRequestRecentReplay => active && TvConnected && CanCastLive && RecentReplaySupported && !PreparingRecentReplay;
+    public bool CanRequestRecentReplay => active && TvConnected && CanCastLive && RecentReplaySupported && !PreparingRecentReplay && !TransferringClip;
     public bool CanWatchRecentReplay => active && TvConnected && !PreparingRecentReplay && recentReplay is { } replay
         && replay.ConnectionId == app.State.Camera.ConnectionId && app.State.Camera.Reachability == CameraReachability.Reachable
         && System.Diagnostics.Stopwatch.GetElapsedTime(replay.ReceivedTimestamp) < RecentReplayStore.Retention - TimeSpan.FromSeconds(45);

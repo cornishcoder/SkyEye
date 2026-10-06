@@ -46,10 +46,12 @@ public sealed partial class ShellSession
         var admitted = catalog;
         var clip = admitted?.ConnectionId == choice.ConnectionId ? admitted.Clips.FirstOrDefault(c => c.Id == choice.Id) : null;
         if (admitted is null || clip is null) { ShowError("Refresh camera clips before playing this shot on TV."); return; }
+        using var cancellation=CancellationTokenSource.CreateLinkedTokenSource(foreground.Token,clipLifetime.Token);
+        transferCancellation=cancellation;
         try
         {
             preparingCorrected=true;
-            var token=foreground.Token;var previousClip=tvReplay.Request;var previousLive=tvLive.Request;var connection=app.State.Camera.ConnectionId;
+            var token=cancellation.Token;var previousClip=tvReplay.Request;var previousLive=tvLive.Request;var connection=app.State.Camera.ConnectionId;
             ClipStatus="Preparing corrected TV footage…";Publish();
             var prepared=await correctedClips.SavedAsync(admitted,clip,null,token);
             if(!active||disposed||token.IsCancellationRequested||connection!=app.State.Camera.ConnectionId||previousClip!=tvReplay.Request||previousLive!=tvLive.Request)return;
@@ -63,8 +65,9 @@ public sealed partial class ShellSession
                 ? "Saved shot on TV · camera recording continues." : "Saved shot on TV · with room audio.";
             DismissNotice(); Publish();
         }
+        catch (OperationCanceledException) { if(!disposed)ClipStatus="Preparation cancelled. You can retry this clip."; }
         catch (Exception) { ShowError("The clip could not be sent. Refresh camera clips and try again."); }
-        finally{preparingCorrected=false;if(!disposed)Publish();}
+        finally{if(transferCancellation==cancellation)transferCancellation=null;preparingCorrected=false;if(!disposed)Publish();}
     });
     bool ObserveTvReplay(JsonElement metrics)
     {
