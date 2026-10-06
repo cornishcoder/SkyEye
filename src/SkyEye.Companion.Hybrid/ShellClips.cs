@@ -30,7 +30,7 @@ public sealed partial class ShellSession
         var context = Android.App.Application.Context;
         clips = new(client, () => app.State.Camera,
             new ClipLibrary(Path.Combine(context.FilesDir!.AbsolutePath, "clips")), new AndroidPortraitClipExporter(context));
-        correctedClips=new(client,()=>app.State.Camera,clips,Path.Combine(context.FilesDir!.AbsolutePath,"corrected-clips"),new AndroidCorrectedClipRenderer(context));
+        correctedClips=new(client,()=>app.State.Camera,clips,Path.Combine(context.FilesDir!.AbsolutePath,"corrected-clips"),new AndroidCorrectedClipRenderer(context),annotations,()=>player?.AnnotationMetrics()??"{}",port:IsLab?8768:8767);
         RefreshLocalClips();
     }
     void RefreshLocalClips() => localClips = correctedClips.Local().Concat(clips.Library.Local().Select(c=>c.Clip)).DistinctBy(c=>c.Id).OrderByDescending(c=>c.CreatedAt)

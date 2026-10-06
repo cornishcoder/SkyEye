@@ -57,6 +57,7 @@ public sealed partial class ShellSession : IDisposable
             edit.Apply();
         });
         app = new(cameraControls: effects);
+        InitializeAnnotations();
         InitializeClips();
         InitializeTable();
         Agent = new(agentClient, _ => { }, new ShellViewState());
@@ -82,6 +83,7 @@ public sealed partial class ShellSession : IDisposable
     public void Detach(Bridge.PlayerBridge owner)
     {
         if (player != owner) return;
+        CheckpointAnnotations();
         StopPocketFraming();
         StopShotScenes();
         ClearSceneCheck();
@@ -157,6 +159,7 @@ public sealed partial class ShellSession : IDisposable
         }
         // Repeated telemetry/sheet renders must not reload ExoPlayer.
         if (selection.Observe(generation, ViewingSource.Live, view.Stream)) PlayCurrent();
+        BindAnnotationClock();
     }
     void PlayCurrent()
     {
@@ -174,11 +177,13 @@ public sealed partial class ShellSession : IDisposable
     public void Stop()
     {
         if (!MainThread.IsMainThread) { MainThread.BeginInvokeOnMainThread(Stop); return; }
+        CollectAnnotations();
         StopPocketFraming(); StopShotScenes(); ClearSceneCheck(); selection.Stop(); player?.Stop(); if (!TvReplaySelected) cast?.Configure("", true);
         Playing = false; Playback = "Waiting for your table"; Publish();
     }
     public void Suspend()
     {
+        CheckpointAnnotations();
         StopPocketFraming();
         StopShotScenes();
         ClearSceneCheck();
@@ -217,6 +222,7 @@ public sealed partial class ShellSession : IDisposable
                         var commandExpired = ExpireTvCommands();
                         if (wasConnected != TvConnected || replayChanged || commandExpired) Publish();
                     }
+                    CollectAnnotations();
                     bool tickChanged = chrome.Tick();
                     if (tickChanged || wasVisible != chrome.Visible || wasAccessible != chrome.Accessible) Changed?.Invoke();
                 });

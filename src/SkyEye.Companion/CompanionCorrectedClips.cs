@@ -1,4 +1,5 @@
 using SkyEye.Core;
+using SkyEye.Core.Analysis;
 using SkyEye.Core.Application;
 using System.Text.Json;
 
@@ -6,18 +7,20 @@ namespace SkyEye.Companion;
 
 public sealed class CompanionCorrectedClips:IDisposable
 {
+    readonly int port;readonly AnnotationJournalStore? annotations;readonly Func<string>? annotationMetrics;
     readonly CameraClient current;readonly Func<CameraConnection> connection;readonly CompanionClipService clips;
     readonly CorrectedClipStore saved,recent;readonly ICorrectedClipRenderer renderer;
     readonly LocalHttpServer server;readonly string access=Guid.NewGuid().ToString("N");
     readonly object gate=new();string? servedPath,servedId;long servedAt;bool servedTemporary;
     readonly CancellationTokenSource lifetime=new();
-    public CompanionCorrectedClips(CameraClient current,Func<CameraConnection> connection,CompanionClipService clips,string directory,ICorrectedClipRenderer renderer)
+    public CompanionCorrectedClips(CameraClient current,Func<CameraConnection> connection,CompanionClipService clips,string directory,ICorrectedClipRenderer renderer,AnnotationJournalStore? annotations=null,Func<string>? annotationMetrics=null,int port=8767)
     {
-        this.current=current;this.connection=connection;this.clips=clips;this.renderer=renderer;
+        this.port=port;this.annotations=annotations;this.annotationMetrics=annotationMetrics;this.current=current;this.connection=connection;this.clips=clips;this.renderer=renderer;
         Directory.CreateDirectory(directory);Func<long> space=()=>new Android.OS.StatFs(directory).AvailableBytes;
-        saved=new(Path.Combine(directory,"saved"),availableBytes:space);recent=new(Path.Combine(directory,"recent"),true,availableBytes:space);
-        server=new(8767,(request,ct)=>{
-            lock(gate){if(request.Path=="/status")return Task.FromResult(HttpResponse.Json(new{serving=servedPath is not null,temporary=servedTemporary}));
+        saved=new(Path.Combine(directory,"saved"),availableBytes:space,metadata:(clip,path)=>WriteAnnotations(clip,path,false));recent=new(Path.Combine(directory,"recent"),true,availableBytes:space,metadata:(clip,path)=>WriteAnnotations(clip,path,true));
+        server=new(port,(request,ct)=>{
+            lock(gate){if(request.Path=="/annotations/status")return Task.FromResult(HttpResponse.Json(new{journal=annotations?.Metrics(),decoder=JsonSerializer.Deserialize<JsonElement>(annotationMetrics?.Invoke()??"{}") }));
+                if(request.Path=="/status")return Task.FromResult(HttpResponse.Json(new{serving=servedPath is not null,temporary=servedTemporary}));
                 if(servedPath is null||!File.Exists(servedPath)||request.Path!="/corrected/"+servedId||request.Query.GetValueOrDefault("access")!=access||servedTemporary&&System.Diagnostics.Stopwatch.GetElapsedTime(servedAt)>=RecentReplayStore.Retention)
                     return Task.FromResult(HttpResponse.Json(new{error="Corrected replay unavailable"},410));
                 return Task.FromResult(new HttpResponse(200,"video/mp4",FilePath:servedPath));}});server.Start();_=CleanupAsync();
@@ -26,7 +29,7 @@ public sealed class CompanionCorrectedClips:IDisposable
     public async Task<CorrectedClip> SavedAsync(CameraClipCatalog catalog,Clip clip,Action<ClipTransferProgress>? progress,CancellationToken ct)
     {
         _=clips.TvSource(catalog,clip);using var transfer=new CameraClipTransfer(current);
-        var prepared=await saved.PrepareAsync(clip,transfer,renderer,progress,ct);Check(catalog.ConnectionId,catalog.CameraIdentity);return prepared;
+        var prepared=await saved.PrepareAsync(clip,transfer,renderer,progress,ct);Check(catalog.ConnectionId,catalog.CameraIdentity);PreserveAnnotations(prepared,false);return prepared;
     }
     public async Task<CorrectedClip> LocalAsync(string id,CancellationToken ct)
     {
@@ -39,7 +42,15 @@ public sealed class CompanionCorrectedClips:IDisposable
     public async Task<CorrectedClip> RecentAsync(CameraRecentReplay replay,CancellationToken ct)
     {
         _=clips.TvSource(replay);using var transfer=new ReplayTransfer(current,replay.Asset.Clip);
-        var prepared=await recent.PrepareAsync(replay.Asset.Clip,transfer,renderer,cancellation:ct);Check(replay.ConnectionId,replay.CameraIdentity);return prepared;
+        var prepared=await recent.PrepareAsync(replay.Asset.Clip,transfer,renderer,cancellation:ct);Check(replay.ConnectionId,replay.CameraIdentity);PreserveAnnotations(prepared,true);return prepared;
+    }
+    void PreserveAnnotations(CorrectedClip clip,bool temporary)=>WriteAnnotations(clip.Manifest.Clip,Path.GetDirectoryName(clip.Original)!,temporary);
+    void WriteAnnotations(Clip clip,string directory,bool temporary)
+    {
+        if(annotations is null)return;
+        if(!temporary)annotations.Preserve(clip);
+        var journal=temporary?annotations.Window(clip):annotations.Preserved(clip)??annotations.Window(clip);
+        AnnotationJournalStore.WriteClip(Path.Combine(directory,"annotations.json"),journal);
     }
     void Check(Guid id,string identity){var camera=connection();if(camera.ConnectionId!=id||camera.CameraIdentity!=identity||camera.Reachability!=CameraReachability.Reachable)throw new InvalidOperationException("Camera changed during corrected replay preparation.");}
     public string Serve(CorrectedClip clip,bool temporary)
@@ -48,7 +59,7 @@ public sealed class CompanionCorrectedClips:IDisposable
             var addresses=System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces().SelectMany(n=>n.GetIPProperties().UnicastAddresses).Select(a=>a.Address)
                 .Where(a=>a.AddressFamily==System.Net.Sockets.AddressFamily.InterNetwork&&!System.Net.IPAddress.IsLoopback(a)&&!a.ToString().StartsWith("169.254.")).ToArray();
             var ip=addresses.FirstOrDefault(a=>a.ToString().StartsWith("192.168."))??addresses.First();
-            return $"http://{ip}:8767/corrected/{servedId}?access={access}";}
+            return $"http://{ip}:{port}/corrected/{servedId}?access={access}";}
     }
     public void ClearServing(){lock(gate){servedPath=servedId=null;}}
     async Task CleanupAsync(){try{while(!lifetime.IsCancellationRequested){await Task.Delay(TimeSpan.FromSeconds(10),lifetime.Token);recent.Cleanup();}}catch(OperationCanceledException){}}

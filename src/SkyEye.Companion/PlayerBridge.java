@@ -11,6 +11,7 @@ import androidx.media3.exoplayer.ExoPlayer;
 
 public final class PlayerBridge {
     public interface Listener { void onError(String error); void onPlaying(boolean playing); }
+    private final AnnotationRecorder annotationRecorder=new AnnotationRecorder();
     private final ExoPlayer player;private final TextureView texture;private final Listener listener;
     private final FrameLayout container;private final View overlay;private final CandidateOverlay drawing=new CandidateOverlay();private final TableSceneOverlay tableDrawing=new TableSceneOverlay(),tvDrawing=new TableSceneOverlay();
     private volatile String phoneScene="{}",phoneFraming="{}";
@@ -19,10 +20,11 @@ public final class PlayerBridge {
     public PlayerBridge(Activity context,Listener listener){
         this.listener=listener;texture=new TextureView(context);texture.setOpaque(false);player=new ExoPlayer.Builder(context).build();player.setVideoTextureView(texture);player.setVolume(0);
         container=new FrameLayout(context);container.setBackgroundColor(android.graphics.Color.BLACK);container.addView(texture,new FrameLayout.LayoutParams(-1,-1));
-        overlay=new View(context){protected void onDraw(Canvas canvas){super.onDraw(canvas);org.json.JSONObject snapshot=tableDrawing.snapshot(System.currentTimeMillis());Matrix matrix=texture.getTransform(new Matrix());canvas.save();if(sceneApplied)clipScene(canvas);canvas.concat(matrix);drawing.draw(canvas,getWidth(),getHeight());tableDrawing.geometry(canvas,getWidth(),getHeight(),videoWidth/(float)videoHeight,snapshot);if(sceneApplied)drawGuides(canvas,getWidth(),getHeight());canvas.restore();tableDrawing.textLayer(canvas,getWidth(),getHeight(),matrix,snapshot);phoneScene=tableDrawing.metrics(snapshot,generation,player.getCurrentPosition()).toString();phoneFraming=calculateFramingMetrics();}};
+        overlay=new View(context){protected void onDraw(Canvas canvas){super.onDraw(canvas);org.json.JSONObject snapshot=tableDrawing.snapshot(System.currentTimeMillis());Matrix matrix=texture.getTransform(new Matrix());canvas.save();if(sceneApplied)clipScene(canvas);canvas.concat(matrix);drawing.draw(canvas,getWidth(),getHeight());tableDrawing.geometry(canvas,getWidth(),getHeight(),videoWidth/(float)videoHeight,snapshot);if(sceneApplied)drawGuides(canvas,getWidth(),getHeight());canvas.restore();tableDrawing.textLayer(canvas,getWidth(),getHeight(),matrix,snapshot);phoneScene=tableDrawing.metrics(snapshot,generation,player.getCurrentPosition()).toString();phoneFraming=calculateFramingMetrics();annotationRecorder.drawn(snapshot,scene==null?"":scene.toString(),false,generation);}};
         overlay.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);container.addView(overlay,new FrameLayout.LayoutParams(-1,-1));
         retry.post(new Runnable(){public void run(){if(released)return;overlay.invalidate();retry.postDelayed(this,200);}});
         texture.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->transform());
+        player.setVideoFrameMetadataListener((pts,release,format,mediaFormat)->annotationRecorder.frame(pts,release));
         player.addListener(new Player.Listener(){
             public void onPlayerError(PlaybackException e){listener.onError(activeUrl.contains(".m3u8")?"Viewing interrupted. Waiting for the live feed to recover.":"Downloaded clip could not be played.");long expected=generation;
                 if(activeUrl.contains(".m3u8"))retry.postDelayed(()->{if(!released&&expected==generation){player.prepare();player.play();}},3000);
@@ -37,6 +39,9 @@ public final class PlayerBridge {
     public boolean setTableSceneForTarget(String json,boolean tv){boolean accepted=(tv?tvDrawing:tableDrawing).set(json,generation);if(accepted){drawing.set("{}");overlay.invalidate();}return accepted;}
     public void clearTableScene(){tableDrawing.clear();tvDrawing.clear();overlay.invalidate();}
     public void clearTableSceneForTarget(boolean tv){(tv?tvDrawing:tableDrawing).clear();overlay.invalidate();}
+    public void setRecordingClock(String timeline,long sourceUs,long mediaGeneration){annotationRecorder.clock(timeline,sourceUs,mediaGeneration);}
+    public String drainAnnotations(){return annotationRecorder.drain();}
+    public String annotationMetrics(){return annotationRecorder.metrics();}
     public String sceneMetrics(){return phoneScene;}
     public String presentation(){return drawing.metrics();}
     public String playbackMetrics(){try{return new org.json.JSONObject().put("playing",player.isPlaying()).put("mediaGeneration",generation).put("volume",player.getVolume()).put("rotation",rotation).put("width",videoWidth).put("height",videoHeight).put("positionMs",player.getCurrentPosition()).toString();}catch(Exception ignored){return "{}";}}
@@ -64,10 +69,18 @@ public final class PlayerBridge {
         Matrix matrix=new Matrix();boolean framed=false;
         if(tvScene!=null)try{org.json.JSONArray values=tvScene.getJSONArray("values"),clip=tvScene.getJSONArray("clip");float sx=output.getWidth()/(float)tvScene.optInt("width",960),sy=output.getHeight()/(float)tvScene.optInt("height",540);float[] a=new float[9];for(int i=0;i<9;i++)a[i]=(float)values.getDouble(i);for(int i=0;i<3;i++)a[i]*=sx;for(int i=3;i<6;i++)a[i]*=sy;for(int i:new int[]{0,3,6})a[i]/=output.getWidth();for(int i:new int[]{1,4,7})a[i]/=output.getHeight();matrix.setValues(a);canvas.clipRect((float)clip.getDouble(0)*sx,(float)clip.getDouble(1)*sy,(float)clip.getDouble(2)*sx,(float)clip.getDouble(3)*sy);framed=true;}catch(Exception ignored){matrix.reset();}
         canvas.save();canvas.concat(matrix);canvas.drawBitmap(captureScratch,0,0,videoPaint);drawing.draw(canvas,output.getWidth(),output.getHeight());tvDrawing.geometry(canvas,output.getWidth(),output.getHeight(),videoWidth/(float)videoHeight,snapshot);canvas.restore();tvDrawing.textLayer(canvas,output.getWidth(),output.getHeight(),matrix,snapshot);
+        annotationRecorder.drawn(snapshot,tvScene==null?"":tvScene.toString(),true,generation);
         try{return tvDrawing.metrics(snapshot,generation,position).put("rectangular",framed).put("pocketPixels",mappedPockets(framed?tvScene:null,matrix,output.getWidth(),output.getHeight())).toString();}catch(Exception ignored){return "{}";}
     }
-    public void play(String url){generation++;tableDrawing.reset();tvDrawing.reset();drawing.set("{}");phoneScene="{}";activeUrl=url;player.setMediaItem(MediaItem.fromUri(url));player.prepare();player.play();}
-    public void stop(){generation++;tableDrawing.reset();tvDrawing.reset();drawing.set("{}");phoneScene="{}";activeUrl="";player.stop();player.clearMediaItems();}
+    public void play(String url){generation++;annotationRecorder.reset(generation);tableDrawing.reset();tvDrawing.reset();drawing.set("{}");phoneScene="{}";activeUrl=url;if(url.contains(".m3u8")){
+            long expectedGeneration=generation;
+            androidx.media3.exoplayer.hls.DefaultHlsExtractorFactory delegate=new androidx.media3.exoplayer.hls.DefaultHlsExtractorFactory();
+            androidx.media3.exoplayer.hls.HlsExtractorFactory factory=(uri,format,captions,adjuster,headers,input,id)->{
+                annotationRecorder.extractor(adjuster,expectedGeneration);return delegate.createExtractor(uri,format,captions,adjuster,headers,input,id);
+            };
+            player.setMediaSource(new androidx.media3.exoplayer.hls.HlsMediaSource.Factory(new androidx.media3.datasource.DefaultDataSource.Factory(container.getContext())).setExtractorFactory(factory).createMediaSource(MediaItem.fromUri(url)));
+        }else player.setMediaItem(MediaItem.fromUri(url));player.prepare();player.play();}
+    public void stop(){generation++;annotationRecorder.reset(generation);tableDrawing.reset();tvDrawing.reset();drawing.set("{}");phoneScene="{}";activeUrl="";player.stop();player.clearMediaItems();}
     public void setMuted(boolean muted){player.setVolume(muted?0:1);}
     public void setPortrait(boolean portrait){rotation=portrait?90:0;transform();}
     private void transform(){float w=texture.getWidth(),h=texture.getHeight();if(w<=0||h<=0)return;sceneApplied=false;texture.setClipBounds(null);
