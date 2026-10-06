@@ -1,0 +1,97 @@
+{
+  "before": {
+    "measuredAt": "2026-10-06T18:42:57.4548089+01:00",
+    "service": {
+      "ready": true,
+      "video": {
+        "serviceOwned": true,
+        "gpuVideo": true,
+        "cpuVideoCopies": 0,
+        "playing": true,
+        "generation": 2,
+        "frames": 1680,
+        "replacedFrames": 0,
+        "segments": 16,
+        "encodedSourceUs": 36737783311,
+        "frame": {
+          "sceneVersion": 0,
+          "mediaGeneration": 2,
+          "tableVersion": 0,
+          "sourcePositionMs": 0,
+          "paths": 0,
+          "markers": 0,
+          "sourceUs": 36737816655,
+          "rectangular": false,
+          "watermarked": true
+        },
+        "error": ""
+      },
+      "source": {
+        "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+        "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+        "geometry": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+      }
+    },
+    "cast": {
+      "connected": true,
+      "playing": true,
+      "stream": "scene",
+      "positionMs": 62355,
+      "playerState": 2,
+      "idleReason": 0,
+      "liveEdgeLagMs": 434,
+      "liveEdgeOutcome": "accepted"
+    },
+    "pipeline": {
+      "counts": {},
+      "stages": {}
+    }
+  },
+  "after": {
+    "ready": true,
+    "video": {
+      "serviceOwned": true,
+      "gpuVideo": true,
+      "cpuVideoCopies": 0,
+      "playing": true,
+      "generation": 2,
+      "frames": 2934,
+      "replacedFrames": 0,
+      "segments": 16,
+      "encodedSourceUs": 36780084266,
+      "frame": {
+        "sceneVersion": 0,
+        "mediaGeneration": 2,
+        "tableVersion": 0,
+        "sourcePositionMs": 0,
+        "paths": 0,
+        "markers": 0,
+        "sourceUs": 36780117888,
+        "rectangular": false,
+        "watermarked": true
+      },
+      "error": ""
+    },
+    "source": {
+      "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+      "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+      "geometry": "E3B0C44298FC1C149AFBF4C8996FB92427AE41E4649B934CA495991B7852B855"
+    }
+  },
+  "cast": {
+    "connected": true,
+    "playing": true,
+    "stream": "scene",
+    "positionMs": 104811,
+    "playerState": 2,
+    "idleReason": 0,
+    "liveEdgeLagMs": 434,
+    "liveEdgeOutcome": "accepted"
+  },
+  "pipeline": {
+    "counts": {},
+    "stages": {}
+  },
+  "observedPowerState": "Dozing",
+  "measuredAt": "2026-10-06T18:43:39.9099434+01:00"
+}
