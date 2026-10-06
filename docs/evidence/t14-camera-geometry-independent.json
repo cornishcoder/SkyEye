@@ -1,0 +1,130 @@
+{
+  "before": {
+    "ready": true,
+    "video": {
+      "serviceOwned": true,
+      "gpuVideo": true,
+      "cpuVideoCopies": 0,
+      "playing": true,
+      "generation": 2,
+      "frames": 207,
+      "replacedFrames": 0,
+      "segments": 13,
+      "encodedSourceUs": 37544354888,
+      "frame": {
+        "sceneVersion": 0,
+        "mediaGeneration": 2,
+        "tableVersion": 0,
+        "sourcePositionMs": 0,
+        "paths": 0,
+        "markers": 0,
+        "sourceUs": 37544388511,
+        "sourceAgeEstimateMs": 519.9139999998733,
+        "rectangular": true,
+        "watermarked": true
+      },
+      "error": ""
+    },
+    "source": {
+      "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+      "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+      "geometry": "39EC59CE82DFFC0DC5E3971790BC511379D9D8A7D9B013FFABDF50F46D340A12"
+    }
+  },
+  "local": {
+    "ready": true,
+    "video": {
+      "serviceOwned": true,
+      "gpuVideo": true,
+      "cpuVideoCopies": 0,
+      "playing": true,
+      "generation": 2,
+      "frames": 1292,
+      "replacedFrames": 0,
+      "segments": 16,
+      "encodedSourceUs": 37584876377,
+      "frame": {
+        "sceneVersion": 0,
+        "mediaGeneration": 2,
+        "tableVersion": 0,
+        "sourcePositionMs": 0,
+        "paths": 0,
+        "markers": 0,
+        "sourceUs": 37584910000,
+        "sourceAgeEstimateMs": 648.8190000001341,
+        "rectangular": true,
+        "watermarked": true
+      },
+      "error": ""
+    },
+    "source": {
+      "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+      "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+      "geometry": "39EC59CE82DFFC0DC5E3971790BC511379D9D8A7D9B013FFABDF50F46D340A12"
+    }
+  },
+  "phone": {
+    "playing": false,
+    "mediaGeneration": 4,
+    "volume": 1,
+    "rotation": 0,
+    "width": 1080,
+    "height": 1920,
+    "positionMs": 31376,
+    "liveOffsetMs": null,
+    "bufferedMs": 0,
+    "decodedFrames": 1757,
+    "textureFrames": 1637,
+    "textureFps": 18.30292279678259,
+    "releaseToTextureMs": 99.729433,
+    "textureAgeMs": 9102.2299
+  },
+  "calibrated": true,
+  "backgroundAfterLiveReturn": {
+    "ready": true,
+    "video": {
+      "serviceOwned": true,
+      "gpuVideo": true,
+      "cpuVideoCopies": 0,
+      "playing": true,
+      "generation": 2,
+      "frames": 2195,
+      "replacedFrames": 0,
+      "segments": 16,
+      "encodedSourceUs": 37615644733,
+      "frame": {
+        "sceneVersion": 0,
+        "mediaGeneration": 2,
+        "tableVersion": 0,
+        "sourcePositionMs": 0,
+        "paths": 0,
+        "markers": 0,
+        "sourceUs": 37615678366,
+        "sourceAgeEstimateMs": 723.597000000067,
+        "rectangular": true,
+        "watermarked": true
+      },
+      "error": ""
+    },
+    "source": {
+      "cameraIdentity": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+      "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+      "geometry": "39EC59CE82DFFC0DC5E3971790BC511379D9D8A7D9B013FFABDF50F46D340A12"
+    }
+  },
+  "backgroundCast": {
+    "connected": true,
+    "playing": true,
+    "stream": "scene",
+    "positionMs": 75000,
+    "playerState": 2,
+    "idleReason": 0,
+    "liveEdgeLagMs": 1662,
+    "liveEdgeOutcome": "accepted"
+  },
+  "backgroundCalibrated": true,
+  "pipeline": {
+    "counts": {},
+    "stages": {}
+  }
+}
