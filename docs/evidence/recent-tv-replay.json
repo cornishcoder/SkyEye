@@ -1,0 +1,261 @@
+{
+  "unit": "T05 bounded temporary recent TV replay",
+  "date": "2026-10-06",
+  "finalCompanionSourceCommit": "31aa6af5b5c20d2eeb451fdc1c691ce7c430e789",
+  "physicalBehaviorGateCommit": "de2d6bd",
+  "finalSourceChangeAfterBehaviorGate": "Only recent-versus-saved display wording changed; native preparation, window selection, store, transport and Cast dispatch unchanged.",
+  "cameraImplementationCommit": "a4f089126221251b815000b55476f6288278b558",
+  "productionApkSha256": "8A36DD0A2E2BE789EE71F2F396782F609CDB44A20F68A90E91072382576D6CF6",
+  "cameraApkSha256": "8ADDB796EC0B315E8CB72B568AB990BC1DCEC7AF4DE4CC3465F9F07C099F8F05",
+  "packages": [
+    "uk.co.skyeye.camera",
+    "uk.co.skyeye.companion"
+  ],
+  "updates": {
+    "uninstallOrClearData": false,
+    "installedInPlace": true,
+    "cameraWasReadyBeforeUpdate": true,
+    "uidAndPrivateStorageRetained": true,
+    "matchingCertificatesVerified": true
+  },
+  "checks": {
+    "coreHttp": "passed including new recent replay window/store and native HTTP adapter checks",
+    "agentUi": "passed",
+    "cameraRelease": {
+      "errors": 0,
+      "warnings": 0
+    },
+    "productionRelease": {
+      "errors": 0,
+      "warnings": 10
+    },
+    "labRelease": {
+      "errors": 0,
+      "warnings": 7
+    },
+    "retainedCompanionRelease": {
+      "errors": 0,
+      "warnings": 10
+    }
+  },
+  "policy": {
+    "durationsSeconds": [
+      15,
+      30,
+      60
+    ],
+    "clock": "Monotonic expiry; camera recording clock determines footage endpoint",
+    "cleanupIntervalSeconds": 10,
+    "maximumBytes": 134217728,
+    "maximumAssets": 2,
+    "senderExpiryMarginSeconds": 45,
+    "savedCatalogue": "Separate ephemeral directory, no saved clip or local export",
+    "retentionSeconds": 600
+  },
+  "physicalReplay": {
+    "first": {
+      "requestedSeconds": 15,
+      "clipId": "7c4ff22d0eff47d997d7a99a39ed4229",
+      "actualDurationMs": 16769,
+      "ui": [
+        {
+          "text": "Recent replay · 16.8 seconds · 0:06 / 0:17 · Playing with room audio",
+          "enabled": "true",
+          "bounds": "[123,1447][1221,1591]"
+        },
+        {
+          "text": "Recent replay · 16.8 seconds available · expires after 10 minutes. Not added to saved clips.",
+          "enabled": "true",
+          "bounds": "[123,2884][1221,2884]"
+        },
+        {
+          "text": "Recent replay on TV · camera recording continues.",
+          "enabled": "true",
+          "bounds": "[117,2731][1227,2797]"
+        }
+      ]
+    },
+    "second": {
+      "requestedSeconds": 30,
+      "clipId": "e7b0a2b549524347ba27830817e2a0dd",
+      "seekUi": [
+        {
+          "text": "Recent replay · 31.2 seconds · 0:00 / 0:32 · Paused",
+          "enabled": "true",
+          "bounds": "[123,898][1221,970]"
+        },
+        {
+          "text": "TV confirmed seek to 0:00",
+          "enabled": "true",
+          "bounds": "[123,1003][1221,1078]"
+        }
+      ],
+      "pauseUi": [
+        {
+          "text": "Recent replay · 31.2 seconds · 0:07 / 0:32 · Paused",
+          "enabled": "true",
+          "bounds": "[123,898][1221,970]"
+        },
+        {
+          "text": "TV confirmed pause",
+          "enabled": "true",
+          "bounds": "[123,1003][1221,1078]"
+        }
+      ],
+      "actualDurationMs": 31202,
+      "resumeUi": [
+        {
+          "text": "Recent replay · 31.2 seconds · 0:01 / 0:32 · Playing with room audio",
+          "enabled": "true",
+          "bounds": "[123,898][1221,1042]"
+        },
+        {
+          "text": "TV confirmed resume",
+          "enabled": "true",
+          "bounds": "[123,1075][1221,1147]"
+        }
+      ]
+    },
+    "userConfirmation": {
+      "answer": "yes",
+      "question": "Did TV show recent table footage, pause, jump back and resume successfully?"
+    },
+    "extraLeadingFootage": "Reported actual preceding keyframe start; no sample-exact cut claimed.",
+    "thirdRequest": {
+      "status": 409,
+      "error": "Two recent replays are already available. Reuse one or wait for it to expire."
+    },
+    "retainedAssetHeadProbes": [
+      {
+        "id": "7c4ff22d0eff47d997d7a99a39ed4229",
+        "status": 200,
+        "bytes": "12881984"
+      },
+      {
+        "id": "e7b0a2b549524347ba27830817e2a0dd",
+        "status": 200,
+        "bytes": "23936732"
+      }
+    ],
+    "receiverSamples": "recent-tv-replay-progress.json",
+    "receiverSampleCount": 57,
+    "receiverExcerptNote": "Bounded log excerpt taken after subsequent controls; earlier UI confirmations preserve initial behavior gate. Not a complete continuous receiver trace."
+  },
+  "capture": {
+    "beforeUpdate": {
+      "state": "Ready",
+      "sessionId": "b729769189784fac99c01d69764c2b01",
+      "revision": 0,
+      "historySeconds": 0,
+      "clipCount": 8,
+      "battery": 5,
+      "error": ""
+    },
+    "afterUpdate": {
+      "state": "Ready",
+      "sessionId": "3b132b1f1fa7423d8698c41965ecfd08",
+      "revision": 0,
+      "historySeconds": 0,
+      "clipCount": 8,
+      "battery": 10,
+      "recentReplayVersion": 1,
+      "error": ""
+    },
+    "beforeReplay": {
+      "state": "Active",
+      "sessionId": "8deaede270b046c99a653573025c6f31",
+      "revision": 2,
+      "historySeconds": 12.992979,
+      "clipCount": 8,
+      "battery": 12,
+      "error": ""
+    },
+    "duringReplay": {
+      "state": "Active",
+      "sessionId": "8deaede270b046c99a653573025c6f31",
+      "revision": 2,
+      "historySeconds": 203.00900799999994,
+      "clipCount": 8,
+      "battery": 15,
+      "error": ""
+    },
+    "afterReplay": {
+      "state": "Active",
+      "sessionId": "8deaede270b046c99a653573025c6f31",
+      "revision": 2,
+      "historySeconds": 362.0222489999997,
+      "clipCount": 8,
+      "battery": 18,
+      "error": ""
+    },
+    "final": {
+      "state": "Active",
+      "sessionId": "8deaede270b046c99a653573025c6f31",
+      "revision": 3,
+      "timeline": "ececfe849fe14776b70764afc388252a",
+      "historySeconds": 622.0518266666677,
+      "clipCount": 8,
+      "battery": 22,
+      "error": ""
+    },
+    "temporaryReplayPreparationRequiresHost": false,
+    "permanentClipsCreatedOrDeleted": false,
+    "authorityRevisionNote": "Replay gate remains revision 2. Final companion reinstall lets its host lease expire, advancing authority revision to 3 while capture stays Active in the same session/timeline."
+  },
+  "returnLive": {
+    "behaviorGateUi": [
+      {
+        "text": "TV buffering live table…",
+        "enabled": "true",
+        "bounds": "[123,793][1221,865]"
+      },
+      {
+        "text": "TV confirmed live playback",
+        "enabled": "true",
+        "bounds": "[123,898][1221,973]"
+      }
+    ],
+    "finalUi": [
+      {
+        "text": "TV playing rectangular table",
+        "enabled": "true",
+        "bounds": "[123,1414][1221,1486]"
+      },
+      {
+        "text": "TV confirmed live playback",
+        "enabled": "true",
+        "bounds": "[123,1519][1221,1591]"
+      },
+      {
+        "text": "Live table on TV · silent.",
+        "enabled": "true",
+        "bounds": "[117,2731][1227,2797]"
+      }
+    ],
+    "finalReceiver": {
+      "connected": true,
+      "playing": true,
+      "stream": "scene",
+      "positionMs": 51956,
+      "playerState": 2,
+      "idleReason": 0,
+      "liveRequest": "9e654b39d12e40d9aa40d0cb6d29e1b6"
+    }
+  },
+  "limitations": [
+    "Ten-minute expiry, restart cleanup, oversized output, cancellation and stale/failure paths verified deterministically, not forced during physical recording.",
+    "Physical TV playback covers 15/30 seconds; 60-second selection is implemented but not separately played on TV.",
+    "Encoded replay contains video and room audio; physical room-audio audibility was not separately reconfirmed.",
+    "Companion process restart forgets native in-memory temporary references; occupied camera slots remain until expiry.",
+    "Original recorded framing retained. Slow motion/replay framing are T06/T07.",
+    "Existing corrected live buffering remains X02."
+  ],
+  "cleanup": {
+    "continuousDiagnosticReaderStarted": false,
+    "ownedAdbForwardRemoved": true,
+    "cameraLeftActiveAndCharging": true,
+    "personalKeyUsed": false,
+    "tvReturnedLive": true
+  },
+  "next": "T06 actual Chromecast slow-motion compatibility; A02-A05 voice remains deferred"
+}
