@@ -13,8 +13,8 @@ static class SeedFixtures
         if (Directory.Exists(directory) && Directory.EnumerateFileSystemEntries(directory).Any()) throw new IOException("Seed destination contains files; choose an empty corpus version.");
         Directory.CreateDirectory(directory);
         void Json<T>(string name, T value) => File.WriteAllText(Path.Combine(directory, name), CorpusJson.Write(value) + "\n");
-        void Index(string name, IEnumerable<IndexedFrame> frames) => File.WriteAllLines(Path.Combine(directory, name),
-            frames.Select(f => JsonSerializer.Serialize(f, new JsonSerializerOptions(CorpusJson.Options) { WriteIndented = false })));
+        void Index(string name, IEnumerable<IndexedFrame> frames) => File.WriteAllText(Path.Combine(directory, name),
+            string.Join("\n", frames.Select(f => JsonSerializer.Serialize(f, new JsonSerializerOptions(CorpusJson.Options) { WriteIndented = false }))) + "\n");
         string PathOf(string file) => destination.TrimEnd('/','\\') + "/" + file;
         var image = File.ReadAllBytes(files.Resolve("poolgame/pixel-table.jpg"));
         var hash = CorpusFiles.Hash(image);
