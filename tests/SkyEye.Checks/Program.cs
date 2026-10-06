@@ -9,6 +9,7 @@ await GameIntegrationChecks.Run();
 await ManualMatchAppChecks.Run();
 InternationalRulesChecks.Run();
 await RulesApplicationChecks.Run();
+await MotionFeedChecks.Run();
 
 static void Require(bool yes, string reason) { if (!yes) throw new Exception(reason); }
 static void Throws<T>(Action action) where T : Exception { try { action(); } catch (T) { return; } throw new Exception("Expected " + typeof(T).Name); }
