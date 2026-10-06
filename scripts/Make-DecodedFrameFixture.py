@@ -10,6 +10,7 @@ output.parent.mkdir(parents=True, exist_ok=True)
 if output.exists():
     raise SystemExit("Refusing to replace an existing fixture")
 width, height, fps, frames = 640, 360, 30, 240
+motion_texture = "--motion" in sys.argv[2:]
 encoder = subprocess.Popen([
     "ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "rawvideo",
     "-pix_fmt", "rgb24", "-s", f"{width}x{height}", "-r", str(fps), "-i", "pipe:0",
@@ -21,7 +22,16 @@ for number in range(frames):
     for bit in range(12):
         colour = 235 if number & (1 << bit) else 16
         row[(40 + bit * 40) * 3:(80 + bit * 40) * 3] = bytes([colour] * 120)
-    encoder.stdin.write(bytes(row) * height)
+    data = bytearray(bytes(row) * height)
+    if motion_texture:
+        for y in range(40, 136):
+            for x in range(540, 636):
+                cell_x = (x - number % 20 + 100) // 5
+                cell_y = (y - (number // 2) % 20 + 100) // 5
+                value = 32 + ((cell_x * 73856093 ^ cell_y * 19349663) & 0xffffffff) % 192
+                offset = (y * width + x) * 3
+                data[offset:offset + 3] = bytes([value] * 3)
+    encoder.stdin.write(data)
 encoder.stdin.close()
 if encoder.wait():
     raise SystemExit("Fixture encoding failed")
@@ -37,5 +47,6 @@ packets = json.loads(subprocess.check_output(["ffprobe", "-v", "error", "-select
     "-show_packets", "-show_entries", "packet=pts_time", "-of", "json", str(transport)]))
 metadata["sourceOriginUs"] = round(min(float(p["pts_time"]) for p in packets["packets"]) * 1_000_000)
 metadata["tsSha256"] = hashlib.sha256(transport.read_bytes()).hexdigest().upper()
+metadata["motionTexture"] = "Fixed x540/y40 96x96 hash texture translating with frame index; wrap every 20 pixels" if motion_texture else None
 output.with_suffix(".json").write_text(json.dumps(metadata, indent=2) + "\n", encoding="utf-8", newline="\n")
 print(json.dumps(metadata))

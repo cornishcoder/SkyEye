@@ -45,7 +45,7 @@ public final class DecodedFrameProofActivity extends Activity {
                     else if(phase==1&&samples.length()>=75){player.stop();phase=2;lastPts=-1;startTransport();}
                 }finally{bitmap.recycle();}
             }finally{copy.close();}
-            if(samples.length()>=125){finishProof(true,"");return;}
+            if(samples.length()>=125&&!getIntent().getBooleanExtra("feed-proof",false)){finishProof(true,"");return;}
             if(!error.isEmpty())throw new Exception(error);
             if(SystemClock.elapsedRealtime()-started>30000)throw new Exception("Insufficient paired frames: "+samples.length()+"/"+attempts);
             main.postDelayed(this::sample,20);

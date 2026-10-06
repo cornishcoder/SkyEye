@@ -52,6 +52,16 @@ public sealed partial class ShellSession
                     return HttpResponse.Json(result);
                 });
             }
+            if (r.Method == "POST" && r.Path == "/motion-feed")
+            {
+                try
+                {
+                    await SetMotionFeedAsync(r.Query.GetValueOrDefault("enabled") == "1", int.Parse(r.Query.GetValueOrDefault("hz", "30")));
+                    return HttpResponse.Json(MotionMetrics);
+                }
+                catch (Exception e) when (e is InvalidOperationException or ArgumentException or FormatException)
+                { return HttpResponse.Json(new { error = e.Message }, 409); }
+            }
             if (r.Method == "POST" && r.Path == "/game-check")
             {
                 try { return await MainThread.InvokeOnMainThreadAsync(() => CheckGameStateAsync(ct)); }
@@ -92,6 +102,7 @@ public sealed partial class ShellSession
                 host = app.State.Camera.CanControl,
                 calibrated = HasTableCalibration
                 ,observation = app.State.Observation
+                ,motion = MotionMetrics
             }));
         }, IPAddress.Loopback);
         performanceServer.Start();

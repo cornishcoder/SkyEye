@@ -180,12 +180,14 @@ public sealed partial class ShellSession : IDisposable
     public void Stop()
     {
         if (!MainThread.IsMainThread) { MainThread.BeginInvokeOnMainThread(Stop); return; }
+        StopMotion();
         CollectAnnotations();
         StopPocketFraming(); StopShotScenes(); ClearSceneCheck(); selection.Stop(); player?.Stop(); if (!TvReplaySelected && BackgroundTvService.Instance is null) cast?.Configure("", true);
         Playing = false; Playback = "Waiting for your table"; Publish();
     }
     public void Suspend()
     {
+        ReleaseMotion();
         CheckpointAnnotations();
         StopPocketFraming();
         StopShotScenes();
