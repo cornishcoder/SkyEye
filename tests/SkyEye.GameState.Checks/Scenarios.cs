@@ -86,8 +86,9 @@ static class Scenarios
         game = Apply(game, Input(new SkyCorrection(new AssignColour("rich", BallColour.Red)), 11));
         Check(game.State.Frame!.Colours["rich"].Value == BallColour.Yellow, "Machine inference cannot override player confirmation");
         game = Apply(game, Input(new PlayerCorrection(new SetFoul(false)), 12));
+        Check(game.State.Frame!.Foul!.Value == false, "That wasn't a foul records the player correction");
         game = Apply(game, Input(new PlayerCorrection(new ChangeTurn("mike")), 13));
-        Check(game.State.Frame!.CurrentPlayer.Value == "mike" && game.State.Frame.Visit == 2 && game.State.Frame.Foul!.Value == false, "His turn and that wasn't a foul are typed facts");
+        Check(game.State.Frame!.CurrentPlayer.Value == "mike" && game.State.Frame.Visit == 2 && game.State.Frame.Foul is null, "His turn starts a visit with unknown foul state");
         game = Apply(game, Input(new ShotStarted("next-shot"), 14));
         game = Apply(game, Input(new PossiblePocketEvent("next-shot", "Y3", Pocket.TopLeft), 15) with { Confidence = .9 });
         // A player-confirmed identity can support a later shot without invented detector confidence.
@@ -135,6 +136,8 @@ static class Scenarios
         catch (ArgumentException) { }
         var reconnected = Apply(game, Input(new SelectSource(), 8, Source with { Generation = 1, Connection = "new-connection" }));
         Check(reconnected.State.Table.Uncertain && reconnected.State.Table.LastSettled is null, "A new connection can restart observation generation without promoting old live facts");
+        var unknown = Apply(OpenTable(), Input(new BallObserved(new("unclassified", BallColour.Unknown, new(.5, .5))), 3));
+        Check(unknown.State.Table.Uncertain && unknown.State.Table.Remaining(BallColour.Red) is null, "An individual unknown-colour signal cannot claim reliable counts");
         Console.WriteLine("PASS evidence boundaries: same-frame replay, PTS, invalid confidence/coordinates, amendment references, conflicting pockets and reconnect generation");
     }
 }

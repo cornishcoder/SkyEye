@@ -55,7 +55,7 @@ public static class GameReducer
                     o.Settled && !o.Uncertain ? new(e.InputId, e.At, e.SourceTimeUs, e.Source!) : s.Table.LastSettled, o.Uncertain) };
             case ShotStartedEvent start:
                 return s with { Shot = new(start.ShotId, s.Table.Balls, ImmutableDictionary<string, PocketApproach>.Empty, false, false),
-                    Table = s.Table with { Motion = TableMotion.Moving } };
+                    Table = s.Table with { Motion = TableMotion.Moving }, Frame = s.Frame! with { Foul = null } };
             case ShotEndedEvent:
                 return s with { Shot = s.Shot! with { Ended = true }, Table = s.Table with { Motion = TableMotion.Unknown } };
             case TableSettledEvent:
@@ -67,8 +67,8 @@ public static class GameReducer
             case BallEvidenceEvent b:
                 if (s.Table.Balls.TryGetValue(b.Ball.Id, out var protectedBall) && Protected(protectedBall, s)) return s;
                 var known = new KnownBall(b.Ball.Id, b.Ball.Colour, b.Ball.Position, new(b.Presence, e.Provenance, b.Ball.Confidence ?? e.Confidence, e.InputId));
-                return s with { Table = s.Table with { Balls = s.Table.Balls.SetItem(known.Id, known),
-                    Uncertain = s.Table.Uncertain || b.Presence == BallPresence.Missing } };
+                return s with { Table = s.Table with { Balls = s.Table.Balls.SetItem(known.Id, known), Source = e.Source,
+                    Uncertain = s.Table.Uncertain || b.Presence == BallPresence.Missing || known.Colour == BallColour.Unknown } };
             case BallPottedEvent p:
                 var ball = s.Table.Balls[p.BallId];
                 var presence = Fact(BallPresence.Potted, e);
@@ -81,7 +81,8 @@ public static class GameReducer
                 return s with { Frame = s.Frame with { Colours = s.Frame.Colours.SetItem(c.PlayerId, Fact<BallColour?>(c.Colour, e)) } };
             case TurnChangedEvent t:
                 if (s.Frame!.CurrentPlayer.Source > e.Provenance) return s;
-                return s with { Frame = s.Frame with { CurrentPlayer = Fact(t.PlayerId, e), Visit = s.Frame.Visit + (s.Frame.CurrentPlayer.Value == t.PlayerId ? 0 : 1) } };
+                return s with { Frame = s.Frame with { CurrentPlayer = Fact(t.PlayerId, e), Visit = s.Frame.Visit + (s.Frame.CurrentPlayer.Value == t.PlayerId ? 0 : 1),
+                    Foul = s.Frame.CurrentPlayer.Value == t.PlayerId ? s.Frame.Foul : null } };
             case FoulRecordedEvent f:
                 if (s.Frame!.Foul is { } foul && foul.Source > e.Provenance) return s;
                 return s with { Frame = s.Frame with { Foul = Fact<bool?>(f.Foul, e) } };
