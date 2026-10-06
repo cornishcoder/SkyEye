@@ -1,0 +1,146 @@
+{
+  "schemaVersion": 1,
+  "corpus": "skyeye-observation-seed-v1",
+  "manifestSha256": "2563614C7A2F1DE301ED5A5C1A43A73B723E82F31ED34C595BD945753236EF65",
+  "audit": {
+    "realShotSequences": 0,
+    "heldOutRealShots": 0,
+    "realStillRegressions": 1,
+    "syntheticContracts": 1,
+    "accuracyGateReady": false,
+    "notes": [
+      "Real timed-shot coverage: 0; held out: 0. Collection targets remain at least 60/20 with labelled pots/misses and negative challenges.",
+      "Manifest/schema success is not tracking accuracy or physical pixel/PTS pairing acceptance."
+    ]
+  },
+  "sequences": [
+    {
+      "sequence": "pixel-table-still",
+      "samples": 1,
+      "processed": 1,
+      "rejected": 0,
+      "scopeResets": 0,
+      "gapResets": 0,
+      "missingSourceFrameIds": 0,
+      "resultSha256": "C618FF4500937BE172B18FF9443DB251B043C095D3AFA3B9D26171C0F32CFFFF",
+      "receipts": [
+        {
+          "sampleId": "pixel-table-regression",
+          "frameId": 0,
+          "sourceTimeUs": null,
+          "scope": {
+            "source": "pixel-10",
+            "timeline": "unknown-still-time",
+            "generation": 1,
+            "calibration": "manual-pixel-table-2026-10-03"
+          },
+          "pixelSha256": "8BC034E99A81114E11A67E435E730CF1D69799CED243E98954BB8E6E72E80831",
+          "status": "UnknownTime"
+        }
+      ]
+    },
+    {
+      "sequence": "receipt-contracts",
+      "samples": 7,
+      "processed": 4,
+      "rejected": 3,
+      "scopeResets": 1,
+      "gapResets": 1,
+      "missingSourceFrameIds": 5,
+      "resultSha256": "A54229C0E1ABA5C6ABF7563E3B347C190296148EE582409A7C0F47E1D7E0D7E9",
+      "receipts": [
+        {
+          "sampleId": "contract-start",
+          "frameId": 1,
+          "sourceTimeUs": 1000,
+          "scope": {
+            "source": "synthetic-camera",
+            "timeline": "timeline-one",
+            "generation": 1,
+            "calibration": "synthetic-cal-v1"
+          },
+          "pixelSha256": "16ABAB341FB7F370E27E4DADCF81766DD0DFD0AE64469477BB2CF6614938B2AF",
+          "status": "Accepted"
+        },
+        {
+          "sampleId": "contract-next",
+          "frameId": 2,
+          "sourceTimeUs": 34000,
+          "scope": {
+            "source": "synthetic-camera",
+            "timeline": "timeline-one",
+            "generation": 1,
+            "calibration": "synthetic-cal-v1"
+          },
+          "pixelSha256": "8A023A9E4AFFBB255A6B48AE85CC4A7D1A1B9E8E6809FE9E48535C01C1FC071A",
+          "status": "Accepted"
+        },
+        {
+          "sampleId": "contract-duplicate",
+          "frameId": 2,
+          "sourceTimeUs": 34000,
+          "scope": {
+            "source": "synthetic-camera",
+            "timeline": "timeline-one",
+            "generation": 1,
+            "calibration": "synthetic-cal-v1"
+          },
+          "pixelSha256": "8A023A9E4AFFBB255A6B48AE85CC4A7D1A1B9E8E6809FE9E48535C01C1FC071A",
+          "status": "Duplicate"
+        },
+        {
+          "sampleId": "contract-backward",
+          "frameId": 0,
+          "sourceTimeUs": 2000,
+          "scope": {
+            "source": "synthetic-camera",
+            "timeline": "timeline-one",
+            "generation": 1,
+            "calibration": "synthetic-cal-v1"
+          },
+          "pixelSha256": "F5A5FD42D16A20302798EF6ED309979B43003D2320D9F0E8EA9831A92759FB4B",
+          "status": "Backwards"
+        },
+        {
+          "sampleId": "contract-gap",
+          "frameId": 8,
+          "sourceTimeUs": 1000000,
+          "scope": {
+            "source": "synthetic-camera",
+            "timeline": "timeline-one",
+            "generation": 1,
+            "calibration": "synthetic-cal-v1"
+          },
+          "pixelSha256": "2763D88A93549AF57C701D5187E8B477D9AA99EBEFE6D1E41A3CE07BF1A1AA50",
+          "status": "GapReset"
+        },
+        {
+          "sampleId": "contract-reset",
+          "frameId": 1,
+          "sourceTimeUs": 0,
+          "scope": {
+            "source": "synthetic-camera",
+            "timeline": "timeline-two",
+            "generation": 2,
+            "calibration": "synthetic-cal-v1"
+          },
+          "pixelSha256": "16ABAB341FB7F370E27E4DADCF81766DD0DFD0AE64469477BB2CF6614938B2AF",
+          "status": "ScopeReset"
+        },
+        {
+          "sampleId": "contract-bad-pair",
+          "frameId": 2,
+          "sourceTimeUs": 10000,
+          "scope": {
+            "source": "synthetic-camera",
+            "timeline": "timeline-two",
+            "generation": 2,
+            "calibration": "synthetic-cal-v1"
+          },
+          "pixelSha256": "F0F8CA15252DEBEDC75159F87AC9AF5B29E9B829DFD7155080A362ED4D1F876D",
+          "status": "PixelIdMismatch"
+        }
+      ]
+    }
+  ]
+}

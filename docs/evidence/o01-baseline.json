@@ -1,0 +1,139 @@
+{
+  "schemaVersion": 1,
+  "corpus": "skyeye-observation-seed-v1",
+  "audit": {
+    "realShotSequences": 0,
+    "heldOutRealShots": 0,
+    "realStillRegressions": 1,
+    "syntheticContracts": 1,
+    "accuracyGateReady": false,
+    "notes": [
+      "Real timed-shot coverage: 0; held out: 0. Collection targets remain at least 60/20 with labelled pots/misses and negative challenges.",
+      "Manifest/schema success is not tracking accuracy or physical pixel/PTS pairing acceptance."
+    ]
+  },
+  "tolerance": 0.027,
+  "detectionSha256": "0D5DADA31A0387176071684BF3956F0030C0B6F7D0D8730C90333DF181B8BB2A",
+  "labelledFrames": 1,
+  "scoredFrames": 1,
+  "unscoredSampleIds": [],
+  "provenance": "Scoring stored results, not re-running native CV or measuring held-out accuracy",
+  "frames": [
+    {
+      "sampleId": "pixel-table-regression",
+      "model": "Archived C# OpenCV 4.14.0",
+      "provenance": "Repo-associated initial pixel-table device result; source report SHA256 3AF199CD80A8B63628972A61601C020B556560F314ECA8C423C4FF27E0783415",
+      "uncertain": false,
+      "coordinateSpace": "table-2x1",
+      "visibleLabels": 16,
+      "detections": 16,
+      "spatialTruePositives": 16,
+      "falsePositives": 0,
+      "missedVisible": 0,
+      "colourCorrect": 16,
+      "precision": 1,
+      "recall": 1,
+      "centreErrorP95": 0.006656141912545691,
+      "missedIds": [],
+      "extraIds": [],
+      "matches": [
+        {
+          "truthId": "black-truth-15",
+          "detectionId": "black-2",
+          "centreError": 0.0028559780133670066,
+          "colourCorrect": true
+        },
+        {
+          "truthId": "cue-truth-14",
+          "detectionId": "cue-0",
+          "centreError": 0.006656141912545691,
+          "colourCorrect": true
+        },
+        {
+          "truthId": "red-truth-0",
+          "detectionId": "red-4",
+          "centreError": 0.00212185256933447,
+          "colourCorrect": true
+        },
+        {
+          "truthId": "red-truth-1",
+          "detectionId": "red-11",
+          "centreError": 0.0009964953238197727,
+          "colourCorrect": true
+        },
+        {
+          "truthId": "red-truth-2",
+          "detectionId": "red-15",
+          "centreError": 0.0016675298754382237,
+          "colourCorrect": true
+        },
+        {
+          "truthId": "red-truth-3",
+          "detectionId": "red-3",
+          "centreError": 0.0032867463766440307,
+          "colourCorrect": true
+        },
+        {
+          "truthId": "red-truth-4",
+          "detectionId": "red-9",
+          "centreError": 0.00289079770962651,
+          "colourCorrect": true
+        },
+        {
+          "truthId": "red-truth-5",
+          "detectionId": "red-8",
+          "centreError": 0.0006390624784061981,
+          "colourCorrect": true
+        },
+        {
+          "truthId": "red-truth-6",
+          "detectionId": "red-12",
+          "centreError": 0.0017708006036022495,
+          "colourCorrect": true
+        },
+        {
+          "truthId": "yellow-truth-10",
+          "detectionId": "yellow-10",
+          "centreError": 0.0026314986138662533,
+          "colourCorrect": true
+        },
+        {
+          "truthId": "yellow-truth-11",
+          "detectionId": "yellow-7",
+          "centreError": 0.002360460812390974,
+          "colourCorrect": true
+        },
+        {
+          "truthId": "yellow-truth-12",
+          "detectionId": "yellow-13",
+          "centreError": 0.0023858258688504402,
+          "colourCorrect": true
+        },
+        {
+          "truthId": "yellow-truth-13",
+          "detectionId": "yellow-1",
+          "centreError": 0.0020631655926976263,
+          "colourCorrect": true
+        },
+        {
+          "truthId": "yellow-truth-7",
+          "detectionId": "yellow-14",
+          "centreError": 0.0023881346216289515,
+          "colourCorrect": true
+        },
+        {
+          "truthId": "yellow-truth-8",
+          "detectionId": "yellow-6",
+          "centreError": 0.0028458153071766403,
+          "colourCorrect": true
+        },
+        {
+          "truthId": "yellow-truth-9",
+          "detectionId": "yellow-5",
+          "centreError": 0.003047190020001338,
+          "colourCorrect": true
+        }
+      ]
+    }
+  ]
+}

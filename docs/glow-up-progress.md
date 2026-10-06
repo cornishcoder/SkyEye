@@ -451,3 +451,13 @@ T14 remains open: the network interruption required a Pixel 11 restart, and auto
 The [version-pinned declared rules slice](declared-rules-report.md) is implemented and installed in the normal Release. Pure/core/Agent UI suites and sequential Release builds pass. Pixel 11 Lab confirms standard foul/placement, replacement from original before-state and process-restart recovery with clause references. [Phone proof](evidence/declared-rules-phone.json), [normal delivery](evidence/declared-rules-production.json).
 
 Player declarations cover the supported turn/group/target, cue entitlement and black/frame cases. Unknown legality/contact/call/count facts remain pending; low-light perception is not treated as complete referee evidence. Full procedure, automatic tracking, older-shot correction across later play and TV score pixels remain open. The concurrent temporal-tracking design and its ordering are preserved.
+
+## O01 offline workbench foundations — 6 October 2026
+
+Small committed slices add the pure observation corpus library, console workbench, frozen honest seed, crowded-ball baseline matching checks and platform-independent evidence bytes. [Report](o01-workbench-report.md), [annotation guide](observation-corpus-guide.md), [replay](evidence/o01-replay.json), [baseline](evidence/o01-baseline.json), [verification](evidence/o01-verification.json).
+
+Core, GameState and observation suites pass; the new workbench Release build has zero warnings/errors. A fresh fixture checkout with Windows line conversion validates the lock and yields byte-identical replay. Debug/Release baseline output also matches. Corrupt payload/changed labels/split leakage, invalid locks and existing-report overwrites are refused. Baseline output exposes missing labelled samples rather than silently claiming evaluated coverage.
+
+The real seed is the previously tuned mounted still with unavailable PTS: its archived 16-ball OpenCV result scores 16 spatial/colour matches, zero extras/misses and p95 centre error 0.00665614 table units. The synthetic receipt fixture processes four of seven samples, rejects three, and reports one scope reset, one gap reset and five missing indexed source IDs. These are historical still/contract results, not new native CV, physical camera drops, tracking or held-out accuracy.
+
+O01 remains open for real timed-shot collection, reviewed coverage, session-grouped holdout and measured detector acceptance (currently zero real shots/holdouts; accuracyGateReady=false). Next is O02's atomic native pixel/PTS proof, then bounded feed and ROI/flow measurement. No camera/TV/app install is performed for this offline slice. Concurrent design drafts are preserved and remaining T13/T14 physical acceptance stays open.

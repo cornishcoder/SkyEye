@@ -1,0 +1,36 @@
+{
+  "schemaVersion": 1,
+  "mission": "O01 offline workbench foundations",
+  "sourceCommit": "2669c48368bcf9ce74ac5e9cadfb942c34427127",
+  "date": "2026-10-06",
+  "checks": {
+    "core": "pass (one CS8602 warning in existing ObservationCommandChecks.cs)",
+    "gameState": "pass",
+    "observation": "pass",
+    "workbenchRelease": "pass: zero warnings/errors",
+    "frozenWindowsCheckout": "pass with core.autocrlf=true",
+    "replayByteIdentity": "pass across working copy and fresh checkout",
+    "baselineDebugReleaseIdentity": "pass",
+    "missingDetectionCoverage": "pass: labelledFrames=1, scoredFrames=0, unscoredSampleIds=[pixel-table-regression]",
+    "invalidLock": "clean exit 1",
+    "existingOutput": "refused, exit 1"
+  },
+  "reports": {
+    "replay": {
+      "file": "o01-replay.json",
+      "sha256": "F0E4AD5A2E13D12D381D94C06A8A03DBF419AFDE4CC7278CEDF92BD8BF3804EE"
+    },
+    "baseline": {
+      "file": "o01-baseline.json",
+      "sha256": "974BEEAAE16EDF2EC77110D29DCD0F9021EBF4832B2E915FEC448A7545989BF4"
+    }
+  },
+  "corpus": {
+    "realTimedShots": 0,
+    "heldOutRealShots": 0,
+    "realTunedStills": 1,
+    "syntheticContractSequences": 1,
+    "accuracyGateReady": false
+  },
+  "physicalVerification": "None in this slice. Archived tuned still output scored; no new native CV, camera, TV or device test."
+}
