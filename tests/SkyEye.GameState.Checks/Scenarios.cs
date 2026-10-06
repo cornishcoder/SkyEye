@@ -90,10 +90,10 @@ static class Scenarios
         Check(game.State.Frame!.CurrentPlayer.Value == "mike" && game.State.Frame.Visit == 2 && game.State.Frame.Foul!.Value == false, "His turn and that wasn't a foul are typed facts");
         game = Apply(game, Input(new ShotStarted("next-shot"), 14));
         game = Apply(game, Input(new PossiblePocketEvent("next-shot", "Y3", Pocket.TopLeft), 15) with { Confidence = .9 });
-        // The before snapshot retains the player's confidence rather than inventing detector certainty.
+        // A player-confirmed identity can support a later shot without invented detector confidence.
         game = Apply(game, Input(new ShotEnded("next-shot"), 16));
         game = Apply(game, Input(new TableObservation([new("R1", BallColour.Red, new(.2, .5), .9)], true), 17));
-        Check(game.State.Table.Balls["Y3"].Presence.Value == BallPresence.Missing, "A later actual shot releases same-shot presence protection");
+        Check(game.State.Table.Balls["Y3"].Presence.Value == BallPresence.Potted, "A later actual shot releases same-shot presence protection");
         var json = JsonSerializer.Serialize(game.History);
         Check(JsonSerializer.Serialize(GameSession.Restore(JsonSerializer.Deserialize<ImmutableArray<EventEnvelope>>(json)).State) == JsonSerializer.Serialize(game.State), "Amended history reproduces corrected state deterministically");
         var later = YellowPot();
@@ -112,5 +112,29 @@ static class Scenarios
         game = Apply(game, Input(new PlayerCorrection(new SetFrameWinner("mike")), 20));
         Check(game.State.Match!.Score("rich") == 0 && game.State.Match.Score("mike") == 1, "That's my frame repairs the declared scoreboard");
         Console.WriteLine("PASS first-class corrections: amended pot/visit, confirmed colour, foul/turn/winner, machine precedence, later shot and deterministic rebuild");
+    }
+    public static void EvidenceBoundaries()
+    {
+        var game = YellowPot();
+        Check(game.Accept(Input(new TableObservation([], true), 6)).Outcome == InputOutcome.Stale,
+            "The same decoded frame cannot be resubmitted under a new evidence ID");
+        Check(game.Accept(Input(new TableSettled(), 8) with { SourceTimeUs = 1 }).Outcome == InputOutcome.Stale,
+            "Older source PTS is stale even when wall-clock time is newer");
+        Check(game.Accept(Input(new TableSettled(), 8) with { Confidence = double.NaN }).Outcome == InputOutcome.Rejected, "Invalid confidence is refused");
+        Check(game.Accept(Input(new TableObservation([new("bad", BallColour.Yellow, new(2, 0))], true), 8)).Outcome == InputOutcome.Rejected,
+            "Domain positions are bounded independently of CV");
+        Check(game.Accept(Input(new PlayerCorrection(new SetBallPresence("Y3", BallPresence.OnTable, Guid.NewGuid())), 8)).Outcome == InputOutcome.Rejected,
+            "A correction cannot reference an unrelated event");
+        var conflict = Apply(OpenTable(), Input(new ShotStarted("shot"), 3));
+        conflict = Apply(conflict, Input(new PossiblePocketEvent("shot", "Y3", Pocket.TopLeft), 4) with { Confidence = .9 });
+        conflict = Apply(conflict, Input(new PossiblePocketEvent("shot", "Y3", Pocket.BottomRight), 5) with { Confidence = .9 });
+        conflict = Apply(conflict, Input(new ShotEnded("shot"), 6));
+        conflict = Apply(conflict, Input(new TableObservation([new("R1", BallColour.Red, new(.2, .5), .9)], true), 7));
+        Check(!conflict.History.Any(e => e.Event is BallPottedEvent), "Conflicting pocket evidence cannot become a confident pot");
+        try { GameSession.Restore(game.History.SetItem(0, game.History[0] with { SchemaVersion = 99 })); throw new Exception("Invalid schema accepted"); }
+        catch (ArgumentException) { }
+        var reconnected = Apply(game, Input(new SelectSource(), 8, Source with { Generation = 1, Connection = "new-connection" }));
+        Check(reconnected.State.Table.Uncertain && reconnected.State.Table.LastSettled is null, "A new connection can restart observation generation without promoting old live facts");
+        Console.WriteLine("PASS evidence boundaries: same-frame replay, PTS, invalid confidence/coordinates, amendment references, conflicting pockets and reconnect generation");
     }
 }

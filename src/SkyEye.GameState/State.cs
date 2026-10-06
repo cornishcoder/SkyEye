@@ -17,7 +17,7 @@ public sealed record ObservedBall(string Id, BallColour Colour, TablePosition? P
 public sealed record KnownBall(string Id, BallColour Colour, TablePosition? Position, Fact<BallPresence> Presence, string? ProtectedThroughShot = null);
 public sealed record SettledObservation(Guid EvidenceId, DateTimeOffset At, long? SourceTimeUs, EvidenceSource Source);
 public sealed record Pot(Guid EventId, string ShotId, string BallId, Pocket Pocket, Fact<BallPresence> Presence);
-public sealed record PocketApproach(string BallId, Pocket Pocket, double? Confidence, Guid EvidenceId);
+public sealed record PocketApproach(string BallId, Pocket Pocket, double? Confidence, Guid EvidenceId, bool Ambiguous = false);
 public sealed record ShotState(string Id, ImmutableDictionary<string, KnownBall> Before,
     ImmutableDictionary<string, PocketApproach> Approaches, bool Ended, bool Resolved);
 

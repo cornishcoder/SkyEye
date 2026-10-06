@@ -64,10 +64,11 @@ public sealed partial class AppCoordinator
         }
         var completion = new TaskCompletionSource<CommandReceipt>(TaskCreationOptions.RunContinuationsAsynchronously);
         effectPending.Add(envelope.OperationId, (envelope, completion.Task));
-        _ = CompleteObservationAsync(envelope, request, completion, cancellation);
+        _ = CompleteObservationAsync(envelope, request, completion, cancellation, game.State.Match?.Id, game.State.Frame?.Id);
         return completion.Task;
     }
-    async Task CompleteObservationAsync(CommandEnvelope envelope, ObserveTable request, TaskCompletionSource<CommandReceipt> completion, CancellationToken cancellation)
+    async Task CompleteObservationAsync(CommandEnvelope envelope, ObserveTable request, TaskCompletionSource<CommandReceipt> completion, CancellationToken cancellation,
+        string? admittedMatch, string? admittedFrame)
     {
         TableObservation? result = null;
         string? error = null;
@@ -93,7 +94,8 @@ public sealed partial class AppCoordinator
                     var published = SceneCommand(new(envelope.OperationId, CommandOrigin.System, state.Version, new PublishShotCatalog(catalog)));
                     if (published is not null) next = published;
                 }
-                next = AcceptGameObservation(next, result, envelope.OperationId);
+                if (game.State.Match?.Id == admittedMatch && game.State.Frame?.Id == admittedFrame)
+                    next = AcceptGameObservation(next, result, envelope.OperationId);
                 Volatile.Write(ref state, next with { Observation = result, Version = checked(state.Version + 1) });
                 Notify(state);
                 receipt = Receipt(envelope, CommandOutcome.Applied, result.Outcome switch

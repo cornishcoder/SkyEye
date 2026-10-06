@@ -62,7 +62,8 @@ public static class GameReducer
                 return s with { Table = s.Table with { Motion = TableMotion.Settled,
                     LastSettled = !s.Table.Uncertain ? new(e.InputId, e.At, e.SourceTimeUs, e.Source!) : s.Table.LastSettled } };
             case PocketApproachedEvent p:
-                return s with { Shot = s.Shot! with { Approaches = s.Shot.Approaches.SetItem(p.BallId, new(p.BallId, p.Pocket, e.Confidence, e.InputId)) } };
+                var ambiguous = s.Shot!.Approaches.TryGetValue(p.BallId, out var previous) && (previous.Ambiguous || previous.Pocket != p.Pocket);
+                return s with { Shot = s.Shot with { Approaches = s.Shot.Approaches.SetItem(p.BallId, new(p.BallId, p.Pocket, e.Confidence, e.InputId, ambiguous)) } };
             case BallEvidenceEvent b:
                 if (s.Table.Balls.TryGetValue(b.Ball.Id, out var protectedBall) && Protected(protectedBall, s)) return s;
                 var known = new KnownBall(b.Ball.Id, b.Ball.Colour, b.Ball.Position, new(b.Presence, e.Provenance, b.Ball.Confidence ?? e.Confidence, e.InputId));

@@ -17,5 +17,6 @@ Console.WriteLine("PASS R01 contracts: two players, open frame, settled layout a
 Scenarios.Ordering();
 Scenarios.PotStory();
 Scenarios.Corrections();
+Scenarios.EvidenceBoundaries();
 
 static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }

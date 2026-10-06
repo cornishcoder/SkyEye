@@ -29,7 +29,8 @@ public sealed partial class AppCoordinator
         catch (IOException) { return Receipt(envelope, CommandOutcome.Failed, "Game history could not be saved. Previous state retained."); }
         game = proposal.Session;
         var updated = ClearShotCatalog(state) with { Version = checked(state.Version + 1), Game = game.State,
-            GameTableCurrent = command.Input.Input is StartMatch or StartFrame or SelectSource ? false : state.GameTableCurrent };
+            GameTableCurrent = command.Input.Input is not (StartMatch or StartFrame or SelectSource)
+                && state.GameTableCurrent && !game.State.Table.Uncertain && game.State.Table.Motion == TableMotion.Settled };
         Volatile.Write(ref state, updated); Notify(state);
         return Receipt(envelope, CommandOutcome.Applied, proposal.Message);
     }

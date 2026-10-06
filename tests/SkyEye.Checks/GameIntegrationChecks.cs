@@ -60,6 +60,16 @@ static class GameIntegrationChecks
                 "Perception cannot impersonate player correction");
             Check((await new AppCoordinator().DispatchAsync(new(match.Id, CommandOrigin.Touch, 0, new SubmitGameInput(match)))).Outcome == CommandOutcome.Rejected,
                 "Guest/unowned app cannot mutate game");
+            Check(!app.State.HasFreshGameTable(clock.GetUtcNow().AddSeconds(7)), "A retained table cannot claim fresh observation indefinitely");
+            frames.Hold();
+            var pending = Observe(); await frames.Entered.Task;
+            Check((await Send(Input(new G.PlayerCorrection(new G.SetFrameWinner("rich"))))).Succeeded, "Resolve the previous frame while observation is pending");
+            var nextFrame = Input(new G.StartFrame("mike")) with { FrameId = "next-frame" };
+            Check((await Send(nextFrame)).Succeeded, "Start a new frame without erasing match score");
+            var newFrameVersion = app.State.Game.Version;
+            frames.Release.TrySetResult(); await pending;
+            Check(app.State.Game.Frame!.Id == "next-frame" && app.State.Game.Table.Balls.Count == 0 && app.State.Game.Version == newFrameVersion,
+                "Observation admitted for the previous frame cannot seed a replacement frame");
             Console.WriteLine("PASS game integration: matching existing observations, normalized positions, conservative identities, unknown colours, host/stale fences, restart freshness and failed-save atomicity");
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
@@ -73,8 +83,14 @@ static class GameIntegrationChecks
     }
     sealed class Frames(Clock clock) : ITableFrameSource
     {
-        public Task<TableFrame> ReadAsync(CameraScope source, CancellationToken cancellation)
-            => Task.FromResult(new TableFrame([1], clock.GetUtcNow(), "fixture") { SourceTimeUs = clock.GetUtcNow().ToUnixTimeMilliseconds() * 1000 });
+        public TaskCompletionSource Entered = new(TaskCreationOptions.RunContinuationsAsynchronously), Release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        bool held;
+        public void Hold() => held = true;
+        public async Task<TableFrame> ReadAsync(CameraScope source, CancellationToken cancellation)
+        {
+            if (held) { Entered.TrySetResult(); await Release.Task.WaitAsync(cancellation); }
+            return new([1], clock.GetUtcNow(), "fixture") { SourceTimeUs = clock.GetUtcNow().ToUnixTimeMilliseconds() * 1000 };
+        }
     }
     sealed class Vision : ITableAnalyzer
     {

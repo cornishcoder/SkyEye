@@ -21,8 +21,18 @@ public sealed class GameSession
     public static GameSession Restore(IEnumerable<EventEnvelope> events)
     {
         var history = events.ToImmutableArray();
-        if (history.Any(e => e.EventId == Guid.Empty || e.InputId == Guid.Empty || string.IsNullOrWhiteSpace(e.InputFingerprint))
+        if (history.Length > 10000 || history.Any(e => e is null || e.Event is null || e.EventId == Guid.Empty || e.InputId == Guid.Empty
+                || e.InputFingerprint is not { Length: 64 } || !e.InputFingerprint.All(Uri.IsHexDigit) || !Text(e.MatchId)
+                || !Enum.IsDefined(e.Provenance) || !Confidence(e.Confidence) || e.SourceTimeUs is < 0 || e.Source is { } source && !ValidSource(source))
+            || history.GroupBy(e => e.InputId).Any(g => g.Select(e => e.InputFingerprint).Distinct().Count() != 1)
             || history.Select(e => e.EventId).Distinct().Count() != history.Length) throw new ArgumentException("Invalid event identities.");
+        foreach (var correction in history.Where(e => e.Event is StateCorrectedEvent { CorrectedPot: not null }))
+        {
+            var c = (StateCorrectedEvent)correction.Event;
+            if (correction.Provenance < Provenance.PlayerConfirmed || !history.Any(e => e.EventId == c.CorrectedPot && e.Sequence < correction.Sequence
+                && e.MatchId == correction.MatchId && e.FrameId == correction.FrameId && e.Event is BallPottedEvent p && p.BallId == c.BallId))
+                throw new ArgumentException("Invalid amendment reference.");
+        }
         return new(history);
     }
 
@@ -94,6 +104,10 @@ public sealed class GameSession
         var last = History.LastOrDefault(e => e.FrameId == input.FrameId && e.Source == input.Source);
         if (last is not null && (input.At < last.At || input.SourceTimeUs is { } pts && last.SourceTimeUs is { } previousPts && pts < previousPts))
             return Refuse(InputOutcome.Stale, "Evidence is older than the accepted source watermark.");
+        if (input.Input is TableObservation && History.LastOrDefault(e => e.FrameId == input.FrameId && e.Source == input.Source
+                && e.Event is TableObservedEvent) is { } lastTable && (input.At <= lastTable.At
+                    || input.SourceTimeUs is { } tablePts && lastTable.SourceTimeUs is { } oldTablePts && tablePts <= oldTablePts))
+            return Refuse(InputOutcome.Stale, "This table frame was already observed.");
         GameEvent? change = input.Input switch
         {
             TableObservation o when ValidObservation(o) && !(last?.Event is TableObservedEvent && input.At == last.At)
@@ -140,12 +154,12 @@ public sealed class GameSession
                 // This conservative vertical slice needs supplied pocket and identity confidence.
                 // It is an inferred outcome, never a calibrated probability or a rule decision.
                 if (missing.Presence.Value != BallPresence.Missing || !shot.Before.TryGetValue(missing.Id, out var before)
-                    || before.Presence.Value != BallPresence.OnTable || before.Presence.Confidence is not >= .8
-                    || !shot.Approaches.TryGetValue(missing.Id, out var pocket) || pocket.Confidence is not >= .8) continue;
+                    || before.Presence.Value != BallPresence.OnTable || before.Presence.Source < Provenance.PlayerConfirmed && before.Presence.Confidence is not >= .8
+                    || !shot.Approaches.TryGetValue(missing.Id, out var pocket) || pocket.Ambiguous || pocket.Confidence is not >= .8) continue;
                 var pot = new BallPottedEvent(shot.Id, missing.Id, pocket.Pocket, missing.Colour == BallColour.Cue,
                     [before.Presence.EvidenceId, pocket.EvidenceId, missing.Presence.EvidenceId]);
                 history = history.Add(new(1, history.Length + 1, Guid.NewGuid(), input.Id, fingerprint, input.MatchId, input.FrameId, input.At,
-                    input.Source, input.SourceTimeUs, Provenance.Inferred, Math.Min(before.Presence.Confidence.Value, pocket.Confidence.Value), pot));
+                    input.Source, input.SourceTimeUs, Provenance.Inferred, Math.Min(before.Presence.Confidence ?? pocket.Confidence.Value, pocket.Confidence.Value), pot));
             }
             history = history.Add(new(1, history.Length + 1, Guid.NewGuid(), input.Id, fingerprint, input.MatchId, input.FrameId, input.At,
                 input.Source, input.SourceTimeUs, input.Provenance, input.Confidence, new ShotResolvedEvent()));

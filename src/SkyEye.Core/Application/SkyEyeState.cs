@@ -21,5 +21,7 @@ public sealed record SkyEyeState(long Version, AdvicePreferences Advice, Present
     // Recovered history is authoritative but its last table image is not current live evidence.
     public bool GameTableCurrent { get; init; }
     public string? GameError { get; init; }
+    public bool HasFreshGameTable(DateTimeOffset now) => GameTableCurrent && Game.Table.LastSettled is { } last
+        && (now - last.At).TotalSeconds is >= 0 and <= 6;
     public static SkyEyeState Empty { get; } = new(0, new(AdviceTargetGroup.Open), new(false));
 }
