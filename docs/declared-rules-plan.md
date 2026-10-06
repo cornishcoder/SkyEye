@@ -1,6 +1,6 @@
 # Declared-shot rules — R04/R02 delivery
 
-6 October 2026. Low-light work uses player-declared outcomes and pure tests; no CV detector, table test or TV score feature is required.
+6 October 2026. The five chunks are implemented and verified within the declared-outcome slice. See [completion report](declared-rules-report.md) and [phone proof](evidence/declared-rules-phone.json). Low-light work uses player declarations; no CV detector or TV score feature is claimed.
 
 The existing project reference is pinned to [International Eightball Revision 2c, May 2023](https://www.wepf.org/docs/International%20Eightball%20Rules%20(Revision%202c)%20-%20A4%20Booklet.pdf), checked against the primary rulebook today. Profile ID: `wepf-international-2c-2023-05-v1`. This is an explicit versioned implementation, not a claim to the latest competition rules.
 

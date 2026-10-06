@@ -27,6 +27,8 @@ The existing solution is pinned to .NET SDK 10.0.400. The [glow-up](docs/glow-up
 
 Phone **Controls → Match** now supports player/race setup, declared turn/colours/foul/winner, earlier-frame result correction, supported undo, restart recovery and previous-match summaries. A phone score HUD follows the same persisted game state. Local declared matches work before connecting a camera; once connected, camera host control is required. See [manual match delivery and limits](docs/manual-match-report.md). No automatic referee decisions or TV score overlay are claimed.
 
+**Declare or correct a shot** adds the version-pinned International 2c rules consumer: player-declared facts drive turn/group/target, cue-placement and supported frame decisions. Unknowns stay pending. Latest-shot replacement/undo and restart retain profile/clause references. See [declared rules delivery](docs/declared-rules-report.md); this works without reliable low-light perception and does not claim automatic referee accuracy.
+
 APKs embed their managed assemblies and can be installed directly using ADB or Android's installer. Use the ARM64 APKs for the physical phones. Apps have separate package IDs (`uk.co.skyeye.camera`, `uk.co.skyeye.companion`), leaving Maeve Watch intact.
 
 Wireless debugging must be paired with the computer first. A pairing address/code is different from the connection address displayed on the main Wireless debugging page; connection ports change. `adb connect` and `adb devices -l` must show authorized devices before installation.

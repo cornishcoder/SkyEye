@@ -1,0 +1,13 @@
+{
+  "verifiedAt": "2026-10-06T21:22:40.8912169+00:00",
+  "sourceCommit": "aab0743a539a44b1fcfd3dcbb98640df04422ca9",
+  "package": "uk.co.skyeye.companion",
+  "normalRelease": true,
+  "apkSha256": "42431C617D5C2D75A8227ACC12BCF153458F8C3359C487867726204DB82EAC22",
+  "signingUidAndStorageVerified": true,
+  "productionTestMatchAbsent": true,
+  "profile": "wepf-international-2c-2023-05-v1",
+  "physicalShotOrTableTesting": false,
+  "tvTesting": false,
+  "voiceOrKeyUse": false
+}

@@ -445,3 +445,9 @@ T13 is NOT marked complete: calibrated physical <500 ms timing, smooth corrected
 The subsequent [T14 report](t14-report.md) records an independent foreground GPU media service and source-clock scene journal, verified corrected moving Chromecast output, continued service frames through home/background/lock and independent local phone playback, plus frozen-journal interrupted-export retry. Camera geometry is now independent of phone clip dimensions and survives return to live. Shorter segments improved user-observed TV delay from about 11 seconds to 3.5–4 seconds; the user confirmed the final normal release was smooth. This supersedes the earlier T13 buffering observation for the reported final T14 run.
 
 T14 remains open: the network interruption required a Pixel 11 restart, and automatic recovery, sustained unplugged endurance, physical room-audio sync and moving annotation/clear/expiry correlation still need evidence. These are existing report results, not new tests from this roadmap update. R01 is now the next delivery mission; remaining T13/T14 gates stay recorded.
+
+## Declared shot rules — R04/R02, 6 October 2026
+
+The [version-pinned declared rules slice](declared-rules-report.md) is implemented and installed in the normal Release. Pure/core/Agent UI suites and sequential Release builds pass. Pixel 11 Lab confirms standard foul/placement, replacement from original before-state and process-restart recovery with clause references. [Phone proof](evidence/declared-rules-phone.json), [normal delivery](evidence/declared-rules-production.json).
+
+Player declarations cover the supported turn/group/target, cue entitlement and black/frame cases. Unknown legality/contact/call/count facts remain pending; low-light perception is not treated as complete referee evidence. Full procedure, automatic tracking, older-shot correction across later play and TV score pixels remain open. The concurrent temporal-tracking design and its ordering are preserved.
