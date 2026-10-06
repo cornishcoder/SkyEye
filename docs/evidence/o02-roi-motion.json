@@ -1,0 +1,99 @@
+{
+  "passed": true,
+  "source": "Synthetic native bitmaps; not ball/real-table accuracy",
+  "seeded": {
+    "sourceTimeUs": 0,
+    "regions": [
+      {
+        "id": "texture",
+        "features": 32,
+        "supported": 0,
+        "dxPixels": null,
+        "dyPixels": null,
+        "velocityXPixelsPerSecond": null,
+        "velocityYPixelsPerSecond": null,
+        "status": "seed"
+      }
+    ],
+    "conversionMs": 3.3831,
+    "flowMs": 2.0804
+  },
+  "translated": {
+    "sourceTimeUs": 33333,
+    "regions": [
+      {
+        "id": "texture",
+        "features": 32,
+        "supported": 30,
+        "dxPixels": 2.0000133514404297,
+        "dyPixels": 1.0000114440917969,
+        "velocityXPixelsPerSecond": 60.00100055321842,
+        "velocityYPixelsPerSecond": 30.000643329187195,
+        "status": "supported"
+      }
+    ],
+    "conversionMs": 0.1384,
+    "flowMs": 18.6648
+  },
+  "still": {
+    "sourceTimeUs": 66666,
+    "regions": [
+      {
+        "id": "texture",
+        "features": 32,
+        "supported": 32,
+        "dxPixels": 0,
+        "dyPixels": 0,
+        "velocityXPixelsPerSecond": 0,
+        "velocityYPixelsPerSecond": 0,
+        "status": "supported"
+      }
+    ],
+    "conversionMs": 0.1771,
+    "flowMs": 0.9046
+  },
+  "lost": {
+    "sourceTimeUs": 99999,
+    "regions": [
+      {
+        "id": "texture",
+        "features": 32,
+        "supported": 0,
+        "dxPixels": null,
+        "dyPixels": null,
+        "velocityXPixelsPerSecond": null,
+        "velocityYPixelsPerSecond": null,
+        "status": "unresolved"
+      }
+    ],
+    "conversionMs": 0.1137,
+    "flowMs": 1.1166
+  },
+  "reset": {
+    "sourceTimeUs": 400000,
+    "regions": [
+      {
+        "id": "texture",
+        "features": 32,
+        "supported": 0,
+        "dxPixels": null,
+        "dyPixels": null,
+        "velocityXPixelsPerSecond": null,
+        "velocityYPixelsPerSecond": null,
+        "status": "seed"
+      }
+    ],
+    "conversionMs": 0.0883,
+    "flowMs": 0.1583
+  },
+  "borrowedImageRetained": true,
+  "cancellationRejected": true,
+  "originalSize": [
+    192,
+    144
+  ],
+  "roiSize": [
+    96,
+    96
+  ]
+}

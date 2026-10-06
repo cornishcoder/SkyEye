@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-07",
+  "sourceCommit": "3edeaf8631693356c577a6bd09c8074d4f4f0e4e",
+  "slice": "O02.04 feed/ROI foundations; diagnostic-only enablement and open O02.05 acceptance",
+  "checks": {
+    "core": "pass incl active/latest ownership, candidate retention, aged results, scope/gap/cancel/failure",
+    "agentUi": "pass",
+    "nativeRoi": "pass synthetic translated/still/occluded/reset/borrowed crop/cancel cases",
+    "nativeFeed": "pass 640x360 loopback TS, short 15/30/60 Hz and 16-ROI/overload experiments",
+    "shellPhysicalGate": "Automatic approval review rejected combined Lab install/launch/API admission command: blocked by policy. No command action ran."
+  },
+  "releaseBuilds": {
+    "test": {
+      "warnings": 16,
+      "errors": 0
+    },
+    "labPerformance": {
+      "warnings": 11,
+      "errors": 0
+    },
+    "normalProduction": {
+      "warnings": 11,
+      "errors": 0
+    },
+    "retainedCompanion": {
+      "warnings": 14,
+      "errors": 0
+    }
+  },
+  "production": {
+    "guardedUpdate": "Signer, UID and private storage retained",
+    "installedApkSha256": "34AF601B05826075FBC83606E4C06444EC320E4E1E9D3110D5A365FF0F685CEB",
+    "apkSha256": "34AF601B05826075FBC83606E4C06444EC320E4E1E9D3110D5A365FF0F685CEB",
+    "rollbackApk": "work/production/backups/20261007-003649/before.apk",
+    "processRunning": true,
+    "startup": "No automatic motion feed",
+    "explicitCameraControlCommands": 0,
+    "explicitCastCommands": 0,
+    "personalKeyUse": 0
+  },
+  "limits": [
+    "Fixed image ROIs, no ball identity/ROI recentering/GameState mutation",
+    "Full bitmap GPU readback remains",
+    "Short 640x360 synthetic source; actual 1080p/lifecycle/thermal and real corpus gates remain",
+    "Final 30-Hz one-ROI rate 18.5 Hz, 16-ROI worker p95 39.3 ms: performance gate open"
+  ]
+}

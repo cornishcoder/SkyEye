@@ -7,10 +7,10 @@
 | O02.01 | Bounded native metadata ledger, exact surface timestamp lookup, collision ambiguity and decoder-generation fencing; host Java checks |
 | O02.02 | One owned raw bitmap/receipt acquisition; reject a changed surface during copying, missing/stale clock mapping and changed source; retain frame identity/dimensions through requested observation |
 | O02.03 | Controlled B-frame H.264 fixture on the Pixel: independently read pixel barcodes against local decoder PTS and loopback TS source PTS; stop/restart, TS epoch conversion and C# binding/cancellation proof |
-| O02.04 | Enabled observation feed with one active frame and one replaceable latest frame; dispose replaced/stopped/cancelled ownership, reject stale/duplicate source receipts and benchmark native ROI extraction/flow |
+| O02.04 | [Experimental feed/ROI foundations delivered](o02-motion-feed-report.md): explicit one-active/one-latest ownership, candidate skip, scoped stop/reset and native fixed-region flow; real-source companion enablement and performance acceptance remain open |
 | O02.05 | Actual mounted 1080p source acquisition and 15/30/60 Hz tradeoffs: processed cadence, source gaps/age, acquisition/worker p50/p95, CPU/GPU/thermal/battery/resource and interruption evidence |
 
-O02.01-O02.03 are the first delivery slice. O02.04-O02.05 remain open; a request-driven full analysis is not repurposed as a tracking loop. Expensive perception stays requested or phase-triggered. High-resolution master recording is preserved. O03 shot boundaries and O04/O05 association/review depend on the enabled feed and real O01 footage.
+O02.01-O02.03 are the first delivery slice. O02.04 foundations now have controlled device proof; O02.05 and real-source acceptance remain open. A request-driven full analysis is not repurposed as a tracking loop. Expensive perception stays requested or phase-triggered. High-resolution master recording is preserved. O03 shot boundaries and O04/O05 association/review depend on the enabled feed and real O01 footage.
 
 ## Receipt contract
 

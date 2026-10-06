@@ -1,0 +1,21 @@
+{
+  "scope": "Synthetic native ROI cases and 640x360/30Hz loopback TS, short runs; not real-table/1080p sustained acceptance",
+  "fixture": {
+    "schemaVersion": 1,
+    "kind": "Synthetic",
+    "width": 640,
+    "height": 360,
+    "fps": 30,
+    "frames": 240,
+    "clock": "ClipMicroseconds",
+    "frameId": "Round(PTS * 30 / 1000000)",
+    "barcode": "12 LSB-first vertical blocks; sample x=60+40*bit,y=180; threshold=128",
+    "sha256": "C90409B03924E78218D202F98888A5D8D34516538467450176CB291D6BFB8F5F",
+    "notes": "H.264 with B frames; controlled source for native pixels/PTS pairing only",
+    "sourceOriginUs": 1466667,
+    "tsSha256": "862E863187B4F349605A5ADF2EA8C0D21BB8304BB002370B0ED022A334C29A92",
+    "motionTexture": "Fixed x540/y40 96x96 hash texture translating with frame index; wrap every 20 pixels"
+  },
+  "apkSha256": "FC00E28FE22E7B27ABBF63A6C12F188D66ECB574ABDB32D6ACD47DFAF953786B",
+  "schemaVersion": 1
+}
