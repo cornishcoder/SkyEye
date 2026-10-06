@@ -18,6 +18,15 @@ namespace SkyEye.Vision.Device;
 [Activity(Name = "uk.co.skyeye.visionchecks.MainActivity", Label = "SkyEye Vision Checks", MainLauncher = true, Exported = true)]
 public sealed class MainActivity : Activity
 {
+    protected override void OnNewIntent(global::Android.Content.Intent? intent)
+    {
+        base.OnNewIntent(intent); Intent = intent;
+        if (intent?.GetBooleanExtra("recordedGeometry", false) == true)
+        {
+            var text = new TextView(this) { Text = "Checking recorded geometry…", TextSize = 18 }; SetContentView(text);
+            _ = CheckRecordedGeometryAsync(text);
+        }
+    }
     protected override void OnCreate(Bundle? state)
     {
         base.OnCreate(state); var text = new TextView(this) { Text = "Checking C# OpenCV image operations…", TextSize = 18 }; SetContentView(text);
@@ -158,24 +167,37 @@ public sealed class MainActivity : Activity
         try
         {
             string external = GetExternalFilesDir(null)!.AbsolutePath, path = Path.Combine(external, "geometry-fixture.mp4");
+            bool real = Intent?.GetBooleanExtra("realRecordedGeometry", false) == true;
+            ClipRecordingOrigin? origin = null;
+            string? expectedClipHash = null;
+            if (real)
+            {
+                var clip = JsonSerializer.Deserialize<Clip>(File.ReadAllText(Path.Combine(external,"geometry-source.json")),JsonDefaults.Options) ?? throw new Exception("Missing recorded clip provenance");
+                origin = clip.RecordingOrigin ?? throw new Exception("Real recording has no camera time origin");
+                expectedClipHash = clip.Sha256;
+            }
             var geometry = new SkyEye.Companion.AndroidRecordedGeometry(Path.Combine(FilesDir!.AbsolutePath, "recorded-geometry"));
             await using var file = File.OpenRead(path); string hash = Convert.ToHexString(await System.Security.Cryptography.SHA256.HashDataAsync(file)); file.Close();
+            if (real && !string.Equals(hash,expectedClipHash,StringComparison.OrdinalIgnoreCase)) throw new Exception("Recorded clip checksum differs from its camera acknowledgement");
             var watch = Stopwatch.StartNew();
-            var journal = await geometry.AnalyzeAsync(path, hash, null, default);
-            if (journal.Spans.Count(s => s.Layout is not null) < 2 || journal.Spans.Count(s => s.Layout is null) < 2
+            var journal = await geometry.AnalyzeAsync(path, hash, origin, default);
+            if (!real && (journal.Spans.Count(s => s.Layout is not null) < 2 || journal.Spans.Count(s => s.Layout is null) < 2
                 || journal.Spans.Where(s=>s.Layout is not null).Select(s=>s.GeometryVersion).Distinct().Count() < 2)
+                )
                 throw new Exception("Recorded mount/obstruction fixture did not produce historical geometry and uncertain gaps: " + JsonSerializer.Serialize(journal));
-            if (journal.At(journal.Source,1_000_000)?.Layout is not { } original || journal.At(journal.Source,5_000_000)?.Layout is not { } moved
+            if (!real && (journal.At(journal.Source,1_000_000)?.Layout is not { } original || journal.At(journal.Source,5_000_000)?.Layout is not { } moved
                 || RecordedGeometry.Same(original,moved) || journal.At(journal.Source,3_000_000)?.Layout is not null
                 || journal.At(journal.Source,9_000_000)?.Layout is null || journal.At(journal.Source,13_000_000)?.Layout is not null
-                || journal.At(journal.Source,17_000_000)?.Layout is null || journal.At(journal.Source,19_000_000)?.Layout is not null)
+                || journal.At(journal.Source,17_000_000)?.Layout is null || journal.At(journal.Source,19_000_000)?.Layout is not null))
                 throw new Exception("Recorded fixture geometry does not match source-time mount/dim/covered/recovery intervals: " + JsonSerializer.Serialize(journal));
-            var recovered = await new SkyEye.Companion.AndroidRecordedGeometry(Path.Combine(FilesDir!.AbsolutePath, "recorded-geometry")).AnalyzeAsync(path, hash, null, default);
+            if (real && (journal.Source.Clock != RecordedGeometryClock.CameraRecording || journal.Source.Timeline != origin!.Timeline || journal.Source.StartUs != origin.StartUs
+                || !journal.Spans.Any(s=>s.Layout is not null))) throw new Exception("Real camera footage lacks accepted scoped geometry");
+            var recovered = await new SkyEye.Companion.AndroidRecordedGeometry(Path.Combine(FilesDir!.AbsolutePath, "recorded-geometry")).AnalyzeAsync(path, hash, origin, default);
             if (JsonSerializer.Serialize(journal) != JsonSerializer.Serialize(recovered)) throw new Exception("Recorded geometry restart changed intervals");
             bool checksumRejected = false;
-            try { await geometry.AnalyzeAsync(path, new string('0',64), null, default); } catch(IOException) { checksumRejected = true; }
+            try { await geometry.AnalyzeAsync(path, new string('0',64), origin, default); } catch(IOException) { checksumRejected = true; }
             if (!checksumRejected) throw new Exception("Wrong recorded checksum accepted");
-            result = new { passed=true, model=Build.Model, journal, recovered=true, checksumRejected, elapsedMs=watch.ElapsedMilliseconds };
+            result = new { passed=true, real, model=Build.Model, journal, recovered=true, checksumRejected, elapsedMs=watch.ElapsedMilliseconds };
         }
         catch(Exception error) { result = new { passed=false,error=error.ToString() }; }
         string json=JsonSerializer.Serialize(result,JsonDefaults.Options);
