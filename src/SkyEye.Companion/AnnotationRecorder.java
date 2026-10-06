@@ -58,7 +58,7 @@ final class AnnotationRecorder {
         long now=System.nanoTime();long[] selected=null;
         for(long[] f:frames)if(f[1]==releaseNs){if(selected!=null)return null;selected=f;}
         if(media!=generation||selected==null||timeline.isEmpty()||android.os.SystemClock.elapsedRealtime()-referenceAt>10000
-            ||releaseNs>now||now-releaseNs>250000000L)return null;
+            ||now-releaseNs< -100000000L||now-releaseNs>250000000L)return null;
         double age=(referenceUs-selected[0])/1000d+android.os.SystemClock.elapsedRealtime()-referenceAt;
         return new JSONObject().put("timeline",timeline).put("sourceUs",selected[0]).put("ageEstimateMs",age);
     }catch(Exception ignored){return null;}}

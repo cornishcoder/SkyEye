@@ -10,4 +10,12 @@
   <ItemGroup><AndroidAsset Include="../../watermark.png" Link="watermark.png" /></ItemGroup>
   <ItemGroup><AndroidJavaSource Include="../../src/SkyEye.Companion/WatermarkRenderer.java" Link="WatermarkRenderer.java" /></ItemGroup>
   <ItemGroup><AndroidJavaSource Include="../../src/SkyEye.Companion/RecordedSceneOverlay.java" Link="RecordedSceneOverlay.java" /><AndroidJavaSource Include="../../src/SkyEye.Companion/TableSceneOverlay.java" Link="TableSceneOverlay.java" /></ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Xamarin.AndroidX.Media3.ExoPlayer.Hls" Version="1.10.1.1" />
+    <AndroidJavaSource Include="../../src/SkyEye.Companion/PlayerBridge.java" Link="PlayerBridge.java" />
+    <AndroidJavaSource Include="../../src/SkyEye.Companion/CandidateOverlay.java" Link="CandidateOverlay.java" />
+    <AndroidJavaSource Include="../../src/SkyEye.Companion/DecodedFrameLedger.java" Link="DecodedFrameLedger.java" />
+    <AndroidJavaSource Include="../../src/SkyEye.Companion/DecodedFrameSnapshot.java" Link="DecodedFrameSnapshot.java" />
+    <Compile Include="../../src/SkyEye.Companion/PlayerTableFrameSource.cs" Link="PlayerTableFrameSource.cs" />
+  </ItemGroup>
 </Project>

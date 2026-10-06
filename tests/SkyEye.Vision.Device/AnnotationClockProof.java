@@ -12,9 +12,14 @@ public final class AnnotationClockProof {
             AnnotationRecorder recorder=new AnnotationRecorder();recorder.reset(1);recorder.clock(timeline,source+5000000,1);
             TimestampAdjuster adjuster=new TimestampAdjuster(0);recorder.extractor(adjuster,1);
             long adjusted=adjuster.adjustTsTimestamp(ticks&(wrapPts-1));
-            recorder.frame(adjusted,System.nanoTime()-1000000);recorder.drawn(null,"",false,1);
+            long release=System.nanoTime()-1000000;
+            recorder.frame(adjusted,release);recorder.drawn(null,"",false,1);
             JSONArray observed=new JSONArray(recorder.drain());
             if(observed.length()!=1||Math.abs(observed.getJSONObject(0).getLong("sourceUs")-source)>12)throw new Exception("TS epoch/offset mapping differs from raw source");
+            JSONObject exact=recorder.exactFrameMetrics(release,1);
+            if(exact==null||exact.getLong("sourceUs")!=observed.getJSONObject(0).getLong("sourceUs")
+                ||recorder.exactFrameMetrics(release+1,1)!=null||recorder.exactFrameMetrics(release,2)!=null)
+                throw new Exception("Exact surface clock lookup accepted unknown/generation receipt");
             recorder.drawn(null,"",false,1);if(new JSONArray(recorder.drain()).length()!=0)throw new Exception("Duplicate frame recorded");
             cases.put(new JSONObject().put("sourceUs",source).put("observedUs",observed.getJSONObject(0).getLong("sourceUs")));
         }
@@ -27,6 +32,6 @@ public final class AnnotationClockProof {
         recorder.reset(2);recorder.clock(timeline,1000000,2);recorder.extractor(adjuster,2);
         recorder.frame(adjusted,System.nanoTime()+1000000000);recorder.drawn(null,"",false,2);
         if(new JSONArray(recorder.drain()).length()!=0)throw new Exception("Future frame accepted before release");
-        return new JSONObject().put("passed",true).put("rawPtsCases",cases).put("duplicateAndUnrelatedAndFrozenAndFutureRejected",true).toString();
+        return new JSONObject().put("passed",true).put("rawPtsCases",cases).put("exactSurfaceClockChecks",true).put("duplicateAndUnrelatedAndFrozenAndFutureRejected",true).toString();
     }catch(Exception e){try{return new JSONObject().put("passed",false).put("error",e.toString()).toString();}catch(Exception ignored){return "{}";}}}
 }

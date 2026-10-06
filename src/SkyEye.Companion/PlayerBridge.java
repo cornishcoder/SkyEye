@@ -14,6 +14,10 @@ public final class PlayerBridge {
     public interface Listener { void onError(String error); void onPlaying(boolean playing); }
     private final AnnotationRecorder annotationRecorder=new AnnotationRecorder();
     private final DecodedFrameLedger decodedLedger=new DecodedFrameLedger();
+    private final java.util.Map<String,Integer> copyFailures=new java.util.LinkedHashMap<>();private long copyBefore,copyAfter;
+    private DecodedFrameSnapshot copyFailure(String reason){copyFailures.put(reason,copyFailures.getOrDefault(reason,0)+1);return null;}
+    public String decodedCopyMetrics(){try{return new JSONObject().put("failures",new JSONObject(copyFailures)).put("beforeNs",copyBefore)
+        .put("afterNs",copyAfter).put("newestReleaseNs",decodedLedger.newestRelease()).put("ledgerSize",decodedLedger.size()).toString();}catch(Exception ignored){return "{}";}}
     private final ExoPlayer player;private final TextureView texture;private final Listener listener;
     private final FrameLayout container;private final View overlay;private final CandidateOverlay drawing=new CandidateOverlay();private final TableSceneOverlay tableDrawing=new TableSceneOverlay(),tvDrawing=new TableSceneOverlay();
     private volatile String phoneScene="{}",phoneFraming="{}";
@@ -61,16 +65,21 @@ public final class PlayerBridge {
     public byte[] snapshotForFraming(){if(!player.isPlaying()||!texture.isAvailable())return null;Bitmap bitmap=texture.getBitmap(960,540);if(bitmap==null)return null;try{java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream();bitmap.compress(Bitmap.CompressFormat.JPEG,90,bytes);return bytes.toByteArray();}finally{bitmap.recycle();}}
     public DecodedFrameSnapshot snapshotDecodedFrame(){
         if(android.os.Looper.myLooper()!=android.os.Looper.getMainLooper())throw new IllegalStateException("Decoded copy requires the player looper");
-        if(released||!player.isPlaying()||!texture.isAvailable())return null;
+        if(released||!player.isPlaying()||!texture.isAvailable())return copyFailure("no-playing-texture");
         long media=generation;android.graphics.SurfaceTexture surface=texture.getSurfaceTexture();if(surface==null)return null;
-        long stamp=surface.getTimestamp();DecodedFrameLedger.Stamp paired=decodedLedger.match(media,stamp);
-        if(paired==null||System.nanoTime()-stamp>250000000L||stamp>System.nanoTime())return null;
+        long stamp=surface.getTimestamp();copyBefore=stamp;DecodedFrameLedger.Stamp paired=decodedLedger.match(media,stamp);
+        if(paired==null)return copyFailure("unmapped-surface");
+        // Media3 stamps the requested render time. TextureView may latch its
+        // actual pixels before that deadline; pairing uses identity, not now.
+        long releaseAge=System.nanoTime()-stamp;
+        if(releaseAge>250000000L||releaseAge< -100000000L)return copyFailure("stale-or-far-future-surface");
         JSONObject clock=liveUrl(activeUrl)?annotationRecorder.exactFrameMetrics(stamp,media):new JSONObject();
-        if(clock==null)return null;
-        Bitmap bitmap=texture.getBitmap(paired.width,paired.height);if(bitmap==null)return null;
+        if(clock==null)return copyFailure("unmapped-source-clock");
+        Bitmap bitmap=texture.getBitmap(paired.width,paired.height);if(bitmap==null)return copyFailure("no-bitmap");
         try{
-            if(media!=generation||surface!=texture.getSurfaceTexture()||stamp!=surface.getTimestamp()
-                ||decodedLedger.match(media,stamp)!=paired)return null;
+            copyAfter=surface.getTimestamp();
+            if(media!=generation||surface!=texture.getSurfaceTexture()||stamp!=copyAfter
+                ||decodedLedger.match(media,stamp)!=paired)return copyFailure("changed-during-copy");
             String metadata=clock.put("mediaGeneration",media).put("frameId",paired.frameId).put("presentationUs",paired.presentationUs)
                 .put("surfaceTimestampNs",stamp).put("releaseTimestampNs",paired.releaseNs).put("width",bitmap.getWidth()).put("height",bitmap.getHeight())
                 .put("pairing","exact-surface-timestamp").toString();

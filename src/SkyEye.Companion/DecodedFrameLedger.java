@@ -31,4 +31,5 @@ final class DecodedFrameLedger {
         return result;
     }
     synchronized int size() { return frames.size(); }
+    synchronized long newestRelease() { return frames.isEmpty()?0:frames.getLast().releaseNs; }
 }
