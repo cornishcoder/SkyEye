@@ -138,7 +138,7 @@ public sealed class AnnotationJournalStore
             // Bound abandoned timelines as well as the active rolling window.
             foreach (var old in Directory.EnumerateFiles(root, "*.json").OrderByDescending(File.GetLastWriteTimeUtc).Skip(4))
                 if (Guid.TryParseExact(Path.GetFileNameWithoutExtension(old), "N", out _))
-                { File.Delete(old); timelines.Remove(Path.GetFileNameWithoutExtension(old)); }
+                { File.Delete(old); string removed=Path.GetFileNameWithoutExtension(old);timelines.Remove(removed);foreach(var key in last.Keys.Where(k=>k.Item1==removed).ToArray())last.Remove(key); }
         }
     }
     public ClipAnnotationJournal Window(Clip clip)
@@ -156,6 +156,10 @@ public sealed class AnnotationJournalStore
         }
     }
     public void Preserve(Clip clip)
+    {
+        lock(gate) PreserveCore(clip);
+    }
+    void PreserveCore(Clip clip)
     {
         var journal = Window(clip); string directory = Path.Combine(root, "clips"); Directory.CreateDirectory(directory);
         string path = Path.Combine(directory, clip.Id + ".json");
@@ -184,7 +188,7 @@ public sealed class AnnotationJournalStore
         {
             if (new FileInfo(path) is not { Exists: true, Length: > 0 and < 4_000_000 }) return null;
             var journal = JsonSerializer.Deserialize<ClipAnnotationJournal>(File.ReadAllText(path), JsonDefaults.Options);
-            if (journal is null || journal.SourceSha256 != clip.Sha256 || journal.Origin != clip.RecordingOrigin) return null;
+            if (journal is null || journal.SourceSha256 != clip.Sha256 || journal.Origin != clip.RecordingOrigin || journal.DurationUs != (long)Math.Ceiling(clip.Duration*1_000_000)) return null;
             journal.Validate(); return journal;
         }
         catch (Exception e) when (e is IOException or JsonException or ArgumentException) { return null; }
@@ -197,4 +201,10 @@ public sealed class AnnotationJournalStore
         try { File.WriteAllBytes(part, data); File.Move(part, path, true); } finally { File.Delete(part); }
     }
     public static string Fingerprint(string nativeGeometry) => Convert.ToHexString(SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(nativeGeometry)));
+    public object Metrics()
+    {
+        lock(gate) return new { timelines=timelines.Count, spans=timelines.Values.Sum(s=>s.Count),
+            observations=last.Values.Select(o=>new { o.Target,o.SourceUs,sceneVersion=o.Scene?.Version??0,tableVersion=o.Scene?.TableVersion??0 }).ToArray(),
+            preservedClips=Directory.Exists(Path.Combine(root,"clips"))?Directory.EnumerateFiles(Path.Combine(root,"clips"),"*.json").Count():0 };
+    }
 }

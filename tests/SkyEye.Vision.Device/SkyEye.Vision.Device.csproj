@@ -5,5 +5,6 @@
   <ItemGroup><Compile Include="../../src/SkyEye.Companion/AndroidRecordedGeometry.cs" Link="AndroidRecordedGeometry.cs"/><AndroidJavaSource Include="../../src/SkyEye.Companion/RecordedFrameReader.java" Link="RecordedFrameReader.java"/></ItemGroup>
   <ItemGroup><PackageReference Include="Xamarin.AndroidX.Media3.Transformer" Version="1.10.1.1"/><Compile Include="../../src/SkyEye.Companion/AndroidRecordedRenderer.cs" Link="AndroidRecordedRenderer.cs"/><AndroidJavaSource Include="../../src/SkyEye.Companion/RecordedVideoRenderer.java" Link="RecordedVideoRenderer.java"/></ItemGroup>
   <PropertyGroup><AndroidPackageFormats>apk</AndroidPackageFormats></PropertyGroup>
+  <ItemGroup><AndroidJavaSource Include="../../src/SkyEye.Companion/AnnotationRecorder.java" Link="AnnotationRecorder.java" /></ItemGroup>
   <ItemGroup><PackageReference Include="Xamarin.GooglePlayServices.Cast.Framework" Version="122.3.1.2"/><AndroidJavaSource Include="../../src/SkyEye.Companion/CastBridge.java" Link="CastBridge.java"/><AndroidJavaSource Include="../../src/SkyEye.Companion/SkyEyeCastOptions.java" Link="SkyEyeCastOptions.java"/></ItemGroup>
 </Project>

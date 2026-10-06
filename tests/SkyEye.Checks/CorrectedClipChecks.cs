@@ -25,6 +25,12 @@ static class CorrectedClipChecks
             try{await temporary.PrepareAsync(clip with{Id=Guid.NewGuid().ToString("N")},transfer,renderer);throw new Exception("Expected temporary capacity refusal");}catch(InvalidOperationException){}
             Check(store.Catalogue().Length==1,"recent replays never enter permanent library");clock.Advance(600);temporary.Cleanup();Check(!temporary.Catalogue().Any(),"monotonic expiry removes paired recent media");
             string saved=Path.Combine(root,"saved",clip.Id);Directory.Move(saved,saved+".previous");var recovered=new CorrectedClipStore(Path.Combine(root,"saved"));Check(await recovered.FindAsync(clip,renderer,default)is not null,"publication-interruption backup recovers original and both derivatives");
+            var metadataStore=new CorrectedClipStore(Path.Combine(root,"with-annotations"),metadata:(c,path)=>File.WriteAllText(Path.Combine(path,"annotations.json"),"declared fixture"));
+            var annotated=await metadataStore.PrepareAsync(clip,transfer,renderer);
+            Check(File.Exists(Path.Combine(Path.GetDirectoryName(annotated.Original)!,"annotations.json")),"clip journal publishes alongside verified media");
+            var failingMetadata=new CorrectedClipStore(Path.Combine(root,"failed-annotations"),metadata:(c,path)=>throw new IOException("fixture metadata failure"));
+            try{await failingMetadata.PrepareAsync(clip,transfer,renderer);throw new Exception("Expected annotation publication failure");}catch(IOException){}
+            Check(failingMetadata.Catalogue().Length==0&&!Directory.EnumerateDirectories(Path.Combine(root,"failed-annotations"),"*.part").Any(),"failed sidecar cannot publish incomplete media bundle");
             Console.WriteLine("PASS corrected derivatives: originals, paired atomic publication, restart/hash/geometry invalidation, retained-source repair, cancellation/failure, temporary isolation/capacity/expiry and interrupted publication recovery");
         }
         finally{if(!Path.GetFullPath(root).StartsWith(Path.GetFullPath(Path.GetTempPath()),StringComparison.OrdinalIgnoreCase))throw new Exception("Unexpected fixture root");Directory.Delete(root,true);}

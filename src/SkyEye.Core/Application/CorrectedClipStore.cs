@@ -22,11 +22,12 @@ public sealed class CorrectedClipStore
     static readonly ConcurrentDictionary<string,SemaphoreSlim> locks=new(StringComparer.OrdinalIgnoreCase);
     readonly string root;readonly bool temporary;readonly TimeProvider clock;readonly SemaphoreSlim writer;
     readonly Func<long> freeBytes;
+    readonly Action<Clip,string>? metadata;
     readonly ConcurrentDictionary<string,long> timestamps=[];
-    public CorrectedClipStore(string directory,bool temporary=false,TimeProvider? clock=null,Func<long>? availableBytes=null)
+    public CorrectedClipStore(string directory,bool temporary=false,TimeProvider? clock=null,Func<long>? availableBytes=null,Action<Clip,string>? metadata=null)
     {
         root=Path.GetFullPath(directory);this.temporary=temporary;this.clock=clock??TimeProvider.System;Directory.CreateDirectory(root);writer=locks.GetOrAdd(root,_=>new(1));
-        freeBytes=availableBytes??(()=>new DriveInfo(Path.GetPathRoot(root)!).AvailableFreeSpace);
+        freeBytes=availableBytes??(()=>new DriveInfo(Path.GetPathRoot(root)!).AvailableFreeSpace);this.metadata=metadata;
         foreach(var previous in Directory.EnumerateDirectories(root,"*.previous")){string id=Path.GetFileName(previous)[..^9];if(Guid.TryParseExact(id,"N",out _)&&!Directory.Exists(Folder(id)))Shift(previous,Folder(id));}
         // Temporary references do not survive companion process restart. Sweep
         // only generated complete directories in this explicitly separate root.
@@ -73,6 +74,7 @@ public sealed class CorrectedClipStore
             await renderer.RenderAsync(clip,original,portrait,landscape,info,cancellation);cancellation.ThrowIfCancellationRequested();
             foreach(var path in new[]{portrait,landscape})if(new FileInfo(path) is not{Exists:true,Length:>0})throw new IOException("Corrected output unavailable.");
             async Task<string> Digest(string path){await using var file=File.OpenRead(path);return Convert.ToHexString(await SHA256.HashDataAsync(file,cancellation));}
+            metadata?.Invoke(clip,stage);cancellation.ThrowIfCancellationRequested();
             long bytes=Directory.EnumerateFiles(stage).Sum(path=>new FileInfo(path).Length);if(temporary&&TotalBytes()+bytes>TemporaryBudgetBytes)throw new IOException("Corrected recent replay exceeds temporary storage budget.");
             var manifest=new CorrectedClipManifest(1,clip,info,await Digest(portrait),await Digest(landscape),bytes,clock.GetUtcNow());
             await File.WriteAllTextAsync(Path.Combine(stage,"manifest.json"),JsonSerializer.Serialize(manifest,JsonDefaults.Options),cancellation);cancellation.ThrowIfCancellationRequested();
