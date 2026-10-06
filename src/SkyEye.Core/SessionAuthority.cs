@@ -5,7 +5,7 @@ namespace SkyEye.Core;
 public enum CaptureState { Ready, Active, Paused, Stopped, Faulted }
 public sealed record Lease(string Token, string Owner, long Generation, DateTimeOffset ExpiresAt);
 public sealed record Segment(string Name, long Sequence, string Timeline, long StartUs, double Duration, DateTimeOffset CapturedAt);
-public sealed record Clip(string Id, string Name, double Duration, long Bytes, string Sha256, DateTimeOffset CreatedAt, int PortraitRotation = 90);
+public sealed record Clip(string Id, string Name, double Duration, long Bytes, string Sha256, DateTimeOffset CreatedAt, int PortraitRotation = 90, Analysis.ClipRecordingOrigin? RecordingOrigin = null);
 
 // Camera-side authority. Host name is display data, never proof of ownership.
 public sealed class SessionAuthority(TimeProvider? clock = null)

@@ -9,6 +9,7 @@ public interface IClipTransfer : IDisposable
     Task DownloadAsync(Clip clip, string destination, Action<long> progress, CancellationToken cancellation);
 }
 public interface IPortraitClipExporter { Task ExportAsync(string input, string output, int rotation, CancellationToken cancellation); }
+public interface IClipGeometryPreparation { Task PrepareGeometryAsync(Clip clip, string verifiedSource, CancellationToken cancellation); }
 public enum ClipTransferStage { Downloading, Preparing, Available }
 public sealed record ClipTransferProgress(ClipTransferStage Stage, long Bytes, long TotalBytes);
 public sealed record LocalClip(Clip Clip, string VideoPath);
@@ -31,6 +32,9 @@ public sealed class ClipLibrary
         if (!Guid.TryParseExact(clip.Id, "N", out _) || clip.Bytes <= 0 || !double.IsFinite(clip.Duration) || clip.Duration <= 0
             || clip.Sha256 is not { Length: 64 } || !clip.Sha256.All(Uri.IsHexDigit) || clip.PortraitRotation is not (0 or 90 or 180 or 270))
             throw new ArgumentException("Invalid clip metadata.");
+        if (clip.RecordingOrigin is { } origin && (!Guid.TryParseExact(origin.Timeline, "N", out _) || origin.StartUs < 0
+            || origin.Width is < 16 or > 8192 || origin.Height is < 16 or > 8192 || origin.Rotation is not (0 or 90 or 180 or 270)))
+            throw new ArgumentException("Invalid clip recording provenance.");
     }
     string Video(string id) => Path.Combine(directory, id + ".mp4");
     public bool Available(Clip clip)
@@ -70,6 +74,7 @@ public sealed class ClipLibrary
             await transfer.DownloadAsync(clip, master, bytes => progress?.Invoke(new(ClipTransferStage.Downloading, bytes, clip.Bytes)), cancellation).ConfigureAwait(false);
             cancellation.ThrowIfCancellationRequested();
             progress?.Invoke(new(ClipTransferStage.Preparing, clip.Bytes, clip.Bytes));
+            if (exporter is IClipGeometryPreparation geometry) await geometry.PrepareGeometryAsync(clip, master, cancellation).ConfigureAwait(false);
             if (File.Exists(portrait)) File.Delete(portrait);
             await exporter.ExportAsync(master, portrait, clip.PortraitRotation, cancellation).ConfigureAwait(false);
             cancellation.ThrowIfCancellationRequested();

@@ -105,6 +105,7 @@ await CameraControlAdapterChecks.Run();
 await TableAnalysisChecks.Run();
 await ClipLibraryChecks.Run();
 await RecentReplayChecks.Run();
+await RecordedGeometryChecks.Run();
 await RecentReplayHttpChecks.Run();
 await CameraReadEffectChecks.Run();
 

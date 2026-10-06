@@ -16,6 +16,7 @@ static class ClipLibraryChecks
             var stages = new List<ClipTransferStage>();
             var saved = await library.DownloadAsync(clip, transfer, exporter, value => stages.Add(value.Stage));
             Check(library.Available(clip) && library.Local().Single().VideoPath == saved.VideoPath && exporter.Rotation == 90, "verified export publishes existing mp4/json layout");
+            Check(exporter.Prepared == 1 && exporter.GeometryReady, "source geometry is prepared from verified raw footage before portrait conversion");
             Check(stages.Contains(ClipTransferStage.Downloading) && stages.Contains(ClipTransferStage.Preparing) && stages.Last() == ClipTransferStage.Available, "progress describes actual application stages");
             await new ClipLibrary(root).DownloadAsync(clip, transfer, exporter);
             Check(transfer.Downloads == 1 && exporter.Exports == 1, "restart and duplicate completed download do no transfer/export");
@@ -67,13 +68,22 @@ static class ClipLibraryChecks
         }
         public void Dispose() { }
     }
-    sealed class Exporter : IPortraitClipExporter
+    sealed class Exporter : IPortraitClipExporter, IClipGeometryPreparation
     {
+        public int Prepared; public bool GeometryReady;
+        public async Task PrepareGeometryAsync(Clip clip, string path, CancellationToken cancellation)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            await using var file = File.OpenRead(path);
+            Check(Convert.ToHexString(await SHA256.HashDataAsync(file, cancellation)) == clip.Sha256, "geometry preparer receives original checksum-verified source");
+            Prepared++; GeometryReady = true;
+        }
         public bool Fail; public int Rotation, Exports; public TaskCompletionSource? Entered; TaskCompletionSource? release;
         public void Hold() { Entered = new(TaskCreationOptions.RunContinuationsAsynchronously); release = new(TaskCreationOptions.RunContinuationsAsynchronously); }
         public void Release() => release!.TrySetResult();
         public async Task ExportAsync(string input, string output, int rotation, CancellationToken cancellation)
         {
+            Check(GeometryReady, "geometry preparation precedes export");
             Exports++; Rotation = rotation; await File.WriteAllTextAsync(output, "fixture portrait", cancellation);
             if (Fail) throw new IOException("fixture encoder failure");
             if (release is { } held) { Entered!.TrySetResult(); await held.Task.WaitAsync(cancellation); release = null; }
