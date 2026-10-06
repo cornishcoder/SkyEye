@@ -30,14 +30,17 @@ try
         var detections = CorpusJson.Read<StoredDetection[]>(Required("--detections"));
         double tolerance = double.Parse(options.GetValueOrDefault("--tolerance", "0.027"), System.Globalization.CultureInfo.InvariantCulture);
         var scored = new List<BaselineScore>();
+        var unscored = new List<string>();
         foreach (var sequence in manifest.Sequences.OrderBy(s => s.Id, StringComparer.Ordinal))
         {
             var labels = CorpusJson.Read<SequenceLabels>(files.Resolve(sequence.LabelsFile));
             foreach (var frame in labels.Frames)
                 if (detections.SingleOrDefault(d => d.SampleId == frame.SampleId) is { } detected) scored.Add(DetectorBaseline.Score(frame, detected, tolerance));
+                else unscored.Add(frame.SampleId);
         }
         if (scored.Count != detections.Length) throw new InvalidDataException("Each stored detection must match one labelled indexed sample.");
         return new { schemaVersion = 1, corpus = manifest.Id, audit, tolerance, detectionSha256 = CorpusFiles.Hash(File.ReadAllBytes(Required("--detections"))),
+            labelledFrames = scored.Count + unscored.Count, scoredFrames = scored.Count, unscoredSampleIds = unscored.ToArray(),
             provenance = "Scoring stored results, not re-running native CV or measuring held-out accuracy", frames = scored.ToArray() };
     }
     var json = CorpusJson.Write(result);
