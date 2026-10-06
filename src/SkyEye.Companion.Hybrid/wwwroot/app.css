@@ -29,6 +29,8 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px 
 .match-actions { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 8px; }
 .match-actions button { padding: 10px 8px; font-size: 13px; }
 .match-history { margin-top: 16px; }
+.rule-check { width: 22px; min-height: 22px; height: 22px; vertical-align: middle; margin-right: 8px; }
+.rules-controls { border-top: 1px solid #263a3b; padding-top: 8px; margin-top: 12px; }
 .match-frame { border-top: 1px solid #263a3b; padding: 10px 0; }
 .match-frame p { font-size: 13px; }
 .sky-rest { display: flex; align-items: center; gap: 12px; background: #0d191bf5; border: 1px solid #263a3b; color: #e9f2f3; padding: 8px 18px; }

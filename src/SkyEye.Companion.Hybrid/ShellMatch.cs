@@ -26,6 +26,15 @@ public sealed partial class ShellSession
     public Task<bool> SetFrameWinnerAsync(long version, string frame, string player) => SendManualAsync(new G.PlayerCorrection(new G.SetFrameWinner(player)), version, frame: frame);
     public Task<bool> UndoMatchDecisionAsync(long version, Guid inputId) => SendManualAsync(new G.UndoDecision(inputId), version);
     public Task<bool> FinishManualMatchAsync(long version) => SendManualAsync(new G.FinishMatch(), version);
+    public Task<bool> RecordDeclaredShotAsync(long version, string match, string frame, G.DeclaredShot facts, Guid? corrects = null)
+        => MainThread.InvokeOnMainThreadAsync(async () =>
+        {
+            if (!active || disposed || EditingTable) return false;
+            var receipt = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, app.State.Version,
+                new DeclareShotOutcome(match, frame, version, facts, corrects)), foreground?.Token ?? CancellationToken.None);
+            if (!receipt.Succeeded) ShowError(receipt.Message); else { Message = receipt.Message; Publish(); }
+            return receipt.Succeeded;
+        });
 
     Task<bool> SendManualAsync(G.GameInput input, long version, string? match = null, string? frame = null)
         => MainThread.InvokeOnMainThreadAsync(async () =>

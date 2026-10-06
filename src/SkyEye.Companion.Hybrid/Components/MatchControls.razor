@@ -9,6 +9,7 @@
     {
         <p class="match-summary" role="status">@match.Score · race to @match.Target</p>
         <p class="hint">@match.Status</p>
+        <RulesControls Session="Session" Busy="@(Busy || working)" />
         @if (match.CanStartFrame)
         {
             <p class="hint">Who starts @(match.FrameId is null ? "the first" : "the next") frame?</p>

@@ -1,0 +1,89 @@
+@using SkyEye.GameState
+@using SkyEye.Core.Rules
+@{ var match = Session.Match; var disabled = Busy || working || !Session.CanManageMatch; }
+@if (match.FrameId is not null)
+{
+    <section class="rules-controls" aria-label="Declared shot rules">
+        <p class="hint">@InternationalEightball.Name · player-declared shot facts</p>
+        @if (match.Rules is { } rules)
+        {
+            <p class="@(rules.Pending ? "notice" : "hint")" role="status">@rules.Reason</p>
+            <p class="hint">Target: @Target(rules.Target) · reds remaining: @(rules.Reds?.ToString() ?? "unknown") · yellows remaining: @(rules.Yellows?.ToString() ?? "unknown")</p>
+            @if (rules.CueBall != CueBallEntitlement.None) { <p class="hint">One visit · cue ball in hand @(rules.CueBall == CueBallEntitlement.Baulk ? "from baulk" : "anywhere")</p> }
+            @if (rules.BlackNeedsRespot) { <p class="notice">Re-spot the black before the next shot.</p> }
+            <p class="hint">Rules: @string.Join(", ", rules.Clauses)</p>
+        }
+        @if (match.PlayingFrame || match.CorrectableShotInputId is not null)
+        {
+            <details @ref="formSection"><summary>Declare or correct a shot</summary>
+                <p class="hint">Declare the complete shot outcome after the balls stop. Leave facts unresolved when unsure.</p>
+                @if (match.CorrectableShotInputId is not null)
+                { <label><input class="rule-check" type="checkbox" @bind="replace" /> Replace the latest shot decision</label> }
+                <label><input class="rule-check" type="checkbox" @bind="isBreak" /> This was the break</label>
+                <label for="shot-legality">Other shot legality / referee call</label>
+                <select id="shot-legality" @bind="legality" disabled="@disabled">
+                    <option value="Unknown">Unresolved — needs review</option><option value="Legal">Legal apart from the declared pot/cue events</option>
+                    <option value="StandardFoul">Standard foul</option><option value="LossOfTurn">Loss of turn</option><option value="LossOfFrame">Loss of frame foul</option>
+                </select>
+                @if (isBreak)
+                {
+                    <label for="break-legality">Was the break legal?</label><select id="break-legality" @bind="breakLegal">
+                        <option value="unknown">Unresolved</option><option value="yes">Yes</option><option value="no">No — re-rack needed</option>
+                    </select>
+                }
+                <div class="match-actions">
+                    <div><label for="shot-red-pots">Reds potted</label><input id="shot-red-pots" type="number" min="0" max="7" @bind="reds" disabled="@disabled" /></div>
+                    <div><label for="shot-yellow-pots">Yellows potted</label><input id="shot-yellow-pots" type="number" min="0" max="7" @bind="yellows" disabled="@disabled" /></div>
+                </div>
+                <label><input class="rule-check" type="checkbox" @bind="black" /> Black potted</label>
+                <label><input class="rule-check" type="checkbox" @bind="cue" /> Cue ball potted</label>
+                <label><input class="rule-check" type="checkbox" @bind="cueOff" /> Cue ball left the playing surface</label>
+                <label for="shot-call-context">Did the open-table group need a call?</label>
+                <select id="shot-call-context" @bind="callRequired"><option value="unknown">Unresolved</option><option value="no">No</option><option value="yes">Yes</option></select>
+                <label for="shot-first-contact">First contacted group, where needed</label>
+                <select id="shot-first-contact" @bind="first"><option value="unknown">Unresolved</option><option value="red">Red</option><option value="yellow">Yellow</option><option value="black">Black</option></select>
+                <label for="shot-called-group">Called group, where required</label>
+                <select id="shot-called-group" @bind="called"><option value="none">Not called</option><option value="red">Red</option><option value="yellow">Yellow</option></select>
+                <details><summary>Confirm remaining counts before this shot</summary>
+                    <p class="hint">Blank keeps the last declared count, or unknown. Counts must describe the table before this shot.</p>
+                    <div class="match-actions">
+                        <div><label for="shot-red-before">Reds before</label><input id="shot-red-before" type="number" min="0" max="7" @bind="redBefore" /></div>
+                        <div><label for="shot-yellow-before">Yellows before</label><input id="shot-yellow-before" type="number" min="0" max="7" @bind="yellowBefore" /></div>
+                    </div>
+                </details>
+                <button class="primary" disabled="@(disabled || !match.PlayingFrame && !replace)" @onclick="() => Record(match)">@(replace ? "Replace latest shot" : "Record declared shot")</button>
+            </details>
+        }
+    </section>
+}
+@code {
+    [Parameter, EditorRequired] public ShellSession Session { get; set; } = null!;
+    [Parameter] public bool Busy { get; set; }
+    bool working, replace, isBreak, black, cue, cueOff;
+    int reds, yellows;
+    int? redBefore, yellowBefore;
+    DeclaredLegality legality = DeclaredLegality.Unknown;
+    string breakLegal = "unknown", callRequired = "unknown", first = "unknown", called = "none";
+    ElementReference formSection;
+    static bool? Tri(string value) => value == "yes" ? true : value == "no" ? false : null;
+    static BallColour? Colour(string value) => value == "red" ? BallColour.Red : value == "yellow" ? BallColour.Yellow : value == "black" ? BallColour.Black : null;
+    static string Target(LegalTarget target) => target switch { LegalTarget.OpenColours => "red or yellow", LegalTarget.Red => "reds", LegalTarget.Yellow => "yellows", LegalTarget.Black => "black", LegalTarget.Finished => "frame finished", _ => "unresolved" };
+    async Task Record(SkyEye.Core.Application.MatchView match)
+    {
+        if (working || Busy) return;
+        working = true;
+        try
+        {
+            var facts = new DeclaredShot(isBreak, legality, reds, yellows, black, cue, cueOff, Tri(breakLegal), Colour(first), Tri(callRequired), Colour(called), redBefore, yellowBefore);
+            if (await Session.RecordDeclaredShotAsync(match.Version, match.Id!, match.FrameId!, facts, replace ? match.CorrectableShotInputId : null))
+            {
+                replace = false; reds = yellows = 0; black = cue = cueOff = isBreak = false; redBefore = yellowBefore = null;
+                legality = DeclaredLegality.Unknown; breakLegal = callRequired = first = "unknown"; called = "none";
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception) { Session.ShowError("The declared shot could not be recorded. The previous result is retained."); }
+        finally { working = false; }
+    }
+}

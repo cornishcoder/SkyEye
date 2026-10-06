@@ -4,6 +4,8 @@
     <div class="match-hud" role="status" aria-label="@($"{Match.Score}. Race to {Match.Target}. {Match.Status}")">
         <div class="match-score"><span>@Match.Players[0].Name</span><strong>@Match.Players[0].Score–@Match.Players[1].Score</strong><span>@Match.Players[1].Name</span></div>
         <p>@Match.Status <span class="match-target">· race to @Match.Target</span></p>
+        @if (Match.Rules is { CueBall: not SkyEye.GameState.CueBallEntitlement.None } rules)
+        { <p>Cue ball in hand @(rules.CueBall == SkyEye.GameState.CueBallEntitlement.Baulk ? "from baulk" : "anywhere") · one visit</p> }
     </div>
 }
 @code { [Parameter, EditorRequired] public MatchView Match { get; set; } = MatchView.Empty; }
