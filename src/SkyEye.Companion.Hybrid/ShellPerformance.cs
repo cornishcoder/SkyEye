@@ -21,6 +21,8 @@ public sealed partial class ShellSession
             { await ConnectAsync(SavedAddress); return HttpResponse.Json(new { connected = app.State.Camera.Reachability.ToString() }); }
             if (r.Method == "POST" && r.Path == "/fixture")
             { await FixtureAsync(); return HttpResponse.Json(new { source = "labelled local fixture" }); }
+            if (r.Method == "POST" && r.Path == "/live")
+            { await WatchLiveAsync(); return HttpResponse.Json(new { source = "live camera" }); }
             if (r.Method == "POST" && r.Path == "/local")
             {
                 var choice = LocalClips.FirstOrDefault();

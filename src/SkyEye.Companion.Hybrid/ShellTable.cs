@@ -39,10 +39,10 @@ public sealed partial class ShellSession
         var snapshot = table.State;
         if (EditingTable && (snapshot.Source is null || snapshot.Generation != edit.Generation))
         { CloseTableEdit(invalidatePicking: false); Message = "Camera changed. Table edit cancelled."; chrome.SetAttention(true); }
-        if (snapshot.CameraIdentity != restoredCamera && snapshot.CameraIdentity is not null)
+        if (snapshot.CameraIdentity != restoredCamera)
         {
             restoredCamera = snapshot.CameraIdentity;
-            try { table.RestoreCalibration(); }
+            try { if (restoredCamera is not null) table.RestoreCalibration(); }
             catch { ShowError("Saved calibration could not load. Calibrate the table again."); }
             snapshot = table.State;
         }
