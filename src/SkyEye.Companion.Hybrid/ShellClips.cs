@@ -99,6 +99,7 @@ public sealed partial class ShellSession
         transferCancellation=cancellation;var token=cancellation.Token;var previous=selection.Generation;preparingCorrected=true;ClipStatus="Preparing corrected playback…";Publish();
         try{var local=await correctedClips.LocalAsync(id,token);if(token.IsCancellationRequested||disposed||!active||previous!=selection.Generation)return;
             Stop();var generation=selection.Begin(ViewingSource.LocalClip);selection.Observe(generation,ViewingSource.LocalClip,new Uri(local.Portrait).AbsoluteUri);
+            ClipStatus="Prepared clip ready, with room audio.";
             Message="Playing corrected footage · with room audio.";PlayCurrent();SetSheet(false);RefreshLocalClips();Publish();}
         catch(OperationCanceledException){if(!disposed)ClipStatus="Preparation cancelled. You can retry this clip.";}
         catch(Exception){ShowError("Connect the original camera to prepare corrected footage, then retry.");}

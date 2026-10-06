@@ -11,7 +11,7 @@ public sealed class CompanionCorrectedClips:IDisposable
     readonly CameraClient current;readonly Func<CameraConnection> connection;readonly CompanionClipService clips;
     readonly CorrectedClipStore saved,recent;readonly ICorrectedClipRenderer renderer;
     readonly LocalHttpServer server;readonly string access=Guid.NewGuid().ToString("N");
-    readonly object gate=new();string? servedPath,servedId;long servedAt;bool servedTemporary;
+    readonly object gate=new();string? servedPath,servedId;long servedAt;bool servedTemporary;CorrectedClipManifest? servedManifest;
     readonly CancellationTokenSource lifetime=new();
     public CompanionCorrectedClips(CameraClient current,Func<CameraConnection> connection,CompanionClipService clips,string directory,ICorrectedClipRenderer renderer,AnnotationJournalStore? annotations=null,Func<string>? annotationMetrics=null,int port=8767)
     {
@@ -20,7 +20,7 @@ public sealed class CompanionCorrectedClips:IDisposable
         saved=new(Path.Combine(directory,"saved"),availableBytes:space,metadata:(clip,path)=>WriteAnnotations(clip,path,false));recent=new(Path.Combine(directory,"recent"),true,availableBytes:space,metadata:(clip,path)=>WriteAnnotations(clip,path,true));
         server=new(port,(request,ct)=>{
             lock(gate){if(request.Path=="/annotations/status")return Task.FromResult(HttpResponse.Json(new{journal=annotations?.Metrics(),decoder=JsonSerializer.Deserialize<JsonElement>(annotationMetrics?.Invoke()??"{}") }));
-                if(request.Path=="/status")return Task.FromResult(HttpResponse.Json(new{serving=servedPath is not null,temporary=servedTemporary}));
+                if(request.Path=="/status")return Task.FromResult(HttpResponse.Json(new{serving=servedPath is not null,temporary=servedTemporary,clipId=servedManifest?.Clip.Id,profile=servedManifest?.Render.Profile,sourceSha256=servedManifest?.Clip.Sha256,portraitSha256=servedManifest?.PortraitSha256,landscapeSha256=servedManifest?.LandscapeSha256}));
                 if(servedPath is null||!File.Exists(servedPath)||request.Path!="/corrected/"+servedId||request.Query.GetValueOrDefault("access")!=access||servedTemporary&&System.Diagnostics.Stopwatch.GetElapsedTime(servedAt)>=RecentReplayStore.Retention)
                     return Task.FromResult(HttpResponse.Json(new{error="Corrected replay unavailable"},410));
                 return Task.FromResult(new HttpResponse(200,"video/mp4",FilePath:servedPath));}});server.Start();_=CleanupAsync();
@@ -55,13 +55,13 @@ public sealed class CompanionCorrectedClips:IDisposable
     void Check(Guid id,string identity){var camera=connection();if(camera.ConnectionId!=id||camera.CameraIdentity!=identity||camera.Reachability!=CameraReachability.Reachable)throw new InvalidOperationException("Camera changed during corrected replay preparation.");}
     public string Serve(CorrectedClip clip,bool temporary)
     {
-        lock(gate){servedPath=clip.Landscape;servedId=Guid.NewGuid().ToString("N");servedAt=System.Diagnostics.Stopwatch.GetTimestamp();servedTemporary=temporary;
+        lock(gate){servedManifest=clip.Manifest;servedPath=clip.Landscape;servedId=Guid.NewGuid().ToString("N");servedAt=System.Diagnostics.Stopwatch.GetTimestamp();servedTemporary=temporary;
             var addresses=System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces().SelectMany(n=>n.GetIPProperties().UnicastAddresses).Select(a=>a.Address)
                 .Where(a=>a.AddressFamily==System.Net.Sockets.AddressFamily.InterNetwork&&!System.Net.IPAddress.IsLoopback(a)&&!a.ToString().StartsWith("169.254.")).ToArray();
             var ip=addresses.FirstOrDefault(a=>a.ToString().StartsWith("192.168."))??addresses.First();
             return $"http://{ip}:{port}/corrected/{servedId}?access={access}";}
     }
-    public void ClearServing(){lock(gate){servedPath=servedId=null;}}
+    public void ClearServing(){lock(gate){servedPath=servedId=null;servedManifest=null;}}
     async Task CleanupAsync(){try{while(!lifetime.IsCancellationRequested){await Task.Delay(TimeSpan.FromSeconds(10),lifetime.Token);recent.Cleanup();}}catch(OperationCanceledException){}}
     public void Dispose(){lifetime.Cancel();_=server.DisposeAsync();}
     sealed class UnavailableTransfer:IClipTransfer{public Task<Clip[]> ListAsync(CancellationToken ct)=>throw new IOException("Original clip unavailable offline");public Task DownloadAsync(Clip clip,string path,Action<long> progress,CancellationToken ct)=>throw new IOException("Original clip unavailable offline");public void Dispose(){}}

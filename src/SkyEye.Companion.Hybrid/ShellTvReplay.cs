@@ -60,6 +60,7 @@ public sealed partial class ShellSession
             tvLive.Clear(); tvCanPause = tvCanSeek = false;
             var request = tvReplay.Begin(admitted.ConnectionId, clip.Id, clip.Name, clip.Duration);
             cast.PlayClip(source, clip.Id, clip.Name, (long)Math.Ceiling(clip.Duration * 1000), request);
+            ClipStatus="Prepared clip ready, with room audio.";
             TvStatus = "Sending your saved shot to TV…";
             Message = app.State.Camera.Capture == SkyEye.Core.CaptureState.Active
                 ? "Saved shot on TV · camera recording continues." : "Saved shot on TV · with room audio.";
