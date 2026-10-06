@@ -35,10 +35,16 @@ public static class GameReducer
         switch (e.Event)
         {
             case MatchStartedEvent m:
-                return new(e.Sequence, new(e.MatchId, m.Players, m.Target, ImmutableDictionary<string, Fact<string>>.Empty), null, TableState.Empty, null);
+                return new GameSnapshot(e.Sequence, new(e.MatchId, m.Players, m.Target, ImmutableDictionary<string, Fact<string>>.Empty), null, TableState.Empty, null)
+                { Archives = s.Match is null ? s.Archives : s.Archives.Add(new(s.Match, e.At)) };
+            case MatchFinishedEvent:
+                return s with { Match = s.Match! with { Finished = true, FinishedAt = e.At },
+                    Table = s.Table with { Motion = TableMotion.Unknown, Uncertain = true }, Shot = null };
             case FrameStartedEvent f:
                 return s with { Frame = new(e.FrameId, Fact(f.CurrentPlayer, e), 1, ImmutableDictionary<string, Fact<BallColour?>>.Empty,
-                    null, null, ImmutableDictionary<Guid, Pot>.Empty), Table = TableState.Empty, Shot = null };
+                    null, null, ImmutableDictionary<Guid, Pot>.Empty), Table = TableState.Empty, Shot = null,
+                    Match = s.Match! with { Frames = s.Match.Frames.Select(frame => frame with { Closed = true }).ToImmutableArray()
+                        .Add(new(e.FrameId, s.Match.Frames.Length + 1, f.CurrentPlayer, e.At, null, false)) } };
             case SourceSelectedEvent:
                 return s with { Table = s.Table with { Source = e.Source, Motion = TableMotion.Unknown, LastSettled = null, Uncertain = true }, Shot = null };
             case TableObservedEvent o:
@@ -87,9 +93,11 @@ public static class GameReducer
                 if (s.Frame!.Foul is { } foul && foul.Source > e.Provenance) return s;
                 return s with { Frame = s.Frame with { Foul = Fact<bool?>(f.Foul, e) } };
             case FrameWonEvent f:
-                if (s.Frame!.Winner is { } winner && winner.Source > e.Provenance) return s;
+                if (s.Match!.FrameWinners.TryGetValue(e.FrameId, out var winner) && winner.Source > e.Provenance) return s;
                 var result = Fact(f.PlayerId, e);
-                return s with { Frame = s.Frame with { Winner = result }, Match = s.Match! with { FrameWinners = s.Match.FrameWinners.SetItem(e.FrameId, result) } };
+                return s with { Frame = s.Frame!.Id == e.FrameId ? s.Frame with { Winner = result } : s.Frame,
+                    Match = s.Match with { FrameWinners = s.Match.FrameWinners.SetItem(e.FrameId, result),
+                        Frames = s.Match.Frames.Select(frame => frame.Id == e.FrameId ? frame with { Winner = f.PlayerId, Closed = true } : frame).ToImmutableArray() } };
             case StateCorrectedEvent { CorrectedPot: not null }:
                 return s; // Applied at the amended event's sequence above.
             case StateCorrectedEvent c:

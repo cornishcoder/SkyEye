@@ -8,6 +8,7 @@ public sealed record GameInputEnvelope(Guid Id, string MatchId, string FrameId, 
 public abstract record GameInput;
 public sealed record StartMatch(ImmutableArray<Player> Players, int Target) : GameInput;
 public sealed record StartFrame(string CurrentPlayer) : GameInput;
+public sealed record FinishMatch : GameInput;
 public sealed record TableObservation(ImmutableArray<ObservedBall> Balls, bool Settled, bool Uncertain = false, bool IdentitiesResolved = true) : GameInput;
 public sealed record MotionStarted(string ShotId) : GameInput;
 public sealed record MotionStopped(string ShotId) : GameInput;

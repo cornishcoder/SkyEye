@@ -53,19 +53,28 @@ public sealed class GameSession
         if (History.Length >= 10000) return Refuse(InputOutcome.Rejected, "Game history is full; archive before continuing.");
         if (input.Input is StartMatch m)
         {
-            if (State.Match is not null || m.Players.IsDefault || m.Players.Length != 2 || m.Players.Any(p => p is null || !Text(p.Id) || !Text(p.Name))
+            if (State.Match is { Finished: false, Winner: null } || History.Any(e => e.Event is MatchStartedEvent && e.MatchId == input.MatchId)
+                || m.Players.IsDefault || m.Players.Length != 2 || m.Players.Any(p => p is null || !Text(p.Id) || !Text(p.Name) || p.Name.Length > 40 || p.Name.Any(char.IsControl))
                 || m.Players.Select(p => p.Id).Distinct().Count() != 2 || m.Target is < 1 or > 100)
                 return Refuse(InputOutcome.Rejected, "Declare two distinct players and a positive target for a new match.");
             return Commit(input, fingerprint, [new MatchStartedEvent(m.Players, m.Target)]);
         }
         if (State.Match?.Id != input.MatchId || !Text(input.FrameId)) return Refuse(InputOutcome.Stale, "Input belongs to another match/frame.");
+        if (input.Input is FinishMatch)
+        {
+            if (State.Match.Finished) return Refuse(InputOutcome.Rejected, "The match is already finished.");
+            return Commit(input with { Provenance = Provenance.PlayerConfirmed }, fingerprint, [new MatchFinishedEvent()]);
+        }
         if (input.Input is StartFrame f)
         {
-            if (!PlayerExists(f.CurrentPlayer) || State.Frame is { Winner: null } || State.Match.FrameWinners.ContainsKey(input.FrameId) || State.Match.Winner is not null)
+            if (State.Match.Finished || !PlayerExists(f.CurrentPlayer) || State.Frame is { Winner: null }
+                || State.Match.Frames.Any(frame => frame.Id == input.FrameId) || State.Match.Winner is not null)
                 return Refuse(InputOutcome.Rejected, "Declare a player and a new frame after resolving the previous frame.");
             return Commit(input, fingerprint, [new FrameStartedEvent(f.CurrentPlayer)]);
         }
-        if (State.Frame?.Id != input.FrameId)
+        bool historicalWinner = input.Input is PlayerCorrection { Correction: SetFrameWinner }
+            && State.Match.Frames.Any(frame => frame.Id == input.FrameId);
+        if (State.Frame?.Id != input.FrameId && !historicalWinner)
             return Refuse(InputOutcome.Stale, "Input belongs to an inactive frame.");
         if (input.Input is PlayerCorrection or SkyCorrection)
         {
@@ -85,13 +94,13 @@ public sealed class GameSession
             };
             if (amended is null) return Refuse(InputOutcome.Rejected, "Unsupported correction or invalid fact reference.");
             if (correction is AssignColour assigned && input.Input is PlayerCorrection
-                && (!State.Frame.Colours.TryGetValue(assigned.PlayerId, out var existing) || existing.Value == assigned.Colour))
+                && (!State.Frame!.Colours.TryGetValue(assigned.PlayerId, out var existing) || existing.Value == assigned.Colour))
                 provenance = Provenance.PlayerConfirmed;
             if (input.Input is SkyCorrection && correction is SetBallPresence { CorrectedPot: not null })
                 return Refuse(InputOutcome.Rejected, "A machine cannot revoke a committed pot; ask the player.");
             return Commit(input with { Provenance = provenance }, fingerprint, [amended]);
         }
-        if (State.Frame.Winner is not null) return Refuse(InputOutcome.Stale, "The frame has ended.");
+        if (State.Match.Finished || State.Frame!.Winner is not null) return Refuse(InputOutcome.Stale, "The frame or match has ended.");
         if (input.Input is SelectSource)
         {
             if (input.Source is null || input.Source == State.Table.Source || State.Table.Source is { } old && input.Source.Camera == old.Camera

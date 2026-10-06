@@ -24,9 +24,14 @@ public sealed record ShotState(string Id, ImmutableDictionary<string, KnownBall>
 public sealed record MatchState(string Id, ImmutableArray<Player> Players, int Target,
     ImmutableDictionary<string, Fact<string>> FrameWinners)
 {
+    public ImmutableArray<FrameSummary> Frames { get; init; } = [];
+    public bool Finished { get; init; }
+    public DateTimeOffset? FinishedAt { get; init; }
     public int Score(string playerId) => FrameWinners.Values.Count(w => w.Value == playerId);
     public string? Winner => Players.FirstOrDefault(p => Score(p.Id) >= Target)?.Id;
 }
+public sealed record FrameSummary(string Id, int Number, string Starter, DateTimeOffset StartedAt, string? Winner, bool Closed);
+public sealed record ArchivedMatch(MatchState Match, DateTimeOffset ArchivedAt);
 public sealed record FrameState(string Id, Fact<string> CurrentPlayer, int Visit,
     ImmutableDictionary<string, Fact<BallColour?>> Colours, Fact<bool?>? Foul,
     Fact<string>? Winner, ImmutableDictionary<Guid, Pot> Pots)
@@ -43,5 +48,6 @@ public sealed record TableState(ImmutableDictionary<string, KnownBall> Balls, Ta
 }
 public sealed record GameSnapshot(long Version, MatchState? Match, FrameState? Frame, TableState Table, ShotState? Shot)
 {
+    public ImmutableArray<ArchivedMatch> Archives { get; init; } = [];
     public static GameSnapshot Empty { get; } = new(0, null, null, TableState.Empty, null);
 }

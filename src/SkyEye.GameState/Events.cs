@@ -20,9 +20,11 @@ namespace SkyEye.GameState;
 [JsonDerivedType(typeof(SourceSelectedEvent), "source-selected")]
 [JsonDerivedType(typeof(BallEvidenceEvent), "ball-evidence")]
 [JsonDerivedType(typeof(ShotResolvedEvent), "shot-resolved")]
+[JsonDerivedType(typeof(MatchFinishedEvent), "match-finished")]
 public abstract record GameEvent;
 public sealed record MatchStartedEvent(ImmutableArray<Player> Players, int Target) : GameEvent;
 public sealed record FrameStartedEvent(string CurrentPlayer) : GameEvent;
+public sealed record MatchFinishedEvent : GameEvent;
 public sealed record TableObservedEvent(ImmutableArray<ObservedBall> Balls, bool Settled, bool Uncertain, bool IdentitiesResolved = true) : GameEvent;
 public sealed record ShotStartedEvent(string ShotId) : GameEvent;
 public sealed record ShotEndedEvent(string ShotId) : GameEvent;

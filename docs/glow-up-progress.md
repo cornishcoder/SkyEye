@@ -14,6 +14,8 @@ This checkout's former R01 rules-outcome task is preserved as **R04**. R02/R03 a
 
 ## SDK lanes
 
+Manual match delivery is now in progress: [bounded plan](manual-match-plan.md). The first checked chunk extends R01 with a frame ledger, earlier-result correction and retained match history. G01-G05's manual controls/recovery portions and frame-result summaries are being delivered; complete rules, voice and TV score acceptance remain separate.
+
 - Repository root: SDK **10.0.400** for the existing camera, companion, vision and core checks.
 - `src/SkyEye.Companion.Hybrid`: SDK **11.0.100-rc.1.26425.128** for the Android MAUI Blazor compatibility host.
 - Run `scripts/Build-SkyEye.ps1 -Target Baseline`, `-Target Hybrid` or `-Target All`. Builds are sequential and check their selected SDK. The Hybrid lane requires the compatibility project introduced in P02/P03.

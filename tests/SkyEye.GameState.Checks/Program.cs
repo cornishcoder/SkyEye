@@ -18,5 +18,6 @@ Scenarios.Ordering();
 Scenarios.PotStory();
 Scenarios.Corrections();
 Scenarios.EvidenceBoundaries();
+ManualMatchChecks.Run();
 
 static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
