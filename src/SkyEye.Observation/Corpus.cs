@@ -1,0 +1,35 @@
+using System.Collections.Immutable;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace SkyEye.Observation;
+
+public enum CorpusKind { Real, Synthetic }
+public enum CorpusSplit { Unassigned, Development, Holdout, Regression }
+public enum SequencePurpose { Shot, StillRegression, Contract }
+public enum SourceClock { Unknown, RecordingMicroseconds, ClipMicroseconds, SyntheticMicroseconds }
+public enum PixelEncoding { Jpeg, Gray8 }
+public enum LabelVisibility { Visible, Occluded, Uncertain, Absent }
+public sealed record MediaSource(string Id, string Origin, string File, string Sha256, int Width, int Height, SourceClock Clock,
+    string CalibrationVersion, double? NominalFps = null);
+public sealed record CorpusSequence(string Id, string Session, CorpusKind Kind, CorpusSplit Split, SequencePurpose Purpose,
+    MediaSource Source, string IndexFile, string LabelsFile, string Notes, ImmutableArray<string> Tags);
+public sealed record CorpusManifest(int SchemaVersion, string Id, ImmutableArray<CorpusSequence> Sequences);
+public sealed record FrameScope(string Source, string Timeline, long Generation, string Calibration);
+// Pixels and timing form one indexed receipt; audit UTC is separate from source time.
+public sealed record IndexedFrame(string SampleId, long FrameId, long? SourceTimeUs, FrameScope Scope,
+    string PixelFile, string PixelSha256, PixelEncoding Encoding, int Width, int Height, bool EmbeddedFrameId = false);
+public sealed record BallLabel(string Id, string Colour, double X, double Y, LabelVisibility Visibility);
+public sealed record FrameLabels(string SampleId, string PixelSha256, string CoordinateSpace,
+    ImmutableArray<BallLabel> Balls, string Notes);
+public sealed record LabelInterval(string Kind, long FromUs, long ToUs, string Certainty, ImmutableArray<string> BallIds, string Notes);
+public sealed record SequenceLabels(int SchemaVersion, string SequenceId, string Annotator, string CalibrationVersion,
+    bool Reviewed, ImmutableArray<FrameLabels> Frames, ImmutableArray<LabelInterval> Intervals);
+
+public static class CorpusJson
+{
+    public static JsonSerializerOptions Options { get; } = new(JsonSerializerDefaults.Web)
+    { WriteIndented = true, Converters = { new JsonStringEnumConverter() }, UnmappedMemberHandling = JsonUnmappedMemberHandling.Disallow };
+    public static T Read<T>(string path) => JsonSerializer.Deserialize<T>(File.ReadAllBytes(path), Options) ?? throw new InvalidDataException("Empty JSON document: " + path);
+    public static string Write<T>(T value) => JsonSerializer.Serialize(value, Options);
+}
