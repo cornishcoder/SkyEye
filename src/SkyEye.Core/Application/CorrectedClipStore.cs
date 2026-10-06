@@ -21,10 +21,12 @@ public sealed class CorrectedClipStore
     public const long TemporaryBudgetBytes=512L*1024*1024;
     static readonly ConcurrentDictionary<string,SemaphoreSlim> locks=new(StringComparer.OrdinalIgnoreCase);
     readonly string root;readonly bool temporary;readonly TimeProvider clock;readonly SemaphoreSlim writer;
+    readonly Func<long> freeBytes;
     readonly Dictionary<string,long> timestamps=[];
-    public CorrectedClipStore(string directory,bool temporary=false,TimeProvider? clock=null)
+    public CorrectedClipStore(string directory,bool temporary=false,TimeProvider? clock=null,Func<long>? availableBytes=null)
     {
         root=Path.GetFullPath(directory);this.temporary=temporary;this.clock=clock??TimeProvider.System;Directory.CreateDirectory(root);writer=locks.GetOrAdd(root,_=>new(1));
+        freeBytes=availableBytes??(()=>new DriveInfo(Path.GetPathRoot(root)!).AvailableFreeSpace);
         foreach(var previous in Directory.EnumerateDirectories(root,"*.previous")){string id=Path.GetFileName(previous)[..^9];if(Guid.TryParseExact(id,"N",out _)&&!Directory.Exists(Folder(id)))Shift(previous,Folder(id));}
         // Temporary references do not survive companion process restart. Sweep
         // only generated complete directories in this explicitly separate root.
@@ -61,7 +63,7 @@ public sealed class CorrectedClipStore
         {
             Cleanup();if(await FindAsync(clip,renderer,cancellation) is{} available)return available;
             if(temporary&&(timestamps.Count>=2||TotalBytes()+clip.Bytes*4>TemporaryBudgetBytes))throw new InvalidOperationException("Recent replay storage is full. Wait for an earlier replay to expire.");
-            if(new DriveInfo(Path.GetPathRoot(root)!).AvailableFreeSpace<clip.Bytes*4+128L*1024*1024)throw new InvalidOperationException("Not enough space to prepare corrected footage.");
+            if(freeBytes()<clip.Bytes*4+128L*1024*1024)throw new InvalidOperationException("Not enough space to prepare corrected footage.");
             Directory.CreateDirectory(stage);string original=Path.Combine(stage,"original.mp4"),portrait=Path.Combine(stage,"portrait.mp4"),landscape=Path.Combine(stage,"landscape.mp4");
             var old=Read(Folder(clip.Id));string retained=Path.Combine(Folder(clip.Id),"original.mp4");
             if(old?.Clip==clip&&await Matches(retained,clip.Sha256,cancellation))File.Copy(retained,original);

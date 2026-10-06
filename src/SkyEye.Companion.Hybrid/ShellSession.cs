@@ -275,7 +275,7 @@ public sealed partial class ShellSession : IDisposable
     {
         if (disposed) return;
         Suspend(); disposed = true; clipLifetime.Cancel(); CancelClipTransfer(); clipLifetime.Dispose();
-        table.Dispose();
+        table.Dispose();correctedClips?.Dispose();
         subscription.Dispose(); client.Dispose(); Agent.Dispose(); agentClient.Dispose();
     }
     // H01 only projects canonical state. Voice/tool transport is connected in A02.

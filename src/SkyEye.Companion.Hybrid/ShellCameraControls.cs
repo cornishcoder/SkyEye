@@ -136,6 +136,7 @@ public sealed partial class ShellSession
         if (!CanCastLive || effects.Latest is not { } view) { ShowError("An active, reachable camera is needed for TV viewing."); return; }
         if (!TvConnected) { TvStatus = "Choose a TV before playing live"; Publish(); return; }
         tvReplay.Clear();
+        correctedClips.ClearServing();
         var request = tvLive.Begin(app.State.Camera.ConnectionId, DateTimeOffset.UtcNow);
         Message = "Sending the live table to TV…";
         cast.PlayLive(sceneRelay is { Ready: true } ? sceneRelay.Url : shotRelay is { Ready: true } && (app.State.Presentation.Tv.Mode != ShotDisplayMode.Live || FrameTableRequested && AutomaticPocketsCurrent) ? shotRelay.Url : view.Stream, request); TvStatus = "Sending the live table to TV…"; Publish();

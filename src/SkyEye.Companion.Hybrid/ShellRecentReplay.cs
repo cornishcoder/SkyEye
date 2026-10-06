@@ -6,6 +6,7 @@ namespace SkyEye.Companion.Hybrid;
 public sealed partial class ShellSession
 {
     CameraRecentReplay? recentReplay;
+    CorrectedClip? correctedRecentReplay;
     public string TvReplayKind => TvReplaySelected && recentReplay?.Asset.Clip.Id == tvReplay.ClipId ? "recent replay" : "saved clip";
     public bool PreparingRecentReplay { get; private set; }
     public bool RecentReplaySupported => effects.Latest is { } view && view.Connection == app.State.Camera
@@ -26,8 +27,10 @@ public sealed partial class ShellSession
         try
         {
             var result = await clips.RecentAsync(seconds, token);
+            var prepared=await correctedClips.RecentAsync(result,token);
             if (disposed || token.IsCancellationRequested || !active) return;
             recentReplay = result;
+            correctedRecentReplay=prepared;
             recentReplayStatus = $"Recent replay · {result.Asset.Clip.Duration:0.#} seconds available · expires after 10 minutes. Not added to saved clips.";
             // A late preparation must not replace a newer replay/live selection.
             ObserveCast();
@@ -50,7 +53,8 @@ public sealed partial class ShellSession
     }
     void SendRecentReplayToTv(CameraRecentReplay replay)
     {
-        var source = clips.TvSource(replay); var clip = replay.Asset.Clip;
+        _=clips.TvSource(replay);var prepared=correctedRecentReplay??throw new InvalidOperationException("Prepare corrected recent footage again.");
+        var source = correctedClips.Serve(prepared,true); var clip = replay.Asset.Clip;
         ClearSceneCheck(); CloseShotRelay(); tvLive.Clear(); tvCanPause = tvCanSeek = false;
         var request = tvReplay.Begin(replay.ConnectionId, clip.Id, $"Recent replay · {clip.Duration:0.#} seconds", clip.Duration);
         cast!.PlayClip(source, clip.Id, "Recent replay", (long)Math.Ceiling(clip.Duration * 1000), request);

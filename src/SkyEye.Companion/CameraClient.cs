@@ -69,13 +69,16 @@ public sealed class CameraClient : IDisposable
         return (await response.Content.ReadAsByteArrayAsync(ct), DateTimeOffset.Parse(response.Headers.GetValues("X-SkyEye-Captured-At").Single()), response.Headers.GetValues("X-SkyEye-Timeline").Single());
     }
     public async Task DownloadAsync(Clip clip, string destination, Action<long> progress, CancellationToken ct)
+        => await DownloadMediaAsync(clip,"/clips/"+clip.Id,destination,progress,ct);
+    public async Task DownloadMediaAsync(Clip clip,string path,string destination,Action<long> progress,CancellationToken ct)
     {
+        if(path!="/clips/"+clip.Id&&path!="/replays/"+clip.Id)throw new ArgumentException("Invalid clip media route.");
         if (!Guid.TryParseExact(clip.Id, "N", out _) || clip.Bytes <= 0) throw new ArgumentException("Invalid clip metadata.");
         long have = File.Exists(destination) ? new FileInfo(destination).Length : 0;
         if (have > clip.Bytes) { File.Delete(destination); have = 0; }
         if (have < clip.Bytes)
         {
-            using var request = new HttpRequestMessage(HttpMethod.Get, Address + "/clips/" + clip.Id + "?access=" + ReadToken);
+            using var request = new HttpRequestMessage(HttpMethod.Get, Address + path + "?access=" + Uri.EscapeDataString(ReadToken));
             if (have > 0) request.Headers.Range = new(have, null);
             using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, ct);
             response.EnsureSuccessStatusCode();

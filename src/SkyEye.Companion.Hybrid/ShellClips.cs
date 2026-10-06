@@ -12,6 +12,7 @@ public sealed partial class ShellSession
 {
     readonly CancellationTokenSource clipLifetime = new();
     CompanionClipService clips = null!;
+    CompanionCorrectedClips correctedClips = null!;
     CameraClipCatalog? catalog;
     ShellClipChoice[] remoteClips = [], localClips = [];
     CancellationTokenSource? transferCancellation;
@@ -28,10 +29,11 @@ public sealed partial class ShellSession
         var context = Android.App.Application.Context;
         clips = new(client, () => app.State.Camera,
             new ClipLibrary(Path.Combine(context.FilesDir!.AbsolutePath, "clips")), new AndroidPortraitClipExporter(context));
+        correctedClips=new(client,()=>app.State.Camera,clips,Path.Combine(context.FilesDir!.AbsolutePath,"corrected-clips"),new AndroidCorrectedClipRenderer(context));
         RefreshLocalClips();
     }
-    void RefreshLocalClips() => localClips = clips.Library.Local().OrderByDescending(c => c.Clip.CreatedAt)
-        .Select(c => new ShellClipChoice(Guid.Empty, c.Clip.Id, c.Clip.Name, c.Clip.Duration, true)).ToArray();
+    void RefreshLocalClips() => localClips = correctedClips.Local().Concat(clips.Library.Local().Select(c=>c.Clip)).DistinctBy(c=>c.Id).OrderByDescending(c=>c.CreatedAt)
+        .Select(c => new ShellClipChoice(Guid.Empty, c.Id, c.Name, c.Duration, true)).ToArray();
     void InvalidateClipCatalog(Guid connection)
     {
         if (catalog is null || catalog.ConnectionId == connection) return;
@@ -66,7 +68,7 @@ public sealed partial class ShellSession
         DismissNotice(); ClipStatus = "Downloading clip…"; Publish();
         try
         {
-            await clips.DownloadAsync(admitted, clip, progress => MainThread.BeginInvokeOnMainThread(() =>
+            await correctedClips.SavedAsync(admitted, clip, progress => MainThread.BeginInvokeOnMainThread(() =>
             {
                 if (disposed || transferCancellation != cancellation || cancellation.IsCancellationRequested) return;
                 if (progress.Stage == ClipTransferStage.Downloading && clock.Elapsed - lastProgress < TimeSpan.FromMilliseconds(500)) return;
@@ -74,38 +76,40 @@ public sealed partial class ShellSession
                 ClipStatus = progress.Stage switch
                 {
                     ClipTransferStage.Downloading => $"Downloading {progress.Bytes * 100 / progress.TotalBytes}%",
-                    ClipTransferStage.Preparing => "Download verified. Preparing portrait clip…",
-                    _ => "Portrait clip available locally, with room audio."
+                    ClipTransferStage.Preparing => "Preparing corrected clip…",
+                    _ => "Corrected clip available locally, with room audio."
                 };
                 if (active) Publish();
             }), cancellation.Token);
             if (disposed || cancellation.IsCancellationRequested) return;
             RefreshLocalClips();
             remoteClips = remoteClips.Select(c => c.Id == clip.Id && c.ConnectionId == admitted.ConnectionId ? c with { Available = true } : c).ToArray();
-            ClipStatus = "Portrait clip available locally, with room audio.";
+            ClipStatus = "Corrected clip available locally, with room audio. Uncertain corner intervals keep the original view.";
         }
         catch (OperationCanceledException) { if (!disposed) ClipStatus = "Download cancelled. You can retry this clip."; }
         catch (Exception) { if (!disposed) { ClipStatus = "Clip unavailable. You can retry the download."; ShowError("The clip could not be prepared. Check the camera and retry."); } }
         finally { if (transferCancellation == cancellation) transferCancellation = null; if (!disposed) Publish(); }
     });
     public void CancelClipTransfer() => transferCancellation?.Cancel();
-    public void PlayClip(string id)
+    public Task PlayClipAsync(string id) => MainThread.InvokeOnMainThreadAsync(async () =>
     {
-        if (!MainThread.IsMainThread) { MainThread.BeginInvokeOnMainThread(() => PlayClip(id)); return; }
-        if (!active || disposed) return;
-        var local = clips.Library.Local().FirstOrDefault(c => c.Clip.Id == id);
-        if (local is null) { ShowError("This clip is no longer available. Download it again."); RefreshLocalClips(); return; }
-        Stop(); var generation = selection.Begin(ViewingSource.LocalClip);
-        selection.Observe(generation, ViewingSource.LocalClip, new Uri(local.VideoPath).AbsoluteUri);
-        Message = "Playing your saved shot, with room audio."; PlayCurrent(); SetSheet(false); Publish();
-    }
-    public Task ShareClipAsync(string id) => MainThread.InvokeOnMainThreadAsync(() =>
+        if (!active || disposed || foreground is null || TransferringClip) return;
+        var token=foreground.Token;ClipStatus="Preparing corrected playback…";Publish();
+        try{var local=await correctedClips.LocalAsync(id,token);if(token.IsCancellationRequested||disposed||!active)return;
+            Stop();var generation=selection.Begin(ViewingSource.LocalClip);selection.Observe(generation,ViewingSource.LocalClip,new Uri(local.Portrait).AbsoluteUri);
+            Message="Playing corrected footage · with room audio.";PlayCurrent();SetSheet(false);RefreshLocalClips();Publish();}
+        catch(OperationCanceledException){}
+        catch(Exception){ShowError("Connect the original camera to prepare corrected footage, then retry.");}
+    });
+    public Task ShareClipAsync(string id) => MainThread.InvokeOnMainThreadAsync(async () =>
     {
-        if (!active || disposed) return;
-        var local = clips.Library.Local().FirstOrDefault(c => c.Clip.Id == id);
-        if (local is null) { ShowError("This clip is no longer available. Download it again."); return; }
+        if (!active || disposed || foreground is null || TransferringClip) return;
+        var token=foreground.Token;ClipStatus="Preparing corrected share file…";Publish();
+        CorrectedClip local;
+        try{local=await correctedClips.LocalAsync(id,token);}catch(OperationCanceledException){return;}catch(Exception){ShowError("Connect the original camera to prepare a corrected share file.");return;}
+        if(!active||disposed||token.IsCancellationRequested)return;
         var activity = Platform.CurrentActivity ?? throw new InvalidOperationException("Android activity required.");
-        var uri = AndroidX.Core.Content.FileProvider.GetUriForFile(activity, activity.PackageName + ".files", new Java.IO.File(local.VideoPath));
+        var uri = AndroidX.Core.Content.FileProvider.GetUriForFile(activity, activity.PackageName + ".files", new Java.IO.File(local.Portrait));
         using var intent = new Intent(Intent.ActionSend).SetType("video/mp4").PutExtra(Intent.ExtraStream, uri).AddFlags(ActivityFlags.GrantReadUriPermission);
         using var chooser = Intent.CreateChooser(intent, "Share your shot"); activity.StartActivity(chooser);
     });

@@ -108,7 +108,7 @@
     }
     async Task WatchClipOnTv(ShellClipChoice clip)
     {
-        Session.PlayClipOnTv(clip);
+        await Run(()=>Session.PlayClipOnTvAsync(clip));
         if (Session.TvReplaySelected) await tvSection.FocusAsync();
     }
     async Task SetupKey() => await Run(Session.SetupKeyAsync);

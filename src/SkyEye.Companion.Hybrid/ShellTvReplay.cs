@@ -38,10 +38,9 @@ public sealed partial class ShellSession
     };
     static string Clock(long seconds) => $"{seconds / 60}:{seconds % 60:00}";
 
-    public void PlayClipOnTv(ShellClipChoice choice)
+    public Task PlayClipOnTvAsync(ShellClipChoice choice) => MainThread.InvokeOnMainThreadAsync(async () =>
     {
-        if (!MainThread.IsMainThread) { MainThread.BeginInvokeOnMainThread(() => PlayClipOnTv(choice)); return; }
-        if (!active || disposed || cast is null) return;
+        if (!active || disposed || cast is null || foreground is null || TransferringClip || PreparingRecentReplay) return;
         ObserveCast();
         if (!TvConnected) { TvStatus = "Choose a TV before playing a clip"; Publish(); return; }
         var admitted = catalog;
@@ -49,7 +48,11 @@ public sealed partial class ShellSession
         if (admitted is null || clip is null) { ShowError("Refresh camera clips before playing this shot on TV."); return; }
         try
         {
-            var source = clips.TvSource(admitted, clip);
+            var token=foreground.Token;var previousClip=tvReplay.Request;var previousLive=tvLive.Request;var connection=app.State.Camera.ConnectionId;
+            ClipStatus="Preparing corrected TV footage…";Publish();
+            var prepared=await correctedClips.SavedAsync(admitted,clip,null,token);
+            if(!active||disposed||token.IsCancellationRequested||connection!=app.State.Camera.ConnectionId||previousClip!=tvReplay.Request||previousLive!=tvLive.Request)return;
+            var source = correctedClips.Serve(prepared,false);RefreshLocalClips();
             ClearSceneCheck(); CloseShotRelay();
             tvLive.Clear(); tvCanPause = tvCanSeek = false;
             var request = tvReplay.Begin(admitted.ConnectionId, clip.Id, clip.Name, clip.Duration);
@@ -60,7 +63,7 @@ public sealed partial class ShellSession
             DismissNotice(); Publish();
         }
         catch (Exception) { ShowError("The clip could not be sent. Refresh camera clips and try again."); }
-    }
+    });
     bool ObserveTvReplay(JsonElement metrics)
     {
         if (!tvReplay.Selected || !metrics.TryGetProperty("request", out var request)

@@ -29,7 +29,7 @@
   </PropertyGroup>
   <ItemGroup Condition="'$(SkyEyeProduction)' == 'true'">
     <!-- Preserve existing save, candidates and voice workflows until their new UI adapters land. -->
-    <Compile Include="../SkyEye.Companion/*.cs" Exclude="../SkyEye.Companion/CameraClient.cs;../SkyEye.Companion/CameraControlEffect.cs;../SkyEye.Companion/CameraReadEffects.cs;../SkyEye.Companion/CompanionClipService.cs;../SkyEye.Companion/AndroidEffectAdapters.cs;../SkyEye.Companion/AndroidRecordedGeometry.cs;../SkyEye.Companion/AndroidRecordedRenderer.cs;../SkyEye.Companion/SecretStore.cs;../SkyEye.Companion/MigrationAudit.cs;../SkyEye.Companion/OverlayRelay.cs" Link="MoreControls/%(Filename)%(Extension)" />
+    <Compile Include="../SkyEye.Companion/*.cs" Exclude="../SkyEye.Companion/CameraClient.cs;../SkyEye.Companion/CameraControlEffect.cs;../SkyEye.Companion/CameraReadEffects.cs;../SkyEye.Companion/CompanionClipService.cs;../SkyEye.Companion/AndroidEffectAdapters.cs;../SkyEye.Companion/AndroidRecordedGeometry.cs;../SkyEye.Companion/AndroidRecordedRenderer.cs;../SkyEye.Companion/AndroidCorrectedClipRenderer.cs;../SkyEye.Companion/CompanionCorrectedClips.cs;../SkyEye.Companion/SecretStore.cs;../SkyEye.Companion/MigrationAudit.cs;../SkyEye.Companion/OverlayRelay.cs" Link="MoreControls/%(Filename)%(Extension)" />
     <AndroidJavaSource Include="../SkyEye.Companion/SkyEyeRtcSession.java" Link="Native/SkyEyeRtcSession.java" />
   </ItemGroup>
   <ItemGroup>
@@ -65,6 +65,8 @@
     <Compile Include="../SkyEye.Companion/AndroidEffectAdapters.cs" Link="Services/AndroidEffectAdapters.cs" />
     <Compile Include="../SkyEye.Companion/AndroidRecordedGeometry.cs" Link="Services/AndroidRecordedGeometry.cs" />
     <Compile Include="../SkyEye.Companion/AndroidRecordedRenderer.cs" Link="Services/AndroidRecordedRenderer.cs" />
+    <Compile Include="../SkyEye.Companion/AndroidCorrectedClipRenderer.cs" Link="Services/AndroidCorrectedClipRenderer.cs" />
+    <Compile Include="../SkyEye.Companion/CompanionCorrectedClips.cs" Link="Services/CompanionCorrectedClips.cs" />
     <Compile Include="../SkyEye.Companion/SecretStore.cs" Link="Services/SecretStore.cs" />
     <Compile Include="../SkyEye.Companion/MigrationAudit.cs" Link="Services/MigrationAudit.cs" />
     <Compile Include="../SkyEye.Companion/OverlayRelay.cs" Link="Services/OverlayRelay.cs" />

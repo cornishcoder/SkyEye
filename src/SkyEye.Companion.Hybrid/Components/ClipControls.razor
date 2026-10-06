@@ -13,7 +13,7 @@
             {
                 <p class="hint">Saved on this phone</p>
                 <div class="clip-actions">
-                    <button class="secondary" disabled="@Busy" @onclick="() => Session.PlayClip(clip.Id)" aria-label="@($"Play {clip.Name}")">Play</button>
+                    <button class="secondary" disabled="@Busy" @onclick="() => Session.PlayClipAsync(clip.Id)" aria-label="@($"Play {clip.Name}")">Play</button>
                     <button class="secondary" disabled="@Busy" @onclick="() => Share.InvokeAsync(clip.Id)" aria-label="@($"Share {clip.Name}")">Share</button>
                 </div>
             }
@@ -27,7 +27,7 @@
         <article class="clip" @key="@($"local-{clip.Id}")">
             <p>@clip.Name <span class="hint">· available offline</span></p>
             <div class="clip-actions">
-                <button class="secondary" disabled="@Busy" @onclick="() => Session.PlayClip(clip.Id)" aria-label="@($"Play {clip.Name}")">Play</button>
+                <button class="secondary" disabled="@Busy" @onclick="() => Session.PlayClipAsync(clip.Id)" aria-label="@($"Play {clip.Name}")">Play</button>
                 <button class="secondary" disabled="@Busy" @onclick="() => Share.InvokeAsync(clip.Id)" aria-label="@($"Share {clip.Name}")">Share</button>
             </div>
         </article>
