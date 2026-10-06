@@ -29,6 +29,14 @@ public sealed partial class MainActivity
     }
     void ConfigureCandidateCast(bool owns)
     {
+        bool tvConnected = false;
+        try { using var metrics = JsonDocument.Parse(cast?.Metrics() ?? "{}"); tvConnected = metrics.RootElement.TryGetProperty("connected", out var value) && value.GetBoolean(); } catch { }
+        if (!tvConnected || !overlayEnabled)
+        {
+            var previous = overlayRelay; overlayRelay = null;
+            if (previous is not null) _ = previous.DisposeAsync();
+            cast?.Configure(stream, owns); return;
+        }
         if(resumed&&connected&&!offline&&currentState=="Active"&&overlayRelay is null&&Android.OS.SystemClock.ElapsedRealtime()>=overlayRelayRetryAt)
         {
             overlayListener=new OverlayListener(this);
@@ -66,12 +74,6 @@ public sealed partial class MainActivity
                 if (!connected || !app.State.Camera.CanControl || currentState != "Active") ClearCandidatePresentation("Connect to an active camera and become host to see candidates.");
                 else
                 {
-                    if (overlayRelay is null && Android.OS.SystemClock.ElapsedRealtime() >= overlayRelayRetryAt)
-                    {
-                        overlayListener = new OverlayListener(this);
-                        try { overlayRelay = new OverlayRelay(this, player, client.Address, overlayListener, () => cast?.Metrics() ?? "{}"); }
-                        catch { overlayRelayRetryAt = Android.OS.SystemClock.ElapsedRealtime() + 30000; overlayMessage = "TV candidate view unavailable. Phone overlay is available."; }
-                    }
                     ConfigureCandidateCast(true);
                     if (calibration is null) ClearCandidatePresentation("Calibrate the table below to see candidates.");
                 }

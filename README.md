@@ -4,6 +4,8 @@ C# Android apps for a mounted pool-table camera. The camera and retained native 
 
 ## Apps
 
+T13 now provides requested observations, typed independent presentation commands, stored GPU phone correction and a bounded immediate phone stream. Camera HLS remains for replay/TV. [Measurements and remaining acceptance gates](docs/t13-performance-report.md) include improved physical responsiveness, isolated analysis timings and unresolved TV buffering; <500 ms glass-to-glass is not yet established.
+
 - **SkyEye Camera:** arm once on the mounted phone, then switch its display off. Session controls exist on the companion. A camera/microphone foreground service serves the local network on port 8765.
 - **SkyEye:** discover or enter the camera address, watch as a guest, or deliberately claim host control. The first successful claim wins. Guests browse/download clips; the host starts/pauses/resumes/stops, saves replay clips and casts.
 - **Sky:** optional host-owned GPT-Live-1 conversation, adapted from Maeve Watch. The personal API key is entered on the companion and encrypted with Android Keystore. Camera, guests and source code receive no API credential.

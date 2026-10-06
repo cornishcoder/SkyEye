@@ -1,0 +1,231 @@
+{
+  "n": 58,
+  "sourceAgeEstimateP50Ms": 988.3069999814034,
+  "sourceAgeEstimateP95Ms": 1136.7590000033379,
+  "textureCallbackFps": 28.086841919139346,
+  "decoderReleaseFps": 29.685410042027186,
+  "first": {
+    "camera": {
+      "state": "Active",
+      "sessionId": "6b89aadb6bce4e5a9f9b1a6b478884e9",
+      "revision": 5,
+      "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+      "sourceTimeUs": 28723991258,
+      "frames": 92045,
+      "battery": 100,
+      "temperatureC": 37.5,
+      "clipCount": 8,
+      "error": "",
+      "statusRttMs": 40.9278
+    },
+    "companion": {
+      "measuredAt": "2026-10-06T16:29:24.153364+01:00",
+      "pipeline": {
+        "counts": {},
+        "stages": {}
+      },
+      "player": {
+        "playing": true,
+        "mediaGeneration": 2,
+        "volume": 0,
+        "rotation": 90,
+        "width": 1920,
+        "height": 1080,
+        "positionMs": 1057,
+        "liveOffsetMs": null,
+        "bufferedMs": 109,
+        "decodedFrames": 34,
+        "textureFrames": 30,
+        "textureFps": 2.7963447615615307,
+        "releaseToTextureMs": -36.351513,
+        "textureAgeMs": 1.253515
+      },
+      "annotations": {
+        "mapped": true,
+        "phoneSourceUs": 28723582422,
+        "tvSourceUs": -1,
+        "pending": 1,
+        "overflow": false,
+        "sourceAgeEstimateMs": 411.2020000219345,
+        "clockSampleAgeMs": 606
+      },
+      "framing": {
+        "applied": true,
+        "framed": true,
+        "hardware": true,
+        "viewportWidth": 1344,
+        "viewportHeight": 1869,
+        "mediaGeneration": 2,
+        "playing": true,
+        "positionMs": 934,
+        "guidePixels": [],
+        "pocketPixels": [
+          [
+            1106.6512451171875,
+            65.19766998291016
+          ],
+          [
+            1106.651123046875,
+            1803.8023681640625
+          ],
+          [
+            237.34889221191406,
+            1803.8021240234375
+          ],
+          [
+            237.3487091064453,
+            65.1976547241211
+          ]
+        ]
+      },
+      "encoder": {},
+      "presentation": {
+        "shotChoicesEnabled": false,
+        "phoneCorrected": true,
+        "tvCorrected": false,
+        "phone": {
+          "mode": 0,
+          "shotId": null,
+          "tableVersion": 0,
+          "annotations": 63,
+          "revision": 0,
+          "replayId": null
+        },
+        "tv": {
+          "mode": 0,
+          "shotId": null,
+          "tableVersion": 0,
+          "annotations": 63,
+          "revision": 0,
+          "replayId": null
+        }
+      },
+      "version": 2,
+      "choices": {
+        "source": null,
+        "tableVersion": 0,
+        "group": 0,
+        "capturedAt": "0001-01-01T00:00:00+00:00",
+        "expiresAt": "0001-01-01T00:00:00+00:00",
+        "choices": []
+      },
+      "vision": null,
+      "capture": "Active",
+      "host": false,
+      "calibrated": true,
+      "observation": null
+    }
+  },
+  "last": {
+    "camera": {
+      "state": "Active",
+      "sessionId": "6b89aadb6bce4e5a9f9b1a6b478884e9",
+      "revision": 5,
+      "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+      "sourceTimeUs": 28786553561,
+      "frames": 93905,
+      "battery": 100,
+      "temperatureC": 37.4,
+      "clipCount": 8,
+      "error": "",
+      "statusRttMs": 33.6193
+    },
+    "companion": {
+      "measuredAt": "2026-10-06T16:30:26.7093468+01:00",
+      "pipeline": {
+        "counts": {},
+        "stages": {}
+      },
+      "player": {
+        "playing": true,
+        "mediaGeneration": 2,
+        "volume": 0,
+        "rotation": 90,
+        "width": 1920,
+        "height": 1080,
+        "positionMs": 62970,
+        "liveOffsetMs": null,
+        "bufferedMs": 768,
+        "decodedFrames": 1891,
+        "textureFrames": 1787,
+        "textureFps": 24.384544358080618,
+        "releaseToTextureMs": -39.336114,
+        "textureAgeMs": 11.987318
+      },
+      "annotations": {
+        "mapped": true,
+        "phoneSourceUs": 28785554522,
+        "tvSourceUs": -1,
+        "pending": 1,
+        "overflow": false,
+        "sourceAgeEstimateMs": 1004.5770000219345,
+        "clockSampleAgeMs": 3171
+      },
+      "framing": {
+        "applied": true,
+        "framed": true,
+        "hardware": true,
+        "viewportWidth": 1344,
+        "viewportHeight": 2373,
+        "mediaGeneration": 2,
+        "playing": true,
+        "positionMs": 62918,
+        "guidePixels": [],
+        "pocketPixels": [
+          [
+            1223.8604736328125,
+            82.7790756225586
+          ],
+          [
+            1223.8604736328125,
+            2290.22119140625
+          ],
+          [
+            120.13951873779297,
+            2290.220947265625
+          ],
+          [
+            120.13949584960938,
+            82.77909088134766
+          ]
+        ]
+      },
+      "encoder": {},
+      "presentation": {
+        "shotChoicesEnabled": false,
+        "phoneCorrected": true,
+        "tvCorrected": false,
+        "phone": {
+          "mode": 0,
+          "shotId": null,
+          "tableVersion": 0,
+          "annotations": 63,
+          "revision": 0,
+          "replayId": null
+        },
+        "tv": {
+          "mode": 0,
+          "shotId": null,
+          "tableVersion": 0,
+          "annotations": 63,
+          "revision": 0,
+          "replayId": null
+        }
+      },
+      "version": 2,
+      "choices": {
+        "source": null,
+        "tableVersion": 0,
+        "group": 0,
+        "capturedAt": "0001-01-01T00:00:00+00:00",
+        "expiresAt": "0001-01-01T00:00:00+00:00",
+        "choices": []
+      },
+      "vision": null,
+      "capture": "Active",
+      "host": false,
+      "calibrated": true,
+      "observation": null
+    }
+  }
+}

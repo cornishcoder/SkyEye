@@ -88,7 +88,7 @@ public sealed partial class ShellSession
                 if (!active || token.IsCancellationRequested) return;
 
                 if (!app.State.Presentation.ShotChoicesEnabled || !CanAnalyzeTable || !HasTableCalibration || EditingTable) await ClearShotCatalogAsync(token);
-                else if (!CurrentShotCatalog) await ClearShotCatalogAsync(token);
+                else if (!CurrentShotCatalog) await ExpireShotPresentationAsync(token);
                 if (token.IsCancellationRequested) return;
                 RenderShotScenes();
                 ManageShotRelay();
@@ -107,6 +107,17 @@ public sealed partial class ShellSession
         shotCarousel.Clear();
         if (app.State.ShotChoices != ShotChoiceCatalog.Empty)
             await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.System, app.State.Version, new PublishShotCatalog(ShotChoiceCatalog.Empty)), token);
+    }
+    async Task ExpireShotPresentationAsync(CancellationToken token)
+    {
+        await ClearShotCatalogAsync(token);
+        foreach (var target in new[] { SceneTarget.Phone, SceneTarget.Tv })
+        {
+            var surface = target == SceneTarget.Phone ? app.State.Presentation.Phone : app.State.Presentation.Tv;
+            if (surface.Mode is ShotDisplayMode.Cycling or ShotDisplayMode.Pinned)
+                await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.System, app.State.Version, new ClearAnnotations(target)), token);
+        }
+        shotMessage = "Choices expired. Request a fresh observation when useful.";
     }
     async Task ReconcileShotCatalogAsync(CancellationToken token)
     {

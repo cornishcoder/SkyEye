@@ -1,0 +1,11 @@
+{
+  "cameraApk": "7D61C8503BEC082BE364030DECC94723673D2BDBF3A1F99B16F102136AD4D6B2",
+  "productionApk": "53C901EB3BBF3B9D51C3B5964FEEA32D227D390196FA39AAB9064FE18DAA7F5E",
+  "normalProductionBuild": "passed: 11 warnings, zero errors",
+  "labBuild": "passed: 7 warnings, zero errors",
+  "retainedNativeBuild": "passed: 14 warnings, zero errors",
+  "coreHttp": "passed",
+  "agentUi": "passed",
+  "nativeMux": "passed 60 frames in three modes",
+  "acceptanceComplete": false
+}

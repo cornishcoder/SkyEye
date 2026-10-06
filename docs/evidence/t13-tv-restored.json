@@ -1,0 +1,66 @@
+{
+  "ready": true,
+  "cast": {
+    "connected": true,
+    "playing": false,
+    "stream": "scene",
+    "positionMs": 9230,
+    "playerState": 4,
+    "idleReason": 0
+  },
+  "video": {
+    "width": 1920,
+    "height": 1080,
+    "fps": 10,
+    "bitrate": 6000000,
+    "frames": 113,
+    "skipped": 0,
+    "segments": 7,
+    "failed": false,
+    "encodedPtsUs": 15666272,
+    "encodedFrame": {
+      "sceneVersion": 0,
+      "mediaGeneration": 17,
+      "tableVersion": 0,
+      "sourcePositionMs": 21643,
+      "paths": 0,
+      "markers": 0,
+      "watermarked": true,
+      "rectangular": true,
+      "pocketPixels": [
+        [
+          66.97673797607422,
+          93.48834228515625
+        ],
+        [
+          1853.0235595703125,
+          93.4883804321289
+        ],
+        [
+          1853.0233154296875,
+          986.5115966796875
+        ],
+        [
+          66.97675323486328,
+          986.5116577148438
+        ]
+      ]
+    },
+    "phoneFrame": {
+      "sceneVersion": 0,
+      "mediaGeneration": 17,
+      "tableVersion": 0,
+      "sourcePositionMs": 21754,
+      "paths": 0,
+      "markers": 0
+    },
+    "presentation": {
+      "enabled": false,
+      "candidateCount": 0,
+      "capturedAt": 0,
+      "updatedAt": 0,
+      "expiresAt": 0,
+      "candidateIndex": -1
+    }
+  }
+}

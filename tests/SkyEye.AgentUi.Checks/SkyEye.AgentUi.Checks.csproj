@@ -13,6 +13,7 @@
     <Compile Include="../../src/SkyEye.Companion.Hybrid/ControlChrome.cs" Link="ControlChrome.cs" />
     <Compile Include="../../src/SkyEye.Companion.Hybrid/TableEditDraft.cs" Link="TableEditDraft.cs" />
     <Compile Include="../../src/SkyEye.Companion.Hybrid/SceneProjection.cs" Link="SceneProjection.cs" />
+    <Compile Include="../../src/SkyEye.Companion.Hybrid/FramingGeometryFence.cs" Link="FramingGeometryFence.cs" />
     <ProjectReference Include="../../src/SkyEye.Core/SkyEye.Core.csproj" />
   </ItemGroup>
 </Project>

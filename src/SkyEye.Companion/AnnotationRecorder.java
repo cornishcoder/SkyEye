@@ -13,11 +13,12 @@ final class AnnotationRecorder {
     private JSONArray observations=new JSONArray();
     private String timeline="";private long referenceUs,referenceAt,generation;
     private long phoneUs=-1,tvUs=-1;private boolean overflow;
-    synchronized void reset(long generation){this.generation=generation;adjuster=null;frames.clear();timeline="";phoneUs=tvUs=-1;}
+    private long textureUs=-1,textureAt;
+    synchronized void reset(long generation){this.generation=generation;adjuster=null;frames.clear();timeline="";phoneUs=tvUs=textureUs=-1;}
     synchronized void extractor(TimestampAdjuster value,long generation){if(generation==this.generation)adjuster=value;}
     synchronized void clock(String timeline,long sourceUs,long generation){
         if(generation!=this.generation||timeline==null||!timeline.matches("[a-fA-F0-9]{32}")||sourceUs<0)return;
-        if(!this.timeline.isEmpty()&&!this.timeline.equals(timeline)){frames.clear();phoneUs=tvUs=-1;adjuster=null;}
+        if(!this.timeline.isEmpty()&&!this.timeline.equals(timeline)){frames.clear();phoneUs=tvUs=textureUs=-1;adjuster=null;}
         this.timeline=timeline;referenceUs=sourceUs;referenceAt=android.os.SystemClock.elapsedRealtime();
     }
     synchronized void frame(long presentationUs,long releaseNs){
@@ -46,6 +47,7 @@ final class AnnotationRecorder {
         }catch(JSONException ignored){}
     }
     synchronized String drain(){String result=observations.toString();observations=new JSONArray();return result;}
+    synchronized void textureUpdated(){long now=System.nanoTime();for(long[] f:frames)if(f[1]<=now){textureUs=f[0];textureAt=now;}}
     synchronized String frameMetrics(long media){try{
         long now=System.nanoTime();long[] selected=null;for(long[] f:frames)if(f[1]<=now)selected=f;
         if(media!=generation||selected==null||timeline.isEmpty()||android.os.SystemClock.elapsedRealtime()-referenceAt>10000||now-selected[1]>250000000L)return "{}";
@@ -55,5 +57,6 @@ final class AnnotationRecorder {
     synchronized String metrics(){try{return new JSONObject().put("mapped",!timeline.isEmpty()&&!frames.isEmpty())
         .put("phoneSourceUs",phoneUs).put("tvSourceUs",tvUs).put("pending",observations.length()).put("overflow",overflow)
         .put("sourceAgeEstimateMs",phoneUs<0?JSONObject.NULL:(referenceUs-phoneUs)/1000d+android.os.SystemClock.elapsedRealtime()-referenceAt)
+        .put("textureSourceAgeEstimateMs",textureUs<0||System.nanoTime()-textureAt>250000000L?JSONObject.NULL:(referenceUs-textureUs)/1000d+android.os.SystemClock.elapsedRealtime()-referenceAt)
         .put("clockSampleAgeMs",android.os.SystemClock.elapsedRealtime()-referenceAt).toString();}catch(Exception ignored){return "{}";}}
 }

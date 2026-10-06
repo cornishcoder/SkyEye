@@ -56,3 +56,8 @@ Required next checks:
 6. Label real mounted-table images and assess detection/shot suggestions before relying on coaching.
 
 Saved clips use independent atomic metadata journals, rather than the proposed SQLite catalogue. There is no complete referee, calibrated physics simulation, whole-session archive, Internet hosting or measured battery-runtime claim. These limits and the current daily-use flow are documented in README.
+
+## T13 live-first runtime
+
+See [the engineering report](t13-performance-report.md) for physical measurements, source-scoped requested observations, zero idle perception, stored GPU rendering, native mux/command/geometry checks and explicit unpassed acceptance gates. T13 remains open; builds do not prove the 500 ms target or moving corrected TV footage.
+

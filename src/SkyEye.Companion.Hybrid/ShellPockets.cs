@@ -5,7 +5,7 @@ namespace SkyEye.Companion.Hybrid;
 public sealed partial class ShellSession
 {
     long mediaGeneration;
-    string? renderedGeometry;
+    readonly FramingGeometryFence framingGeometry = new();
     public bool AutomaticPocketsCurrent => table.State.Calibration is not null;
     long MediaGeneration()
     {
@@ -29,10 +29,9 @@ public sealed partial class ShellSession
     void EnsurePocketLoop()
     {
         if (selection.Kind != ViewingSource.Live || player is null) return;
-        var key = GeometryKey();
-        if (renderedGeometry is not null && renderedGeometry != key)
+        using var metrics = JsonDocument.Parse(player.PlaybackMetrics()!);
+        if (framingGeometry.Observe(metrics.RootElement.GetProperty("width").GetInt32(), metrics.RootElement.GetProperty("height").GetInt32(), GeometryKey().Split(':', 2)[1]))
         { table.InvalidateCalibration(); shotMessage = "Stream geometry changed. Recalibrate the table."; }
-        renderedGeometry = key;
     }
     void StopPocketFraming()
     {

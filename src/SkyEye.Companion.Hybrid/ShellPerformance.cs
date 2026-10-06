@@ -68,6 +68,7 @@ public sealed partial class ShellSession
                 annotations = JsonSerializer.Deserialize<JsonElement>(player?.AnnotationMetrics() ?? "{}"),
                 framing = JsonSerializer.Deserialize<JsonElement>(player?.FramingMetrics() ?? "{}"),
                 encoder = JsonSerializer.Deserialize<JsonElement>(shotRelay?.Metrics ?? "{}"),
+                cast = JsonSerializer.Deserialize<JsonElement>(cast?.Metrics() ?? "{}"),
                 presentation = app.State.Presentation,
                 version = app.State.Version, choices = app.State.ShotChoices,
                 vision = table.State.Vision is { } vision ? new { vision.CircleCount, vision.Warnings, vision.ElapsedMs } : null,

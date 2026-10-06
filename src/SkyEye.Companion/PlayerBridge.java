@@ -34,14 +34,14 @@ public final class PlayerBridge {
         player.setVideoFrameMetadataListener((pts,release,format,mediaFormat)->{annotationRecorder.frame(pts,release);if(diagnostics){decodedFrames++;lastReleaseNs=release;}});
         // Preserve Media3's surface lifecycle listener; observe its texture callback.
         TextureView.SurfaceTextureListener delegate=texture.getSurfaceTextureListener();
-        texture.setSurfaceTextureListener(new TextureView.SurfaceTextureListener(){public void onSurfaceTextureAvailable(android.graphics.SurfaceTexture t,int w,int h){delegate.onSurfaceTextureAvailable(t,w,h);}public void onSurfaceTextureSizeChanged(android.graphics.SurfaceTexture t,int w,int h){delegate.onSurfaceTextureSizeChanged(t,w,h);}public boolean onSurfaceTextureDestroyed(android.graphics.SurfaceTexture t){return delegate.onSurfaceTextureDestroyed(t);}public void onSurfaceTextureUpdated(android.graphics.SurfaceTexture t){delegate.onSurfaceTextureUpdated(t);if(diagnostics){textureFrames++;lastTextureNs=System.nanoTime();releaseToTextureMs=(lastTextureNs-lastReleaseNs)/1000000d;}}});
+        texture.setSurfaceTextureListener(new TextureView.SurfaceTextureListener(){public void onSurfaceTextureAvailable(android.graphics.SurfaceTexture t,int w,int h){delegate.onSurfaceTextureAvailable(t,w,h);}public void onSurfaceTextureSizeChanged(android.graphics.SurfaceTexture t,int w,int h){delegate.onSurfaceTextureSizeChanged(t,w,h);}public boolean onSurfaceTextureDestroyed(android.graphics.SurfaceTexture t){return delegate.onSurfaceTextureDestroyed(t);}public void onSurfaceTextureUpdated(android.graphics.SurfaceTexture t){delegate.onSurfaceTextureUpdated(t);annotationRecorder.textureUpdated();if(diagnostics){textureFrames++;lastTextureNs=System.nanoTime();releaseToTextureMs=(lastTextureNs-lastReleaseNs)/1000000d;}}});
         player.addListener(new Player.Listener(){
             public void onPlayerError(PlaybackException e){listener.onError(liveUrl(activeUrl)?"Viewing interrupted. Waiting for the live feed to recover.":"Downloaded clip could not be played.");long expected=generation;
                 if(liveUrl(activeUrl))retry.postDelayed(()->{if(!released&&expected==generation){play(activeUrl);}},1000);
             }
             public void onIsPlayingChanged(boolean playing){listener.onPlaying(playing);}
             public void onPlaybackStateChanged(int state){if(state==Player.STATE_ENDED&&liveUrl(activeUrl)){long expected=generation;retry.postDelayed(()->{if(!released&&expected==generation)play(activeUrl);},100);}}
-            public void onVideoSizeChanged(VideoSize size){videoWidth=size.width;videoHeight=size.height;transform();}
+            public void onVideoSizeChanged(VideoSize size){if(size.width<=0||size.height<=0)return;videoWidth=size.width;videoHeight=size.height;transform();listener.onPlaying(player.isPlaying());}
         });
     }
     public View getView(){return container;}

@@ -269,3 +269,9 @@ foreach (bool portrait in new[] { true, false })
     foreach (var p in skewed.Corners) Check((pockets.Image(pockets.Screen(p))!.Value - p).Length < 1e-9, "pocket rectangle inverse agrees with video and overlays");
 }
 Console.WriteLine("PASS exact pocket-centre rectangle for phone and TV with shared inverse mapping");
+var geometryFence = new SkyEye.Companion.Hybrid.FramingGeometryFence();
+Check(!geometryFence.Observe(1920, 1080, "fixed"), "initial known geometry binds without invalidating stored calibration");
+Check(!geometryFence.Observe(0, 0, "fixed") && !geometryFence.Observe(1920, 1080, "fixed"), "reconnect's transient unknown size retains calibration");
+Check(geometryFence.Observe(1280, 720, "fixed"), "real resolution change invalidates calibration");
+Check(geometryFence.Observe(1280, 720, "zoom-crop-2"), "real crop/profile change invalidates calibration");
+Console.WriteLine("PASS stored correction geometry: reconnect unknown sizes retained, real resolution/crop changes invalidated");
