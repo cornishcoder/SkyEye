@@ -16,6 +16,8 @@ static class ManualMatchAppChecks
         Check((await Send(new G.StartFrame("rich"))).Succeeded, "First declared frame opens");
         Check((await Send(new G.DeclareColours("rich", G.BallColour.Red))).Succeeded && app.State.Advice.TargetGroup == AdviceTargetGroup.Red,
             "Current player's declared red group drives advice filter");
+        Check((await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, app.State.Version, new SetTargetGroup(AdviceTargetGroup.Yellow)))).Outcome == CommandOutcome.Rejected
+            && app.State.Advice.TargetGroup == AdviceTargetGroup.Red, "Legacy group preferences cannot override the active match's canonical declaration");
         Check((await Send(new G.PlayerCorrection(new G.ChangeTurn("mike")))).Succeeded && app.State.Advice.TargetGroup == AdviceTargetGroup.Yellow,
             "Changing player projects the complementary yellow target and invalidates choices");
         Check((await Send(new G.PlayerCorrection(new G.SetFrameWinner("rich")))).Succeeded, "Award first frame");

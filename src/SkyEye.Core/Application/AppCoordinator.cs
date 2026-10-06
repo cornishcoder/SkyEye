@@ -75,10 +75,12 @@ public sealed partial class AppCoordinator
                     SkyEyeState? updated = envelope.Command switch
                     {
                         ShowShotChoices show => state with { Presentation = ForTarget(state.Presentation, SceneTarget.Both, new(show.Enabled ? ShotDisplayMode.Cycling : ShotDisplayMode.Live)) },
-                        SetTargetGroup group when Enum.IsDefined(group.Group) => group.Group == state.Advice.TargetGroup ? state : ClearShotCatalog(state with { Advice = new(group.Group) }),
+                        SetTargetGroup group when Enum.IsDefined(group.Group) && (game.State.Frame is null || game.State.Match?.Finished == true || group.Group == state.Advice.TargetGroup)
+                            => group.Group == state.Advice.TargetGroup ? state : ClearShotCatalog(state with { Advice = new(group.Group) }),
                         _ => SceneCommand(envelope)
                     };
-                    if (updated is null) result = Receipt(envelope, CommandOutcome.Rejected, envelope.Command is PinShot ? "That shot is no longer current. Check the latest choices." : envelope.Command is SetShotDisplay { Mode: ShotDisplayMode.Score } ? "Start a supported match before showing its score." : "This command is not supported.");
+                    if (updated is null) result = Receipt(envelope, CommandOutcome.Rejected, envelope.Command is SetTargetGroup ? "Use the current player's match colours to change shot targets."
+                        : envelope.Command is PinShot ? "That shot is no longer current. Check the latest choices." : envelope.Command is SetShotDisplay { Mode: ShotDisplayMode.Score } ? "Start a supported match before showing its score." : "This command is not supported.");
                     else if (updated == state) result = Receipt(envelope, CommandOutcome.Unchanged, "Already set.");
                     else
                     {
