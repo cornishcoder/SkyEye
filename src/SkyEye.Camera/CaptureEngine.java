@@ -11,7 +11,7 @@ import java.util.*;
 
 /** One continuous hardware encode. MP4 archive has audio; live TS deliberately does not. */
 public final class CaptureEngine {
-    public interface Listener { void onReady(); void onSegment(String name,long sequence,String timeline,long startUs,double duration,long wallMs); void onError(String message); }
+    public interface Listener { void onReady(); void onSegment(String name,long sequence,String timeline,long startUs,double duration,long wallMs); void onError(String message); boolean needsLiveFrames(); void onLiveFrame(byte[] transport,boolean key,long sourceUs,long encodeAgeUs); }
     private final Context context; private final File directory; private final Listener listener;
     private final String instance=UUID.randomUUID().toString().replace("-","");
     private HandlerThread cameraThread; private Handler handler;
@@ -24,6 +24,7 @@ public final class CaptureEngine {
     private boolean reportedError;
     private final java.util.concurrent.atomic.AtomicBoolean disposing=new java.util.concurrent.atomic.AtomicBoolean();
     private final int[] transportCounters=new int[8192];
+    private final int[] phoneTransportCounters=new int[8192];
     private static final class AudioSample { final byte[] bytes; final long pts; AudioSample(byte[] bytes,long pts){this.bytes=bytes;this.pts=pts;} }
     private final ArrayDeque<AudioSample> pendingAudio=new ArrayDeque<>();
     public CaptureEngine(Context context,String directory,Listener listener) { this.context=context.getApplicationContext();this.directory=new File(directory);this.listener=listener;this.directory.mkdirs(); }
@@ -114,6 +115,13 @@ public final class CaptureEngine {
         MediaCodec.BufferInfo out=new MediaCodec.BufferInfo();out.set(0,bytes.length,relative,info.flags&MediaCodec.BUFFER_FLAG_KEY_FRAME);
         mux.writeSampleData(videoTrack,ByteBuffer.wrap(bytes),out);
         lastVideoUs=info.presentationTimeUs;ts.video(bytes,info.presentationTimeUs,key,config);flushAudio(lastVideoUs+33333);
+        // Reuse the camera's hardware AVC sample, independently of segment finalization.
+        // The listener only offers to bounded channels; network IO never runs here.
+        if(listener.needsLiveFrames()){
+            ByteArrayOutputStream liveBytes=new ByteArrayOutputStream(bytes.length+2048);
+            TsWriter live=new TsWriter(liveBytes,phoneTransportCounters);live.video(bytes,info.presentationTimeUs,key,config);
+            listener.onLiveFrame(liveBytes.toByteArray(),key,info.presentationTimeUs,timeUs()-info.presentationTimeUs);
+        }
     }
     private void flushAudio(long until) throws Exception {
         if(mux==null)return;

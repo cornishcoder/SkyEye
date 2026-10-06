@@ -93,6 +93,7 @@ public sealed partial class ShellSession : IDisposable
     }
     public void ReportPlaying(bool playing)
     {
+        if (player is not null) MediaGeneration();
         if (playing && player is not null) Android.Util.Log.Info("SkyEyeShell", "Native playback observed: " + player.PlaybackMetrics());
         if (playing && !Playing) chrome.Reveal();
         Playing = playing;
@@ -159,7 +160,7 @@ public sealed partial class ShellSession : IDisposable
             return;
         }
         // Repeated telemetry/sheet renders must not reload ExoPlayer.
-        if (selection.Observe(generation, ViewingSource.Live, view.Stream)) PlayCurrent();
+        if (selection.Observe(generation, ViewingSource.Live, view.PhoneStream)) PlayCurrent();
         BindAnnotationClock();
     }
     void PlayCurrent()

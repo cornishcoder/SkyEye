@@ -6,7 +6,10 @@ namespace SkyEye.Companion;
 
 // The full protocol response and viewing access remain native, outside app/agent
 // snapshots. UI may use them only when this binding matches canonical state.
-public sealed record NativeCameraView(CameraConnection Connection, JsonElement Status, string Stream);
+public sealed record NativeCameraView(CameraConnection Connection, JsonElement Status, string Stream)
+{
+    public string PhoneStream { get; init; } = Stream;
+}
 
 public sealed class CameraControlEffect(CameraClient current, Action<string?>? persistHost = null) : ICameraControlEffect
 {
@@ -115,7 +118,10 @@ public sealed class CameraControlEffect(CameraClient current, Action<string?>? p
             Ownership = available ? CameraOwnership.Available : owns ? CameraOwnership.Owned : CameraOwnership.Guest, HostOwner = owner,
             HostGeneration = available ? 0 : host.GetProperty("generation").GetInt64(), SessionId = status.GetProperty("sessionId").GetString(), CaptureRevision = status.GetProperty("revision").GetInt64() };
         var stream = current.MediaUrl(status.GetProperty("streamPath").GetString()!);
-        Volatile.Write(ref latest, new(observed, status, stream));
+        var phoneStream = status.TryGetProperty("liveTransportVersion", out var version) && version.GetInt32() == 1
+            && status.TryGetProperty("phoneStreamPath", out var path) && path.GetString() is { } phonePath && phonePath.StartsWith("/live/stream.ts?")
+            ? current.MediaUrl(phonePath) : stream;
+        Volatile.Write(ref latest, new(observed, status, stream) { PhoneStream = phoneStream });
         return observed;
     }
     void ClearHost() { current.HostToken = null; persistHost?.Invoke(null); }

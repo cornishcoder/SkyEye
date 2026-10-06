@@ -40,6 +40,8 @@ public sealed class CameraService : Service
     bool ready;
     DateTimeOffset armedAt = DateTimeOffset.UtcNow;
     long completedFrames;
+    readonly LiveTransportHub livePhones = new();
+    long lastEncodeAgeUs;
     static TaskCompletionSource<bool> Signal() => new(TaskCreationOptions.RunContinuationsAsynchronously);
     public override IBinder? OnBind(Intent? intent) => null;
     public override void OnCreate()
@@ -89,6 +91,8 @@ public sealed class CameraService : Service
             historySeconds = history.Where(x => x.Timeline == timeline).Sum(x => x.Duration),
             error, readToken, sourceTimeUs = Engine.TimeUs(), timeline, recentReplayVersion = 1,
             streamPath = $"/live/index.m3u8?access={readToken}", clipCount = clips.Count, addresses = Addresses(),
+            phoneStreamPath = $"/live/stream.ts?access={readToken}&timeline={timeline}", liveTransportVersion = 1,
+            liveTransport = livePhones.Metrics, lastEncodeAgeUs,
             width = 1920, height = 1080, fps = 30, bitrate = 6000000, completedFrames
         };
     }
@@ -96,6 +100,29 @@ public sealed class CameraService : Service
     {
         if (request.Method == "OPTIONS") return HttpResponse.Text("");
         if (request.Path == "/status" && request.Method == "GET") return HttpResponse.Json(Status());
+        if (request.Path == "/live/stream.ts" && request.Method is "GET" or "HEAD")
+        {
+            RequireViewing(request);
+            if (Authority.State != CaptureState.Active || request.Query.GetValueOrDefault("timeline") != timeline)
+                throw new InvalidOperationException("The live recording timeline changed. Refresh the camera.");
+            return new(200, "video/mp2t", StreamingBody: async (output, token) =>
+            {
+                using var viewer = livePhones.Subscribe();
+                try
+                {
+                    while (!token.IsCancellationRequested)
+                    {
+                        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(token);
+                        deadline.CancelAfter(TimeSpan.FromSeconds(2));
+                        var bytes = await viewer.ReadAsync(deadline.Token);
+                        deadline.CancelAfter(TimeSpan.FromMilliseconds(500));
+                        await output.WriteAsync(bytes, deadline.Token);
+                    }
+                }
+                catch (System.Threading.Channels.ChannelClosedException) { }
+                catch (System.OperationCanceledException) { }
+            });
+        }
         if (request.Method == "POST" && request.Path == "/replays/recent")
         {
             RequireViewing(request);
@@ -173,7 +200,7 @@ public sealed class CameraService : Service
                     if (request.Path.EndsWith("resume") && Authority.State != CaptureState.Paused) throw new InvalidOperationException("Session is not paused.");
                     if (Authority.State == CaptureState.Active) { result = HttpResponse.Json(Status()); break; }
                     if (Authority.State == CaptureState.Faulted) throw new InvalidOperationException("Re-arm the camera after the error.");
-                    timeline = Guid.NewGuid().ToString("N");
+                    livePhones.Reset(); timeline = Guid.NewGuid().ToString("N");
                     wake ??= ((PowerManager)GetSystemService(PowerService)!).NewWakeLock(WakeLockFlags.Partial, "SkyEye:Capture");
                     wake!.Acquire();
                     try { engine.Begin(timeline); Authority.Transition(CaptureState.Active); error = ""; }
@@ -181,10 +208,10 @@ public sealed class CameraService : Service
                     result = HttpResponse.Json(Status()); break;
                 case "/session/pause":
                     if (Authority.State != CaptureState.Active) throw new InvalidOperationException("Only an active session can pause.");
-                    engine!.Pause(); Authority.Transition(CaptureState.Paused); if (wake?.IsHeld == true) wake.Release(); result = HttpResponse.Json(Status()); break;
+                    livePhones.Reset(); engine!.Pause(); Authority.Transition(CaptureState.Paused); if (wake?.IsHeld == true) wake.Release(); result = HttpResponse.Json(Status()); break;
                 case "/session/stop":
                     if (Authority.State == CaptureState.Ready) { result = HttpResponse.Json(Status()); break; }
-                    if (Authority.State != CaptureState.Faulted) engine?.Pause(); Authority.Transition(CaptureState.Stopped); if (wake?.IsHeld == true) wake.Release(); result = HttpResponse.Json(Status()); break;
+                    livePhones.Reset(); if (Authority.State != CaptureState.Faulted) engine?.Pause(); Authority.Transition(CaptureState.Stopped); if (wake?.IsHeld == true) wake.Release(); result = HttpResponse.Json(Status()); break;
                 case "/clips/save": result = await SaveAsync(command.RootElement.GetProperty("seconds").GetInt32(), ct); break;
                 default: return HttpResponse.Json(new { error = "Not found" }, 404);
             }
@@ -326,6 +353,7 @@ public sealed class CameraService : Service
     }
     public override void OnDestroy()
     {
+        livePhones.Reset();
         lifetime.Cancel(); ready = false; engine?.Close(); if (wake?.IsHeld == true) wake.Release();
         if (server is not null) _ = server.DisposeAsync();
         try { if (registration is not null) discovery?.UnregisterService(registration); } catch { }
@@ -333,6 +361,9 @@ public sealed class CameraService : Service
     }
     sealed class Listener(CameraService owner) : Java.Lang.Object, Engine.IListener
     {
+        public bool NeedsLiveFrames() => owner.livePhones.HasViewers;
+        public void OnLiveFrame(byte[]? transport, bool key, long sourceUs, long encodeAgeUs)
+        { Interlocked.Exchange(ref owner.lastEncodeAgeUs, encodeAgeUs); if (transport is not null) owner.livePhones.Publish(transport, key); }
         public void OnReady() { owner.ready = true; Android.Util.Log.Info("SkyEye", "Camera armed and ready for screen-off commands"); }
         public void OnError(string? message) => owner.Fault(message ?? "Capture error");
         public void OnSegment(string? name, long sequence, string? timeline, long startUs, double duration, long wallMs) => owner.AddSegment(name!, sequence, timeline!, startUs, duration, wallMs);

@@ -1,0 +1,54 @@
+{
+  "samples": 45,
+  "playingSamples": 42,
+  "liveOffsetP50Ms": 6977,
+  "liveOffsetP95Ms": 7629,
+  "sourceAgeP50Ms": 5949.114000022411,
+  "sourceAgeP95Ms": 6668.6740000247955,
+  "first": {
+    "state": "Active",
+    "sessionId": "a061183702574b4b837c57fc2f61fe7e",
+    "revision": 5,
+    "timeline": "afbdc86e83d44dd8aaa7702bcc1dcc38",
+    "sourceTimeUs": 24814566993,
+    "frames": 642001,
+    "battery": 100,
+    "temperatureC": 38.4,
+    "clipCount": 8,
+    "error": "",
+    "statusRttMs": 24.2848
+  },
+  "last": {
+    "state": "Active",
+    "sessionId": "a061183702574b4b837c57fc2f61fe7e",
+    "revision": 5,
+    "timeline": "afbdc86e83d44dd8aaa7702bcc1dcc38",
+    "sourceTimeUs": 24867440454,
+    "frames": 643621,
+    "battery": 100,
+    "temperatureC": 38.4,
+    "clipCount": 8,
+    "error": "",
+    "statusRttMs": 218.6289
+  },
+  "pipeline": {
+    "counts": {},
+    "stages": {}
+  },
+  "player": {
+    "playing": true,
+    "mediaGeneration": 2,
+    "volume": 0,
+    "rotation": 90,
+    "width": 1920,
+    "height": 1080,
+    "positionMs": 12767,
+    "liveOffsetMs": 6655,
+    "bufferedMs": 2233,
+    "decodedFrames": 1555,
+    "textureFrames": 1400,
+    "textureFps": 22.14462708125838,
+    "releaseToTextureMs": -33.828739,
+    "textureAgeMs": 41.864375
+  }
+}

@@ -10,6 +10,7 @@ final class TsWriter implements Closeable {
     private final int[] counters;
     TsWriter(File file) throws IOException { this(file,new int[8192]); }
     TsWriter(File file,int[] counters) throws IOException { this.counters=counters;out = new BufferedOutputStream(new FileOutputStream(file), 65536); tables(); }
+    TsWriter(OutputStream out,int[] counters) throws IOException { this.counters=counters;this.out=out;tables(); }
     private static byte[] crc(byte[] src) {
         int value = -1;
         for (byte b : src) { value ^= (b & 255) << 24; for (int i=0;i<8;i++) value = (value << 1) ^ ((value < 0) ? 0x04c11db7 : 0); }

@@ -222,6 +222,8 @@ There should be bounded queues and no ever-growing latency.
 
 ## Use the hardware sensibly
 
+Additional requirement from the user during implementation: perspective correction is rendering, not perception. The fixed camera's stored calibration/homography continuously drives the Pixel 11 SceneProjection/TextureView GPU transform while VisionAnalyzer, pocket detection, ball detection and shot analysis remain idle. Recalculate only for actual camera movement, zoom/crop or stream geometry changes, or an explicit recalibration request. Phone and requested TV composition remain separate.
+
 The Pixel 11 should not perform unnecessary continuous computation while merely displaying the table.
 
 During normal live viewing:
@@ -284,6 +286,7 @@ T13 is complete when all of the following are demonstrated on the actual Pixel 1
 - Starting SkyEye produces a continuously updating live view without automatically running full table analysis.
 - Idle full-table analyses per minute = **0**.
 - Candidate/shot analysis does not run on a timer.
+- With full table perception idle, Pixel 11 continuously displays a smooth perspective-corrected live table using the stored calibration transform. No periodic VisionAnalyzer or pocket detection maintains that view.
 
 ### On-demand perception
 

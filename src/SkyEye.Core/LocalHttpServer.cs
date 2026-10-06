@@ -11,7 +11,8 @@ public sealed record HttpRequest(string Method, string Path, Dictionary<string, 
     public T Json<T>() => JsonSerializer.Deserialize<T>(Body, JsonDefaults.Options) ?? throw new ArgumentException("Missing request body.");
 }
 public static class JsonDefaults { public static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web); }
-public sealed record HttpResponse(int Status, string ContentType, byte[]? Body = null, string? FilePath = null, Dictionary<string, string>? Headers = null)
+public sealed record HttpResponse(int Status, string ContentType, byte[]? Body = null, string? FilePath = null, Dictionary<string, string>? Headers = null,
+    Func<Stream, CancellationToken, Task>? StreamingBody = null)
 {
     public static HttpResponse Json(object value, int status = 200) => new(status, "application/json", JsonSerializer.SerializeToUtf8Bytes(value, JsonDefaults.Options));
     public static HttpResponse Text(string value, string contentType = "text/plain") => new(200, contentType, Encoding.UTF8.GetBytes(value));
@@ -87,6 +88,15 @@ public sealed class LocalHttpServer(int port, Func<HttpRequest, CancellationToke
     }
     static async Task WriteResponseAsync(Stream stream, HttpRequest request, HttpResponse response, CancellationToken ct)
     {
+        if (response.StreamingBody is not null)
+        {
+            // HTTP/1.1 close-delimited body; send every encoded sample immediately.
+            // No file assembly, range or content-length is implied for a live stream.
+            var header = $"HTTP/1.1 {response.Status} OK\r\nContent-Type: {response.ContentType}\r\nConnection: close\r\nCache-Control: no-store\r\nAccess-Control-Allow-Origin: *\r\n\r\n";
+            await stream.WriteAsync(Encoding.ASCII.GetBytes(header), ct);
+            if (request.Method != "HEAD") await response.StreamingBody(stream, ct);
+            return;
+        }
         using var file = response.FilePath is null ? null : File.Open(response.FilePath, FileMode.Open, FileAccess.Read, FileShare.Read | FileShare.Delete);
         long full = file?.Length ?? response.Body?.LongLength ?? 0, start = 0, end = full - 1; int status = response.Status;
         var extra = response.Headers ?? new();

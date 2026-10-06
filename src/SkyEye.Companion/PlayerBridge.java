@@ -19,11 +19,15 @@ public final class PlayerBridge {
     private final android.os.Handler retry=new android.os.Handler(android.os.Looper.getMainLooper());private long generation;private String activeUrl="";private boolean released;
     private int rotation;private int videoWidth=1920,videoHeight=1080;private org.json.JSONObject scene,tvScene;private boolean sceneApplied;private Bitmap captureScratch;private final android.graphics.Paint videoPaint=new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG|android.graphics.Paint.FILTER_BITMAP_FLAG|android.graphics.Paint.DITHER_FLAG);
     private boolean diagnostics;private long decodedFrames,textureFrames,measurementStart,lastTextureNs,lastReleaseNs;private double releaseToTextureMs;
+    private static boolean liveUrl(String url){return url.contains(".m3u8")||url.contains("/live/stream.ts");}
     public void setDiagnostics(boolean enabled){diagnostics=enabled;if(measurementStart==0)measurementStart=System.nanoTime();}
     public PlayerBridge(Activity context,Listener listener){
-        this.listener=listener;texture=new TextureView(context);texture.setOpaque(false);player=new ExoPlayer.Builder(context).build();player.setVideoTextureView(texture);player.setVolume(0);
+        this.listener=listener;texture=new TextureView(context);texture.setOpaque(false);
+        androidx.media3.exoplayer.DefaultLoadControl buffering=new androidx.media3.exoplayer.DefaultLoadControl.Builder()
+            .setBufferDurationsMs(250,5000,100,250).setPrioritizeTimeOverSizeThresholds(true).build();
+        player=new ExoPlayer.Builder(context).setLoadControl(buffering).build();player.setVideoTextureView(texture);player.setVolume(0);
         container=new FrameLayout(context);container.setBackgroundColor(android.graphics.Color.BLACK);container.addView(texture,new FrameLayout.LayoutParams(-1,-1));
-        overlay=new View(context){protected void onDraw(Canvas canvas){super.onDraw(canvas);org.json.JSONObject snapshot=tableDrawing.snapshot(System.currentTimeMillis());Matrix matrix=texture.getTransform(new Matrix());canvas.save();if(sceneApplied)clipScene(canvas);canvas.concat(matrix);drawing.draw(canvas,getWidth(),getHeight());tableDrawing.geometry(canvas,getWidth(),getHeight(),videoWidth/(float)videoHeight,snapshot);if(sceneApplied)drawGuides(canvas,getWidth(),getHeight());canvas.restore();tableDrawing.textLayer(canvas,getWidth(),getHeight(),matrix,snapshot);phoneScene=tableDrawing.metrics(snapshot,generation,player.getCurrentPosition()).toString();phoneFraming=calculateFramingMetrics();annotationRecorder.drawn(snapshot,scene==null?"":scene.toString(),false,generation);if(activeUrl.contains(".m3u8"))WatermarkRenderer.draw(context,canvas,getWidth(),getHeight());}};
+        overlay=new View(context){protected void onDraw(Canvas canvas){super.onDraw(canvas);org.json.JSONObject snapshot=tableDrawing.snapshot(System.currentTimeMillis());Matrix matrix=texture.getTransform(new Matrix());canvas.save();if(sceneApplied)clipScene(canvas);canvas.concat(matrix);drawing.draw(canvas,getWidth(),getHeight());tableDrawing.geometry(canvas,getWidth(),getHeight(),videoWidth/(float)videoHeight,snapshot);if(sceneApplied)drawGuides(canvas,getWidth(),getHeight());canvas.restore();tableDrawing.textLayer(canvas,getWidth(),getHeight(),matrix,snapshot);phoneScene=tableDrawing.metrics(snapshot,generation,player.getCurrentPosition()).toString();phoneFraming=calculateFramingMetrics();annotationRecorder.drawn(snapshot,scene==null?"":scene.toString(),false,generation);if(liveUrl(activeUrl))WatermarkRenderer.draw(context,canvas,getWidth(),getHeight());}};
         overlay.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);container.addView(overlay,new FrameLayout.LayoutParams(-1,-1));
         retry.post(new Runnable(){public void run(){if(released)return;overlay.invalidate();retry.postDelayed(this,200);}});
         texture.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->transform());
@@ -32,10 +36,11 @@ public final class PlayerBridge {
         TextureView.SurfaceTextureListener delegate=texture.getSurfaceTextureListener();
         texture.setSurfaceTextureListener(new TextureView.SurfaceTextureListener(){public void onSurfaceTextureAvailable(android.graphics.SurfaceTexture t,int w,int h){delegate.onSurfaceTextureAvailable(t,w,h);}public void onSurfaceTextureSizeChanged(android.graphics.SurfaceTexture t,int w,int h){delegate.onSurfaceTextureSizeChanged(t,w,h);}public boolean onSurfaceTextureDestroyed(android.graphics.SurfaceTexture t){return delegate.onSurfaceTextureDestroyed(t);}public void onSurfaceTextureUpdated(android.graphics.SurfaceTexture t){delegate.onSurfaceTextureUpdated(t);if(diagnostics){textureFrames++;lastTextureNs=System.nanoTime();releaseToTextureMs=(lastTextureNs-lastReleaseNs)/1000000d;}}});
         player.addListener(new Player.Listener(){
-            public void onPlayerError(PlaybackException e){listener.onError(activeUrl.contains(".m3u8")?"Viewing interrupted. Waiting for the live feed to recover.":"Downloaded clip could not be played.");long expected=generation;
-                if(activeUrl.contains(".m3u8"))retry.postDelayed(()->{if(!released&&expected==generation){player.prepare();player.play();}},3000);
+            public void onPlayerError(PlaybackException e){listener.onError(liveUrl(activeUrl)?"Viewing interrupted. Waiting for the live feed to recover.":"Downloaded clip could not be played.");long expected=generation;
+                if(liveUrl(activeUrl))retry.postDelayed(()->{if(!released&&expected==generation){play(activeUrl);}},1000);
             }
             public void onIsPlayingChanged(boolean playing){listener.onPlaying(playing);}
+            public void onPlaybackStateChanged(int state){if(state==Player.STATE_ENDED&&liveUrl(activeUrl)){long expected=generation;retry.postDelayed(()->{if(!released&&expected==generation)play(activeUrl);},100);}}
             public void onVideoSizeChanged(VideoSize size){videoWidth=size.width;videoHeight=size.height;transform();}
         });
     }
@@ -66,7 +71,7 @@ public final class PlayerBridge {
         for(int[] pair:new int[][]{{0,5},{2,3}}){org.json.JSONArray a=points.optJSONArray(pair[0]),b=points.optJSONArray(pair[1]);canvas.drawLine((float)a.optDouble(0)*width,(float)a.optDouble(1)*height,(float)b.optDouble(0)*width,(float)b.optDouble(1)*height,paint);}
     }
     String captureFrame(Bitmap output){
-        if(!player.isPlaying()||!activeUrl.contains(".m3u8")||!texture.isAvailable())return null;
+        if(!player.isPlaying()||!liveUrl(activeUrl)||!texture.isAvailable())return null;
         output.eraseColor(android.graphics.Color.BLACK);
         if(captureScratch==null||captureScratch.getWidth()!=output.getWidth()||captureScratch.getHeight()!=output.getHeight()){if(captureScratch!=null)captureScratch.recycle();captureScratch=Bitmap.createBitmap(output.getWidth(),output.getHeight(),Bitmap.Config.ARGB_8888);}
         if(texture.getBitmap(captureScratch)==null)return null;
@@ -85,7 +90,18 @@ public final class PlayerBridge {
             androidx.media3.exoplayer.hls.HlsExtractorFactory factory=(uri,format,captions,adjuster,headers,input,id)->{
                 annotationRecorder.extractor(adjuster,expectedGeneration);return delegate.createExtractor(uri,format,captions,adjuster,headers,input,id);
             };
-            player.setMediaSource(new androidx.media3.exoplayer.hls.HlsMediaSource.Factory(new androidx.media3.datasource.DefaultDataSource.Factory(container.getContext())).setExtractorFactory(factory).createMediaSource(MediaItem.fromUri(url)));
+            MediaItem item=new MediaItem.Builder().setUri(url).setLiveConfiguration(new MediaItem.LiveConfiguration.Builder()
+                .setTargetOffsetMs(2500).setMinOffsetMs(2000).setMaxOffsetMs(5000).setMinPlaybackSpeed(.97f).setMaxPlaybackSpeed(1.03f).build()).build();
+            player.setMediaSource(new androidx.media3.exoplayer.hls.HlsMediaSource.Factory(new androidx.media3.datasource.DefaultDataSource.Factory(container.getContext())).setExtractorFactory(factory).createMediaSource(item));
+        }else if(url.contains("/live/stream.ts")){
+            long expectedGeneration=generation;
+            androidx.media3.common.util.TimestampAdjuster adjuster=new androidx.media3.common.util.TimestampAdjuster(0);
+            androidx.media3.extractor.ExtractorsFactory extractors=()->{
+                annotationRecorder.extractor(adjuster,expectedGeneration);
+                return new androidx.media3.extractor.Extractor[]{new androidx.media3.extractor.ts.TsExtractor(androidx.media3.extractor.ts.TsExtractor.MODE_SINGLE_PMT,adjuster,new androidx.media3.extractor.ts.DefaultTsPayloadReaderFactory())};
+            };
+            player.setMediaSource(new androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(new androidx.media3.datasource.DefaultDataSource.Factory(container.getContext()),extractors)
+                .setContinueLoadingCheckIntervalBytes(16384).createMediaSource(new MediaItem.Builder().setUri(url).setMimeType(MimeTypes.VIDEO_MP2T).build()));
         }else player.setMediaItem(MediaItem.fromUri(url));player.prepare();player.play();}
     public void stop(){generation++;annotationRecorder.reset(generation);tableDrawing.reset();tvDrawing.reset();drawing.set("{}");phoneScene="{}";activeUrl="";player.stop();player.clearMediaItems();}
     public void setMuted(boolean muted){player.setVolume(muted?0:1);}

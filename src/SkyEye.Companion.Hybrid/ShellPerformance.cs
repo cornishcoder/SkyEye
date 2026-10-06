@@ -24,6 +24,13 @@ public sealed partial class ShellSession
                 await ControlCameraAsync(new(app.State.Version, new ClaimCameraHost(app.State.Camera.Scope!, HostName)));
                 return HttpResponse.Json(new { host = app.State.Camera.CanControl });
             }
+            if (r.Method == "POST" && r.Path == "/capture")
+            {
+                var action = r.Json<PerformanceCapture>().Action;
+                if (action is not (CaptureAction.Stop or CaptureAction.Start)) return HttpResponse.Json(new { error = "Unsupported development action" }, 400);
+                await ControlCameraAsync(new(app.State.Version, new ChangeCapture(app.State.Camera.Scope!, action)));
+                return HttpResponse.Json(new { capture = app.State.Camera.Capture.ToString() });
+            }
             if (r.Method == "POST" && r.Path == "/observe")
             {
                 return await MainThread.InvokeOnMainThreadAsync(async () =>
@@ -51,6 +58,7 @@ public sealed partial class ShellSession
         }, IPAddress.Loopback);
         performanceServer.Start();
     }
+    sealed record PerformanceCapture(CaptureAction Action);
     void StopPerformance() { if (performanceServer is not null) _ = performanceServer.DisposeAsync(); performanceServer = null; PipelineDiagnostics.Enabled = false; }
 }
 #endif

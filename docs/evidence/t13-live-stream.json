@@ -1,0 +1,38 @@
+{
+  "n": 60,
+  "sourceAgeEstimateP50Ms": 598.5860000252724,
+  "sourceAgeEstimateP95Ms": 682.1919999718666,
+  "textureCallbackFps": 25.974192413477862,
+  "decoderReleaseFps": 30.001936536202756,
+  "firstCamera": {
+    "state": "Active",
+    "sessionId": "6b89aadb6bce4e5a9f9b1a6b478884e9",
+    "revision": 2,
+    "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+    "sourceTimeUs": 25695097929,
+    "frames": 1170,
+    "battery": 100,
+    "temperatureC": 36.5,
+    "clipCount": 8,
+    "error": "",
+    "statusRttMs": 94.9894
+  },
+  "lastCamera": {
+    "state": "Active",
+    "sessionId": "6b89aadb6bce4e5a9f9b1a6b478884e9",
+    "revision": 2,
+    "timeline": "0f748d2fa84d4dde9ed8d8cf3a15d89a",
+    "sourceTimeUs": 25758166343,
+    "frames": 3060,
+    "battery": 100,
+    "temperatureC": 36.5,
+    "clipCount": 8,
+    "error": "",
+    "statusRttMs": 42.856
+  },
+  "pipeline": {
+    "counts": {},
+    "stages": {}
+  },
+  "physicalEstimateSeconds": 1
+}

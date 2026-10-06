@@ -13,6 +13,7 @@ The previous T13 is now **T14: background corrected delivery and media resource 
 - Phone and TV presentation are independently versioned: Live, ShotChoices, SelectedShot or Replay. Existing paths, ball/ghost/pocket highlights and labels prove an extensible, separately controllable annotation model. Clear affects the requested target and returns it to live.
 - Typed commands are shared by touch and Sky-compatible tools. Establish equivalents of `observe_table`, `set_phone_presentation`, `set_tv_presentation`, `show_shot_choices`, `show_shot`, `show_annotation` and `clear_annotations`; reuse existing command vocabulary where appropriate. Actual voice transport/API-key work remains separately deferred to A02-A05. Programmatic commands are an explicitly permitted acceptance route.
 - Video/frame/analysis queues are bounded. Replaced work cannot publish a stale result after a newer request, source switch, layout change or cancellation. Latest wins; discarded work is counted.
+- Perspective correction is rendering: continuously reuse stored calibration through SceneProjection/TextureView without periodic pocket/table perception. Invalidate geometry only on camera movement, zoom/crop or stream shape change, or explicit recalibration. Keep phone and requested TV composition independent.
 
 ## Measurement-first chunks
 
