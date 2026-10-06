@@ -49,6 +49,8 @@
     <AndroidJavaSource Include="../SkyEye.Companion/AnnotationRecorder.java" Link="Native/AnnotationRecorder.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/WatermarkRenderer.java" Link="Native/WatermarkRenderer.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/PlayerBridge.java" Link="Native/PlayerBridge.java" />
+    <AndroidJavaSource Include="../SkyEye.Companion/DecodedFrameLedger.java" Link="Native/DecodedFrameLedger.java" />
+    <AndroidJavaSource Include="../SkyEye.Companion/DecodedFrameSnapshot.java" Link="Native/DecodedFrameSnapshot.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/CandidateOverlay.java" Link="Native/CandidateOverlay.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/TableSceneOverlay.java" Link="Native/TableSceneOverlay.java" />
     <AndroidJavaSource Include="../SkyEye.Companion/OverlayEncoder.java" Link="Native/OverlayEncoder.java" />

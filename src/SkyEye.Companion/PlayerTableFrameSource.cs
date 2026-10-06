@@ -21,13 +21,23 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
                 if (owner is null || !live() || connection().Scope != source || !connection().CanControl)
                     throw new InvalidOperationException("Use the current live source for observation.");
                 using var timing = PipelineDiagnostics.Measure("textureCopyMs");
-                pixels = new(owner.SnapshotForAnalysis() ?? throw new IOException("No fresh decoded live frame is available."));
-                using var metrics = JsonDocument.Parse(owner.ObservationFrameMetrics()!); var stamp = metrics.RootElement;
-                var age = stamp.GetProperty("ageEstimateMs").GetDouble();
-                if (!double.IsFinite(age) || age is < -200 or > 6000) throw new IOException("The displayed live frame is too old. Wait for moving live video.");
-                cancellation.ThrowIfCancellationRequested();
-                completion.TrySetResult(new([], DateTimeOffset.UtcNow.AddMilliseconds(-Math.Max(0, age)), stamp.GetProperty("timeline").GetString()!)
-                { Image = pixels, SourceTimeUs = stamp.GetProperty("sourceUs").GetInt64(), FrameSource = "decoded-live-texture" });
+                using var snapshot = owner.SnapshotDecodedFrame() ?? throw new IOException("No fresh paired decoded live frame is available.");
+                try
+                {
+                    using var metrics = JsonDocument.Parse(snapshot.Metadata()!); var stamp = metrics.RootElement;
+                    if (stamp.GetProperty("pairing").GetString() != "exact-surface-timestamp"
+                        || stamp.GetProperty("surfaceTimestampNs").GetInt64() != stamp.GetProperty("releaseTimestampNs").GetInt64())
+                        throw new IOException("Decoded pixels have no exact source timestamp receipt.");
+                    pixels = new(snapshot.TakeBitmap() ?? throw new IOException("Decoded receipt pixels are unavailable."));
+                    var age = stamp.GetProperty("ageEstimateMs").GetDouble();
+                    if (!double.IsFinite(age) || age is < -200 or > 6000) throw new IOException("The displayed live frame is too old. Wait for moving live video.");
+                    cancellation.ThrowIfCancellationRequested();
+                    if (player() != owner || !live() || connection().Scope != source || !connection().CanControl)
+                        throw new InvalidOperationException("Live observation source changed during frame acquisition.");
+                    completion.TrySetResult(new([], DateTimeOffset.UtcNow.AddMilliseconds(-Math.Max(0, age)), stamp.GetProperty("timeline").GetString()!)
+                    { Image = pixels, SourceTimeUs = stamp.GetProperty("sourceUs").GetInt64(), FrameSource = "decoded-live-texture" });
+                }
+                finally { snapshot.Close(); }
             }
             catch (Exception error) { pixels?.Dispose(); completion.TrySetException(error); }
         });
