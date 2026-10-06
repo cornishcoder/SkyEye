@@ -1,0 +1,60 @@
+{
+  "unit": "T12 historical annotations baked into standalone MP4",
+  "date": "2026-10-06",
+  "sourceSnapshotCommit": "cfc7eab",
+  "productionApkSha256": "3ED97A56F06C550D778CA2061F80CFD966786B4A6E3D1555BF833CFE02ECC66F",
+  "labApkSha256": "F4E7E072571F415FCF94F26BA009DE2FA2B012E641568F2E56BF165E0E9A3DDB",
+  "nativeTestApkSha256": "FA302E5D563108F77C529AD741537398E3E3DD4D8FB501505D96BF41C14CB107",
+  "checks": {
+    "core": "passed: source/target fences, historical PTS, identical video/overlay mapping across portrait, changed geometry and fallback, clear/expiry, fingerprint invalidation and frozen paired publication under concurrent journal amendment",
+    "agentUi": "passed",
+    "nativeRelease": {
+      "warnings": 15,
+      "errors": 0
+    },
+    "productionRelease": {
+      "warnings": 10,
+      "errors": 0
+    },
+    "labRelease": {
+      "warnings": 7,
+      "errors": 0
+    },
+    "baselineRelease": {
+      "warnings": 14,
+      "errors": 0
+    }
+  },
+  "rendering": {
+    "coordinates": "Recorded source-image paths/markers mapped by the exact historical video homography; captions/notes/scores remain upright; watermark composed last",
+    "time": "Decoder-local PTS translated using recording origin; no live TTL/current advice lookup",
+    "targets": "Portrait uses actual phone history; landscape uses actual TV history",
+    "profile": "annotations-v1 plus complete source-scoped journal SHA256 joins geometry and watermark profile; cached outputs become invalid when retained history changes",
+    "publication": "Freeze sidecar before preparation/render, render both orientations against that immutable snapshot, publish files and journal atomically; no post-publication journal mutation",
+    "absence": "Empty/missing historical observations produce corrected plain footage with watermark; legacy footage is never annotated from current live suggestions"
+  },
+  "nativePixels": {
+    "fixtureLandscape": "annotation-compositor-landscape.json",
+    "fixturePortrait": "annotation-compositor-portrait.json",
+    "actualReplayLandscape": "annotation-replay-landscape.json",
+    "actualReplayPortrait": "annotation-replay-portrait.json",
+    "actualExport": "annotation-replay-export.json",
+    "coverage": "Known cyan/red/yellow fixture changes and historical clears verified in decoded frames. Real live-published candidate/cycle/pin events and clear spans verified against independent unannotated renders of the same original, in both product-generated MP4s. Labelled lab content is synthetic advice, footage/timestamps are real camera data.",
+    "audio": "Native export verifies unchanged AAC samples/hash and start/end timestamps; 1344 samples in actual replay, original SHA 7A816FAD5EDC27FDADC7DE7782932A059051D7FD4D5C40CBADDDFF6188A1BB43"
+  },
+  "device": {
+    "model": "Pixel 11 Pro XL",
+    "humanTvConfirmation": "User confirmed cyan path, Journal candidate caption and watermark in paused standalone MP4 around nine seconds",
+    "tvControls": "annotation-replay-tv-controls.json: pause accepted at state3, seek accepted to zero, resume accepted at state2",
+    "camera": "Active in same session a061183702574b4b837c57fc2f61fe7e, revision3, timeline afbdc86e83d44dd8aaa7702bcc1dcc38; eight permanent clips unchanged; no camera app update",
+    "production": "Installed in place; UID/private storage retained; test companions closed and live viewing restored"
+  },
+  "limits": [
+    "Sky voice remains deferred; this verifies actual published bounded scenes using declared lab content, not a new Sky voice/API integration.",
+    "Historical pocket-detection gaps still use whole-camera fallback.",
+    "Physical changed-mount/moving-ball annotation accuracy and sustained background delivery remain T13/vision acceptance; core moved-geometry mappings are verified.",
+    "No WhatsApp message was sent. The annotated MP4 was decoded and played independently; the FileProvider share route is unchanged.",
+    "Last unobserved journal tails remain absent; export never invents annotations to fill missing history."
+  ],
+  "upstreamBitmapOverlayReference": "https://github.com/androidx/media/blob/1.10.1/libraries/effect/src/main/java/androidx/media3/effect/BitmapOverlay.java"
+}
