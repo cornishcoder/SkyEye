@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Text.Json.Serialization;
 
 namespace SkyEye.GameState;
 
@@ -13,6 +14,7 @@ public sealed record MotionStopped(string ShotId) : GameInput;
 public sealed record ShotStarted(string ShotId) : GameInput;
 public sealed record ShotEnded(string ShotId) : GameInput;
 public sealed record TableSettled : GameInput;
+public sealed record SelectSource : GameInput;
 public sealed record BallObserved(ObservedBall Ball) : GameInput;
 public sealed record BallMoved(string BallId, TablePosition Position) : GameInput;
 public sealed record BallMissing(string BallId) : GameInput;
@@ -21,6 +23,12 @@ public sealed record PossiblePocketEvent(string ShotId, string BallId, Pocket Po
 public sealed record PossibleCollision(string ShotId, string FirstBall, string SecondBall) : GameInput;
 public sealed record PossibleCushionContact(string ShotId, string BallId) : GameInput;
 // Typed correction payloads can be supplied by touch, a player or a future Sky adapter.
+[JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
+[JsonDerivedType(typeof(AssignColour), "colour")]
+[JsonDerivedType(typeof(ChangeTurn), "turn")]
+[JsonDerivedType(typeof(SetFoul), "foul")]
+[JsonDerivedType(typeof(SetBallPresence), "ball")]
+[JsonDerivedType(typeof(SetFrameWinner), "frame")]
 public abstract record Correction;
 public sealed record AssignColour(string PlayerId, BallColour Colour) : Correction;
 public sealed record ChangeTurn(string PlayerId) : Correction;

@@ -17,6 +17,7 @@ namespace SkyEye.GameState;
 [JsonDerivedType(typeof(FoulRecordedEvent), "foul-recorded")]
 [JsonDerivedType(typeof(FrameWonEvent), "frame-won")]
 [JsonDerivedType(typeof(StateCorrectedEvent), "state-corrected")]
+[JsonDerivedType(typeof(SourceSelectedEvent), "source-selected")]
 public abstract record GameEvent;
 public sealed record MatchStartedEvent(ImmutableArray<Player> Players, int Target) : GameEvent;
 public sealed record FrameStartedEvent(string CurrentPlayer) : GameEvent;
@@ -24,6 +25,7 @@ public sealed record TableObservedEvent(ImmutableArray<ObservedBall> Balls, bool
 public sealed record ShotStartedEvent(string ShotId) : GameEvent;
 public sealed record ShotEndedEvent(string ShotId) : GameEvent;
 public sealed record TableSettledEvent : GameEvent;
+public sealed record SourceSelectedEvent : GameEvent;
 public sealed record PocketApproachedEvent(string ShotId, string BallId, Pocket Pocket) : GameEvent;
 public sealed record BallPottedEvent(string ShotId, string BallId, Pocket Pocket, bool CueBall, ImmutableArray<Guid> Evidence) : GameEvent;
 public sealed record ColourAssignedEvent(string PlayerId, BallColour Colour) : GameEvent;

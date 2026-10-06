@@ -14,5 +14,6 @@ Check((table with { Balls = table.Balls.SetItem(ball.Id, ball with { Presence = 
     "Missing evidence is not a proven pot or reliable remaining count");
 Check(typeof(GameSnapshot).Assembly.GetReferencedAssemblies().All(a => !a.Name!.Contains("Android") && !a.Name.Contains("SkyEye.Core")), "Domain has no platform/application dependency");
 Console.WriteLine("PASS R01 contracts: two players, open frame, settled layout and explicit uncertainty; pure .NET");
+Scenarios.Ordering();
 
 static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }

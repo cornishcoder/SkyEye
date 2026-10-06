@@ -1,0 +1,100 @@
+using System.Collections.Immutable;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+
+namespace SkyEye.GameState;
+
+public enum InputOutcome { Applied, Duplicate, Stale, Rejected, Conflict }
+public sealed record InputResult(InputOutcome Outcome, string Message, GameSession Session)
+{
+    public bool Accepted => Outcome is InputOutcome.Applied or InputOutcome.Duplicate;
+}
+
+/// <summary>Immutable proposal. The application persists a successful replacement before publishing it.</summary>
+public sealed class GameSession
+{
+    public ImmutableArray<EventEnvelope> History { get; }
+    public GameSnapshot State { get; }
+    public static GameSession Empty { get; } = new([]);
+    GameSession(ImmutableArray<EventEnvelope> history) { History = history; State = GameReducer.Rebuild(history); }
+    public static GameSession Restore(IEnumerable<EventEnvelope> events)
+    {
+        var history = events.ToImmutableArray();
+        if (history.Any(e => e.EventId == Guid.Empty || e.InputId == Guid.Empty || string.IsNullOrWhiteSpace(e.InputFingerprint))
+            || history.Select(e => e.EventId).Distinct().Count() != history.Length) throw new ArgumentException("Invalid event identities.");
+        return new(history);
+    }
+
+    public InputResult Accept(GameInputEnvelope input)
+    {
+        InputResult Refuse(InputOutcome outcome, string message) => new(outcome, message, this);
+        if (input is null || input.Input is null || input.Id == Guid.Empty || !Text(input.MatchId) || !Enum.IsDefined(input.Provenance)
+            || !Confidence(input.Confidence) || input.SourceTimeUs is < 0 || input.Source is { } source && !ValidSource(source))
+            return Refuse(InputOutcome.Rejected, "Invalid input envelope.");
+        var fingerprint = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new
+        {
+            input.MatchId, input.FrameId, input.At, input.Source, input.SourceTimeUs, input.Provenance, input.Confidence,
+            Input = JsonSerializer.SerializeToElement(input.Input, input.Input.GetType())
+        }))));
+        var previous = History.FirstOrDefault(e => e.InputId == input.Id);
+        if (previous is not null) return Refuse(previous.InputFingerprint == fingerprint ? InputOutcome.Duplicate : InputOutcome.Conflict,
+            previous.InputFingerprint == fingerprint ? "Input already applied." : "Input ID reused with different evidence.");
+        if (History.Length >= 10000) return Refuse(InputOutcome.Rejected, "Game history is full; archive before continuing.");
+        if (input.Input is StartMatch m)
+        {
+            if (State.Match is not null || m.Players.IsDefault || m.Players.Length != 2 || m.Players.Any(p => p is null || !Text(p.Id) || !Text(p.Name))
+                || m.Players.Select(p => p.Id).Distinct().Count() != 2 || m.Target is < 1 or > 100)
+                return Refuse(InputOutcome.Rejected, "Declare two distinct players and a positive target for a new match.");
+            return Commit(input, fingerprint, [new MatchStartedEvent(m.Players, m.Target)]);
+        }
+        if (State.Match?.Id != input.MatchId || !Text(input.FrameId)) return Refuse(InputOutcome.Stale, "Input belongs to another match/frame.");
+        if (input.Input is StartFrame f)
+        {
+            if (!PlayerExists(f.CurrentPlayer) || State.Frame is { Winner: null } || State.Match.FrameWinners.ContainsKey(input.FrameId) || State.Match.Winner is not null)
+                return Refuse(InputOutcome.Rejected, "Declare a player and a new frame after resolving the previous frame.");
+            return Commit(input, fingerprint, [new FrameStartedEvent(f.CurrentPlayer)]);
+        }
+        if (State.Frame?.Id != input.FrameId || State.Frame.Winner is not null)
+            return Refuse(InputOutcome.Stale, "Input belongs to an inactive frame.");
+        if (input.Input is SelectSource)
+        {
+            if (input.Source is null || input.Source == State.Table.Source || State.Table.Source is { } old && input.Source.Camera == old.Camera && input.Source.Generation < old.Generation)
+                return Refuse(InputOutcome.Rejected, "Select a new current source explicitly.");
+            return Commit(input, fingerprint, [new SourceSelectedEvent()]);
+        }
+        if (input.Source is null || State.Table.Source is { } current && current != input.Source)
+            return Refuse(InputOutcome.Stale, "Evidence belongs to another source; select it explicitly first.");
+        var last = History.LastOrDefault(e => e.FrameId == input.FrameId && e.Source == input.Source);
+        if (last is not null && (input.At < last.At || input.SourceTimeUs is { } pts && last.SourceTimeUs is { } previousPts && pts < previousPts))
+            return Refuse(InputOutcome.Stale, "Evidence is older than the accepted source watermark.");
+        GameEvent? change = input.Input switch
+        {
+            TableObservation o when ValidObservation(o) && !(last?.Event is TableObservedEvent && input.At == last.At)
+                => new TableObservedEvent(o.Balls, o.Settled, o.Uncertain),
+            ShotStarted s when Text(s.ShotId) && CanStartShot(s.ShotId) => new ShotStartedEvent(s.ShotId),
+            MotionStarted s when Text(s.ShotId) && CanStartShot(s.ShotId) => new ShotStartedEvent(s.ShotId),
+            ShotEnded s when State.Shot is { Ended: false } shot && shot.Id == s.ShotId => new ShotEndedEvent(s.ShotId),
+            MotionStopped s when State.Shot is { Ended: false } shot && shot.Id == s.ShotId => new ShotEndedEvent(s.ShotId),
+            TableSettled when State.Table.Balls.Count > 0 => new TableSettledEvent(),
+            _ => null
+        };
+        return change is null ? Refuse(InputOutcome.Rejected, "Unsupported, invalid or phase-incompatible evidence.") : Commit(input, fingerprint, [change]);
+    }
+    bool PlayerExists(string id) => State.Match!.Players.Any(p => p.Id == id);
+    bool CanStartShot(string id) => State.Table.Motion == TableMotion.Settled && !State.Table.Uncertain
+        && (State.Shot is null || State.Shot.Ended) && !History.Any(e => e.FrameId == State.Frame!.Id && e.Event is ShotStartedEvent s && s.ShotId == id);
+    static bool ValidObservation(TableObservation o) => !o.Balls.IsDefault && o.Balls.Length <= 16
+        && o.Balls.All(b => b is not null && Text(b.Id) && Enum.IsDefined(b.Colour) && Confidence(b.Confidence) && ValidPosition(b.Position))
+        && o.Balls.Select(b => b.Id).Distinct().Count() == o.Balls.Length;
+    static bool ValidPosition(TablePosition? p) => p is null || double.IsFinite(p.X) && double.IsFinite(p.Y) && p.X is >= 0 and <= 1 && p.Y is >= 0 and <= 1;
+    static bool Confidence(double? value) => value is null || double.IsFinite(value.Value) && value is >= 0 and <= 1;
+    static bool Text(string? value) => !string.IsNullOrWhiteSpace(value) && value.Length <= 128;
+    static bool ValidSource(EvidenceSource s) => Text(s.Camera) && Text(s.Timeline) && Text(s.Calibration) && s.Generation > 0;
+    InputResult Commit(GameInputEnvelope input, string fingerprint, IEnumerable<GameEvent> changes)
+    {
+        var events = changes.Select((e, i) => new EventEnvelope(1, History.Length + i + 1, Guid.NewGuid(), input.Id, fingerprint,
+            input.MatchId, input.FrameId, input.At, input.Source, input.SourceTimeUs, input.Provenance, input.Confidence, e)).ToImmutableArray();
+        return new(InputOutcome.Applied, "Game state updated.", new(History.AddRange(events)));
+    }
+}
