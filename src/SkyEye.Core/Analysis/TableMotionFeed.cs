@@ -12,7 +12,10 @@ public sealed record MotionFeedOptions(int FramesPerSecond = 30, long MaximumGap
             || !double.IsFinite(MaximumAgeMs) || MaximumAgeMs is < 100 or > 6000) throw new ArgumentException("Invalid motion-feed bounds.");
     }
 }
-public sealed record MotionFrameContext(MotionFeedScope Scope, long FrameId, long SourceTimeUs, bool Reset, double? DeltaSeconds);
+public sealed record MotionFrameContext(MotionFeedScope Scope, long FrameId, long SourceTimeUs, bool Reset, double? DeltaSeconds)
+{
+    public double AcquisitionMs { get; init; }
+}
 public sealed record RoiMotion(string Id, int Features, int Supported, double? DxPixels, double? DyPixels,
     double? VelocityXPixelsPerSecond, double? VelocityYPixelsPerSecond, string Status);
 public sealed record MotionMeasurement(long SourceTimeUs, IReadOnlyList<RoiMotion> Regions, double ConversionMs, double FlowMs);
@@ -43,7 +46,7 @@ public sealed class TableMotionFeed : IAsyncDisposable
     int active, width, height;
     string? stopReason;
     MotionMeasurement? latest;
-    double acquisitionMs, workerMs, resultAgeMs;
+    double acquisitionMs, pendingAcquisitionMs, workerMs, resultAgeMs;
 
     public TableMotionFeed(ITableFrameSource source, ITableMotionProcessor processor, MotionFeedScope scope,
         Func<bool> current, MotionFeedOptions? options = null, TimeProvider? time = null)
@@ -118,7 +121,7 @@ public sealed class TableMotionFeed : IAsyncDisposable
                         {
                             width = receipt.Width; height = receipt.Height;
                             lastReceivedId = receipt.FrameId; lastReceivedUs = frame.SourceTimeUs!.Value;
-                            pending = frame; frame = null;
+                            pending = frame; pendingAcquisitionMs = acquisitionMs; frame = null;
                             if (wake.CurrentCount == 0) wake.Release();
                         }
                     }
@@ -155,7 +158,7 @@ public sealed class TableMotionFeed : IAsyncDisposable
                         bool reset = lastProcessedUs < 0 || frame.SourceTimeUs!.Value - lastProcessedUs > options.MaximumGapUs;
                         if (reset && lastProcessedUs >= 0) gaps++;
                         context = new(scope, frame.DecodedReceipt!.FrameId, frame.SourceTimeUs!.Value, reset,
-                            reset ? null : (frame.SourceTimeUs.Value - lastProcessedUs) / 1000000d);
+                            reset ? null : (frame.SourceTimeUs.Value - lastProcessedUs) / 1000000d) { AcquisitionMs = pendingAcquisitionMs };
                     }
                 }
                 if (frame is null) continue;
@@ -169,7 +172,7 @@ public sealed class TableMotionFeed : IAsyncDisposable
                     lock (gate)
                     {
                         if (!Current()) continue;
-                        if (!Fresh(frame)) { stale++; continue; }
+                        if (!Fresh(frame)) { stale++; lastProcessedUs = -1; continue; }
                         if (result.SourceTimeUs != context!.SourceTimeUs) throw new InvalidDataException("Worker result lost source time.");
                         processed++; lastProcessedUs = context.SourceTimeUs; latest = result;
                         workerMs = clock.Elapsed.TotalMilliseconds; resultAgeMs = (time.GetUtcNow() - frame.CapturedAt).TotalMilliseconds;

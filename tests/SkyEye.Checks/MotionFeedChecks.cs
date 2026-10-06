@@ -67,7 +67,8 @@ static class MotionFeedChecks
         var deadline = DateTimeOffset.UtcNow.AddSeconds(3);
         while (!ready()) { if (DateTimeOffset.UtcNow >= deadline) throw new Exception("Motion-feed check timeout"); await Task.Delay(2); }
     }
-    sealed class Clock : TimeProvider { public override DateTimeOffset GetUtcNow() => DateTimeOffset.UnixEpoch.AddDays(10); }
+    sealed class Clock : TimeProvider { long ticks; public void Advance(double seconds) => Interlocked.Add(ref ticks, TimeSpan.FromSeconds(seconds).Ticks);
+        public override DateTimeOffset GetUtcNow() => DateTimeOffset.UnixEpoch.AddDays(10).AddTicks(Interlocked.Read(ref ticks)); }
     sealed class Leases { public int Alive, Created, Disposed, Peak; }
     sealed class Pixels : ITableFrameImage
     {

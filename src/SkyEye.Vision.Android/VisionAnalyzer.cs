@@ -31,6 +31,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer
             Cv.NumThreads = Math.Min(4, Environment.ProcessorCount); loaded = true;
         }
     }
+    internal static void EnsureNativeLoaded() => Load();
     public VisionResult Analyze(byte[] jpeg, TableCalibration calibration, CancellationToken cancellation = default)
     {
         Load(); using var source = Decode(jpeg); return AnalyzePixels(source.Value, calibration, cancellation);
