@@ -29,6 +29,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SkyEye.Observation", "src\S
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SkyEye.Observation.Checks", "tests\SkyEye.Observation.Checks\SkyEye.Observation.Checks.csproj", "{305644A4-DDB1-47DF-8D27-7BEE40CC6572}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SkyEye.Observation.Workbench", "src\SkyEye.Observation.Workbench\SkyEye.Observation.Workbench.csproj", "{68519067-A38D-48B6-B88C-A515FAA2DBC7}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -171,6 +173,18 @@ Global
 		{305644A4-DDB1-47DF-8D27-7BEE40CC6572}.Release|x64.Build.0 = Release|Any CPU
 		{305644A4-DDB1-47DF-8D27-7BEE40CC6572}.Release|x86.ActiveCfg = Release|Any CPU
 		{305644A4-DDB1-47DF-8D27-7BEE40CC6572}.Release|x86.Build.0 = Release|Any CPU
+		{68519067-A38D-48B6-B88C-A515FAA2DBC7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{68519067-A38D-48B6-B88C-A515FAA2DBC7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{68519067-A38D-48B6-B88C-A515FAA2DBC7}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{68519067-A38D-48B6-B88C-A515FAA2DBC7}.Debug|x64.Build.0 = Debug|Any CPU
+		{68519067-A38D-48B6-B88C-A515FAA2DBC7}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{68519067-A38D-48B6-B88C-A515FAA2DBC7}.Debug|x86.Build.0 = Debug|Any CPU
+		{68519067-A38D-48B6-B88C-A515FAA2DBC7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{68519067-A38D-48B6-B88C-A515FAA2DBC7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{68519067-A38D-48B6-B88C-A515FAA2DBC7}.Release|x64.ActiveCfg = Release|Any CPU
+		{68519067-A38D-48B6-B88C-A515FAA2DBC7}.Release|x64.Build.0 = Release|Any CPU
+		{68519067-A38D-48B6-B88C-A515FAA2DBC7}.Release|x86.ActiveCfg = Release|Any CPU
+		{68519067-A38D-48B6-B88C-A515FAA2DBC7}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -187,5 +201,6 @@ Global
 		{D73415F4-684A-4823-A9E2-6FF3C97858B9} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{8FF2B866-DD31-4C2E-A310-320A57EDD030} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{305644A4-DDB1-47DF-8D27-7BEE40CC6572} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
+		{68519067-A38D-48B6-B88C-A515FAA2DBC7} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 	EndGlobalSection
 EndGlobal

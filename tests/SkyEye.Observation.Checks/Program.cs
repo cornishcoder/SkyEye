@@ -34,6 +34,19 @@ try
     Throws<InvalidDataException>(() => files.Resolve("../outside"));
     var real = sequence with { Kind = CorpusKind.Real, Purpose = SequencePurpose.Shot, Split = CorpusSplit.Holdout };
     Throws<InvalidDataException>(() => CorpusValidation.Validate(manifest with { Sequences = [sequence, real with { Id = "held" }] }, files));
+    var lockPath = Path.Combine(root, "manifest.json"); File.WriteAllText(lockPath, CorpusJson.Write(manifest));
+    var frozen = SplitLock.Freeze(manifest, files, lockPath);
+    SplitLock.Verify(frozen, SplitLock.Freeze(manifest, files, lockPath));
+    File.AppendAllText(Path.Combine(root, "labels.json"), " ");
+    Throws<InvalidDataException>(() => SplitLock.Verify(frozen, SplitLock.Freeze(manifest, files, lockPath)));
+    var truth = new FrameLabels("start", frames[0].PixelSha256, "table-2x1",
+        [new("R1", "red", .2, .3, LabelVisibility.Visible), new("Y1", "yellow", .5, .6, LabelVisibility.Visible), new("hidden", "red", .8, .8, LabelVisibility.Occluded)], "fixture");
+    var detection = new StoredDetection("start", frames[0].PixelSha256, "table-2x1", "fixture-v1", "Synthetic scoring example", true,
+        [new("matched", "yellow", .2, .3, .8), new("extra", "red", 1.5, .9, .9)]);
+    var score = DetectorBaseline.Score(truth, detection, .027);
+    Check(score.SpatialTruePositives == 1 && score.FalsePositives == 1 && score.MissedVisible == 1 && score.ColourCorrect == 0,
+        "Visible ground truth, wrong colours, extra circles and misses remain separate");
+    Throws<InvalidDataException>(() => DetectorBaseline.Score(truth, detection with { PixelSha256 = new string('0',64) }, .027));
     File.WriteAllBytes(Path.Combine(root, "next.gray"), new byte[64]);
     Throws<InvalidDataException>(() => FrameReplay.Run(sequence, files));
     Console.WriteLine("PASS observation corpus/replay: deterministic receipts, duplicates/backwards, gaps/scope resets, pixel-ID pairing, checksums, split leakage and synthetic coverage limits");
