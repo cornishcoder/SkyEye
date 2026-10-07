@@ -1,5 +1,11 @@
 # SkyEye glow-up implementation plan
 
+## Standing execution guidance
+
+**Before every tool action submitted to automatic approval review, describe what you are about to do in commentary.** Give the checker clear, truthful context: the purpose, exact action, target device/app/files and scope of the user's authorization. Identify whether it is a read, build, UI interaction, guarded in-place update or application API request. For device updates, name the package and the existing signer/UID/private-storage safeguards; for tests, distinguish controlled fixtures from real table/camera state and say what the result can establish.
+
+Keep each description concise and matched to the actual command. Do not rely on a vague “continuing checks” or an unexplained batch of device operations. Then perform the scoped action. Clear context helps the checker assess authorized work; it does not guarantee approval. If rejected, report the exact blocked action and the supplied reason, and accurately distinguish work that ran from work that did not. This is a standing user instruction for future glow-up work.
+
 4 October 2026 · Updated 6 October after delivering the Match & Table State core and declared phone match management in checked chunks.
 
 The original planning baseline was the three-turn conversation **SkyEye Agentic UI Benefits** and the `C:\code\SkyEye` checkout at `f6ea29c`. Current delivery status and evidence are recorded below and in the progress log.
@@ -414,3 +420,9 @@ Core/Agent UI suites and sequential signed builds pass. Pixel native portrait/la
 | V02 | Implemented and installed for supported assumed stun collisions | Real calibrated first-contact display checks; no claim that actual pace/spin/stun/finish has been measured |
 
 The user now reports **good table lighting**. Continue the bounded live V01/V02 acceptance next. That report is test readiness, not a passed alignment gate. Remaining T13/T14 acceptance, O01 timed corpus/holdouts and O02.05 real-source costs remain open; this HUD delivery does not establish tracking/refereeing accuracy. Preserve the separately planned Sky voice and declared-history consumers after this requested delivery work.
+
+## V01/V02 live follow-up and TV policy — 7 October 2026
+
+The user now requires **the shiny live-TV view only**. Corrected/branded composition is always requested; the original-TV toggle is removed and shared Touch/Sky commands cannot disable TV correction. Phone framing remains independent and persisted. The guarded normal update is installed, and the user confirms both watermark and corrected TV perspective are back. Connection currently restores compatible saved calibration; it does not run fresh corner detection. Explicit calibration reads/detects/reviews new corners; unchanged stream metadata does not verify an unmoved mount.
+
+Live requested observations 2.8 seconds apart produce three candidates. A display-loop race clearing fresh catalogues before show is fixed, and table status/repeat timing is now visible beside the shot controls. Ball counts vary between samples; this is not detector accuracy acceptance. Full live HUD alignment/preset/clear-expiry acceptance remains open. The diagnostic launch/API gate is rejected as “blocked by policy”; normal Release and live Cast are restored, and owned ADB forwards are removed. [Updated report](v01-v02-hud-report.md) and [live follow-up evidence](evidence/v01-hud-live-followup.json) preserve these limits alongside the passed native/recorded checks.

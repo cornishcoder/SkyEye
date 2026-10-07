@@ -1,0 +1,64 @@
+{
+  "recordedAtUtc": "2026-10-07T10:07:05.5636442+00:00",
+  "commits": [
+    "80a9ed2",
+    "ea0e643"
+  ],
+  "coreChecks": "passed",
+  "agentUiChecks": "passed",
+  "productionBuild": {
+    "errors": 0,
+    "warnings": 7,
+    "logSha256": "40079E2C11AC8ECBA0C6159E758AB2DDCA35ABD301757C4156CED15F674B25E7"
+  },
+  "retainedBuild": {
+    "errors": 0,
+    "warnings": 10,
+    "logSha256": "7519324792ECA89BFCD102FBD98E8145C061349EB5556989A205F9B1C7E4E763"
+  },
+  "liveCatalogue": {
+    "ballCountVariationObserved": true,
+    "observationGapMs": 2800,
+    "ui": [
+      "3 choices · cycle every 2 seconds · expires after 15 seconds",
+      "Phone: cycling choices · TV: cycling choices",
+      "7 reds · 6 yellows · 1 cue · 1 black. Layout confirmed."
+    ],
+    "capturedBeforeFollowupFixes": true,
+    "realHudPixelAcceptance": false,
+    "detectorAccuracyAcceptance": false
+  },
+  "tv": {
+    "phoneFraming": "independent and persisted",
+    "calibration": "Compatible saved camera/geometry calibration; no fresh-on-connect corner detection",
+    "userQuestion": "Does the TV now show the SkyEye watermark and corrected table perspective?",
+    "userReply": "Both are back",
+    "policy": "Corrected/branded live TV only; Touch/Sky disabling rejected"
+  },
+  "diagnostics": {
+    "temporaryInstallerSwitchRemoved": true,
+    "launchApiGate": "Automatic approval review rejected: blocked by policy; none executed",
+    "testsPassed": false,
+    "connection": "Response ended prematurely; no valid metrics"
+  },
+  "finalProduction": {
+    "deDataInode": 617901,
+    "package": "uk.co.skyeye.companion",
+    "castConnectedObserved": true,
+    "installedApkSha256": "E8341DC7085104DA230A0A6A7800D7CE6B145F4F0D1BEB9D01EE6436EB936613",
+    "ceDataInode": 639806,
+    "normalReleaseRestored": true,
+    "uid": 10644,
+    "guardedInstaller": "retained signer UID and private storage",
+    "ownedAdbForwardsRemoved": true,
+    "cameraCaptureControlChanged": false,
+    "cameraReconnected": true,
+    "apkSha256": "E8341DC7085104DA230A0A6A7800D7CE6B145F4F0D1BEB9D01EE6436EB936613"
+  },
+  "remaining": [
+    "Real live HUD alignment and physical preset/clear/expiry parity",
+    "Mount pose cannot be verified from unchanged stream configuration alone",
+    "T13/T14 interruption/endurance/audio/resource acceptance",
+    "Real O01 timed corpus and O02.05 real-source performance"
+  ]
+}

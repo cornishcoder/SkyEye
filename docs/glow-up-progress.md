@@ -1,5 +1,11 @@
 # Glow-up implementation progress
 
+## Standing execution guidance
+
+**Before every tool action submitted to automatic approval review, describe what you are about to do in commentary.** Give the checker clear, truthful context: the purpose, exact action, target device/app/files and scope of the user's authorization. Identify whether it is a read, build, UI interaction, guarded in-place update or application API request. For device updates, name the package and the existing signer/UID/private-storage safeguards; for tests, distinguish controlled fixtures from real table/camera state and say what the result can establish.
+
+Keep each description concise and matched to the actual command. Do not rely on a vague “continuing checks” or an unexplained batch of device operations. Then perform the scoped action. Clear context helps the checker assess authorized work; it does not guarantee approval. If rejected, report the exact blocked action and the supplied reason, and accurately distinguish work that ran from work that did not. This is a standing user instruction for future glow-up work.
+
 The full implementation plan is in [glow-up-plan.md](glow-up-plan.md). Work starts from `f6ea29c`; production capture and the existing companion remain usable while the new host is proved.
 
 ## Current priority — 6 October 2026
@@ -489,3 +495,9 @@ The user prioritises V01/V02 before lighting-dependent tracking work. Checked ch
 [Report](v01-v02-hud-report.md), [six native presets](evidence/v01-hud-native.json), [source-timed exports](evidence/v01-hud-export.json), [prerecorded TV proof](evidence/v01-hud-cast.json), [build/install/provenance](evidence/v01-hud-delivery.json). Core and Agent UI checks pass, including mixed version-one/version-two history through durable preservation and restart. Each six-second export has 180 corrected frames and 150 annotated frames, with a clean 2–3-second interval. Guarded normal installation retains UID/private storage and installed APK hash matches the checked build. The user installs the isolated port-conflict fix and confirms the combined prerecorded Cast check; camera capture/credentials are untouched.
 
 V01/V02 implementation is delivered; live acceptance is still partial. The user now reports good table lighting, so continue fresh real-candidate alignment, actual touch presets, independent density/clear and moving expiry/source/layout checks. Good lighting does not itself pass them. T13/T14 recovery/endurance/audio/resource, O01 real corpus/holdout and O02.05 real-source performance remain separately open. V03 and V04 retain validated physics and trustworthy observed-trajectory prerequisites; concurrent voice/history roadmap drafts are preserved.
+
+## V01/V02 live follow-up and shiny-only TV — 7 October 2026
+
+The user reports good lighting. A bounded pair of real observations yields three candidates, but full live HUD acceptance stays open and observed ball-count variation is recorded. Checked fixes preserve fresh requested catalogues while surfaces remain live and expose settlement status/repeat timing. The user then requires shiny-only live TV: the original-view control is removed, central Touch/Sky commands refuse disabling TV correction, and phone framing stays independent/persisted. The user confirms both TV watermark and corrected perspective are restored.
+
+Final normal Release is restored through the guarded installer with matching installed APK hash and retained UID/private storage. Live camera/Cast reconnect is performed and owned ADB forwards are removed. The separate diagnostics launch/API gate is rejected with only “blocked by policy”; its live tests are not counted as passed. [Report](v01-v02-hud-report.md), [final follow-up](evidence/v01-hud-live-followup.json). Saved compatible calibration is reused on connection; fresh corner detection remains an explicit calibration action. Existing T13/T14 and O-series evidence gates remain open.
