@@ -42,6 +42,20 @@ static class ShotHudChecks
         Check((contact - new Point(.973,.5)).Length < 1e-9, "Surface contact is halfway between ghost/target, not ghost centre");
         var directionOnly = ShotSceneProjection.Create(shot,calibration,3,2,now,now.AddSeconds(10),"Candidate",true,ShotAnnotations.WhiteDirection);
         Check(directionOnly.Corridors.Length==0 && directionOnly.ShotHud!.Model==CueDirectionProjection.Model, "Direction-only mask retains provenance with minimal density");
+        var bank = shot with { Type="bank", TargetPath=[shot.Target,new(1.973,.5),new(1.5,.1)] };
+        var bankScene = ShotSceneProjection.Create(bank,calibration,4,2,now,now.AddSeconds(10),"Bank",true);
+        Check(bankScene.Markers.Count(m=>m.Kind==SceneMarkerKind.Cushion)==1 && GeometricCueProjection.From(bank).Direction==projection.Direction,
+            "Object-bank geometry marks its one planned rail while first-impact stun direction remains unchanged");
+        var kick = shot with { Type="kick", CuePath=[new(.5,.7),new(.8,.973),shot.GhostBall] };
+        var kickScene = ShotSceneProjection.Create(kick,calibration,5,2,now,now.AddSeconds(10),"Kick",true);
+        Check(kickScene.Corridors.Length==2 && kickScene.Markers.Count(m=>m.Kind==SceneMarkerKind.Cushion)==1
+            && !kickScene.Paths.Any(p=>p.Role==ScenePathRole.CueProjected) && kickScene.ShotHud!.ProjectionUnavailable is not null,
+            "Kick HUD retains incoming rail geometry and explains unavailable post-contact projection");
+        Check(GeometricCueProjection.From(shot with { TargetPath=[new(1.1,.5),shot.Destination] }).Direction is null
+            && GeometricCueProjection.From(shot with { GhostBall=new(double.NaN,.5) }).Direction is null,
+            "Mismatched and nonfinite collision geometry cannot invent a direction");
+        var nearRail = shot with { GhostBall=new(.946,.05),Target=new(1,.05),CuePath=[new(.5,.25),new(.946,.05)],TargetPath=[new(1,.05),new(1.9,.05)] };
+        Check(GeometricCueProjection.From(nearRail).Direction is null,"Too little rail clearance leaves direction unknown instead of implying a cushion model");
         for(int angle=-50;angle<=50;angle+=5)
         {
             if(angle==0)continue;
