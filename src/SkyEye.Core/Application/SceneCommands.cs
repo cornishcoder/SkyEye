@@ -5,7 +5,14 @@ namespace SkyEye.Core.Application;
 public enum SceneTarget { Phone, Tv, Both }
 public enum ShotDisplayMode { Live, Cycling, Pinned, Score, Replay }
 [Flags]
-public enum ShotAnnotations { None = 0, CueBallPath = 1, ObjectBallPath = 2, TargetBall = 4, GhostBall = 8, Pocket = 16, ShotLabel = 32, All = 63 }
+public enum ShotAnnotations
+{
+    None = 0, CueBallPath = 1, ObjectBallPath = 2, TargetBall = 4, GhostBall = 8, Pocket = 16, ShotLabel = 32,
+    AimCorridor = 64, ContactPoint = 128, CushionContacts = 256, CueBallProjectedPath = 512, Provenance = 1024,
+    Lines = CueBallPath | ObjectBallPath | AimCorridor | GhostBall | ContactPoint | Pocket,
+    WhiteDirection = CueBallPath | ContactPoint | CueBallProjectedPath | Provenance,
+    All = 2047
+}
 public sealed record SurfacePresentation(ShotDisplayMode Mode, string? ShotId = null, long TableVersion = 0)
 {
     public ShotAnnotations Annotations { get; init; } = ShotAnnotations.All;

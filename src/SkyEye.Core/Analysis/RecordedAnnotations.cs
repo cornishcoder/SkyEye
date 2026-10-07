@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Security.Cryptography;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using SkyEye.Core.Application;
 
 namespace SkyEye.Core.Analysis;
@@ -10,11 +11,18 @@ namespace SkyEye.Core.Analysis;
 public sealed record RecordedScene(long Version, long TableVersion, ImmutableArray<ScenePath> Paths,
     ImmutableArray<SceneMarker> Markers, ImmutableArray<SceneAnnotation> Annotations, string Caption, SceneScore? Score)
 {
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int Schema { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public ImmutableArray<SceneCorridor> Corridors { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ShotHudInfo? ShotHud { get; init; }
     public void Validate()
     {
         if (Paths.IsDefault || Markers.IsDefault || Annotations.IsDefault) throw new ArgumentException("Missing scene content.");
-        _ = new TableScene(Version, 1, TableVersion, DateTimeOffset.UnixEpoch,
-            TimeSpan.FromSeconds(1), Paths, Markers, Annotations, Caption, Score);
+        var checkedScene = new TableScene(Version, 1, TableVersion, DateTimeOffset.UnixEpoch,
+            TimeSpan.FromSeconds(1), Paths, Markers, Annotations, Caption, Score, Corridors.IsDefault ? [] : Corridors, ShotHud);
+        if (Schema is not (0 or 1 or 2) || checkedScene.Schema == 2 && Schema != 2) throw new ArgumentException("Unsupported recorded scene schema.");
     }
 }
 public sealed record AnnotationObservation(string Timeline, long SourceUs, SceneTarget Target, string Geometry,
@@ -25,7 +33,7 @@ public sealed record ClipAnnotationJournal(int Schema, string SourceSha256, Clip
 {
     public void Validate()
     {
-        if (Schema != 1 || SourceSha256 is not { Length: 64 } || !SourceSha256.All(Uri.IsHexDigit)
+        if (Schema is not (1 or 2) || SourceSha256 is not { Length: 64 } || !SourceSha256.All(Uri.IsHexDigit)
             || DurationUs is <= 0 or > 605_000_000 || CoordinateSpace != "source-image-normalized-v1"
             || Spans.IsDefault || Spans.Length > 12000 || Origin is null && Spans.Length != 0)
             throw new ArgumentException("Invalid clip annotation journal.");
@@ -42,6 +50,7 @@ public sealed record ClipAnnotationJournal(int Schema, string SourceSha256, Clip
                 if (span.StartUs < end || span.EndUs <= span.StartUs || span.EndUs > Origin!.StartUs + DurationUs
                     || !Hash(span.Geometry)) throw new ArgumentException("Invalid annotation interval.");
                 span.Scene?.Validate(); end = span.EndUs;
+                if (Schema == 1 && span.Scene?.Schema == 2) throw new ArgumentException("Version-two scene requires a version-two clip journal.");
             }
         }
     }
@@ -152,7 +161,7 @@ public sealed class AnnotationJournalStore
                 .Where(s => s.StartUs < origin.StartUs + duration && s.EndUs > origin.StartUs)
                 .Select(s => s with { StartUs = Math.Max(s.StartUs, origin.StartUs), EndUs = Math.Min(s.EndUs, origin.StartUs + duration) })
                 .OrderBy(s => s.Target).ThenBy(s => s.StartUs).ToArray();
-            var journal = new ClipAnnotationJournal(1, clip.Sha256, origin, duration, "source-image-normalized-v1", spans.ToImmutableArray());
+            var journal = new ClipAnnotationJournal(spans.Any(s => s.Scene?.Schema == 2) ? 2 : 1, clip.Sha256, origin, duration, "source-image-normalized-v1", spans.ToImmutableArray());
             journal.Validate(); return journal;
         }
     }
@@ -178,7 +187,7 @@ public sealed class AnnotationJournalStore
                 if (before is not null && before.EndUs > span.StartUs) continue;
                 spans.Add(span);
             }
-            journal = journal with { Spans = spans.ToImmutableArray() };
+            journal = journal with { Spans = spans.ToImmutableArray(), Schema = spans.Any(s => s.Scene?.Schema == 2) ? 2 : journal.Schema };
         }
         WriteClip(path, journal);
     }
