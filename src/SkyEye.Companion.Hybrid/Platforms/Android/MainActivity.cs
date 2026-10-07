@@ -19,7 +19,8 @@ public class MainActivity : MauiAppCompatActivity
         base.OnCreate(savedInstanceState);
         shell = IPlatformApplication.Current!.Services.GetRequiredService<ShellSession>();
 #if SKYEYE_PERFORMANCE
-        if (Intent?.GetBooleanExtra("skyeye-performance", false) == true) { Window!.AddFlags(Android.Views.WindowManagerFlags.KeepScreenOn); shell.EnablePerformance(); }
+        // This code exists only in the explicitly opted-in diagnostics build.
+        Window!.AddFlags(Android.Views.WindowManagerFlags.KeepScreenOn); shell.EnablePerformance();
 #endif
         sheetBack = new(shell);
         OnBackPressedDispatcher.AddCallback(this, sheetBack);

@@ -17,6 +17,7 @@ public sealed partial class ShellSession
         player?.SetDiagnostics(true);
         performanceServer = new(8768, async (r, ct) =>
         {
+            if (r.Method == "GET" && r.Path == "/ping") return HttpResponse.Json(new { diagnostic = true, package = Android.App.Application.Context.PackageName });
             if (r.Method == "POST" && r.Path == "/connect")
             { await ConnectAsync(SavedAddress); return HttpResponse.Json(new { connected = app.State.Camera.Reachability.ToString() }); }
             if (r.Method == "POST" && r.Path == "/fixture")
@@ -103,6 +104,11 @@ public sealed partial class ShellSession
                 calibrated = HasTableCalibration
                 ,observation = app.State.Observation
                 ,motion = MotionMetrics
+                ,calibration = table.State.Calibration?.Corners
+                ,table = table.State.Table
+                ,candidateStatus = CandidateStatus
+                ,scene = JsonSerializer.Deserialize<JsonElement>(player?.SceneMetrics() ?? "{}")
+                ,copy = JsonSerializer.Deserialize<JsonElement>(player?.DecodedCopyMetrics() ?? "{}")
             }));
         }, IPAddress.Loopback);
         performanceServer.Start();
