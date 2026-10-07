@@ -51,6 +51,20 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         using var warped = Warp(source, calibration);
         using var hsv = new MatLease(new Mat()); Imgproc.CvtColor(warped.Value, hsv.Value, Imgproc.ColorBgr2hsv);
         byte[] pixels = Read(hsv.Value); var circles = Detect(hsv.Value, pixels, settings.InitialVotes, appearance is not null && settings.VerificationBodyRefinement);
+        var proposals = circles.ToArray();
+        var boundaries = new Dictionary<Circle, BallBoundary>();
+        bool boundaryUncertain = false;
+        if (appearance is not null)
+        {
+            var raw = Read(warped.Value);
+            for (int i = 0; i < circles.Length; i++)
+            {
+                var fit = BallBoundaryRefiner.Refine(raw, coordinates.Width, coordinates.Height, new(circles[i].X, circles[i].Y), PoolGeometry.Radius * coordinates.Width);
+                if (fit is null || fit.SupportedSectors < .75) { boundaryUncertain = true; continue; }
+                var refined = new Circle(fit.Centre.X, fit.Centre.Y, fit.Radius);
+                boundaries[refined] = fit; circles[i] = refined;
+            }
+        }
         var first = circles.Select(c => Classify(c, pixels, appearance is not null)).ToArray();
         int rawCircleCount = circles.Length;
         bool normalized = false, referenceValid = false, referenceConflict = false; double[] colourGains = [1, 1, 1]; var cueIndices = Enumerable.Range(0, first.Length).Where(i => first[i].Kind == "cue").ToArray();
@@ -67,7 +81,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             referenceConflict = referenceValid && Enumerable.Range(0, 3).Any(i => Math.Abs(colourGains[i] / appearance.Gains[i] - 1) > .15);
             colourGains = appearance.Gains.ToArray(); referenceValid = appearance.ReferenceValid;
         }
-        if (appearance is not null && !appearance.Frozen) { appearance.Gains = colourGains.ToArray(); appearance.ReferenceValid = referenceValid; appearance.Frozen = true; }
+        if (appearance is not null && !appearance.Frozen && referenceValid) { appearance.Gains = colourGains.ToArray(); appearance.ReferenceValid = true; appearance.Frozen = true; }
         if (referenceValid)
         {
             byte[] bgr = Read(warped.Value);
@@ -88,14 +102,20 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         var ordered = circles.OrderBy(c => c.Y).ThenBy(c => c.X).ToArray();
         var rawLabels = ordered.Select(c => Classify(c, pixels, appearance is not null)).ToArray();
         var labels = BallClassifier.ConstrainInventory(rawLabels);
+        if (appearance is not null && !referenceValid)
+            labels = labels.Select(l => l with { Kind = "unknown", Quality = 0 }).ToArray();
         for (int i = 0; i < ordered.Length; i++)
         {
             var circle = ordered[i]; var label = labels[i]; var position = coordinates.ToTable(new(circle.X, circle.Y));
             balls.Add(new(label.Kind + "-" + balls.Count, label.Kind, position, label.Quality));
             observations.Add(new(balls[^1].Id, new(circle.X, circle.Y), circle.Radius, label.Pattern, label.Clusters)
-            { BodyDarkFraction = label.BodyDarkFraction, RimDarkFraction = label.RimDarkFraction });
+            { BodyDarkFraction = label.BodyDarkFraction, RimDarkFraction = label.RimDarkFraction,
+                ProposalCentre = appearance is null ? null : new(proposals[Array.IndexOf(circles, circle)].X, proposals[Array.IndexOf(circles, circle)].Y),
+                ProposalRadius = appearance is null ? null : proposals[Array.IndexOf(circles, circle)].Radius,
+                BoundarySupport = boundaries.GetValueOrDefault(circle)?.SupportedSectors });
         }
         bool uncertain = balls.Any(b => b.Kind == "unknown") || balls.Count > 16 || balls.Count(b => b.Kind == "cue") != 1 || balls.Count(b => b.Kind == "black") != 1 || balls.Count(b => b.Kind == "red") > 7 || balls.Count(b => b.Kind == "yellow") > 7;
+        if (boundaryUncertain) { uncertain = true; warnings.Add("Current ball boundary lacks sufficient edge support."); }
         if (appearance is not null && (!referenceValid || referenceConflict))
         { uncertain = true; warnings.Add(referenceConflict ? "Current cue reference conflicts with the frozen burst gains." : "No validated burst colour reference. Review the table."); }
         if (uncertain) warnings.Add("Check uncertain colours or ball counts before using advice.");
@@ -301,7 +321,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         var rim = new List<HsvPixel>();
         ForPixels(circle, .95, (x, y) =>
         {
-            if ((x - circle.X) * (x - circle.X) + (y - circle.Y) * (y - circle.Y) < circle.Radius * circle.Radius * .65 * .65) return;
+            if ((x - circle.X) * (x - circle.X) + (y - circle.Y) * (y - circle.Y) < circle.Radius * circle.Radius * .8 * .8) return;
             int offset = (y * coordinates.Width + x) * 3; rim.Add(new(hsv[offset], hsv[offset + 1], hsv[offset + 2]));
         });
         return BallClassifier.ClassifyWithRim(samples.ToArray(), rim.ToArray());

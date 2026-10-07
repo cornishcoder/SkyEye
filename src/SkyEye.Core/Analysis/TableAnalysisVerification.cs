@@ -47,6 +47,8 @@ public sealed partial class TableAnalysisSession
         double maxGapMs = 0, acquisitionMs = 0; long scheduleStart = start, finalReceiptAt = start;
         ObservationReason reason = ObservationReason.InsufficientEvidence;
         VerificationRejection? rejected = null;
+        VerificationFailure? failure = null;
+        string stage = "admission";
         try
         {
             await analyzerGate.WaitAsync(linked.Token).ConfigureAwait(false); leased = true;
@@ -55,7 +57,7 @@ public sealed partial class TableAnalysisSession
             {
                 linked.Token.ThrowIfCancellationRequested();
                 if (samples.Count is 0 or 2 or 4 && frames is ITableVerificationFrameSource clockSource)
-                    await clockSource.RefreshVerificationClockAsync(linked.Token).WaitAsync(linked.Token).ConfigureAwait(false);
+                { stage = "clock"; await clockSource.RefreshVerificationClockAsync(linked.Token).WaitAsync(linked.Token).ConfigureAwait(false); }
                 if (samples.Count > 0)
                 {
                     var wait = TimeSpan.FromSeconds(samples.Count * ObservationPolicy.SampleIntervalSeconds) - time.GetElapsedTime(scheduleStart);
@@ -63,11 +65,13 @@ public sealed partial class TableAnalysisSession
                 }
                 if (samples.Count > 0 && frames is ITableMotionFrameSource polling)
                 {
+                    stage = "poll";
                     var scope = new MotionFeedScope(admitted.Source!, mediaGeneration, admitted.CalibrationId, timeline!);
                     while (!await polling.HasNewFrameAsync(scope, samples[^1].FrameId, samples[^1].SourceTimeUs, linked.Token).ConfigureAwait(false))
                         await Task.Delay(TimeSpan.FromMilliseconds(40), time, linked.Token).ConfigureAwait(false);
                 }
                 var readStart = time.GetTimestamp();
+                stage = "acquisition";
                 var frame = await ReadVerificationFrameAsync(admitted.Source!, linked.Token, cleanup => retiringAcquisition = cleanup).ConfigureAwait(false);
                 acquisitionMs = time.GetElapsedTime(readStart).TotalMilliseconds;
                 var receipt = frame.DecodedReceipt; var pts = frame.SourceTimeUs;
@@ -97,9 +101,12 @@ public sealed partial class TableAnalysisSession
                 {
                     using (frame)
                     {
+                        stage = "analysis";
                         var measured = worker.Measure(frame, detect, linked.Token);
                         linked.Token.ThrowIfCancellationRequested();
+                        stage = "capture";
                         capture?.Invoke(new(operationId, admitted.Generation, admitted.CalibrationId, admitted.Calibration!.Corners.ToArray(), frame, measured));
+                        stage = "review";
                         return (measured, reviewFrame && detect ? frame.ReviewImage() : null);
                     }
                 }, CancellationToken.None);
@@ -127,7 +134,15 @@ public sealed partial class TableAnalysisSession
         catch (OperationCanceledException) when (deadline.IsCancellationRequested && !activeOperation.IsCancellationRequested && !caller.IsCancellationRequested)
         { reason = ObservationReason.TimedOut; if (PublishVerification()) completed.TrySetResult(); else completed.TrySetCanceled(); }
         catch (OperationCanceledException) { ClearFailedAnalysis(admitted.Generation); completed.TrySetCanceled(); }
-        catch (Exception) { reason = ObservationReason.FrameUnavailable; if (PublishVerification()) completed.TrySetResult(); else completed.TrySetCanceled(); }
+        catch (Exception error)
+        {
+            reason = error is FrameAcquisitionException acquisition ? acquisition.Reason
+                : stage == "capture" ? ObservationReason.CaptureFailed
+                : stage is "analysis" or "review" ? ObservationReason.AnalysisFailed : ObservationReason.FrameUnavailable;
+            failure = new(stage, error is FrameAcquisitionException sourceError ? sourceError.Code : error.GetType().Name)
+                { SourceStatus = (error as FrameAcquisitionException)?.SourceStatus };
+            if (PublishVerification()) completed.TrySetResult(); else completed.TrySetCanceled();
+        }
         finally
         {
             // Keep one native worker/lease until an uncooperative native call returns.
@@ -156,7 +171,7 @@ public sealed partial class TableAnalysisSession
                     return false;
                 var visions = samples.Where(s => s.Measurement.Vision is not null).Select(s => s.Measurement.Vision!).ToArray();
                 var lastDetection = samples.LastOrDefault(s => s.Measurement.Vision is not null);
-                var consensus = VerificationConsensus.Resolve(visions);
+                var consensus = VerificationConsensus.Resolve(visions, out var conflict);
                 bool still = samples.Count >= ObservationPolicy.MinimumVerificationSamples && samples[^1].SourceTimeUs - samples[0].SourceTimeUs >= ObservationPolicy.MinimumStillSeconds * 1000000
                     && samples.All(s => s.Measurement.CoverageValid) && samples.Skip(1).All(s => s.Measurement.Motion == TableMotion.Still);
                 var sinceReceiptMs = time.GetElapsedTime(finalReceiptAt).TotalMilliseconds;
@@ -185,7 +200,7 @@ public sealed partial class TableAnalysisSession
                             finalAge + (samples[^1].SourceTimeUs - lastDetection.SourceTimeUs) / 1000d),
                         Verification = new(operationId, ObservationPolicy.VerificationConfiguration, admitted.CalibrationId, admittedGroup, mediaGeneration,
                             samples.FirstOrDefault()?.SourceTimeUs, samples.LastOrDefault()?.SourceTimeUs, samples.Count, maxGapMs, double.IsFinite(finalClockAge) ? finalClockAge : -1, samples.ToArray())
-                            { RejectedSample = rejected } } };
+                            { RejectedSample = rejected, Failure = failure, ConsensusConflict = conflict } } };
                 lastTimeline = timeline;
                 return true;
             }

@@ -130,7 +130,7 @@ public sealed partial class AppCoordinator
             else if (result is null || result.Source != request.Source || result.AnalysisGeneration != request.AnalysisGeneration || result.MediaGeneration != request.MediaGeneration
                 || !double.IsFinite(result.DurationMs) || result.DurationMs < 0 || !double.IsFinite(result.FrameAgeMs) || result.FrameAgeMs is < -2000 or > 6000)
                 receipt = Receipt(envelope, CommandOutcome.Failed, error ?? "The displayed frame is too old for current advice.");
-            else if (request.Mode == ObservationMode.VerifyForAdvice && result.Outcome == ObservationOutcome.Ready && !VerifiedReady(result, envelope.OperationId, admittedGroup))
+            else if (request.Mode == ObservationMode.VerifyForAdvice && result.Outcome == ObservationOutcome.Ready && !HasVerificationProof(result, envelope.OperationId, admittedGroup))
                 receipt = Receipt(envelope, CommandOutcome.Failed, "The table check did not provide complete current verification evidence.");
             else
             {
@@ -152,7 +152,7 @@ public sealed partial class AppCoordinator
         }
         finally { serial.Release(); }
     }
-    static bool VerifiedReady(TableObservation result, Guid operationId, AdviceTargetGroup group)
+    public static bool HasVerificationProof(TableObservation result, Guid operationId, AdviceTargetGroup group)
     {
         var evidence = result.Verification;
         if (evidence is null || evidence.OperationId != operationId || evidence.MediaGeneration != result.MediaGeneration
@@ -184,6 +184,8 @@ public sealed partial class AppCoordinator
         ObservationReason.SourceChanged or ObservationReason.SampleGap => "Live source interrupted. Resume live video and retry.",
         ObservationReason.TimedOut => "Table check timed out. Check the live view, then retry.",
         ObservationReason.FrameUnavailable => "Live frame unavailable. Resume live video and retry.",
+        ObservationReason.AnalysisFailed => "Table analysis failed. Retry or review the table.",
+        ObservationReason.CaptureFailed => "Diagnostic capture failed. Disable capture and retry.",
         _ => "Stillness could not be verified. Check the live view or review the table."
     };
 }

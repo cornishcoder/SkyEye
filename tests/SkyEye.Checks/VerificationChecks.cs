@@ -20,6 +20,7 @@ static class VerificationChecks
         var drift = good with { Balls = good.Balls.Select(b => b with { Position = b.Position + new Point(.02, 0) }).ToArray() };
         Check(VerificationConsensus.Resolve([good, good, drift]) is null, "Fixed anchor prevents cumulative centre drift");
         PixelChecks();
+        BoundaryChecks();
         var cream = new HsvPixel(20, 110, 240); var dark = new HsvPixel(20, 210, 25);
         var patch = Enumerable.Repeat(cream, 70).Concat(Enumerable.Repeat(dark, 30)).ToArray();
         Check(BallClassifier.Classify(patch).Kind == "cue" && BallClassifier.ClassifyWithRim(patch, Enumerable.Repeat(dark, 30).ToArray()).Kind == "black",
@@ -41,6 +42,18 @@ static class VerificationChecks
         var observation = session.State.Observation!;
         var choices = session.ComputeChoices(session.State.Generation, observation.TableVersion);
         Check(ReferenceEquals(choices, session.ComputeChoices(session.State.Generation, observation.TableVersion)) && analyzer.Detections == 3, "Choices computed once without new perception");
+        session.Invalidate(); analyzer.Failure = new InvalidDataException("fixture");
+        await session.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !session.HasPendingWork);
+        Check(session.State.Observation is { Reason: ObservationReason.AnalysisFailed, Verification.Failure.Stage: "analysis" },
+            "Worker failures retain their stage instead of blaming live playback"); analyzer.Failure = null;
+        session.Invalidate(); session.VerificationCapture = _ => throw new IOException("fixture");
+        await session.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !session.HasPendingWork);
+        Check(session.State.Observation is { Reason: ObservationReason.CaptureFailed, Verification.Failure.Stage: "capture" },
+            "Diagnostic capture failure is distinct from acquisition and analysis"); session.VerificationCapture = null;
+        session.Invalidate(); frames.Failure = new FrameAcquisitionException(ObservationReason.ClockUntrusted, "unmapped-source-clock");
+        await session.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !session.HasPendingWork);
+        Check(session.State.Observation is { Reason: ObservationReason.ClockUntrusted, Verification.Failure.Code: "unmapped-source-clock" },
+            "Typed native acquisition reason survives publication"); frames.Failure = null;
         session.Invalidate(); frames.Duplicate = true;
         await session.VerifyAsync(Guid.NewGuid(), 1);
         Check(session.State.Observation?.Reason == ObservationReason.SourceChanged && session.State.Observation.Outcome != ObservationOutcome.Ready, "Duplicate receipts cannot build a span"); frames.Duplicate = false;
@@ -102,18 +115,66 @@ static class VerificationChecks
         var pose = new VerificationPixels(w, h); pose.Measure(gray, true, null);
         var shifted = Enumerable.Range(0, w * h).Select(i => gray[(i / w) * w + (i % w + 2) % w]).ToArray();
         Check(pose.Measure(shifted, true, null).Reason == ObservationReason.CalibrationChanged, "Global camera shift invalidates calibration");
+        byte[] Body(int cx, byte foreground, bool rgb = false)
+        {
+            var result = Enumerable.Repeat((byte)100, w * h * (rgb ? 3 : 1)).ToArray();
+            for (int y = 3; y < h - 3; y++) for (int x = 3; x < 12; x++)
+                for (int c = 0; c < (rgb ? 3 : 1); c++) result[(y * w + x) * (rgb ? 3 : 1) + c] = (byte)(x % 2 == 0 ? 80 : 120);
+            for (int y = 95; y <= 105; y++) for (int x = cx - 5; x <= cx + 5; x++)
+                if ((x - cx) * (x - cx) + (y - 100) * (y - 100) <= 25)
+                    for (int c = 0; c < (rgb ? 3 : 1); c++) result[(y * w + x) * (rgb ? 3 : 1) + c] = foreground;
+            return result;
+        }
+        var lowContrast = new VerificationPixels(w, h); lowContrast.Measure(Body(60, 110), true, null);
+        for (int x = 61; x <= 65; x++) Check(lowContrast.Measure(Body(x, 110), true, null).Motion != TableMotion.Still,
+            "Low-contrast cumulative movement cannot pass as still");
+        var before = Body(60, 110, true); var after = Body(61, 110, true);
+        var translation = VerificationTemplate.Compare(before, after, w, h, 60, 100, 12);
+        Check(translation is { Dx: > .8 and < 1.2, Dy: > -.2 and < .2 }, "Colour template resolves smooth low-contrast body displacement");
+        Check(VerificationTemplate.Compare(before, before, w, h, 60, 100, 12) is { Dx: 0, Dy: 0 }, "A supported unchanged body has zero displacement");
+        var blank = Enumerable.Repeat((byte)100, w * h * 3).ToArray();
+        Check(VerificationTemplate.Compare(blank, blank, w, h, 60, 100, 12) is null, "Textureless body template is unknown");
+        var chromatic = new VerificationPixels(w, h); var sameGray = Body(60, 100);
+        chromatic.Measure(sameGray, true, null, before);
+        Check(chromatic.Measure(sameGray, true, null, after).Motion != TableMotion.Still, "Colour-only change cannot disappear in grayscale conversion");
+    }
+    static void BoundaryChecks()
+    {
+        const int width = 160, height = 160;
+        var image = new byte[width * height * 3];
+        for (int y = 0; y < height; y++) for (int x = 0; x < width; x++)
+        {
+            bool body = (x - 80) * (x - 80) + (y - 80) * (y - 80) <= 27 * 27;
+            bool cream = (x - 74) * (x - 74) + (y - 74) * (y - 74) <= 13 * 13;
+            for (int c = 0; c < 3; c++) image[(y * width + x) * 3 + c] = cream ? (byte)230 : body ? (byte)20 : (byte)110;
+        }
+        var fit = BallBoundaryRefiner.Refine(image, width, height, new(84, 77), 27);
+        Check(fit is not null && (fit.Centre - new Point(80, 80)).Length < 2 && Math.Abs(fit.Radius - 27) < 2,
+            "Current outer boundary recovers a displaced proposal without fitting the cream patch");
+        Check(BallBoundaryRefiner.Refine(new byte[width * height * 3], width, height, new(80, 80), 27) is null,
+            "Radius prior cannot invent a ball on a blank image");
+        var good = Vision();
+        var supported = good with { Circles = good.Balls.Select(b => new CircleObservation(b.Id, new(100, 100), 27, "solid", [])
+            { ProposalRadius = 27, BoundarySupport = 1 }).ToArray() };
+        var bad = supported with { Circles = supported.Circles.Select(c => c with { Radius = 18, BoundarySupport = null }).ToArray(), Uncertain = true };
+        Check(VerificationConsensus.Resolve([supported, bad, supported, supported]) is not null,
+            "An explicitly unsupported middle fit can recover through three supported current appearances");
+        Check(VerificationConsensus.Resolve([supported, bad, supported]) is null, "Unsupported middle geometry contributes no vote");
+        Check(VerificationConsensus.Resolve([supported, supported, bad], out var conflict) is null && conflict is not null,
+            "Final unsupported geometry remains refused with a specific consensus conflict");
     }
     static async Task Cancelled(Task task) { try { await task; } catch (OperationCanceledException) { return; } throw new Exception("Expected cancellation"); }
     static async Task Until(Func<bool> condition) { for (int i = 0; i < 100 && !condition(); i++) await Task.Delay(10); Check(condition(), "Late resource cleanup completes"); }
     sealed class Frames : ITableFrameSource, ITableVerificationFrameSource
     {
         public int Reads, Disposals, Encodings; public bool Duplicate, Gap; public double ClockAge = 1, AgeMs;
-        public bool FinalCurrent = true;
+        public bool FinalCurrent = true; public Exception? Failure;
         public Task RefreshVerificationClockAsync(CancellationToken cancellation) => Task.CompletedTask;
         public Task<bool> IsVerificationSourceCurrentAsync(CameraScope source, long generation, string timeline, CancellationToken cancellation) => Task.FromResult(FinalCurrent);
         public TaskCompletionSource? Hold, Entered;
         public async Task<TableFrame> ReadAsync(CameraScope source, CancellationToken cancellation)
         {
+            if (Failure is { } failure) throw failure;
             int index = ++Reads; var hold = Hold; if (hold is not null) { Entered!.TrySetResult(); await hold.Task; }
             var pts = index * (Gap ? 1000000L : 500000L);
             return new([], DateTimeOffset.UtcNow.AddMilliseconds(-AgeMs), "fixture") { SourceTimeUs = Duplicate ? 0 : pts,
@@ -123,7 +184,7 @@ static class VerificationChecks
     sealed class Image(Frames frames) : ITableFrameImage { public byte[] EncodeForReview() { Interlocked.Increment(ref frames.Encodings); return [1]; } public void Dispose() => Interlocked.Increment(ref frames.Disposals); }
     sealed class Analyzer : ITableAnalyzer, ITableVerificationAnalyzer
     {
-        public int Detections, Disposals, DelayMs; public TaskCompletionSource? Hold, Entered;
+        public int Detections, Disposals, DelayMs; public TaskCompletionSource? Hold, Entered; public Exception? Failure;
         public VisionResult Analyze(byte[] jpeg, TableCalibration calibration, CancellationToken cancellation = default) => Vision();
         public Point[]? FindCorners(byte[] jpeg) => null;
         public ITableVerificationWorker CreateVerification(TableCalibration calibration) => new Worker(this);
@@ -132,6 +193,7 @@ static class VerificationChecks
             int count;
             public VerificationMeasurement Measure(TableFrame frame, bool detect, CancellationToken cancellation)
             {
+                if (owner.Failure is { } failure) throw failure;
                 if (owner.Hold is { } hold) { owner.Entered!.TrySetResult(); hold.Task.GetAwaiter().GetResult(); }
                 if (owner.DelayMs > 0) Thread.Sleep(owner.DelayMs);
                 if (detect) Interlocked.Increment(ref owner.Detections);

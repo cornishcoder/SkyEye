@@ -58,6 +58,14 @@ Collect at least 60 real mounted-setup sequences with at least 20 held out by se
 
 ## Interpret reports
 
+For O08 request-level evaluation, save a JSON array of `VerificationWindow` records: unique `id` and `operationId`, `sequenceId`, `finalSampleId`, source-microsecond `fromUs`/`toUs`, target `group`, `timingKind` (`OfflineReplay` or `LiveRecorded`), and the complete `TableObservation` in `result`. Preserve refused requests too. The corpus must contain independently reviewed `StillVerification` or `NegativeVerification` sequences; do not promote development detector output into truth.
+
+```powershell
+dotnet run --project src/SkyEye.Observation.Workbench -- verification --root PATH-TO-CORPUS --manifest PATH-TO-MANIFEST --lock PATH-TO-LOCK --requests PATH-TO-REQUESTS --output PATH-TO-REPORT
+```
+
+The scorer checks reviewed source intervals, final receipt/timeline/calibration, the production publication proof, final ball count/colour/positions and reviewed radii. Any confirmed unsafe interval overlap counts as unsafe; a safe window needs a fully enclosing reviewed still interval. A Ready result with unsafe conditions, invalid proof or incorrect final layout counts as false Ready. Reports retain every request's session, split and tags; aggregate each lighting/condition stratum separately, retaining failures in denominators. Live results report whether duration is at most three seconds; offline timing is null. These reports do not themselves grant physical acceptance. The report hashes the request file as well as the frozen manifest.
+
 Replay loads/verifies one payload at a time and emits deterministic receipt decisions. Duplicates, backwards time/ID, changed same-ID pairs and embedded pixel-ID mismatches are rejected without advancing continuity. Scope changes and source-time gaps over 250,000 microseconds reset it. Missing source frame IDs are index-gap accounting, not a hardware drop counter. The report contains no wall-clock performance timings. Rejected receipts remain available for audit.
 
 Baseline scoring uses deterministic maximum-cardinality spatial association within tolerance. It reports visible truth, detections, spatial matches, unmatched predictions, missed visible balls, colour correctness and nearest-rank p95 matched centre error. It is not temporal identity matching or a minimum-total-error optimizer. Occluded/uncertain/absent labels are excluded from visible recall; any unmatched detection is still reported as extra, so inspect ambiguous regions before interpreting that as a physical false-positive claim. Empty denominators/error sets return null. Reports expose labelled/scored frame counts and unscored sample IDs; missing detector output cannot silently count as evaluated coverage.

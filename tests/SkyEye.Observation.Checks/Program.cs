@@ -2,6 +2,8 @@ using System.Buffers.Binary;
 using System.Collections.Immutable;
 using System.Text.Json;
 using SkyEye.Observation;
+using SkyEye.Core.Analysis;
+using SkyEye.Core.Application;
 
 var root = Path.Combine(Path.GetTempPath(), "skyeye-observation-" + Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(root);
@@ -53,7 +55,45 @@ try
     var negative = verification with { Purpose = SequencePurpose.NegativeVerification, IndexFile = "negative-index.jsonl" };
     Check(CorpusValidation.Validate(manifest with { Sequences = [negative] }, files).HeldOutVerificationSequences == 1,
         "Explicit reviewed source-invalid negatives can preserve frozen/duplicate receipts for rejection evaluation");
+    var observed = new SkyEye.Core.Application.TableObservation(new(Guid.NewGuid(), "camera", "session", 1, 1), 1, 1, "timeline", DateTimeOffset.UtcNow,
+        null, 0, 0, 0, 2300, 1, SkyEye.Core.Application.ObservationOutcome.Ready, "synthetic-contract")
+        { Reason = SkyEye.Core.Analysis.ObservationReason.None };
+    var request = new VerificationWindow("window", negative.Id, "next", Guid.NewGuid(), 1000, 34000,
+        SkyEye.Core.Application.AdviceTargetGroup.Open, VerificationTimingKind.OfflineReplay, observed);
+    var scoredRequest = VerificationEvaluation.Score(manifest with { Sequences = [negative] }, files, [request]).Single();
+    Check(scoredRequest.Unsafe && scoredRequest.FalseReady && !scoredRequest.ValidProof && scoredRequest.Timely is null,
+        "Unsafe published Ready is counted even without valid proof; offline replay cannot pass live timing");
+    var refusedRequest = request with { Id = "refused", OperationId = Guid.NewGuid(), TimingKind = VerificationTimingKind.LiveRecorded,
+        Result = observed with { Outcome = SkyEye.Core.Application.ObservationOutcome.Unclear } };
+    var refusalScore = VerificationEvaluation.Score(manifest with { Sequences = [negative] }, files, [refusedRequest]).Single();
+    Check(!refusalScore.FalseReady && refusalScore.Timely == true, "Recorded negative refusal retains its live timing denominator");
+    Throws<InvalidDataException>(() => VerificationEvaluation.Score(manifest with { Sequences = [negative] }, files, [request, request]));
     Throws<InvalidDataException>(() => CorpusValidation.Validate(manifest with { Sequences = [negative with { Purpose = SequencePurpose.StillVerification }] }, files));
+    // A complete safe publication must score its final geometry, not just its Ready flag.
+    var positiveFrames = Enumerable.Range(0, 5).Select(i => Frame("positive-" + i, i + 1, 1000 + i * 500000)).ToArray();
+    File.WriteAllLines(Path.Combine(root, "positive-index.jsonl"), positiveFrames.Select(f => JsonSerializer.Serialize(f, new JsonSerializerOptions(CorpusJson.Options) { WriteIndented = false })));
+    var positiveLabels = verificationLabels with {
+        Frames = positiveFrames.Select(f => new FrameLabels(f.SampleId, f.PixelSha256, "table-2x1",
+            [new("C", "cue", 1, .5, LabelVisibility.Visible) { RadiusX = .027, RadiusY = .027 }], "synthetic contract only")).ToImmutableArray(),
+        Intervals = [new("still", 1000, 2001000, "confirmed", [], "synthetic contract only")] };
+    File.WriteAllText(Path.Combine(root, "positive-labels.json"), CorpusJson.Write(positiveLabels));
+    var positiveSequence = verification with { IndexFile = "positive-index.jsonl", LabelsFile = "positive-labels.json" };
+    var positiveSamples = positiveFrames.Select(f => new VerificationSample(f.FrameId, f.SourceTimeUs!.Value, 100, 50, 10, 5, 50,
+        new(TableMotion.Still, ObservationReason.None, true, 0, 0, 0, null))).ToArray();
+    var positiveResult = observed with { SourceTimeUs = 2001000, FrameAgeMs = 100, Motion = TableMotion.Still, Quality = LayoutQuality.Clear,
+        DecodedReceipt = new(1, 5, 2001000, 2001000000, 8, 8), DetectionEvidence = new(5, 2001000, 100),
+        Verification = new(request.OperationId, ObservationPolicy.VerificationConfiguration, "cal-v1", "open", 1, 1000, 2001000, 5, 500, 50, positiveSamples),
+        GameEvidence = new(new("camera", "timeline", 1, "cal-v1", "contract"), [new("C", SkyEye.GameState.BallColour.Cue, new(.5, .5), 1)]) };
+    var positiveRequest = request with { FinalSampleId = "positive-4", ToUs = 2001000, Result = positiveResult };
+    var positiveScore = VerificationEvaluation.Score(manifest with { Sequences = [positiveSequence] }, files, [positiveRequest]).Single();
+    Check(positiveScore.ValidProof && positiveScore.CorrectLayout == true && !positiveScore.FalseReady,
+        "Complete safe proof scores matching reviewed final geometry in the shared coordinate space");
+    Check(VerificationEvaluation.Score(manifest with { Sequences = [positiveSequence] }, files,
+        [positiveRequest with { Result = observed }]).Single().FalseReady,
+        "A safe-window Ready without proof remains in the false Ready denominator");
+    var misplaced = positiveResult with { GameEvidence = positiveResult.GameEvidence! with { Balls = [new("C", SkyEye.GameState.BallColour.Cue, new(.52, .5), 1)] } };
+    Check(VerificationEvaluation.Score(manifest with { Sequences = [positiveSequence] }, files, [positiveRequest with { Result = misplaced }]).Single().FalseReady,
+        "A valid publication proof cannot excuse an incorrect final ball position");
     File.WriteAllText(Path.Combine(root, "verification-labels.json"), CorpusJson.Write(verificationLabels with { Reviewed = false }));
     Throws<InvalidDataException>(() => CorpusValidation.Validate(manifest with { Sequences = [verification] }, files));
     var lockPath = Path.Combine(root, "manifest.json"); File.WriteAllText(lockPath, CorpusJson.Write(manifest));

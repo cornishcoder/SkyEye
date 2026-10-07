@@ -13,7 +13,7 @@
 - Checking/cancel/retry/review messages, clearing old advice before replacement, one candidate computation per verified catalogue, existing phone/TV selection/preset/clear/expiry. Explicit review retains only the latest supported anchor image. Native pixels stay outside app/agent/game projections.
 - Freshness checked at acquisition, verification completion, candidate generation and coordinator publication: at most 1.5 seconds with trustworthy source-clock metadata. Network uncertainty and native copy/processing/writer delay count toward age. Cached status cannot renew its clock receipt. No claim that the table remains still throughout the fifteen-second catalogue lifetime.
 
-`ObservationPolicy` separates the session's fifteen-second legacy gap, two-second settlement, six-second review/advice freshness, fifteen-second catalogue TTL and short-burst policies. The final provisional configuration is `o08-provisional-v7`; no supported-condition accuracy claim attaches to these thresholds.
+`ObservationPolicy` separates the session's fifteen-second legacy gap, two-second settlement, six-second review/advice freshness, fifteen-second catalogue TTL and short-burst policies. The current provisional configuration is `o08-provisional-v8`; no supported-condition accuracy claim attaches to these thresholds.
 
 ## O01 corpus extension
 
@@ -48,5 +48,27 @@ Temporary diagnostic updates used `Install-ProductionCompanion.ps1`: existing pa
 The final v7 diagnostic requests refused before CV because playback reported `no-playing-texture`; final positive live acceptance did not run. Automatic approval review rejected the attempted diagnostic activity launch and live-resume request as **“blocked by policy”**, with no more specific reason. That action is not counted as successful. Guarded restoration of the original normal APK subsequently passed.
 
 ## Remaining mission gates
+
+### Repair follow-up, 7 October 2026
+
+The [remaining-issues audit](o08-remaining-issues.md) led to these implemented repairs:
+
+- Existing Hough proposals receive bounded local colour-edge refinement, with a calibrated radius range, angular support and exterior-cloth checks. Unsupported fits remain ambiguous. Raw proposal geometry and support are retained. The classifier samples the supported outer rim (0.80–0.95 radius); its black thresholds remain unchanged.
+- Invalid colour references can recover within a burst; gains freeze only after a supported reference. An explicitly unsupported middle fit cannot permanently poison radius history, but three supported appearances and a supported current final detection remain required. Consensus reports its specific conflict.
+- Motion uses a direct 400×800 colour warp, fixed-anchor and adjacent body-template displacement/residual, and independent whole-area colour/edge changes. Every initial/current possible body needs support. Blank or ambiguous patches remain unknown. Border/tile geometry scales with resolution. Regions measured by body templates remain part of tile coverage, preventing tiny exposed slivers from producing large false change fractions.
+- Acquisition, analysis and capture failures have distinct evidence and messages. Native source diagnostics expose playback/buffering/copy state without media URLs or credentials.
+- The existing corpus workbench scores complete recorded verification windows against reviewed unsafe/still intervals and final geometry. It reuses the publication proof validator, keeps session/stratum membership, counts false Ready outcomes and refuses to treat offline replay as live timing evidence.
+
+Final Pixel native replay of the same six development JPEGs: **6/6 clear 16-ball detections, 16-ball consensus, no consensus conflict, and all five post-seed motion comparisons still with all 16 bodies supported**. Full worker times with detection on every replay frame were 430–691 ms. This improves on the earlier 3/6 enhanced replay; it does not establish reviewed centre accuracy, live request latency or held-out reliability. Intermediate failed experiments were retained in `work/o08`; the generic connected-component refiner remains disabled.
+
+New controlled regressions cover low-contrast cumulative motion, same-gray colour movement, template displacement/ambiguity, a black body with a cream patch, unsupported middle/final fits, fault-stage attribution, and safe/unsafe request scoring including wrong final geometry. Core/corpus checks and diagnostic/normal Android Release builds passed. Generated binding/native-library warnings remain.
+
+The user confirmed the physical table was clear and stationary. Camera status reported active 1920×1080, 30 fps, 6 Mbps capture, but the companion buffered intermittently. Two live requests yielded an acquisition refusal (`no-playing-texture`, player buffering) and a four-second timeout with zero samples. Neither published Ready or candidates; no positive live repair acceptance is claimed. The camera capture service was not restarted or reconfigured. Live transport stability and the full physical gates below remain open.
+
+A subsequent direct PC read of the same camera transport returned HTTP 200 and 6,118,488 bytes in 8.017 seconds without EOF; the longest individual read was 238 ms. This confirms transport availability on that client/path only. The camera's cumulative slow-viewer count was 273 before and after this probe; it cannot attribute the phone's current failure. Phone network/player lifecycle remains the next investigation, not a proven transport fix.
+
+The temporary diagnostic APK was removed by guarded restoration of `work/production/backups/20261007-172908/before.apk`; UID/private storage were retained and the owned TCP 18768 forward was removed. The newly built normal v8 APK is not installed because O08.08 acceptance remains open. See [repair evidence](evidence/o08-repair-smoke.json) for hashes and compact results.
+
+### Physical acceptance still required
 
 O08.01 still needs independent labelled baseline/development/holdout sessions; O08.03/O08.04/O08.05 still need validated motion/appearance/geometry thresholds and the labelled slow-roll, obstruction, changed-light/pose and recovery strata. O08.06 has runtime/controlled/actual-tap evidence but lacks the full physical target/correction/source/control matrix. O08.07 lacks the phone-plus-corrected-TV resource comparison. O08.08 requires the planned per-stratum sample sizes, at least two lighting strata, five layouts, held-out sessions, reviewed geometry and 100 unsafe windows with all categories. O08.09 remains gated by that acceptance. Existing O01/O02.05/T13/T14 and V03/V04 limits remain open.

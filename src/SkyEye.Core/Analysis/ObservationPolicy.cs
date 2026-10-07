@@ -15,7 +15,7 @@ public static class ObservationPolicy
     public const int MinimumVerificationSamples = 5;
     public const int MaximumVerificationSamples = 6;
     public const double SampleIntervalSeconds = .5;
-    public const string VerificationConfiguration = "o08-provisional-v7";
+    public const string VerificationConfiguration = "o08-provisional-v8";
 }
 
 public enum TableMotion { Unknown, Still, Moving }
@@ -24,7 +24,7 @@ public enum ObservationReason
 {
     None, Checking, InsufficientEvidence, DetectionAmbiguous, Obstructed,
     Moving, LightingChanged, CalibrationChanged, FrameUnavailable, FrameTooOld,
-    ClockUntrusted, SourceChanged, SampleGap, Cancelled, TimedOut
+    ClockUntrusted, SourceChanged, SampleGap, Cancelled, TimedOut, AnalysisFailed, CaptureFailed
 }
 public sealed record RecognitionTelemetry(string Branch, int RawCircleCount, int FinalCircleCount,
     string[] RawLabels, double[] Gains, int ClothHue, string[] Warnings);

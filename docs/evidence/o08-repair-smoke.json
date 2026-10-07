@@ -1,0 +1,118 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-07",
+  "configuration": "o08-provisional-v8",
+  "scope": "Development repair smoke, not physical or held-out acceptance",
+  "nativeReplay": {
+    "sha256": "8d85593195cd3a0a0009514e4783f92173cb20e7b8849ecfd9c8f45128056417",
+    "completed": true,
+    "clearFrames": 6,
+    "frames": 6,
+    "consensusCount": 16,
+    "consensusConflict": null,
+    "allMotionSamplesStill": true,
+    "sourcePixelSha256": [
+      "eb86e276b02ce7f6d8b5cf57e9eee01c685313ba0c8b55ed35f89a27f3a31c29",
+      "29ed68e2187304d7441a0fcf1c69aa1bbb3a0ea887d78ba1ac5bc6d226b8bcae",
+      "ff8c8b06d2fb73ec2da191109367f960175876619fc9f43a29f469aaac54784c",
+      "597845427034a36c008d18e32690f6f703d27030d4663a2415226936d279a1a4",
+      "7e3fd4e94a9cc16cd70785c28314dbb40160f1670c8844e56df0d1060de679b7",
+      "70c2a510e1c3c237828ddbf1fde6d4558224264c1e6df8963859b10cedc05397"
+    ],
+    "samples": [
+      {
+        "sourceTimeUs": 22634721188,
+        "balls": 16,
+        "motion": 0,
+        "reason": 2,
+        "supportedBodies": 0,
+        "maximumBodyDisplacement": null,
+        "processingMs": 430.2957
+      },
+      {
+        "sourceTimeUs": 22635254566,
+        "balls": 16,
+        "motion": 1,
+        "reason": 0,
+        "supportedBodies": 16,
+        "maximumBodyDisplacement": 0.20058035126036414,
+        "processingMs": 531.9412
+      },
+      {
+        "sourceTimeUs": 22635821288,
+        "balls": 16,
+        "motion": 1,
+        "reason": 0,
+        "supportedBodies": 16,
+        "maximumBodyDisplacement": 0.22398027439607635,
+        "processingMs": 528.1342
+      },
+      {
+        "sourceTimeUs": 22636287988,
+        "balls": 16,
+        "motion": 1,
+        "reason": 0,
+        "supportedBodies": 16,
+        "maximumBodyDisplacement": 0.203908079047105,
+        "processingMs": 587.1444
+      },
+      {
+        "sourceTimeUs": 22636754700,
+        "balls": 16,
+        "motion": 1,
+        "reason": 0,
+        "supportedBodies": 16,
+        "maximumBodyDisplacement": 0.2155908708904959,
+        "processingMs": 690.675
+      },
+      {
+        "sourceTimeUs": 22637221411,
+        "balls": 16,
+        "motion": 1,
+        "reason": 0,
+        "supportedBodies": 16,
+        "maximumBodyDisplacement": 0.2119745434129563,
+        "processingMs": 475.7603
+      }
+    ]
+  },
+  "liveRequests": [
+    {
+      "sha256": "df35abe1b0c3da2cdaac8a2b9b4e9c51ba42c9858e5b5cb3381cb1791b1d6da0",
+      "outcome": 1,
+      "reason": 8,
+      "durationMs": 287.00750000000005,
+      "samples": 0,
+      "failure": {
+        "stage": "acquisition",
+        "code": "no-playing-texture",
+        "sourceStatus": "{\"playing\":false,\"playWhenReady\":true,\"playbackState\":2,\"suppressionReason\":0,\"errorCode\":null,\"textureAvailable\":true,\"released\":false,\"mediaGeneration\":10,\"copyFailure\":\"no-playing-texture\"}"
+      },
+      "candidates": 0
+    },
+    {
+      "sha256": "6afddf71846026532116ba6ec1792c3dd5159e9c212d5007d467be7816b75ed1",
+      "outcome": 1,
+      "reason": 14,
+      "durationMs": 4006.804,
+      "samples": 0,
+      "failure": null,
+      "candidates": 0
+    }
+  ],
+  "cameraObserved": {
+    "width": 1920,
+    "bitrate": 6000000,
+    "fps": 30,
+    "state": "Active",
+    "height": 1080
+  },
+  "cleanup": {
+    "cameraCaptureRestarted": false,
+    "installedSha256": "cea5fe3b70c87a6916f2443847543720c9a3c56506ea251f0c33dd40f2b0a80f",
+    "uidAndPrivateStorageRetained": true,
+    "owned18768ForwardRemoved": true,
+    "normalOriginalRestored": true
+  },
+  "acceptanceComplete": false
+}

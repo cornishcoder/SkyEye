@@ -14,7 +14,10 @@ public sealed partial class VisionAnalyzer
     sealed class VerificationWorker(VisionAnalyzer owner, TableCalibration calibration) : ITableVerificationWorker
     {
         readonly BurstAppearance appearance = new();
-        readonly VerificationPixels motion = new(200, 400);
+        const int motionWidth = 400, motionHeight = 800;
+        readonly VerificationPixels motion = new(motionWidth, motionHeight);
+        byte[]? anchorColour, previousColour;
+        CircleObservation[] bodies = [];
         bool? geometryValid;
         bool disposed;
         public VerificationMeasurement Measure(TableFrame frame, bool detect, CancellationToken cancellation)
@@ -36,23 +39,60 @@ public sealed partial class VisionAnalyzer
             VisionResult? vision = null;
             if (detect) { PipelineDiagnostics.Count("verificationFullAnalyses"); vision = owner.AnalyzePixels(bgr.Value, calibration, cancellation, appearance); }
             using var gray = new MatLease(new Mat());
-            // Downsize first. Perspective motion work retains only two bounded gray buffers.
-            using var small = new MatLease(new Mat()); using var sourceSize = new Size(480, 270);
-            Imgproc.Resize(bgr.Value, small.Value, sourceSize);
-            var points = calibration.Corners.Select(p => new CvPoint(p.X * 480, p.Y * 270)).ToArray();
-            CvPoint[] target = [new(200, 0), new(200, 400), new(0, 400), new(0, 0)];
+            // Warp directly from decoded pixels: avoid throwing away ball detail
+            // in an intermediate 480x270 resize. Retain bounded motion images only.
+            var points = calibration.Corners.Select(p => new CvPoint(p.X * bgr.Value.Cols(), p.Y * bgr.Value.Rows())).ToArray();
+            CvPoint[] target = [new(motionWidth, 0), new(motionWidth, motionHeight), new(0, motionHeight), new(0, 0)];
             try
             {
                 using var src = new MatLease(new MatOfPoint2f(points)); using var dst = new MatLease(new MatOfPoint2f(target));
                 using var transform = new MatLease(Imgproc.GetPerspectiveTransform(src.Value, dst.Value));
-                using var warped = new MatLease(new Mat()); using var size = new Size(200, 400);
-                Imgproc.WarpPerspective(small.Value, warped.Value, transform.Value, size); Imgproc.CvtColor(warped.Value, gray.Value, Imgproc.ColorBgr2gray);
+                using var warped = new MatLease(new Mat()); using var size = new Size(motionWidth, motionHeight);
+                Imgproc.WarpPerspective(bgr.Value, warped.Value, transform.Value, size); Imgproc.CvtColor(warped.Value, gray.Value, Imgproc.ColorBgr2gray);
                 cancellation.ThrowIfCancellationRequested();
-                var measured = motion.Measure(Read(gray.Value), geometryValid == true, vision);
+                var colour = Read(warped.Value);
+                var mask = new bool[motionWidth * motionHeight];
+                double maximum = 0; int supported = 0, regionCount = 0;
+                if (anchorColour is not null)
+                {
+                    // Include both initial and newly detected bodies; colour labels
+                    // are not prerequisites. Full-area colour differences cover extras.
+                    var regions = bodies.ToList();
+                    foreach (var current in vision?.Circles ?? [])
+                        if (!regions.Any(b => (b.Centre - current.Centre).Length < Math.Min(b.Radius, current.Radius) * .5)) regions.Add(current);
+                    regionCount = regions.Count;
+                    foreach (var body in regions)
+                    {
+                        cancellation.ThrowIfCancellationRequested();
+                        double scale = motionWidth / (double)owner.coordinates.Width;
+                        int radius = Math.Max(12, (int)Math.Ceiling(body.Radius * scale * 1.8));
+                        int x = (int)(body.Centre.X * scale), y = (int)(body.Centre.Y * scale);
+                        var a = VerificationTemplate.Compare(anchorColour, colour, motionWidth, motionHeight, x, y, radius);
+                        var p = VerificationTemplate.Compare(previousColour!, colour, motionWidth, motionHeight, x, y, radius);
+                        if (a is null || p is null) continue;
+                        supported++;
+                        maximum = Math.Max(maximum, Math.Max(Math.Sqrt(a.Dx * a.Dx + a.Dy * a.Dy), Math.Sqrt(p.Dx * p.Dx + p.Dy * p.Dy)));
+                        for (int py = y - radius; py <= y + radius; py++) for (int px = x - radius; px <= x + radius; px++)
+                            if ((px - x) * (px - x) + (py - y) * (py - y) <= radius * radius) mask[py * motionWidth + px] = true;
+                    }
+                }
+                var measured = motion.Measure(Read(gray.Value), geometryValid == true, vision, colour, mask)
+                    with { MaximumBodyDisplacement = anchorColour is null ? null : maximum, SupportedBodies = supported };
+                if (anchorColour is not null)
+                {
+                    if (measured.Reason is ObservationReason.None or ObservationReason.InsufficientEvidence or ObservationReason.Moving)
+                    {
+                        if (maximum > .4) measured = measured with { Motion = TableMotion.Moving, Reason = ObservationReason.Moving };
+                        else if (regionCount == 0 || supported != regionCount)
+                            measured = measured with { Motion = TableMotion.Unknown, Reason = ObservationReason.InsufficientEvidence, CoverageValid = false };
+                    }
+                }
+                else { anchorColour = colour; bodies = vision?.Circles ?? []; }
+                previousColour = colour;
                 return vision?.VerificationReason is { } reason ? measured with { Reason = reason } : measured;
             }
             finally { foreach (var p in points.Concat(target)) p.Dispose(); }
         }
-        public void Dispose() => disposed = true;
+        public void Dispose() { disposed = true; anchorColour = previousColour = null; bodies = []; }
     }
 }

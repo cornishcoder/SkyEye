@@ -15,7 +15,13 @@ public final class PlayerBridge {
     private final AnnotationRecorder annotationRecorder=new AnnotationRecorder();
     private final DecodedFrameLedger decodedLedger=new DecodedFrameLedger();
     private final java.util.Map<String,Integer> copyFailures=new java.util.LinkedHashMap<>();private long copyBefore,copyAfter;
-    private DecodedFrameSnapshot copyFailure(String reason){copyFailures.put(reason,copyFailures.getOrDefault(reason,0)+1);return null;}
+    private String lastCopyFailure="";
+    public String lastCopyFailure(){return lastCopyFailure;}
+    public String observationSourceStatus(){try{return new JSONObject().put("playing",player.isPlaying()).put("playWhenReady",player.getPlayWhenReady())
+        .put("playbackState",player.getPlaybackState()).put("suppressionReason",player.getPlaybackSuppressionReason())
+        .put("errorCode",player.getPlayerError()==null?JSONObject.NULL:player.getPlayerError().errorCode).put("textureAvailable",texture.isAvailable())
+        .put("released",released).put("mediaGeneration",generation).put("copyFailure",lastCopyFailure).toString();}catch(Exception ignored){return "{}";}}
+    private DecodedFrameSnapshot copyFailure(String reason){lastCopyFailure=reason;copyFailures.put(reason,copyFailures.getOrDefault(reason,0)+1);return null;}
     public String decodedCopyMetrics(){try{return new JSONObject().put("failures",new JSONObject(copyFailures)).put("beforeNs",copyBefore)
         .put("afterNs",copyAfter).put("newestReleaseNs",decodedLedger.newestRelease()).put("ledgerSize",decodedLedger.size()).toString();}catch(Exception ignored){return "{}";}}
     private final ExoPlayer player;private final TextureView texture;private final Listener listener;
@@ -65,6 +71,7 @@ public final class PlayerBridge {
     public void setTvSceneTransform(String json){try{tvScene=json==null||json.isEmpty()?null:new org.json.JSONObject(json);}catch(Exception ignored){tvScene=null;}}
     public byte[] snapshotForFraming(){if(!player.isPlaying()||!texture.isAvailable())return null;Bitmap bitmap=texture.getBitmap(960,540);if(bitmap==null)return null;try{java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream();bitmap.compress(Bitmap.CompressFormat.JPEG,90,bytes);return bytes.toByteArray();}finally{bitmap.recycle();}}
     public DecodedFrameSnapshot snapshotDecodedFrame(){
+        lastCopyFailure="";
         if(android.os.Looper.myLooper()!=android.os.Looper.getMainLooper())throw new IllegalStateException("Decoded copy requires the player looper");
         if(released||!player.isPlaying()||!texture.isAvailable())return copyFailure("no-playing-texture");
         long media=generation;android.graphics.SurfaceTexture surface=texture.getSurfaceTexture();if(surface==null)return null;
@@ -98,7 +105,7 @@ public final class PlayerBridge {
                 .put("surfaceTimestampNs",stamp).put("releaseTimestampNs",paired.releaseNs).put("width",bitmap.getWidth()).put("height",bitmap.getHeight())
                 .put("pairing","exact-surface-timestamp").toString();
             DecodedFrameSnapshot result=new DecodedFrameSnapshot(bitmap,metadata);bitmap=null;return result;
-        }catch(org.json.JSONException invalid){return null;}finally{if(bitmap!=null)bitmap.recycle();}
+        }catch(org.json.JSONException invalid){return copyFailure("invalid-source-metadata");}finally{if(bitmap!=null)bitmap.recycle();}
     }
     public String decodedFrameCandidate(){
         if(android.os.Looper.myLooper()!=android.os.Looper.getMainLooper())throw new IllegalStateException("Candidate query requires player looper");
