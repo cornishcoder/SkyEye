@@ -312,7 +312,8 @@
     "ownedForwardRemoved": 18768,
     "newO08NormalInstalled": false,
     "diagnosticV7Sha256": "7b5ac03fd204547b2012a5dc072d517da639e813cba3996fffad94ce15d406c4",
-    "newNormalBuildSha256": "32d8cd352d3ed0cc402d78a266759c83002590f6248ebb500af955f2bafff929"
+    "newNormalBuildSha256": "93896c1da44b45debce5df16e345dbc4c79de6ab607ca688f97b5b6db7e50d17",
+    "finalSourceCommit": "dc99c05"
   },
   "finalDiagnostic": {
     "configuration": "o08-provisional-v7",
