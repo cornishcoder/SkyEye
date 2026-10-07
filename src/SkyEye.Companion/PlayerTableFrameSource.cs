@@ -33,7 +33,8 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
     public Task<TableFrame> ReadAsync(CameraScope source, CancellationToken cancellation)
     {
         var completion = new TaskCompletionSource<TableFrame>(TaskCreationOptions.RunContinuationsAsynchronously);
-        main.Post(() =>
+        Bridge.PlayerBridge? admittedOwner = null;
+        void Attempt(int remaining)
         {
             BitmapTableImage? pixels = null;
             try
@@ -41,8 +42,17 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
                 cancellation.ThrowIfCancellationRequested(); var owner = player();
                 if (owner is null || !live() || connection().Scope != source || !connection().CanControl)
                     throw new InvalidOperationException("Use the current live source for observation.");
+                if (admittedOwner is not null && admittedOwner != owner) throw new InvalidOperationException("Live player changed during frame acquisition.");
+                admittedOwner = owner;
                 using var timing = PipelineDiagnostics.Measure("textureCopyMs");
-                using var snapshot = owner.SnapshotDecodedFrame() ?? throw new IOException("No fresh paired decoded live frame is available.");
+                using var snapshot = owner.SnapshotDecodedFrame();
+                if (snapshot is null)
+                {
+                    // A render/copy race may be refused even while live video is
+                    // healthy. Yield to the next latch without weakening pairing.
+                    if (remaining > 0) { main.PostDelayed(() => Attempt(remaining - 1), 40); return; }
+                    throw new IOException("No fresh paired decoded live frame is available.");
+                }
                 try
                 {
                     using var metrics = JsonDocument.Parse(snapshot.Metadata()!); var stamp = metrics.RootElement;
@@ -66,7 +76,8 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
                 finally { snapshot.Close(); }
             }
             catch (Exception error) { pixels?.Dispose(); completion.TrySetException(error); }
-        });
+        }
+        main.Post(() => Attempt(3));
         return completion.Task;
     }
 }

@@ -63,7 +63,12 @@ public sealed partial class ShellSession
             if (player is null || table.State.Source is not { } source) return;
             var receipt = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, app.State.Version,
                 new ObserveTable(source, table.State.Generation, MediaGeneration(), reviewFrame, includeChoices)), token);
-            if (!receipt.Succeeded) shotMessage = receipt.Message;
+            if (!receipt.Succeeded)
+            {
+                shotMessage = receipt.Message;
+                Android.Util.Log.Warn("SkyEyeShell", "Requested observation refused: " + receipt.Message);
+                await MainThread.InvokeOnMainThreadAsync(() => ShowError(receipt.Message));
+            }
         }
         catch (OperationCanceledException) { }
         catch (Exception) { if (!token.IsCancellationRequested && !disposed) await MainThread.InvokeOnMainThreadAsync(() => ShowError("Table analysis interrupted. Check the camera and try again.")); }
