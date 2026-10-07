@@ -132,5 +132,81 @@
       "eof": false,
       "http": 200
     }
+  },
+  "postRestartFollowUp": {
+    "date": "2026-10-07",
+    "phoneRestartedByUser": true,
+    "configuration": "o08-provisional-v10",
+    "acquisition": {
+      "recoveredAfterRestart": true,
+      "rootCauseEstablished": false,
+      "playerSnapshot": {
+        "playing": true,
+        "playWhenReady": true,
+        "playbackState": 3,
+        "lastErrorCode": 0,
+        "endedCount": 0,
+        "width": 1920,
+        "height": 1080,
+        "textureFps": 13.3357,
+        "textureAgeMs": 19.04
+      }
+    },
+    "boundary": {
+      "minimumSupportedSectors": 18,
+      "totalSectors": 32,
+      "staticReplay": {
+        "sha256": "a6ff7253995581889f963cce7925be91840cba84ec63d6db46143158cd378863",
+        "completed": true,
+        "frames": 6,
+        "clear16BallFrames": 6,
+        "consensusBalls": 16,
+        "allPostSeedMotionStill": true
+      }
+    },
+    "motion": {
+      "capturedLiveSlowRoll": {
+        "sha256": "17a5a4762ff4a00b6ed2982ffe473f8eeb35e377f82e514e214d95cb8bc25284",
+        "frames": 6,
+        "originalDecision": "Unknown; no Ready result or candidates"
+      },
+      "updatedWorkerReplay": {
+        "sha256": "3c27a67b0b4d9f6fdd46289c4003e036692e13bffd1691f262ec4e2456cb8e50",
+        "scope": "on-device native JPEG development replay, not live timing acceptance",
+        "frames": 6,
+        "postSeedMovingSamples": 5,
+        "minimumSupportedCentreDisplacementPixels": 70.5605,
+        "maximumSupportedCentreDisplacementPixels": 1043.4253,
+        "allPostSeedMoving": true,
+        "consensusResolved": false,
+        "readyPublished": false
+      }
+    },
+    "stationaryLive": {
+      "sha256": "0b77bf0843da79e5b0134d39dbd557ea4d392b254e64526416629d2f9ebdac68",
+      "outcome": "Ready",
+      "motion": "Still",
+      "quality": "Clear",
+      "reason": "None",
+      "durationMs": 2639.1452,
+      "independentFrames": 5,
+      "maximumSourceGapMs": 600.056,
+      "finalFrameAgeMs": 823.9081,
+      "balls": 16,
+      "candidateShots": 3,
+      "maximumDetectedBodyDisplacementPixels": 2.6,
+      "consensusConflict": null
+    },
+    "productionRelease": {
+      "built": true,
+      "sha256": "61e903705e481b6a4e8ea9e3854220a3c26b0ac5f7eeb8801a2ffc3e4b1e38b3",
+      "installed": false,
+      "normalOriginalRestored": true,
+      "installedOriginalSha256": "cea5fe3b70c87a6916f2443847543720c9a3c56506ea251f0c33dd40f2b0a80f",
+      "uidAndPrivateStorageRetained": true,
+      "owned18768ForwardRemoved": true,
+      "cameraCaptureChanged": false
+    },
+    "acceptanceComplete": false
   }
 }

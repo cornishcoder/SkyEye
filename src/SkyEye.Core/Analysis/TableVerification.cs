@@ -8,6 +8,7 @@ public sealed record VerificationMeasurement(TableMotion Motion, ObservationReas
 {
     public double SensitiveTileChange { get; init; }
     public double? MaximumBodyDisplacement { get; init; }
+    public double? MaximumDetectedBodyDisplacement { get; init; }
     public int SupportedBodies { get; init; }
     public Point? MaximumTileOrigin { get; init; }
     public Point? SensitiveTileOrigin { get; init; }

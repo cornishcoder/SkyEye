@@ -13,7 +13,7 @@
 - Checking/cancel/retry/review messages, clearing old advice before replacement, one candidate computation per verified catalogue, existing phone/TV selection/preset/clear/expiry. Explicit review retains only the latest supported anchor image. Native pixels stay outside app/agent/game projections.
 - Freshness checked at acquisition, verification completion, candidate generation and coordinator publication: at most 1.5 seconds with trustworthy source-clock metadata. Network uncertainty and native copy/processing/writer delay count toward age. Cached status cannot renew its clock receipt. No claim that the table remains still throughout the fifteen-second catalogue lifetime.
 
-`ObservationPolicy` separates the session's fifteen-second legacy gap, two-second settlement, six-second review/advice freshness, fifteen-second catalogue TTL and short-burst policies. The current provisional configuration is `o08-provisional-v8`; no supported-condition accuracy claim attaches to these thresholds.
+`ObservationPolicy` separates the session's fifteen-second legacy gap, two-second settlement, six-second review/advice freshness, fifteen-second catalogue TTL and short-burst policies. The current provisional configuration is `o08-provisional-v10`; no supported-condition accuracy claim attaches to these thresholds.
 
 ## O01 corpus extension
 
@@ -69,7 +69,17 @@ A subsequent direct PC read of the same camera transport returned HTTP 200 and 6
 
 The focused phone follow-up reproduced a persistent buffering state (position 0, reported buffer 10 seconds, only five decoded frames across eight observations) while camera slow-viewer disconnects increased. A subsequent diagnostic run recorded four `STATE_ENDED` recoveries within roughly 43 seconds and 148 decoded frames overall, with no surfaced player error code. Playback metrics now retain state, loading, play intent, suppression, last error code and end count. This establishes interrupted delivery/player recovery as an acquisition blocker; it does not distinguish network backpressure from decoder consumption as the root cause. No speculative timeout/queue expansion or weakened freshness policy was applied. A direct TCP phone probe was rejected by automatic approval review as "blocked by policy" with no further reason. Normal-app restoration and diagnostic-forward cleanup were repeated after this follow-up.
 
-The temporary diagnostic APK was removed by guarded restoration of `work/production/backups/20261007-172908/before.apk`; UID/private storage were retained and the owned TCP 18768 forward was removed. The newly built normal v8 APK is not installed because O08.08 acceptance remains open. See [repair evidence](evidence/o08-repair-smoke.json) for hashes and compact results.
+The temporary diagnostic APK was removed by guarded restoration of `work/production/backups/20261007-172908/before.apk`; UID/private storage were retained and the owned TCP 18768 forward was removed. The newly built normal v10 APK is not installed because O08.08 acceptance remains open. See [repair evidence](evidence/o08-repair-smoke.json) for hashes and compact results.
+
+### Post-restart live and motion follow-up, 7 October 2026
+
+The user restarted the Pixel 11 Pro XL after the earlier player stalls. Subsequent phone playback checks showed a ready, playing 1920×1080 texture with no player error or ended recovery. Live acquisition then completed multiple bounded windows. The restart restored the current session, but it did not identify or remove the underlying cause of the previous stalls; acquisition recovery after a future stall remains unverified.
+
+The first synchronized slow-roll request captured six live frames but the then-current worker left motion unknown. Replaying those exact decoded frames on-device with the updated worker classified all five post-seed samples as moving. Supported centre displacement began at 70.6 detector pixels; one sample also raised the large-object obstruction warning. The request published no Ready result or candidates. A separate stationary replay of the six post-roll frames produced six certain 16-ball detections, a 16-ball consensus, and five still comparisons.
+
+Those stationary images repeatedly gave one visible ball 18–20 supported boundary sectors out of 32. The provisional minimum is now 18/32, with the existing multi-frame association, final-current support and consensus gates intact. On the same mounted camera, a live stationary request then completed in 2.639 seconds using five independent frames (maximum source gap 600 ms), returned 16 balls and three candidate shots, and had no consensus conflict. The largest supported centre displacement in its sampled detections was 2.6 pixels. This is a successful single live development check, not a reviewed-geometry result or a held-out reliability estimate.
+
+The captured 1920×1080 table images are visibly sharp and show all sixteen balls; the failures here came from edge-support and motion-evidence thresholds. This visual check does not replace a measured focus, compression or edge-resolution study. The ordinary production Release APK built successfully from the final source; after diagnostics the original installed APK was restored byte-for-byte, the app UID and private storage were retained, the owned 18768 forward was removed, and camera capture was left unchanged. See the compact follow-up receipts in [repair evidence](evidence/o08-repair-smoke.json).
 
 ### Physical acceptance still required
 

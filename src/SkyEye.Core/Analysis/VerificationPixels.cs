@@ -45,7 +45,12 @@ public sealed class VerificationPixels(int width, int height)
             }
             if (count > 0)
             {
-                double strong = Math.Max(changedAnchor, changedPrevious) / (double)count, weak = Math.Max(subtleAnchor, subtlePrevious) / (double)count;
+                double strong = Math.Max(changedAnchor, changedPrevious) / (double)count;
+                // Codec noise beside a pocket can cross one comparison's edge
+                // threshold. Subtle motion needs the same pixels to differ from
+                // both the fixed and adjacent references; either strong signal
+                // still refuses on its own above.
+                double weak = Math.Min(subtleAnchor, subtlePrevious) / (double)count;
                 if (strong > local) { local = strong; localAt = new(x, y); }
                 if (weak > sensitive) { sensitive = weak; sensitiveAt = new(x, y); }
             }

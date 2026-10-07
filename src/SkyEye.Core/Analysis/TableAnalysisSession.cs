@@ -10,6 +10,7 @@ public sealed record CircleObservation(string BallId, Point Centre, double Radiu
     public Point? ProposalCentre { get; init; }
     public double? ProposalRadius { get; init; }
     public double? BoundarySupport { get; init; }
+    public double? CandidateBoundarySupport { get; init; }
 }
 public sealed record VisionResult(Ball[] Balls, bool Uncertain, string[] Warnings, double ElapsedMs, int CircleCount, bool Normalized, string Runtime, double[] ColourGains, int ClothHue, bool Obstructed, CircleObservation[] Circles)
 {

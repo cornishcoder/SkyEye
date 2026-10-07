@@ -153,6 +153,20 @@ static class VerificationChecks
             "Current outer boundary recovers a displaced proposal without fitting the cream patch");
         Check(BallBoundaryRefiner.Refine(new byte[width * height * 3], width, height, new(80, 80), 27) is null,
             "Radius prior cannot invent a ball on a blank image");
+        var motionAnchor = new[]
+        {
+            new CircleObservation("red-0", new(300, 500), 27, "solid", []) { CandidateBoundarySupport = .75 },
+            new CircleObservation("yellow-1", new(650, 900), 27, "solid", []) { CandidateBoundarySupport = .75 }
+        };
+        var jittered = motionAnchor.Select(c => c with { Centre = c.Centre + new Point(1.5, 0) }).ToArray();
+        Check(VerificationObjectMotion.MaximumSupportedDisplacement(motionAnchor, jittered) is < 6,
+            "Small supported detector jitter does not count as ball motion");
+        var rolled = motionAnchor.Select(c => c.BallId == "red-0" ? c with { Centre = c.Centre + new Point(25, 0) } : c).ToArray();
+        Check(VerificationObjectMotion.MaximumSupportedDisplacement(motionAnchor, rolled) is > 6,
+            "A slowly rolled ball is positive motion evidence even when pixel templates lose the translation");
+        var unsupportedRoll = rolled.Select(c => c.BallId == "red-0" ? c with { CandidateBoundarySupport = .5 } : c).ToArray();
+        Check(VerificationObjectMotion.MaximumSupportedDisplacement(motionAnchor, unsupportedRoll) is < 6,
+            "Unsupported geometry cannot establish object motion");
         var good = Vision();
         var supported = good with { Circles = good.Balls.Select(b => new CircleObservation(b.Id, new(100, 100), 27, "solid", [])
             { ProposalRadius = 27, BoundarySupport = 1 }).ToArray() };

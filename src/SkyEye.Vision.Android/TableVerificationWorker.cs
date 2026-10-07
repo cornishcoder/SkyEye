@@ -18,6 +18,7 @@ public sealed partial class VisionAnalyzer
         readonly VerificationPixels motion = new(motionWidth, motionHeight);
         byte[]? anchorColour, previousColour;
         CircleObservation[] bodies = [];
+        CircleObservation[]? anchorDetections;
         bool? geometryValid;
         bool disposed;
         public VerificationMeasurement Measure(TableFrame frame, bool detect, CancellationToken cancellation)
@@ -38,6 +39,12 @@ public sealed partial class VisionAnalyzer
             }
             VisionResult? vision = null;
             if (detect) { PipelineDiagnostics.Count("verificationFullAnalyses"); vision = owner.AnalyzePixels(bgr.Value, calibration, cancellation, appearance); }
+            double? detectedDisplacement = null;
+            if (detect && vision is not null)
+            {
+                if (anchorDetections is null) anchorDetections = vision.Circles;
+                else detectedDisplacement = VerificationObjectMotion.MaximumSupportedDisplacement(anchorDetections, vision.Circles);
+            }
             using var gray = new MatLease(new Mat());
             // Warp directly from decoded pixels: avoid throwing away ball detail
             // in an intermediate 480x270 resize. Retain bounded motion images only.
@@ -77,7 +84,7 @@ public sealed partial class VisionAnalyzer
                     }
                 }
                 var measured = motion.Measure(Read(gray.Value), geometryValid == true, vision, colour, mask)
-                    with { MaximumBodyDisplacement = anchorColour is null ? null : maximum, SupportedBodies = supported };
+                    with { MaximumBodyDisplacement = anchorColour is null ? null : maximum, MaximumDetectedBodyDisplacement = detectedDisplacement, SupportedBodies = supported };
                 if (anchorColour is not null)
                 {
                     if (measured.Reason is ObservationReason.None or ObservationReason.InsufficientEvidence or ObservationReason.Moving)
@@ -88,6 +95,11 @@ public sealed partial class VisionAnalyzer
                     }
                 }
                 else { anchorColour = colour; bodies = vision?.Circles ?? []; }
+                // Positive movement from repeated supported detections outranks
+                // missing template coverage; an untranslated/ambiguous ROI must
+                // not erase a ball displacement already measured in this burst.
+                if (detectedDisplacement >= Math.Max(5, owner.coordinates.Width * ObservationPolicy.MinimumDetectedBallMotionFraction))
+                    measured = measured with { Motion = TableMotion.Moving, Reason = ObservationReason.Moving };
                 previousColour = colour;
                 return vision?.VerificationReason is { } reason ? measured with { Reason = reason } : measured;
             }

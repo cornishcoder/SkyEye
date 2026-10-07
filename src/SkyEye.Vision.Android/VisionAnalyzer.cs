@@ -53,6 +53,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         byte[] pixels = Read(hsv.Value); var circles = Detect(hsv.Value, pixels, settings.InitialVotes, appearance is not null && settings.VerificationBodyRefinement);
         var proposals = circles.ToArray();
         var boundaries = new Dictionary<Circle, BallBoundary>();
+        var candidateBoundaries = new Dictionary<Circle, BallBoundary>();
         bool boundaryUncertain = false;
         if (appearance is not null)
         {
@@ -60,9 +61,14 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             for (int i = 0; i < circles.Length; i++)
             {
                 var fit = BallBoundaryRefiner.Refine(raw, coordinates.Width, coordinates.Height, new(circles[i].X, circles[i].Y), PoolGeometry.Radius * coordinates.Width);
-                if (fit is null || fit.SupportedSectors < .75) { boundaryUncertain = true; continue; }
+                if (fit is null) { boundaryUncertain = true; continue; }
+                candidateBoundaries[circles[i]] = fit;
+                // Support is sampled at 32 fixed angles. The 18-sector minimum
+                // recovers a clear mounted ball with 18-20 supported sectors;
+                // repeated current-frame consensus still gates publication.
+                if (fit.SupportedSectors < ObservationPolicy.MinimumSupportedBoundaryFraction) { boundaryUncertain = true; continue; }
                 var refined = new Circle(fit.Centre.X, fit.Centre.Y, fit.Radius);
-                boundaries[refined] = fit; circles[i] = refined;
+                boundaries[refined] = fit; candidateBoundaries[refined] = fit; circles[i] = refined;
             }
         }
         var first = circles.Select(c => Classify(c, pixels, appearance is not null)).ToArray();
@@ -112,7 +118,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             { BodyDarkFraction = label.BodyDarkFraction, RimDarkFraction = label.RimDarkFraction,
                 ProposalCentre = appearance is null ? null : new(proposals[Array.IndexOf(circles, circle)].X, proposals[Array.IndexOf(circles, circle)].Y),
                 ProposalRadius = appearance is null ? null : proposals[Array.IndexOf(circles, circle)].Radius,
-                BoundarySupport = boundaries.GetValueOrDefault(circle)?.SupportedSectors });
+                BoundarySupport = boundaries.GetValueOrDefault(circle)?.SupportedSectors,
+                CandidateBoundarySupport = candidateBoundaries.GetValueOrDefault(circle)?.SupportedSectors });
         }
         bool uncertain = balls.Any(b => b.Kind == "unknown") || balls.Count > 16 || balls.Count(b => b.Kind == "cue") != 1 || balls.Count(b => b.Kind == "black") != 1 || balls.Count(b => b.Kind == "red") > 7 || balls.Count(b => b.Kind == "yellow") > 7;
         if (boundaryUncertain) { uncertain = true; warnings.Add("Current ball boundary lacks sufficient edge support."); }

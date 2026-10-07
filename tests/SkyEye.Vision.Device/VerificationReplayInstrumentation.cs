@@ -11,14 +11,14 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
 {
     public VerificationReplayInstrumentation() { }
     public VerificationReplayInstrumentation(IntPtr handle, global::Android.Runtime.JniHandleOwnership ownership) : base(handle, ownership) { }
-    bool refinement, dump;
-    public override void OnCreate(global::Android.OS.Bundle? args) { refinement = args?.GetString("refine") == "1"; dump = args?.GetString("dump") == "1"; base.OnCreate(args); Start(); }
+    bool refinement, dump; string run = "";
+    public override void OnCreate(global::Android.OS.Bundle? args) { refinement = args?.GetString("refine") == "1"; dump = args?.GetString("dump") == "1"; run = args?.GetString("run") ?? ""; if (run.Length > 32 || run.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not '-' and not '_')) throw new ArgumentException("Invalid replay run name."); base.OnCreate(args); Start(); }
     public override void OnStart()
     {
         base.OnStart(); object report;
         try
         {
-            var root = Path.Combine(TargetContext!.GetExternalFilesDir(null)!.AbsolutePath, "o08-replay");
+            var root = Path.Combine(TargetContext!.GetExternalFilesDir(null)!.AbsolutePath, run.Length == 0 ? "o08-replay" : "o08-replay-" + run);
             var paths = Directory.GetFiles(root, "*.json").OrderBy(p => long.Parse(Path.GetFileNameWithoutExtension(p))).ToArray();
             if (paths.Length is < 3 or > 6) throw new IOException("Replay 3 to 6 captured development snapshots.");
             using var first = JsonDocument.Parse(File.ReadAllBytes(paths[0]));

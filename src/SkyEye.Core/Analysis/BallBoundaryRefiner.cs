@@ -66,7 +66,8 @@ public static class BallBoundaryRefiner
             score = supported * 2 + score / directions.Length - .1 * Math.Abs(radius - expectedRadius);
             var candidate = new BallBoundary(new(x, y), radius, supported / (double)directions.Length, score);
             if (best is null || score > best.Score) best = candidate;
-            if (supported >= 24 && (supportedBest is null || score > supportedBest.Score)) supportedBest = candidate;
+            if (supported >= ObservationPolicy.MinimumSupportedBoundaryFraction * directions.Length
+                && (supportedBest is null || score > supportedBest.Score)) supportedBest = candidate;
         }
     }
 }
