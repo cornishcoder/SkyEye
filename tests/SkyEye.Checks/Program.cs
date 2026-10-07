@@ -10,6 +10,7 @@ await ManualMatchAppChecks.Run();
 InternationalRulesChecks.Run();
 await RulesApplicationChecks.Run();
 await MotionFeedChecks.Run();
+await VerificationChecks.Run();
 ShotHudChecks.Run();
 
 static void Require(bool yes, string reason) { if (!yes) throw new Exception(reason); }

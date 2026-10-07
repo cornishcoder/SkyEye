@@ -2,7 +2,11 @@ namespace SkyEye.Core.Analysis;
 
 public readonly record struct HsvPixel(double H, double S, double V);
 public sealed record ColourCluster(HsvPixel Centre, int Count);
-public sealed record BallClassification(string Kind, string Pattern, double Quality, ColourCluster[] Clusters);
+public sealed record BallClassification(string Kind, string Pattern, double Quality, ColourCluster[] Clusters)
+{
+    public double? BodyDarkFraction { get; init; }
+    public double? RimDarkFraction { get; init; }
+}
 
 /// <summary>Bounded C# port of the upstream four-colour K-means/white-area classifier.
 /// Kind is adapted to red/yellow eight-ball; Pattern retains upstream solid/stripe semantics.
@@ -47,6 +51,22 @@ public static class BallClassifier
         double fraction = colours.Where(c => kind == "red" ? c.Centre.H * 2 < 18 || c.Centre.H * 2 > 325 : c.Centre.H * 2 is >= 18 and <= 75).Sum(c => c.Count) / (double)pixels.Length;
         if (fraction < .45) kind = "unknown";
         return new(kind, pattern, kind == "unknown" ? 0 : Math.Min(.9, .72 + fraction * .18), clusters);
+    }
+    /// <summary>Bounded verification recovery for a black body's large cream number patch.
+    /// Inventory is not used to choose a replacement label. Conflicting or unsupported rims retain the baseline label.</summary>
+    public static BallClassification ClassifyWithRim(HsvPixel[] samples, HsvPixel[] rim)
+    {
+        var baseline = Classify(samples);
+        bool Valid(HsvPixel p) => double.IsFinite(p.H) && p.H is >= 0 and <= 179 && p.V is > 5 and <= 255 && p.S is >= 0 and <= 255;
+        var body = samples.Where(Valid).ToArray();
+        var edge = rim.Where(Valid).ToArray();
+        bool Dark(HsvPixel p) => p.V < 40 || p.V < 80 && p.S < 160;
+        baseline = baseline with { BodyDarkFraction = body.Length == 0 ? null : body.Count(Dark) / (double)body.Length,
+            RimDarkFraction = edge.Length == 0 ? null : edge.Count(Dark) / (double)edge.Length };
+        if (body.Length >= 8 && edge.Length >= 8 && baseline.Kind is "cue" or "unknown" && baseline.Pattern == "black"
+            && baseline.BodyDarkFraction >= .25 && baseline.RimDarkFraction >= .45)
+            return baseline with { Kind = "black", Quality = .75 };
+        return baseline;
     }
     static ColourCluster[] Cluster(HsvPixel[] pixels)
     {

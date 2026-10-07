@@ -33,6 +33,12 @@ public sealed class TableTracker(double maximumObservationGapSeconds = 6)
             throw new InvalidOperationException("Wait for a fresh, settled, unobstructed view and check every ball.");
         State = state with { Confirmed = true }; return State;
     }
+    internal TableState Verified(string calibrationId, string captureTimeline, DateTimeOffset capturedAt, Ball[] balls, string group, bool still, bool unclear)
+    {
+        Reset(); timeline = captureTimeline; previous = balls.ToArray(); stableAnchor = balls.ToArray(); stableSince = capturedAt;
+        State = new(++version, capturedAt, balls.ToArray(), group, still, unclear, false, calibrationId);
+        return State;
+    }
     public TableState Correct(Ball[] balls, DateTimeOffset now)
     {
         var state = State ?? throw new InvalidOperationException("Analyze the table before correcting it.");

@@ -32,18 +32,25 @@ static class ObservationCommandChecks
         effect.Reset(); var changedMedia = app.DispatchAsync(Request()); await effect.Entered.Task;
         effect.Current = false; effect.Release.TrySetResult();
         Check(!(await changedMedia).Succeeded && app.State.Observation is null, "media/calibration generation fences result");
+        effect.Reset(); effect.Ready = true;
+        var noProof = app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, app.State.Version,
+            new ObserveTable(app.State.Camera.Scope!, 1, 1, Mode: ObservationMode.VerifyForAdvice)));
+        await effect.Entered.Task; effect.Release.TrySetResult();
+        Check((await noProof).Outcome == CommandOutcome.Failed && app.State.Observation is null,
+            "A legacy ready flag without independent verification evidence cannot publish as verified advice");
         Console.WriteLine("PASS scoped observation commands: bounded admission, touch/Sky, duplicate, receipt timing, source/media changes and cancellation");
     }
     sealed class Observation : ITableObservationEffect
     {
-        public bool Current = true; public int Calls;
+        public bool Current = true, Ready; public int Calls;
         public TaskCompletionSource Entered = new(TaskCreationOptions.RunContinuationsAsynchronously), Release = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public void Reset() { Current = true; Entered = new(TaskCreationOptions.RunContinuationsAsynchronously); Release = new(TaskCreationOptions.RunContinuationsAsynchronously); }
         public bool IsCurrent(ObserveTable request) => Current;
+        public Task<TableObservation> ExecuteAsync(ObserveTable request, Guid operationId, CancellationToken cancellation) => ExecuteAsync(request, cancellation);
         public async Task<TableObservation> ExecuteAsync(ObserveTable request, CancellationToken cancellation)
         {
             Calls++; Entered.TrySetResult(); await Release.Task; // deliberately ignore cancellation
-            return new(request.Source, request.AnalysisGeneration, request.MediaGeneration, "fixture", DateTimeOffset.UtcNow, 100, 1, 1, 1, 2, 1, ObservationOutcome.Unsettled, "fixture");
+            return new(request.Source, request.AnalysisGeneration, request.MediaGeneration, "fixture", DateTimeOffset.UtcNow, 100, 1, 1, 1, 2, 1, Ready ? ObservationOutcome.Ready : ObservationOutcome.Unsettled, "fixture");
         }
     }
     sealed class Camera : ICameraControlEffect

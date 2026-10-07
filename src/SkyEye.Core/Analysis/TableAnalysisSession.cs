@@ -3,7 +3,11 @@ using SkyEye.Core.Application;
 
 namespace SkyEye.Core.Analysis;
 
-public sealed record CircleObservation(string BallId, Point Centre, double Radius, string Pattern, ColourCluster[] Clusters);
+public sealed record CircleObservation(string BallId, Point Centre, double Radius, string Pattern, ColourCluster[] Clusters)
+{
+    public double? BodyDarkFraction { get; init; }
+    public double? RimDarkFraction { get; init; }
+}
 public sealed record VisionResult(Ball[] Balls, bool Uncertain, string[] Warnings, double ElapsedMs, int CircleCount, bool Normalized, string Runtime, double[] ColourGains, int ClothHue, bool Obstructed, CircleObservation[] Circles)
 {
     public RecognitionTelemetry? Recognition { get; init; }
@@ -23,6 +27,8 @@ public sealed record TableFrame(byte[] Jpeg, DateTimeOffset CapturedAt, string T
     public long? SourceTimeUs { get; init; }
     public string FrameSource { get; init; } = "camera-snapshot";
     public DecodedFrameReceipt? DecodedReceipt { get; init; }
+    public double? ClockSampleAgeMs { get; init; }
+    public double? ClockUncertaintyMs { get; init; }
     public byte[] ReviewImage() => Jpeg.Length > 0 ? Jpeg : Image?.EncodeForReview() ?? throw new IOException("Review frame unavailable.");
     public void Dispose() => Image?.Dispose();
 }
@@ -40,13 +46,14 @@ public sealed record TableAnalysisSnapshot(long Generation, CameraScope? Source,
     public TableObservation? Observation { get; init; }
     public Shot[] Choices { get; init; } = [];
     public bool ChoicesComputed { get; init; }
+    public VerificationProgress? VerificationProgress { get; init; }
 }
 public sealed record CalibrationDraft(long Generation, byte[] Jpeg, Point[]? Proposed);
 
 /// <summary>One owner for transient table tracking, calibration and reviewed edits.
 /// Native/network work runs outside its lock. Source changes invalidate late work;
 /// concurrent update requests share one frame instead of building a frame queue.</summary>
-public sealed class TableAnalysisSession(ITableFrameSource frames, ITableAnalyzer analyzer, ICalibrationStore? calibrations = null, TimeProvider? clock = null) : IDisposable
+public sealed partial class TableAnalysisSession(ITableFrameSource frames, ITableAnalyzer analyzer, ICalibrationStore? calibrations = null, TimeProvider? clock = null) : IDisposable
 {
     readonly object gate = new();
     readonly SemaphoreSlim analyzerGate = new(1);
@@ -75,7 +82,7 @@ public sealed class TableAnalysisSession(ITableFrameSource frames, ITableAnalyze
                 state = state with { Source = source, CameraIdentity = camera.CameraIdentity,
                     Calibration = changedCamera ? null : state.Calibration, CalibrationId = changedCamera ? "" : state.CalibrationId };
             }
-            if (group != targetGroup) { group = targetGroup; state = state with { Table = tracker.SetGroup(group), Choices = [], ChoicesComputed = false }; }
+            if (group != targetGroup) { if (verificationRunning) InvalidateLocked(); group = targetGroup; state = state with { Table = tracker.SetGroup(group), Choices = [], ChoicesComputed = false }; }
         }
     }
     public bool RestoreCalibration()
@@ -107,7 +114,7 @@ public sealed class TableAnalysisSession(ITableFrameSource frames, ITableAnalyze
     void InvalidateLocked()
     {
         active?.Cancel(); tracker.Reset(); lastTimeline = null;
-        state = state with { Generation = checked(state.Generation + 1), Picking = false, Table = null, Vision = null, Jpeg = null, Observation = null, Choices = [], ChoicesComputed = false };
+        state = state with { Generation = checked(state.Generation + 1), Picking = false, Table = null, Vision = null, Jpeg = null, Observation = null, Choices = [], ChoicesComputed = false, VerificationProgress = null };
     }
     public Task UpdateAsync(CancellationToken cancellation = default, bool reviewFrame = false)
     {
@@ -115,6 +122,7 @@ public sealed class TableAnalysisSession(ITableFrameSource frames, ITableAnalyze
         lock (gate)
         {
             ThrowIfDisposed(); cancellation.ThrowIfCancellationRequested();
+            if (verificationRunning) throw new InvalidOperationException("Cancel the current table verification before observing once.");
             if (pending is { IsCompleted: false }) { PipelineDiagnostics.Count("coalescedRequests"); return pending; }
             if (state.Source is null || state.Calibration is null || state.Picking) return Task.CompletedTask;
             var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

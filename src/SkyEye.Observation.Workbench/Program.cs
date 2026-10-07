@@ -3,6 +3,7 @@ using SkyEye.Observation;
 try
 {
     if (args.Length == 3 && args[0] == "seed") { SeedFixtures.Write(args[1], args[2]); return; }
+    if (args.Length == 3 && args[0] == "import-verification") { Console.WriteLine(VerificationCaptureImport.Import(args[1], args[2])); return; }
     if (args.Length == 0 || args[0] is not ("validate" or "replay" or "freeze" or "baseline"))
         throw new ArgumentException("Usage: validate|replay|freeze|baseline --root DIR --manifest FILE [--output FILE] [--lock FILE] [--detections FILE] [--tolerance NUMBER]");
     var options = new Dictionary<string, string>();

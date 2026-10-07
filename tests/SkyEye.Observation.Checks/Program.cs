@@ -72,6 +72,18 @@ try
     Check(CorpusJson.Write(crowded) == CorpusJson.Write(DetectorBaseline.Score(crowdedTruth,
         crowdedDetection with { Balls = crowdedDetection.Balls.Reverse().ToImmutableArray() }, .035)),
         "Stored detection order cannot change association or metrics");
+    var captureFolder = Path.Combine(root, "capture", "window"); Directory.CreateDirectory(captureFolder);
+    foreach (var f in frames.Take(2))
+    {
+        File.Copy(Path.Combine(root, f.PixelFile), Path.Combine(captureFolder, f.PixelFile));
+        File.WriteAllText(Path.Combine(captureFolder, f.SampleId + ".json"), JsonSerializer.Serialize(new { indexedFrame = f }, CorpusJson.Options));
+    }
+    var importedPath = VerificationCaptureImport.Import(Path.Combine(root, "capture"), Path.Combine(root, "imported"));
+    var imported = CorpusJson.Read<CorpusManifest>(importedPath);
+    var importedAudit = CorpusValidation.Validate(imported, new CorpusFiles(Path.Combine(root, "imported")));
+    Check(importedAudit.HeldOutVerificationSequences == 0 && imported.Sequences[0].Session == scope.Timeline,
+        "Imported paired snapshots stay unreviewed development material; related windows retain a common session");
+    Throws<IOException>(() => VerificationCaptureImport.Import(Path.Combine(root, "capture"), Path.Combine(root, "imported")));
     // Minimal SOF fixture checks the dimension contract without image decoding or CV.
     var jpeg = new byte[] { 0xff,0xd8,0xff,0xc0,0,11,8,0,8,0,8,1,1,0x11,0,0xff,0xd9 };
     var jpegFrame = frames[0] with { Encoding = PixelEncoding.Jpeg, EmbeddedFrameId = false };
