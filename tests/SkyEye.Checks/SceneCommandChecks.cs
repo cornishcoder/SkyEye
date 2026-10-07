@@ -6,7 +6,7 @@ static class SceneCommandChecks
     public static async Task Run()
     {
         static void Check(bool yes, string reason) { if (!yes) throw new Exception(reason); }
-        var restored = new AppCoordinator(phoneCorrected:false, tvCorrected:true);
+        var restored = new AppCoordinator(phoneCorrected:false);
         Check(!restored.State.Presentation.PhoneCorrected && restored.State.Presentation.TvCorrected
             && restored.State.Presentation.Phone.Mode==ShotDisplayMode.Live && restored.State.ShotChoices==ShotChoiceCatalog.Empty,
             "Restored correction flags cannot restore transient shots or change independent surface defaults");
@@ -14,6 +14,10 @@ static class SceneCommandChecks
         await restored.DispatchAsync(new(Guid.NewGuid(),CommandOrigin.Touch,restored.State.Version,new ClearAnnotations(SceneTarget.Both)));
         Check(restored.State.Presentation.PhoneCorrected && restored.State.Presentation.TvCorrected,
             "Independent correction choices survive clearing HUD advice");
+        Check(!(await restored.DispatchAsync(new(Guid.NewGuid(),CommandOrigin.Sky,restored.State.Version,new SetTableCorrection(SceneTarget.Tv,false)))).Succeeded
+            && !(await restored.DispatchAsync(new(Guid.NewGuid(),CommandOrigin.Touch,restored.State.Version,new SetTableCorrection(SceneTarget.Both,false)))).Succeeded
+            && restored.State.Presentation.TvCorrected,
+            "Touch and Sky cannot select an uncorrected live TV route");
         var clock = new Clock(); var app = new AppCoordinator(cameraControls: new Camera(), clock: clock);
         Task<CommandReceipt> Send(SkyEyeCommand command, CommandOrigin origin = CommandOrigin.Touch) => app.DispatchAsync(new(Guid.NewGuid(), origin, app.State.Version, command));
         await Send(new ConnectCamera("camera:8765"));

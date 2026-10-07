@@ -47,7 +47,7 @@ public sealed partial class AppCoordinator
         {
             case ClearAnnotations clear when Enum.IsDefined(clear.Target):
                 return state with { Presentation = ForTarget(presentation, clear.Target, SurfacePresentation.Live) };
-            case SetTableCorrection correction when Enum.IsDefined(correction.Target):
+            case SetTableCorrection correction when Enum.IsDefined(correction.Target) && (correction.Target == SceneTarget.Phone || correction.Enabled):
                 return state with { Presentation = presentation with {
                     PhoneCorrected = correction.Target is SceneTarget.Phone or SceneTarget.Both ? correction.Enabled : presentation.PhoneCorrected,
                     TvCorrected = correction.Target is SceneTarget.Tv or SceneTarget.Both ? correction.Enabled : presentation.TvCorrected } };
