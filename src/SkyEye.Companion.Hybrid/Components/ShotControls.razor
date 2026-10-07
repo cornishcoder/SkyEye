@@ -20,7 +20,13 @@
         var number = Session.ShotChoices.ToList().IndexOf(choice) + 1;
         <button class="secondary" disabled="@Busy" @onclick="() => Pin(choice, catalogVersion)">Pin candidate @number · @choice.Type · pocket @(choice.Pocket + 1)</button>
         <button class="quiet" disabled="@Busy" @onclick="() => Session.ShowCuePathAsync(Version, catalogVersion, choice.Id)">Cue-ball path on phone · candidate @number</button>
+        <div class="clip-actions">
+            <button class="quiet" disabled="@Busy" @onclick="() => Hud(choice, catalogVersion, ShotAnnotations.Lines)">Just lines · @number</button>
+            <button class="quiet" disabled="@Busy" @onclick="() => Hud(choice, catalogVersion, ShotAnnotations.WhiteDirection)">White direction · @number</button>
+            <button class="quiet" disabled="@Busy" @onclick="() => Hud(choice, catalogVersion, ShotAnnotations.All)">Full shot · @number</button>
+        </div>
     }
+    <p class="hint">White direction assumes a stun collision. Its arrow shows direction only; a finish estimate needs pace and a validated model.</p>
 </section>
 
 @code {
@@ -32,4 +38,5 @@
     Task Cycle() => Session.ShowRequestedChoicesAsync(Version, target);
     Task Live() => Session.SetShotDisplayAsync(Version, target, ShotDisplayMode.Live);
     Task Pin(ShotChoice choice, long catalogVersion) => Session.PinShotAsync(Version, target, catalogVersion, choice.Id);
+    Task Hud(ShotChoice choice, long catalogVersion, ShotAnnotations elements) => Session.ShowHudAsync(Version, target, catalogVersion, choice.Id, elements);
 }

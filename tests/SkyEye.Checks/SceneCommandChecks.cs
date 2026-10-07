@@ -19,6 +19,12 @@ static class SceneCommandChecks
             && app.State.Presentation.Tv.ShotId == "7:r2:1" && app.State.Presentation.Phone.Revision == phoneRevision, "Sky selects number two on TV without changing phone revision");
         Check((await Send(new ShowAnnotation(SceneTarget.Phone, 7, "7:r2:1", ShotAnnotations.CueBallPath), CommandOrigin.Sky)).Succeeded
             && app.State.Presentation.Phone.Annotations == ShotAnnotations.CueBallPath && app.State.Presentation.Tv.Annotations == ShotAnnotations.All, "annotation subset is independently scoped");
+        Check((await Send(new ShowAnnotation(SceneTarget.Phone,7,"7:r2:1",ShotAnnotations.WhiteDirection))).Succeeded
+            && app.State.Presentation.Phone.Annotations==ShotAnnotations.WhiteDirection && app.State.Presentation.Tv.Annotations==ShotAnnotations.All,
+            "Touch white-direction preset uses the same scoped semantic command as Sky");
+        Check((await Send(new ShowAnnotation(SceneTarget.Tv,7,"7:r2:1",ShotAnnotations.Lines),CommandOrigin.Sky)).Succeeded
+            && app.State.Presentation.Phone.Annotations==ShotAnnotations.WhiteDirection && app.State.Presentation.Tv.Annotations==ShotAnnotations.Lines,
+            "Independent TV minimal preset does not change phone projection");
         Check(!(await Send(new ShowShot(SceneTarget.Phone, 6, 2))).Succeeded && !(await Send(new ShowShot(SceneTarget.Tv, 7, 4))).Succeeded, "stale numbers and missing numbers rejected");
         await Send(new ClearAnnotations(SceneTarget.Phone), CommandOrigin.Sky);
         Check(app.State.Presentation.Phone.Mode == ShotDisplayMode.Live && app.State.Presentation.Tv.Mode == ShotDisplayMode.Pinned, "clearing phone retains selected TV shot");

@@ -53,6 +53,8 @@ public sealed partial class ShellSession
     public SkyEyeState CommandState => app.State;
     public Task ShowCuePathAsync(long expectedVersion, long tableVersion, string id) => ExecuteApplicationCommandAsync(
         new(Guid.NewGuid(), CommandOrigin.Touch, expectedVersion, new ShowAnnotation(SceneTarget.Phone, tableVersion, id, ShotAnnotations.CueBallPath)));
+    public Task ShowHudAsync(long expectedVersion, SceneTarget target, long tableVersion, string id, ShotAnnotations elements) =>
+        ExecuteApplicationCommandAsync(new(Guid.NewGuid(), CommandOrigin.Touch, expectedVersion, new ShowAnnotation(target, tableVersion, id, elements)));
     public ObserveTable? ObservationRequest => player is null || table.State.Source is not { } source ? null : new(source, table.State.Generation, MediaGeneration());
     public Task<CommandReceipt> ExecuteApplicationCommandAsync(CommandEnvelope request, CancellationToken cancellation = default) => MainThread.InvokeOnMainThreadAsync(async () =>
     {
@@ -169,9 +171,12 @@ public sealed partial class ShellSession
             if (surface.Mode is not (ShotDisplayMode.Cycling or ShotDisplayMode.Pinned) || selection.Kind != ViewingSource.Live || EditingTable || !Playing)
             { player.ClearTableSceneForTarget(tv); if (tv && active) BackgroundTvService.Scene(""); return; }
             var caption = shot is null ? CandidateStatus : $"{(surface.Mode == ShotDisplayMode.Pinned ? "Pinned" : "Candidate " + (index + 1) + " / " + shotCarousel.Candidates.Length)} · {shot.Type} · pocket {shot.Pocket + 1}";
+            var number = shot is null ? 0 : Array.FindIndex(shotCarousel.Candidates, s => s.Id == shot.Id) + 1;
             try
             {
-                var scene = shot is not null ? ShotSceneProjection.Create(shot, snapshot.Calibration!, ++sceneRevision, mediaGeneration, now, app.State.ShotChoices.ExpiresAt, caption, surface.Mode == ShotDisplayMode.Pinned, surface.Annotations)
+                var scene = shot is not null ? ShotSceneProjection.Create(shot, snapshot.Calibration!, ++sceneRevision, mediaGeneration, now, app.State.ShotChoices.ExpiresAt,
+                    tv ? $"Candidate {number} · {shot.Type} · pocket {shot.Pocket + 1}" : $"{shot.Type} · pocket {shot.Pocket + 1}",
+                    surface.Mode == ShotDisplayMode.Pinned, surface.Annotations, number, detailed:tv)
                     : new TableScene(++sceneRevision, mediaGeneration, snapshot.Table?.Version ?? 0, now, TimeSpan.FromSeconds(3), [], [], [], caption);
                 var json = JsonSerializer.Serialize(scene, sceneJson);
                 if (!player.SetTableSceneForTarget(json, tv)) last = "";

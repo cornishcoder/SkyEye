@@ -11,7 +11,10 @@ public sealed record ScenePath(ImmutableArray<ScenePoint> Points, SceneInk Ink, 
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] ScenePathRole Role = ScenePathRole.Unspecified);
 public sealed record SceneCorridor(ImmutableArray<ScenePoint> Boundary, SceneInk Ink);
 public sealed record ShotHudInfo(string CandidateId, string ShotType, int Number, string Provenance, string Model,
-    ImmutableArray<string> Assumptions, string? ProjectionUnavailable = null);
+    ImmutableArray<string> Assumptions, string? ProjectionUnavailable = null)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] public bool Detailed { get; init; }
+}
 public sealed record SceneMarker(ScenePoint Point, double Radius, SceneInk Ink, SceneMarkerKind Kind);
 public sealed record SceneAnnotation(ScenePoint Point, string Text);
 public sealed record SceneScore(string LeftName, int LeftScore, string RightName, int RightScore);

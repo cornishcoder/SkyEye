@@ -33,7 +33,7 @@ public static class ShotSceneProjection
         if (projection?.DisplayEnd is { } end) paths.Add(new([Image(projection.Start), Image(end)], SceneInk.Yellow, pinned, ScenePathRole.CueProjected));
         ShotHudInfo? hud = projected || Has(Application.ShotAnnotations.Provenance)
             ? new(shot.Id, shot.Type, number, "Geometric", projected ? CueDirectionProjection.Model : "candidate-geometry-v1",
-                projected ? [CueDirectionProjection.Assumption, "Direction only; no pace, spin or finish estimate"] : [], projection?.UnsupportedReason) : null;
+                projected ? [CueDirectionProjection.Assumption, "Direction only; no pace, spin or finish estimate"] : [], projection?.UnsupportedReason) { Detailed = detailed } : null;
         string label = Has(Application.ShotAnnotations.ShotLabel) ? detailed ? caption + " · geometric rank" : caption : "";
         return new(sceneVersion, mediaGeneration, shot.TableVersion, now, expiresAt - now, paths, markers, [], label, corridors: corridors, shotHud: hud);
     }
