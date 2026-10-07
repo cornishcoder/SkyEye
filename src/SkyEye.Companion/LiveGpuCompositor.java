@@ -59,6 +59,8 @@ public final class LiveGpuCompositor {
         player.prepare();player.play();
     }
     public long getGeneration(){return generation;}
+    /** Exercises the existing reconnect path without changing the camera source. */
+    public void restartDecoder(String url){main.post(()->{if(!closed&&player!=null)play(url);});}
     public void setClock(String timeline,long sourceUs){recorder.clock(timeline,sourceUs,generation);}
     public void setGeometry(String json){if(json!=null&&json.length()<=32768)geometry=json;}
     public void setScene(String json){scene=json==null?"":json;if(scene.isEmpty()&&gl!=null)gl.post(()->{scenes.clear();overlayKey="";});}

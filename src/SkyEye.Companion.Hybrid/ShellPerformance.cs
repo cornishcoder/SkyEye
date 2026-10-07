@@ -24,6 +24,9 @@ public sealed partial class ShellSession
             { await FixtureAsync(); return HttpResponse.Json(new { source = "labelled local fixture" }); }
             if (r.Method == "POST" && r.Path == "/live")
             { await WatchLiveAsync(); return HttpResponse.Json(new { source = "live camera" }); }
+            if (r.Method == "POST" && r.Path == "/restart-tv-decoder")
+                return await MainThread.InvokeOnMainThreadAsync(() => HttpResponse.Json(new
+                { restarted = BackgroundTvService.Instance?.RestartDecoderForCheck() == true }));
             if (r.Method == "POST" && r.Path == "/local")
             {
                 var choice = LocalClips.FirstOrDefault();

@@ -23,6 +23,14 @@ public sealed class BackgroundTvService : Service
     static BackgroundTvRequest? requested;
     public static BackgroundTvService? Instance { get; private set; }
     public long DecoderGeneration => compositor?.Generation ?? 0;
+#if SKYEYE_PERFORMANCE
+    public bool RestartDecoderForCheck()
+    {
+        if (compositor is null || request is null) return false;
+        compositor.RestartDecoder(request.Stream);
+        return true;
+    }
+#endif
     readonly BackgroundDeliveryLease lease = new();
     readonly CancellationTokenSource lifetime = new();
     CancellationTokenSource? pipelineLifetime;
