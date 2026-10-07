@@ -48,6 +48,12 @@ try
         "Reviewed verification holdout has its own denominator and proves no shot accuracy");
     Throws<InvalidDataException>(() => CorpusValidation.Validate(manifest with { Sequences = [verification with { Source = source }] }, files));
     Throws<InvalidDataException>(() => CorpusValidation.Validate(manifest with { Sequences = [verification with { Purpose = SequencePurpose.NegativeVerification }] }, files));
+    File.WriteAllLines(Path.Combine(root, "negative-index.jsonl"), frames.Take(2).Select(f => JsonSerializer.Serialize(f with { FrameId = 1, SourceTimeUs = 1000 }, new JsonSerializerOptions(CorpusJson.Options) { WriteIndented = false })));
+    File.WriteAllText(Path.Combine(root, "verification-labels.json"), CorpusJson.Write(verificationLabels with { Intervals = [new("source-invalid", 1000, 34000, "confirmed", [], "Duplicate source receipt contract")] }));
+    var negative = verification with { Purpose = SequencePurpose.NegativeVerification, IndexFile = "negative-index.jsonl" };
+    Check(CorpusValidation.Validate(manifest with { Sequences = [negative] }, files).HeldOutVerificationSequences == 1,
+        "Explicit reviewed source-invalid negatives can preserve frozen/duplicate receipts for rejection evaluation");
+    Throws<InvalidDataException>(() => CorpusValidation.Validate(manifest with { Sequences = [negative with { Purpose = SequencePurpose.StillVerification }] }, files));
     File.WriteAllText(Path.Combine(root, "verification-labels.json"), CorpusJson.Write(verificationLabels with { Reviewed = false }));
     Throws<InvalidDataException>(() => CorpusValidation.Validate(manifest with { Sequences = [verification] }, files));
     var lockPath = Path.Combine(root, "manifest.json"); File.WriteAllText(lockPath, CorpusJson.Write(manifest));
@@ -63,6 +69,11 @@ try
     Check(score.SpatialTruePositives == 1 && score.FalsePositives == 1 && score.MissedVisible == 1 && score.ColourCorrect == 0,
         "Visible ground truth, wrong colours, extra circles and misses remain separate");
     Throws<InvalidDataException>(() => DetectorBaseline.Score(truth, detection with { PixelSha256 = new string('0',64) }, .027));
+    var radiiTruth = truth with { Balls = [truth.Balls[0] with { RadiusX = .02, RadiusY = .01 }] };
+    var radiiDetection = detection with { Balls = [new("measured", "red", .205, .3, .9)] };
+    var radiiScore = DetectorBaseline.Score(radiiTruth, radiiDetection, .027);
+    Check(radiiScore.MatchesWithReviewedRadii == 1 && Math.Abs(radiiScore.CentreErrorInRadiiP95!.Value - .25) < 1e-8,
+        "Centre error is scaled by independently labelled ellipse radii; unlabelled radii remain unavailable");
     // A nearest-first greedy match loses B: A must be reassigned to the alternative.
     var crowdedTruth = truth with { Balls = [new("A", "red", .20, .3, LabelVisibility.Visible), new("B", "yellow", .24, .3, LabelVisibility.Visible)] };
     var crowdedDetection = detection with { Balls = [new("shared", "yellow", .22, .3, null), new("alternative", "red", .17, .3, null)] };

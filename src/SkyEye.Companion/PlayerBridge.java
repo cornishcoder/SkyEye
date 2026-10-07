@@ -55,6 +55,7 @@ public final class PlayerBridge {
     public void clearTableScene(){tableDrawing.clear();tvDrawing.clear();overlay.invalidate();}
     public void clearTableSceneForTarget(boolean tv){(tv?tvDrawing:tableDrawing).clear();overlay.invalidate();}
     public void setRecordingClock(String timeline,long sourceUs,long mediaGeneration){annotationRecorder.clock(timeline,sourceUs,mediaGeneration);}
+    public void setRecordingClockSample(String timeline,long sourceUs,long mediaGeneration,double sampleAgeMs,double uncertaintyMs){annotationRecorder.clockSample(timeline,sourceUs,mediaGeneration,sampleAgeMs,uncertaintyMs);}
     public String drainAnnotations(){return annotationRecorder.drain();}
     public String annotationMetrics(){return annotationRecorder.metrics();}
     public String sceneMetrics(){return phoneScene;}
@@ -73,6 +74,7 @@ public final class PlayerBridge {
         // actual pixels before that deadline; pairing uses identity, not now.
         long releaseAge=System.nanoTime()-stamp;
         if(releaseAge>250000000L||releaseAge< -100000000L)return copyFailure("stale-or-far-future-surface");
+        long clockAt=android.os.SystemClock.elapsedRealtime();
         JSONObject clock=liveUrl(activeUrl)?annotationRecorder.exactFrameMetrics(stamp,media):new JSONObject();
         if(clock==null)return copyFailure("unmapped-source-clock");
         // Allocate explicitly so a failed/throwing TextureView copy cannot leak
@@ -85,6 +87,13 @@ public final class PlayerBridge {
             copyAfter=surface.getTimestamp();
             if(media!=generation||surface!=texture.getSurfaceTexture()||stamp!=copyAfter
                 ||decodedLedger.match(media,stamp)!=paired)return copyFailure("changed-during-copy");
+            // The clock receipt precedes native readback. Copy time is part of
+            // source age at return, not evidence that the pixels became newer.
+            if(liveUrl(activeUrl)){
+                long copyElapsed=android.os.SystemClock.elapsedRealtime()-clockAt+1;
+                clock.put("ageEstimateMs",clock.getDouble("ageEstimateMs")+copyElapsed);
+                clock.put("clockSampleAgeMs",clock.getLong("clockSampleAgeMs")+copyElapsed);
+            }
             String metadata=clock.put("mediaGeneration",media).put("frameId",paired.frameId).put("presentationUs",paired.presentationUs)
                 .put("surfaceTimestampNs",stamp).put("releaseTimestampNs",paired.releaseNs).put("width",bitmap.getWidth()).put("height",bitmap.getHeight())
                 .put("pairing","exact-surface-timestamp").toString();

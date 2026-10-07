@@ -14,12 +14,18 @@ final class AnnotationRecorder {
     private String timeline="";private long referenceUs,referenceAt,generation;
     private long phoneUs=-1,tvUs=-1;private boolean overflow;
     private long textureUs=-1,textureAt;
+    private double referenceUncertaintyMs=-1;
     synchronized void reset(long generation){this.generation=generation;adjuster=null;frames.clear();timeline="";phoneUs=tvUs=textureUs=-1;}
     synchronized void extractor(TimestampAdjuster value,long generation){if(generation==this.generation)adjuster=value;}
     synchronized void clock(String timeline,long sourceUs,long generation){
+        clockSample(timeline,sourceUs,generation,0,-1);
+    }
+    synchronized void clockSample(String timeline,long sourceUs,long generation,double sampleAgeMs,double uncertaintyMs){
         if(generation!=this.generation||timeline==null||!timeline.matches("[a-fA-F0-9]{32}")||sourceUs<0)return;
+        if(!Double.isFinite(sampleAgeMs)||sampleAgeMs<0||sampleAgeMs>10000)return;
+        if(this.timeline.equals(timeline)&&sourceUs<=referenceUs)return; // repeating a cached status cannot rejuvenate its clock
         if(!this.timeline.isEmpty()&&!this.timeline.equals(timeline)){frames.clear();phoneUs=tvUs=textureUs=-1;adjuster=null;}
-        this.timeline=timeline;referenceUs=sourceUs;referenceAt=android.os.SystemClock.elapsedRealtime();
+        this.timeline=timeline;referenceUs=sourceUs;referenceAt=android.os.SystemClock.elapsedRealtime()-(long)Math.ceil(sampleAgeMs);referenceUncertaintyMs=uncertaintyMs;
     }
     synchronized void frame(long presentationUs,long releaseNs){
         TimestampAdjuster a=adjuster;if(a==null||timeline.isEmpty()||android.os.SystemClock.elapsedRealtime()-referenceAt>10000)return;
@@ -60,7 +66,8 @@ final class AnnotationRecorder {
         if(media!=generation||selected==null||timeline.isEmpty()||android.os.SystemClock.elapsedRealtime()-referenceAt>10000
             ||now-releaseNs< -100000000L||now-releaseNs>250000000L)return null;
         double age=(referenceUs-selected[0])/1000d+android.os.SystemClock.elapsedRealtime()-referenceAt;
-        return new JSONObject().put("timeline",timeline).put("sourceUs",selected[0]).put("ageEstimateMs",age);
+        return new JSONObject().put("timeline",timeline).put("sourceUs",selected[0]).put("ageEstimateMs",age)
+            .put("clockSampleAgeMs",android.os.SystemClock.elapsedRealtime()-referenceAt).put("clockUncertaintyMs",referenceUncertaintyMs);
     }catch(Exception ignored){return null;}}
     synchronized String metrics(){try{return new JSONObject().put("mapped",!timeline.isEmpty()&&!frames.isEmpty())
         .put("phoneSourceUs",phoneUs).put("tvSourceUs",tvUs).put("pending",observations.length()).put("overflow",overflow)

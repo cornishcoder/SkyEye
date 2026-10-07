@@ -32,11 +32,12 @@ static class VerificationChecks
         var frames = new Frames(); var analyzer = new Analyzer();
         using var session = new TableAnalysisSession(frames, analyzer, new Calibration());
         session.Bind(camera, "open"); session.RestoreCalibration();
-        var id = Guid.NewGuid(); var verification = session.VerifyAsync(id, 1);
-        Check(ReferenceEquals(verification, session.VerifyAsync(id, 1)), "Compatible in-flight verification shares one owner");
+        var id = Guid.NewGuid(); var verification = session.VerifyAsync(id, 1, reviewFrame: true);
+        Check(ReferenceEquals(verification, session.VerifyAsync(id, 1, reviewFrame: true)), "Compatible in-flight verification shares one owner");
         await verification;
         Check(session.State.Observation is { Outcome: ObservationOutcome.Ready, Motion: TableMotion.Still, Verification.IndependentFrames: 5 }, "Five independent source samples establish still/clear readiness");
         Check(frames.Reads == 5 && frames.Disposals == 5 && analyzer.Detections == 3 && analyzer.Disposals == 1, "Bounded anchors, exact bitmap/worker disposal");
+        Check(session.State.Jpeg is { Length: 1 } && frames.Encodings == 3, "Explicit burst review retains only the latest anchor's owned image");
         var observation = session.State.Observation!;
         var choices = session.ComputeChoices(session.State.Generation, observation.TableVersion);
         Check(ReferenceEquals(choices, session.ComputeChoices(session.State.Generation, observation.TableVersion)) && analyzer.Detections == 3, "Choices computed once without new perception");
@@ -46,6 +47,7 @@ static class VerificationChecks
         session.Invalidate(); frames.ClockAge = 3000;
         await session.VerifyAsync(Guid.NewGuid(), 1);
         Check(session.State.Observation?.Reason == ObservationReason.ClockUntrusted, "Stale mapping fails even for freshly copied pixels"); frames.ClockAge = 1;
+        Check(session.State.Observation?.Verification?.RejectedSample?.ClockSampleAgeMs == 3000, "Refused frame metadata survives as rejected evidence, never as a valid sample");
         session.Invalidate(); frames.Gap = true;
         await session.VerifyAsync(Guid.NewGuid(), 1);
         Check(session.State.Observation?.Reason == ObservationReason.SampleGap, "Legacy fifteen-second gap never substitutes for continuous evidence"); frames.Gap = false;
@@ -57,18 +59,21 @@ static class VerificationChecks
         using var cancel = new CancellationTokenSource(); var cancelled = session.VerifyAsync(Guid.NewGuid(), 1, cancel.Token);
         await frames.Entered.Task; cancel.Cancel();
         await Cancelled(cancelled); int disposed = frames.Disposals; frames.Hold.SetResult();
-        await Until(() => frames.Disposals == disposed + 1);
+        await Until(() => frames.Disposals == disposed + 1 && !session.HasPendingWork);
         Check(session.State.Observation is null, "Uncooperative late acquisition cannot publish and its pixels are disposed"); frames.Hold = null;
 
         session.Invalidate(); analyzer.Hold = new(TaskCreationOptions.RunContinuationsAsynchronously); analyzer.Entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
         var changing = session.VerifyAsync(Guid.NewGuid(), 1); await analyzer.Entered.Task;
         session.Bind(camera, "yellow"); await Cancelled(changing);
         Check(session.State.Observation is null, "Group changes cancel verification and reject late results");
-        int workers = analyzer.Disposals; analyzer.Hold.SetResult(); await Until(() => analyzer.Disposals == workers + 1); analyzer.Hold = null;
+        int workers = analyzer.Disposals; analyzer.Hold.SetResult(); await Until(() => analyzer.Disposals == workers + 1 && !session.HasPendingWork); analyzer.Hold = null;
         session.Invalidate(); frames.Hold = new(TaskCreationOptions.RunContinuationsAsynchronously); frames.Entered = new(TaskCreationOptions.RunContinuationsAsynchronously);
         var timeout = session.VerifyAsync(Guid.NewGuid(), 1); await frames.Entered.Task; await timeout;
         Check(session.State.Observation is { Reason: ObservationReason.TimedOut, Outcome: ObservationOutcome.Unsettled }, "Uncooperative source reaches the hard deadline with an honest result");
-        int lateDisposals = frames.Disposals; frames.Hold.SetResult(); await Until(() => frames.Disposals == lateDisposals + 1); frames.Hold = null;
+        int readsAtTimeout = frames.Reads;
+        try { _ = session.VerifyAsync(Guid.NewGuid(), 1); throw new Exception("Expected retiring source refusal"); } catch (InvalidOperationException) { }
+        Check(frames.Reads == readsAtTimeout, "A timed-out uncooperative read cannot build a hidden acquisition queue");
+        int lateDisposals = frames.Disposals; frames.Hold.SetResult(); await Until(() => frames.Disposals == lateDisposals + 1 && !session.HasPendingWork); frames.Hold = null;
         session.Invalidate(); frames.AgeMs = 1450; analyzer.DelayMs = 100;
         await session.VerifyAsync(Guid.NewGuid(), 1);
         Check(session.State.Observation?.Reason == ObservationReason.FrameTooOld, "Freshness fails when processing pushes the final sample over the publication budget"); frames.AgeMs = 0; analyzer.DelayMs = 0;
@@ -90,6 +95,8 @@ static class VerificationChecks
         var uncertainMotion = new VerificationPixels(w, h); uncertainMotion.Measure(gray, true, null);
         Check(uncertainMotion.Measure(subtle, true, null).Motion == TableMotion.Unknown, "Small unsupported changes cannot imply stillness");
         Check(new VerificationPixels(w, h).Measure(new byte[w * h], true, null).Motion == TableMotion.Unknown, "Textureless coverage never implies stillness");
+        Check(new VerificationPixels(w, h).Measure(gray, true, Vision() with { Obstructed = true }).Reason == ObservationReason.Obstructed,
+            "A physically obstructed bootstrap frame is refused immediately without waiting for a settled layout");
         var lighting = new VerificationPixels(w, h); lighting.Measure(gray, true, null);
         Check(lighting.Measure(gray.Select(b => (byte)(b + 20)).ToArray(), true, null).Reason == ObservationReason.LightingChanged, "Broad exposure change has its own reason");
         var pose = new VerificationPixels(w, h); pose.Measure(gray, true, null);
@@ -100,7 +107,7 @@ static class VerificationChecks
     static async Task Until(Func<bool> condition) { for (int i = 0; i < 100 && !condition(); i++) await Task.Delay(10); Check(condition(), "Late resource cleanup completes"); }
     sealed class Frames : ITableFrameSource, ITableVerificationFrameSource
     {
-        public int Reads, Disposals; public bool Duplicate, Gap; public double ClockAge = 1, AgeMs;
+        public int Reads, Disposals, Encodings; public bool Duplicate, Gap; public double ClockAge = 1, AgeMs;
         public bool FinalCurrent = true;
         public Task RefreshVerificationClockAsync(CancellationToken cancellation) => Task.CompletedTask;
         public Task<bool> IsVerificationSourceCurrentAsync(CameraScope source, long generation, string timeline, CancellationToken cancellation) => Task.FromResult(FinalCurrent);
@@ -113,7 +120,7 @@ static class VerificationChecks
                 ClockSampleAgeMs = ClockAge, ClockUncertaintyMs = 1, Image = new Image(this), DecodedReceipt = new(1, Duplicate ? 1 : index, pts, index, 640, 360) };
         }
     }
-    sealed class Image(Frames frames) : ITableFrameImage { public byte[] EncodeForReview() => []; public void Dispose() => Interlocked.Increment(ref frames.Disposals); }
+    sealed class Image(Frames frames) : ITableFrameImage { public byte[] EncodeForReview() { Interlocked.Increment(ref frames.Encodings); return [1]; } public void Dispose() => Interlocked.Increment(ref frames.Disposals); }
     sealed class Analyzer : ITableAnalyzer, ITableVerificationAnalyzer
     {
         public int Detections, Disposals, DelayMs; public TaskCompletionSource? Hold, Entered;

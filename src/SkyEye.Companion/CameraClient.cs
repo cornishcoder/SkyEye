@@ -14,6 +14,8 @@ public sealed class CameraClient : IDisposable
     public string? HostToken { get; set; }
     public string ReadToken { get; private set; } = "";
     public ClipSaveScope? SaveScope { get; private set; }
+    public long StatusReceiptTimestamp { get; private set; }
+    public double StatusRoundTripMs { get; private set; }
     public void Connect(string input)
     {
         Address = CameraEndpoint.Parse(input); ReadToken = ""; SaveScope = null;
@@ -30,10 +32,13 @@ public sealed class CameraClient : IDisposable
     public async Task<JsonElement> StatusAsync(CancellationToken ct = default)
     {
         var requestAddress = Address;
+        var statusStart = System.Diagnostics.Stopwatch.GetTimestamp();
         using var response = await http.GetAsync(requestAddress + "/status", ct); using var document = await ParseAsync(response, ct);
         var status = document.RootElement.Clone();
         if (Address == requestAddress)
         {
+            StatusReceiptTimestamp = System.Diagnostics.Stopwatch.GetTimestamp();
+            StatusRoundTripMs = System.Diagnostics.Stopwatch.GetElapsedTime(statusStart).TotalMilliseconds;
             ReadToken = status.GetProperty("readToken").GetString()!;
             var host = status.GetProperty("host");
             SaveScope = host.ValueKind == JsonValueKind.Null ? null : new(

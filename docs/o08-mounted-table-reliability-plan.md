@@ -1,6 +1,6 @@
 # O08 — Reliable mounted-camera table observation
 
-7 October 2026 · **Planned; immediate P0 priority before A02 voice delivery.** Epic: **Mounted-Camera Observation Reliability**. This document schedules work and does not establish runtime or physical acceptance. Planning baseline: `5453d0b` and the code inspected on 7 October. Concurrent runtime edits are outside this documentation change; compare them with this baseline before implementing each chunk, retaining any independently verified improvements. Preserve other missions and their recorded evidence.
+7 October 2026 · **Runtime foundation implemented; physical reliability/release acceptance incomplete. Immediate P0 priority before A02 voice delivery.** Epic: **Mounted-Camera Observation Reliability**. The [implementation/evidence report](o08-observation-reliability-report.md) records bounded verification, actual Pixel interaction, failed development variants and remaining gates. This design alone does not establish acceptance. Planning baseline: `5453d0b` and the code inspected on 7 October. Preserve other missions and their recorded evidence.
 
 ## Outcome and release decision
 
@@ -144,7 +144,7 @@ Keep media bounded: short originals plus selected ROI/frame evidence and JSON re
 
 ## Delivery chunks and verification
 
-All chunks are **planned**. Each produces a small reviewable implementation and evidence artifact; split Core/native/UI/corpus changes into further commits when needed. Commit after each meaningful verified change. Dependencies and failure results are recorded rather than marking the whole mission complete after a build.
+Runtime foundations for O08.01–O08.06 are implemented, with controlled checks and bounded real development/tap evidence. Their full physical acceptance is **open**; O08.07–O08.09 remain incomplete. The [report](o08-observation-reliability-report.md) retains failures and missing denominators. Each chunk produces a small reviewable implementation and evidence artifact; split Core/native/UI/corpus changes into further commits when needed. Commit after each meaningful verified change. Dependencies and failure results are recorded rather than marking the whole mission complete after a build.
 
 | Chunk | Concrete result | Dependencies and check |
 | --- | --- | --- |

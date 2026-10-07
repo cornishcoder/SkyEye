@@ -11,6 +11,7 @@ public sealed record CircleObservation(string BallId, Point Centre, double Radiu
 public sealed record VisionResult(Ball[] Balls, bool Uncertain, string[] Warnings, double ElapsedMs, int CircleCount, bool Normalized, string Runtime, double[] ColourGains, int ClothHue, bool Obstructed, CircleObservation[] Circles)
 {
     public RecognitionTelemetry? Recognition { get; init; }
+    public ObservationReason? VerificationReason { get; init; }
 }
 public interface ITableAnalyzer
 {
@@ -66,6 +67,7 @@ public sealed partial class TableAnalysisSession(ITableFrameSource frames, ITabl
     string? lastTimeline;
     bool disposed;
     public TableAnalysisSnapshot State { get { lock (gate) return state; } }
+    public bool HasPendingWork { get { lock (gate) return active is not null; } }
 
     // Called from the coordinator subscription, before its UI observers. No IO.
     public void Bind(CameraConnection camera, string targetGroup)

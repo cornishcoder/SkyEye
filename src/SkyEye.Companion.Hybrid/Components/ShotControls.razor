@@ -11,10 +11,11 @@
         <option value="@SceneTarget.Phone">Phone only</option>
         <option value="@SceneTarget.Tv">TV only</option>
     </select>
-    <button class="primary" disabled="@(Busy || !Session.CanShowChoices)" @onclick="Cycle">Show candidate shots</button>
-    <button class="secondary" disabled="@(Busy || !Session.CanAnalyzeTable)" @onclick="Session.ObserveTableAsync">Observe table once</button>
+    <button class="primary" disabled="@(Busy || Session.CheckingTable || !Session.CanShowChoices)" @onclick="Cycle">@(Session.CheckingTable ? "Checking table…" : "Show candidate shots")</button>
+    @if (Session.CheckingTable) { <button class="secondary" @onclick="Session.CancelTableVerification">Cancel table check</button> }
+    <button class="secondary" disabled="@(Busy || Session.CheckingTable || !Session.CanAnalyzeTable)" @onclick="Session.ObserveTableAsync">Observe table once</button>
     <button class="secondary" disabled="@Busy" @onclick="Live">@(Session.TvReplaySelected ? "Clear candidates" : "Clear candidates · show live")</button>
-    <p class="hint">Show requests one observation. If settlement is requested, leave the balls still and ask again after 2 seconds, within 6 seconds. Computed choices cycle every 2 seconds and expire after 15 seconds.</p>
+    <p class="hint">Show checks several fresh views while the table is still, for up to @SkyEye.Core.Analysis.ObservationPolicy.VerificationTimeoutSeconds seconds. Computed choices cycle every 2 seconds and expire after @SkyEye.Core.Analysis.ObservationPolicy.CatalogueLifetimeSeconds seconds.</p>
     @{ var catalogVersion = Session.ChoiceTableVersion; }
     @foreach (var choice in Session.ShotChoices)
     {

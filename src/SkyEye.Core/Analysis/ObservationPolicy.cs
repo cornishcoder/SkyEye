@@ -15,7 +15,7 @@ public static class ObservationPolicy
     public const int MinimumVerificationSamples = 5;
     public const int MaximumVerificationSamples = 6;
     public const double SampleIntervalSeconds = .5;
-    public const string VerificationConfiguration = "o08-provisional-v4";
+    public const string VerificationConfiguration = "o08-provisional-v7";
 }
 
 public enum TableMotion { Unknown, Still, Moving }

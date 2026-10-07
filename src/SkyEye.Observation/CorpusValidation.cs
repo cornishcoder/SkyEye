@@ -73,7 +73,10 @@ public static class CorpusValidation
                 || label.Balls.Select(b => b.Id).Distinct().Count() != label.Balls.Length
                 || label.Balls.Any(b => !CorpusFiles.Text(b.Id) || b.Colour is not ("red" or "yellow" or "cue" or "black" or "unknown")
                     || !Enum.IsDefined(b.Visibility) || !double.IsFinite(b.X) || !double.IsFinite(b.Y) || b.X < 0
-                    || b.X > (label.CoordinateSpace == "table-2x1" ? 2 : 1) || b.Y is < 0 or > 1))
+                    || b.X > (label.CoordinateSpace == "table-2x1" ? 2 : 1) || b.Y is < 0 or > 1
+                    || b.RadiusX is null != (b.RadiusY is null)
+                    || b.RadiusX is { } rx && (!double.IsFinite(rx) || rx <= 0 || rx > 1)
+                    || b.RadiusY is { } ry && (!double.IsFinite(ry) || ry <= 0 || ry > 1)))
                 throw new InvalidDataException("Invalid frame labels or payload identity: " + s.Id);
         }
         foreach (var interval in labels.Intervals)
@@ -85,7 +88,8 @@ public static class CorpusValidation
             var required = s.Purpose == SequencePurpose.StillVerification ? new[] { "still" } : new[] { "moving", "obstructed", "lighting-changed", "camera-changed", "source-invalid" };
             if (!labels.Reviewed || labels.Frames.Length < 2 || !labels.Intervals.Any(i => required.Contains(i.Kind) && i.Certainty == "confirmed" && i.ToUs > i.FromUs)
                 || indexed.Any(f => f.SourceTimeUs is null)
-                || indexed.Skip(1).Where((f, i) => f.FrameId <= indexed[i].FrameId || f.SourceTimeUs <= indexed[i].SourceTimeUs || f.Scope != indexed[i].Scope).Any())
+                || (s.Purpose == SequencePurpose.StillVerification || !labels.Intervals.Any(i => i.Kind == "source-invalid" && i.Certainty == "confirmed"))
+                    && indexed.Skip(1).Where((f, i) => f.FrameId <= indexed[i].FrameId || f.SourceTimeUs <= indexed[i].SourceTimeUs || f.Scope != indexed[i].Scope).Any())
                 throw new InvalidDataException("Verification requires reviewed visible truth, a labelled interval and increasing scoped source receipts.");
         }
     }

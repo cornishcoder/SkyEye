@@ -19,7 +19,13 @@ public sealed record FrameScope(string Source, string Timeline, long Generation,
 // Pixels and timing form one indexed receipt; audit UTC is separate from source time.
 public sealed record IndexedFrame(string SampleId, long FrameId, long? SourceTimeUs, FrameScope Scope,
     string PixelFile, string PixelSha256, PixelEncoding Encoding, int Width, int Height, bool EmbeddedFrameId = false);
-public sealed record BallLabel(string Id, string Colour, double X, double Y, LabelVisibility Visibility);
+public sealed record BallLabel(string Id, string Colour, double X, double Y, LabelVisibility Visibility)
+{
+    // Optional reviewed ellipse radii in the frame's coordinate space. Separate
+    // axes avoid treating image-normalized coordinates as square pixels.
+    public double? RadiusX { get; init; }
+    public double? RadiusY { get; init; }
+}
 public sealed record FrameLabels(string SampleId, string PixelSha256, string CoordinateSpace,
     ImmutableArray<BallLabel> Balls, string Notes);
 public sealed record LabelInterval(string Kind, long FromUs, long ToUs, string Certainty, ImmutableArray<string> BallIds, string Notes);

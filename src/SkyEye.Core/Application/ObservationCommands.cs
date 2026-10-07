@@ -19,6 +19,7 @@ public sealed record TableObservation(CameraScope Source, long AnalysisGeneratio
     public RecognitionTelemetry? Recognition { get; init; }
     public LayoutChangeTelemetry? Change { get; init; }
     public VerificationEvidence? Verification { get; init; }
+    public DetectionEvidenceAge? DetectionEvidence { get; init; }
 }
 public interface ITableObservationEffect
 {
@@ -41,7 +42,7 @@ public sealed class TableObservationEffect(Func<TableAnalysisSession> session, F
         if (!IsCurrent(request) || session().State.Calibration is null) throw new InvalidOperationException("Calibrate an active live table before observing it.");
         if (!Enum.IsDefined(request.Mode)) throw new ArgumentException("Unknown observation mode.");
         if (request.Mode == ObservationMode.VerifyForAdvice)
-            await session().VerifyAsync(operationId, request.MediaGeneration, cancellation).WaitAsync(cancellation).ConfigureAwait(false);
+            await session().VerifyAsync(operationId, request.MediaGeneration, cancellation, request.ReviewFrame).WaitAsync(cancellation).ConfigureAwait(false);
         else await session().UpdateAsync(cancellation, request.ReviewFrame).WaitAsync(cancellation).ConfigureAwait(false);
         cancellation.ThrowIfCancellationRequested();
         var snapshot = session().State;
@@ -61,6 +62,7 @@ public sealed class TableObservationEffect(Func<TableAnalysisSession> session, F
             observed = observed with { Choices = new(request.Source, table.Version, group, table.CapturedAt, table.CapturedAt.AddSeconds(ObservationPolicy.CatalogueLifetimeSeconds),
                 shots.Select(s => new ShotChoice(s.Id, s.Type, s.Pocket)).ToImmutableArray()), DurationMs = observed.DurationMs + timer.Elapsed.TotalMilliseconds,
                 FrameAgeMs = observed.FrameAgeMs + timer.Elapsed.TotalMilliseconds };
+            if (observed.DetectionEvidence is { } support) observed = observed with { DetectionEvidence = support with { AgeMs = support.AgeMs + timer.Elapsed.TotalMilliseconds } };
         }
         return observed with { MediaGeneration = request.MediaGeneration };
     }
@@ -116,7 +118,9 @@ public sealed partial class AppCoordinator
             CommandReceipt receipt;
             if (request.Mode == ObservationMode.VerifyForAdvice && result is not null)
             {
-                result = result with { FrameAgeMs = result.FrameAgeMs + sceneClock.GetElapsedTime(resultAt).TotalMilliseconds };
+                var publicationDelay = sceneClock.GetElapsedTime(resultAt).TotalMilliseconds;
+                result = result with { FrameAgeMs = result.FrameAgeMs + publicationDelay, DurationMs = result.DurationMs + publicationDelay,
+                    DetectionEvidence = result.DetectionEvidence is { } support ? support with { AgeMs = support.AgeMs + publicationDelay } : null };
                 if (result.Outcome == ObservationOutcome.Ready && result.FrameAgeMs > ObservationPolicy.MaximumFinalAgeMs)
                     result = result with { Outcome = ObservationOutcome.Unclear, Reason = ObservationReason.FrameTooOld, Quality = LayoutQuality.Unknown, Choices = ShotChoiceCatalog.Empty, GameEvidence = null };
             }
@@ -160,7 +164,8 @@ public sealed partial class AppCoordinator
             || !double.IsFinite(evidence.MaximumGapMs) || evidence.MaximumGapMs < 0 || evidence.MaximumGapMs > ObservationPolicy.MaximumVerificationGapSeconds * 1000
             || !double.IsFinite(evidence.FinalClockSampleAgeMs) || evidence.FinalClockSampleAgeMs is < 0 or > ObservationPolicy.MaximumClockSampleAgeMs
             || result.DecodedReceipt?.MediaGeneration != result.MediaGeneration || result.DecodedReceipt?.FrameId != evidence.Samples[^1].FrameId
-            || result.SourceTimeUs != evidence.EndSourceUs) return false;
+            || result.SourceTimeUs != evidence.EndSourceUs || result.DetectionEvidence is not { } detection || detection.FrameId != evidence.Samples[^1].FrameId
+            || detection.SourceTimeUs != evidence.EndSourceUs || !double.IsFinite(detection.AgeMs) || detection.AgeMs is < 0 or > ObservationPolicy.MaximumFinalAgeMs) return false;
         return evidence.Samples[0].SourceTimeUs == evidence.StartSourceUs && evidence.Samples[^1].SourceTimeUs == evidence.EndSourceUs
             && evidence.Samples.All(s => s.Measurement.CoverageValid && double.IsFinite(s.ClockSampleAgeMs) && s.ClockSampleAgeMs is >= 0 and <= ObservationPolicy.MaximumClockSampleAgeMs
                 && double.IsFinite(s.ClockUncertaintyMs) && s.ClockUncertaintyMs is >= 0 and <= 250)
@@ -178,6 +183,7 @@ public sealed partial class AppCoordinator
         ObservationReason.FrameTooOld or ObservationReason.ClockUntrusted => "Live frame too old or its clock is uncertain. Resume live video and retry.",
         ObservationReason.SourceChanged or ObservationReason.SampleGap => "Live source interrupted. Resume live video and retry.",
         ObservationReason.TimedOut => "Table check timed out. Check the live view, then retry.",
+        ObservationReason.FrameUnavailable => "Live frame unavailable. Resume live video and retry.",
         _ => "Stillness could not be verified. Check the live view or review the table."
     };
 }

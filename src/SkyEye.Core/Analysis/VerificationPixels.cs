@@ -12,6 +12,7 @@ public sealed class VerificationPixels(int width, int height)
         var perimeter = Enumerable.Range(0, gray.Length).Where(i => IsPerimeter(i % width, i / width)).ToArray();
         int textured = perimeter.Count(i => i % width > 0 && Math.Abs(gray[i] - gray[i - 1]) >= 8);
         bool covered = geometryValid && perimeter.Length > 0 && textured >= 40;
+        if (vision?.Obstructed == true) return new(TableMotion.Unknown, ObservationReason.Obstructed, false, 0, 0, 0, vision);
         if (!covered) return new(TableMotion.Unknown, ObservationReason.CalibrationChanged, false, 0, 0, 0, vision);
         if (anchor is null) { anchor = gray.ToArray(); previous = gray.ToArray(); return new(TableMotion.Unknown, ObservationReason.InsufficientEvidence, true, 0, 0, 0, vision); }
         double lighting = Math.Max(Math.Abs(gray.Average(b => (double)b) - anchor.Average(b => (double)b)), Math.Abs(gray.Average(b => (double)b) - previous!.Average(b => (double)b)));

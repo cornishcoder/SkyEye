@@ -6,8 +6,29 @@ using Bridge = UK.CO.Skyeye.Companion.Nativebridge;
 
 namespace SkyEye.Companion;
 
-public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Func<CameraConnection> connection, Func<bool> live) : ITableMotionFrameSource
+public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Func<CameraConnection> connection, Func<bool> live,
+    Func<CancellationToken, Task>? refreshClock = null) : ITableMotionFrameSource, ITableVerificationFrameSource
 {
+    public Task RefreshVerificationClockAsync(CancellationToken cancellation) => refreshClock?.Invoke(cancellation) ?? Task.CompletedTask;
+    public Task<bool> IsVerificationSourceCurrentAsync(CameraScope source, long mediaGeneration, string timeline, CancellationToken cancellation)
+    {
+        var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        main.Post(() =>
+        {
+            try
+            {
+                cancellation.ThrowIfCancellationRequested();
+                if (player() is not { } owner || !live() || connection().Scope != source || !connection().CanControl)
+                { completion.TrySetResult(false); return; }
+                var json = owner.DecodedFrameCandidate();
+                if (json is null) { completion.TrySetResult(false); return; }
+                using var candidate = JsonDocument.Parse(json); var stamp = candidate.RootElement;
+                completion.TrySetResult(stamp.GetProperty("mediaGeneration").GetInt64() == mediaGeneration && stamp.GetProperty("timeline").GetString() == timeline);
+            }
+            catch (Exception error) { completion.TrySetException(error); }
+        });
+        return completion.Task;
+    }
     readonly global::Android.OS.Handler main = new(global::Android.OS.Looper.MainLooper!);
     public Task<bool> HasNewFrameAsync(MotionFeedScope scope, long afterFrameId, long afterSourceTimeUs, CancellationToken cancellation)
     {
@@ -61,6 +82,8 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
                         throw new IOException("Decoded pixels have no exact source timestamp receipt.");
                     pixels = new(snapshot.TakeBitmap() ?? throw new IOException("Decoded receipt pixels are unavailable."));
                     var age = stamp.GetProperty("ageEstimateMs").GetDouble();
+                    var uncertainty = stamp.TryGetProperty("clockUncertaintyMs", out var u) ? u.GetDouble() : -1;
+                    var clockAge = stamp.TryGetProperty("clockSampleAgeMs", out var ca) ? ca.GetDouble() : -1;
                     if (!double.IsFinite(age) || age is < -200 or > 6000) throw new IOException("The displayed live frame is too old. Wait for moving live video.");
                     cancellation.ThrowIfCancellationRequested();
                     if (player() != owner || !live() || connection().Scope != source || !connection().CanControl)
@@ -68,6 +91,8 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
                     completion.TrySetResult(new([], DateTimeOffset.UtcNow.AddMilliseconds(-Math.Max(0, age)), stamp.GetProperty("timeline").GetString()!)
                     {
                         Image = pixels, SourceTimeUs = stamp.GetProperty("sourceUs").GetInt64(), FrameSource = "decoded-live-texture",
+                        ClockSampleAgeMs = clockAge >= 0 ? clockAge : null,
+                        ClockUncertaintyMs = uncertainty >= 0 ? uncertainty : null,
                         DecodedReceipt = new(stamp.GetProperty("mediaGeneration").GetInt64(), stamp.GetProperty("frameId").GetInt64(),
                             stamp.GetProperty("presentationUs").GetInt64(), stamp.GetProperty("surfaceTimestampNs").GetInt64(),
                             stamp.GetProperty("width").GetInt32(), stamp.GetProperty("height").GetInt32())

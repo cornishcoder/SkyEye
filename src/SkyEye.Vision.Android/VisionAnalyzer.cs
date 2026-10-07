@@ -13,7 +13,7 @@ namespace SkyEye.Vision.Android;
 
 /// <summary>C# port of the upstream HSV/morphology/Hough pipeline with calibrated
 /// pocket masks, cue-reference normalization and bounded C# colour clustering.</summary>
-public sealed partial class VisionAnalyzer : ITableAnalyzer
+public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationAnalyzer
 {
     static readonly object loadGate = new(); static bool loaded;
     readonly AnalysisCoordinates coordinates;
@@ -45,48 +45,67 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer
         { Utils.BitmapToMat(pixels.Bitmap, rgba.Value); Imgproc.CvtColor(rgba.Value, bgr.Value, Imgproc.ColorRgba2bgr); }
         return AnalyzePixels(bgr.Value, calibration, cancellation);
     }
-    VisionResult AnalyzePixels(Mat source, TableCalibration calibration, CancellationToken cancellation)
+    VisionResult AnalyzePixels(Mat source, TableCalibration calibration, CancellationToken cancellation, BurstAppearance? appearance = null)
     {
         cancellation.ThrowIfCancellationRequested(); var watch = Stopwatch.StartNew(); var warnings = new List<string>();
         using var warped = Warp(source, calibration);
         using var hsv = new MatLease(new Mat()); Imgproc.CvtColor(warped.Value, hsv.Value, Imgproc.ColorBgr2hsv);
-        byte[] pixels = Read(hsv.Value); var circles = Detect(hsv.Value, pixels, settings.InitialVotes);
-        var first = circles.Select(c => Classify(c, pixels)).ToArray();
+        byte[] pixels = Read(hsv.Value); var circles = Detect(hsv.Value, pixels, settings.InitialVotes, appearance is not null && settings.VerificationBodyRefinement);
+        var first = circles.Select(c => Classify(c, pixels, appearance is not null)).ToArray();
         int rawCircleCount = circles.Length;
-        bool normalized = false; double[] colourGains = [1, 1, 1]; var cueIndices = Enumerable.Range(0, first.Length).Where(i => first[i].Kind == "cue").ToArray();
+        bool normalized = false, referenceValid = false, referenceConflict = false; double[] colourGains = [1, 1, 1]; var cueIndices = Enumerable.Range(0, first.Length).Where(i => first[i].Kind == "cue").ToArray();
         if (cueIndices.Length == 1)
         {
             byte[] bgr = Read(warped.Value); var cue = circles[cueIndices[0]];
             var channels = new[] { new List<byte>(), new List<byte>(), new List<byte>() };
             ForPixels(cue, .7, (x, y) => { int offset = (y * coordinates.Width + x) * 3; for (int k = 0; k < 3; k++) channels[k].Add(bgr[offset + k]); });
             double[] gains = channels.Select(c => { c.Sort(); return c.Count == 0 || c[(int)((c.Count - 1) * .95)] < 10 ? 0 : Math.Min(3, 255.0 / c[(int)((c.Count - 1) * .95)]); }).ToArray();
-            if (gains.All(g => g > 0))
+            if (gains.All(g => g > 0)) { colourGains = gains; referenceValid = true; }
+        }
+        if (appearance?.Frozen == true)
+        {
+            referenceConflict = referenceValid && Enumerable.Range(0, 3).Any(i => Math.Abs(colourGains[i] / appearance.Gains[i] - 1) > .15);
+            colourGains = appearance.Gains.ToArray(); referenceValid = appearance.ReferenceValid;
+        }
+        if (appearance is not null && !appearance.Frozen) { appearance.Gains = colourGains.ToArray(); appearance.ReferenceValid = referenceValid; appearance.Frozen = true; }
+        if (referenceValid)
+        {
+            byte[] bgr = Read(warped.Value);
             {
-                for (int i = 0; i < bgr.Length; i++) bgr[i] = (byte)Math.Clamp((int)(bgr[i] * gains[i % 3]), 0, 255);
+                for (int i = 0; i < bgr.Length; i++) bgr[i] = (byte)Math.Clamp((int)(bgr[i] * colourGains[i % 3]), 0, 255);
                 warped.Value.Put(0, 0, bgr); Imgproc.CvtColor(warped.Value, hsv.Value, Imgproc.ColorBgr2hsv); pixels = Read(hsv.Value);
                 // A slightly lower vote threshold retains circles merged with a cushion shadow.
-                circles = Detect(hsv.Value, pixels, settings.NormalizedVotes); normalized = true; colourGains = gains;
+                // Verification freezes the geometry branch as well as gains. The
+                // normalized re-detection can fit a cream number patch instead of
+                // its surrounding black body. Every burst body still comes from
+                // this frame's raw detection; nothing is carried from old frames.
+                if (appearance is null) circles = Detect(hsv.Value, pixels, settings.NormalizedVotes);
+                normalized = true;
             }
         }
         if (!normalized) warnings.Add("No unique cue reference; colours were analyzed without normalization.");
         cancellation.ThrowIfCancellationRequested(); var balls = new List<Ball>(); var observations = new List<CircleObservation>();
         var ordered = circles.OrderBy(c => c.Y).ThenBy(c => c.X).ToArray();
-        var rawLabels = ordered.Select(c => Classify(c, pixels)).ToArray();
+        var rawLabels = ordered.Select(c => Classify(c, pixels, appearance is not null)).ToArray();
         var labels = BallClassifier.ConstrainInventory(rawLabels);
         for (int i = 0; i < ordered.Length; i++)
         {
             var circle = ordered[i]; var label = labels[i]; var position = coordinates.ToTable(new(circle.X, circle.Y));
             balls.Add(new(label.Kind + "-" + balls.Count, label.Kind, position, label.Quality));
-            observations.Add(new(balls[^1].Id, new(circle.X, circle.Y), circle.Radius, label.Pattern, label.Clusters));
+            observations.Add(new(balls[^1].Id, new(circle.X, circle.Y), circle.Radius, label.Pattern, label.Clusters)
+            { BodyDarkFraction = label.BodyDarkFraction, RimDarkFraction = label.RimDarkFraction });
         }
         bool uncertain = balls.Any(b => b.Kind == "unknown") || balls.Count > 16 || balls.Count(b => b.Kind == "cue") != 1 || balls.Count(b => b.Kind == "black") != 1 || balls.Count(b => b.Kind == "red") > 7 || balls.Count(b => b.Kind == "yellow") > 7;
+        if (appearance is not null && (!referenceValid || referenceConflict))
+        { uncertain = true; warnings.Add(referenceConflict ? "Current cue reference conflicts with the frozen burst gains." : "No validated burst colour reference. Review the table."); }
         if (uncertain) warnings.Add("Check uncertain colours or ball counts before using advice.");
         if (PocketColourNeedsReview(pixels)) { uncertain = true; warnings.Add("Check a coloured ball at a pocket opening; the pocket mask may hide part of it."); }
         bool obstructed = LargeObstruction(hsv.Value, pixels);
         if (obstructed) { uncertain = true; warnings.Add("A large object covers part of the playable surface."); }
-        for (int i = 0; i < balls.Count; i++) for (int j = i + 1; j < balls.Count; j++) if ((balls[i].Position - balls[j].Position).Length < .040) { uncertain = true; obstructed = true; warnings.Add("Overlapping circle candidates need checking."); }
+        for (int i = 0; i < balls.Count; i++) for (int j = i + 1; j < balls.Count; j++) if ((balls[i].Position - balls[j].Position).Length < .040) { uncertain = true; warnings.Add("Overlapping circle candidates need checking."); }
         return new(balls.ToArray(), uncertain, warnings.Distinct().ToArray(), watch.Elapsed.TotalMilliseconds, circles.Length, normalized, Cv.Version, colourGains, ClothHue(pixels), obstructed, observations.ToArray())
-        { Recognition = new(normalized ? "cue-normalized" : "raw", rawCircleCount, circles.Length, rawLabels.Select(l => l.Kind).ToArray(), colourGains, ClothHue(pixels), warnings.Distinct().ToArray()) };
+        { Recognition = new(normalized ? "cue-normalized" : "raw", rawCircleCount, circles.Length, rawLabels.Select(l => l.Kind).ToArray(), colourGains, ClothHue(pixels), warnings.Distinct().ToArray()),
+            VerificationReason = referenceConflict ? ObservationReason.LightingChanged : null };
     }
     MatLease Warp(Mat source, TableCalibration calibration)
     {
@@ -101,7 +120,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer
         }
         finally { foreach (var point in original.Concat(portrait)) point.Dispose(); }
     }
-    Circle[] Detect(Mat hsv, byte[] pixels, double votes)
+    Circle[] Detect(Mat hsv, byte[] pixels, double votes, bool refineGeometry = false)
     {
         using var mask = ClothMask(hsv, pixels); using var circles = new MatLease(new Mat());
         double scale = coordinates.Width / 1000.0;
@@ -132,7 +151,29 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer
             result.Add(c);
         }
         AddColourBodies(hsv, pixels, result, scale);
+        if (refineGeometry) RefineBodyGeometry(mask.Value, result, scale);
         return result.ToArray();
+    }
+    void RefineBodyGeometry(Mat cloth, List<Circle> circles, double scale)
+    {
+        // A fresh connected body can refine a jittering Hough edge. Require a
+        // bounded round component containing exactly one current candidate;
+        // merged/touching bodies retain their unresolved original geometry.
+        using var bodies = new MatLease(new Mat()); Cv.Bitwise_not(cloth, bodies.Value);
+        using var labels = new MatLease(new Mat()); using var stats = new MatLease(new Mat()); using var centres = new MatLease(new Mat());
+        int count = Imgproc.ConnectedComponentsWithStats(bodies.Value, labels.Value, stats.Value, centres.Value);
+        for (int i = 1; i < count; i++)
+        {
+            double w = stats.Value.Get(i, Imgproc.CcStatWidth)![0], h = stats.Value.Get(i, Imgproc.CcStatHeight)![0], area = stats.Value.Get(i, Imgproc.CcStatArea)![0];
+            double radius = (w + h) / 4;
+            if (radius < settings.MinimumRadius * scale || radius > settings.MaximumRadius * scale || w / h is < .75 or > 1.33 || area / (w * h) < .65) continue;
+            var included = Enumerable.Range(0, circles.Count).Where(n => labels.Value.Get((int)circles[n].Y, (int)circles[n].X)![0] == i).ToArray();
+            if (included.Length != 1) continue;
+            var observed = new Circle(centres.Value.Get(i, 0)![0], centres.Value.Get(i, 1)![0], radius);
+            var old = circles[included[0]];
+            if (Math.Sqrt(Math.Pow(old.X - observed.X, 2) + Math.Pow(old.Y - observed.Y, 2)) <= radius * .5)
+                circles[included[0]] = observed;
+        }
     }
     void AddColourBodies(Mat hsv, byte[] pixels, List<Circle> circles, double scale)
     {
@@ -250,13 +291,20 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer
         }
         return false;
     }
-    BallClassification Classify(Circle circle, byte[] hsv)
+    BallClassification Classify(Circle circle, byte[] hsv, bool inspectRim = false)
     {
         var samples = new List<HsvPixel>();
         // Include enough of the ball body to distinguish the black from its large
         // cream number patch when the fitted circle centre lands on a highlight.
         ForPixels(circle, .85, (x, y) => { int offset = (y * coordinates.Width + x) * 3; samples.Add(new(hsv[offset], hsv[offset + 1], hsv[offset + 2])); });
-        return BallClassifier.Classify(samples.ToArray());
+        if (!inspectRim) return BallClassifier.Classify(samples.ToArray());
+        var rim = new List<HsvPixel>();
+        ForPixels(circle, .95, (x, y) =>
+        {
+            if ((x - circle.X) * (x - circle.X) + (y - circle.Y) * (y - circle.Y) < circle.Radius * circle.Radius * .65 * .65) return;
+            int offset = (y * coordinates.Width + x) * 3; rim.Add(new(hsv[offset], hsv[offset + 1], hsv[offset + 2]));
+        });
+        return BallClassifier.ClassifyWithRim(samples.ToArray(), rim.ToArray());
     }
     void ForPixels(Circle circle, double fraction, Action<int, int> action)
     {

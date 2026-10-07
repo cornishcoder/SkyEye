@@ -18,7 +18,8 @@ public sealed partial class ShellSession
         if (!view.Status.TryGetProperty("timeline", out var timeline) || !view.Status.TryGetProperty("sourceTimeUs", out var time)) return;
         var id = timeline.GetString(); if (!Guid.TryParseExact(id, "N", out _)) return;
         annotationTimeline = id;
-        player.SetRecordingClock(id, time.GetInt64(), MediaGeneration());
+        player.SetRecordingClockSample(id, time.GetInt64(), MediaGeneration(),
+            view.StatusReceiptTimestamp == 0 ? 10001 : System.Diagnostics.Stopwatch.GetElapsedTime(view.StatusReceiptTimestamp).TotalMilliseconds, view.StatusRoundTripMs);
     }
     void CollectAnnotations()
     {

@@ -5,11 +5,18 @@ namespace SkyEye.Observation;
 public sealed record DetectedBall(string Id, string Colour, double X, double Y, double? Confidence);
 public sealed record StoredDetection(string SampleId, string PixelSha256, string CoordinateSpace, string Model,
     string Provenance, bool Uncertain, ImmutableArray<DetectedBall> Balls);
-public sealed record DetectionMatch(string TruthId, string DetectionId, double CentreError, bool ColourCorrect);
+public sealed record DetectionMatch(string TruthId, string DetectionId, double CentreError, bool ColourCorrect)
+{
+    public double? CentreErrorInRadii { get; init; }
+}
 public sealed record BaselineScore(string SampleId, string Model, string Provenance, bool Uncertain, string CoordinateSpace,
     int VisibleLabels, int Detections, int SpatialTruePositives, int FalsePositives, int MissedVisible,
     int ColourCorrect, double? Precision, double? Recall, double? CentreErrorP95,
-    ImmutableArray<string> MissedIds, ImmutableArray<string> ExtraIds, ImmutableArray<DetectionMatch> Matches);
+    ImmutableArray<string> MissedIds, ImmutableArray<string> ExtraIds, ImmutableArray<DetectionMatch> Matches)
+{
+    public double? CentreErrorInRadiiP95 { get; init; }
+    public int MatchesWithReviewedRadii { get; init; }
+}
 
 /// <summary>Maximum-cardinality spatial association. This does not establish temporal ball identity.</summary>
 public static class DetectorBaseline
@@ -39,15 +46,19 @@ public static class DetectorBaseline
         }
         for (int t = 0; t < truth.Length; t++) Assign(t, []);
         var matches = Enumerable.Range(0, found.Length).Where(d => detectionOwner[d] >= 0)
-            .Select(d => new DetectionMatch(truth[detectionOwner[d]].Id, found[d].Id, Distance(detectionOwner[d], d), truth[detectionOwner[d]].Colour == found[d].Colour))
+            .Select(d => new DetectionMatch(truth[detectionOwner[d]].Id, found[d].Id, Distance(detectionOwner[d], d), truth[detectionOwner[d]].Colour == found[d].Colour)
+            { CentreErrorInRadii = truth[detectionOwner[d]] is { RadiusX: { } rx, RadiusY: { } ry } t && double.IsFinite(rx) && rx > 0 && double.IsFinite(ry) && ry > 0
+                ? Math.Sqrt(Math.Pow((t.X - found[d].X) / rx, 2) + Math.Pow((t.Y - found[d].Y) / ry, 2)) : null })
             .OrderBy(m => m.TruthId, StringComparer.Ordinal).ToImmutableArray();
         var errors = matches.Select(m => m.CentreError).Order().ToArray();
+        var relative = matches.Where(m => m.CentreErrorInRadii.HasValue).Select(m => m.CentreErrorInRadii!.Value).Order().ToArray();
         var matchedTruth = matches.Select(m => m.TruthId).ToHashSet();
         return new(labels.SampleId, detection.Model, detection.Provenance, detection.Uncertain, labels.CoordinateSpace,
             truth.Length, found.Length, matches.Length, found.Length - matches.Length, truth.Length - matches.Length, matches.Count(m => m.ColourCorrect),
             found.Length == 0 ? null : (double)matches.Length / found.Length, truth.Length == 0 ? null : (double)matches.Length / truth.Length,
             errors.Length == 0 ? null : errors[(int)Math.Ceiling(.95 * errors.Length) - 1],
             truth.Where(t => !matchedTruth.Contains(t.Id)).Select(t => t.Id).ToImmutableArray(),
-            Enumerable.Range(0, found.Length).Where(d => detectionOwner[d] < 0).Select(d => found[d].Id).ToImmutableArray(), matches);
+            Enumerable.Range(0, found.Length).Where(d => detectionOwner[d] < 0).Select(d => found[d].Id).ToImmutableArray(), matches)
+        { MatchesWithReviewedRadii = relative.Length, CentreErrorInRadiiP95 = relative.Length == 0 ? null : relative[(int)Math.Ceiling(.95 * relative.Length) - 1] };
     }
 }

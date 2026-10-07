@@ -19,10 +19,19 @@ public interface ITableVerificationWorker : IDisposable
     VerificationMeasurement Measure(TableFrame frame, bool detect, CancellationToken cancellation);
 }
 public sealed record VerificationSample(long FrameId, long SourceTimeUs, double AgeMs, double ClockSampleAgeMs, double ClockUncertaintyMs,
-    double AcquisitionMs, double ProcessingMs, VerificationMeasurement Measurement);
+    double AcquisitionMs, double ProcessingMs, VerificationMeasurement Measurement)
+{
+    public DateTimeOffset CapturedAt { get; init; }
+}
+public sealed record DetectionEvidenceAge(long FrameId, long SourceTimeUs, double AgeMs);
 public sealed record VerificationEvidence(Guid OperationId, string Configuration, string CalibrationId, string TargetGroup,
     long MediaGeneration, long? StartSourceUs, long? EndSourceUs, int IndependentFrames, double MaximumGapMs,
-    double FinalClockSampleAgeMs, VerificationSample[] Samples);
+    double FinalClockSampleAgeMs, VerificationSample[] Samples)
+{
+    public VerificationRejection? RejectedSample { get; init; }
+}
+public sealed record VerificationRejection(ObservationReason Reason, DecodedFrameReceipt? Receipt, string Timeline,
+    long? SourceTimeUs, double AgeMs, double? ClockSampleAgeMs, double? ClockUncertaintyMs);
 public sealed record VerificationProgress(int IndependentFrames, ObservationReason Reason);
 // Opt-in native evidence callback; TableFrame is borrowed only until the callback returns.
 // Pixels never enter TableObservation, agent projections or durable game state.

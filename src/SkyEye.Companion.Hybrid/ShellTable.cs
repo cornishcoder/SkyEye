@@ -31,7 +31,8 @@ public sealed partial class ShellSession
         : edit.Mode == TableEditMode.Correction ? edit.AddingBall ? "Tap the cloth to add the selected colour." : "Tap a ball to select it. Drag it to adjust its position."
         : edit.Corners.Count == 4 ? "Use these points only if they match the cloth boundary." : "Tap the cloth corners in order: top right, bottom right, bottom left, top left.";
 
-    void InitializeTable() => table = new(new PlayerTableFrameSource(() => player, () => app.State.Camera, () => active && selection.Kind == ViewingSource.Live), new VisionAnalyzer(),
+    void InitializeTable() => table = new(new PlayerTableFrameSource(() => player, () => app.State.Camera, () => active && selection.Kind == ViewingSource.Live,
+        token => MainThread.InvokeOnMainThreadAsync(() => RefreshAsync(token))), new VisionAnalyzer(),
         new CameraCalibrationStore(Android.App.Application.Context, () => client.Address, GeometryKey));
     void BindTable(SkyEyeState state) => table.Bind(state.Camera, state.Advice.TargetGroup.ToString().ToLowerInvariant());
     void ObserveTable()
@@ -48,6 +49,7 @@ public sealed partial class ShellSession
         }
         var state = snapshot.Table;
         TableStatus = snapshot.Source is null ? "Watch an active camera as host to check the table."
+            : snapshot.VerificationProgress is { } progress ? $"Checking table · {progress.IndependentFrames} fresh views."
             : snapshot.Calibration is null ? "Calibrate your table to check its balls."
             : state is null ? "Ready to observe when you ask."
             : $"{state.Balls.Count(b => b.Kind == "red")} reds · {state.Balls.Count(b => b.Kind == "yellow")} yellows · {state.Balls.Count(b => b.Kind == "cue")} cue · {state.Balls.Count(b => b.Kind == "black")} black. "
@@ -55,14 +57,15 @@ public sealed partial class ShellSession
                 : state.Occluded ? "Uncertain or obstructed. Check the detections."
                 : !state.Settled ? "Wait for the table to settle." : state.Confirmed ? "Layout confirmed." : "Check every ball before confirming.");
     }
-    async Task UpdateTableAsync(CancellationToken token, bool reviewFrame = false, bool includeChoices = false)
+    async Task UpdateTableAsync(CancellationToken token, bool reviewFrame = false, bool includeChoices = false, ObservationMode mode = ObservationMode.Single)
     {
         if (!CanAnalyzeTable) return;
         try
         {
             if (player is null || table.State.Source is not { } source) return;
             var receipt = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, app.State.Version,
-                new ObserveTable(source, table.State.Generation, MediaGeneration(), reviewFrame, includeChoices)), token);
+                new ObserveTable(source, table.State.Generation, MediaGeneration(), reviewFrame, includeChoices, mode)), token);
+            if (mode == ObservationMode.VerifyForAdvice) lastVerificationStatus = shotMessage = receipt.Message;
             if (!receipt.Succeeded)
             {
                 shotMessage = receipt.Message;

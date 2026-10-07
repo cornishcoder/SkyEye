@@ -7,41 +7,46 @@ public sealed partial class TableAnalysisSession
     bool verificationRunning;
     Guid verificationOperationId;
     long verificationMediaGeneration, verificationAnalysisGeneration;
+    bool verificationReviewFrame;
     public Action<VerificationCapture>? VerificationCapture { get; set; }
-    public Task VerifyAsync(Guid operationId, long mediaGeneration, CancellationToken cancellation = default)
+    public Task VerifyAsync(Guid operationId, long mediaGeneration, CancellationToken cancellation = default, bool reviewFrame = false)
     {
         lock (gate)
         {
             ThrowIfDisposed(); cancellation.ThrowIfCancellationRequested();
             if (verificationRunning && pending is { IsCompleted: false })
             {
-                if (operationId == verificationOperationId && mediaGeneration == verificationMediaGeneration && state.Generation == verificationAnalysisGeneration) return pending;
+                if (operationId == verificationOperationId && mediaGeneration == verificationMediaGeneration && state.Generation == verificationAnalysisGeneration && reviewFrame == verificationReviewFrame) return pending;
                 throw new InvalidOperationException("Another table verification is running. Cancel it or wait for its result.");
             }
             if (active is not null || state.Picking) throw new InvalidOperationException("Another table operation is finishing. Retry when it completes.");
             if (operationId == Guid.Empty || mediaGeneration <= 0 || state.Source is null || state.Calibration is null || analyzer is not ITableVerificationAnalyzer)
                 throw new InvalidOperationException("Calibrate an active live table before verifying it.");
-            tracker.Reset(); state = state with { Table = null, Vision = null, Observation = null, Choices = [], ChoicesComputed = false, VerificationProgress = new(0, ObservationReason.Checking) };
+            tracker.Reset(); state = state with { Table = null, Vision = null, Jpeg = null, Observation = null, Choices = [], ChoicesComputed = false, VerificationProgress = new(0, ObservationReason.Checking) };
             var admitted = state; var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             active = CancellationTokenSource.CreateLinkedTokenSource(cancellation); verificationRunning = true; pending = completed.Task;
             verificationOperationId = operationId; verificationMediaGeneration = mediaGeneration; verificationAnalysisGeneration = admitted.Generation;
-            _ = RunVerificationAsync(admitted, group, operationId, mediaGeneration, active, cancellation, completed);
+            verificationReviewFrame = reviewFrame;
+            _ = RunVerificationAsync(admitted, group, operationId, mediaGeneration, active, cancellation, completed, reviewFrame);
             return pending;
         }
     }
     public void CancelVerification() { lock (gate) { if (verificationRunning) active?.Cancel(); } }
 
     async Task RunVerificationAsync(TableAnalysisSnapshot admitted, string admittedGroup, Guid operationId, long mediaGeneration,
-        CancellationTokenSource activeOperation, CancellationToken caller, TaskCompletionSource completed)
+        CancellationTokenSource activeOperation, CancellationToken caller, TaskCompletionSource completed, bool reviewFrame)
     {
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(ObservationPolicy.VerificationTimeoutSeconds), time);
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(activeOperation.Token, deadline.Token);
         var start = time.GetTimestamp(); var samples = new List<VerificationSample>();
         var capture = VerificationCapture;
-        ITableVerificationWorker? worker = null; Task<VerificationMeasurement>? processing = null; bool leased = false;
+        ITableVerificationWorker? worker = null; Task<(VerificationMeasurement Measurement, byte[]? Review)>? processing = null; bool leased = false;
+        byte[]? finalReview = null;
+        Task? retiringAcquisition = null;
         string? timeline = null; DecodedFrameReceipt? lastReceipt = null; DateTimeOffset capturedAt = time.GetUtcNow();
         double maxGapMs = 0, acquisitionMs = 0; long scheduleStart = start, finalReceiptAt = start;
         ObservationReason reason = ObservationReason.InsufficientEvidence;
+        VerificationRejection? rejected = null;
         try
         {
             await analyzerGate.WaitAsync(linked.Token).ConfigureAwait(false); leased = true;
@@ -63,7 +68,7 @@ public sealed partial class TableAnalysisSession
                         await Task.Delay(TimeSpan.FromMilliseconds(40), time, linked.Token).ConfigureAwait(false);
                 }
                 var readStart = time.GetTimestamp();
-                var frame = await ReadVerificationFrameAsync(admitted.Source!, linked.Token).ConfigureAwait(false);
+                var frame = await ReadVerificationFrameAsync(admitted.Source!, linked.Token, cleanup => retiringAcquisition = cleanup).ConfigureAwait(false);
                 acquisitionMs = time.GetElapsedTime(readStart).TotalMilliseconds;
                 var receipt = frame.DecodedReceipt; var pts = frame.SourceTimeUs;
                 var age = (time.GetUtcNow() - frame.CapturedAt).TotalMilliseconds;
@@ -76,12 +81,13 @@ public sealed partial class TableAnalysisSession
                     : mappingAge is null || !double.IsFinite(mappingAge.Value) || mappingAge is < 0 or > ObservationPolicy.MaximumClockSampleAgeMs
                         || uncertainty is null || !double.IsFinite(uncertainty.Value) || uncertainty is < 0 or > 250 ? ObservationReason.ClockUntrusted
                     : ObservationReason.None;
-                if (reason != ObservationReason.None) { frame.Dispose(); break; }
+                if (reason != ObservationReason.None) { RejectFrame(); frame.Dispose(); break; }
                 if (samples.Count > 0 && (receipt!.FrameId <= samples[^1].FrameId || pts <= samples[^1].SourceTimeUs))
-                { frame.Dispose(); reason = ObservationReason.SourceChanged; break; }
+                { reason = ObservationReason.SourceChanged; RejectFrame(); frame.Dispose(); break; }
                 var gap = samples.Count == 0 ? 0 : (pts!.Value - samples[^1].SourceTimeUs) / 1000d;
                 maxGapMs = Math.Max(maxGapMs, gap);
-                if (gap > ObservationPolicy.MaximumVerificationGapSeconds * 1000) { frame.Dispose(); reason = ObservationReason.SampleGap; break; }
+                if (gap > ObservationPolicy.MaximumVerificationGapSeconds * 1000) { reason = ObservationReason.SampleGap; RejectFrame(); frame.Dispose(); break; }
+                void RejectFrame() => rejected = new(reason, receipt, frame.Timeline, pts, age, mappingAge, uncertainty);
                 timeline = frame.Timeline; capturedAt = frame.CapturedAt; lastReceipt = receipt;
                 finalReceiptAt = time.GetTimestamp(); if (samples.Count == 0) scheduleStart = finalReceiptAt;
                 bool detect = samples.Count is 0 or 2 or 4 or 5;
@@ -92,12 +98,16 @@ public sealed partial class TableAnalysisSession
                     using (frame)
                     {
                         var measured = worker.Measure(frame, detect, linked.Token);
+                        linked.Token.ThrowIfCancellationRequested();
                         capture?.Invoke(new(operationId, admitted.Generation, admitted.CalibrationId, admitted.Calibration!.Corners.ToArray(), frame, measured));
-                        return measured;
+                        return (measured, reviewFrame && detect ? frame.ReviewImage() : null);
                     }
                 }, CancellationToken.None);
-                var measured = await processing.WaitAsync(linked.Token).ConfigureAwait(false);
-                samples.Add(new(receipt!.FrameId, pts!.Value, age, mappingAge!.Value, uncertainty!.Value, acquisitionMs, time.GetElapsedTime(processStart).TotalMilliseconds, measured));
+                var processed = await processing.WaitAsync(linked.Token).ConfigureAwait(false);
+                var measured = processed.Measurement;
+                if (processed.Review is not null) finalReview = processed.Review;
+                samples.Add(new(receipt!.FrameId, pts!.Value, age, mappingAge!.Value, uncertainty!.Value, acquisitionMs, time.GetElapsedTime(processStart).TotalMilliseconds, measured)
+                { CapturedAt = capturedAt });
                 lock (gate)
                 {
                     linked.Token.ThrowIfCancellationRequested();
@@ -126,6 +136,11 @@ public sealed partial class TableAnalysisSession
                 var retiring = worker; bool release = leased;
                 _ = processing.ContinueWith(t => { _ = t.Exception; retiring?.Dispose(); if (release) analyzerGate.Release(); Finish(); }, TaskScheduler.Default);
             }
+            else if (retiringAcquisition is { IsCompleted: false })
+            {
+                var retiring = worker; bool release = leased;
+                _ = retiringAcquisition.ContinueWith(t => { _ = t.Exception; retiring?.Dispose(); if (release) analyzerGate.Release(); Finish(); }, TaskScheduler.Default);
+            }
             else { worker?.Dispose(); if (leased) analyzerGate.Release(); Finish(); }
         }
         void Finish()
@@ -140,6 +155,7 @@ public sealed partial class TableAnalysisSession
                 if (activeOperation.IsCancellationRequested || disposed || state.Generation != admitted.Generation || state.Source != admitted.Source || group != admittedGroup || state.Calibration != admitted.Calibration)
                     return false;
                 var visions = samples.Where(s => s.Measurement.Vision is not null).Select(s => s.Measurement.Vision!).ToArray();
+                var lastDetection = samples.LastOrDefault(s => s.Measurement.Vision is not null);
                 var consensus = VerificationConsensus.Resolve(visions);
                 bool still = samples.Count >= ObservationPolicy.MinimumVerificationSamples && samples[^1].SourceTimeUs - samples[0].SourceTimeUs >= ObservationPolicy.MinimumStillSeconds * 1000000
                     && samples.All(s => s.Measurement.CoverageValid) && samples.Skip(1).All(s => s.Measurement.Motion == TableMotion.Still);
@@ -151,28 +167,34 @@ public sealed partial class TableAnalysisSession
                 if (reason is ObservationReason.None or ObservationReason.InsufficientEvidence) reason = !still ? ObservationReason.InsufficientEvidence : consensus is null ? ObservationReason.DetectionAmbiguous : ObservationReason.None;
                 bool ready = reason == ObservationReason.None && still && consensus is not null;
                 var balls = ready ? consensus! : visions.LastOrDefault()?.Balls ?? [];
-                var quality = reason == ObservationReason.Obstructed ? LayoutQuality.Obstructed : ready ? LayoutQuality.Clear : LayoutQuality.Ambiguous;
-                var layout = tracker.Verified(admitted.CalibrationId, timeline ?? "unavailable", capturedAt, balls, admittedGroup,
+                var quality = reason switch { ObservationReason.Obstructed => LayoutQuality.Obstructed,
+                    ObservationReason.DetectionAmbiguous => LayoutQuality.Ambiguous, ObservationReason.None when ready => LayoutQuality.Clear,
+                    _ => LayoutQuality.Unknown };
+                var layout = tracker.Verified(admitted.CalibrationId, timeline ?? "unavailable", lastDetection?.CapturedAt ?? capturedAt, balls, admittedGroup,
                     still && reason is ObservationReason.None or ObservationReason.DetectionAmbiguous, !ready);
                 var candidate = layout with { Confirmed = true };
                 if (ready && !ShotPlanner.Eligible(candidate, time.GetUtcNow()))
-                { ready = false; reason = ObservationReason.DetectionAmbiguous; quality = LayoutQuality.Ambiguous; layout = tracker.Verified(admitted.CalibrationId, timeline!, capturedAt, balls, admittedGroup, still, true); }
-                state = state with { Table = layout, Vision = visions.LastOrDefault(), VerificationProgress = null,
-                    Observation = new(admitted.Source!, admitted.Generation, mediaGeneration, timeline ?? "unavailable", capturedAt,
+                { ready = false; reason = ObservationReason.DetectionAmbiguous; quality = LayoutQuality.Ambiguous; layout = tracker.Verified(admitted.CalibrationId, timeline!, lastDetection?.CapturedAt ?? capturedAt, balls, admittedGroup, still, true); }
+                state = state with { Table = layout, Vision = visions.LastOrDefault(), Jpeg = finalReview, VerificationProgress = null,
+                    Observation = new(admitted.Source!, admitted.Generation, mediaGeneration, timeline ?? "unavailable", layout.CapturedAt,
                         samples.LastOrDefault()?.SourceTimeUs, double.IsFinite(finalAge) ? Math.Max(0, finalAge) : 0, samples.Sum(s => s.AcquisitionMs), samples.Sum(s => s.ProcessingMs), time.GetElapsedTime(start).TotalMilliseconds,
                         layout.Version, ready ? ObservationOutcome.Ready : still ? ObservationOutcome.Unclear : ObservationOutcome.Unsettled, "decoded-live-verification")
                     { Motion = reason == ObservationReason.Moving ? TableMotion.Moving : still ? TableMotion.Still : TableMotion.Unknown, Quality = quality, Reason = reason, DecodedReceipt = lastReceipt,
                         Recognition = visions.LastOrDefault()?.Recognition,
+                        DetectionEvidence = lastDetection is null ? null : new(lastDetection.FrameId, lastDetection.SourceTimeUs,
+                            finalAge + (samples[^1].SourceTimeUs - lastDetection.SourceTimeUs) / 1000d),
                         Verification = new(operationId, ObservationPolicy.VerificationConfiguration, admitted.CalibrationId, admittedGroup, mediaGeneration,
-                            samples.FirstOrDefault()?.SourceTimeUs, samples.LastOrDefault()?.SourceTimeUs, samples.Count, maxGapMs, double.IsFinite(finalClockAge) ? finalClockAge : -1, samples.ToArray()) } };
+                            samples.FirstOrDefault()?.SourceTimeUs, samples.LastOrDefault()?.SourceTimeUs, samples.Count, maxGapMs, double.IsFinite(finalClockAge) ? finalClockAge : -1, samples.ToArray())
+                            { RejectedSample = rejected } } };
+                lastTimeline = timeline;
                 return true;
             }
         }
     }
-    async Task<TableFrame> ReadVerificationFrameAsync(CameraScope source, CancellationToken cancellation)
+    async Task<TableFrame> ReadVerificationFrameAsync(CameraScope source, CancellationToken cancellation, Action<Task> retiring)
     {
         var read = frames.ReadAsync(source, cancellation);
         try { return await read.WaitAsync(cancellation).ConfigureAwait(false); }
-        catch { _ = read.ContinueWith(t => { if (t.IsCompletedSuccessfully) t.Result.Dispose(); else _ = t.Exception; }, TaskScheduler.Default); throw; }
+        catch { retiring(read.ContinueWith(t => { if (t.IsCompletedSuccessfully) t.Result.Dispose(); else _ = t.Exception; }, TaskScheduler.Default)); throw; }
     }
 }

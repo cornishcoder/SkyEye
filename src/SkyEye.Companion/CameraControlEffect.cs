@@ -9,6 +9,8 @@ namespace SkyEye.Companion;
 public sealed record NativeCameraView(CameraConnection Connection, JsonElement Status, string Stream)
 {
     public string PhoneStream { get; init; } = Stream;
+    public long StatusReceiptTimestamp { get; init; }
+    public double StatusRoundTripMs { get; init; }
 }
 
 public sealed class CameraControlEffect(CameraClient current, Action<string?>? persistHost = null) : ICameraControlEffect
@@ -121,7 +123,8 @@ public sealed class CameraControlEffect(CameraClient current, Action<string?>? p
         var phoneStream = status.TryGetProperty("liveTransportVersion", out var version) && version.GetInt32() == 1
             && status.TryGetProperty("phoneStreamPath", out var path) && path.GetString() is { } phonePath && phonePath.StartsWith("/live/stream.ts?")
             ? current.MediaUrl(phonePath) : stream;
-        Volatile.Write(ref latest, new(observed, status, stream) { PhoneStream = phoneStream });
+        Volatile.Write(ref latest, new(observed, status, stream) { PhoneStream = phoneStream,
+            StatusReceiptTimestamp = current.StatusReceiptTimestamp, StatusRoundTripMs = current.StatusRoundTripMs });
         return observed;
     }
     void ClearHost() { current.HostToken = null; persistHost?.Invoke(null); }

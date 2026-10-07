@@ -1,0 +1,323 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-07",
+  "status": "Runtime foundation and controlled checks; O08 physical release acceptance open",
+  "device": "Pixel 11 Pro XL / 66181FDDV001HS",
+  "sourceDimensions": [
+    1920,
+    1080
+  ],
+  "declaredTruth": {
+    "condition": "User confirmed clear stationary table",
+    "cue": 1,
+    "black": 1,
+    "red": 7,
+    "yellow": 7,
+    "centresReviewed": false
+  },
+  "baseline": [
+    {
+      "outcome": 1,
+      "balls": 16,
+      "durationMs": 458.6177,
+      "visionMs": 317.5809,
+      "ageMs": 1145.5048
+    },
+    {
+      "outcome": 1,
+      "balls": 16,
+      "durationMs": 250.3543,
+      "visionMs": 213.2199,
+      "ageMs": 983.5391
+    },
+    {
+      "outcome": 1,
+      "balls": 16,
+      "durationMs": 206.56,
+      "visionMs": 169.9172,
+      "ageMs": 913.2643
+    },
+    {
+      "outcome": 0,
+      "balls": 16,
+      "durationMs": 226.89509999999999,
+      "visionMs": 180.8415,
+      "ageMs": 937.8759
+    },
+    {
+      "outcome": 0,
+      "balls": 16,
+      "durationMs": 264.44460000000004,
+      "visionMs": 211.0148,
+      "ageMs": 991.685
+    },
+    {
+      "outcome": 1,
+      "balls": 16,
+      "durationMs": 224.5041,
+      "visionMs": 187.8552,
+      "ageMs": 967.3161
+    }
+  ],
+  "repeatV1": [
+    {
+      "commandOutcome": 0,
+      "message": "Table verified. Current candidate shots are ready.",
+      "observationOutcome": 0,
+      "reason": 0,
+      "durationMs": 2349.3367000000003,
+      "ageMs": 1122.1433,
+      "balls": 16
+    },
+    {
+      "commandOutcome": 0,
+      "message": "Table verified. Current candidate shots are ready.",
+      "observationOutcome": 0,
+      "reason": 0,
+      "durationMs": 2438.7972,
+      "ageMs": 1146.0664,
+      "balls": 16
+    },
+    {
+      "commandOutcome": 0,
+      "message": "Table verified. Current candidate shots are ready.",
+      "observationOutcome": 0,
+      "reason": 0,
+      "durationMs": 2407.4809999999998,
+      "ageMs": 1117.3635,
+      "balls": 16
+    },
+    {
+      "commandOutcome": 0,
+      "message": "Table verified. Current candidate shots are ready.",
+      "observationOutcome": 0,
+      "reason": 0,
+      "durationMs": 2352.0348,
+      "ageMs": 1131.0185000000001,
+      "balls": 16
+    },
+    {
+      "commandOutcome": 0,
+      "message": "Table verified. Current candidate shots are ready.",
+      "observationOutcome": 0,
+      "reason": 0,
+      "durationMs": 2396.9405,
+      "ageMs": 1175.9470999999999,
+      "balls": 16
+    },
+    {
+      "commandOutcome": 0,
+      "message": "Live frame too old or its clock is uncertain. Resume live video and retry.",
+      "observationOutcome": 1,
+      "reason": 10,
+      "durationMs": 2168.9649000000004,
+      "ageMs": 1427.3376,
+      "balls": 16
+    },
+    {
+      "commandOutcome": 0,
+      "message": "Table verified. Current candidate shots are ready.",
+      "observationOutcome": 0,
+      "reason": 0,
+      "durationMs": 2342.2666999999997,
+      "ageMs": 1155.0528,
+      "balls": 16
+    },
+    {
+      "commandOutcome": 2,
+      "message": "A fresh table frame is unavailable. Request again when useful.",
+      "observationOutcome": null,
+      "reason": null,
+      "durationMs": null,
+      "ageMs": null,
+      "balls": 16
+    },
+    {
+      "commandOutcome": 0,
+      "message": "Table verified. Current candidate shots are ready.",
+      "observationOutcome": 0,
+      "reason": 0,
+      "durationMs": 2352.728,
+      "ageMs": 698.6097,
+      "balls": 16
+    },
+    {
+      "commandOutcome": 0,
+      "message": "Table verified. Current candidate shots are ready.",
+      "observationOutcome": 0,
+      "reason": 0,
+      "durationMs": 2416.9471000000003,
+      "ageMs": 750.1852,
+      "balls": 16
+    }
+  ],
+  "finalV4": [
+    {
+      "outcome": 2,
+      "reason": 3,
+      "durationMs": 2912.0781,
+      "ageMs": 1147.3632,
+      "frames": 6,
+      "choices": 0
+    },
+    {
+      "outcome": 0,
+      "reason": 0,
+      "durationMs": 2377.4273999999996,
+      "ageMs": 995.1349,
+      "frames": 5,
+      "choices": 3
+    },
+    {
+      "outcome": 2,
+      "reason": 3,
+      "durationMs": 2801.2675,
+      "ageMs": 902.1494000000001,
+      "frames": 6,
+      "choices": 0
+    },
+    {
+      "outcome": 0,
+      "reason": 0,
+      "durationMs": 2320.1988,
+      "ageMs": 935.0136000000001,
+      "frames": 5,
+      "choices": 3
+    }
+  ],
+  "nativeAblations": [
+    {
+      "variant": 2,
+      "samples": 6,
+      "baselineClear": 0,
+      "enhancedClear": 0,
+      "provenance": "Correlated unreviewed development snapshots; not held-out accuracy"
+    },
+    {
+      "variant": 3,
+      "samples": 6,
+      "baselineClear": 0,
+      "enhancedClear": 0,
+      "provenance": "Correlated unreviewed development snapshots; not held-out accuracy"
+    },
+    {
+      "variant": 4,
+      "samples": 6,
+      "baselineClear": 0,
+      "enhancedClear": 3,
+      "provenance": "Correlated unreviewed development snapshots; not held-out accuracy"
+    },
+    {
+      "variant": 5,
+      "samples": 6,
+      "baselineClear": 0,
+      "enhancedClear": 2,
+      "provenance": "Correlated unreviewed development snapshots; not held-out accuracy"
+    }
+  ],
+  "rawArtifacts": [
+    {
+      "path": "work/o08/baseline-live-host.json",
+      "sha256": "7d40490937bf08ea1896f9f3787c8b26fcd9d809457b0047283410d51be75e2f"
+    },
+    {
+      "path": "work/o08/actual-tap.json",
+      "sha256": "f0b33b4b9e04bea7bd8bee9925d2bf282ce39299f3e9297dcb4aee28fcd028e4"
+    },
+    {
+      "path": "work/o08/actual-cancel.json",
+      "sha256": "aca0f82339371784acbd42fca5e7e0ece946a1ac55c507cb14af3dca0cdbb021"
+    },
+    {
+      "path": "work/o08/repeat-live.json",
+      "sha256": "d094c4e273d7d75741345f5a52d700e6ddfc82f635b4e9bba01c3066b67bb454"
+    },
+    {
+      "path": "work/o08/user-roll-live.json",
+      "sha256": "be47f7db22d24a704ff583bfcd0dadf85c8dbea1a077137599bfad0bfcacb43d"
+    },
+    {
+      "path": "work/o08/captured-request.json",
+      "sha256": "126a28b05d51abc53e268208ad2ef55b13671d5d8748a36ea71efbcdbf233bb6"
+    },
+    {
+      "path": "work/o08/final-v4-live.json",
+      "sha256": "fc47d7ffab4987eb1d3020d8b8f73a7bb805b1ef61370f9fba98659a7509136a"
+    },
+    {
+      "path": "work/o08/native-replay-v2.json",
+      "sha256": "dc99cfae5cee9a503bd09a89a77dfe6d9b50e30e13b4e7b9d3c1064cc07d8e98"
+    },
+    {
+      "path": "work/o08/native-replay-v3.json",
+      "sha256": "126e2aca769833d9474dd6d67af4067c52c59d14cda3c4fcbe0a198a3ca56de7"
+    },
+    {
+      "path": "work/o08/native-replay-v4.json",
+      "sha256": "579e14f266ffcdf3ad39a44d2531b02fe476a19959f07668502730edfed3c4bf"
+    },
+    {
+      "path": "work/o08/native-replay-v5.json",
+      "sha256": "be141af469c84ebbcd0a3708efade9a48a4438703a041879910704c2e75fa4a4"
+    },
+    {
+      "path": "work/o08/native-clock.json",
+      "sha256": "811c62821bede9aa021c01f6c4b32b7c14f5980cec56b81c6dd2906589309538"
+    },
+    {
+      "path": "work/o08/corpus-v1/manifest.json",
+      "sha256": "d7c161a513c0a61fbf4153d7e0f178fdca4161c6887077a6f2fdb74ed67c37a2"
+    },
+    {
+      "path": "work/o08/corpus-v1/split-lock.json",
+      "sha256": "e11745979e16020d88dfd5dc836726604493ab0214065bb330966a84de3b7183"
+    }
+  ],
+  "actualTap": {
+    "durationMs": 2321.7243,
+    "wallMs": 2589.8141,
+    "frames": 5,
+    "balls": 16,
+    "choices": 3,
+    "phoneMode": 1,
+    "tvMode": 1,
+    "tvConnected": false
+  },
+  "cancel": {
+    "cancelControlObserved": true,
+    "status": "Choices are off · live table on both screens.",
+    "choices": 0,
+    "observation": null
+  },
+  "rollingWindow": {
+    "requests": 5,
+    "publishedChoices": 0,
+    "result": "All five detection unclear; exact motion intervals were not independently labelled. Not a motion-detection or unsafe-readiness acceptance denominator."
+  },
+  "openGates": [
+    "Blind whole-session holdouts and reviewed centres/radii",
+    "99 percent correct timely eligible layouts",
+    "100 unsafe windows with every category",
+    "Two lighting strata and five layouts",
+    "Actual-resolution p95 playback, latency and native resource comparison with corrected TV",
+    "Guarded normal O08 delivery"
+  ],
+  "cleanup": {
+    "restoredOriginalNormal": true,
+    "installedSha256": "cea5fe3b70c87a6916f2443847543720c9a3c56506ea251f0c33dd40f2b0a80f",
+    "expectedSha256": "cea5fe3b70c87a6916f2443847543720c9a3c56506ea251f0c33dd40f2b0a80f",
+    "identity": "package:uk.co.skyeye.companion uid:10644",
+    "activity": "    topResumedActivity=ActivityRecord{88042610 u0 uk.co.skyeye.companion/.MainActivity t3207}",
+    "signerUidStorageGuard": "passed guarded installer",
+    "ownedForwardRemoved": 18768,
+    "newO08NormalInstalled": false,
+    "diagnosticV7Sha256": "7b5ac03fd204547b2012a5dc072d517da639e813cba3996fffad94ce15d406c4",
+    "newNormalBuildSha256": "32d8cd352d3ed0cc402d78a266759c83002590f6248ebb500af955f2bafff929"
+  },
+  "finalDiagnostic": {
+    "configuration": "o08-provisional-v7",
+    "requests": 2,
+    "result": "FrameUnavailable before CV; player metrics reported no-playing-texture. No final positive live acceptance.",
+    "policyRefusal": "Diagnostic activity launch/live-resume request rejected by automatic review: blocked by policy; no more specific reason supplied."
+  }
+}

@@ -18,14 +18,20 @@ public sealed partial class ShellSession
     Task sceneRelayClosing = Task.CompletedTask;
     string lastPhoneShot = "", lastTvShot = "";
     string shotMessage = "Show choices to check the table.";
+    CancellationTokenSource? candidateVerification;
+    string? lastVerificationStatus;
+    public bool CheckingTable => candidateVerification is not null;
+    public void CancelTableVerification() { candidateVerification?.Cancel(); table.CancelVerification(); }
     public PresentationPreferences ShotPresentation => app.State.Presentation;
     public IReadOnlyList<ShotChoice> ShotChoices => CurrentShotCatalog ? app.State.ShotChoices.Choices : [];
     public long ChoiceTableVersion => app.State.ShotChoices.TableVersion;
     bool CurrentShotCatalog => app.State.ShotChoices.Matches(app.State.Camera, app.State.Advice.TargetGroup, DateTimeOffset.UtcNow)
         && table.State.Table?.Version == app.State.ShotChoices.TableVersion && !EditingTable && selection.Kind == ViewingSource.Live;
-    public string CandidateStatus => !app.State.Presentation.ShotChoicesEnabled ? TvReplaySelected ? $"Choices are off · {TvReplayKind} on TV." : "Choices are off · live table on both screens."
+    public string CandidateStatus => CheckingTable ? "Checking table… Keep the view clear and the balls still."
         : !CanAnalyzeTable ? "Become host on an active camera to check shot choices."
         : !HasTableCalibration ? "Calibrate the table before showing choices."
+        : ShotChoices.Count == 0 && lastVerificationStatus is not null ? lastVerificationStatus
+        : !app.State.Presentation.ShotChoicesEnabled ? TvReplaySelected ? $"Choices are off · {TvReplayKind} on TV." : "Choices are off · live table on both screens."
         : ShotChoices.Count == 0 ? shotMessage : $"{ShotChoices.Count} choices · cycle every 2 seconds · expires after 15 seconds";
     public bool CanShowChoices => active && selection.Kind == ViewingSource.Live && CanCastLive && !EditingTable;
 
@@ -33,6 +39,7 @@ public sealed partial class ShellSession
     {
         if (!active || foreground is null || EditingTable) return;
         if (expectedVersion != app.State.Version) { ShowError("The controls changed. Try again."); return; }
+        if (mode == ShotDisplayMode.Live) lastVerificationStatus = null;
         ClearSceneCheck();
         var result = await ExecuteApplicationCommandAsync(new(Guid.NewGuid(), CommandOrigin.Touch, expectedVersion, new SetShotDisplay(target, mode)), foreground.Token);
         if (!result.Succeeded) ShowError(result.Message);
@@ -48,6 +55,7 @@ public sealed partial class ShellSession
     {
         if (!active || foreground is null || EditingTable || expectedVersion != app.State.Version) return;
         await RefreshShotChoicesAsync(foreground.Token);
+        if (!active || foreground.IsCancellationRequested || !CurrentShotCatalog || ShotChoices.Count == 0) return;
         await SetShotDisplayAsync(app.State.Version, target, ShotDisplayMode.Cycling);
     });
     public SkyEyeState CommandState => app.State;
@@ -61,6 +69,7 @@ public sealed partial class ShellSession
         if (!active || disposed || EditingTable) return new CommandReceipt(request.OperationId, CommandOutcome.Rejected, app.State.Version, "Use the active application surface.");
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellation, foreground?.Token ?? CancellationToken.None);
         var receipt = await app.DispatchAsync(request, linked.Token);
+        if (request.Command is ObserveTable { Mode: ObservationMode.VerifyForAdvice }) lastVerificationStatus = receipt.Message;
         if (receipt.Succeeded)
         {
             if (request.Command is ObserveTable { IncludeChoices: true } && table.State.Table is { } observed)
@@ -133,22 +142,28 @@ public sealed partial class ShellSession
     }
     async Task RefreshShotChoicesAsync(CancellationToken token)
     {
+        if (candidateVerification is not null) return;
+        using var checking = CancellationTokenSource.CreateLinkedTokenSource(token);
+        candidateVerification = checking; token = checking.Token;
+        lastVerificationStatus = null;
         shotMessage = "Checking table…";
         try
         {
-            await UpdateTableAsync(token, includeChoices: true);
+            await ClearShotCatalogAsync(token); RenderShotScenes(); Publish();
+            await UpdateTableAsync(token, includeChoices: true, mode: ObservationMode.VerifyForAdvice);
             token.ThrowIfCancellationRequested();
             var snapshot = table.State; var layout = snapshot.Table;
-            if (!CanAnalyzeTable || EditingTable || snapshot.Source != app.State.Camera.Scope || layout is null || !layout.Settled || layout.Occluded)
+            if (!CanAnalyzeTable || EditingTable || snapshot.Source != app.State.Camera.Scope || app.State.Observation?.Outcome != ObservationOutcome.Ready || layout is null || !layout.Settled || layout.Occluded)
             {
-                shotMessage = layout?.Occluded == true ? "Table unclear or obstructed. Request again when clear." : "Settlement is not established. Request again when the balls are still.";
                 await ClearShotCatalogAsync(token); return;
             }
             shotCarousel.Use(snapshot.Choices, layout.CapturedAt);
             shotMessage = shotCarousel.Candidates.Length == 0 ? "No clear candidate for this layout and group." : "";
+            lastVerificationStatus = shotCarousel.Candidates.Length == 0 ? shotMessage : null;
         }
-        catch (OperationCanceledException) { throw; }
+        catch (OperationCanceledException) { lastVerificationStatus = shotMessage = "Table check cancelled."; }
         catch (Exception) { await ClearShotCatalogAsync(token); shotMessage = "Table view unavailable. Request again when useful."; }
+        finally { candidateVerification = null; Publish(); }
     }
     void RenderShotScenes()
     {

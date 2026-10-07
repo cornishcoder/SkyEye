@@ -51,9 +51,15 @@ public sealed partial class ShellSession
                 return await MainThread.InvokeOnMainThreadAsync(async () =>
                 {
                     if (player is null || table.State.Source is null) return HttpResponse.Json(new { error = "No active source" }, 409);
-                    var result = await ExecuteApplicationCommandAsync(new(Guid.NewGuid(), CommandOrigin.Sky, app.State.Version,
-                        new ObserveTable(table.State.Source, table.State.Generation, MediaGeneration(), IncludeChoices: r.Query.GetValueOrDefault("choices") == "1")), ct);
-                    return HttpResponse.Json(result);
+                    table.VerificationCapture = r.Query.GetValueOrDefault("capture") == "1" ? CaptureVerificationPixels : null;
+                    try
+                    {
+                        var result = await ExecuteApplicationCommandAsync(new(Guid.NewGuid(), CommandOrigin.Sky, app.State.Version,
+                            new ObserveTable(table.State.Source, table.State.Generation, MediaGeneration(), IncludeChoices: r.Query.GetValueOrDefault("choices") == "1",
+                                Mode: r.Query.GetValueOrDefault("verify") == "1" ? ObservationMode.VerifyForAdvice : ObservationMode.Single)), ct);
+                        return HttpResponse.Json(result);
+                    }
+                    finally { table.VerificationCapture = null; }
                 });
             }
             if (r.Method == "POST" && r.Path == "/motion-feed")
