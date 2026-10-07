@@ -114,5 +114,23 @@
     "owned18768ForwardRemoved": true,
     "normalOriginalRestored": true
   },
-  "acceptanceComplete": false
+  "acceptanceComplete": false,
+  "acquisitionFollowUp": {
+    "phoneSamplesSha256": "7d04d0db726eb7c3f401a37b201e5751c9404abf063bbca535b37c871ce1f0ab",
+    "persistentBufferingSamples": 8,
+    "reportedBufferMs": 10000,
+    "decodedFramesInStalledRun": 5,
+    "laterEndedCount": 4,
+    "laterDecodedFrames": 148,
+    "laterLastPlayerErrorCode": 0,
+    "acquisitionFixed": false,
+    "directPhoneTcpProbe": "Automatic approval review: blocked by policy",
+    "pcRead": {
+      "seconds": 8.0173696,
+      "longestReadMs": 237.9264,
+      "bytes": 6118488,
+      "eof": false,
+      "http": 200
+    }
+  }
 }
