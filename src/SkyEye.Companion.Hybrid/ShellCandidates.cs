@@ -89,8 +89,10 @@ public sealed partial class ShellSession
             {
                 if (!active || token.IsCancellationRequested) return;
 
-                if (!app.State.Presentation.ShotChoicesEnabled || !CanAnalyzeTable || !HasTableCalibration || EditingTable) await ClearShotCatalogAsync(token);
-                else if (!CurrentShotCatalog) await ExpireShotPresentationAsync(token);
+                // A requested catalogue may arrive before its show command. Keep
+                // it while the surfaces are live; display mode is not freshness.
+                if (!CanAnalyzeTable || !HasTableCalibration || EditingTable) await ClearShotCatalogAsync(token);
+                else if ((app.State.Presentation.ShotChoicesEnabled || app.State.ShotChoices != ShotChoiceCatalog.Empty) && !CurrentShotCatalog) await ExpireShotPresentationAsync(token);
                 if (token.IsCancellationRequested) return;
                 RenderShotScenes();
                 ManageShotRelay();
@@ -182,7 +184,7 @@ public sealed partial class ShellSession
                 if (!player.SetTableSceneForTarget(json, tv)) last = "";
                 if (tv) BackgroundTvService.Scene(json);
             }
-            catch (ArgumentException) { player.ClearTableSceneForTarget(tv); shotMessage = "Candidate is outside the camera view. Check calibration."; }
+            catch (ArgumentException error) { player.ClearTableSceneForTarget(tv); shotMessage = "Candidate is outside the camera view. Check calibration."; Android.Util.Log.Warn("SkyEyeShell", "Shot scene refused: " + error.Message); }
         }
         Surface(app.State.Presentation.Phone, false, ref lastPhoneShot);
         Surface(app.State.Presentation.Tv, true, ref lastTvShot);

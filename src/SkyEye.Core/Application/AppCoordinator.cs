@@ -14,8 +14,10 @@ public sealed partial class AppCoordinator
     readonly TimeProvider sceneClock;
     long nextSubscription;
     SkyEyeState state = SkyEyeState.Empty;
-    public AppCoordinator(Action<Exception>? observerError = null, ClipSaveExecutor? clipSaves = null, ICameraControlEffect? cameraControls = null, TimeProvider? clock = null, ITableObservationEffect? observations = null, IGameJournal? gameJournal = null)
+    public AppCoordinator(Action<Exception>? observerError = null, ClipSaveExecutor? clipSaves = null, ICameraControlEffect? cameraControls = null, TimeProvider? clock = null, ITableObservationEffect? observations = null, IGameJournal? gameJournal = null,
+        bool phoneCorrected = true, bool tvCorrected = false)
     {
+        state = state with { Presentation = new(false) { PhoneCorrected = phoneCorrected, TvCorrected = tvCorrected } };
         this.observerError = observerError; this.clipSaves = clipSaves; this.cameraControls = cameraControls; sceneClock = clock ?? TimeProvider.System; this.observations = observations;
         this.gameJournal = gameJournal;
         try { game = gameJournal?.Load() ?? SkyEye.GameState.GameSession.Empty; state = state with { Game = game.State, Match = MatchView.From(game) }; }

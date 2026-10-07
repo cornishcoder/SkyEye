@@ -56,13 +56,22 @@ public sealed partial class ShellSession : IDisposable
             if (token is null) edit.Remove("host"); else edit.PutString("host", token);
             edit.Apply();
         });
+        var savedPhoneCorrection = settings.GetBoolean("phone-corrected", true);
+        var savedTvCorrection = settings.GetBoolean("tv-corrected", true);
         app = new(cameraControls: effects, observations: new TableObservationEffect(() => table, () => player is null ? 0 : MediaGeneration(), () => active && selection.Kind == ViewingSource.Live),
-            gameJournal: new GameJournalStore(Path.Combine(FileSystem.AppDataDirectory, "game-state")));
+            gameJournal: new GameJournalStore(Path.Combine(FileSystem.AppDataDirectory, "game-state")), phoneCorrected: savedPhoneCorrection, tvCorrected: savedTvCorrection);
         InitializeAnnotations();
         InitializeClips();
         InitializeTable();
         Agent = new(agentClient, _ => { }, new ShellViewState());
-        subscription = app.Subscribe(state => { BindTable(state); MainThread.BeginInvokeOnMainThread(Publish); });
+        subscription = app.Subscribe(state => {
+            if (savedPhoneCorrection != state.Presentation.PhoneCorrected || savedTvCorrection != state.Presentation.TvCorrected)
+            {
+                savedPhoneCorrection = state.Presentation.PhoneCorrected; savedTvCorrection = state.Presentation.TvCorrected;
+                settings.Edit()!.PutBoolean("phone-corrected", savedPhoneCorrection)!.PutBoolean("tv-corrected", savedTvCorrection)!.Apply();
+            }
+            BindTable(state); MainThread.BeginInvokeOnMainThread(Publish);
+        });
     }
     public void SetSheet(bool open) { SheetOpen = open; chrome.SetEditing(open); Changed?.Invoke(); }
     public void RevealControls() { chrome.Reveal(); Changed?.Invoke(); }

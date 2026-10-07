@@ -6,6 +6,14 @@ static class SceneCommandChecks
     public static async Task Run()
     {
         static void Check(bool yes, string reason) { if (!yes) throw new Exception(reason); }
+        var restored = new AppCoordinator(phoneCorrected:false, tvCorrected:true);
+        Check(!restored.State.Presentation.PhoneCorrected && restored.State.Presentation.TvCorrected
+            && restored.State.Presentation.Phone.Mode==ShotDisplayMode.Live && restored.State.ShotChoices==ShotChoiceCatalog.Empty,
+            "Restored correction flags cannot restore transient shots or change independent surface defaults");
+        await restored.DispatchAsync(new(Guid.NewGuid(),CommandOrigin.Touch,restored.State.Version,new SetTableCorrection(SceneTarget.Phone,true)));
+        await restored.DispatchAsync(new(Guid.NewGuid(),CommandOrigin.Touch,restored.State.Version,new ClearAnnotations(SceneTarget.Both)));
+        Check(restored.State.Presentation.PhoneCorrected && restored.State.Presentation.TvCorrected,
+            "Independent correction choices survive clearing HUD advice");
         var clock = new Clock(); var app = new AppCoordinator(cameraControls: new Camera(), clock: clock);
         Task<CommandReceipt> Send(SkyEyeCommand command, CommandOrigin origin = CommandOrigin.Touch) => app.DispatchAsync(new(Guid.NewGuid(), origin, app.State.Version, command));
         await Send(new ConnectCamera("camera:8765"));
@@ -14,6 +22,9 @@ static class SceneCommandChecks
         var catalog = new ShotChoiceCatalog(app.State.Camera.Scope, 7, AdviceTargetGroup.Open, clock.GetUtcNow(), clock.GetUtcNow().AddSeconds(15), [new("7:r1:0", "direct", 0), new("7:r2:1", "bank", 1)]);
         Check(!(await Send(new PublishShotCatalog(catalog))).Succeeded, "touch cannot publish its own candidate proof");
         Check((await Send(new PublishShotCatalog(catalog), CommandOrigin.System)).Succeeded, "validated system catalog accepted");
+        await Send(new ClearAnnotations(SceneTarget.Both));
+        Check(app.State.ShotChoices==catalog && !app.State.Presentation.ShotChoicesEnabled,
+            "A fresh catalogue remains selectable while both surfaces show clean live footage");
         var phoneRevision = app.State.Presentation.Phone.Revision;
         Check((await Send(new ShowShot(SceneTarget.Tv, 7, 2), CommandOrigin.Sky)).Succeeded
             && app.State.Presentation.Tv.ShotId == "7:r2:1" && app.State.Presentation.Phone.Revision == phoneRevision, "Sky selects number two on TV without changing phone revision");
