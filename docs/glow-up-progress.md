@@ -8,7 +8,13 @@ Keep each description concise and matched to the actual command. Do not rely on 
 
 The full implementation plan is in [glow-up-plan.md](glow-up-plan.md). Work starts from `f6ea29c`; production capture and the existing companion remain usable while the new host is proved.
 
-## Current priority — 6 October 2026
+## Current delivery priority — O08 reliability, 7 October 2026
+
+The user prioritises detector/settlement consistency for a mounted camera and still table. **O08 — Reliable mounted-camera table observation** is the next **P0 planned** mission, ahead of A02 voice. The [full plan](o08-mounted-table-reliability-plan.md) provides nine verifiable chunks and measured safety/correctness/freshness/latency/resource gates. Start with failure telemetry, timing audit and session-frozen still/negative corpus support; then implement bounded verification, independent stillness, stable appearance/consensus, one-action UX and guarded delivery.
+
+**Order: O08.01–O08.09 → A02.01/A02 → A03/minimum A05 → A04/remaining A05.** The needed O01/O02.05 subset runs with O08; wider timed-shot/holdout and sustained tracking evidence remains open before O03–O05. This supersedes prior next-work notes below. ≥99% correct timely ready results and zero observed false-ready negatives are proposed acceptance targets, not current measurements. This update changes documents only: no runtime implementation, build, camera/TV operation or paid voice session.
+
+## Previous priority — 6 October 2026
 
 **Match & Table State** now has its first mission implemented: **R01 — Establish the Match & Table State Core**. R01.01-R01.07 landed in small checked commits. The [completion report](r01-match-table-state-report.md) records the library, transitions, corrections, integration and observed versus declared device evidence; the [canonical brief](r01-match-table-state-brief.md) remains its scope.
 
@@ -31,6 +37,7 @@ Manual match delivery is implemented: [report](manual-match-report.md), [bounded
 
 | Unit | Status | Evidence |
 |---|---|---|
+| O08 reliability | Planned; immediate P0 before voice | [Nine chunks and measurable gates](o08-mounted-table-reliability-plan.md); preserve existing detector/state/media and open O01/O02/T13/T14 evidence. No runtime or accuracy result from this planning update |
 | G01/G03 manual | Complete within declared slice | Two-player/race setup, ordered frame ledger, phone HUD and winner controls. Declared scores and earlier-frame correction reconstruct; new frames preserve score. Full rule-profile implementation remains open |
 | G02 manual | Complete within declared slice | Turn/complementary colours/open-table declarations project the current player's shot group; legacy overrides are refused. Phone verifies Rich reds → Mike yellows; full rule-derived targets/entitlements remain open |
 | G04/G05 manual | Complete within declared slice | Supported player-decision undo, earlier-frame result repair, process restart/resume, explicit match finish and retained previous-match history. Actual phone returns 1-1 after restart; old R01 schema reconstructs new projections. Voice/general archived-match edits remain open |
@@ -508,4 +515,4 @@ The user confirms the live TV HUD is **aligned and readable**. Real direct candi
 
 Checked commits bound transient exact-frame retries, expose observation refusals, and rebind valid TV advice after its decoder changes generation. A controlled TV-only reader restart restores the same HUD on a new-generation encoded frame in about 0.57 seconds while the phone generation stays unchanged. Core/Agent UI suites and native barcode pixel/PTS/cancellation checks pass; sequential diagnostics, retained and normal Release builds pass. Normal Release is restored with matching installed APK hash and retained private storage; phone and Cast are live, diagnostics absent and owned forwards removed. Camera capture remains active and untouched.
 
-Broader acceptance remains open: physical bank/kick arrangements, individual target-selector touch matrix, real movement/source/layout invalidation, and T13/T14 sustained recovery/endurance/audio/resources. Detector count/colour variation remains a settlement limitation; no observed-motion or accuracy pass is inferred from stationary balls. O01 timed corpus/holdouts and O02.05 performance retain their gates. Compatible stored calibration is reused, not freshly detected on connect. Continue A02.01 voice-tool delivery separately; programmatic Sky-origin checks are not real voice acceptance.
+Broader acceptance remains open: physical bank/kick arrangements, individual target-selector touch matrix, real movement/source/layout invalidation, and T13/T14 sustained recovery/endurance/audio/resources. Detector count/colour variation remains a settlement limitation; no observed-motion or accuracy pass is inferred from stationary balls. O01 timed corpus/holdouts and O02.05 performance retain their gates. Compatible stored calibration is reused, not freshly detected on connect. O08 reliability now precedes A02.01 voice-tool delivery; programmatic Sky-origin checks are not real voice acceptance.

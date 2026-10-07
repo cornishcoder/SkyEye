@@ -6,6 +6,14 @@
 
 Keep each description concise and matched to the actual command. Do not rely on a vague “continuing checks” or an unexplained batch of device operations. Then perform the scoped action. Clear context helps the checker assess authorized work; it does not guarantee approval. If rejected, report the exact blocked action and the supplied reason, and accurately distinguish work that ran from work that did not. This is a standing user instruction for future glow-up work.
 
+## Current delivery priority — O08 reliability, 7 October 2026
+
+**Next: O08 — Reliable mounted-camera table observation (P0, planned)** in the **Mounted-Camera Observation Reliability** epic. Repeated failure to recognise a clear stationary table blocks dependable automatic shot advice. The [detailed delivery plan](o08-mounted-table-reliability-plan.md) defines nine checked chunks, single-action bounded verification, separate motion/layout/freshness evidence, stable appearance and consensus, a session-held-out reliability benchmark and guarded release.
+
+**Order: O08.01–O08.09 → A02.01/A02 → A03 with minimum A05 → A04/remaining A05.** Collect the required O01 still/negative corpus subset and O02.05 actual-resolution costs during O08; wider O01 timed-shot/holdout and O02.05 sustained tracking acceptance still precede O03→O04→O05. Declared-history consumers remain independent. This priority supersedes all earlier voice-next/media-next notes below and in associated draft plans. Retain T13/T14 and V-series remaining physical gates; O08 preserves the current C# detector, shared state/commands and corrected/branded TV.
+
+Status is **planning only**. Proposed gates include ≥99% correct layouts within three seconds on supported clear/still windows, zero observed false-ready results in the defined unsafe test corpus, explicit freshness/coverage and bounded playback/resource regression. Corpus sizes, strata, label tolerances and rate uncertainty are specified in the plan; these numbers are not achieved results. First implementation chunk is O08.01 baseline telemetry, timing audit and frozen corpus support before tuning.
+
 4 October 2026 · Updated 6 October after delivering the Match & Table State core and declared phone match management in checked chunks.
 
 The original planning baseline was the three-turn conversation **SkyEye Agentic UI Benefits** and the `C:\code\SkyEye` checkout at `f6ea29c`. Current delivery status and evidence are recorded below and in the progress log.
@@ -240,6 +248,12 @@ The previous eight milestones were not sufficiently small as individual commits.
 |---|---|---|
 | R01 | Establish the Match & Table State Core — implemented and verified 6 October | Pure C# state/evidence/events/reducer, provenance/corrections, durable journal, minimal shared-coordinator integration and readable yellow-pot/correction/rebuild checks. Pixel 11 verifies real uncertain decoded evidence and a separate declared scenario; no autonomous pot detector is claimed. See [completion report](r01-match-table-state-report.md), [brief](r01-match-table-state-brief.md) and [chunks](r01-match-table-state-plan.md) |
 
+### Mounted-Camera Observation Reliability epic
+
+| Mission | Priority / status | Deliverable and acceptance |
+| --- | --- | --- |
+| O08 — Reliable mounted-camera table observation | **Immediate P0; planned before voice** | One action obtains a current verified layout or a specific reason; O08.01–O08.09 cover baseline/corpus, bounded source-time verification, motion/quality separation, appearance stability, consensus, shared UX, mounted health/resources, blind evaluation and guarded delivery. [Full plan](o08-mounted-table-reliability-plan.md). Real timed-shot tracking/refereeing gates remain separate |
+
 ### Existing delivery backlog
 
 | ID | Bounded result | Verification before proceeding |
@@ -433,4 +447,4 @@ Real direct-shot presentation now passes on Pixel 11 and live Chromecast. All th
 
 Transient paired-frame acquisition now retries only an unavailable exact native snapshot; pixel/PTS, cancellation, scope and age fences remain. Observation failures surface a reason. TV rendering now republishes valid advice when its own decoder generation changes. A controlled TV-only reader restart proves recovery on a newly encoded frame with the same unexpired candidate and unchanged phone generation. This does not pass sustained network recovery/endurance. Normal Release is restored with matching installed APK hash, retained signer/UID/private storage, live phone/Cast and diagnostics absent; owned forwards are removed. These successful checks supersede the earlier rejected diagnostics attempt for the checks actually exercised.
 
-Keep the remaining gates explicit: physical bank/kick arrangements and individual Phone/TV target-selector touch coverage; real movement/source/layout invalidation correlation; T13/T14 recovery/endurance/room audio/resources; O01 real corpus/holdouts and O02.05 real-source tracking performance. Intermittent count/colour detection still resets settlement even when physical balls are still; do not describe that as observed motion or weaken the two-second/six-second gate. Connection reuses compatible stored calibration, with fresh corners still an explicit action. A02.01 real voice-tool dispatch is the next independent delivery slice; V03/V04 retain their physics/observed-trajectory prerequisites.
+Keep the remaining gates explicit: physical bank/kick arrangements and individual Phone/TV target-selector touch coverage; real movement/source/layout invalidation correlation; T13/T14 recovery/endurance/room audio/resources; O01 real corpus/holdouts and O02.05 real-source tracking performance. Intermittent count/colour detection still resets settlement even when physical balls are still; do not describe that as observed motion. The current live session allows a fifteen-second observation gap, while the tracker default and review freshness use six seconds; O08 will reconcile policy/UI documentation and preserve conservative source-time evidence. Connection reuses compatible stored calibration, with fresh corners still an explicit action. O08 reliability now precedes A02.01 real voice-tool dispatch; V03/V04 retain their physics/observed-trajectory prerequisites.

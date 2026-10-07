@@ -1,5 +1,7 @@
 # SkyEye
 
+**Current P0: mounted-camera detector/settlement reliability (O08), before Sky voice.** The [nine-chunk plan](docs/o08-mounted-table-reliability-plan.md) and [roadmap](docs/glow-up-plan.md) define one-action verification, trustworthy stillness/layout evidence and measured release gates. This mission is planned; previous voice-next notes are superseded and no new detector accuracy result is claimed.
+
 C# Android apps for a mounted pool-table camera. The camera and retained native companion use .NET 10; the production portrait companion uses .NET 11. Initial Pixel 10 Pro camera and Pixel 11 Pro XL companion capture, LAN viewing and replay checks pass. Extended device/Chromecast acceptance is still required before calling the prototype dependable.
 
 ## Apps
