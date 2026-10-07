@@ -72,6 +72,22 @@ static class ShotHudChecks
         restarted.Validate(); Check(restarted.At(new('A',64),origin,500000,SceneTarget.Phone)!.ShotHud!.Model==CueDirectionProjection.Model,
             "Historical model/assumptions and corridor roles survive journal serialization at source time");
         Refused(()=> (journal with{Schema=1}).Validate());
+        var directory=Path.Combine(Path.GetTempPath(),"skyeye-hud-"+Guid.NewGuid().ToString("N"));
+        try
+        {
+            var clip=new Clip(Guid.NewGuid().ToString("N"),"Mixed HUD history",2,100,new('A',64),now,RecordingOrigin:origin);
+            var store=new AnnotationJournalStore(directory);
+            void Frame(long offset,RecordedScene? content)=>store.Observe(new(origin.Timeline,origin.StartUs+offset,SceneTarget.Phone,new('B',64),content));
+            Frame(0,legacy);Frame(200000,legacy);Frame(400000,captured);Frame(600000,captured);Frame(800000,null);Frame(1000000,null);
+            store.Flush(origin.Timeline);store.Preserve(clip);
+            Frame(700_000_000,null);Frame(700_200_000,null);store.Flush(origin.Timeline);
+            var retained=new AnnotationJournalStore(directory).Preserved(clip)!;
+            Check(retained.Schema==2 && retained.At(clip.Sha256,origin,100000,SceneTarget.Phone)!.Caption=="Legacy"
+                && retained.At(clip.Sha256,origin,500000,SceneTarget.Phone)!.ShotHud!.Assumptions.SequenceEqual(captured.ShotHud!.Assumptions)
+                && retained.At(clip.Sha256,origin,900000,SceneTarget.Phone) is null,
+                "Mixed legacy/v2 history, assumptions and clear survive durable preservation, rolling trim and process restart");
+        }
+        finally { if(Directory.Exists(directory))Directory.Delete(directory,true); }
         Console.WriteLine("PASS shot HUD contracts: typed corridor/contact/path roles, bounded provenance, live-to-recorded capture and legacy serialization compatibility");
     }
     static void Check(bool ok,string why) { if(!ok)throw new Exception(why); }
