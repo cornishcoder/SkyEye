@@ -167,7 +167,8 @@ public sealed partial class ShellSession
                 ShotDisplayMode.Pinned => shotCarousel.Candidates.FirstOrDefault(s => s.Id == surface.ShotId && s.TableVersion == surface.TableVersion),
                 _ => null
             } : null;
-            var key = $"{mediaGeneration}:{surface.Mode}:{surface.Annotations}:{shot?.Id}:{app.State.ShotChoices.ExpiresAt.ToUnixTimeMilliseconds()}:{shotMessage}:{CanAnalyzeTable}:{EditingTable}:{Playing}:{(shot is null ? Android.OS.SystemClock.ElapsedRealtime() / 2000 : 0)}";
+            var tvGeneration = tv ? BackgroundTvService.Instance?.DecoderGeneration ?? 0 : 0;
+            var key = $"{mediaGeneration}:{tvGeneration}:{surface.Mode}:{surface.Annotations}:{shot?.Id}:{app.State.ShotChoices.ExpiresAt.ToUnixTimeMilliseconds()}:{shotMessage}:{CanAnalyzeTable}:{EditingTable}:{Playing}:{(shot is null ? Android.OS.SystemClock.ElapsedRealtime() / 2000 : 0)}";
             if (last == key) return;
             last = key;
             if (surface.Mode is not (ShotDisplayMode.Cycling or ShotDisplayMode.Pinned) || selection.Kind != ViewingSource.Live || EditingTable || !Playing)

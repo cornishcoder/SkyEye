@@ -22,6 +22,7 @@ public sealed class BackgroundTvService : Service
     public BackgroundTvService(IntPtr handle, Android.Runtime.JniHandleOwnership ownership) : base(handle, ownership) { }
     static BackgroundTvRequest? requested;
     public static BackgroundTvService? Instance { get; private set; }
+    public long DecoderGeneration => compositor?.Generation ?? 0;
     readonly BackgroundDeliveryLease lease = new();
     readonly CancellationTokenSource lifetime = new();
     CancellationTokenSource? pipelineLifetime;
