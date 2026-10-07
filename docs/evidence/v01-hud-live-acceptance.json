@@ -1,0 +1,1214 @@
+{
+  "evidenceDate": "2026-10-07",
+  "source": "Real live camera, stationary physical table, Pixel 11 and Chromecast",
+  "commits": [
+    "e9333f4",
+    "52a4877",
+    "de3cf52",
+    "d47b369"
+  ],
+  "admission": {
+    "policy": "Compatible stored calibration reused; no automatic fresh corner detection on connect",
+    "observations": [
+      {
+        "choices": 0,
+        "ballCount": 16,
+        "outcome": 0,
+        "status": "Choices are off · live table on both screens.",
+        "measuredAt": "2026-10-07T13:22:40.4677807+01:00"
+      },
+      {
+        "choices": 3,
+        "ballCount": 16,
+        "outcome": 0,
+        "status": "Choices are off · live table on both screens.",
+        "measuredAt": "2026-10-07T13:22:43.4328639+01:00"
+      }
+    ],
+    "calibration": [
+      {
+        "x": 0.06489583253860473,
+        "y": 0.15166666949236834,
+        "length": 0.16496741410286433
+      },
+      {
+        "x": 0.9092707951863607,
+        "y": 0.07648148006863065,
+        "length": 0.9124816687322135
+      },
+      {
+        "x": 0.9078125,
+        "y": 0.9138888888888889,
+        "length": 1.2881445712305812
+      },
+      {
+        "x": 0.0765625,
+        "y": 0.862037037037037,
+        "length": 0.8654303378261269
+      }
+    ],
+    "settlement": "Two matching requested observations at least two seconds apart, no more than six seconds apart; gates unchanged",
+    "limitations": "Intermittent detection/count variation remains; still physical balls are not evidence of motion"
+  },
+  "presets": [
+    {
+      "surface": "phone",
+      "preset": "lines",
+      "artifactSha256": "A25DE1FD1C6FE5021EBC8A5AEEFD070F4F7F779B531E392BAA43019024C12960",
+      "state": {
+        "measuredAt": "2026-10-07T12:17:46.6079811+01:00",
+        "tableVersion": 4,
+        "ballCount": 16,
+        "phone": {
+          "mode": 2,
+          "shotId": "4:red-0:0:-1:-1",
+          "tableVersion": 4,
+          "annotations": 219,
+          "revision": 3,
+          "replayId": null
+        },
+        "tv": {
+          "mode": 0,
+          "shotId": null,
+          "tableVersion": 0,
+          "annotations": 2047,
+          "revision": 0,
+          "replayId": null
+        },
+        "phoneFrame": {
+          "sceneVersion": 2,
+          "mediaGeneration": 5,
+          "tableVersion": 4,
+          "sourcePositionMs": 170224,
+          "paths": 2,
+          "markers": 3
+        },
+        "tvFrame": null,
+        "cast": {
+          "connected": false
+        },
+        "sourceMapped": true,
+        "phoneSourceUs": 13339772800,
+        "capture": "Active"
+      }
+    },
+    {
+      "surface": "phone",
+      "preset": "white",
+      "artifactSha256": "B8139DBFE4F462416446B10657071D5CCE1A50FF9DB3D394B0FA41AF6B23E463",
+      "state": {
+        "measuredAt": "2026-10-07T12:17:48.3223966+01:00",
+        "tableVersion": 4,
+        "ballCount": 16,
+        "phone": {
+          "mode": 2,
+          "shotId": "4:red-0:0:-1:-1",
+          "tableVersion": 4,
+          "annotations": 1665,
+          "revision": 4,
+          "replayId": null
+        },
+        "tv": {
+          "mode": 0,
+          "shotId": null,
+          "tableVersion": 0,
+          "annotations": 2047,
+          "revision": 0,
+          "replayId": null
+        },
+        "phoneFrame": {
+          "sceneVersion": 3,
+          "mediaGeneration": 5,
+          "tableVersion": 4,
+          "sourcePositionMs": 172043,
+          "paths": 2,
+          "markers": 1
+        },
+        "tvFrame": null,
+        "cast": {
+          "connected": false
+        },
+        "sourceMapped": true,
+        "phoneSourceUs": 13341606300,
+        "capture": "Active"
+      }
+    },
+    {
+      "surface": "phone",
+      "preset": "full",
+      "artifactSha256": "9C33F089F3492DE2C0D02DAB814A5525E86F628C91442BC35050E14E5A83C4A8",
+      "state": {
+        "measuredAt": "2026-10-07T12:17:49.9487723+01:00",
+        "tableVersion": 4,
+        "ballCount": 16,
+        "phone": {
+          "mode": 2,
+          "shotId": "4:red-0:0:-1:-1",
+          "tableVersion": 4,
+          "annotations": 2047,
+          "revision": 5,
+          "replayId": null
+        },
+        "tv": {
+          "mode": 0,
+          "shotId": null,
+          "tableVersion": 0,
+          "annotations": 2047,
+          "revision": 0,
+          "replayId": null
+        },
+        "phoneFrame": {
+          "sceneVersion": 4,
+          "mediaGeneration": 5,
+          "tableVersion": 4,
+          "sourcePositionMs": 173664,
+          "paths": 3,
+          "markers": 4
+        },
+        "tvFrame": null,
+        "cast": {
+          "connected": false
+        },
+        "sourceMapped": true,
+        "phoneSourceUs": 13343206433,
+        "capture": "Active"
+      }
+    },
+    {
+      "surface": "tv",
+      "preset": "lines",
+      "artifactSha256": "D58327097D31070ED14713EE1CBD502B45135C0ABC404B0FF1504D8582187D76",
+      "state": {
+        "measuredAt": "2026-10-07T12:33:47.6634583+01:00",
+        "tableVersion": 5,
+        "ballCount": 16,
+        "phone": {
+          "mode": 2,
+          "shotId": "5:red-0:0:-1:-1",
+          "tableVersion": 5,
+          "annotations": 1665,
+          "revision": 7,
+          "replayId": null
+        },
+        "tv": {
+          "mode": 2,
+          "shotId": "5:red-0:0:-1:-1",
+          "tableVersion": 5,
+          "annotations": 219,
+          "revision": 1,
+          "replayId": null
+        },
+        "phoneFrame": {
+          "sceneVersion": 13,
+          "mediaGeneration": 13,
+          "tableVersion": 5,
+          "sourcePositionMs": 9708,
+          "paths": 2,
+          "markers": 1
+        },
+        "tvFrame": {
+          "sceneVersion": 14,
+          "mediaGeneration": 5,
+          "tableVersion": 5,
+          "sourcePositionMs": 0,
+          "paths": 2,
+          "markers": 3,
+          "sourceUs": 14301390455,
+          "sourceAgeEstimateMs": 582.6719999983907,
+          "rectangular": true,
+          "watermarked": true
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "scene",
+          "positionMs": 394098,
+          "playerState": 2,
+          "idleReason": 0,
+          "liveEdgeLagMs": 1288,
+          "liveEdgeOutcome": "accepted"
+        },
+        "sourceMapped": true,
+        "phoneSourceUs": 14301357122,
+        "capture": "Active"
+      }
+    },
+    {
+      "surface": "tv",
+      "preset": "white",
+      "artifactSha256": "DB4334FB37649F2525DA772043AB406C85AF14E935C9DABD3293ABEE09326EFB",
+      "state": {
+        "measuredAt": "2026-10-07T12:33:48.6486889+01:00",
+        "tableVersion": 5,
+        "ballCount": 16,
+        "phone": {
+          "mode": 2,
+          "shotId": "5:red-0:0:-1:-1",
+          "tableVersion": 5,
+          "annotations": 1665,
+          "revision": 7,
+          "replayId": null
+        },
+        "tv": {
+          "mode": 2,
+          "shotId": "5:red-0:0:-1:-1",
+          "tableVersion": 5,
+          "annotations": 1665,
+          "revision": 2,
+          "replayId": null
+        },
+        "phoneFrame": {
+          "sceneVersion": 13,
+          "mediaGeneration": 13,
+          "tableVersion": 5,
+          "sourcePositionMs": 10705,
+          "paths": 2,
+          "markers": 1
+        },
+        "tvFrame": {
+          "sceneVersion": 15,
+          "mediaGeneration": 5,
+          "tableVersion": 5,
+          "sourcePositionMs": 0,
+          "paths": 2,
+          "markers": 1,
+          "sourceUs": 14302357211,
+          "sourceAgeEstimateMs": 620.9160000011325,
+          "rectangular": true,
+          "watermarked": true
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "scene",
+          "positionMs": 395083,
+          "playerState": 2,
+          "idleReason": 0,
+          "liveEdgeLagMs": 1288,
+          "liveEdgeOutcome": "accepted"
+        },
+        "sourceMapped": true,
+        "phoneSourceUs": 14302357211,
+        "capture": "Active"
+      }
+    },
+    {
+      "surface": "tv",
+      "preset": "full",
+      "artifactSha256": "ACF6C08E19C5F54EEE7879C7B321DFBE120E83D4B1074C5790C040B6E44C9EC7",
+      "state": {
+        "measuredAt": "2026-10-07T12:33:49.592346+01:00",
+        "tableVersion": 5,
+        "ballCount": 16,
+        "phone": {
+          "mode": 2,
+          "shotId": "5:red-0:0:-1:-1",
+          "tableVersion": 5,
+          "annotations": 1665,
+          "revision": 7,
+          "replayId": null
+        },
+        "tv": {
+          "mode": 2,
+          "shotId": "5:red-0:0:-1:-1",
+          "tableVersion": 5,
+          "annotations": 2047,
+          "revision": 3,
+          "replayId": null
+        },
+        "phoneFrame": {
+          "sceneVersion": 13,
+          "mediaGeneration": 13,
+          "tableVersion": 5,
+          "sourcePositionMs": 11738,
+          "paths": 2,
+          "markers": 1
+        },
+        "tvFrame": {
+          "sceneVersion": 16,
+          "mediaGeneration": 5,
+          "tableVersion": 5,
+          "sourcePositionMs": 0,
+          "paths": 3,
+          "markers": 4,
+          "sourceUs": 14303323955,
+          "sourceAgeEstimateMs": 605.0139999985695,
+          "rectangular": true,
+          "watermarked": true
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "scene",
+          "positionMs": 396027,
+          "playerState": 2,
+          "idleReason": 0,
+          "liveEdgeLagMs": 1288,
+          "liveEdgeOutcome": "accepted"
+        },
+        "sourceMapped": true,
+        "phoneSourceUs": 14303390633,
+        "capture": "Active"
+      }
+    }
+  ],
+  "commands": "Independent six phone/TV presets through the real typed coordinator with Touch and Sky origins; separate actual UI taps verify all three Both presets. No real voice tool execution established",
+  "touch": {
+    "target": "Both",
+    "before": {
+      "measuredAt": "2026-10-07T13:37:47.2704503+01:00",
+      "tableVersion": 5,
+      "ballCount": 16,
+      "phone": {
+        "mode": 0,
+        "shotId": null,
+        "tableVersion": 0,
+        "annotations": 2047,
+        "revision": 8,
+        "replayId": null
+      },
+      "tv": {
+        "mode": 0,
+        "shotId": null,
+        "tableVersion": 0,
+        "annotations": 2047,
+        "revision": 8,
+        "replayId": null
+      },
+      "phoneFrame": {
+        "sceneVersion": 0,
+        "mediaGeneration": 15,
+        "tableVersion": 0,
+        "sourcePositionMs": 42732,
+        "paths": 0,
+        "markers": 0
+      },
+      "tvFrame": {
+        "sceneVersion": 0,
+        "mediaGeneration": 9,
+        "tableVersion": 0,
+        "sourcePositionMs": 0,
+        "paths": 0,
+        "markers": 0,
+        "sourceUs": 18140693800,
+        "sourceAgeEstimateMs": 884.3090000003576,
+        "rectangular": true,
+        "watermarked": true
+      },
+      "cast": {
+        "connected": true,
+        "playing": true,
+        "stream": "scene",
+        "positionMs": 354127,
+        "playerState": 2,
+        "idleReason": 0,
+        "liveEdgeLagMs": 2745,
+        "liveEdgeOutcome": "accepted"
+      },
+      "sourceMapped": true,
+      "phoneSourceUs": 18140727133,
+      "capture": "Active"
+    },
+    "typedEndpointUsedForPreset": false,
+    "proofSha256": "57BDA0E6916D42A459B55FADD10DC7BFE4A2CEC17E1591CE4A46A476A4ACCB0F",
+    "limit": "Actual Both-screen taps on full-ball direct candidate; unsupported stun direction omitted. Supported cut arrow separately verified in live phone/TV preset captures",
+    "candidate": 1,
+    "samples": [
+      {
+        "passed": true,
+        "expectedMask": 219,
+        "state": {
+          "measuredAt": "2026-10-07T13:37:50.5866184+01:00",
+          "tableVersion": 5,
+          "ballCount": 16,
+          "phone": {
+            "mode": 2,
+            "shotId": "5:yellow-9:5:-1:-1",
+            "tableVersion": 5,
+            "annotations": 219,
+            "revision": 9,
+            "replayId": null
+          },
+          "tv": {
+            "mode": 2,
+            "shotId": "5:yellow-9:5:-1:-1",
+            "tableVersion": 5,
+            "annotations": 219,
+            "revision": 9,
+            "replayId": null
+          },
+          "phoneFrame": {
+            "sceneVersion": 34,
+            "mediaGeneration": 15,
+            "tableVersion": 5,
+            "sourcePositionMs": 45865,
+            "paths": 2,
+            "markers": 3
+          },
+          "tvFrame": {
+            "sceneVersion": 35,
+            "mediaGeneration": 9,
+            "tableVersion": 5,
+            "sourcePositionMs": 0,
+            "paths": 2,
+            "markers": 3,
+            "sourceUs": 18143994088,
+            "sourceAgeEstimateMs": 908.1289999932051,
+            "rectangular": true,
+            "watermarked": true
+          },
+          "cast": {
+            "connected": true,
+            "playing": true,
+            "stream": "scene",
+            "positionMs": 357443,
+            "playerState": 2,
+            "idleReason": 0,
+            "liveEdgeLagMs": 2745,
+            "liveEdgeOutcome": "accepted"
+          },
+          "sourceMapped": true,
+          "phoneSourceUs": 18143860744,
+          "capture": "Active"
+        },
+        "fullAnalyses": 9,
+        "button": "Just lines · 1"
+      },
+      {
+        "passed": true,
+        "expectedMask": 1665,
+        "state": {
+          "measuredAt": "2026-10-07T13:37:53.7491953+01:00",
+          "tableVersion": 5,
+          "ballCount": 16,
+          "phone": {
+            "mode": 2,
+            "shotId": "5:yellow-9:5:-1:-1",
+            "tableVersion": 5,
+            "annotations": 1665,
+            "revision": 10,
+            "replayId": null
+          },
+          "tv": {
+            "mode": 2,
+            "shotId": "5:yellow-9:5:-1:-1",
+            "tableVersion": 5,
+            "annotations": 1665,
+            "revision": 10,
+            "replayId": null
+          },
+          "phoneFrame": {
+            "sceneVersion": 36,
+            "mediaGeneration": 15,
+            "tableVersion": 5,
+            "sourcePositionMs": 49073,
+            "paths": 1,
+            "markers": 1
+          },
+          "tvFrame": {
+            "sceneVersion": 37,
+            "mediaGeneration": 9,
+            "tableVersion": 5,
+            "sourcePositionMs": 0,
+            "paths": 1,
+            "markers": 1,
+            "sourceUs": 18147161033,
+            "sourceAgeEstimateMs": 911.890000000596,
+            "rectangular": true,
+            "watermarked": true
+          },
+          "cast": {
+            "connected": true,
+            "playing": true,
+            "stream": "scene",
+            "positionMs": 361090,
+            "playerState": 2,
+            "idleReason": 0,
+            "liveEdgeLagMs": 2278,
+            "liveEdgeOutcome": "accepted"
+          },
+          "sourceMapped": true,
+          "phoneSourceUs": 18147061022,
+          "capture": "Active"
+        },
+        "fullAnalyses": 9,
+        "button": "White direction · 1"
+      },
+      {
+        "passed": true,
+        "expectedMask": 2047,
+        "state": {
+          "measuredAt": "2026-10-07T13:37:56.9304999+01:00",
+          "tableVersion": 5,
+          "ballCount": 16,
+          "phone": {
+            "mode": 2,
+            "shotId": "5:yellow-9:5:-1:-1",
+            "tableVersion": 5,
+            "annotations": 2047,
+            "revision": 11,
+            "replayId": null
+          },
+          "tv": {
+            "mode": 2,
+            "shotId": "5:yellow-9:5:-1:-1",
+            "tableVersion": 5,
+            "annotations": 2047,
+            "revision": 11,
+            "replayId": null
+          },
+          "phoneFrame": {
+            "sceneVersion": 38,
+            "mediaGeneration": 15,
+            "tableVersion": 5,
+            "sourcePositionMs": 52274,
+            "paths": 2,
+            "markers": 4
+          },
+          "tvFrame": {
+            "sceneVersion": 39,
+            "mediaGeneration": 9,
+            "tableVersion": 5,
+            "sourcePositionMs": 0,
+            "paths": 2,
+            "markers": 4,
+            "sourceUs": 18150261311,
+            "sourceAgeEstimateMs": 983.0750000029802,
+            "rectangular": true,
+            "watermarked": true
+          },
+          "cast": {
+            "connected": true,
+            "playing": true,
+            "stream": "scene",
+            "positionMs": 364272,
+            "playerState": 2,
+            "idleReason": 0,
+            "liveEdgeLagMs": 2278,
+            "liveEdgeOutcome": "accepted"
+          },
+          "sourceMapped": true,
+          "phoneSourceUs": 18150261311,
+          "capture": "Active"
+        },
+        "fullAnalyses": 9,
+        "button": "Full shot · 1"
+      }
+    ]
+  },
+  "clearExpiry": {
+    "proofSha256": "C118A354C932AE0E3CD21AB2859A6E2BC3512EF32C8CD68FE51F79A7A81714FF",
+    "samples": {
+      "before": {
+        "measuredAt": "2026-10-07T13:22:44.527333+01:00",
+        "tableVersion": 1,
+        "ballCount": 16,
+        "phone": {
+          "mode": 2,
+          "shotId": "1:red-0:0:-1:-1",
+          "tableVersion": 1,
+          "annotations": 2047,
+          "revision": 1,
+          "replayId": null
+        },
+        "tv": {
+          "mode": 2,
+          "shotId": "1:red-0:0:-1:-1",
+          "tableVersion": 1,
+          "annotations": 2047,
+          "revision": 1,
+          "replayId": null
+        },
+        "phoneFrame": {
+          "sceneVersion": 1,
+          "mediaGeneration": 4,
+          "tableVersion": 1,
+          "sourcePositionMs": 58106,
+          "paths": 3,
+          "markers": 4
+        },
+        "tvFrame": {
+          "sceneVersion": 2,
+          "mediaGeneration": 2,
+          "tableVersion": 1,
+          "sourcePositionMs": 0,
+          "paths": 3,
+          "markers": 4,
+          "sourceUs": 17238347977,
+          "sourceAgeEstimateMs": 488.613999992609,
+          "rectangular": true,
+          "watermarked": true
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "scene",
+          "positionMs": 1741,
+          "playerState": 4,
+          "idleReason": 0,
+          "liveEdgeLagMs": 1669,
+          "liveEdgeOutcome": ""
+        },
+        "sourceMapped": true,
+        "phoneSourceUs": 17238014611,
+        "capture": "Active"
+      },
+      "phoneClear": {
+        "measuredAt": "2026-10-07T13:22:45.3794949+01:00",
+        "tableVersion": 1,
+        "ballCount": 16,
+        "phone": {
+          "mode": 0,
+          "shotId": null,
+          "tableVersion": 0,
+          "annotations": 2047,
+          "revision": 2,
+          "replayId": null
+        },
+        "tv": {
+          "mode": 2,
+          "shotId": "1:red-0:0:-1:-1",
+          "tableVersion": 1,
+          "annotations": 2047,
+          "revision": 1,
+          "replayId": null
+        },
+        "phoneFrame": {
+          "sceneVersion": 0,
+          "mediaGeneration": 4,
+          "tableVersion": 0,
+          "sourcePositionMs": 58904,
+          "paths": 0,
+          "markers": 0
+        },
+        "tvFrame": {
+          "sceneVersion": 2,
+          "mediaGeneration": 2,
+          "tableVersion": 1,
+          "sourcePositionMs": 0,
+          "paths": 3,
+          "markers": 4,
+          "sourceUs": 17239081366,
+          "sourceAgeEstimateMs": 482.77300000190735,
+          "rectangular": true,
+          "watermarked": true
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "scene",
+          "positionMs": 1741,
+          "playerState": 4,
+          "idleReason": 0,
+          "liveEdgeLagMs": 2636,
+          "liveEdgeOutcome": ""
+        },
+        "sourceMapped": true,
+        "phoneSourceUs": 17238814677,
+        "capture": "Active"
+      },
+      "tvClear": {
+        "measuredAt": "2026-10-07T13:22:46.2436351+01:00",
+        "tableVersion": 1,
+        "ballCount": 16,
+        "phone": {
+          "mode": 0,
+          "shotId": null,
+          "tableVersion": 0,
+          "annotations": 2047,
+          "revision": 2,
+          "replayId": null
+        },
+        "tv": {
+          "mode": 0,
+          "shotId": null,
+          "tableVersion": 0,
+          "annotations": 2047,
+          "revision": 2,
+          "replayId": null
+        },
+        "phoneFrame": {
+          "sceneVersion": 0,
+          "mediaGeneration": 4,
+          "tableVersion": 0,
+          "sourcePositionMs": 59934,
+          "paths": 0,
+          "markers": 0
+        },
+        "tvFrame": {
+          "sceneVersion": 0,
+          "mediaGeneration": 2,
+          "tableVersion": 0,
+          "sourcePositionMs": 0,
+          "paths": 0,
+          "markers": 0,
+          "sourceUs": 17239881444,
+          "sourceAgeEstimateMs": 501.0890000015497,
+          "rectangular": true,
+          "watermarked": true
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "scene",
+          "positionMs": 1741,
+          "playerState": 4,
+          "idleReason": 0,
+          "liveEdgeLagMs": 3499,
+          "liveEdgeOutcome": ""
+        },
+        "sourceMapped": true,
+        "phoneSourceUs": 17239848100,
+        "capture": "Active"
+      },
+      "reshown": {
+        "measuredAt": "2026-10-07T13:22:47.1134582+01:00",
+        "tableVersion": 1,
+        "ballCount": 16,
+        "phone": {
+          "mode": 2,
+          "shotId": "1:red-0:0:-1:-1",
+          "tableVersion": 1,
+          "annotations": 2047,
+          "revision": 3,
+          "replayId": null
+        },
+        "tv": {
+          "mode": 2,
+          "shotId": "1:red-0:0:-1:-1",
+          "tableVersion": 1,
+          "annotations": 2047,
+          "revision": 3,
+          "replayId": null
+        },
+        "phoneFrame": {
+          "sceneVersion": 0,
+          "mediaGeneration": 4,
+          "tableVersion": 0,
+          "sourcePositionMs": 60822,
+          "paths": 0,
+          "markers": 0
+        },
+        "tvFrame": {
+          "sceneVersion": 4,
+          "mediaGeneration": 2,
+          "tableVersion": 1,
+          "sourcePositionMs": 0,
+          "paths": 3,
+          "markers": 4,
+          "sourceUs": 17240748177,
+          "sourceAgeEstimateMs": 502.3560000061989,
+          "rectangular": true,
+          "watermarked": true
+        },
+        "cast": {
+          "connected": true,
+          "playing": false,
+          "stream": "scene",
+          "positionMs": 4880,
+          "playerState": 4,
+          "idleReason": 0,
+          "liveEdgeLagMs": 1224,
+          "liveEdgeOutcome": "accepted"
+        },
+        "sourceMapped": true,
+        "phoneSourceUs": 17240748177,
+        "capture": "Active"
+      },
+      "expired": {
+        "measuredAt": "2026-10-07T13:22:58.1565589+01:00",
+        "tableVersion": 0,
+        "ballCount": 16,
+        "phone": {
+          "mode": 0,
+          "shotId": null,
+          "tableVersion": 0,
+          "annotations": 2047,
+          "revision": 4,
+          "replayId": null
+        },
+        "tv": {
+          "mode": 0,
+          "shotId": null,
+          "tableVersion": 0,
+          "annotations": 2047,
+          "revision": 4,
+          "replayId": null
+        },
+        "phoneFrame": {
+          "sceneVersion": 0,
+          "mediaGeneration": 5,
+          "tableVersion": 0,
+          "sourcePositionMs": 8103,
+          "paths": 0,
+          "markers": 0
+        },
+        "tvFrame": {
+          "sceneVersion": 0,
+          "mediaGeneration": 3,
+          "tableVersion": 0,
+          "sourcePositionMs": 0,
+          "paths": 0,
+          "markers": 0,
+          "sourceUs": 17252015833,
+          "sourceAgeEstimateMs": 457.21600000560284,
+          "rectangular": true,
+          "watermarked": true
+        },
+        "cast": {
+          "connected": true,
+          "playing": true,
+          "stream": "scene",
+          "positionMs": 14195,
+          "playerState": 2,
+          "idleReason": 0,
+          "liveEdgeLagMs": 2945,
+          "liveEdgeOutcome": "accepted"
+        },
+        "sourceMapped": true,
+        "phoneSourceUs": 17252015833,
+        "capture": "Active"
+      }
+    },
+    "observations": [
+      {
+        "choices": 0,
+        "ballCount": 16,
+        "outcome": 0,
+        "status": "Choices are off · live table on both screens.",
+        "measuredAt": "2026-10-07T13:22:40.4677807+01:00"
+      },
+      {
+        "choices": 3,
+        "ballCount": 16,
+        "outcome": 0,
+        "status": "Choices are off · live table on both screens.",
+        "measuredAt": "2026-10-07T13:22:43.4328639+01:00"
+      }
+    ],
+    "clock": "Expiry deadline and measuredAt both from Pixel; advancing source PTS verifies continuing live encoder output",
+    "assertions": {
+      "phoneClearIndependent": true,
+      "tvClearPreservesShiny": true,
+      "expiryClearsBoth": true,
+      "videoAdvanced": true,
+      "expiryPreservesShiny": true
+    }
+  },
+  "rebind": {
+    "recovered": {
+      "measuredAt": "2026-10-07T13:32:33.8828791+01:00",
+      "tvGeneration": 4,
+      "frameGeneration": 4,
+      "tvPaths": 3,
+      "tvMarkers": 4,
+      "tvScene": 3,
+      "tvTable": 2,
+      "phoneGeneration": 7,
+      "phonePaths": 3,
+      "shotId": "2:red-0:0:-1:-1",
+      "expiresAt": "2026-10-07T13:32:46.4892001+01:00",
+      "rectangular": true,
+      "watermarked": true,
+      "sourceUs": 17827999677
+    },
+    "phoneGenerationUnchanged": true,
+    "proofSha256": "12FCCFEDAA6AAF6AFDC57DEBBB7742BD20FD6BF8C9A51AB9570342566D858C93",
+    "rebindObserved": true,
+    "before": {
+      "measuredAt": "2026-10-07T13:32:33.3149216+01:00",
+      "tvGeneration": 3,
+      "frameGeneration": 3,
+      "tvPaths": 3,
+      "tvMarkers": 4,
+      "tvScene": 2,
+      "tvTable": 2,
+      "phoneGeneration": 7,
+      "phonePaths": 3,
+      "shotId": "2:red-0:0:-1:-1",
+      "expiresAt": "2026-10-07T13:32:46.4892001+01:00",
+      "rectangular": true,
+      "watermarked": true,
+      "sourceUs": 17826932911
+    },
+    "method": "Diagnostics-only TV reader restart; existing native reconnect path; no camera capture changes",
+    "after": {
+      "measuredAt": "2026-10-07T13:32:33.3824073+01:00",
+      "tvGeneration": 4,
+      "frameGeneration": 3,
+      "tvPaths": 3,
+      "tvMarkers": 4,
+      "tvScene": 2,
+      "tvTable": 2,
+      "phoneGeneration": 7,
+      "phonePaths": 3,
+      "shotId": "2:red-0:0:-1:-1",
+      "expiresAt": "2026-10-07T13:32:46.4892001+01:00",
+      "rectangular": true,
+      "watermarked": true,
+      "sourceUs": 17826932911
+    },
+    "gate": "Recovery requires frame generation equal to current TV decoder generation, newer scene and advancing sourceUs; same unexpired candidate and unchanged phone generation"
+  },
+  "visual": {
+    "tvAlignmentQuestion": "Do the cue/target/pocket markers align with the table, and are the labels readable on the TV?",
+    "artifacts": [
+      {
+        "sha256": "C22B21DCB72151B2592939D1A2722E7D173D35E6609E2670FC101B29AC05BFC4",
+        "path": "work/v01-phone-lines.png"
+      },
+      {
+        "sha256": "D33FD7AAC0EA5723B62ECBA36CF515F4BE7BA7062EF09E78932CEA4C4548CFD0",
+        "path": "work/v01-phone-white.png"
+      },
+      {
+        "sha256": "36D8C05CF8A22D26FA82EBF0819BFFEE203D0CD62A2B2F120364188E378E1575",
+        "path": "work/v01-phone-full.png"
+      },
+      {
+        "sha256": "DC4FC29401AD9FC648B01BFBDF66EF06BBCB004E992073BE042D4C64BD607A14",
+        "path": "work/v01-tv-full-frame.png"
+      },
+      {
+        "sha256": "8A2E52597BA22D2EAD849EF7FBB916828F95B1DD332A3B435E1B6EFF7F9F52F1",
+        "path": "work/v01-tv-clear-frame.png"
+      }
+    ],
+    "phone": [
+      "lines",
+      "white",
+      "full"
+    ],
+    "tvVisibilityReply": "TV does show HUD now",
+    "tvAlignmentReply": "Aligned and readable",
+    "pixelAlignment": "Cue, target, ghost/contact and pocket visually reviewed against real decoded pixels",
+    "tv": [
+      "full live frame",
+      "clear live frame"
+    ]
+  },
+  "nativeFrameBinding": {
+    "passed": true,
+    "samples": 10,
+    "proofSha256": "CA9CD4AC2DD3F79D41B738103CCBF04F6AC6A61753CEBB632EBAA713278B17C2",
+    "source": "Isolated 640x360 declared barcode fixture; not detector accuracy",
+    "proof": {
+      "passed": true,
+      "samples": [
+        {
+          "sourceTimeUs": 1466666,
+          "receipt": {
+            "mediaGeneration": 5,
+            "frameId": 1,
+            "presentationTimeUs": 66666,
+            "surfaceTimestampNs": 41836271856461,
+            "width": 640,
+            "height": 360
+          },
+          "pixelFrameId": 0,
+          "expectedFrameId": 0,
+          "noAnalysisJpeg": true
+        },
+        {
+          "sourceTimeUs": 1533333,
+          "receipt": {
+            "mediaGeneration": 5,
+            "frameId": 3,
+            "presentationTimeUs": 133333,
+            "surfaceTimestampNs": 41836397910390,
+            "width": 640,
+            "height": 360
+          },
+          "pixelFrameId": 2,
+          "expectedFrameId": 2,
+          "noAnalysisJpeg": true
+        },
+        {
+          "sourceTimeUs": 1666666,
+          "receipt": {
+            "mediaGeneration": 5,
+            "frameId": 7,
+            "presentationTimeUs": 266666,
+            "surfaceTimestampNs": 41836502790332,
+            "width": 640,
+            "height": 360
+          },
+          "pixelFrameId": 6,
+          "expectedFrameId": 6,
+          "noAnalysisJpeg": true
+        },
+        {
+          "sourceTimeUs": 1700000,
+          "receipt": {
+            "mediaGeneration": 5,
+            "frameId": 8,
+            "presentationTimeUs": 300000,
+            "surfaceTimestampNs": 41836566205924,
+            "width": 640,
+            "height": 360
+          },
+          "pixelFrameId": 7,
+          "expectedFrameId": 7,
+          "noAnalysisJpeg": true
+        },
+        {
+          "sourceTimeUs": 1733333,
+          "receipt": {
+            "mediaGeneration": 5,
+            "frameId": 9,
+            "presentationTimeUs": 333333,
+            "surfaceTimestampNs": 41836599565792,
+            "width": 640,
+            "height": 360
+          },
+          "pixelFrameId": 8,
+          "expectedFrameId": 8,
+          "noAnalysisJpeg": true
+        },
+        {
+          "sourceTimeUs": 1800000,
+          "receipt": {
+            "mediaGeneration": 5,
+            "frameId": 11,
+            "presentationTimeUs": 400000,
+            "surfaceTimestampNs": 41836666285528,
+            "width": 640,
+            "height": 360
+          },
+          "pixelFrameId": 10,
+          "expectedFrameId": 10,
+          "noAnalysisJpeg": true
+        },
+        {
+          "sourceTimeUs": 1833333,
+          "receipt": {
+            "mediaGeneration": 5,
+            "frameId": 12,
+            "presentationTimeUs": 433333,
+            "surfaceTimestampNs": 41836699645396,
+            "width": 640,
+            "height": 360
+          },
+          "pixelFrameId": 11,
+          "expectedFrameId": 11,
+          "noAnalysisJpeg": true
+        },
+        {
+          "sourceTimeUs": 1900000,
+          "receipt": {
+            "mediaGeneration": 5,
+            "frameId": 14,
+            "presentationTimeUs": 500000,
+            "surfaceTimestampNs": 41836766365132,
+            "width": 640,
+            "height": 360
+          },
+          "pixelFrameId": 13,
+          "expectedFrameId": 13,
+          "noAnalysisJpeg": true
+        },
+        {
+          "sourceTimeUs": 1933333,
+          "receipt": {
+            "mediaGeneration": 5,
+            "frameId": 15,
+            "presentationTimeUs": 533333,
+            "surfaceTimestampNs": 41836799725000,
+            "width": 640,
+            "height": 360
+          },
+          "pixelFrameId": 14,
+          "expectedFrameId": 14,
+          "noAnalysisJpeg": true
+        },
+        {
+          "sourceTimeUs": 2033333,
+          "receipt": {
+            "mediaGeneration": 5,
+            "frameId": 18,
+            "presentationTimeUs": 633333,
+            "surfaceTimestampNs": 41836869806968,
+            "width": 640,
+            "height": 360
+          },
+          "pixelFrameId": 17,
+          "expectedFrameId": 17,
+          "noAnalysisJpeg": true
+        }
+      ],
+      "cancelledAcquisitionRejected": true,
+      "source": "Synthetic loopback TS through production PlayerTableFrameSource; not real table accuracy"
+    }
+  },
+  "checks": {
+    "agentUi": "passed",
+    "core": "passed",
+    "diagnosticsBuild": {
+      "warnings": 12,
+      "sha256": "B013F909F3713392D6F4187EF9391F7BD787117F0233D98DC35FE78668A90260",
+      "errors": 0
+    },
+    "normalBuild": {
+      "warnings": 10,
+      "sha256": "15ED0A93E5FDADA2E350939BC48CD4D449D9C248AFD66303AF4375C4EA6BFECC",
+      "errors": 0
+    },
+    "retainedBuild": {
+      "warnings": 14,
+      "sha256": "E08B42EACED10D8364A578E4618A4F8AD46E88ABD6D4532D0F7E51AD5C5BD361",
+      "errors": 0
+    }
+  },
+  "finalProduction": {
+    "package": "uk.co.skyeye.companion",
+    "apkSha256": "CEA5FE3B70C87A6916F2443847543720C9A3C56506EA251F0C33DD40F2B0A80F",
+    "installedApkSha256": "CEA5FE3B70C87A6916F2443847543720C9A3C56506EA251F0C33DD40F2B0A80F",
+    "normalReleaseRestored": true,
+    "diagnosticsAbsent": true,
+    "uid": 10644,
+    "ceDataInode": "639806",
+    "deDataInode": "617901",
+    "installer": "Signer UID private storage retained",
+    "capture": "Active",
+    "cameraCaptureControlChanged": false,
+    "hostPresent": true,
+    "tv": {
+      "serviceOwned": true,
+      "gpuVideo": true,
+      "cpuVideoCopies": 0,
+      "playing": true,
+      "generation": 2,
+      "frames": 33,
+      "replacedFrames": 0,
+      "segments": 2,
+      "encodedSourceUs": 18409050666,
+      "frame": {
+        "sceneVersion": 0,
+        "mediaGeneration": 2,
+        "tableVersion": 0,
+        "sourcePositionMs": 0,
+        "paths": 0,
+        "markers": 0,
+        "sourceUs": 18409084000,
+        "sourceAgeEstimateMs": 576.3419999927282,
+        "rectangular": true,
+        "watermarked": true
+      },
+      "error": ""
+    },
+    "ownedAdbForwardsRemoved": true,
+    "castConnectedObserved": true,
+    "phoneLiveObserved": true,
+    "finalUi": [
+      "Live table · silent",
+      "Live table on TV · silent."
+    ]
+  },
+  "remaining": [
+    "Physical bank/kick arrangements and individual Phone/TV target-selector touch matrix",
+    "Real movement/source/layout invalidation correlation and T13/T14 sustained recovery endurance room audio resources",
+    "Intermittent ball count/color detection and real O01 timed corpus/holdouts",
+    "O02.05 actual real-source tracking performance",
+    "A02.01 real voice tool dispatch; programmatic Sky origin is not voice acceptance"
+  ]
+}
