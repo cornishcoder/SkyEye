@@ -27,6 +27,37 @@ static class ShotHudChecks
         Refused(() => new TableScene(1,2,3,now,TimeSpan.FromSeconds(10), [],[],[],shotHud:info with { Provenance="Observed" }));
         Check(((int)ShotAnnotations.CueBallPath == 1) && ((int)ShotAnnotations.ShotLabel == 32)
             && ShotAnnotations.All.HasFlag(ShotAnnotations.ContactPoint), "Original masks retain their meanings while new roles are selectable");
+        var shot = new Shot("cut", "red", 2, new(.946,.5), new(1,.5), new(1.9,.5), .8, "Fixture", 3)
+            { CuePath = [new(.5,.7),new(.946,.5)], TargetPath = [new(1,.5),new(1.9,.5)] };
+        var projection = GeometricCueProjection.From(shot);
+        Check(projection.Direction is { X: 0, Y: < 0 } && projection.DisplayEnd is not null, "Cut direction is the correctly signed tangent, not the incoming cue line");
+        Check(GeometricCueProjection.From(shot with { CuePath=[new(.5,.5),shot.GhostBall] }).Direction is null, "Full-ball contact has no arbitrary tangent");
+        Check(GeometricCueProjection.From(shot with { Type="kick" }).Direction is null, "Cue-cushion routes remain unsupported");
+        var calibration = new TableCalibration([new(.1,.1),new(.9,.1),new(.9,.9),new(.1,.9)]);
+        var hudScene = ShotSceneProjection.Create(shot,calibration,2,2,now,now.AddSeconds(10),"Candidate 1",true,number:1);
+        Check(hudScene.Paths.Count(p=>p.Role==ScenePathRole.CueProjected)==1 && hudScene.Corridors.Length==1
+            && hudScene.Markers.Any(m=>m.Kind==SceneMarkerKind.Contact) && hudScene.ShotHud!.Assumptions.Length==2,
+            "Geometric HUD separates corridor/contact/projected direction and preserves assumptions");
+        var contact = calibration.Map(new(hudScene.Markers.Single(m=>m.Kind==SceneMarkerKind.Contact).Point.X,hudScene.Markers.Single(m=>m.Kind==SceneMarkerKind.Contact).Point.Y));
+        Check((contact - new Point(.973,.5)).Length < 1e-9, "Surface contact is halfway between ghost/target, not ghost centre");
+        var directionOnly = ShotSceneProjection.Create(shot,calibration,3,2,now,now.AddSeconds(10),"Candidate",true,ShotAnnotations.WhiteDirection);
+        Check(directionOnly.Corridors.Length==0 && directionOnly.ShotHud!.Model==CueDirectionProjection.Model, "Direction-only mask retains provenance with minimal density");
+        for(int angle=-50;angle<=50;angle+=5)
+        {
+            if(angle==0)continue;
+            double radians=angle*Math.PI/180;
+            var before = shot.GhostBall - new Point(Math.Cos(radians),Math.Sin(radians)) * .4;
+            var tested = GeometricCueProjection.From(shot with{CuePath=[before,shot.GhostBall]});
+            Check(tested.Direction is{} d && Math.Abs(d.X)<1e-10 && Math.Sign(d.Y)==Math.Sign(angle), "Tangent sign and orthogonality hold on both cut sides");
+        }
+        var captured = JsonSerializer.Deserialize<RecordedScene>(JsonSerializer.Serialize(hudScene,JsonDefaults.Options),JsonDefaults.Options)!;
+        var origin = new ClipRecordingOrigin(Guid.NewGuid().ToString("N"),1_000_000,1920,1080,0);
+        var journal = new ClipAnnotationJournal(2,new('A',64),origin,2_000_000,"source-image-normalized-v1",
+            [new(1_000_000,2_000_000,SceneTarget.Phone,new('B',64),captured)]);
+        journal.Validate(); var restarted = JsonSerializer.Deserialize<ClipAnnotationJournal>(JsonSerializer.Serialize(journal,JsonDefaults.Options),JsonDefaults.Options)!;
+        restarted.Validate(); Check(restarted.At(new('A',64),origin,500000,SceneTarget.Phone)!.ShotHud!.Model==CueDirectionProjection.Model,
+            "Historical model/assumptions and corridor roles survive journal serialization at source time");
+        Refused(()=> (journal with{Schema=1}).Validate());
         Console.WriteLine("PASS shot HUD contracts: typed corridor/contact/path roles, bounded provenance, live-to-recorded capture and legacy serialization compatibility");
     }
     static void Check(bool ok,string why) { if(!ok)throw new Exception(why); }

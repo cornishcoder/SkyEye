@@ -75,6 +75,9 @@ public sealed class TableScene
         }
         ShotHud = shotHud; Schema = Corridors.Length > 0 || shotHud is not null || Paths.Any(p => p.Role != ScenePathRole.Unspecified)
             || Markers.Any(m => m.Kind is SceneMarkerKind.Contact or SceneMarkerKind.Cushion) ? 2 : 1;
+        if (Paths.Any(p => p.Role == ScenePathRole.CueProjected) && (shotHud?.Model != Analysis.CueDirectionProjection.Model
+            || !shotHud.Assumptions.Contains(Analysis.CueDirectionProjection.Assumption)))
+            throw new ArgumentException("Projected cue path requires its explicit geometric stun assumptions.");
         Version = version; MediaGeneration = mediaGeneration; TableVersion = tableVersion;
         ExpiresAt = (now + lifetime).ToUnixTimeMilliseconds(); Caption = caption; Score = score;
     }

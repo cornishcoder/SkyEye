@@ -49,7 +49,7 @@ static class SceneCommandChecks
         var calibration = new TableCalibration([new(0, 0), new(1, 0), new(1, 1), new(0, 1)]);
         var shot = new Shot("1:r:0", "r", 0, new(.7, .4), new(.8, .4), new(2, 0), .5, "fixture", 1)
             { CuePath = [new(.2, .2), new(.7, .4)], TargetPath = [new(.8, .4), new(2, 0)] };
-        var scene = SkyEye.Core.Analysis.ShotSceneProjection.Create(shot, calibration, 1, 2, clock.GetUtcNow(), clock.GetUtcNow().AddSeconds(5), "Pinned fixture", true);
+        var scene = SkyEye.Core.Analysis.ShotSceneProjection.Create(shot, calibration, 1, 2, clock.GetUtcNow(), clock.GetUtcNow().AddSeconds(5), "Pinned fixture", true, (ShotAnnotations)63);
         Check(Math.Abs(scene.Paths[0].Points[0].X - .1) < 1e-10 && Math.Abs(scene.Paths[0].Points[0].Y - .2) < 1e-10
             && scene.Paths.All(p => p.Selected) && scene.Markers.Length == 3 && scene.TableVersion == 1, "shot scene uses calibrated original-image coordinates, pin styling and table provenance");
         var path = SkyEye.Core.Analysis.ShotSceneProjection.Create(shot, calibration, 2, 2, clock.GetUtcNow(), clock.GetUtcNow().AddSeconds(5), "Label", true, ShotAnnotations.CueBallPath);
