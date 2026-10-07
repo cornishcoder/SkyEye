@@ -3,7 +3,11 @@ using System.Collections.Immutable;
 namespace SkyEye.Observation;
 
 public sealed record CorpusAudit(int RealShotSequences, int HeldOutRealShots, int RealStillRegressions, int SyntheticContracts,
-    bool AccuracyGateReady, ImmutableArray<string> Notes);
+    bool AccuracyGateReady, ImmutableArray<string> Notes)
+{
+    public int RealVerificationSequences { get; init; }
+    public int HeldOutVerificationSequences { get; init; }
+}
 public static class CorpusValidation
 {
     public static CorpusAudit Validate(CorpusManifest manifest, CorpusFiles files)
@@ -30,8 +34,13 @@ public static class CorpusValidation
         return new(real, held, manifest.Sequences.Count(s => s.Kind == CorpusKind.Real && s.Purpose == SequencePurpose.StillRegression),
             manifest.Sequences.Count(s => s.Kind == CorpusKind.Synthetic), false,
             [$"Real timed-shot coverage: {real}; held out: {held}. Collection targets remain at least 60/20 with labelled pots/misses and negative challenges.",
-             "Manifest/schema success is not tracking accuracy or physical pixel/PTS pairing acceptance."]);
+             "Manifest/schema success is not tracking accuracy or physical pixel/PTS pairing acceptance."])
+        {
+            RealVerificationSequences = manifest.Sequences.Count(s => s.Kind == CorpusKind.Real && Verification(s.Purpose)),
+            HeldOutVerificationSequences = manifest.Sequences.Count(s => s.Kind == CorpusKind.Real && Verification(s.Purpose) && s.Split == CorpusSplit.Holdout)
+        };
     }
+    static bool Verification(SequencePurpose purpose) => purpose is SequencePurpose.StillVerification or SequencePurpose.NegativeVerification;
     static void ValidateSequence(CorpusSequence s, CorpusFiles files)
     {
         var source = s.Source;
@@ -39,14 +48,15 @@ public static class CorpusValidation
             || source.Width is < 1 or > 8192 || source.Height is < 1 or > 8192 || !Enum.IsDefined(source.Clock)
             || source.NominalFps is { } fps && (!double.IsFinite(fps) || fps <= 0 || fps > 240)
             || s.Kind == CorpusKind.Synthetic && s.Split == CorpusSplit.Holdout
-            || s.Purpose == SequencePurpose.Shot && source.Clock == SourceClock.Unknown)
+            || (s.Purpose == SequencePurpose.Shot || Verification(s.Purpose)) && source.Clock is SourceClock.Unknown
+            || s.Kind == CorpusKind.Real && Verification(s.Purpose) && source.Clock == SourceClock.SyntheticMicroseconds)
             throw new InvalidDataException("Invalid source or split: " + s.Id);
         files.VerifyMedia(source.File, source.Sha256);
         var labels = CorpusJson.Read<SequenceLabels>(files.Resolve(s.LabelsFile));
         if (labels.SchemaVersion != 1 || labels.SequenceId != s.Id || labels.CalibrationVersion != source.CalibrationVersion
             || !CorpusFiles.Text(labels.Annotator) || labels.Frames.IsDefault || labels.Intervals.IsDefault
             || labels.Frames.Select(f => f.SampleId).Distinct().Count() != labels.Frames.Length
-            || s.Split == CorpusSplit.Holdout && (!labels.Reviewed || s.Kind != CorpusKind.Real || s.Purpose != SequencePurpose.Shot))
+            || s.Split == CorpusSplit.Holdout && (!labels.Reviewed || s.Kind != CorpusKind.Real || !(s.Purpose == SequencePurpose.Shot || Verification(s.Purpose))))
             throw new InvalidDataException("Invalid or unreviewed labels: " + s.Id);
         var indexed = files.Index(s.IndexFile).ToArray();
         if (indexed.Length == 0 || indexed.Select(f => f.SampleId).Distinct().Count() != indexed.Length) throw new InvalidDataException("Empty/duplicate sample index.");
@@ -70,6 +80,14 @@ public static class CorpusValidation
             if (interval.FromUs < 0 || interval.ToUs < interval.FromUs || interval.Certainty is not ("confirmed" or "uncertain")
                 || !CorpusFiles.Text(interval.Kind) || interval.BallIds.IsDefault || source.Clock == SourceClock.Unknown)
                 throw new InvalidDataException("Invalid source-time label interval.");
+        if (Verification(s.Purpose))
+        {
+            var required = s.Purpose == SequencePurpose.StillVerification ? new[] { "still" } : new[] { "moving", "obstructed", "lighting-changed", "camera-changed", "source-invalid" };
+            if (!labels.Reviewed || labels.Frames.Length < 2 || !labels.Intervals.Any(i => required.Contains(i.Kind) && i.Certainty == "confirmed" && i.ToUs > i.FromUs)
+                || indexed.Any(f => f.SourceTimeUs is null)
+                || indexed.Skip(1).Where((f, i) => f.FrameId <= indexed[i].FrameId || f.SourceTimeUs <= indexed[i].SourceTimeUs || f.Scope != indexed[i].Scope).Any())
+                throw new InvalidDataException("Verification requires reviewed visible truth, a labelled interval and increasing scoped source receipts.");
+        }
     }
     public static void ValidateFrame(IndexedFrame frame, MediaSource source)
     {

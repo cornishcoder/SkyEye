@@ -4,7 +4,10 @@ using SkyEye.Core.Application;
 namespace SkyEye.Core.Analysis;
 
 public sealed record CircleObservation(string BallId, Point Centre, double Radius, string Pattern, ColourCluster[] Clusters);
-public sealed record VisionResult(Ball[] Balls, bool Uncertain, string[] Warnings, double ElapsedMs, int CircleCount, bool Normalized, string Runtime, double[] ColourGains, int ClothHue, bool Obstructed, CircleObservation[] Circles);
+public sealed record VisionResult(Ball[] Balls, bool Uncertain, string[] Warnings, double ElapsedMs, int CircleCount, bool Normalized, string Runtime, double[] ColourGains, int ClothHue, bool Obstructed, CircleObservation[] Circles)
+{
+    public RecognitionTelemetry? Recognition { get; init; }
+}
 public interface ITableAnalyzer
 {
     VisionResult Analyze(byte[] jpeg, TableCalibration calibration, CancellationToken cancellation = default);
@@ -47,7 +50,7 @@ public sealed class TableAnalysisSession(ITableFrameSource frames, ITableAnalyze
 {
     readonly object gate = new();
     readonly SemaphoreSlim analyzerGate = new(1);
-    readonly TableTracker tracker = new(15);
+    readonly TableTracker tracker = new(ObservationPolicy.LegacyObservationGapSeconds);
     readonly TimeProvider time = clock ?? TimeProvider.System;
     TableAnalysisSnapshot state = new(0, null, null, null, "", false, null, null, null);
     CancellationTokenSource? active;
@@ -145,12 +148,16 @@ public sealed class TableAnalysisSession(ITableFrameSource frames, ITableAnalyze
                         if (state.Table is null || lastTimeline != frame.Timeline || frame.CapturedAt > state.Table.CapturedAt)
                         {
                             using var post = PipelineDiagnostics.Measure("postProcessingMs");
+                            var previous = state.Table?.Balls ?? [];
                             var table = tracker.Observe(state.CalibrationId, frame.Timeline, frame.CapturedAt, detected.Balls, group, detected.Uncertain, detected.Obstructed);
                             state = state with { Table = table, Vision = detected, Choices = [], ChoicesComputed = false, Jpeg = reviewFrame ? frame.ReviewImage() : frame.Jpeg.Length == 0 ? null : frame.Jpeg,
                                 Observation = new(admitted.Source!, admitted.Generation, 0, frame.Timeline, frame.CapturedAt, frame.SourceTimeUs,
                                     (time.GetUtcNow() - frame.CapturedAt).TotalMilliseconds, acquisitionMs, detected.ElapsedMs, watch.Elapsed.TotalMilliseconds,
                                     table.Version, table.Occluded ? ObservationOutcome.Unclear : table.Settled ? ObservationOutcome.Ready : ObservationOutcome.Unsettled, frame.FrameSource)
-                                    { DecodedReceipt = frame.DecodedReceipt } }; lastTimeline = frame.Timeline;
+                                    { DecodedReceipt = frame.DecodedReceipt, Quality = detected.Obstructed ? LayoutQuality.Obstructed : detected.Uncertain ? LayoutQuality.Ambiguous : LayoutQuality.Clear,
+                                        Reason = detected.Obstructed ? ObservationReason.Obstructed : detected.Uncertain ? ObservationReason.DetectionAmbiguous : table.Settled ? ObservationReason.None : ObservationReason.InsufficientEvidence,
+                                        Recognition = detected.Recognition,
+                                        Change = new(previous.Length, detected.Balls.Length, SpatiallyCompatible(previous, detected.Balls), TableTracker.SameLayout(previous, detected.Balls)) } }; lastTimeline = frame.Timeline;
                         }
                     }
                 }
@@ -161,6 +168,8 @@ public sealed class TableAnalysisSession(ITableFrameSource frames, ITableAnalyze
         catch (Exception e) { ClearFailedAnalysis(admitted.Generation); completed.TrySetException(e); }
         finally { lock (gate) { if (active == linked) active = null; } linked.Dispose(); }
     }
+    static bool SpatiallyCompatible(Ball[] before, Ball[] after) => TableTracker.SameLayout(
+        before.Select(b => b with { Kind = "unknown" }).ToArray(), after.Select(b => b with { Kind = "unknown" }).ToArray());
     void ClearFailedAnalysis(long generation)
     {
         lock (gate) { if (!disposed && state.Generation == generation) InvalidateLocked(); }

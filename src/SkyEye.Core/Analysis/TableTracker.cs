@@ -21,7 +21,7 @@ public sealed class TableTracker(double maximumObservationGapSeconds = 6)
         if (!same) { stableSince = capturedAt; stableAnchor = detected.ToArray(); manual = false; }
         bool confirmed = same && old!.Confirmed && !obstructed;
         bool occluded = obstructed || uncertain && !(manual && confirmed);
-        bool settled = same && (capturedAt - stableSince).TotalSeconds >= 2;
+        bool settled = same && (capturedAt - stableSince).TotalSeconds >= ObservationPolicy.MinimumStillSeconds;
         bool sameVersion = same && old!.Occluded == occluded && old.Group == group;
         State = new(sameVersion ? old!.Version : ++version, capturedAt, confirmed ? old!.Balls : detected.ToArray(), group, settled, occluded, confirmed, calibrationId);
         timeline = captureTimeline; previous = detected.ToArray(); PhysicallyObstructed = obstructed; return State;
@@ -29,14 +29,14 @@ public sealed class TableTracker(double maximumObservationGapSeconds = 6)
     public TableState Confirm(DateTimeOffset now)
     {
         var state = State ?? throw new InvalidOperationException("Analyze the table first.");
-        if (!state.Settled || state.Occluded || (now - state.CapturedAt).TotalSeconds is > 6 or < -2)
+        if (!state.Settled || state.Occluded || (now - state.CapturedAt).TotalSeconds is > ObservationPolicy.ReviewFreshnessSeconds or < -2)
             throw new InvalidOperationException("Wait for a fresh, settled, unobstructed view and check every ball.");
         State = state with { Confirmed = true }; return State;
     }
     public TableState Correct(Ball[] balls, DateTimeOffset now)
     {
         var state = State ?? throw new InvalidOperationException("Analyze the table before correcting it.");
-        if (!state.Settled || PhysicallyObstructed || (now - state.CapturedAt).TotalSeconds is > 6 or < -2)
+        if (!state.Settled || PhysicallyObstructed || (now - state.CapturedAt).TotalSeconds is > ObservationPolicy.ReviewFreshnessSeconds or < -2)
             throw new InvalidOperationException("Corrections need a fresh, settled, unobstructed frame.");
         var corrected = state with { Version = ++version, Balls = balls.ToArray(), Confirmed = true, Occluded = false };
         if (!ShotPlanner.Eligible(corrected, now)) throw new ArgumentException("Check ball counts, colours and positions; balls cannot overlap.");

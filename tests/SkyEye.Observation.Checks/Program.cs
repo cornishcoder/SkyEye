@@ -36,6 +36,20 @@ try
     Throws<InvalidDataException>(() => files.Resolve("../outside"));
     var real = sequence with { Kind = CorpusKind.Real, Purpose = SequencePurpose.Shot, Split = CorpusSplit.Holdout };
     Throws<InvalidDataException>(() => CorpusValidation.Validate(manifest with { Sequences = [sequence, real with { Id = "held" }] }, files));
+    // O08 holdout purpose is explicit and cannot inflate O01 shot counts.
+    File.WriteAllLines(Path.Combine(root, "verification.jsonl"), frames.Take(2).Select(f => JsonSerializer.Serialize(f, new JsonSerializerOptions(CorpusJson.Options) { WriteIndented = false })));
+    var verificationLabels = new SequenceLabels(1, "contracts", "reviewer", "cal-v1", true,
+        frames.Take(2).Select(f => new FrameLabels(f.SampleId, f.PixelSha256, "table-2x1", [new("C", "cue", 1, .5, LabelVisibility.Visible)], "contract only")).ToImmutableArray(),
+        [new("still", 1000, 34000, "confirmed", [], "contract only")]);
+    File.WriteAllText(Path.Combine(root, "verification-labels.json"), CorpusJson.Write(verificationLabels));
+    var verification = real with { Purpose = SequencePurpose.StillVerification, Source = source with { Clock = SourceClock.RecordingMicroseconds }, IndexFile = "verification.jsonl", LabelsFile = "verification-labels.json" };
+    var verificationAudit = CorpusValidation.Validate(manifest with { Sequences = [verification] }, files);
+    Check(verificationAudit.RealShotSequences == 0 && verificationAudit.HeldOutVerificationSequences == 1 && !verificationAudit.AccuracyGateReady,
+        "Reviewed verification holdout has its own denominator and proves no shot accuracy");
+    Throws<InvalidDataException>(() => CorpusValidation.Validate(manifest with { Sequences = [verification with { Source = source }] }, files));
+    Throws<InvalidDataException>(() => CorpusValidation.Validate(manifest with { Sequences = [verification with { Purpose = SequencePurpose.NegativeVerification }] }, files));
+    File.WriteAllText(Path.Combine(root, "verification-labels.json"), CorpusJson.Write(verificationLabels with { Reviewed = false }));
+    Throws<InvalidDataException>(() => CorpusValidation.Validate(manifest with { Sequences = [verification] }, files));
     var lockPath = Path.Combine(root, "manifest.json"); File.WriteAllText(lockPath, CorpusJson.Write(manifest));
     var frozen = SplitLock.Freeze(manifest, files, lockPath);
     SplitLock.Verify(frozen, SplitLock.Freeze(manifest, files, lockPath));

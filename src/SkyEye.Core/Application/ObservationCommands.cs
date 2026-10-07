@@ -12,6 +12,11 @@ public sealed record TableObservation(CameraScope Source, long AnalysisGeneratio
     public ShotChoiceCatalog? Choices { get; init; }
     public GameObservationEvidence? GameEvidence { get; init; }
     public DecodedFrameReceipt? DecodedReceipt { get; init; }
+    public TableMotion Motion { get; init; }
+    public LayoutQuality Quality { get; init; }
+    public ObservationReason Reason { get; init; }
+    public RecognitionTelemetry? Recognition { get; init; }
+    public LayoutChangeTelemetry? Change { get; init; }
 }
 public interface ITableObservationEffect
 {

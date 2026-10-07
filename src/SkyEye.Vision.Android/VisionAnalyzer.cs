@@ -52,6 +52,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer
         using var hsv = new MatLease(new Mat()); Imgproc.CvtColor(warped.Value, hsv.Value, Imgproc.ColorBgr2hsv);
         byte[] pixels = Read(hsv.Value); var circles = Detect(hsv.Value, pixels, settings.InitialVotes);
         var first = circles.Select(c => Classify(c, pixels)).ToArray();
+        int rawCircleCount = circles.Length;
         bool normalized = false; double[] colourGains = [1, 1, 1]; var cueIndices = Enumerable.Range(0, first.Length).Where(i => first[i].Kind == "cue").ToArray();
         if (cueIndices.Length == 1)
         {
@@ -70,7 +71,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer
         if (!normalized) warnings.Add("No unique cue reference; colours were analyzed without normalization.");
         cancellation.ThrowIfCancellationRequested(); var balls = new List<Ball>(); var observations = new List<CircleObservation>();
         var ordered = circles.OrderBy(c => c.Y).ThenBy(c => c.X).ToArray();
-        var labels = BallClassifier.ConstrainInventory(ordered.Select(c => Classify(c, pixels)).ToArray());
+        var rawLabels = ordered.Select(c => Classify(c, pixels)).ToArray();
+        var labels = BallClassifier.ConstrainInventory(rawLabels);
         for (int i = 0; i < ordered.Length; i++)
         {
             var circle = ordered[i]; var label = labels[i]; var position = coordinates.ToTable(new(circle.X, circle.Y));
@@ -83,7 +85,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer
         bool obstructed = LargeObstruction(hsv.Value, pixels);
         if (obstructed) { uncertain = true; warnings.Add("A large object covers part of the playable surface."); }
         for (int i = 0; i < balls.Count; i++) for (int j = i + 1; j < balls.Count; j++) if ((balls[i].Position - balls[j].Position).Length < .040) { uncertain = true; obstructed = true; warnings.Add("Overlapping circle candidates need checking."); }
-        return new(balls.ToArray(), uncertain, warnings.Distinct().ToArray(), watch.Elapsed.TotalMilliseconds, circles.Length, normalized, Cv.Version, colourGains, ClothHue(pixels), obstructed, observations.ToArray());
+        return new(balls.ToArray(), uncertain, warnings.Distinct().ToArray(), watch.Elapsed.TotalMilliseconds, circles.Length, normalized, Cv.Version, colourGains, ClothHue(pixels), obstructed, observations.ToArray())
+        { Recognition = new(normalized ? "cue-normalized" : "raw", rawCircleCount, circles.Length, rawLabels.Select(l => l.Kind).ToArray(), colourGains, ClothHue(pixels), warnings.Distinct().ToArray()) };
     }
     MatLease Warp(Mat source, TableCalibration calibration)
     {

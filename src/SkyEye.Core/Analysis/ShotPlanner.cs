@@ -117,7 +117,7 @@ public static class ShotPlanner
     }
     public static bool Eligible(TableState state, DateTimeOffset now)
     {
-        if ((now - state.CapturedAt).TotalSeconds is > 6 or < -2 || !state.Settled || state.Occluded || !state.Confirmed || string.IsNullOrWhiteSpace(state.CalibrationId)) return false;
+        if ((now - state.CapturedAt).TotalSeconds is > ObservationPolicy.ReviewFreshnessSeconds or < -2 || !state.Settled || state.Occluded || !state.Confirmed || string.IsNullOrWhiteSpace(state.CalibrationId)) return false;
         var balls = state.Balls;
         if (balls.Length > 16 || balls.Select(b => b.Id).Distinct().Count() != balls.Length || balls.Any(b => string.IsNullOrWhiteSpace(b.Id) || b.Kind is not ("cue" or "red" or "yellow" or "black") ||
             !double.IsFinite(b.Confidence) || b.Confidence is < .7 or > 1 || !ShotMath.Finite(b.Position) || b.Position.X is < 0 or > 2 || b.Position.Y is < 0 or > 1)) return false;

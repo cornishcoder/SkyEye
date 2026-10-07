@@ -6,7 +6,7 @@ namespace SkyEye.Observation;
 
 public enum CorpusKind { Real, Synthetic }
 public enum CorpusSplit { Unassigned, Development, Holdout, Regression }
-public enum SequencePurpose { Shot, StillRegression, Contract }
+public enum SequencePurpose { Shot, StillRegression, Contract, StillVerification, NegativeVerification }
 public enum SourceClock { Unknown, RecordingMicroseconds, ClipMicroseconds, SyntheticMicroseconds }
 public enum PixelEncoding { Jpeg, Gray8 }
 public enum LabelVisibility { Visible, Occluded, Uncertain, Absent }
