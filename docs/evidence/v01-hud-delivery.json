@@ -1,0 +1,104 @@
+{
+  "recordedAtUtc": "2026-10-07T09:17:22.4727819+00:00",
+  "commits": [
+    "b9ccb03",
+    "0cc6f27",
+    "fd232b5",
+    "7d8aa74",
+    "d486b33"
+  ],
+  "checks": {
+    "core": "passed",
+    "coreLogSha256": "2AC00A6399E38C043F94A5AF42910D6B16147CB1F58E660742D07DCCD57882E9",
+    "agentUiLogSha256": "93470080109E89C0D16BB74C9686BBF948EB1B0C757581F2BD33B105CD5638F7",
+    "agentUi": "passed"
+  },
+  "builds": [
+    {
+      "lane": "Lab",
+      "log": "work/v01-v02-lab-build.log",
+      "warnings": 11,
+      "errors": 0,
+      "logSha256": "04293CC4FCF3EFDCF26FE7DDA25DA0808F3083C1BE33ECFED41AB8E9EA558A5E"
+    },
+    {
+      "lane": "Production",
+      "log": "work/v01-v02-production-build.log",
+      "warnings": 11,
+      "errors": 0,
+      "logSha256": "7979C8DF3F572EF7266F07314B06DBEE834A518EEBAA22A14CD1C57A208F3032"
+    },
+    {
+      "lane": "Retained .NET10 companion",
+      "log": "work/v01-v02-retained-build.log",
+      "warnings": 11,
+      "errors": 0,
+      "logSha256": "993357A284FB29523ABC5C213E124BE3AB7D86C8E69D9BF9AB9931BE4B66FA03"
+    },
+    {
+      "lane": "Isolated test with preview-port fix",
+      "log": "work/v01-hud-cast-build.log",
+      "warnings": 21,
+      "errors": 0,
+      "logSha256": "8C7AD3FEE1C9B72BF5F6077C0E4CAE275E97680BDE7CCC4AB7F6D5FFBBF4D666"
+    }
+  ],
+  "sources": [
+    {
+      "path": "tests/fixtures/poolgame/pixel-table.jpg",
+      "sha256": "8BC034E99A81114E11A67E435E730CF1D69799CED243E98954BB8E6E72E80831"
+    },
+    {
+      "path": "tests/fixtures/poolgame/pixel-table.json",
+      "sha256": "04D82E027241C5A8C924CFE013DF6B0A9C916AF898F21309C51D241CD1A9F9C6"
+    },
+    {
+      "path": "work/v01-export-source/hud-input.mp4",
+      "sha256": "2DB5802D74E144F50B0B57060A6EF3680D28CEEAEBE82BA162A28B08DE0F8AA8"
+    },
+    {
+      "path": "src/SkyEye.Companion/TableSceneOverlay.java",
+      "sha256": "298319DBE8B000E4833F7E58D38F39895B745F58DCDF6BF31451A3F13965525F"
+    },
+    {
+      "path": "src/SkyEye.Core/Analysis/GeometricCueProjection.cs",
+      "sha256": "141DC4A394D9B82CA058107B2D772443FF141270F8440D93983D0908E08DD348"
+    }
+  ],
+  "nativeExportApkHash": null,
+  "nativeExportApkHashNote": "Original render APK was rebuilt for the isolated preview-port fix; native drawing source did not change. Export hashes and fixture/native-source provenance are retained.",
+  "previewApkSha256": "4C3E8E31460882DF8D7AB0D4808FA99445D3564B496482B90241C01A075F4147",
+  "installedPreviewApkSha256": "4C3E8E31460882DF8D7AB0D4808FA99445D3564B496482B90241C01A075F4147",
+  "production": {
+    "backup": "work/production/backups/20261007-100846/before.apk",
+    "versionCode": 2,
+    "guardedInstaller": "succeeded; signer and UID/private storage retained",
+    "deDataInode": 617901,
+    "apkSha256": "9D00C021E0BAAF02BC78A73E15C522EDB01E61464FCD062AE157BD9196FDDF80",
+    "installedApkSha256": "9D00C021E0BAAF02BC78A73E15C522EDB01E61464FCD062AE157BD9196FDDF80",
+    "package": "uk.co.skyeye.companion",
+    "uid": 10644,
+    "launchObserved": true,
+    "ceDataInode": 639806
+  },
+  "automaticApproval": {
+    "combinedPauseReturnForwardCleanup": "rejected: blocked by policy",
+    "forceStopApps": "rejected: blocked by policy",
+    "isolatedPreviewInstalledByUser": true,
+    "isolatedInstallLaunch": "rejected: blocked by policy"
+  },
+  "cleanup": {
+    "testPreviewReturnRequestedFromUser": true,
+    "completionObserved": false,
+    "ownedDesktopForwardPorts": [
+      18767,
+      18769
+    ]
+  },
+  "limits": [
+    "Declared human-labelled still and static video; no new detector or timed real-shot evidence",
+    "Live candidate alignment/independent touch density/moving clear-expiry not accepted",
+    "T13/T14 interruption/endurance/audio/resource gates remain open",
+    "No stopping distance, finish zone or measured pace/spin/friction/jaw/cushion outcome"
+  ]
+}

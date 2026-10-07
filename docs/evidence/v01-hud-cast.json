@@ -1,0 +1,219 @@
+{
+  "device": "Pixel_11_Pro_XL",
+  "serial": "66181FDDV001HS",
+  "fixture": "Six-second MP4 from the original human-labelled still, with declared source-time scenes",
+  "activeObservation": {
+    "phonePlaying": true,
+    "phonePositionMs": 0,
+    "cast": {
+      "connected": true,
+      "playing": true,
+      "stream": "clip",
+      "positionMs": 4658,
+      "playerState": 2,
+      "idleReason": 0,
+      "clipId": "a08cca375a7d44eeb6015f94c54eb55b",
+      "request": "893970f6692046c685aeed248fcda851",
+      "durationMs": 6000,
+      "progressCallbacks": 7,
+      "canPause": true,
+      "canSeek": true
+    }
+  },
+  "completionSamples": [
+    {
+      "measuredAt": "2026-10-07T10:13:06.7654545+01:00",
+      "phonePlaying": true,
+      "phonePositionMs": 2657,
+      "cast": {
+        "connected": true,
+        "playing": false,
+        "stream": "clip",
+        "positionMs": 0,
+        "playerState": 1,
+        "idleReason": 1,
+        "clipId": "a08cca375a7d44eeb6015f94c54eb55b",
+        "request": "893970f6692046c685aeed248fcda851",
+        "durationMs": 6000,
+        "progressCallbacks": 8,
+        "canPause": true,
+        "canSeek": true
+      }
+    },
+    {
+      "measuredAt": "2026-10-07T10:13:07.4458675+01:00",
+      "phonePlaying": true,
+      "phonePositionMs": 3376,
+      "cast": {
+        "connected": true,
+        "playing": false,
+        "stream": "clip",
+        "positionMs": 0,
+        "playerState": 1,
+        "idleReason": 1,
+        "clipId": "a08cca375a7d44eeb6015f94c54eb55b",
+        "request": "893970f6692046c685aeed248fcda851",
+        "durationMs": 6000,
+        "progressCallbacks": 8,
+        "canPause": true,
+        "canSeek": true
+      }
+    },
+    {
+      "measuredAt": "2026-10-07T10:13:08.1171117+01:00",
+      "phonePlaying": true,
+      "phonePositionMs": 4048,
+      "cast": {
+        "connected": true,
+        "playing": false,
+        "stream": "clip",
+        "positionMs": 0,
+        "playerState": 1,
+        "idleReason": 1,
+        "clipId": "a08cca375a7d44eeb6015f94c54eb55b",
+        "request": "893970f6692046c685aeed248fcda851",
+        "durationMs": 6000,
+        "progressCallbacks": 8,
+        "canPause": true,
+        "canSeek": true
+      }
+    },
+    {
+      "measuredAt": "2026-10-07T10:13:08.7997464+01:00",
+      "phonePlaying": true,
+      "phonePositionMs": 4730,
+      "cast": {
+        "connected": true,
+        "playing": false,
+        "stream": "clip",
+        "positionMs": 0,
+        "playerState": 1,
+        "idleReason": 1,
+        "clipId": "a08cca375a7d44eeb6015f94c54eb55b",
+        "request": "893970f6692046c685aeed248fcda851",
+        "durationMs": 6000,
+        "progressCallbacks": 8,
+        "canPause": true,
+        "canSeek": true
+      }
+    },
+    {
+      "measuredAt": "2026-10-07T10:13:09.4799589+01:00",
+      "phonePlaying": true,
+      "phonePositionMs": 5410,
+      "cast": {
+        "connected": true,
+        "playing": false,
+        "stream": "clip",
+        "positionMs": 0,
+        "playerState": 1,
+        "idleReason": 1,
+        "clipId": "a08cca375a7d44eeb6015f94c54eb55b",
+        "request": "893970f6692046c685aeed248fcda851",
+        "durationMs": 6000,
+        "progressCallbacks": 8,
+        "canPause": true,
+        "canSeek": true
+      }
+    },
+    {
+      "measuredAt": "2026-10-07T10:13:10.1504977+01:00",
+      "phonePlaying": true,
+      "phonePositionMs": 68,
+      "cast": {
+        "connected": true,
+        "playing": false,
+        "stream": "clip",
+        "positionMs": 0,
+        "playerState": 1,
+        "idleReason": 1,
+        "clipId": "a08cca375a7d44eeb6015f94c54eb55b",
+        "request": "893970f6692046c685aeed248fcda851",
+        "durationMs": 6000,
+        "progressCallbacks": 8,
+        "canPause": true,
+        "canSeek": true
+      }
+    },
+    {
+      "measuredAt": "2026-10-07T10:13:10.8272326+01:00",
+      "phonePlaying": true,
+      "phonePositionMs": 744,
+      "cast": {
+        "connected": true,
+        "playing": false,
+        "stream": "clip",
+        "positionMs": 0,
+        "playerState": 1,
+        "idleReason": 1,
+        "clipId": "a08cca375a7d44eeb6015f94c54eb55b",
+        "request": "893970f6692046c685aeed248fcda851",
+        "durationMs": 6000,
+        "progressCallbacks": 8,
+        "canPause": true,
+        "canSeek": true
+      }
+    },
+    {
+      "measuredAt": "2026-10-07T10:13:11.5112809+01:00",
+      "phonePlaying": true,
+      "phonePositionMs": 1428,
+      "cast": {
+        "connected": true,
+        "playing": false,
+        "stream": "clip",
+        "positionMs": 0,
+        "playerState": 1,
+        "idleReason": 1,
+        "clipId": "a08cca375a7d44eeb6015f94c54eb55b",
+        "request": "893970f6692046c685aeed248fcda851",
+        "durationMs": 6000,
+        "progressCallbacks": 8,
+        "canPause": true,
+        "canSeek": true
+      }
+    },
+    {
+      "measuredAt": "2026-10-07T10:13:12.1817212+01:00",
+      "phonePlaying": true,
+      "phonePositionMs": 2100,
+      "cast": {
+        "connected": true,
+        "playing": false,
+        "stream": "clip",
+        "positionMs": 0,
+        "playerState": 1,
+        "idleReason": 1,
+        "clipId": "a08cca375a7d44eeb6015f94c54eb55b",
+        "request": "893970f6692046c685aeed248fcda851",
+        "durationMs": 6000,
+        "progressCallbacks": 8,
+        "canPause": true,
+        "canSeek": true
+      }
+    },
+    {
+      "measuredAt": "2026-10-07T10:13:12.8584214+01:00",
+      "phonePlaying": true,
+      "phonePositionMs": 2777,
+      "cast": {
+        "connected": true,
+        "playing": false,
+        "stream": "clip",
+        "positionMs": 0,
+        "playerState": 1,
+        "idleReason": 1,
+        "clipId": "a08cca375a7d44eeb6015f94c54eb55b",
+        "request": "893970f6692046c685aeed248fcda851",
+        "durationMs": 6000,
+        "progressCallbacks": 8,
+        "canPause": true,
+        "canSeek": true
+      }
+    }
+  ],
+  "userPrompt": "After running C:\\code\\SkyEye\\scripts\\Show-HudReplayCheck.ps1 -CompanionSerial 66181FDDV001HS, can you see Cast and Play corrected clip on TV? Select the TV and play it; report label readability and the brief HUD clear at 2-3 seconds.",
+  "userReply": "yes",
+  "userReplyScope": "Confirmation of the combined prerecorded check; no separate detailed pixel report supplied",
+  "liveMovingTableAcceptance": false
+}

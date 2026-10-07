@@ -401,3 +401,16 @@ The [bounded motion feed slice](o02-motion-feed-report.md) implements explicit o
 **O02.04 is an experimental foundation, not full tracking acceptance.** Real companion startup/gating remains untested after automatic approval review rejected the combined Lab command with only “blocked by policy”. The shared player/C# source, worker and queue are physically checked in the isolated test package. Fixed regions do not follow ball identity, and no GameState outcomes are submitted. Full bitmap readback remains; native cropping bounds conversion/flow. Final short synthetic-source rates are 13.1/18.5/25.3 Hz at 15/30/60 Hz requests, and sixteen repeated ROIs at 30 Hz process 20.9 Hz with worker p95 39.3 ms. These do not meet the sustained performance gate.
 
 **Next: O02.05 actual 1080p readback/ROI, lifecycle, cadence/latency/resources and real-source validation**, alongside O01 real corpus/holdout collection. O03 boundaries and O04 ROI recentering/durable association follow that evidence; O05 review remains mandatory before canonical effects. Existing T13/T14 TV/annotation/endurance gates, declared rules limits and the concurrent V/PH/O07 drafts remain preserved.
+
+## V01/V02 delivery and current live acceptance — 7 October 2026
+
+The user brings V01/V02 forward while the table is dim. **V01 HUD and V02 assumed stun-direction implementation are now delivered in the normal companion**, in small verified commits. The [delivery report](v01-v02-hud-report.md) records semantic scene schema 2, corridors/contact/rail markers, separate path roles, independent phone/TV presets and source-timed journal/export compatibility. The dashed cue arrow is direction only; pace/spin/friction/finish predictions remain unsupported. V03/V04 retain their physics/observed-evidence dependencies.
+
+Core/Agent UI suites and sequential signed builds pass. Pixel native portrait/landscape presets, clear/expiry/revision/schema gates and two historical MP4 exports pass. The user completes the controlled prerecorded Cast check; [receiver proof](evidence/v01-hud-cast.json) and [normal installation/provenance](evidence/v01-hud-delivery.json) distinguish it from real-table acceptance.
+
+| Mission | Current status | Remaining acceptance |
+| --- | --- | --- |
+| V01 | Implemented and installed; native/recorded fixture checks pass | Fresh real direct/bank/kick candidate alignment, physical touch and independent phone/TV density/clear, moving expiry/source/layout checks |
+| V02 | Implemented and installed for supported assumed stun collisions | Real calibrated first-contact display checks; no claim that actual pace/spin/stun/finish has been measured |
+
+The user now reports **good table lighting**. Continue the bounded live V01/V02 acceptance next. That report is test readiness, not a passed alignment gate. Remaining T13/T14 acceptance, O01 timed corpus/holdouts and O02.05 real-source costs remain open; this HUD delivery does not establish tracking/refereeing accuracy. Preserve the separately planned Sky voice and declared-history consumers after this requested delivery work.
