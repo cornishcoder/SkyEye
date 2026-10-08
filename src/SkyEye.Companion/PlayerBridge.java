@@ -108,12 +108,24 @@ public final class PlayerBridge {
         }catch(org.json.JSONException invalid){return copyFailure("invalid-source-metadata");}finally{if(bitmap!=null)bitmap.recycle();}
     }
     public String decodedFrameCandidate(){
+        String probe=decodedFrameProbe();if(probe==null)return null;
+        try{return "available".equals(new JSONObject(probe).optString("candidateStatus"))?probe:null;}catch(Exception ignored){return null;}
+    }
+    public String decodedFrameProbe(){
         if(android.os.Looper.myLooper()!=android.os.Looper.getMainLooper())throw new IllegalStateException("Candidate query requires player looper");
-        if(released||!player.isPlaying()||!texture.isAvailable())return null;
-        android.graphics.SurfaceTexture surface=texture.getSurfaceTexture();if(surface==null)return null;
-        long stamp=surface.getTimestamp();DecodedFrameLedger.Stamp frame=decodedLedger.match(generation,stamp);if(frame==null)return null;
-        JSONObject clock=annotationRecorder.exactFrameMetrics(stamp,generation);if(clock==null)return null;
-        try{return clock.put("mediaGeneration",generation).put("frameId",frame.frameId).toString();}catch(org.json.JSONException invalid){return null;}
+        if(released||!player.isPlaying()||!texture.isAvailable())return unavailableCandidateProbe("not-playing",0);
+        android.graphics.SurfaceTexture surface=texture.getSurfaceTexture();if(surface==null)return unavailableCandidateProbe("no-surface",0);
+        long stamp=surface.getTimestamp();DecodedFrameLedger.Stamp frame=decodedLedger.match(generation,stamp);
+        if(frame==null)return unavailableCandidateProbe("unmapped-surface",stamp);
+        JSONObject clock=annotationRecorder.exactFrameMetrics(stamp,generation);
+        if(clock==null)return unavailableCandidateProbe("unmapped-source-clock",stamp);
+        try{return clock.put("candidateStatus","available").put("mediaGeneration",generation).put("frameId",frame.frameId)
+            .put("presentationUs",frame.presentationUs).put("surfaceTimestampNs",stamp).put("releaseTimestampNs",frame.releaseNs).toString();}
+        catch(org.json.JSONException invalid){return null;}
+    }
+    private String unavailableCandidateProbe(String reason,long surfaceTimestampNs){
+        try{return new JSONObject().put("candidateStatus",reason).put("surfaceTimestampNs",surfaceTimestampNs).toString();}
+        catch(org.json.JSONException invalid){return null;}
     }
     public String framingMetrics(){return phoneFraming;}
     private String calculateFramingMetrics(){try{org.json.JSONObject result=new org.json.JSONObject().put("applied",sceneApplied).put("framed",sceneApplied&&scene.optBoolean("framed")).put("hardware",texture.isHardwareAccelerated()).put("viewportWidth",texture.getWidth()).put("viewportHeight",texture.getHeight()).put("mediaGeneration",generation).put("playing",player.isPlaying()).put("positionMs",player.getCurrentPosition());

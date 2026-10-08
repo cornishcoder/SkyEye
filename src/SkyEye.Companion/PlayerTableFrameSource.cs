@@ -7,7 +7,7 @@ using Bridge = UK.CO.Skyeye.Companion.Nativebridge;
 namespace SkyEye.Companion;
 
 public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Func<CameraConnection> connection, Func<bool> live,
-    Func<CancellationToken, Task>? refreshClock = null) : ITableMotionFrameSource, ITableVerificationFrameSource
+    Func<CancellationToken, Task>? refreshClock = null) : ITableMotionFrameSource, ITableMotionFrameProbe, ITableVerificationFrameSource
 {
     const int DecodedCopyRetryDelayMs = 17;
     public Task RefreshVerificationClockAsync(CancellationToken cancellation) => refreshClock?.Invoke(cancellation) ?? Task.CompletedTask;
@@ -31,9 +31,13 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
         return completion.Task;
     }
     readonly global::Android.OS.Handler main = new(global::Android.OS.Looper.MainLooper!);
-    public Task<bool> HasNewFrameAsync(MotionFeedScope scope, long afterFrameId, long afterSourceTimeUs, CancellationToken cancellation)
+    public async Task<bool> HasNewFrameAsync(MotionFeedScope scope, long afterFrameId, long afterSourceTimeUs, CancellationToken cancellation)
+        => (await ProbeNewCandidateAsync(scope, afterFrameId, afterSourceTimeUs, cancellation).ConfigureAwait(false)).Disposition
+            == MotionFrameCandidateDisposition.New;
+    public Task<MotionFrameCandidateProbe> ProbeNewCandidateAsync(MotionFeedScope scope, long afterFrameId,
+        long afterSourceTimeUs, CancellationToken cancellation)
     {
-        var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var completion = new TaskCompletionSource<MotionFrameCandidateProbe>(TaskCreationOptions.RunContinuationsAsynchronously);
         main.Post(() =>
         {
             try
@@ -41,12 +45,18 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
                 cancellation.ThrowIfCancellationRequested();
                 if (player() is not { } owner || !live() || connection().Scope != scope.Source || !connection().CanControl)
                     throw new FrameAcquisitionException(ObservationReason.SourceChanged, "motion-source-changed");
-                var json = owner.DecodedFrameCandidate();
-                if (json is null) { completion.TrySetResult(false); return; }
+                var json = owner.DecodedFrameProbe();
+                if (json is null) { completion.TrySetResult(new(MotionFrameCandidateDisposition.Unavailable, "invalid-probe")); return; }
                 using var candidate = JsonDocument.Parse(json); var stamp = candidate.RootElement;
-                completion.TrySetResult(stamp.GetProperty("mediaGeneration").GetInt64() != scope.MediaGeneration
-                    || stamp.GetProperty("timeline").GetString() != scope.Timeline
-                    || stamp.GetProperty("frameId").GetInt64() > afterFrameId && stamp.GetProperty("sourceUs").GetInt64() > afterSourceTimeUs);
+                var status = stamp.GetProperty("candidateStatus").GetString() ?? "unknown";
+                if (status != "available")
+                { completion.TrySetResult(new(MotionFrameCandidateDisposition.Unavailable, status)); return; }
+                long frameId = stamp.GetProperty("frameId").GetInt64(); long sourceTimeUs = stamp.GetProperty("sourceUs").GetInt64();
+                bool changedScope = stamp.GetProperty("mediaGeneration").GetInt64() != scope.MediaGeneration
+                    || stamp.GetProperty("timeline").GetString() != scope.Timeline;
+                bool isNew = changedScope || frameId > afterFrameId && sourceTimeUs > afterSourceTimeUs;
+                completion.TrySetResult(new(isNew ? MotionFrameCandidateDisposition.New : MotionFrameCandidateDisposition.Unchanged,
+                    changedScope ? "scope-changed" : isNew ? "new" : "unchanged", frameId, sourceTimeUs));
             }
             catch (Exception error) { completion.TrySetException(error); }
         });

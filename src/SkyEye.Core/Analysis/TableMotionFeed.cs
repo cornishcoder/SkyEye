@@ -32,6 +32,14 @@ public interface ITableMotionFrameSource : ITableFrameSource
 {
     Task<bool> HasNewFrameAsync(MotionFeedScope scope, long afterFrameId, long afterSourceTimeUs, CancellationToken cancellation);
 }
+public enum MotionFrameCandidateDisposition { New, Unchanged, Unavailable }
+public sealed record MotionFrameCandidateProbe(MotionFrameCandidateDisposition Disposition, string Reason,
+    long? FrameId = null, long? SourceTimeUs = null);
+public interface ITableMotionFrameProbe
+{
+    Task<MotionFrameCandidateProbe> ProbeNewCandidateAsync(MotionFeedScope scope, long afterFrameId,
+        long afterSourceTimeUs, CancellationToken cancellation);
+}
 public sealed record MotionFeedSnapshot(long Acquired, long Processed, long Replaced, long DuplicateOrBackwards, long Stale,
     long AcquisitionFailures, long ScopeRejected, long WorkerFailures, long GapResets, int Active, int Pending,
     string? StopReason, MotionMeasurement? Latest, double LastAcquisitionMs, double LastWorkerMs, double LastResultAgeMs)
@@ -59,6 +67,8 @@ public sealed record MotionFeedSnapshot(long Acquired, long Processed, long Repl
     public long AcquisitionRetries { get; init; }
     public int LastAcquisitionAttempts { get; init; } = 1;
     public long NoNewFramePolls { get; init; }
+    public long UnavailableCandidatePolls { get; init; }
+    public IReadOnlyDictionary<string, long> UnavailableCandidateReasons { get; init; } = new Dictionary<string, long>();
     public IReadOnlyList<MotionGapDiagnostic> RecentGaps { get; init; } = Array.Empty<MotionGapDiagnostic>();
 }
 
@@ -79,7 +89,8 @@ public sealed class TableMotionFeed : IAsyncDisposable
     readonly Queue<long> recentProcessedDeltasUs = new();
     TableFrame? pending;
     Task? run;
-    long acquired, processed, replaced, duplicate, noNewFramePolls, stale, acquisitionFailures, scopeRejected, workerFailures, gaps;
+    long acquired, processed, replaced, duplicate, noNewFramePolls, unavailableCandidatePolls, stale, acquisitionFailures, scopeRejected, workerFailures, gaps;
+    readonly Dictionary<string, long> unavailableCandidateReasons = new(StringComparer.Ordinal);
     long acquisitionRetries;
     long lastReceivedId = -1, lastReceivedUs = -1, lastProcessedId = -1, lastProcessedUs = -1;
     long? lastProcessedDeltaUs, lastGapUs;
@@ -136,6 +147,8 @@ public sealed class TableMotionFeed : IAsyncDisposable
                     AcquisitionRetries = acquisitionRetries,
                     LastAcquisitionAttempts = lastAcquisitionAttempts,
                     NoNewFramePolls = noNewFramePolls,
+                    UnavailableCandidatePolls = unavailableCandidatePolls,
+                    UnavailableCandidateReasons = new Dictionary<string, long>(unavailableCandidateReasons),
                     RecentGaps = recentGaps.ToArray()
                 };
             }
@@ -183,7 +196,24 @@ public sealed class TableMotionFeed : IAsyncDisposable
                 if (!Current()) { Stop("Source, calibration or enablement changed"); break; }
                 // A decoder can be polled faster than its source. Keep a valid
                 // pending frame when the native source has no newer candidate.
-                if (source is ITableMotionFrameSource peek)
+                if (source is ITableMotionFrameProbe detailedProbe)
+                {
+                    var probe = await detailedProbe.ProbeNewCandidateAsync(scope, lastReceivedId, lastReceivedUs, stopped.Token).ConfigureAwait(false);
+                    if (probe.Disposition == MotionFrameCandidateDisposition.Unchanged)
+                    { lock (gate) noNewFramePolls++; continue; }
+                    if (probe.Disposition == MotionFrameCandidateDisposition.Unavailable)
+                    {
+                        lock (gate)
+                        {
+                            unavailableCandidatePolls++;
+                            var reason = probe.Reason is "not-playing" or "no-surface" or "unmapped-surface" or "unmapped-source-clock"
+                                ? probe.Reason : "unknown";
+                            unavailableCandidateReasons[reason] = unavailableCandidateReasons.GetValueOrDefault(reason) + 1;
+                        }
+                        continue;
+                    }
+                }
+                else if (source is ITableMotionFrameSource peek)
                 {
                     if (!await peek.HasNewFrameAsync(scope, lastReceivedId, lastReceivedUs, stopped.Token).ConfigureAwait(false))
                     { lock (gate) noNewFramePolls++; continue; }

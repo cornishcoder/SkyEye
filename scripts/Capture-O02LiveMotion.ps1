@@ -65,14 +65,32 @@ try {
         $taskAcquiredDelta = $null
         $taskProcessedDelta = $null
         $taskNoNewPollDelta = $null
+        $taskUnavailablePollDelta = $null
         $taskGapResetDelta = $null
+        $taskCopyFailureCounts = @{}
+        $taskCopyFailureDelta = @{}
+        if ($taskMetrics.copy.failures) {
+            foreach ($taskFailure in $taskMetrics.copy.failures.PSObject.Properties) {
+                $taskCopyFailureCounts[$taskFailure.Name] = [long]$taskFailure.Value
+            }
+        }
         if ($taskPreviousSample -and $taskPreviousSample.MediaGeneration -eq $taskPlayer.mediaGeneration) {
             $taskDecoderDelta = $taskPlayer.decodedFrames - $taskPreviousSample.DecoderFrames
             $taskTextureDelta = $taskPlayer.textureFrames - $taskPreviousSample.TextureFrames
             $taskAcquiredDelta = $taskMotion.acquired - $taskPreviousSample.Acquired
             $taskProcessedDelta = $taskMotion.processed - $taskPreviousSample.Processed
             $taskNoNewPollDelta = $taskMotion.noNewFramePolls - $taskPreviousSample.NoNewFramePolls
+            $taskUnavailablePollDelta = $taskMotion.unavailableCandidatePolls - $taskPreviousSample.UnavailableCandidatePolls
             $taskGapResetDelta = $taskMotion.gapResets - $taskPreviousSample.GapResets
+            $taskFailureReasons = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+            foreach ($taskReason in $taskCopyFailureCounts.Keys) { $null = $taskFailureReasons.Add($taskReason) }
+            foreach ($taskReason in $taskPreviousSample.CopyFailureCounts.Keys) { $null = $taskFailureReasons.Add($taskReason) }
+            foreach ($taskReason in $taskFailureReasons) {
+                $taskCurrentFailureCount = if ($taskCopyFailureCounts.ContainsKey($taskReason)) { $taskCopyFailureCounts[$taskReason] } else { 0 }
+                $taskPreviousFailureCount = if ($taskPreviousSample.CopyFailureCounts.ContainsKey($taskReason)) { $taskPreviousSample.CopyFailureCounts[$taskReason] } else { 0 }
+                $taskFailureDelta = $taskCurrentFailureCount - $taskPreviousFailureCount
+                if ($taskFailureDelta -gt 0) { $taskCopyFailureDelta[$taskReason] = $taskFailureDelta }
+            }
         }
         $taskGapEvents = @()
         foreach ($taskGap in @($taskMotion.recentGaps)) {
@@ -94,6 +112,9 @@ try {
             Replaced = $taskMotion.replaced
             NoNewFramePolls = $taskMotion.noNewFramePolls
             NoNewFramePollDelta = $taskNoNewPollDelta
+            UnavailableCandidatePolls = $taskMotion.unavailableCandidatePolls
+            UnavailableCandidatePollDelta = $taskUnavailablePollDelta
+            UnavailableCandidateReasons = $taskMotion.unavailableCandidateReasons
             DuplicateOrBackwards = $taskMotion.duplicateOrBackwards
             Stale = $taskMotion.stale
             AcquisitionFailures = $taskMotion.acquisitionFailures
@@ -120,6 +141,8 @@ try {
             LastClockUncertaintyMs = $taskMotion.lastClockUncertaintyMs
             AcquisitionRetries = $taskMotion.acquisitionRetries
             LastAcquisitionAttempts = $taskMotion.lastAcquisitionAttempts
+            CopyFailures = $taskMetrics.copy.failures
+            CopyFailureDelta = $taskCopyFailureDelta
             DecoderMediaGeneration = $taskPlayer.mediaGeneration
             DecoderFrames = $taskPlayer.decodedFrames
             DecoderFrameDelta = $taskDecoderDelta
@@ -146,7 +169,9 @@ try {
             Acquired = $taskMotion.acquired
             Processed = $taskMotion.processed
             NoNewFramePolls = $taskMotion.noNewFramePolls
+            UnavailableCandidatePolls = $taskMotion.unavailableCandidatePolls
             GapResets = $taskMotion.gapResets
+            CopyFailureCounts = $taskCopyFailureCounts
         }
         if (-not [string]::IsNullOrWhiteSpace([string]$taskMotion.stopReason)) {
             $taskCaptureError = "The motion feed stopped during capture: $($taskMotion.stopReason)"
@@ -166,7 +191,7 @@ finally {
 
 if ($taskRows.Count -eq 0) { throw 'No motion-feed samples were collected.' }
 $taskReport = [pscustomobject]@{
-    SchemaVersion = 3
+    SchemaVersion = 4
     DeviceSerial = $CompanionSerial
     Package = $taskPing.package
     StartedAtUtc = $taskStartedAt.ToString('O')
@@ -178,7 +203,7 @@ $taskReport = [pscustomobject]@{
     CaptureError = $taskCaptureError
     ImagesSaved = $false
     Samples = $taskRows
-    Scope = 'Opt-in source PTS, per-gap acquisition/worker telemetry, decoder-release/texture counters, and dimensions. No detector tracking or ball identity claim.'
+    Scope = 'Opt-in candidate availability, source PTS, per-gap acquisition/worker telemetry, decoder-release/texture and copy-failure counters, and dimensions. No detector tracking or ball identity claim.'
 }
 $taskOutputDirectory = Split-Path -Parent $taskOutputPath
 if ($taskOutputDirectory -and -not (Test-Path -LiteralPath $taskOutputDirectory -PathType Container)) {
