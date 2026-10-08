@@ -87,6 +87,10 @@ try {
             RecentDeltaP50Us = $taskMotion.recentDeltaP50Us
             RecentDeltaP95Us = $taskMotion.recentDeltaP95Us
             RecentDeltaMaxUs = $taskMotion.recentDeltaMaxUs
+            LastProcessedFrameIdDelta = $taskMotion.lastProcessedFrameIdDelta
+            LastGapFrameIdDelta = $taskMotion.lastGapFrameIdDelta
+            LastClockSampleAgeMs = $taskMotion.lastClockSampleAgeMs
+            LastClockUncertaintyMs = $taskMotion.lastClockUncertaintyMs
             LastAcquisitionMs = $taskMotion.lastAcquisitionMs
             LastWorkerMs = $taskMotion.lastWorkerMs
             LastResultAgeMs = $taskMotion.lastResultAgeMs

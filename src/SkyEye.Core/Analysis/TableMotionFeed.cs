@@ -16,6 +16,7 @@ public sealed record MotionFrameContext(MotionFeedScope Scope, long FrameId, lon
 {
     public double AcquisitionMs { get; init; }
     public long? SourceDeltaUs { get; init; }
+    public long? FrameIdDelta { get; init; }
 }
 public sealed record RoiMotion(string Id, int Features, int Supported, double? DxPixels, double? DyPixels,
     double? VelocityXPixelsPerSecond, double? VelocityYPixelsPerSecond, string Status);
@@ -48,6 +49,10 @@ public sealed record MotionFeedSnapshot(long Acquired, long Processed, long Repl
     public long? RecentDeltaP50Us { get; init; }
     public long? RecentDeltaP95Us { get; init; }
     public long? RecentDeltaMaxUs { get; init; }
+    public long? LastProcessedFrameIdDelta { get; init; }
+    public long? LastGapFrameIdDelta { get; init; }
+    public double? LastClockSampleAgeMs { get; init; }
+    public double? LastClockUncertaintyMs { get; init; }
 }
 
 /// <summary>Explicitly started, one active/one latest frame. No detector, rule or event submission.</summary>
@@ -67,8 +72,10 @@ public sealed class TableMotionFeed : IAsyncDisposable
     TableFrame? pending;
     Task? run;
     long acquired, processed, replaced, duplicate, stale, acquisitionFailures, scopeRejected, workerFailures, gaps;
-    long lastReceivedId = -1, lastReceivedUs = -1, lastProcessedUs = -1;
+    long lastReceivedId = -1, lastReceivedUs = -1, lastProcessedId = -1, lastProcessedUs = -1;
     long? lastProcessedDeltaUs, lastGapUs;
+    long? lastProcessedFrameIdDelta, lastGapFrameIdDelta;
+    double? lastClockSampleAgeMs, lastClockUncertaintyMs;
     long largestGapUs;
     int active, width, height;
     string? stopReason;
@@ -112,7 +119,11 @@ public sealed class TableMotionFeed : IAsyncDisposable
                     RecentDeltaSampleCount = recentProcessedDeltasUs.Count,
                     RecentDeltaP50Us = Percentile(recentProcessedDeltasUs, 0.50),
                     RecentDeltaP95Us = Percentile(recentProcessedDeltasUs, 0.95),
-                    RecentDeltaMaxUs = recentProcessedDeltasUs.Count == 0 ? null : recentProcessedDeltasUs.Max()
+                    RecentDeltaMaxUs = recentProcessedDeltasUs.Count == 0 ? null : recentProcessedDeltasUs.Max(),
+                    LastProcessedFrameIdDelta = lastProcessedFrameIdDelta,
+                    LastGapFrameIdDelta = lastGapFrameIdDelta,
+                    LastClockSampleAgeMs = lastClockSampleAgeMs,
+                    LastClockUncertaintyMs = lastClockUncertaintyMs
                 };
             }
         }
@@ -227,16 +238,18 @@ public sealed class TableMotionFeed : IAsyncDisposable
                     {
                         active = 1;
                         long? sourceDeltaUs = lastProcessedUs < 0 ? null : frame.SourceTimeUs!.Value - lastProcessedUs;
+                        long? frameIdDelta = lastProcessedId < 0 ? null : frame.DecodedReceipt!.FrameId - lastProcessedId;
                         bool reset = sourceDeltaUs is null || sourceDeltaUs.Value > options.MaximumGapUs;
                         if (reset && sourceDeltaUs is { } gapUs)
                         {
                             gaps++;
                             lastGapUs = gapUs;
+                            lastGapFrameIdDelta = frameIdDelta;
                             largestGapUs = Math.Max(largestGapUs, gapUs);
                         }
                         context = new(scope, frame.DecodedReceipt!.FrameId, frame.SourceTimeUs!.Value, reset,
                             reset ? null : sourceDeltaUs!.Value / 1000000d)
-                        { AcquisitionMs = pendingAcquisitionMs, SourceDeltaUs = sourceDeltaUs };
+                        { AcquisitionMs = pendingAcquisitionMs, SourceDeltaUs = sourceDeltaUs, FrameIdDelta = frameIdDelta };
                     }
                 }
                 if (frame is null) continue;
@@ -253,7 +266,10 @@ public sealed class TableMotionFeed : IAsyncDisposable
                         if (!Fresh(frame)) { stale++; lastProcessedUs = -1; continue; }
                         if (result.SourceTimeUs != context!.SourceTimeUs) throw new InvalidDataException("Worker result lost source time.");
                         if (context.Reset) recentProcessedSourceTimes.Clear();
-                        processed++; lastProcessedUs = context.SourceTimeUs; latest = result;
+                        processed++; lastProcessedId = context.FrameId; lastProcessedUs = context.SourceTimeUs; latest = result;
+                        lastProcessedFrameIdDelta = context.FrameIdDelta;
+                        lastClockSampleAgeMs = frame.ClockSampleAgeMs;
+                        lastClockUncertaintyMs = frame.ClockUncertaintyMs;
                         if (context.SourceDeltaUs is { } sourceDeltaUs)
                         {
                             lastProcessedDeltaUs = sourceDeltaUs;
