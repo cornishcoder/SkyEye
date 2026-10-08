@@ -167,11 +167,49 @@ public sealed partial class ShellSession
             var result = dashboardScenario.Reset(command);
             return HttpResponse.Json(result, result.Accepted ? 200 : 409);
         }
+        if (request.Path == "/api/scenario/command" && request.Method == "POST")
+        {
+            if (request.Body.Length > 8192) return HttpResponse.Json(new { error = "Scenario command is too large." }, 413);
+            if (!request.Headers.GetValueOrDefault("Content-Type", "").StartsWith("application/json", StringComparison.OrdinalIgnoreCase))
+                return HttpResponse.Json(new { error = "Send the scenario command as JSON." }, 415);
+            DashboardScenarioCommandRequest command;
+            try { command = request.Json<DashboardScenarioCommandRequest>(); }
+            catch (JsonException) { return HttpResponse.Json(new { error = "The scenario command is not valid JSON." }, 400); }
+            catch (ArgumentException e) { return HttpResponse.Json(new { error = e.Message }, 400); }
+            var result = dashboardScenario.Apply(command);
+            return HttpResponse.Json(result, result.Accepted ? 200 : 409);
+        }
 
         if (request.Method != "GET") return HttpResponse.Json(new { error = "This route is read-only." }, 405);
         if (request.Path == "/") return new(200, "text/html; charset=utf-8", html);
         if (request.Path == "/scenario") return new(200, "text/html; charset=utf-8", scenarioHtml);
         if (request.Path == "/api/scenario") return HttpResponse.Json(dashboardScenario.Snapshot());
+        if (request.Path == "/api/live-match")
+        {
+            return await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                cancellation.ThrowIfCancellationRequested();
+                var diagnostic = table.VisionDiagnostics;
+                var live = diagnostic.Active ? diagnostic.LiveFrame : null;
+                var detection = live?.Sample.Detection;
+                var current = app.State;
+                return HttpResponse.Json(new
+                {
+                    measuredAt = DateTimeOffset.UtcNow,
+                    frame = live is null ? null : new { live.Sample.Sequence, live.Sample.FrameAgeMs },
+                    detection = detection is null ? null : new
+                    {
+                        detection.Uncertain,
+                        balls = detection.Balls.Where(ball => ball.Kind != "unknown")
+                            .Select(ball => new { ball.Id, ball.Kind }).ToArray()
+                    },
+                    current.GameTableCurrent,
+                    current.GameError,
+                    game = current.Game,
+                    match = current.Match
+                });
+            });
+        }
         if (request.Path == "/api/frame")
         {
             var diagnostic = table.VisionDiagnostics;

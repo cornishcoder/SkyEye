@@ -1,6 +1,6 @@
 # G06 — Dashboard Match and Tracking Scenario Lab
 
-8 October 2026 · G06.01a is implemented and installed. G06.02a's separate scenario page and isolated resettable workspace are Release-built and installed in the Lab; live browser readback is pending a dashboard restart. G06.01b, full typed state controls and tracking replay remain open.
+8 October 2026 · G06.01a is implemented and installed. G06.02a and the first typed G06.02b controls are Release-built and installed in the Lab; live browser readback is pending a dashboard restart. G06.01b and tracking replay remain open.
 
 ## Goal
 
@@ -42,8 +42,8 @@ All injected or replayed scenario data must carry a visible Scenario/Test badge 
 |---|---|---|
 | G06.01a | Readable live match and state summary | Show derived match score, players/groups/current player, frame ledger and archives, plus canonical ball position/presence/provenance and source/motion/shot facts from the current `MatchView` and `GameSnapshot`. Live dashboard requests cannot mutate the match. |
 | G06.01b | Bounded evidence and event history | On the same revision, event/correction history agrees with the canonical journal; uncertainty and stale source time stay explicit; refresh or a new diagnostic session does not show stale state. Live dashboard requests remain read-only. |
-| G06.02a | Separate Scenario Lab page, isolated journal, reset and presets | The existing live dashboard page/address stay as they are. A separate Lab address shows match score, players, frame ledger, table inventory, event history and clearly badged test provenance. Blank, clean-rack and mid-match presets can reset only the isolated scenario; requests are fenced by scenario ID and revision. |
-| G06.02b | Typed controls for scenario state | Player/frame/score/correction/undo and ball/table edits go through supported inputs and the same reducer; stale versions and duplicate operation IDs are rejected. Scenario state never appears in the production match journal. |
+| G06.02a | Separate Scenario Lab page, isolated journal, reset and presets | The existing live dashboard page/address stay as they are. A separate Lab address shows a read-only live match/camera summary beside the isolated scenario's match score, players, frame ledger, table inventory, event history and clearly badged test provenance. Blank, clean-rack and mid-match presets can reset only the isolated scenario. |
+| G06.02b | Typed controls for scenario state | Match setup/target, frame/turn/groups/foul/result/finish/undo, ball add/edit/missing, table settle/certainty, and shot/pocket steps go through typed GameState inputs and the same reducer. Requests are fenced by scenario ID/revision and unique operation ID. Scenario state never appears in the production match journal. |
 | G06.03 | Steppable tracking evidence scenarios and result comparison | A repeatable source-timed scenario can be stepped, reset and replayed. Before/after snapshots, proposed/accepted events, uncertainty, provenance and score changes are visible. Replay calls the implemented O03–O05 seams; unimplemented tracking stages are clearly marked unavailable rather than simulated as successful. |
 
 ## Verification and release boundary
