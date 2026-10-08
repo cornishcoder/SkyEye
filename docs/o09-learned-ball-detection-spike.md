@@ -34,6 +34,8 @@ Run A, B and C on the exact same frozen frames and report results per lighting a
 - false-ready/unsafe outcomes under O08's existing conservative gates;
 - whole-path and model latency, peak memory, CPU/GPU use, thermal behavior and battery cost on Pixel 11 at the real input resolution.
 
+Keep two outcomes separate. First score each detector's independent per-frame candidates so a temporal layer cannot hide missed or false detections. Then, for timestamped sequences, replay each candidate's detections through the existing O08 burst association and verification consensus and report verified-layout success, uncertainty, latency and false-ready outcomes. Do not interlace or average source frames before detection: it can soften ball boundaries and create ghost evidence when a ball or lighting pattern moves. Consensus may tolerate an intermediate dropout, but every accepted ball still needs fresh support in the final frame; a stale position never fills a final miss. The live dashboard continues to show raw per-frame output so flicker stays diagnosable.
+
 Set comparison and acceptance thresholds before opening the held-out results. A high aggregate score cannot hide a failure in the sunlight-stripe or dim-light stratum. Augmented or synthetic-only accuracy is not release evidence.
 
 ## Android and architecture limits
