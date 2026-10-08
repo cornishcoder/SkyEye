@@ -60,7 +60,63 @@
       "verification": { "independentFrames": 1, "frameId": 4823, "sourceSpanMs": 0 },
       "illumination": { "referenceBrightness": 48, "colourGains": [3.0, 2.575757576, 1.917293233], "adjustedPixelPercent": 100 },
       "interpretation": "The following retry detected all 16 balls but stopped on a one-frame obstruction warning, despite the user's report that the table was still and clear. A subsequent live dashboard image visibly showed the table and balls without a person or cue over the cloth; it looked dim. This is evidence of a likely low-light/appearance false positive, not proof that obstruction detection is generally safe. No images were saved."
+    },
+    {
+      "capturedAt": "2026-10-08T21:58:37.1793201+01:00",
+      "analysisConfiguration": "o08-provisional-v14",
+      "userReportedPhysicalState": "stationary-and-clear",
+      "captureAdmission": "ready",
+      "observationOutcome": "Ready",
+      "reason": "None",
+      "motion": "Still",
+      "quality": "Clear",
+      "table": { "ballCount": 16, "confirmed": true, "settled": true, "softwareOccluded": false, "detectorWarnings": [] },
+      "verification": {
+        "independentFrames": 5,
+        "sourceSpanMs": 2000.177,
+        "maximumGapMs": 533.378,
+        "finalAgeMs": 866.639,
+        "samples": [
+          { "frameId": 1082, "motion": "Unknown", "reason": "InsufficientEvidence", "illuminationChange": 0.0, "maximumTileChange": 0.0, "photometricResidualTileChange": 0.0, "sensitiveTileChange": 0.0, "perimeterChange": 0.0, "supportedBodies": 0, "visionObstructed": false },
+          { "frameId": 1097, "motion": "Still", "reason": "None", "illuminationChange": 0.3200125, "maximumTileChange": 0.0, "photometricResidualTileChange": 0.0, "sensitiveTileChange": 0.00390625, "perimeterChange": 0.0, "maximumBodyDisplacementPx": 0.141662876, "supportedBodies": 16 },
+          { "frameId": 1113, "motion": "Still", "reason": "None", "illuminationChange": 0.39246875, "maximumTileChange": 0.0, "photometricResidualTileChange": 0.0, "sensitiveTileChange": 0.002929688, "perimeterChange": 0.000061683, "maximumBodyDisplacementPx": 0.18023848, "maximumDetectedBodyDisplacementPx": 1.049410621, "supportedBodies": 16, "visionObstructed": false },
+          { "frameId": 1127, "motion": "Still", "reason": "None", "illuminationChange": 0.295253125, "maximumTileChange": 0.0, "photometricResidualTileChange": 0.0, "sensitiveTileChange": 0.0, "perimeterChange": 0.000041122, "maximumBodyDisplacementPx": 0.179723831, "supportedBodies": 16 },
+          { "frameId": 1142, "motion": "Still", "reason": "None", "illuminationChange": 0.236759375, "maximumTileChange": 0.0, "photometricResidualTileChange": 0.0, "sensitiveTileChange": 0.000976563, "perimeterChange": 0.000061683, "maximumBodyDisplacementPx": 0.177075535, "maximumDetectedBodyDisplacementPx": 3.127160454, "supportedBodies": 16, "visionObstructed": false }
+        ]
+      },
+      "interpretation": "After the cloth-relative neutral obstruction update, one user-reported stationary/clear sequence passed with all 16 balls, full body support, no warnings and no obstruction. The largest detected-centre change was 3.13 pixels, below the six-pixel motion threshold; template displacement peaked at 0.1803 pixels. This is one correlated physical case and does not establish broader lighting or obstruction reliability. No images were saved."
     }
   ],
+  "motionFeedCapture": {
+    "startedAt": "2026-10-08T21:58:57.8096605+01:00",
+    "endedAt": "2026-10-08T21:59:57.9406166+01:00",
+    "requestedHz": 30,
+    "durationSeconds": 60,
+    "completed": true,
+    "sampleRows": 58,
+    "frameWidth": 1920,
+    "frameHeight": 1080,
+    "acquired": 1419,
+    "processed": 1411,
+    "replaced": 7,
+    "duplicateOrBackwards": 367,
+    "stale": 0,
+    "acquisitionFailures": 0,
+    "scopeRejected": 0,
+    "workerFailures": 0,
+    "gapResets": 23,
+    "processedSourceCadenceHz": 25.3642,
+    "gapThresholdUs": 125000,
+    "recentDeltaP50Us": 33623,
+    "recentDeltaP95Us": 100011,
+    "recentDeltaMaxUs": 134511,
+    "largestGapUs": 166678,
+    "acquisitionRetries": 46,
+    "lastAcquisitionMs": 8.878,
+    "lastWorkerMs": 22.134,
+    "lastResultAgeMs": 633.58,
+    "imagesSaved": false,
+    "scope": "Opt-in source PTS, frame dimensions, acquisition and worker telemetry. No detector tracking or ball identity claim."
+  },
   "imagesSaved": false
 }
