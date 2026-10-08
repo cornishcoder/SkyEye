@@ -179,6 +179,30 @@ public sealed partial class ShellSession
             var result = dashboardScenario.Apply(command);
             return HttpResponse.Json(result, result.Accepted ? 200 : 409);
         }
+        if (request.Path == "/api/scenario/review" && request.Method == "POST")
+        {
+            if (request.Body.Length > 8192) return HttpResponse.Json(new { error = "Scenario review is too large." }, 413);
+            if (!request.Headers.GetValueOrDefault("Content-Type", "").StartsWith("application/json", StringComparison.OrdinalIgnoreCase))
+                return HttpResponse.Json(new { error = "Send the scenario review as JSON." }, 415);
+            DashboardScenarioReviewRequest command;
+            try { command = request.Json<DashboardScenarioReviewRequest>(); }
+            catch (JsonException) { return HttpResponse.Json(new { error = "The scenario review is not valid JSON." }, 400); }
+            catch (ArgumentException e) { return HttpResponse.Json(new { error = e.Message }, 400); }
+            var result = dashboardScenario.Resolve(command);
+            return HttpResponse.Json(result, result.Accepted ? 200 : 409);
+        }
+        if (request.Path == "/api/scenario/rules" && request.Method == "POST")
+        {
+            if (request.Body.Length > 8192) return HttpResponse.Json(new { error = "Scenario rule facts are too large." }, 413);
+            if (!request.Headers.GetValueOrDefault("Content-Type", "").StartsWith("application/json", StringComparison.OrdinalIgnoreCase))
+                return HttpResponse.Json(new { error = "Send scenario rule facts as JSON." }, 415);
+            DashboardScenarioRuleRequest command;
+            try { command = request.Json<DashboardScenarioRuleRequest>(); }
+            catch (JsonException) { return HttpResponse.Json(new { error = "Scenario rule facts are not valid JSON." }, 400); }
+            catch (ArgumentException e) { return HttpResponse.Json(new { error = e.Message }, 400); }
+            var result = dashboardScenario.EvaluateRules(command);
+            return HttpResponse.Json(result, result.Accepted ? 200 : 409);
+        }
 
         if (request.Method != "GET") return HttpResponse.Json(new { error = "This route is read-only." }, 405);
         if (request.Path == "/") return new(200, "text/html; charset=utf-8", html);

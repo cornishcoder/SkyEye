@@ -14,7 +14,9 @@
     @media(max-width:850px){body{padding:14px}.layout{grid-template-columns:1fr}.controls{position:static}.two-col{grid-template-columns:1fr}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}header{align-items:flex-start}header .badge{font-size:10px;padding:5px 8px}}
     @media(max-width:520px){body{padding:10px}.badge{white-space:normal;text-align:center;max-width:110px}.cards{gap:7px}.scoreboard,.content,.controls{padding:14px}.ball-table th,.ball-table td,.event-table th,.event-table td{padding:6px 5px;font-size:12px}.row{grid-template-columns:95px minmax(0,1fr)}}
     .live-panel{padding:16px 18px;margin-bottom:16px}.live-heading{display:flex;align-items:center;gap:10px}.live-heading h2{margin:0}.live-pill{margin-left:auto;border:1px solid #40545d;color:#c5d5d9;border-radius:999px;padding:3px 9px;font-size:11px}.live-cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:12px}.live-card{border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}.live-card span{display:block;font-size:10px;color:var(--muted);letter-spacing:.07em;text-transform:uppercase}.live-card strong{display:block;font-size:14px;overflow-wrap:anywhere;margin-top:2px}.live-copy{font-size:12px;color:var(--muted);margin:10px 0 0;overflow-wrap:anywhere}.live-copy.alert{color:var(--amber)}.live-balls{font-size:12px;color:#c9d7db;overflow-wrap:anywhere;margin-top:6px}.live-status{margin-top:9px;font-size:12px;color:var(--muted)}
+    .review-panel{padding:18px;border-color:#856c3c;background:linear-gradient(145deg,#241f14,#151d20 68%)}.review-panel h2{font-size:19px;margin:0 0 5px}.review-panel p{margin:6px 0;color:#d7e0df}.review-kicker{color:var(--amber)!important;font-size:11px;font-weight:750;letter-spacing:.1em;text-transform:uppercase}.review-summary{color:var(--muted)!important}.review-events{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}.review-events .pill{border-color:#816b3d;color:#ffe0a9}.review-result{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}.review-result div{border:1px solid #554a30;border-radius:8px;padding:9px}.review-result span{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.07em}.review-result strong{display:block;margin-top:2px}.review-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;margin-top:14px}.review-actions button{margin:0;height:100%;text-align:left}.review-actions button small{display:block;font-size:11px;font-weight:500;opacity:.85;margin-top:3px}.review-facts{border-top:1px solid #554a30;margin-top:15px;padding-top:12px}.review-facts h3{font-size:14px;margin:0}.review-facts p{color:var(--muted);font-size:12px}.rule-profile{font-size:11px!important;color:var(--muted)!important}.review-empty[hidden]{display:none}
     @media(max-width:850px){.live-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.live-card:last-child{grid-column:1/-1}}
+    @media(max-width:520px){.review-panel{padding:14px}.review-result{grid-template-columns:1fr}.review-actions{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -98,6 +100,7 @@
             <div><label for="ball-y">Table Y · 0 to 1</label><input id="ball-y" type="number" min="0" max="1" step="0.001" value="0.5"></div>
           </div>
           <button class="secondary" type="button" data-command="ball-upsert">Save ball position</button>
+          <button class="secondary" type="button" data-command="ball-move">Record ball movement</button>
           <p class="hint">Choose Edit in the inventory to load a ball. Mark missing keeps its identity in the record.</p>
         </div>
       </details>
@@ -117,6 +120,9 @@
     </section>
 
     <main>
+      <section id="review-card" class="panel review-panel review-empty" aria-labelledby="review-title" hidden>
+        <div id="review-content"></div>
+      </section>
       <section class="panel scoreboard" aria-labelledby="match-title">
         <h2 id="match-title">Scenario match</h2>
         <p class="scoreline" id="score">No match started</p>
@@ -161,7 +167,7 @@
 <script>
 (() => {
   const $=id=>document.getElementById(id), esc=value=>String(value??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  let snapshot=null, busy=false;
+  let snapshot=null, busy=false, reviewKey='';
   const label=value=>String(value??'—').replace(/([a-z])([A-Z])/g,'$1 $2').replaceAll('-',' ').replace(/^./,c=>c.toUpperCase());
   const enumLabel=(value,values)=>typeof value==='number'?(values[value]||`Value ${value}`):label(value);
   const person=id=>(snapshot?.match?.players||[]).find(p=>p.id===id)?.name||id||'—';
@@ -189,25 +195,55 @@
     if(approachBalls.some(b=>b.id===previousBall))$('approach-ball').value=previousBall;
     $('frames').innerHTML=(m.frames||[]).length?m.frames.map(frame=>`<tr><td>${frame.number}</td><td>${esc(frame.result)}</td><td>${frame.current?'Yes':'No'}</td></tr>`).join(''):'<tr><td colspan="3" class="empty">No frames yet.</td></tr>';
     $('events').innerHTML=(data.events||[]).length?data.events.map(e=>`<tr><td>${e.sequence}</td><td>${new Date(e.at).toLocaleTimeString()}</td><td>${esc(e.frameId)}</td><td>${esc(label(e.event))}</td><td><span class="pill">SCENARIO</span> ${esc(label(e.provenance))}</td></tr>`).join(''):'<tr><td colspan="5" class="empty">No scenario events yet.</td></tr>';
-    updateControls();
+    renderReview(data);updateControls();
   }
   function updateControls(){
     const m=snapshot?.match||{},g=snapshot?.game||{},t=g.table||{},shot=g.shot,hasFrame=!!g.frame;
     for(const button of document.querySelectorAll('[data-command],#reset')){
       const action=button.dataset.command;
       let disabled=busy||!snapshot;
+      if(action&&snapshot?.pendingProposal)disabled=true;
       if(action==='start-match')disabled||=!!m.id&&!m.canStartMatch;
       if(action==='start-frame')disabled||=!m.canStartFrame;
       if(['change-turn','declare-open','assign-group','set-foul','frame-winner'].includes(action))disabled||=!m.playingFrame;
       if(action==='undo-last')disabled||=!m.undoInputId;
       if(action==='finish-match')disabled||=!m.id||m.finished;
-      if(action==='table-state'||action==='ball-upsert'||action==='ball-missing')disabled||=!hasFrame;
+      if(action==='table-state'||action==='ball-upsert'||action==='ball-missing'||action==='ball-move')disabled||=!hasFrame;
       if(action==='ball-missing')disabled||=button.dataset.ballId&&t.balls?.[button.dataset.ballId]?.presence?.value!==1;
+      if(action==='ball-move')disabled||=!t.balls?.[$('ball-id').value];
       if(action==='shot-start')disabled||=!hasFrame||t.motion!==2||t.uncertain||!!shot&&!shot.ended;
       if(action==='shot-end')disabled||=!shot||shot.ended;
       if(action==='pocket-approach')disabled||=!shot||shot.ended;
       button.disabled=disabled;
     }
+    for(const button of document.querySelectorAll('[data-review-choice],[data-review-evaluate]'))button.disabled=busy;
+  }
+  function renderReview(data){
+    const card=$('review-card'),proposal=data.pendingProposal,prompt=data.rulePrompt;
+    if(!proposal&&!prompt){card.hidden=true;reviewKey='';return}
+    card.hidden=false;
+    const key=proposal?`proposal:${proposal.id}`:`rules:${data.scenarioId}:${data.version}:${prompt.shotId}`;
+    if(key===reviewKey)return;reviewKey=key;
+    if(proposal){
+      const isRules=proposal.kind==='rules',position=proposal.rulePosition;
+      const events=(proposal.events||[]).map(item=>`<span class="pill">${esc(label(item.event))} · ${esc(label(item.provenance))}</span>`).join('');
+      const choices=(proposal.choices||[]).map(choice=>`<button type="button" class="${choice.recommended?'':'secondary'}" data-review-choice="${esc(choice.id)}"><strong>${esc(choice.label)}</strong><small>${esc(choice.description)}</small></button>`).join('');
+      const rules=position?`<div class="review-result"><div><span>Next player</span><strong>${esc(proposal.proposedTurn)}</strong></div><div><span>Proposed target</span><strong>${esc(enumLabel(position.target,['Unknown','Open colours','Red','Yellow','Black','Finished']))}</strong></div><div><span>Foul</span><strong>${position.foul==null?'Not decided':position.foul?'Yes':'No'}</strong></div><div><span>Rule clauses</span><strong>${esc((position.clauses||[]).join(', ')||'—')}</strong></div></div>`:`<div class="review-result"><div><span>Proposed score</span><strong>${esc(proposal.proposedScore||'—')}</strong></div><div><span>Proposed turn</span><strong>${esc(proposal.proposedTurn||'—')}</strong></div></div>`;
+      $('review-content').innerHTML=`<p class="review-kicker">${isRules?'Rules engine proposal':'GameState event proposal'} · scenario only</p><h2 id="review-title">${esc(proposal.title)}</h2><p>${esc(proposal.summary)}</p><p class="review-summary">${esc(proposal.recommendation)}</p><div class="review-events">${events||'<span class="pill">No new event</span>'}</div>${rules}<div class="review-actions">${choices}</div>`;
+      return;
+    }
+    const movement=prompt.noPotAfterMovement?`${prompt.movedBallCount} ball(s) moved and no pot was recorded. The engine can propose a turn change after you confirm the facts.`:`Shot settled · ${prompt.movedBallCount} ball(s) moved · ${prompt.potCount} pot(s) recorded. Confirm facts the camera cannot know.`;
+    $('review-content').innerHTML=`<p class="review-kicker">Completed shot needs a rule decision · scenario only</p><h2 id="review-title">Review ${esc(prompt.shooterName)}’s shot</h2><p>${esc(movement)}</p><p class="rule-profile">Rule profile: ${esc(prompt.rulesProfile)}. Position and pocket evidence come from the scenario; legality and first contact are declared below.</p><form id="rule-facts" class="review-facts">
+      <div class="field-grid"><div><label for="rule-legality">Shot legality</label><select id="rule-legality"><option value="Legal" selected>Legal</option><option value="Unknown">Not known</option><option value="StandardFoul">Standard foul</option><option value="LossOfTurn">Loss of turn</option><option value="LossOfFrame">Loss of frame</option></select></div>
+      <div><label for="rule-first-contact">First contact</label><select id="rule-first-contact"><option value="">Not declared</option><option>Red</option><option>Yellow</option><option>Black</option></select></div>
+      <div><label for="rule-reds-potted">Reds potted</label><input id="rule-reds-potted" type="number" min="0" max="7" value="0"></div><div><label for="rule-yellows-potted">Yellows potted</label><input id="rule-yellows-potted" type="number" min="0" max="7" value="0"></div>
+      <div><label for="rule-reds-before">Reds before shot · optional</label><input id="rule-reds-before" type="number" min="0" max="7" placeholder="Use known state"></div><div><label for="rule-yellows-before">Yellows before shot · optional</label><input id="rule-yellows-before" type="number" min="0" max="7" placeholder="Use known state"></div>
+      <div><label for="rule-called-group">Called group</label><select id="rule-called-group"><option value="">Not declared</option><option>Red</option><option>Yellow</option></select></div><div><label for="rule-call-required">Was a call required?</label><select id="rule-call-required"><option value="">Not declared</option><option value="true">Yes</option><option value="false">No</option></select></div>
+      <div><label for="rule-break">Shot type</label><select id="rule-break"><option value="false">Normal shot</option><option value="true">Break</option></select></div><div><label for="rule-legal-break">Break legality</label><select id="rule-legal-break"><option value="">Not declared</option><option value="true">Legal</option><option value="false">Illegal</option></select></div>
+      <div><label for="rule-black-potted">Black potted?</label><select id="rule-black-potted"><option value="false">No</option><option value="true">Yes</option></select></div><div><label for="rule-cue-potted">Cue ball potted?</label><select id="rule-cue-potted"><option value="false">No</option><option value="true">Yes</option></select></div>
+      <div><label for="rule-cue-off">Cue ball off table?</label><select id="rule-cue-off"><option value="false">No</option><option value="true">Yes</option></select></div></div>
+      <button type="button" data-review-evaluate>Ask rules engine for a recommendation</button>
+    </form>`;
   }
   function renderLive(data){
     const m=data.match||{},g=data.game||{},t=g.table||{},det=data.detection,balls=Object.values(t.balls||{});
@@ -237,13 +273,38 @@
   function operationId(){return crypto.randomUUID?.()||'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&3|8)).toString(16)})}
   function setBusy(value){busy=value;updateControls()}
   async function send(action,fields={}){
-    if(busy||!snapshot)return;setBusy(true);message('Saving scenario action…');
+    if(busy||!snapshot||snapshot.pendingProposal)return;setBusy(true);message('Preparing scenario event…');
     try{
       const body={scenarioId:snapshot.scenarioId,expectedVersion:snapshot.version,operationId:operationId(),action,...fields};
       const r=await fetch('/api/scenario/command',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
       const result=await r.json();if(!r.ok)throw new Error(result.message||result.error||'Scenario action was not accepted.');
       render(result.scenario);message(result.message||'Scenario action recorded.');
     }catch(e){message(e.message||'Scenario action was not accepted.',true);await refresh();}
+    finally{setBusy(false)}
+  }
+  async function review(choiceId){
+    if(busy||!snapshot?.pendingProposal)return;setBusy(true);message('Applying your event choice…');
+    try{
+      const proposal=snapshot.pendingProposal;
+      const r=await fetch('/api/scenario/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({scenarioId:snapshot.scenarioId,expectedVersion:snapshot.version,proposalId:proposal.id,choiceId})});
+      const result=await r.json();if(!r.ok)throw new Error(result.message||result.error||'The event choice was not accepted.');
+      render(result.scenario);message(result.message||'Choice recorded.');
+    }catch(e){message(e.message||'The event choice was not accepted.',true);await refresh();}
+    finally{setBusy(false)}
+  }
+  async function evaluateRules(){
+    if(busy||!snapshot?.rulePrompt)return;setBusy(true);message('Asking the rules engine…');
+    const optionalNumber=id=>$(id).value===''?null:Number($(id).value),optionalBoolean=id=>$(id).value===''?null:$(id).value==='true';
+    try{
+      const body={scenarioId:snapshot.scenarioId,expectedVersion:snapshot.version,operationId:operationId(),
+        legality:$('rule-legality').value,redsPotted:Number($('rule-reds-potted').value),yellowsPotted:Number($('rule-yellows-potted').value),
+        firstContact:$('rule-first-contact').value||null,calledGroup:$('rule-called-group').value||null,callRequired:optionalBoolean('rule-call-required'),
+        redsBefore:optionalNumber('rule-reds-before'),yellowsBefore:optionalNumber('rule-yellows-before'),break:$('rule-break').value==='true',legalBreak:optionalBoolean('rule-legal-break'),
+        blackPotted:$('rule-black-potted').value==='true',cueBallPotted:$('rule-cue-potted').value==='true',cueBallOffTable:$('rule-cue-off').value==='true'};
+      const r=await fetch('/api/scenario/rules',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+      const result=await r.json();if(!r.ok)throw new Error(result.message||result.error||'The rules engine could not evaluate this shot.');
+      render(result.scenario);message(result.message||'Rules recommendation ready.');
+    }catch(e){message(e.message||'The rules engine could not evaluate this shot.',true);await refresh();}
     finally{setBusy(false)}
   }
   $('reset').addEventListener('click',async()=>{
@@ -255,6 +316,10 @@
     }catch(e){message(e.message||'Scenario could not be reset.',true);await refresh();}
     finally{setBusy(false)}
   });
+  $('review-card').addEventListener('click',event=>{
+    const choice=event.target.closest('[data-review-choice]');if(choice){review(choice.dataset.reviewChoice);return}
+    if(event.target.closest('[data-review-evaluate]'))evaluateRules();
+  });
   document.addEventListener('click',event=>{
     const button=event.target.closest('[data-command]');if(!button)return;
     const action=button.dataset.command;let fields={};
@@ -264,6 +329,7 @@
     else if(action==='set-foul')fields={foul:$('foul-state').value==='true'};
     else if(action==='table-state')fields={settled:$('settled').value==='true',uncertain:$('uncertain').value==='true'};
     else if(action==='ball-upsert')fields={ballId:$('ball-id').value,colour:$('ball-colour').value,x:Number($('ball-x').value),y:Number($('ball-y').value),confidence:$('ball-confidence').value===''?null:Number($('ball-confidence').value)};
+    else if(action==='ball-move')fields={ballId:$('ball-id').value,x:Number($('ball-x').value),y:Number($('ball-y').value),confidence:$('ball-confidence').value===''?null:Number($('ball-confidence').value)};
     else if(action==='shot-start')fields={shotId:$('shot-id').value};
     else if(action==='pocket-approach')fields={ballId:$('approach-ball').value,pocket:$('pocket').value,confidence:.95};
     send(action,fields);
