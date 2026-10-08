@@ -28,6 +28,7 @@ if ($taskForward) {
 $taskFeedStarted = $false
 $taskRows = [System.Collections.Generic.List[object]]::new()
 $taskStartedAt = $null
+$taskCaptureError = $null
 try {
     $taskPing = Invoke-RestMethod -Method Get -Uri "$taskAddress/ping" -TimeoutSec 5
     if (-not $taskPing.diagnostic -or $taskPing.package -ne 'uk.co.skyeye.companion.lab') {
@@ -54,9 +55,6 @@ try {
         $taskMetrics = Invoke-RestMethod -Method Get -Uri "$taskAddress/metrics" -TimeoutSec 5
         $taskMotion = $taskMetrics.motion
         if ($null -eq $taskMotion) { throw 'The Lab returned no motion-feed metrics.' }
-        if (-not [string]::IsNullOrWhiteSpace([string]$taskMotion.stopReason)) {
-            throw "The motion feed stopped during capture: $($taskMotion.stopReason)"
-        }
         $taskLatest = $taskMotion.latest
         $taskRows.Add([pscustomobject]@{
             CapturedAtUtc = [DateTimeOffset]::UtcNow.ToString('O')
@@ -94,12 +92,16 @@ try {
             LastAcquisitionMs = $taskMotion.lastAcquisitionMs
             LastWorkerMs = $taskMotion.lastWorkerMs
             LastResultAgeMs = $taskMotion.lastResultAgeMs
-            SourceTimeUs = $taskLatest.sourceTimeUs
-            ConversionMs = $taskLatest.conversionMs
-            FlowMs = $taskLatest.flowMs
-            RegionCount = @($taskLatest.regions).Count
+            SourceTimeUs = if ($taskLatest) { $taskLatest.sourceTimeUs } else { $null }
+            ConversionMs = if ($taskLatest) { $taskLatest.conversionMs } else { $null }
+            FlowMs = if ($taskLatest) { $taskLatest.flowMs } else { $null }
+            RegionCount = if ($taskLatest) { @($taskLatest.regions).Count } else { 0 }
             StopReason = $taskMotion.stopReason
         })
+        if (-not [string]::IsNullOrWhiteSpace([string]$taskMotion.stopReason)) {
+            $taskCaptureError = "The motion feed stopped during capture: $($taskMotion.stopReason)"
+            break
+        }
         Start-Sleep -Seconds $SampleIntervalSeconds
     }
 }
@@ -114,7 +116,7 @@ finally {
 
 if ($taskRows.Count -eq 0) { throw 'No motion-feed samples were collected.' }
 $taskReport = [pscustomobject]@{
-    SchemaVersion = 1
+    SchemaVersion = 2
     DeviceSerial = $CompanionSerial
     Package = $taskPing.package
     StartedAtUtc = $taskStartedAt.ToString('O')
@@ -122,6 +124,8 @@ $taskReport = [pscustomobject]@{
     RequestedHz = $Hz
     DurationSeconds = $DurationSeconds
     SampleIntervalSeconds = $SampleIntervalSeconds
+    Completed = $null -eq $taskCaptureError
+    CaptureError = $taskCaptureError
     ImagesSaved = $false
     Samples = $taskRows
     Scope = 'Opt-in source PTS, frame dimensions, acquisition and worker telemetry. No detector tracking or ball identity claim.'
@@ -132,3 +136,4 @@ if ($taskOutputDirectory -and -not (Test-Path -LiteralPath $taskOutputDirectory 
 }
 [IO.File]::WriteAllText($taskOutputPath, ($taskReport | ConvertTo-Json -Depth 10) + "`n")
 Write-Output "Saved $($taskRows.Count) O02 motion metric samples to $taskOutputPath"
+if ($taskCaptureError) { Write-Warning $taskCaptureError }
