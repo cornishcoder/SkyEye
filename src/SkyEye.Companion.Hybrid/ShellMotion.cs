@@ -65,22 +65,32 @@ public sealed partial class ShellSession
                 seedSource = "fresh-detector-matched-to-confirmed-layout";
             }
             var frames = new PlayerTableFrameSource(() => player, () => app.State.Camera,
-                () => active && sessionMode == TableSessionMode.Live && selection.Kind == ViewingSource.Live);
+                () => active && sessionMode == TableSessionMode.Live && selection.Kind == ViewingSource.Live,
+                decodedReadbackScale: 2);
             using (var pixels = await frames.ReadAsync(seed.Source, foreground!.Token))
             {
                 var receipt = pixels.DecodedReceipt ?? throw new InvalidOperationException("A paired live frame is required.");
                 if (diagnosticSeed is { } sample && (sample.MediaGeneration != receipt.MediaGeneration || sample.Source?.Timeline != pixels.Timeline
                     || (DateTimeOffset.UtcNow - sample.CapturedAt).TotalMilliseconds is < -200 or > ObservationPolicy.ReviewFreshnessSeconds * 1000))
                     throw new InvalidOperationException("The matched detector sample no longer belongs to the current live video frame.");
+                var image = pixels.Image as BitmapTableImage ?? throw new InvalidOperationException("A decoded motion image is required.");
+                int imageWidth = pixels.ImageWidth, imageHeight = pixels.ImageHeight;
+                if (imageWidth != image.Bitmap.Width || imageHeight != image.Bitmap.Height)
+                    throw new InvalidDataException("Motion readback dimensions do not match the decoded image.");
+                double sourcePixelsPerImagePixelX = receipt.Width / (double)imageWidth;
+                double sourcePixelsPerImagePixelY = receipt.Height / (double)imageHeight;
                 var rois = roiBalls.Select((ball, index) =>
                 {
                     var point = seed.Calibration.Unmap(ball.Position);
-                    int size = Math.Min(128, Math.Min(receipt.Width, receipt.Height));
-                    return new PixelRoi("region-" + index, Math.Clamp((int)Math.Round(point.X * receipt.Width) - size / 2, 0, receipt.Width - size),
-                        Math.Clamp((int)Math.Round(point.Y * receipt.Height) - size / 2, 0, receipt.Height - size), size, size);
+                    int sourceSize = Math.Min(128, Math.Min(receipt.Width, receipt.Height));
+                    int width = Math.Clamp((int)Math.Round(sourceSize / sourcePixelsPerImagePixelX), 32, 256);
+                    int height = Math.Clamp((int)Math.Round(sourceSize / sourcePixelsPerImagePixelY), 32, 256);
+                    return new PixelRoi("region-" + index,
+                        Math.Clamp((int)Math.Round(point.X * imageWidth) - width / 2, 0, imageWidth - width),
+                        Math.Clamp((int)Math.Round(point.Y * imageHeight) - height / 2, 0, imageHeight - height), width, height);
                 }).ToArray();
                 var scope = new MotionFeedScope(seed.Source, receipt.MediaGeneration, seed.CalibrationId, pixels.Timeline);
-                var processor = new RoiMotionProcessor(rois);
+                var processor = new RoiMotionProcessor(rois, sourcePixelsPerImagePixelX, sourcePixelsPerImagePixelY);
                 bool Current()
                 {
                     var snapshot = table.State;

@@ -7,8 +7,10 @@ using Bridge = UK.CO.Skyeye.Companion.Nativebridge;
 namespace SkyEye.Companion;
 
 public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Func<CameraConnection> connection, Func<bool> live,
-    Func<CancellationToken, Task>? refreshClock = null) : ITableMotionFrameSource, ITableMotionFrameProbe, ITableVerificationFrameSource
+    Func<CancellationToken, Task>? refreshClock = null, int decodedReadbackScale = 1) : ITableMotionFrameSource, ITableMotionFrameProbe, ITableVerificationFrameSource
 {
+    readonly int readbackScale = decodedReadbackScale is 1 or 2 ? decodedReadbackScale
+        : throw new ArgumentOutOfRangeException(nameof(decodedReadbackScale));
     const int DecodedCopyRetryDelayMs = 17;
     public Task RefreshVerificationClockAsync(CancellationToken cancellation) => refreshClock?.Invoke(cancellation) ?? Task.CompletedTask;
     public Task<bool> IsVerificationSourceCurrentAsync(CameraScope source, long mediaGeneration, string timeline, CancellationToken cancellation)
@@ -79,7 +81,7 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
                 if (admittedOwner is not null && admittedOwner != owner) throw new FrameAcquisitionException(ObservationReason.SourceChanged, "player-changed");
                 admittedOwner = owner;
                 using var timing = PipelineDiagnostics.Measure("textureCopyMs");
-                using var snapshot = owner.SnapshotDecodedFrame();
+                using var snapshot = owner.SnapshotDecodedFrame(readbackScale);
                 if (snapshot is null)
                 {
                     // A render/copy race may be refused even while live video is
@@ -98,6 +100,8 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
                         throw new FrameAcquisitionException(ObservationReason.SourceChanged, "unpaired-pixels");
                     pixels = new(snapshot.TakeBitmap() ?? throw new IOException("Decoded receipt pixels are unavailable."));
                     var age = stamp.GetProperty("ageEstimateMs").GetDouble();
+                    var imageWidth = stamp.TryGetProperty("imageWidth", out var iw) ? iw.GetInt32() : stamp.GetProperty("width").GetInt32();
+                    var imageHeight = stamp.TryGetProperty("imageHeight", out var ih) ? ih.GetInt32() : stamp.GetProperty("height").GetInt32();
                     var uncertainty = stamp.TryGetProperty("clockUncertaintyMs", out var u) ? u.GetDouble() : -1;
                     var clockAge = stamp.TryGetProperty("clockSampleAgeMs", out var ca) ? ca.GetDouble() : -1;
                     if (!double.IsFinite(age) || age is < -200 or > 6000) throw new FrameAcquisitionException(ObservationReason.FrameTooOld, "source-age-out-of-range");
@@ -108,6 +112,8 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
                     {
                         Image = pixels, SourceTimeUs = stamp.GetProperty("sourceUs").GetInt64(), FrameSource = "decoded-live-texture",
                         AcquisitionAttempts = acquisitionAttempts,
+                        ImageWidth = imageWidth,
+                        ImageHeight = imageHeight,
                         ClockSampleAgeMs = clockAge >= 0 ? clockAge : null,
                         ClockUncertaintyMs = uncertainty >= 0 ? uncertainty : null,
                         DecodedReceipt = new(stamp.GetProperty("mediaGeneration").GetInt64(), stamp.GetProperty("frameId").GetInt64(),

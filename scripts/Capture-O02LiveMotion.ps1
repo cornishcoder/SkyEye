@@ -159,6 +159,8 @@ try {
             SourceTimeUs = if ($taskLatest) { $taskLatest.sourceTimeUs } else { $null }
             ConversionMs = if ($taskLatest) { $taskLatest.conversionMs } else { $null }
             FlowMs = if ($taskLatest) { $taskLatest.flowMs } else { $null }
+            AnalysisImageWidth = if ($taskLatest) { $taskLatest.analysisImageWidth } else { $null }
+            AnalysisImageHeight = if ($taskLatest) { $taskLatest.analysisImageHeight } else { $null }
             RegionCount = if ($taskLatest) { @($taskLatest.regions).Count } else { 0 }
             StopReason = $taskMotion.stopReason
         })
@@ -191,7 +193,7 @@ finally {
 
 if ($taskRows.Count -eq 0) { throw 'No motion-feed samples were collected.' }
 $taskReport = [pscustomobject]@{
-    SchemaVersion = 4
+    SchemaVersion = 5
     DeviceSerial = $CompanionSerial
     Package = $taskPing.package
     StartedAtUtc = $taskStartedAt.ToString('O')

@@ -13,11 +13,17 @@ public sealed record PixelRoi(string Id, int X, int Y, int Width, int Height);
 public sealed class RoiMotionProcessor : ITableMotionProcessor, IDisposable
 {
     readonly PixelRoi[] regions;
+    readonly double sourcePixelsPerAnalysisPixelX, sourcePixelsPerAnalysisPixelY;
     Mat[] previous = [];
     bool disposed;
-    public RoiMotionProcessor(IEnumerable<PixelRoi> regions)
+    public RoiMotionProcessor(IEnumerable<PixelRoi> regions, double sourcePixelsPerAnalysisPixelX = 1, double sourcePixelsPerAnalysisPixelY = 1)
     {
         this.regions = regions.ToArray();
+        if (!double.IsFinite(sourcePixelsPerAnalysisPixelX) || sourcePixelsPerAnalysisPixelX is < 0.25 or > 4
+            || !double.IsFinite(sourcePixelsPerAnalysisPixelY) || sourcePixelsPerAnalysisPixelY is < 0.25 or > 4)
+            throw new ArgumentException("Invalid ROI motion coordinate scale.");
+        this.sourcePixelsPerAnalysisPixelX = sourcePixelsPerAnalysisPixelX;
+        this.sourcePixelsPerAnalysisPixelY = sourcePixelsPerAnalysisPixelY;
         if (this.regions.Length is < 1 or > 16 || this.regions.Select(r => r.Id).Distinct().Count() != this.regions.Length
             || this.regions.Any(r => string.IsNullOrWhiteSpace(r.Id) || r.Id.Length > 80 || r.X < 0 || r.Y < 0
                 || r.Width is < 32 or > 256 || r.Height is < 32 or > 256)) throw new ArgumentException("Invalid bounded ROI plan.");
@@ -50,11 +56,13 @@ public sealed class RoiMotionProcessor : ITableMotionProcessor, IDisposable
                 finally { if (!ReferenceEquals(crop, image.Bitmap)) { crop.Recycle(); crop.Dispose(); } }
                 current.Add(gray); clock.Stop(); conversionMs += clock.Elapsed.TotalMilliseconds;
                 clock.Restart();
-                results.Add(previous.Length == 0 ? Seed(roi.Id, gray) : Measure(roi.Id, previous[current.Count - 1], gray, context.DeltaSeconds!.Value));
+                results.Add(previous.Length == 0 ? Seed(roi.Id, gray) : Measure(roi.Id, previous[current.Count - 1], gray,
+                    context.DeltaSeconds!.Value, sourcePixelsPerAnalysisPixelX, sourcePixelsPerAnalysisPixelY));
                 clock.Stop(); flowMs += clock.Elapsed.TotalMilliseconds;
             }
             cancellation.ThrowIfCancellationRequested(); ClearPrevious(); previous = current.ToArray(); current.Clear();
-            return Task.FromResult(new MotionMeasurement(context.SourceTimeUs, results.ToArray(), conversionMs, flowMs));
+            return Task.FromResult(new MotionMeasurement(context.SourceTimeUs, results.ToArray(), conversionMs, flowMs)
+            { AnalysisImageWidth = image.Bitmap.Width, AnalysisImageHeight = image.Bitmap.Height });
         }
         finally { foreach (var mat in current) Release(mat); }
     }
@@ -63,7 +71,7 @@ public sealed class RoiMotionProcessor : ITableMotionProcessor, IDisposable
         using var points = new NativeMat(new MatOfPoint()); Imgproc.GoodFeaturesToTrack(gray, (MatOfPoint)points.Value, 32, .05, 4);
         return new(id, (int)points.Value.Total(), 0, null, null, null, null, "seed");
     }
-    static RoiMotion Measure(string id, Mat before, Mat after, double delta)
+    static RoiMotion Measure(string id, Mat before, Mat after, double delta, double sourceScaleX, double sourceScaleY)
     {
         using var corners = new NativeMat(new MatOfPoint()); Imgproc.GoodFeaturesToTrack(before, (MatOfPoint)corners.Value, 32, .05, 4);
         int count = (int)corners.Value.Total();
@@ -98,7 +106,8 @@ public sealed class RoiMotionProcessor : ITableMotionProcessor, IDisposable
         var spread = dx.Select((value, i) => Math.Sqrt(Math.Pow(value - x, 2) + Math.Pow(dy[i] - y, 2))).Order().ToArray();
         if (!double.IsFinite(x) || !double.IsFinite(y) || spread[(int)Math.Ceiling(.95 * spread.Length) - 1] > 1.5)
             return new(id, count, dx.Count, null, null, null, null, "inconsistent-flow");
-        return new(id, count, dx.Count, x, y, x / delta, y / delta, "supported");
+        return new(id, count, dx.Count, x * sourceScaleX, y * sourceScaleY,
+            x * sourceScaleX / delta, y * sourceScaleY / delta, "supported");
     }
     static double Median(List<double> values) { var sorted = values.Order().ToArray(); return (sorted[(sorted.Length - 1) / 2] + sorted[sorted.Length / 2]) / 2; }
     void ClearPrevious() { foreach (var mat in previous) Release(mat); previous = []; }

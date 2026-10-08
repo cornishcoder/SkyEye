@@ -70,7 +70,9 @@ public final class PlayerBridge {
     public void setSceneTransform(String json){try{scene=json==null||json.isEmpty()?null:new org.json.JSONObject(json);}catch(Exception ignored){scene=null;}transform();}
     public void setTvSceneTransform(String json){try{tvScene=json==null||json.isEmpty()?null:new org.json.JSONObject(json);}catch(Exception ignored){tvScene=null;}}
     public byte[] snapshotForFraming(){if(!player.isPlaying()||!texture.isAvailable())return null;Bitmap bitmap=texture.getBitmap(960,540);if(bitmap==null)return null;try{java.io.ByteArrayOutputStream bytes=new java.io.ByteArrayOutputStream();bitmap.compress(Bitmap.CompressFormat.JPEG,90,bytes);return bytes.toByteArray();}finally{bitmap.recycle();}}
-    public DecodedFrameSnapshot snapshotDecodedFrame(){
+    public DecodedFrameSnapshot snapshotDecodedFrame(){return snapshotDecodedFrame(1);}
+    public DecodedFrameSnapshot snapshotDecodedFrame(int readbackScale){
+        if(readbackScale<1||readbackScale>4)throw new IllegalArgumentException("Decoded readback scale is outside the supported bounds");
         lastCopyFailure="";
         if(android.os.Looper.myLooper()!=android.os.Looper.getMainLooper())throw new IllegalStateException("Decoded copy requires the player looper");
         if(released||!player.isPlaying()||!texture.isAvailable())return copyFailure("no-playing-texture");
@@ -87,9 +89,10 @@ public final class PlayerBridge {
         // Allocate explicitly so a failed/throwing TextureView copy cannot leak
         // an internally allocated bitmap. An untouched transparent buffer is
         // not a successful opaque AVC decoder copy.
-        Bitmap bitmap=Bitmap.createBitmap(paired.width,paired.height,Bitmap.Config.ARGB_8888);
+        int copyWidth=Math.max(1,paired.width/readbackScale),copyHeight=Math.max(1,paired.height/readbackScale);
+        Bitmap bitmap=Bitmap.createBitmap(copyWidth,copyHeight,Bitmap.Config.ARGB_8888);
         try{
-            if(texture.getBitmap(bitmap)==null||android.graphics.Color.alpha(bitmap.getPixel(paired.width/2,paired.height/2))==0)
+            if(texture.getBitmap(bitmap)==null||android.graphics.Color.alpha(bitmap.getPixel(copyWidth/2,copyHeight/2))==0)
                 return copyFailure("empty-copy");
             copyAfter=surface.getTimestamp();
             if(media!=generation||surface!=texture.getSurfaceTexture()||stamp!=copyAfter
@@ -102,7 +105,8 @@ public final class PlayerBridge {
                 clock.put("clockSampleAgeMs",clock.getLong("clockSampleAgeMs")+copyElapsed);
             }
             String metadata=clock.put("mediaGeneration",media).put("frameId",paired.frameId).put("presentationUs",paired.presentationUs)
-                .put("surfaceTimestampNs",stamp).put("releaseTimestampNs",paired.releaseNs).put("width",bitmap.getWidth()).put("height",bitmap.getHeight())
+                .put("surfaceTimestampNs",stamp).put("releaseTimestampNs",paired.releaseNs).put("width",paired.width).put("height",paired.height)
+                .put("imageWidth",bitmap.getWidth()).put("imageHeight",bitmap.getHeight())
                 .put("pairing","exact-surface-timestamp").toString();
             DecodedFrameSnapshot result=new DecodedFrameSnapshot(bitmap,metadata);bitmap=null;return result;
         }catch(org.json.JSONException invalid){return copyFailure("invalid-source-metadata");}finally{if(bitmap!=null)bitmap.recycle();}

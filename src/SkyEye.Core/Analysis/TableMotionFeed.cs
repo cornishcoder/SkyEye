@@ -23,7 +23,11 @@ public sealed record MotionGapDiagnostic(long FrameId, long SourceTimeUs, long? 
     int AcquisitionAttempts, double AcquisitionMs, double WorkerMs, double ResultAgeMs);
 public sealed record RoiMotion(string Id, int Features, int Supported, double? DxPixels, double? DyPixels,
     double? VelocityXPixelsPerSecond, double? VelocityYPixelsPerSecond, string Status);
-public sealed record MotionMeasurement(long SourceTimeUs, IReadOnlyList<RoiMotion> Regions, double ConversionMs, double FlowMs);
+public sealed record MotionMeasurement(long SourceTimeUs, IReadOnlyList<RoiMotion> Regions, double ConversionMs, double FlowMs)
+{
+    public int AnalysisImageWidth { get; init; }
+    public int AnalysisImageHeight { get; init; }
+}
 public interface ITableMotionProcessor
 {
     Task<MotionMeasurement> MeasureAsync(TableFrame frame, MotionFrameContext context, CancellationToken cancellation);
