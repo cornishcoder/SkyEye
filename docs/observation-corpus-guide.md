@@ -1,6 +1,6 @@
 # O01 observation corpus and offline workbench
 
-6 October 2026; updated 8 October 2026. The workbench validates and replays indexed frame receipts, freezes corpus versions, scores stored detector outputs and provides an offline O04 association/movement-threshold evaluator. It does not decode MP4s, run native CV or submit GameState events. The checked-in seed has one previously tuned real still and one synthetic contract sequence; it has zero real timed shots and zero held-out shots, so O04 cannot yet produce real tracking-accuracy evidence.
+6 October 2026; updated 8 October 2026. The workbench validates and replays indexed frame receipts, freezes corpus versions, scores stored detector outputs, provides an offline O04 association/movement-threshold evaluator, and can create a standalone sequential O04 diagnostic viewer. It does not decode MP4s, run native CV or submit GameState events. The checked-in seed has one previously tuned real still and one synthetic contract sequence; it has zero real timed shots and zero held-out shots, so O04 cannot yet produce real tracking-accuracy evidence.
 
 ## Run the checked-in seed
 
@@ -65,6 +65,10 @@ Collect at least 60 real mounted-setup sequences with at least 20 held out by se
 ```powershell
 dotnet run --project src/SkyEye.Observation.Workbench -- association --root PATH-TO-CORPUS --manifest PATH-TO-MANIFEST --lock FROZEN-LOCK --split Development --detections CANDIDATE.json --candidate-name CURRENT --max-balls COUNT --tolerance NUMBER --max-speed NUMBER --association-slack NUMBER --move-start NUMBER --move-stop NUMBER --truth-move-start NUMBER --truth-move-stop NUMBER --max-gap-ms INTEGER --ambiguity-margin NUMBER --colour-penalty NUMBER --output NEW-REPORT.json
 ```
+
+To create an optional frame-by-frame viewer for one selected sequence, add `--viewer-sequence SEQUENCE-ID --html-output NEW-VIEWER.html` to the same command. The viewer embeds the sequence's verified JPEG frames and can be opened directly in a browser without a server. Frame stepping and playback show source PTS, lighting/scene tags, reviewed ball labels, current detector candidates, track IDs, last-seen positions, predictions, residuals, motion state and unresolved alternatives. The raw camera frame sits beside a calibrated 2:1 table diagram; no image-space overlay is drawn because the corpus does not store a pixel-to-table transform. The diagram distinguishes reviewed labels, current detections and predicted unseen tracks. Track-to-label links are explicitly evaluation-only.
+
+Viewer creation is limited to 600 JPEG frames and 64 MiB combined image bytes for a single real, reviewed `Shot` sequence in the selected frozen split. Frame bytes are rechecked against their indexed SHA-256 values. The viewer is read-only and diagnostic; it does not alter labels, runtime tracking or `GameState`. Choose new paths for both outputs because the workbench refuses to overwrite evidence.
 
 Set `--max-balls` to the selected ruleset's maximum. It is an upper bound, not the expected visible count. When unmatched candidates compete for fewer remaining slots, O04 reports them as constrained/ambiguous and does not choose arbitrarily. `--max-speed` and `--association-slack` tune source-time position gates. `--move-start` and `--move-stop` tune the predicted hysteresis thresholds in table-widths per second. Keep `--truth-move-start` and `--truth-move-stop` fixed across tuning runs; they classify movement from reviewed ground-truth positions and must be committed before comparing predicted thresholds. Use the same frame-centre tolerance and fixed truth thresholds for each candidate run.
 

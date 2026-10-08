@@ -9,14 +9,16 @@ try
     if (args.Length == 4 && args[0] == "import-diagnostic-labels")
     { Console.WriteLine(DiagnosticLabelCaptureImport.Import(args[1], args[2], args[3])); return; }
     if (args.Length == 0 || args[0] is not ("validate" or "replay" or "freeze" or "baseline" or "verification" or "compare" or "export-yolo" or "association"))
-        throw new ArgumentException("Usage: validate|replay|freeze|baseline|verification|compare|export-yolo|association --root DIR --manifest FILE [--output FILE] [--output-dir DIR] [--lock FILE] [--detections FILE] [--requests FILE] [--current FILE --learned FILE --hybrid FILE --split Development|Holdout] [--tolerance NUMBER] [association: --candidate-name NAME --max-balls INTEGER --max-speed NUMBER --association-slack NUMBER --move-start NUMBER --move-stop NUMBER --truth-move-start NUMBER --truth-move-stop NUMBER --max-gap-ms INTEGER --ambiguity-margin NUMBER --colour-penalty NUMBER] | import-diagnostic-labels CAPTURE_ROOT OUTPUT_ROOT ASSIGNMENTS.json");
+        throw new ArgumentException("Usage: validate|replay|freeze|baseline|verification|compare|export-yolo|association --root DIR --manifest FILE [--output FILE] [--output-dir DIR] [--lock FILE] [--detections FILE] [--requests FILE] [--current FILE --learned FILE --hybrid FILE --split Development|Holdout] [--tolerance NUMBER] [association: --candidate-name NAME --max-balls INTEGER --max-speed NUMBER --association-slack NUMBER --move-start NUMBER --move-stop NUMBER --truth-move-start NUMBER --truth-move-stop NUMBER --max-gap-ms INTEGER --ambiguity-margin NUMBER --colour-penalty NUMBER [--viewer-sequence ID --html-output FILE]] | import-diagnostic-labels CAPTURE_ROOT OUTPUT_ROOT ASSIGNMENTS.json");
     var options = new Dictionary<string, string>();
     for (int i = 1; i < args.Length; i += 2)
         if (i + 1 == args.Length || args[i] is not ("--root" or "--manifest" or "--output" or "--lock" or "--detections" or "--requests" or "--tolerance"
             or "--current" or "--learned" or "--hybrid" or "--split" or "--output-dir" or "--candidate-name" or "--max-speed"
             or "--association-slack" or "--move-start" or "--move-stop" or "--truth-move-start" or "--truth-move-stop" or "--max-balls"
-            or "--max-gap-ms" or "--ambiguity-margin" or "--colour-penalty")
+            or "--max-gap-ms" or "--ambiguity-margin" or "--colour-penalty" or "--viewer-sequence" or "--html-output")
             || !options.TryAdd(args[i], args[i + 1])) throw new ArgumentException("Unknown, duplicate or incomplete option.");
+    if (args[0] != "association" && (options.ContainsKey("--viewer-sequence") || options.ContainsKey("--html-output")))
+        throw new ArgumentException("--viewer-sequence and --html-output are available only for O04 association.");
     string Required(string name) => options.GetValueOrDefault(name) ?? throw new ArgumentException("Missing " + name);
     var manifestPath = Path.GetFullPath(Required("--manifest"));
     var files = new CorpusFiles(Required("--root"));
@@ -26,6 +28,8 @@ try
     if ((args[0] is "compare" or "export-yolo" or "association") && !options.ContainsKey("--lock"))
         throw new ArgumentException("O09/O04 comparison requires --lock to freeze the session split and labels.");
     if (options.TryGetValue("--lock", out var lockPath)) SplitLock.Verify(CorpusJson.Read<FrozenCorpus>(lockPath), frozen);
+    string? htmlOutputPath = null;
+    string? htmlOutput = null;
     object result = args[0] switch
     {
         "validate" => audit,
@@ -98,8 +102,19 @@ try
         string candidateName = options.GetValueOrDefault("--candidate-name")
             ?? candidate.Where(d => d is not null).Select(d => d.Model).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).FirstOrDefault()
             ?? "candidate";
-        return O04AssociationReplay.Replay(manifest, frozen, files, split, candidate,
-            Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(), candidateName, tuning);
+        bool hasViewerSequence = options.TryGetValue("--viewer-sequence", out var viewerSequence);
+        bool hasHtmlOutput = options.TryGetValue("--html-output", out var htmlPath);
+        if (hasViewerSequence != hasHtmlOutput)
+            throw new ArgumentException("O04 HTML output requires both --viewer-sequence and --html-output.");
+        var report = O04AssociationReplay.Replay(manifest, frozen, files, split, candidate,
+            Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(), candidateName, tuning,
+            hasViewerSequence ? viewerSequence : null);
+        if (hasHtmlOutput)
+        {
+            htmlOutputPath = Path.GetFullPath(htmlPath!);
+            htmlOutput = O04AssociationHtml.Render(report, files);
+        }
+        return report;
     }
     object Baseline()
     {
@@ -120,15 +135,28 @@ try
             provenance = "Scoring stored results, not re-running native CV or measuring held-out accuracy", frames = scored.ToArray() };
     }
     var json = CorpusJson.Write(result);
-    if (options.TryGetValue("--output", out var output))
+    var reportOutputPath = options.TryGetValue("--output", out var output)
+        ? Path.GetFullPath(output) : null;
+    if (reportOutputPath is not null && htmlOutputPath is not null
+        && string.Equals(reportOutputPath, htmlOutputPath, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+        throw new ArgumentException("The JSON report and HTML viewer must use different output files.");
+    if (reportOutputPath is not null && File.Exists(reportOutputPath))
+        throw new IOException("Report/lock output exists; choose a new path to preserve earlier evidence.");
+    if (htmlOutputPath is not null && File.Exists(htmlOutputPath))
+        throw new IOException("HTML viewer output exists; choose a new path to preserve earlier evidence.");
+    if (reportOutputPath is not null)
     {
-        var path = Path.GetFullPath(output);
-        if (File.Exists(path)) throw new IOException("Report/lock output exists; choose a new path to preserve earlier evidence.");
-        Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        File.WriteAllText(path, json + "\n");
-        Console.WriteLine("Wrote " + path);
+        Directory.CreateDirectory(Path.GetDirectoryName(reportOutputPath)!);
+        File.WriteAllText(reportOutputPath, json + "\n");
+        Console.WriteLine("Wrote " + reportOutputPath);
     }
     else Console.WriteLine(json);
+    if (htmlOutputPath is not null)
+    {
+        Directory.CreateDirectory(Path.GetDirectoryName(htmlOutputPath)!);
+        File.WriteAllText(htmlOutputPath, htmlOutput!, new System.Text.UTF8Encoding(false));
+        Console.WriteLine("Wrote " + htmlOutputPath);
+    }
 }
 catch (Exception e) when (e is ArgumentException or IOException or InvalidDataException or System.Text.Json.JsonException or FormatException or InvalidOperationException or OverflowException)
 {

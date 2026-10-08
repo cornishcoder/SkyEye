@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Text.Json.Serialization;
 
 namespace SkyEye.Observation;
 
@@ -25,12 +26,30 @@ public sealed record O04AssociationFailure(string SequenceId, string Session, st
     int AmbiguousTracks, int AmbiguousDetections, int UntrackedDetections, int IdentitySwitches,
     int InventoryConstrainedCandidates, int MovingFalsePositive, int MovingFalseNegative, int UnobservedMoving,
     int MotionAbstentions, int FalsePositives, int MissedVisible);
+
+public sealed record O04AssociationTraceLabel(string Id, string Colour, double X, double Y, string Visibility);
+public sealed record O04AssociationTraceDetection(string Id, string Colour, double X, double Y, double? Confidence,
+    string Status, long? TrackId, double? Residual, double? LastSeenX, double? LastSeenY,
+    long? LastSeenSourceTimeUs, double? PredictedX, double? PredictedY, string Motion,
+    ImmutableArray<long> AlternativeTrackIds, string? EvaluationTruthId);
+public sealed record O04AssociationTraceTrack(long TrackId, double LastSeenX, double LastSeenY,
+    long LastSeenSourceTimeUs, long AgeUs, double PredictedX, double PredictedY,
+    string Motion, string Status, string? DetectionId);
+public sealed record O04AssociationTraceFrame(string SequenceId, string Session, string SampleId,
+    long FrameId, long SourceTimeUs, ImmutableArray<string> Tags, string CoordinateSpace,
+    string PixelFile, string PixelSha256, PixelEncoding Encoding, int Width, int Height,
+    ImmutableArray<O04AssociationTraceLabel> Labels, ImmutableArray<O04AssociationTraceDetection> Detections,
+    ImmutableArray<O04AssociationTraceTrack> Tracks);
 public sealed record O04AssociationReport(int SchemaVersion, string CorpusId, string Split, string ManifestSha256,
     string CandidateName, string DetectionSha256, ImmutableArray<string> Models, ImmutableArray<string> Provenances,
     O04AssociationOptions Configuration, O04AssociationMetrics Overall,
     ImmutableArray<O04AssociationSlice> BySession, ImmutableArray<O04AssociationSlice> ByLightingOrSceneTag,
     int FailureFrameCount, bool FailureFramesTruncated, ImmutableArray<O04AssociationFailure> FailureFrames,
-    string PublicationLimit);
+    string PublicationLimit)
+{
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public ImmutableArray<O04AssociationTraceFrame>? TraceFrames { get; init; }
+}
 
 /// <summary>Offline, source-time ball association and movement-threshold evaluation for O04.
 /// This is a tuning/reporting tool; it does not publish tracks to the runtime or GameState.</summary>
@@ -68,7 +87,7 @@ public static class O04AssociationReplay
 
     public static O04AssociationReport Replay(CorpusManifest manifest, FrozenCorpus frozen, CorpusFiles files,
         CorpusSplit split, IReadOnlyList<StoredDetection> detections, string detectionSha256,
-        string candidateName, O04AssociationOptions options)
+        string candidateName, O04AssociationOptions options, string? traceSequenceId = null)
     {
         ValidateOptions(options);
         if (split is not (CorpusSplit.Development or CorpusSplit.Holdout))
@@ -80,6 +99,18 @@ public static class O04AssociationReplay
         var sequences = manifest.Sequences.Where(s => s.Kind == CorpusKind.Real && s.Purpose == SequencePurpose.Shot && s.Split == split)
             .OrderBy(s => s.Id, StringComparer.Ordinal).ToArray();
         if (sequences.Length == 0) throw new InvalidDataException("The selected split has no real, labelled shot sequences for O04.");
+        var traceSequence = traceSequenceId is null ? null : sequences.SingleOrDefault(s => s.Id == traceSequenceId)
+            ?? throw new InvalidDataException("The selected viewer sequence is not a real, labelled shot in the selected frozen split.");
+        if (traceSequence is not null)
+        {
+            var traceLabels = CorpusJson.Read<SequenceLabels>(files.Resolve(traceSequence.LabelsFile));
+            if (traceLabels.Frames.Length > O04AssociationHtml.MaximumFrames)
+                throw new InvalidDataException($"The O04 viewer is limited to {O04AssociationHtml.MaximumFrames} frames per sequence.");
+            var traceSampleIds = traceLabels.Frames.Select(l => l.SampleId).ToHashSet(StringComparer.Ordinal);
+            var traceIndex = files.Index(traceSequence.IndexFile).Where(f => traceSampleIds.Contains(f.SampleId)).ToArray();
+            if (traceIndex.Length != traceLabels.Frames.Length || traceIndex.Any(f => f.Encoding != PixelEncoding.Jpeg))
+                throw new InvalidDataException("The O04 HTML viewer requires one JPEG source frame for each reviewed sample.");
+        }
 
         var expected = new Dictionary<string, (CorpusSequence Sequence, FrameLabels Labels)>(StringComparer.Ordinal);
         foreach (var sequence in sequences)
@@ -111,6 +142,7 @@ public static class O04AssociationReplay
 
         var results = new List<FrameResult>();
         var failureFrames = ImmutableArray.CreateBuilder<O04AssociationFailure>();
+        var traceFrames = traceSequence is null ? null : ImmutableArray.CreateBuilder<O04AssociationTraceFrame>();
         int totalFailureFrames = 0;
         foreach (var sequence in sequences)
         {
@@ -229,6 +261,45 @@ public static class O04AssociationReplay
                 foreach (int ti in Enumerable.Range(0, tracks.Length).OrderBy(i => edgesByTrack[i].Count).ThenBy(i => tracks[i].Id))
                     TryAssign(ti, edgesByTrack, owner, selected, new bool[detectionValues.Length]);
 
+                var traceStatus = Enumerable.Repeat("untracked", detectionValues.Length).ToArray();
+                var traceTrackId = new long?[detectionValues.Length];
+                var traceResidual = new double?[detectionValues.Length];
+                var traceLastSeenX = new double?[detectionValues.Length];
+                var traceLastSeenY = new double?[detectionValues.Length];
+                var traceLastSeenTime = new long?[detectionValues.Length];
+                var tracePredictedX = new double?[detectionValues.Length];
+                var tracePredictedY = new double?[detectionValues.Length];
+                var traceMotion = Enumerable.Repeat(O04MotionState.Unknown.ToString(), detectionValues.Length).ToArray();
+                var traceAlternatives = new ImmutableArray<long>[detectionValues.Length];
+                var traceEdgesByDetection = allEdges.GroupBy(e => e.DetectionIndex)
+                    .ToDictionary(g => g.Key, g => g.ToArray());
+                var selectedByDetection = selected.Where(e => e is not null).Select(e => e!)
+                    .ToDictionary(e => e.DetectionIndex);
+                var oldTrackIds = tracks.Select(t => t.Id).ToHashSet();
+                for (int di = 0; di < detectionValues.Length; di++)
+                {
+                    traceAlternatives[di] = traceEdgesByDetection.TryGetValue(di, out var alternatives)
+                        ? alternatives.Select(e => tracks[e.TrackIndex].Id).Distinct().Order().ToImmutableArray()
+                        : ImmutableArray<long>.Empty;
+                    if (owner[di] >= 0)
+                    {
+                        var track = tracks[owner[di]];
+                        var edge = selectedByDetection[di];
+                        double elapsed = (sourceTimeUs - track.LastSeenUs) / 1_000_000d;
+                        var predicted = Predict(track, elapsed, options.MaximumSpeedTableWidthsPerSecond);
+                        traceStatus[di] = "matched";
+                        traceTrackId[di] = track.Id;
+                        traceResidual[di] = edge.Residual;
+                        traceLastSeenX[di] = track.X;
+                        traceLastSeenY[di] = track.Y;
+                        traceLastSeenTime[di] = track.LastSeenUs;
+                        tracePredictedX[di] = predicted.X;
+                        tracePredictedY[di] = predicted.Y;
+                        traceMotion[di] = track.Motion.ToString();
+                    }
+                    else if (ambiguousDetections.Contains(di)) traceStatus[di] = "ambiguous";
+                }
+
                 var currentTrackByTruth = new Dictionary<string, (Track Track, bool ContinuedFromSameTruth)>(StringComparer.Ordinal);
                 int newTracks = 0, continuedTracks = 0, identitySwitches = 0, untracked = 0;
                 bool inventoryConflict = detectionValues.Length > options.MaximumBallInventory;
@@ -240,7 +311,11 @@ public static class O04AssociationReplay
                 {
                     inventoryConflict = true;
                     inventoryConstrained = unmatchedDetections.Length;
-                    foreach (int di in unmatchedDetections) ambiguousDetections.Add(di);
+                    foreach (int di in unmatchedDetections)
+                    {
+                        ambiguousDetections.Add(di);
+                        traceStatus[di] = "inventory-limited";
+                    }
                 }
                 int inventoryConflicts = inventoryConflict ? 1 : 0;
                 for (int di = 0; di < detectionValues.Length; di++)
@@ -257,6 +332,14 @@ public static class O04AssociationReplay
                     {
                         track = new(nextTrackId++, ball, sourceTimeUs); activeTracks.Add(track.Id, track);
                         newTracks++;
+                        traceStatus[di] = "new";
+                        traceTrackId[di] = track.Id;
+                        traceLastSeenX[di] = ball.X;
+                        traceLastSeenY[di] = ball.Y;
+                        traceLastSeenTime[di] = sourceTimeUs;
+                        tracePredictedX[di] = ball.X;
+                        tracePredictedY[di] = ball.Y;
+                        traceMotion[di] = track.Motion.ToString();
                     }
                     else { untracked++; continue; }
 
@@ -310,6 +393,40 @@ public static class O04AssociationReplay
                     classified, abstentions, movingTp, movingFp, movingFn, stationaryTn,
                     unobservedMoving, unobservedStationary);
                 results.Add(result);
+                if (traceFrames is not null && sequence.Id == traceSequenceId)
+                {
+                    var traceTracks = activeTracks.Values.OrderBy(t => t.Id).Select(track =>
+                    {
+                        bool wasActive = oldTrackIds.Contains(track.Id);
+                        bool matched = traceTrackId.Contains(track.Id);
+                        double predictedX = track.X, predictedY = track.Y;
+                        if (wasActive && !matched)
+                        {
+                            double elapsed = (sourceTimeUs - track.LastSeenUs) / 1_000_000d;
+                            var predicted = Predict(track, elapsed, options.MaximumSpeedTableWidthsPerSecond);
+                            predictedX = predicted.X; predictedY = predicted.Y;
+                        }
+                        string state = !wasActive ? "new" : matched ? "matched"
+                            : ambiguousTracks.Contains(Array.IndexOf(tracks, track)) ? "ambiguous" : "predicted";
+                        string? detectionId = matched
+                            ? detectionValues[Array.IndexOf(traceTrackId, track.Id)].Id : null;
+                        return new O04AssociationTraceTrack(track.Id, track.X, track.Y, track.LastSeenUs,
+                            Math.Max(0, sourceTimeUs - track.LastSeenUs), predictedX, predictedY,
+                            track.Motion.ToString(), state, detectionId);
+                    }).ToImmutableArray();
+                    var traceDetections = detectionValues.Select((ball, di) => new O04AssociationTraceDetection(
+                        ball.Id, ball.Colour, ball.X, ball.Y, ball.Confidence, traceStatus[di], traceTrackId[di],
+                        traceResidual[di], traceLastSeenX[di], traceLastSeenY[di], traceLastSeenTime[di],
+                        tracePredictedX[di], tracePredictedY[di], traceMotion[di], traceAlternatives[di],
+                        truthForDetection.GetValueOrDefault(ball.Id))).ToImmutableArray();
+                    var traceLabels = labelsForFrame.Balls.OrderBy(b => b.Id, StringComparer.Ordinal)
+                        .Select(b => new O04AssociationTraceLabel(b.Id, b.Colour, b.X, b.Y, b.Visibility.ToString()))
+                        .ToImmutableArray();
+                    traceFrames.Add(new(sequence.Id, sequence.Session, indexedFrame.SampleId, indexedFrame.FrameId,
+                        sourceTimeUs, tags, labelsForFrame.CoordinateSpace, indexedFrame.PixelFile,
+                        indexedFrame.PixelSha256, indexedFrame.Encoding, indexedFrame.Width, indexedFrame.Height,
+                        traceLabels, traceDetections, traceTracks));
+                }
                 if (IsFailure(result))
                 {
                     totalFailureFrames++;
@@ -331,14 +448,15 @@ public static class O04AssociationReplay
         var tagsSeen = results.SelectMany(r => r.Tags).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
         var byTags = tagsSeen.Select(tag => new O04AssociationSlice("tag", tag,
             Summarize(results.Where(r => r.Tags.Contains(tag, StringComparer.Ordinal))))).ToImmutableArray();
-        return new(1, manifest.Id, split.ToString(), frozen.ManifestSha256, candidateName, detectionSha256,
+        return new O04AssociationReport(1, manifest.Id, split.ToString(), frozen.ManifestSha256, candidateName, detectionSha256,
             detections.Select(d => d.Model).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToImmutableArray(),
             detections.Select(d => d.Provenance).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToImmutableArray(),
             options, overall, bySession, byTags, totalFailureFrames, totalFailureFrames > failureFrames.Count,
             failureFrames.ToImmutable(),
             "Offline tuning only. Track IDs are sequence-local evaluation outputs, not GameState ball identities. "
             + "Movement metrics compare labelled table-2x1 visible-ball displacement and report unobserved movement separately. "
-            + "This does not establish live cadence, safe readiness, pot decisions, or production detector improvement.");
+            + "This does not establish live cadence, safe readiness, pot decisions, or production detector improvement.")
+        { TraceFrames = traceFrames?.ToImmutable() };
     }
 
     static void ValidateOptions(O04AssociationOptions options)
