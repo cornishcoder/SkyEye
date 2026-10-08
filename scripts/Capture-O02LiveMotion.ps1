@@ -27,6 +27,8 @@ if ($taskForward) {
 
 $taskFeedStarted = $false
 $taskRows = [System.Collections.Generic.List[object]]::new()
+$taskSeenGapFrames = [System.Collections.Generic.HashSet[string]]::new([StringComparer]::Ordinal)
+$taskPreviousSample = $null
 $taskStartedAt = $null
 $taskCaptureError = $null
 try {
@@ -56,8 +58,29 @@ try {
         $taskMotion = $taskMetrics.motion
         if ($null -eq $taskMotion) { throw 'The Lab returned no motion-feed metrics.' }
         $taskLatest = $taskMotion.latest
+        $taskPlayer = $taskMetrics.player
+        $taskNow = [DateTimeOffset]::UtcNow
+        $taskDecoderDelta = $null
+        $taskTextureDelta = $null
+        $taskAcquiredDelta = $null
+        $taskProcessedDelta = $null
+        $taskNoNewPollDelta = $null
+        $taskGapResetDelta = $null
+        if ($taskPreviousSample -and $taskPreviousSample.MediaGeneration -eq $taskPlayer.mediaGeneration) {
+            $taskDecoderDelta = $taskPlayer.decodedFrames - $taskPreviousSample.DecoderFrames
+            $taskTextureDelta = $taskPlayer.textureFrames - $taskPreviousSample.TextureFrames
+            $taskAcquiredDelta = $taskMotion.acquired - $taskPreviousSample.Acquired
+            $taskProcessedDelta = $taskMotion.processed - $taskPreviousSample.Processed
+            $taskNoNewPollDelta = $taskMotion.noNewFramePolls - $taskPreviousSample.NoNewFramePolls
+            $taskGapResetDelta = $taskMotion.gapResets - $taskPreviousSample.GapResets
+        }
+        $taskGapEvents = @()
+        foreach ($taskGap in @($taskMotion.recentGaps)) {
+            $taskGapKey = "$($taskPlayer.mediaGeneration):$($taskGap.frameId)"
+            if ($taskSeenGapFrames.Add($taskGapKey)) { $taskGapEvents += $taskGap }
+        }
         $taskRows.Add([pscustomobject]@{
-            CapturedAtUtc = [DateTimeOffset]::UtcNow.ToString('O')
+            CapturedAtUtc = $taskNow.ToString('O')
             RequestedHz = $taskMotion.requestedHz
             SeedSource = $taskMotion.seedSource
             SeedFrameId = $taskMotion.seedFrameId
@@ -65,14 +88,20 @@ try {
             FrameWidth = $taskMotion.frameWidth
             FrameHeight = $taskMotion.frameHeight
             Acquired = $taskMotion.acquired
+            AcquiredDelta = $taskAcquiredDelta
             Processed = $taskMotion.processed
+            ProcessedDelta = $taskProcessedDelta
             Replaced = $taskMotion.replaced
+            NoNewFramePolls = $taskMotion.noNewFramePolls
+            NoNewFramePollDelta = $taskNoNewPollDelta
             DuplicateOrBackwards = $taskMotion.duplicateOrBackwards
             Stale = $taskMotion.stale
             AcquisitionFailures = $taskMotion.acquisitionFailures
             ScopeRejected = $taskMotion.scopeRejected
             WorkerFailures = $taskMotion.workerFailures
             GapResets = $taskMotion.gapResets
+            GapResetDelta = $taskGapResetDelta
+            GapEvents = $taskGapEvents
             Active = $taskMotion.active
             Pending = $taskMotion.pending
             CadenceSampleCount = $taskMotion.cadenceSampleCount
@@ -91,6 +120,16 @@ try {
             LastClockUncertaintyMs = $taskMotion.lastClockUncertaintyMs
             AcquisitionRetries = $taskMotion.acquisitionRetries
             LastAcquisitionAttempts = $taskMotion.lastAcquisitionAttempts
+            DecoderMediaGeneration = $taskPlayer.mediaGeneration
+            DecoderFrames = $taskPlayer.decodedFrames
+            DecoderFrameDelta = $taskDecoderDelta
+            TextureFrames = $taskPlayer.textureFrames
+            TextureFrameDelta = $taskTextureDelta
+            TextureFps = $taskPlayer.textureFps
+            ReleaseToTextureMs = $taskPlayer.releaseToTextureMs
+            TextureAgeMs = $taskPlayer.textureAgeMs
+            PlayerLoading = $taskPlayer.loading
+            LiveOffsetMs = $taskPlayer.liveOffsetMs
             LastAcquisitionMs = $taskMotion.lastAcquisitionMs
             LastWorkerMs = $taskMotion.lastWorkerMs
             LastResultAgeMs = $taskMotion.lastResultAgeMs
@@ -100,6 +139,15 @@ try {
             RegionCount = if ($taskLatest) { @($taskLatest.regions).Count } else { 0 }
             StopReason = $taskMotion.stopReason
         })
+        $taskPreviousSample = [pscustomobject]@{
+            MediaGeneration = $taskPlayer.mediaGeneration
+            DecoderFrames = $taskPlayer.decodedFrames
+            TextureFrames = $taskPlayer.textureFrames
+            Acquired = $taskMotion.acquired
+            Processed = $taskMotion.processed
+            NoNewFramePolls = $taskMotion.noNewFramePolls
+            GapResets = $taskMotion.gapResets
+        }
         if (-not [string]::IsNullOrWhiteSpace([string]$taskMotion.stopReason)) {
             $taskCaptureError = "The motion feed stopped during capture: $($taskMotion.stopReason)"
             break
@@ -118,7 +166,7 @@ finally {
 
 if ($taskRows.Count -eq 0) { throw 'No motion-feed samples were collected.' }
 $taskReport = [pscustomobject]@{
-    SchemaVersion = 2
+    SchemaVersion = 3
     DeviceSerial = $CompanionSerial
     Package = $taskPing.package
     StartedAtUtc = $taskStartedAt.ToString('O')
@@ -130,7 +178,7 @@ $taskReport = [pscustomobject]@{
     CaptureError = $taskCaptureError
     ImagesSaved = $false
     Samples = $taskRows
-    Scope = 'Opt-in source PTS, frame dimensions, acquisition and worker telemetry. No detector tracking or ball identity claim.'
+    Scope = 'Opt-in source PTS, per-gap acquisition/worker telemetry, decoder-release/texture counters, and dimensions. No detector tracking or ball identity claim.'
 }
 $taskOutputDirectory = Split-Path -Parent $taskOutputPath
 if ($taskOutputDirectory -and -not (Test-Path -LiteralPath $taskOutputDirectory -PathType Container)) {

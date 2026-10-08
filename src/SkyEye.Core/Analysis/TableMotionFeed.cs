@@ -15,9 +15,12 @@ public sealed record MotionFeedOptions(int FramesPerSecond = 30, long MaximumGap
 public sealed record MotionFrameContext(MotionFeedScope Scope, long FrameId, long SourceTimeUs, bool Reset, double? DeltaSeconds)
 {
     public double AcquisitionMs { get; init; }
+    public int AcquisitionAttempts { get; init; } = 1;
     public long? SourceDeltaUs { get; init; }
     public long? FrameIdDelta { get; init; }
 }
+public sealed record MotionGapDiagnostic(long FrameId, long SourceTimeUs, long? FrameIdDelta, long SourceDeltaUs,
+    int AcquisitionAttempts, double AcquisitionMs, double WorkerMs, double ResultAgeMs);
 public sealed record RoiMotion(string Id, int Features, int Supported, double? DxPixels, double? DyPixels,
     double? VelocityXPixelsPerSecond, double? VelocityYPixelsPerSecond, string Status);
 public sealed record MotionMeasurement(long SourceTimeUs, IReadOnlyList<RoiMotion> Regions, double ConversionMs, double FlowMs);
@@ -55,6 +58,8 @@ public sealed record MotionFeedSnapshot(long Acquired, long Processed, long Repl
     public double? LastClockUncertaintyMs { get; init; }
     public long AcquisitionRetries { get; init; }
     public int LastAcquisitionAttempts { get; init; } = 1;
+    public long NoNewFramePolls { get; init; }
+    public IReadOnlyList<MotionGapDiagnostic> RecentGaps { get; init; } = Array.Empty<MotionGapDiagnostic>();
 }
 
 /// <summary>Explicitly started, one active/one latest frame. No detector, rule or event submission.</summary>
@@ -69,18 +74,19 @@ public sealed class TableMotionFeed : IAsyncDisposable
     readonly TimeProvider time;
     readonly CancellationTokenSource stopped = new();
     readonly SemaphoreSlim wake = new(0, 1);
+    readonly Queue<MotionGapDiagnostic> recentGaps = new();
     readonly Queue<long> recentProcessedSourceTimes = new();
     readonly Queue<long> recentProcessedDeltasUs = new();
     TableFrame? pending;
     Task? run;
-    long acquired, processed, replaced, duplicate, stale, acquisitionFailures, scopeRejected, workerFailures, gaps;
+    long acquired, processed, replaced, duplicate, noNewFramePolls, stale, acquisitionFailures, scopeRejected, workerFailures, gaps;
     long acquisitionRetries;
     long lastReceivedId = -1, lastReceivedUs = -1, lastProcessedId = -1, lastProcessedUs = -1;
     long? lastProcessedDeltaUs, lastGapUs;
     long? lastProcessedFrameIdDelta, lastGapFrameIdDelta;
     double? lastClockSampleAgeMs, lastClockUncertaintyMs;
     long largestGapUs;
-    int active, width, height, lastAcquisitionAttempts = 1;
+    int active, width, height, lastAcquisitionAttempts = 1, pendingAcquisitionAttempts = 1;
     string? stopReason;
     MotionMeasurement? latest;
     double acquisitionMs, pendingAcquisitionMs, workerMs, resultAgeMs;
@@ -128,7 +134,9 @@ public sealed class TableMotionFeed : IAsyncDisposable
                     LastClockSampleAgeMs = lastClockSampleAgeMs,
                     LastClockUncertaintyMs = lastClockUncertaintyMs,
                     AcquisitionRetries = acquisitionRetries,
-                    LastAcquisitionAttempts = lastAcquisitionAttempts
+                    LastAcquisitionAttempts = lastAcquisitionAttempts,
+                    NoNewFramePolls = noNewFramePolls,
+                    RecentGaps = recentGaps.ToArray()
                 };
             }
         }
@@ -178,7 +186,7 @@ public sealed class TableMotionFeed : IAsyncDisposable
                 if (source is ITableMotionFrameSource peek)
                 {
                     if (!await peek.HasNewFrameAsync(scope, lastReceivedId, lastReceivedUs, stopped.Token).ConfigureAwait(false))
-                    { lock (gate) duplicate++; continue; }
+                    { lock (gate) noNewFramePolls++; continue; }
                 }
                 // Dispose the previous pending frame BEFORE allocating another copy.
                 // Even transient native ownership therefore stays at active + acquisition/latest.
@@ -210,6 +218,7 @@ public sealed class TableMotionFeed : IAsyncDisposable
                             width = receipt.Width; height = receipt.Height;
                             lastReceivedId = receipt.FrameId; lastReceivedUs = frame.SourceTimeUs!.Value;
                             pending = frame; pendingAcquisitionMs = acquisitionMs; frame = null;
+                            pendingAcquisitionAttempts = lastAcquisitionAttempts;
                             if (wake.CurrentCount == 0) wake.Release();
                         }
                     }
@@ -256,7 +265,8 @@ public sealed class TableMotionFeed : IAsyncDisposable
                         }
                         context = new(scope, frame.DecodedReceipt!.FrameId, frame.SourceTimeUs!.Value, reset,
                             reset ? null : sourceDeltaUs!.Value / 1000000d)
-                        { AcquisitionMs = pendingAcquisitionMs, SourceDeltaUs = sourceDeltaUs, FrameIdDelta = frameIdDelta };
+                        { AcquisitionMs = pendingAcquisitionMs, AcquisitionAttempts = pendingAcquisitionAttempts,
+                            SourceDeltaUs = sourceDeltaUs, FrameIdDelta = frameIdDelta };
                     }
                 }
                 if (frame is null) continue;
@@ -289,6 +299,12 @@ public sealed class TableMotionFeed : IAsyncDisposable
                                 || context.SourceTimeUs - recentProcessedSourceTimes.Peek() > 10_000_000))
                             recentProcessedSourceTimes.Dequeue();
                         workerMs = clock.Elapsed.TotalMilliseconds; resultAgeMs = (time.GetUtcNow() - frame.CapturedAt).TotalMilliseconds;
+                        if (context.SourceDeltaUs is { } gapUs && gapUs > options.MaximumGapUs)
+                        {
+                            recentGaps.Enqueue(new(context.FrameId, context.SourceTimeUs, context.FrameIdDelta, gapUs,
+                                context.AcquisitionAttempts, context.AcquisitionMs, workerMs, resultAgeMs));
+                            while (recentGaps.Count > 64) recentGaps.Dequeue();
+                        }
                     }
                 }
                 catch (OperationCanceledException) when (stopped.IsCancellationRequested) { break; }

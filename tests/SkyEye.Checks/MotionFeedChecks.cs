@@ -63,9 +63,10 @@ static class MotionFeedChecks
         await using (var feed = new TableMotionFeed(peek, worker, scope, () => true, new(60), clock))
         {
             feed.Start(); await worker.Entered.Task; await Until(() => feed.Snapshot.Acquired == 2);
-            await Until(() => feed.Snapshot.DuplicateOrBackwards >= 3);
-            Check(feed.Snapshot.Pending == 1 && feed.Snapshot.Replaced == 0 && leases.Alive == 2,
-                "Repeated decoder polls retain the valid latest pending frame without another bitmap copy");
+            await Until(() => feed.Snapshot.NoNewFramePolls >= 3);
+            Check(feed.Snapshot.Pending == 1 && feed.Snapshot.Replaced == 0 && leases.Alive == 2
+                && feed.Snapshot.DuplicateOrBackwards == 0,
+                "Polls without a new decoder frame are counted separately and retain the valid latest pending frame");
             var stop = feed.StopAsync(); worker.Release.TrySetResult(); await stop;
             Check(leases.Alive == 0, "Candidate peek path drains both leases");
         }
