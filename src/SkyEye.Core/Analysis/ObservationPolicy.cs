@@ -16,6 +16,7 @@ public static class ObservationPolicy
     public const int MaximumVerificationSamples = 6;
     public const double SampleIntervalSeconds = .5;
     public const double MinimumDetectedBallMotionFraction = .006;
+    public const double MinimumTemplateBallMotionPixels = 1;
     public const double MinimumSupportedBoundaryFraction = 18 / 32d;
     public const string VerificationConfiguration = "o08-provisional-v13";
 }

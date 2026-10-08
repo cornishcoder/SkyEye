@@ -84,12 +84,14 @@ public sealed partial class VisionAnalyzer
                     }
                 }
                 var measured = motion.Measure(Read(gray.Value), geometryValid == true, vision, colour, mask)
-                    with { MaximumBodyDisplacement = anchorColour is null ? null : maximum, MaximumDetectedBodyDisplacement = detectedDisplacement, SupportedBodies = supported };
+                    with { MaximumBodyDisplacement = anchorColour is null ? null : maximum, MaximumDetectedBodyDisplacement = detectedDisplacement,
+                        MinimumTemplateMotionPixels = ObservationPolicy.MinimumTemplateBallMotionPixels, SupportedBodies = supported };
                 if (anchorColour is not null)
                 {
                     if (measured.Reason is ObservationReason.None or ObservationReason.InsufficientEvidence or ObservationReason.Moving)
                     {
-                        if (maximum > .4) measured = measured with { Motion = TableMotion.Moving, Reason = ObservationReason.Moving };
+                        if (maximum > ObservationPolicy.MinimumTemplateBallMotionPixels)
+                            measured = measured with { Motion = TableMotion.Moving, Reason = ObservationReason.Moving };
                         else if (regionCount == 0 || supported != regionCount)
                             measured = measured with { Motion = TableMotion.Unknown, Reason = ObservationReason.InsufficientEvidence, CoverageValid = false };
                     }
