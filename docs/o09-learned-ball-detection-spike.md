@@ -81,6 +81,29 @@ dotnet run --project src/SkyEye.Observation.Workbench -- freeze --root work/o09/
 
 The importer preserves reviewed hand labels, exact frame receipts and original camera recording-session IDs in O01 sequence-label schema v2. The Holdout verifier supports still/negative condition receipts; these image-normalized labels serve O09 comparison and are not a substitute for O08's table-coordinate safety verification.
 
+### Prepare O04 timed-shot sequences from the same captures
+
+For temporal tuning, give each captured ball a stable ID and reuse it for that physical ball in later frames. Split whole recording sessions before reviewing tuning results. Use a separate assignment file with explicit `purpose: "Shot"` and no Holdout condition:
+
+```json
+{
+  "schemaVersion": 1,
+  "sessions": [
+    { "diagnosticSessionId": "DEVELOPMENT_BATCH_ID", "split": "Development", "holdoutCondition": null, "purpose": "Shot" },
+    { "diagnosticSessionId": "HELD_OUT_BATCH_ID", "split": "Holdout", "holdoutCondition": null, "purpose": "Shot" }
+  ]
+}
+```
+
+Run the shot importer to create a separate O04 corpus:
+
+```powershell
+dotnet run --project src/SkyEye.Observation.Workbench -- import-diagnostic-shots work/o09/label-captures work/o04/corpus-v1 work/o04/shot-assignments.json
+dotnet run --project src/SkyEye.Observation.Workbench -- freeze --root work/o04/corpus-v1 --manifest work/o04/corpus-v1/manifest.json --output work/o04/corpus-v1/split-lock.json
+```
+
+The importer maps hand-labelled image centres through the exact saved table calibration to `table-2x1`, retains source PTS and identity/lighting tags, and writes `detections-development.json` and/or `detections-holdout.json` from the detector result paired with each exact labelled frame. The hand-label view still hides detector output. Use those split-specific files with `association`; every reviewed frame already has a matching candidate record, including explicit empty results. Diagnostic sampling is about once per second and manually saved, so this is useful for settled layouts, lighting changes and slow motion; it cannot establish fast-shot recall or the O02.05 live-feed gates.
+
 ## Implemented offline workbench slice
 
 `export-yolo` exports reviewed real **Development** samples only. It partitions whole Development sessions deterministically into train and validation sets, requires at least three sessions, image-normalized labels and reviewed X/Y radii, and refuses ambiguous/occluded labels. The report records the frozen manifest and session assignments. O01 Holdout pixels are never copied; this exporter does not perform augmentation or select a training framework. Apply the planned appearance augmentation to train only.

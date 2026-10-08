@@ -72,6 +72,9 @@ h3 { font-size: 14px; font-weight: 600; margin: 24px 0 8px; }
 .vision-label-box.colour-unknown { border-color: #67dfff; }
 .vision-label-box.uncertain { border-style: dashed; }
 .vision-label-drag { border-color: #64f0ba; border-style: dashed; background: #64f0ba22; }
+.vision-label-identities { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 6px; margin-top: 8px; }
+.vision-label-identities label { display: grid; gap: 3px; color: #b7c8c4; font-size: 12px; }
+.vision-label-identities input { width: 100%; min-height: 36px; padding: 6px 8px; border: 1px solid #3a5554; border-radius: 7px; background: #101d20; color: #eef5f2; }
 .capture-actions { display: flex; flex-direction: column; }
 .quiet { background: transparent; color: #a5d9d0; }
 .camera-state { color: #87dfcb; font-size: 13px; }

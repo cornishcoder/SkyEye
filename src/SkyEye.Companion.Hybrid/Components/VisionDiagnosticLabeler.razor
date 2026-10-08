@@ -6,7 +6,7 @@
 {
     <section class="vision-label-editor" aria-label="Independent ball labelling">
         <h3>Label this frame</h3>
-        <p class="hint">Detector output is hidden here. Drag a box around each visible ball, then choose its colour and visibility. Use Unknown when colour is unclear.</p>
+        <p class="hint">Detector output is hidden here. Drag a box around each visible ball, then choose its colour and visibility. Use Unknown when colour is unclear. For a shot sequence, reuse the same ID for the same physical ball in every frame; mark uncertain identities honestly.</p>
         <div class="vision-label-tags">
             <label for="vision-label-lighting">Lighting</label>
             <select id="vision-label-lighting" value="@Session.VisionDiagnosticLabelLighting" @onchange="SetLighting">
@@ -56,6 +56,24 @@
                 </div>
             }
         </div>
+        @if (Session.VisionDiagnosticMarks.Count > 0)
+        {
+            <div class="vision-label-identities">
+                @foreach (var mark in Session.VisionDiagnosticMarks)
+                {
+                    <label>@mark.Colour · @mark.Id
+                        <input aria-label="Ball identity for @mark.Colour ball" value="@mark.Id" maxlength="64"
+                            list="vision-label-known-ball-ids" @onchange="args => Session.RenameVisionDiagnosticBall(mark.Id, args.Value?.ToString())" />
+                    </label>
+                }
+            </div>
+            <datalist id="vision-label-known-ball-ids">
+                @foreach (var id in Session.VisionDiagnosticKnownBallIds)
+                {
+                    <option value="@id"></option>
+                }
+            </datalist>
+        }
         <p class="hint">Marked @Session.VisionDiagnosticMarks.Count ball(s) · boxes save centre and X/Y radii for training.</p>
         <div class="clip-actions">
             <button type="button" class="secondary" disabled="@(Session.VisionDiagnosticMarks.Count == 0)" @onclick="Session.RemoveLastVisionDiagnosticBox">Undo last box</button>

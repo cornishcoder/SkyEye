@@ -32,7 +32,11 @@ public sealed record VisionDiagnosticLiveFrame(VisionDiagnosticSample Sample, in
 public sealed record VisionDiagnosticLabelFrame(Guid SessionId, string RecordingSessionId, string SampleId, DateTimeOffset CapturedAt,
     double FrameAgeMs, long AnalysisGeneration, string CalibrationId, string AnalyzerConfiguration, Point[] CalibrationCorners,
     long MediaGeneration, long FrameId, long SourceTimeUs, string Timeline, string FrameSource,
-    int Width, int Height, byte[] Jpeg);
+    int Width, int Height, byte[] Jpeg)
+{
+    public Ball[] DetectedBalls { get; init; } = [];
+    public bool DetectionUncertain { get; init; }
+}
 
 /// <summary>Opt-in sequential detector diagnostics. Samples use the existing calibrated
 /// frame source and analyzer, and are never published to TableTracker or GameState.</summary>
@@ -242,7 +246,8 @@ public sealed partial class TableAnalysisSession
                                     admitted.CalibrationId, (analyzer as ITableAnalyzerMetadata)?.ConfigurationIdentity
                                         ?? analyzer.GetType().FullName ?? analyzer.GetType().Name,
                                     admitted.Calibration!.Corners.ToArray(), receipt.MediaGeneration,
-                                    receipt.FrameId, sourceTimeUs, frame.Timeline, frame.FrameSource, receipt.Width, receipt.Height, labelJpeg);
+                                    receipt.FrameId, sourceTimeUs, frame.Timeline, frame.FrameSource, receipt.Width, receipt.Height, labelJpeg)
+                                { DetectedBalls = detection.Balls.ToArray(), DetectionUncertain = detection.Uncertain };
                                 visionDiagnosticsStatus = "Frame captured. Label the image without the detector dump, then save or discard it.";
                             }
                         }

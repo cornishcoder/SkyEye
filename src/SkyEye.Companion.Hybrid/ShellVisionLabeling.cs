@@ -8,6 +8,9 @@ public sealed record VisionDiagnosticBallMark(string Id, string Colour, string V
     double X, double Y, double RadiusX, double RadiusY);
 sealed record VisionDiagnosticStoredBall(string Id, string Colour, double X, double Y, string Visibility,
     double RadiusX, double RadiusY);
+sealed record VisionDiagnosticStoredDetectionBall(string Id, string Colour, double X, double Y, double Confidence);
+sealed record VisionDiagnosticStoredDetection(string Model, string Provenance, bool Uncertain,
+    VisionDiagnosticStoredDetectionBall[] Balls);
 sealed record VisionDiagnosticStoredScope(string Source, string Timeline, long Generation, string Calibration);
 sealed record VisionDiagnosticStoredFrame(string SampleId, long FrameId, long? SourceTimeUs,
     VisionDiagnosticStoredScope Scope, string PixelFile, string PixelSha256, string Encoding,
@@ -15,7 +18,10 @@ sealed record VisionDiagnosticStoredFrame(string SampleId, long FrameId, long? S
 sealed record VisionDiagnosticLabelReceipt(int SchemaVersion, string DiagnosticSessionId, string RecordingSessionId, bool Reviewed,
     DateTimeOffset CapturedAt, double FrameAgeMs, long AnalysisGeneration, string CalibrationId,
     string AnalyzerConfiguration, SkyEye.Core.Point[] CalibrationCorners, string FrameSource, VisionDiagnosticStoredFrame IndexedFrame,
-    string[] Tags, VisionDiagnosticStoredBall[] Balls, string Notes);
+    string[] Tags, VisionDiagnosticStoredBall[] Balls, string Notes)
+{
+    public VisionDiagnosticStoredDetection? DetectionOutput { get; init; }
+}
 sealed record VisionDiagnosticLabelSessionReceipt(int SchemaVersion, string DiagnosticSessionId, string RecordingSessionId,
     DateTimeOffset StartedAt, DateTimeOffset CompletedAt, bool Reviewed, int FrameCount, string Notes);
 
@@ -27,6 +33,7 @@ public sealed partial class ShellSession
     static readonly JsonSerializerOptions VisionLabelJson = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     readonly List<VisionDiagnosticBallMark> visionDiagnosticMarks = [];
     readonly HashSet<string> visionDiagnosticSceneTags = new(StringComparer.Ordinal);
+    readonly HashSet<string> visionDiagnosticKnownBallIds = new(StringComparer.Ordinal);
     Guid visionDiagnosticLabelSessionId;
     string? visionDiagnosticLabelPreviewSampleId;
     string? visionDiagnosticLabelImageUri;
@@ -44,6 +51,7 @@ public sealed partial class ShellSession
     public VisionDiagnosticLabelFrame? VisionDiagnosticLabelFrame => table.VisionDiagnostics.LabelFrame;
     public string? VisionDiagnosticLabelImageUri => visionDiagnosticLabelImageUri;
     public IReadOnlyList<VisionDiagnosticBallMark> VisionDiagnosticMarks => visionDiagnosticMarks;
+    public IReadOnlyList<string> VisionDiagnosticKnownBallIds => visionDiagnosticKnownBallIds.Order(StringComparer.Ordinal).ToArray();
     public string VisionDiagnosticLabelColour => visionDiagnosticLabelColour;
     public string VisionDiagnosticLabelVisibility => visionDiagnosticLabelVisibility;
     public string VisionDiagnosticLabelLighting => visionDiagnosticLabelLighting;
@@ -65,6 +73,7 @@ public sealed partial class ShellSession
             visionDiagnosticLabelPreviewSampleId = null;
             visionDiagnosticLabelImageUri = null;
             visionDiagnosticMarks.Clear();
+            visionDiagnosticKnownBallIds.Clear();
             visionDiagnosticEmptyFrameConfirmed = false;
             visionDiagnosticSavedLabels = 0;
             visionDiagnosticLabelSessionFinalized = false;
@@ -174,6 +183,23 @@ public sealed partial class ShellSession
         Changed?.Invoke();
     }
 
+    public void RenameVisionDiagnosticBall(string currentId, string? requestedId)
+    {
+        if (visionDiagnosticLabelSavePending) return;
+        string id = (requestedId ?? "").Trim();
+        int index = visionDiagnosticMarks.FindIndex(mark => mark.Id == currentId);
+        if (index < 0) return;
+        if (id.Length is < 1 or > 64 || id.Any(char.IsControl)
+            || visionDiagnosticMarks.Where((_, i) => i != index).Any(mark => mark.Id == id))
+        {
+            visionDiagnosticLabelStatus = "Use a unique ball ID of 1–64 characters in this frame.";
+            Changed?.Invoke();
+            return;
+        }
+        visionDiagnosticMarks[index] = visionDiagnosticMarks[index] with { Id = id };
+        Changed?.Invoke();
+    }
+
     public void RemoveLastVisionDiagnosticBox()
     {
         if (visionDiagnosticLabelSavePending) return;
@@ -199,6 +225,12 @@ public sealed partial class ShellSession
             Changed?.Invoke();
             return;
         }
+        if (visionDiagnosticMarks.Select(mark => mark.Id).Distinct(StringComparer.Ordinal).Count() != visionDiagnosticMarks.Count)
+        {
+            visionDiagnosticLabelStatus = "Each ball needs a unique ID in this frame. Reuse the same ID for that ball in later frames.";
+            Changed?.Invoke();
+            return;
+        }
         var marks = visionDiagnosticMarks.ToArray();
         var tags = new[] { visionDiagnosticLabelLighting, visionDiagnosticLabelMotion }
             .Concat(visionDiagnosticSceneTags.Order(StringComparer.Ordinal)).Distinct(StringComparer.Ordinal).ToArray();
@@ -214,6 +246,7 @@ public sealed partial class ShellSession
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
                 visionDiagnosticSavedLabels++;
+                foreach (var mark in marks) visionDiagnosticKnownBallIds.Add(mark.Id);
                 visionDiagnosticLabelSavePending = false;
                 visionDiagnosticLabelStatus = $"Saved {visionDiagnosticSavedLabels} hand-labelled frames for this recording session.";
                 table.CompleteVisionDiagnosticLabelFrame("Labels saved. Capture another fresh frame or stop diagnostics to finish this session.");
@@ -303,8 +336,14 @@ public sealed partial class ShellSession
             mark.Visibility, mark.RadiusX, mark.RadiusY)).ToArray();
         var receipt = new VisionDiagnosticLabelReceipt(1, frame.SessionId.ToString("N"), frame.RecordingSessionId, true,
             frame.CapturedAt, frame.FrameAgeMs, frame.AnalysisGeneration, frame.CalibrationId, frame.AnalyzerConfiguration,
-            frame.CalibrationCorners, frame.FrameSource, storedFrame, tags, balls,
-            notes);
+            frame.CalibrationCorners, frame.FrameSource, storedFrame, tags, balls, notes)
+        {
+            DetectionOutput = new(frame.AnalyzerConfiguration,
+                "Paired on-device VisionAnalyzer result from this exact indexed source frame; not shown in the hand-label view.",
+                frame.DetectionUncertain,
+                frame.DetectedBalls.Select(ball => new VisionDiagnosticStoredDetectionBall(
+                    ball.Id, ball.Kind, ball.Position.X, ball.Position.Y, ball.Confidence)).ToArray())
+        };
         if (!imageAlreadyWritten) AtomicWrite(imagePath, frame.Jpeg);
         AtomicWrite(receiptPath, System.Text.Encoding.UTF8.GetBytes(JsonSerializer.Serialize(receipt, VisionLabelJson)));
     }
