@@ -14,7 +14,7 @@
     @media(max-width:850px){body{padding:14px}.layout{grid-template-columns:1fr}.controls{position:static}.two-col{grid-template-columns:1fr}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}header{align-items:flex-start}header .badge{font-size:10px;padding:5px 8px}}
     @media(max-width:520px){body{padding:10px}.badge{white-space:normal;text-align:center;max-width:110px}.cards{gap:7px}.scoreboard,.content,.controls{padding:14px}.ball-table th,.ball-table td,.event-table th,.event-table td{padding:6px 5px;font-size:12px}.row{grid-template-columns:95px minmax(0,1fr)}}
     .live-panel{padding:16px 18px;margin-bottom:16px}.live-heading{display:flex;align-items:center;gap:10px}.live-heading h2{margin:0}.live-pill{margin-left:auto;border:1px solid #40545d;color:#c5d5d9;border-radius:999px;padding:3px 9px;font-size:11px}.live-cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:12px}.live-card{border:1px solid var(--line);border-radius:8px;padding:8px 10px;min-width:0}.live-card span{display:block;font-size:10px;color:var(--muted);letter-spacing:.07em;text-transform:uppercase}.live-card strong{display:block;font-size:14px;overflow-wrap:anywhere;margin-top:2px}.live-copy{font-size:12px;color:var(--muted);margin:10px 0 0;overflow-wrap:anywhere}.live-copy.alert{color:var(--amber)}.live-balls{font-size:12px;color:#c9d7db;overflow-wrap:anywhere;margin-top:6px}.live-status{margin-top:9px;font-size:12px;color:var(--muted)}
-    .review-panel{padding:18px;border-color:#856c3c;background:linear-gradient(145deg,#241f14,#151d20 68%)}.review-panel h2{font-size:19px;margin:0 0 5px}.review-panel p{margin:6px 0;color:#d7e0df}.review-kicker{color:var(--amber)!important;font-size:11px;font-weight:750;letter-spacing:.1em;text-transform:uppercase}.review-summary{color:var(--muted)!important}.review-events{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}.review-events .pill{border-color:#816b3d;color:#ffe0a9}.review-result{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}.review-result div{border:1px solid #554a30;border-radius:8px;padding:9px}.review-result span{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.07em}.review-result strong{display:block;margin-top:2px}.review-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;margin-top:14px}.review-actions button{margin:0;height:100%;text-align:left}.review-actions button small{display:block;font-size:11px;font-weight:500;opacity:.85;margin-top:3px}.review-facts{border-top:1px solid #554a30;margin-top:15px;padding-top:12px}.review-facts h3{font-size:14px;margin:0}.review-facts p{color:var(--muted);font-size:12px}.rule-profile{font-size:11px!important;color:var(--muted)!important}.review-empty[hidden]{display:none}
+    .review-panel{padding:18px;border-color:#856c3c;background:linear-gradient(145deg,#241f14,#151d20 68%)}.review-panel h2{font-size:19px;margin:0 0 5px}.review-panel p{margin:6px 0;color:#d7e0df}.review-kicker{color:var(--amber)!important;font-size:11px;font-weight:750;letter-spacing:.1em;text-transform:uppercase}.review-summary{color:var(--muted)!important}.review-camera{border:1px solid #554a30;border-radius:8px;padding:10px;margin:12px 0}.review-camera strong{display:block;margin-bottom:7px}.review-camera .pill{margin:3px}.review-events{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}.review-events .pill{border-color:#816b3d;color:#ffe0a9}.review-result{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}.review-result div{border:1px solid #554a30;border-radius:8px;padding:9px}.review-result span{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.07em}.review-result strong{display:block;margin-top:2px}.review-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;margin-top:14px}.review-actions button{margin:0;height:100%;text-align:left}.review-actions button small{display:block;font-size:11px;font-weight:500;opacity:.85;margin-top:3px}.review-facts{border-top:1px solid #554a30;margin-top:15px;padding-top:12px}.review-facts h3{font-size:14px;margin:0}.review-facts p{color:var(--muted);font-size:12px}.rule-profile{font-size:11px!important;color:var(--muted)!important}.review-empty[hidden]{display:none}
     @media(max-width:850px){.live-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.live-card:last-child{grid-column:1/-1}}
     @media(max-width:520px){.review-panel{padding:14px}.review-result{grid-template-columns:1fr}.review-actions{grid-template-columns:1fr}}
   </style>
@@ -47,8 +47,12 @@
         <option value="empty">Blank · no match or balls</option>
         <option value="clean-rack">Clean rack · new frame, 16 balls</option>
         <option value="mid-match">Mid-match · 1–0, second frame</option>
+        <option value="live-match-copy">Copied live match</option>
       </select>
       <button id="reset" type="button">Reset test scenario</button>
+      <button id="start-camera-review" class="secondary" type="button">Copy live match and review camera</button>
+      <button id="stop-camera-review" class="secondary" type="button" hidden>Stop camera review</button>
+      <p id="camera-review-status" class="hint" role="status">Camera review is off.</p>
       <div id="message" class="status" role="status" aria-live="polite">Connecting to the Pixel…</div>
       <div class="rows" style="margin-top:14px">
         <div class="row"><span>Scenario ID</span><span id="scenario-id">—</span></div>
@@ -94,7 +98,7 @@
         <div class="control-body">
           <label for="ball-id">Ball ID</label><input id="ball-id" placeholder="cue-ball or red-1" maxlength="80">
           <div class="field-grid">
-            <div><label for="ball-colour">Colour</label><select id="ball-colour"><option>Cue</option><option>Red</option><option>Yellow</option><option>Black</option><option>Unknown</option></select></div>
+            <div><label for="ball-colour">Colour</label><select id="ball-colour"><option value="Cue">Cue ball</option><option>Red</option><option>Yellow</option><option>Black</option><option>Unknown</option></select></div>
             <div><label for="ball-confidence">Feature confidence</label><input id="ball-confidence" type="number" min="0" max="1" step="0.01" value="0.95"></div>
             <div><label for="ball-x">Table X · 0 to 1</label><input id="ball-x" type="number" min="0" max="1" step="0.001" value="0.5"></div>
             <div><label for="ball-y">Table Y · 0 to 1</label><input id="ball-y" type="number" min="0" max="1" step="0.001" value="0.5"></div>
@@ -167,7 +171,7 @@
 <script>
 (() => {
   const $=id=>document.getElementById(id), esc=value=>String(value??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  let snapshot=null, busy=false, reviewKey='';
+  let snapshot=null, liveSnapshot=null, busy=false, reviewKey='';
   const label=value=>String(value??'—').replace(/([a-z])([A-Z])/g,'$1 $2').replaceAll('-',' ').replace(/^./,c=>c.toUpperCase());
   const enumLabel=(value,values)=>typeof value==='number'?(values[value]||`Value ${value}`):label(value);
   const person=id=>(snapshot?.match?.players||[]).find(p=>p.id===id)?.name||id||'—';
@@ -176,7 +180,11 @@
     snapshot=data;const m=data.match||{},g=data.game||{},f=g.frame||{},t=g.table||{},shot=g.shot;
     $('scenario-id').textContent=String(data.scenarioId||'—').replaceAll('-','').slice(0,12);
     $('event-count').textContent=data.eventCount??0;$('revision').textContent=data.version??0;
-    if(['empty','clean-rack','mid-match'].includes(data.preset))$('preset').value=data.preset;
+    if(['empty','clean-rack','mid-match','live-match-copy'].includes(data.preset))$('preset').value=data.preset;
+    const cameraReview=data.cameraReview||{};
+    $('camera-review-status').textContent=cameraReview.status||'Camera review is off.';
+    $('start-camera-review').hidden=!!cameraReview.active;
+    $('stop-camera-review').hidden=!cameraReview.active;
     $('score').textContent=m.score||'No match started';$('match-status').textContent=m.status||data.error||'Start from a preset to load a scenario.';
     $('target').textContent=m.id?m.target:'—';$('turn').textContent=m.currentPlayer?person(m.currentPlayer):'—';
     $('frame').textContent=m.frameId?(m.frames||[]).find(x=>x.current)?.number??m.frameId:'—';
@@ -189,7 +197,7 @@
     const shotText=shot?`${shot.id} · ${shot.ended?'ended':'active'} · ${shot.resolved?'resolved':'unresolved'} · ${Object.keys(shot.approaches||{}).length} pocket approaches`:'No active shot';
     setRows('table-state',[["Motion",enumLabel(t.motion,['Unknown','Moving','Settled'])],['Settled',t.lastSettled?'Yes':'No'],['Uncertain',t.uncertain?'Yes':'No'],['Balls tracked',Object.keys(t.balls||{}).length],['Source',source],['Shot',shotText],['Visit',f.visit??'—'],['Foul',f.foul?.value==null?'—':String(f.foul.value)]]);
     const balls=Object.values(t.balls||{}).sort((a,b)=>String(a.id).localeCompare(String(b.id)));
-    $('balls').innerHTML=balls.length?balls.map(b=>{const p=b.position?`${Number(b.position.x).toFixed(3)}, ${Number(b.position.y).toFixed(3)}`:'—';const fact=b.presence||{};return `<tr><td>${esc(b.id)}</td><td>${esc(enumLabel(b.colour,['Cue','Red','Yellow','Black','Unknown']))}</td><td>${esc(enumLabel(fact.value,['Unknown','On table','Missing','Potted']))}</td><td>${p}</td><td><span class="pill">${esc(enumLabel(fact.source,['Observed','Inferred','Player confirmed','Player corrected']))}</span>${fact.confidence==null?'':` ${Math.round(fact.confidence*100)}%`}</td><td><button class="secondary row-action" type="button" data-edit-ball="${esc(b.id)}">Edit</button>${fact.value===1?`<button class="secondary row-action" type="button" data-command="ball-missing" data-ball-id="${esc(b.id)}">Mark missing</button>`:''}</td></tr>`}).join(''):'<tr><td colspan="6" class="empty">No balls in this scenario.</td></tr>';
+    $('balls').innerHTML=balls.length?balls.map(b=>{const p=b.position?`${Number(b.position.x).toFixed(3)}, ${Number(b.position.y).toFixed(3)}`:'—';const fact=b.presence||{};return `<tr><td>${esc(b.id)}</td><td>${esc(enumLabel(b.colour,['Cue ball','Red','Yellow','Black','Unknown']))}</td><td>${esc(enumLabel(fact.value,['Unknown','On table','Missing','Potted']))}</td><td>${p}</td><td><span class="pill">${esc(enumLabel(fact.source,['Observed','Inferred','Player confirmed','Player corrected']))}</span>${fact.confidence==null?'':` ${Math.round(fact.confidence*100)}%`}</td><td><button class="secondary row-action" type="button" data-edit-ball="${esc(b.id)}">Edit</button>${fact.value===1?`<button class="secondary row-action" type="button" data-command="ball-missing" data-ball-id="${esc(b.id)}">Mark missing</button>`:''}</td></tr>`}).join(''):'<tr><td colspan="6" class="empty">No balls in this scenario.</td></tr>';
     const previousBall=$('approach-ball').value,approachBalls=Object.values(shot?.before||t.balls||{});
     $('approach-ball').innerHTML=approachBalls.map(b=>`<option value="${esc(b.id)}">${esc(b.id)}</option>`).join('')||'<option value="">No balls yet</option>';
     if(approachBalls.some(b=>b.id===previousBall))$('approach-ball').value=previousBall;
@@ -217,6 +225,8 @@
       button.disabled=disabled;
     }
     for(const button of document.querySelectorAll('[data-review-choice],[data-review-evaluate]'))button.disabled=busy;
+    $('start-camera-review').disabled=busy||!liveSnapshot?.frame||!liveSnapshot?.gameTableCurrent||!!snapshot?.pendingProposal;
+    $('stop-camera-review').disabled=busy;
   }
   function renderReview(data){
     const card=$('review-card'),proposal=data.pendingProposal,prompt=data.rulePrompt;
@@ -229,7 +239,9 @@
       const events=(proposal.events||[]).map(item=>`<span class="pill">${esc(label(item.event))} · ${esc(label(item.provenance))}</span>`).join('');
       const choices=(proposal.choices||[]).map(choice=>`<button type="button" class="${choice.recommended?'':'secondary'}" data-review-choice="${esc(choice.id)}"><strong>${esc(choice.label)}</strong><small>${esc(choice.description)}</small></button>`).join('');
       const rules=position?`<div class="review-result"><div><span>Next player</span><strong>${esc(proposal.proposedTurn)}</strong></div><div><span>Proposed target</span><strong>${esc(enumLabel(position.target,['Unknown','Open colours','Red','Yellow','Black','Finished']))}</strong></div><div><span>Foul</span><strong>${position.foul==null?'Not decided':position.foul?'Yes':'No'}</strong></div><div><span>Rule clauses</span><strong>${esc((position.clauses||[]).join(', ')||'—')}</strong></div></div>`:`<div class="review-result"><div><span>Proposed score</span><strong>${esc(proposal.proposedScore||'—')}</strong></div><div><span>Proposed turn</span><strong>${esc(proposal.proposedTurn||'—')}</strong></div></div>`;
-      $('review-content').innerHTML=`<p class="review-kicker">${isRules?'Rules engine proposal':'GameState event proposal'} · scenario only</p><h2 id="review-title">${esc(proposal.title)}</h2><p>${esc(proposal.summary)}</p><p class="review-summary">${esc(proposal.recommendation)}</p><div class="review-events">${events||'<span class="pill">No new event</span>'}</div>${rules}<div class="review-actions">${choices}</div>`;
+      const camera=proposal.cameraEvidence;
+      const cameraLayout=camera?`<div class="review-camera"><strong>Camera samples ${camera.firstSequence}–${camera.settledSequence} · frame ${camera.frameId}</strong><p>Source ${esc(camera.camera)} · timeline ${esc(camera.timeline)} · calibration ${esc(camera.calibration)} · PTS ${camera.settledSourceTimeUs}</p><div>${(camera.balls||[]).map(ball=>`<span class="pill">${esc(ball.colour==='Cue'?'Cue ball':label(ball.colour))} · ${esc(ball.id)} · ${Number(ball.x).toFixed(3)}, ${Number(ball.y).toFixed(3)} · ${Math.round(Number(ball.confidence)*100)}%</span>`).join(' ')||'No classified balls'}</div></div>`:'';
+      $('review-content').innerHTML=`<p class="review-kicker">${isRules?'Rules engine proposal':camera?'Live camera proposal':'GameState event proposal'} · scenario only</p><h2 id="review-title">${esc(proposal.title)}</h2><p>${esc(proposal.summary)}</p><p class="review-summary">${esc(proposal.recommendation)}</p>${cameraLayout}<div class="review-events">${events||'<span class="pill">No new event</span>'}</div>${rules}<div class="review-actions">${choices}</div>`;
       return;
     }
     const movement=prompt.noPotAfterMovement?`${prompt.movedBallCount} ball(s) moved and no pot was recorded. The engine can propose a turn change after you confirm the facts.`:`Shot settled · ${prompt.movedBallCount} ball(s) moved · ${prompt.potCount} pot(s) recorded. Confirm facts the camera cannot know.`;
@@ -246,6 +258,7 @@
     </form>`;
   }
   function renderLive(data){
+    liveSnapshot=data;
     const m=data.match||{},g=data.game||{},t=g.table||{},det=data.detection,balls=Object.values(t.balls||{});
     const current=balls.filter(ball=>ball.presence?.value===1);
     $('live-score').textContent=m.score||'No active match';
@@ -257,7 +270,7 @@
     const gameStatus=data.gameTableCurrent?'Latest accepted table state is current.':data.gameError||'Vision has not marked a table state current for this match.';
     $('live-status').textContent=`${gameStatus} ${frame}`;
     $('live-status').classList.toggle('alert',!!det?.uncertain||!data.gameTableCurrent);
-    const labels=(det?.balls||[]).map(ball=>`${label(ball.kind)} ${ball.id}`).join(' · ');
+    const labels=(det?.balls||[]).map(ball=>`${ball.kind==='cue'?'Cue ball':label(ball.kind)} ${ball.id}`).join(' · ');
     $('live-labels').textContent=det?`Latest vision labels${det.uncertain?' · uncertain':''}: ${labels||'no classified balls'}`:'No current vision labels.';
     $('live-balls').textContent=balls.length?`Canonical inventory: ${balls.sort((a,b)=>String(a.id).localeCompare(String(b.id))).map(ball=>`${ball.id} ${label(ball.colour)} · ${enumLabel(ball.presence?.value,['Unknown','On table','Missing','Potted'])}`).join(' · ')}`:'No canonical ball inventory yet.';
   }
@@ -267,8 +280,30 @@
     catch(e){message(e.message||'Cannot reach the scenario workspace.',true)}
   }
   async function refreshLive(){
-    try{const r=await fetch('/api/live-match',{cache:'no-store'});if(!r.ok)throw new Error(`Live snapshot replied ${r.status}`);renderLive(await r.json());}
+    try{const r=await fetch('/api/live-match',{cache:'no-store'});if(!r.ok)throw new Error(`Live snapshot replied ${r.status}`);renderLive(await r.json());await syncCameraReview();}
     catch(e){$('live-status').textContent=e.message||'Cannot reach the live match snapshot.';$('live-status').classList.add('alert')}
+  }
+  let syncingCameraReview=false;
+  async function syncCameraReview(){
+    if(syncingCameraReview||busy||!snapshot?.cameraReview?.active||snapshot.pendingProposal||!liveSnapshot?.frame
+      ||liveSnapshot.frame.sequence<=(snapshot.cameraReview.lastSequence||0)||!liveSnapshot.diagnosticSessionId)return;
+    syncingCameraReview=true;
+    try{
+      const r=await fetch('/api/scenario/live/samples',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({scenarioId:snapshot.scenarioId,expectedVersion:snapshot.version,sessionId:liveSnapshot.diagnosticSessionId,throughSequence:liveSnapshot.frame.sequence})});
+      const result=await r.json();if(!r.ok)throw new Error(result.message||result.error||'Camera review could not process the latest frames.');
+      render(result.scenario);
+      if(!busy)message(result.message||result.scenario.cameraReview?.status||'Camera review updated.');
+    }catch(e){message(e.message||'Camera review could not process the latest frames.',true)}
+    finally{syncingCameraReview=false}
+  }
+  async function setCameraReview(active){
+    if(busy||!snapshot)return;setBusy(true);message(active?'Copying the current live match into the scenario…':'Stopping camera review…');
+    try{
+      const r=await fetch(active?'/api/scenario/live/start':'/api/scenario/live/stop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({scenarioId:snapshot.scenarioId,expectedVersion:snapshot.version})});
+      const result=await r.json();if(!r.ok)throw new Error(result.message||result.error||'Camera review could not be changed.');
+      render(result.scenario);message(result.message||'Camera review updated.');
+    }catch(e){message(e.message||'Camera review could not be changed.',true);await refresh();}
+    finally{setBusy(false)}
   }
   function operationId(){return crypto.randomUUID?.()||'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return(c==='x'?r:(r&3|8)).toString(16)})}
   function setBusy(value){busy=value;updateControls()}
@@ -310,12 +345,15 @@
   $('reset').addEventListener('click',async()=>{
     if(busy||!snapshot)return;setBusy(true);message('Saving the new test scenario…');
     try{
-      const r=await fetch('/api/scenario/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({scenarioId:snapshot.scenarioId,expectedVersion:snapshot.version,preset:$('preset').value})});
+      const selectedPreset=$('preset').value==='live-match-copy'?'empty':$('preset').value;
+      const r=await fetch('/api/scenario/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({scenarioId:snapshot.scenarioId,expectedVersion:snapshot.version,preset:selectedPreset})});
       const result=await r.json();if(!r.ok)throw new Error(result.message||result.error||'Scenario could not be reset.');
       render(result.scenario);message(result.message||'Test scenario reset. Live match unchanged.');
     }catch(e){message(e.message||'Scenario could not be reset.',true);await refresh();}
     finally{setBusy(false)}
   });
+  $('start-camera-review').addEventListener('click',()=>setCameraReview(true));
+  $('stop-camera-review').addEventListener('click',()=>setCameraReview(false));
   $('review-card').addEventListener('click',event=>{
     const choice=event.target.closest('[data-review-choice]');if(choice){review(choice.dataset.reviewChoice);return}
     if(event.target.closest('[data-review-evaluate]'))evaluateRules();
@@ -337,7 +375,7 @@
   $('balls').addEventListener('click',event=>{
     const button=event.target.closest('[data-edit-ball]');if(!button||!snapshot)return;
     const ball=snapshot.game?.table?.balls?.[button.dataset.editBall];if(!ball)return;
-    $('ball-id').value=ball.id;$('ball-colour').value=enumLabel(ball.colour,['Cue','Red','Yellow','Black','Unknown']);
+    $('ball-id').value=ball.id;$('ball-colour').value=enumLabel(ball.colour,['Cue ball','Red','Yellow','Black','Unknown']);
     $('ball-x').value=ball.position?.x??.5;$('ball-y').value=ball.position?.y??.5;
     $('ball-confidence').value=ball.presence?.confidence??.95;
     document.querySelector('details.control-group:nth-of-type(4)')?.setAttribute('open','');

@@ -33,7 +33,7 @@ public sealed partial class AppCoordinator
             return Receipt(envelope, CommandOutcome.Stale, "The match changed; use its current controls.");
         try { gameJournal?.Save(game, proposal.Session); }
         catch (IOException) { return Receipt(envelope, CommandOutcome.Failed, "Game history could not be saved. Previous state retained."); }
-        game = proposal.Session;
+        Volatile.Write(ref game, proposal.Session);
         var group = game.State.Frame?.Rules is { } rules ? rules.Target switch
             { LegalTarget.Red => AdviceTargetGroup.Red, LegalTarget.Yellow => AdviceTargetGroup.Yellow, LegalTarget.Black => AdviceTargetGroup.Black, _ => AdviceTargetGroup.Open }
             : game.State.Frame is { Winner: null } frame && game.State.Match is { Finished: false }
@@ -64,7 +64,7 @@ public sealed partial class AppCoordinator
         if (!accepted.Accepted) return next with { GameTableCurrent = false, GameError = accepted.Message };
         try { gameJournal?.Save(game, accepted.Session); }
         catch (IOException) { return next with { GameTableCurrent = false, GameError = "Observation received but game history could not be saved." }; }
-        game = accepted.Session;
+        Volatile.Write(ref game, accepted.Session);
         return next with { Game = game.State, Match = MatchView.From(game), GameTableCurrent = !game.State.Table.Uncertain && game.State.Table.Motion == TableMotion.Settled, GameError = null };
     }
 }

@@ -32,7 +32,7 @@ public sealed partial class ShellSession
     const string VisionDashboardAsset = "vision-diagnostics-dashboard.html";
     const string VisionScenarioAsset = "vision-scenario-lab.html";
     const int VisionDashboardAssetVersion = 6;
-    const int VisionScenarioAssetVersion = 1;
+    const int VisionScenarioAssetVersion = 2;
     const int VisionDashboardPort = 8770;
     readonly DashboardScenarioWorkspace dashboardScenario;
     LocalHttpServer? visionDashboardServer;
@@ -203,6 +203,44 @@ public sealed partial class ShellSession
             var result = dashboardScenario.EvaluateRules(command);
             return HttpResponse.Json(result, result.Accepted ? 200 : 409);
         }
+        if ((request.Path is "/api/scenario/live/start" or "/api/scenario/live/stop") && request.Method == "POST")
+        {
+            if (request.Body.Length > 4096) return HttpResponse.Json(new { error = "Camera review command is too large." }, 413);
+            if (!request.Headers.GetValueOrDefault("Content-Type", "").StartsWith("application/json", StringComparison.OrdinalIgnoreCase))
+                return HttpResponse.Json(new { error = "Send the camera review command as JSON." }, 415);
+            DashboardScenarioLiveStartRequest command;
+            try { command = request.Json<DashboardScenarioLiveStartRequest>(); }
+            catch (JsonException) { return HttpResponse.Json(new { error = "The camera review command is not valid JSON." }, 400); }
+            catch (ArgumentException e) { return HttpResponse.Json(new { error = e.Message }, 400); }
+            if (request.Path.EndsWith("/stop", StringComparison.Ordinal))
+            {
+                var stopped = dashboardScenario.StopCameraReview(command);
+                return HttpResponse.Json(stopped, stopped.Accepted ? 200 : 409);
+            }
+            var started = await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                var current = app.State;
+                if (!current.HasFreshGameTable(DateTimeOffset.UtcNow))
+                    return new DashboardScenarioLiveResponse(false, "Take a fresh live table observation before copying the match into the scenario.", dashboardScenario.Snapshot());
+                var session = app.CaptureGameSession();
+                if (session.State.Version != current.Game.Version)
+                    return new DashboardScenarioLiveResponse(false, "The live match changed during capture. Refresh and try again.", dashboardScenario.Snapshot());
+                return dashboardScenario.StartCameraReview(command, session, table.VisionDiagnostics);
+            });
+            return HttpResponse.Json(started, started.Accepted ? 200 : 409);
+        }
+        if (request.Path == "/api/scenario/live/samples" && request.Method == "POST")
+        {
+            if (request.Body.Length > 4096) return HttpResponse.Json(new { error = "Camera sample cursor is too large." }, 413);
+            if (!request.Headers.GetValueOrDefault("Content-Type", "").StartsWith("application/json", StringComparison.OrdinalIgnoreCase))
+                return HttpResponse.Json(new { error = "Send the camera sample cursor as JSON." }, 415);
+            DashboardScenarioLiveSampleRequest command;
+            try { command = request.Json<DashboardScenarioLiveSampleRequest>(); }
+            catch (JsonException) { return HttpResponse.Json(new { error = "The camera sample cursor is not valid JSON." }, 400); }
+            catch (ArgumentException e) { return HttpResponse.Json(new { error = e.Message }, 400); }
+            var reviewed = dashboardScenario.ReviewCameraSamples(command, table.VisionDiagnostics);
+            return HttpResponse.Json(reviewed, reviewed.Accepted ? 200 : 409);
+        }
 
         if (request.Method != "GET") return HttpResponse.Json(new { error = "This route is read-only." }, 405);
         if (request.Path == "/") return new(200, "text/html; charset=utf-8", html);
@@ -221,6 +259,7 @@ public sealed partial class ShellSession
                 {
                     measuredAt = DateTimeOffset.UtcNow,
                     frame = live is null ? null : new { live.Sample.Sequence, live.Sample.FrameAgeMs },
+                    diagnosticSessionId = diagnostic.SessionId,
                     detection = detection is null ? null : new
                     {
                         detection.Uncertain,

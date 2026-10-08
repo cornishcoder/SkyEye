@@ -20,10 +20,12 @@ public sealed partial class AppCoordinator
         state = state with { Presentation = new(false) { PhoneCorrected = phoneCorrected } };
         this.observerError = observerError; this.clipSaves = clipSaves; this.cameraControls = cameraControls; sceneClock = clock ?? TimeProvider.System; this.observations = observations;
         this.gameJournal = gameJournal;
-        try { game = gameJournal?.Load() ?? SkyEye.GameState.GameSession.Empty; state = state with { Game = game.State, Match = MatchView.From(game) }; }
+        try { Volatile.Write(ref game, gameJournal?.Load() ?? SkyEye.GameState.GameSession.Empty); state = state with { Game = game.State, Match = MatchView.From(game) }; }
         catch (IOException) { gameUnavailable = true; state = state with { GameError = "Game history unavailable. Preserve the journal and repair it before continuing." }; }
     }
     public SkyEyeState State => Volatile.Read(ref state);
+    /// <summary>Immutable journal snapshot for isolated review workspaces.</summary>
+    public SkyEye.GameState.GameSession CaptureGameSession() => Volatile.Read(ref game);
 
     // Subscribe first, then read State for initial rendering. Observers must return
     // promptly and post further commands/UI work; synchronous reentrant dispatch blocks.

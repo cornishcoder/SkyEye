@@ -1,5 +1,7 @@
 using System.Collections.Immutable;
 using System.Text.Json;
+using SkyEye.Core;
+using SkyEye.Core.Analysis;
 using SkyEye.Core.Application;
 using SkyEye.Core.Rules;
 using SkyEye.GameState;
@@ -8,13 +10,25 @@ namespace SkyEye.Companion.Hybrid;
 
 public sealed record DashboardScenarioSnapshot(Guid ScenarioId, string Preset, long Version,
     GameSnapshot Game, MatchView Match, int EventCount, ImmutableArray<DashboardScenarioEvent> Events,
-    DashboardScenarioProposal? PendingProposal, DashboardScenarioRulePrompt? RulePrompt, string? Error);
+    DashboardScenarioProposal? PendingProposal, DashboardScenarioRulePrompt? RulePrompt, string? Error)
+{
+    public DashboardScenarioCameraReview CameraReview { get; init; } = new(false, "Camera review is off.", null, 0);
+}
+public sealed record DashboardScenarioCameraReview(bool Active, string Status, Guid? SessionId, int LastSequence);
 public sealed record DashboardScenarioEvent(long Sequence, Guid InputId, string FrameId, DateTimeOffset At,
     string Provenance, string Event, bool ScenarioTest);
 public sealed record DashboardScenarioChoice(string Id, string Label, string Description, bool Recommended);
 public sealed record DashboardScenarioProposal(Guid Id, string Kind, string Title, string Summary, string Recommendation,
     ImmutableArray<DashboardScenarioEvent> Events, string ProposedScore, string ProposedTurn,
-    ImmutableArray<DashboardScenarioChoice> Choices, RulePosition? RulePosition = null);
+    ImmutableArray<DashboardScenarioChoice> Choices, RulePosition? RulePosition = null)
+{
+    public DashboardScenarioCameraEvidence? CameraEvidence { get; init; }
+}
+public sealed record DashboardScenarioCameraBall(string Id, string Colour, double X, double Y, double Confidence);
+public sealed record DashboardScenarioCameraEvidence(Guid SessionId, int FirstSequence, int SettledSequence,
+    long FirstSourceTimeUs, long SettledSourceTimeUs, string Camera, string Timeline, long Generation,
+    string Calibration, long MediaGeneration, long FrameId, DateTimeOffset CapturedAt, bool IdentitiesResolved,
+    ImmutableArray<DashboardScenarioCameraBall> Balls);
 public sealed record DashboardScenarioRulePrompt(string ShotId, string ShooterId, string ShooterName,
     int MovedBallCount, int PotCount, bool NoPotAfterMovement, string RulesProfile);
 public sealed record DashboardScenarioResetRequest(Guid ScenarioId, long ExpectedVersion, string Preset);
@@ -32,6 +46,9 @@ public sealed record DashboardScenarioRuleRequest(Guid ScenarioId, long Expected
     bool CueBallOffTable = false, string? FirstContact = null, bool? CallRequired = null, string? CalledGroup = null,
     int? RedsBefore = null, int? YellowsBefore = null, bool Break = false, bool? LegalBreak = null);
 public sealed record DashboardScenarioRuleResponse(bool Accepted, string Message, DashboardScenarioSnapshot Scenario);
+public sealed record DashboardScenarioLiveStartRequest(Guid ScenarioId, long ExpectedVersion);
+public sealed record DashboardScenarioLiveSampleRequest(Guid ScenarioId, long ExpectedVersion, Guid SessionId, int ThroughSequence);
+public sealed record DashboardScenarioLiveResponse(bool Accepted, string Message, DashboardScenarioSnapshot Scenario);
 
 /// <summary>Owns a disposable, separately journaled GameState scenario for the Lab dashboard.</summary>
 public sealed class DashboardScenarioWorkspace
@@ -47,6 +64,14 @@ public sealed class DashboardScenarioWorkspace
     GameSession? pendingSession;
     DashboardScenarioProposal? pendingProposal;
     readonly Dictionary<string, GameSession> pendingChoices = new(StringComparer.Ordinal);
+    bool cameraReviewActive;
+    string cameraReviewStatus = "Camera review is off.";
+    Guid? cameraReviewSessionId;
+    int cameraReviewLastSequence;
+    sealed record CameraLayoutSample(VisionDiagnosticSample Sample, ImmutableArray<ObservedBall> Balls);
+    readonly List<CameraLayoutSample> cameraStableSamples = [];
+    ImmutableArray<ObservedBall> pendingCameraLayout = [];
+    ImmutableArray<ObservedBall> rejectedCameraLayout = [];
     EvidenceSource ScenarioSource => new("dashboard-scenario", "scenario-" + scenarioId.ToString("N"), 1, "scenario-table-2x1");
 
     public DashboardScenarioWorkspace(string directory)
@@ -85,6 +110,7 @@ public sealed class DashboardScenarioWorkspace
                 journal = nextJournal;
                 session = nextSession;
                 ClearPending();
+                StopCameraReview("Camera review stopped because the scenario was reset.");
                 error = null;
                 return new(true, "Scenario reset to " + PresetName(preset) + ". Live match unchanged.", Current());
             }
@@ -93,6 +119,335 @@ public sealed class DashboardScenarioWorkspace
                 return new(false, "Scenario could not be reset. The previous scenario remains available.", Current());
             }
         }
+    }
+
+    public DashboardScenarioLiveResponse StartCameraReview(DashboardScenarioLiveStartRequest request,
+        GameSession live, VisionDiagnosticsSnapshot diagnostics)
+    {
+        lock (gate)
+        {
+            if (request.ScenarioId != scenarioId || request.ExpectedVersion != session.State.Version)
+                return new(false, "The scenario changed. Refresh and try again.", Current());
+            if (pendingProposal is not null)
+                return new(false, "Review the pending scenario event before loading the live match.", Current());
+            if (!diagnostics.Active || diagnostics.LiveFrame is not { } liveFrame || liveFrame.Sample.Source is not { } source)
+                return new(false, "Start fresh sequential camera diagnostics, then try again.", Current());
+            var sample = liveFrame.Sample;
+            if (!FreshCameraSample(sample) || sample.Detection.Uncertain || sample.Detection.Obstructed
+                || sample.Detection.Balls.Any(ball => !TryColour(ball.Kind, out _) || !double.IsFinite(ball.Confidence) || ball.Confidence < .5))
+                return new(false, "Wait for a fresh, clear camera sample with confidently labelled balls.", Current());
+            if (live.State.Match is null || live.State.Frame is null || live.State.Frame.Winner is not null
+                || live.State.Table.Motion != SkyEye.GameState.TableMotion.Settled || live.State.Table.Uncertain
+                || live.State.Shot is not null || live.State.Table.Source != source)
+                return new(false, "The live match needs an active frame, a settled certain table and no unresolved shot on this camera source.", Current());
+
+            var onTable = live.State.Table.Balls.Values.Where(ball => ball.Presence.Value == BallPresence.OnTable
+                && ball.Position is not null).ToImmutableArray();
+            var detected = ToObserved(sample.Detection);
+            var prior = onTable.Select(ball => (ball.Id, ball.Colour, ball.Position!)).ToImmutableArray();
+            if (onTable.Length == 0 || onTable.Length != detected.Length
+                || !TryAssociate(prior, detected, .08, out _))
+                return new(false, "The fresh camera layout does not uniquely match the current live inventory. Update the live table observation, then try again.", Current());
+
+            try
+            {
+                var id = Guid.NewGuid();
+                var imported = GameSession.Restore(live.History);
+                var nextJournal = Open(id);
+                nextJournal.Save(GameSession.Empty, imported);
+                Directory.CreateDirectory(Path.Combine(root, id.ToString("N")));
+                File.WriteAllText(Path.Combine(root, id.ToString("N"), "preset.txt"), "live-match-copy");
+                WriteActive(id);
+                scenarioId = id;
+                preset = "live-match-copy";
+                journal = nextJournal;
+                session = imported;
+                ClearPending();
+                cameraReviewActive = true;
+                cameraReviewSessionId = diagnostics.SessionId;
+                cameraReviewLastSequence = sample.Sequence;
+                cameraReviewStatus = "Live match copied into the isolated scenario. Waiting for a stable changed table layout.";
+                cameraStableSamples.Clear();
+                pendingCameraLayout = [];
+                rejectedCameraLayout = [];
+                error = null;
+                return new(true, "Live match copied to the isolated scenario. Camera review is active; the live match is unchanged.", Current());
+            }
+            catch (Exception e) when (e is IOException or ArgumentException or InvalidOperationException or UnauthorizedAccessException)
+            {
+                return new(false, "The live match could not be copied into the scenario journal. The previous scenario remains available.", Current());
+            }
+        }
+    }
+
+    public DashboardScenarioLiveResponse StopCameraReview(DashboardScenarioLiveStartRequest request)
+    {
+        lock (gate)
+        {
+            if (request.ScenarioId != scenarioId || request.ExpectedVersion != session.State.Version)
+                return new(false, "The scenario changed. Refresh and try again.", Current());
+            StopCameraReview("Camera review stopped.");
+            return new(true, cameraReviewStatus, Current());
+        }
+    }
+
+    void StopCameraReview(string status)
+    {
+        cameraReviewActive = false;
+        cameraReviewStatus = status;
+        cameraReviewSessionId = null;
+        cameraReviewLastSequence = 0;
+        cameraStableSamples.Clear();
+        pendingCameraLayout = [];
+        rejectedCameraLayout = [];
+    }
+
+    public DashboardScenarioLiveResponse ReviewCameraSamples(DashboardScenarioLiveSampleRequest request,
+        VisionDiagnosticsSnapshot diagnostics)
+    {
+        lock (gate)
+        {
+            if (request.ScenarioId != scenarioId || request.ExpectedVersion != session.State.Version)
+                return new(false, "The scenario changed. Refresh and try again.", Current());
+            if (!cameraReviewActive || request.SessionId != cameraReviewSessionId)
+                return new(false, "Camera review is no longer connected to this diagnostic session. Start it again from the current live match.", Current());
+            if (request.SessionId != diagnostics.SessionId)
+            {
+                StopCameraReview("Camera review stopped because diagnostics restarted. Start it again from the current live match.");
+                return new(true, cameraReviewStatus, Current());
+            }
+            if (pendingProposal is not null)
+                return new(true, "Review the pending camera proposal before processing more samples.", Current());
+            if (!diagnostics.Active)
+                return new(false, "Sequential camera diagnostics stopped. Start camera review again after sampling resumes.", Current());
+            if (request.ThroughSequence <= cameraReviewLastSequence) return new(true, cameraReviewStatus, Current());
+
+            var available = diagnostics.Samples.Where(sample => sample.Sequence > cameraReviewLastSequence
+                && sample.Sequence <= request.ThroughSequence).OrderBy(sample => sample.Sequence).ToArray();
+            if (available.Length == 0)
+            {
+                cameraStableSamples.Clear();
+                cameraReviewLastSequence = request.ThroughSequence;
+                cameraReviewStatus = "Camera sample history rolled over. Waiting for three fresh stable frames.";
+                return new(true, cameraReviewStatus, Current());
+            }
+            if (available[0].Sequence != cameraReviewLastSequence + 1)
+            {
+                cameraStableSamples.Clear();
+                cameraReviewStatus = "A camera sample gap was detected. Reacquiring a stable layout.";
+            }
+
+            foreach (var sample in available)
+            {
+                if (sample.Sequence != cameraReviewLastSequence + 1) cameraStableSamples.Clear();
+                cameraReviewLastSequence = sample.Sequence;
+                if (sample.Source != session.State.Table.Source)
+                {
+                    StopCameraReview("Camera review stopped because the camera or calibration source changed. Start it again from the current live match.");
+                    return new(true, cameraReviewStatus, Current());
+                }
+                if (!UsableCameraSample(sample, out var balls, out var reason))
+                {
+                    cameraStableSamples.Clear();
+                    cameraReviewStatus = "Waiting for clear camera evidence. " + reason;
+                    continue;
+                }
+                if (cameraStableSamples.Count > 0)
+                {
+                    var previous = cameraStableSamples[^1];
+                    if (sample.Source != previous.Sample.Source || sample.SourceTimeUs <= previous.Sample.SourceTimeUs
+                        || sample.SourceTimeUs - previous.Sample.SourceTimeUs > 3_000_000
+                        || !SameCameraLayout(previous.Balls, balls, .025)) cameraStableSamples.Clear();
+                }
+                cameraStableSamples.Add(new(sample, balls));
+                if (cameraStableSamples.Count > 3) cameraStableSamples.RemoveAt(0);
+                if (cameraStableSamples.Count < 3)
+                {
+                    cameraReviewStatus = $"Checking that the changed layout is stable ({cameraStableSamples.Count}/3 samples).";
+                    continue;
+                }
+
+                var settled = cameraStableSamples[^1];
+                var onTable = session.State.Table.Balls.Values.Where(ball => ball.Presence.Value == BallPresence.OnTable
+                    && ball.Position is not null).ToImmutableArray();
+                if (SameScenarioLayout(onTable, settled.Balls))
+                {
+                    cameraReviewStatus = "Camera review is active. The stable table matches the scenario.";
+                    rejectedCameraLayout = [];
+                    continue;
+                }
+                if (!rejectedCameraLayout.IsDefaultOrEmpty && SameCameraLayout(rejectedCameraLayout, settled.Balls, .025))
+                {
+                    cameraReviewStatus = "This stable layout was rejected. Waiting for another table change.";
+                    continue;
+                }
+                if (session.State.Shot is not null || session.State.Table.Uncertain
+                    || session.State.Table.Motion != SkyEye.GameState.TableMotion.Settled)
+                {
+                    cameraReviewStatus = "Resolve the scenario shot and table uncertainty before camera review continues.";
+                    continue;
+                }
+                StageCameraProposal(cameraStableSamples[0], settled);
+                return new(true, "Stable camera event proposal ready for review.", Current());
+            }
+            return new(true, cameraReviewStatus, Current());
+        }
+    }
+
+    static bool UsableCameraSample(VisionDiagnosticSample sample, out ImmutableArray<ObservedBall> balls, out string reason)
+    {
+        balls = [];
+        if (sample.Source is null || !FreshCameraSample(sample))
+        { reason = "the source frame is stale or incomplete."; return false; }
+        if (sample.Detection.Obstructed)
+        { reason = "the detector marked this frame obstructed."; return false; }
+        if (sample.Detection.Balls.Length is 0 or > 16
+            || sample.Detection.Balls.Any(ball => !TryColour(ball.Kind, out _) || !double.IsFinite(ball.Confidence) || ball.Confidence < .5))
+        { reason = "all visible balls need supported labels and confidence."; return false; }
+        balls = ToObserved(sample.Detection);
+        reason = sample.Detection.Uncertain ? "the detector marked this frame uncertain; only an uncertain proposal can be offered." : "";
+        return true;
+    }
+
+    static bool FreshCameraSample(VisionDiagnosticSample sample)
+    {
+        var currentAgeMs = (DateTimeOffset.UtcNow - sample.CapturedAt).TotalMilliseconds;
+        return double.IsFinite(sample.FrameAgeMs) && sample.FrameAgeMs is >= 0 and <= 2500
+            && double.IsFinite(currentAgeMs) && currentAgeMs is >= -2000 and <= 2500;
+    }
+
+    void StageCameraProposal(CameraLayoutSample first, CameraLayoutSample settled)
+    {
+        var table = session.State.Table.Balls.Values.Where(ball => ball.Presence.Value == BallPresence.OnTable
+            && ball.Position is not null).ToImmutableArray();
+        var prior = table.Select(ball => (ball.Id, ball.Colour, ball.Position!)).ToImmutableArray();
+        var elapsed = Math.Max(.25, (settled.Sample.SourceTimeUs - (session.State.Table.LastSettled?.SourceTimeUs ?? first.Sample.SourceTimeUs)) / 1_000_000d);
+        var movementGate = Math.Min(1.25, .05 + elapsed * 1.25);
+        bool detectorCertain = cameraStableSamples.All(item => !item.Sample.Detection.Uncertain);
+        ImmutableArray<ObservedBall> associated = [];
+        bool resolved = detectorCertain && TryAssociate(prior, settled.Balls, movementGate, out associated);
+        var observationBalls = resolved ? associated : settled.Balls.Select((ball, index) => ball with
+            { Id = $"camera-unresolved-{settled.Sample.Sequence}-{index}" }).ToImmutableArray();
+        var source = settled.Sample.Source!;
+        var matchId = session.State.Match!.Id;
+        var frameId = session.State.Frame!.Id;
+        var shotId = $"camera-{settled.Sample.SourceTimeUs:x}-{first.Sample.Sequence}";
+        var inferredConfidence = resolved ? .75 : .5;
+        var candidate = session;
+        var inputs = new List<GameInputEnvelope>();
+        if (resolved)
+        {
+            inputs.Add(new(Guid.NewGuid(), matchId, frameId, first.Sample.CapturedAt,
+                new MotionStarted(shotId), source, first.Sample.SourceTimeUs, Provenance.Inferred, .7));
+            inputs.Add(new(Guid.NewGuid(), matchId, frameId, settled.Sample.CapturedAt,
+                new MotionStopped(shotId), source, settled.Sample.SourceTimeUs, Provenance.Inferred, .7));
+        }
+        inputs.Add(new(Guid.NewGuid(), matchId, frameId, settled.Sample.CapturedAt,
+            new SkyEye.GameState.TableObservation(observationBalls, Settled: true, Uncertain: !resolved, IdentitiesResolved: resolved),
+            source, settled.Sample.SourceTimeUs, Provenance.Inferred, inferredConfidence));
+        foreach (var input in inputs)
+        {
+            var result = candidate.Accept(input);
+            if (result.Outcome != InputOutcome.Applied)
+            {
+                cameraReviewStatus = "Camera evidence could not be staged: " + result.Message;
+                cameraStableSamples.Clear();
+                return;
+            }
+            candidate = result.Session;
+        }
+
+        var added = candidate.History.Skip(session.History.Length).ToArray();
+        var moved = resolved ? associated.Where(current => table.Any(old => old.Id == current.Id && old.Position is { } p
+                && current.Position is { } q && Distance(p, q) > .005)).Select(ball => ball.Id).ToArray() : [];
+        var missing = resolved ? table.Where(old => !associated.Any(ball => ball.Id == old.Id)).Select(ball => ball.Id).ToArray() : [];
+        var choices = ImmutableArray.CreateBuilder<DashboardScenarioChoice>();
+        choices.Add(new("accept", "Accept camera proposal", resolved
+            ? "Record provisional shot boundaries and this settled layout in the isolated scenario."
+            : "Record the detector result as uncertain without changing ball identities or inventory.", true));
+        if (resolved)
+            choices.Add(new("keep-uncertain", "Keep the layout uncertain", "Record the missing or moved evidence, but do not resolve the shot for rules review.", false));
+        choices.Add(new("reject", "Reject this layout", "Discard the camera proposal and keep the current scenario state.", false));
+        var match = MatchView.From(candidate);
+        var summary = resolved
+            ? $"Three clear frames agreed on a changed layout. {moved.Length} ball(s) moved; {missing.Length} previously visible ball(s) are now absent. No pocket or pot is inferred from disappearance alone."
+            : !detectorCertain
+                ? "Three stable frames show a changed layout, but the detector marked at least one frame uncertain. Accepting records an uncertain observation only; identities and inventory stay unchanged."
+                : "Three clear frames agreed on a changed layout, but ball identities could not be uniquely associated with the scenario inventory. Accepting records an uncertain observation only.";
+        var proposal = new DashboardScenarioProposal(Guid.NewGuid(), "camera", "Camera event awaiting your choice",
+            summary, resolved
+                ? "Review the source frame and event list. Accept records a provisional shot boundary and settled table in this scenario; a missing ball stays Missing until separate pocket evidence exists."
+                : "Keep the existing ball identities. The uncertain observation will not change inventory, score or turn.",
+            added.Select(ToScenarioEvent).ToImmutableArray(), match.Score,
+            match.CurrentPlayer is null ? "—" : match.Name(match.CurrentPlayer), choices.ToImmutable())
+        {
+            CameraEvidence = new(cameraReviewSessionId!.Value,
+                first.Sample.Sequence, settled.Sample.Sequence, first.Sample.SourceTimeUs, settled.Sample.SourceTimeUs,
+                source.Camera, source.Timeline, source.Generation, source.Calibration,
+                settled.Sample.MediaGeneration, settled.Sample.FrameId, settled.Sample.CapturedAt,
+                resolved, observationBalls.Select(ball => new DashboardScenarioCameraBall(ball.Id, ball.Colour.ToString(),
+                    ball.Position?.X ?? 0, ball.Position?.Y ?? 0, ball.Confidence ?? inferredConfidence)).ToImmutableArray())
+        };
+        pendingSession = candidate;
+        pendingProposal = proposal;
+        pendingChoices.Clear();
+        pendingChoices["accept"] = candidate;
+        if (resolved)
+        {
+            var uncertainCandidate = BuildCameraCandidate(first, settled, associated, uncertain: true);
+            if (uncertainCandidate is not null) pendingChoices["keep-uncertain"] = uncertainCandidate;
+        }
+        pendingCameraLayout = settled.Balls;
+        cameraReviewLastSequence = settled.Sample.Sequence;
+        cameraReviewStatus = "Camera proposal is waiting for your choice.";
+    }
+
+    GameSession? BuildCameraCandidate(CameraLayoutSample first, CameraLayoutSample settled,
+        ImmutableArray<ObservedBall> associated, bool uncertain)
+    {
+        var source = settled.Sample.Source!;
+        var matchId = session.State.Match!.Id;
+        var frameId = session.State.Frame!.Id;
+        var shotId = $"camera-{settled.Sample.SourceTimeUs:x}-{first.Sample.Sequence}";
+        var candidate = session;
+        var inputs = new[]
+        {
+            new GameInputEnvelope(Guid.NewGuid(), matchId, frameId, first.Sample.CapturedAt,
+                new MotionStarted(shotId), source, first.Sample.SourceTimeUs, Provenance.Inferred, .7),
+            new GameInputEnvelope(Guid.NewGuid(), matchId, frameId, settled.Sample.CapturedAt,
+                new MotionStopped(shotId), source, settled.Sample.SourceTimeUs, Provenance.Inferred, .7),
+            new GameInputEnvelope(Guid.NewGuid(), matchId, frameId, settled.Sample.CapturedAt,
+                new SkyEye.GameState.TableObservation(associated, Settled: true, Uncertain: uncertain), source,
+                settled.Sample.SourceTimeUs, Provenance.Inferred, .5)
+        };
+        foreach (var input in inputs)
+        {
+            var result = candidate.Accept(input);
+            if (result.Outcome != InputOutcome.Applied) return null;
+            candidate = result.Session;
+        }
+        return candidate;
+    }
+
+    static bool SameScenarioLayout(ImmutableArray<KnownBall> prior, ImmutableArray<ObservedBall> detected)
+    {
+        if (prior.Length != detected.Length) return false;
+        var known = prior.Select(ball => (ball.Id, ball.Colour, ball.Position!)).ToImmutableArray();
+        return TryAssociate(known, detected, .025, out _);
+    }
+
+    static bool SameCameraLayout(ImmutableArray<ObservedBall> first, ImmutableArray<ObservedBall> second, double tolerance)
+    {
+        if (first.Length != second.Length) return false;
+        var prior = first.Where(ball => ball.Position is not null)
+            .Select(ball => (ball.Id, ball.Colour, ball.Position!)).ToImmutableArray();
+        return prior.Length == first.Length && TryAssociate(prior, second, tolerance, out _);
+    }
+
+    static double Distance(TablePosition a, TablePosition b)
+    {
+        double dx = (a.X - b.X) * 2, dy = a.Y - b.Y;
+        return Math.Sqrt(dx * dx + dy * dy);
     }
 
     public DashboardScenarioCommandResponse Apply(DashboardScenarioCommandRequest request)
@@ -319,13 +674,40 @@ public sealed class DashboardScenarioWorkspace
                 SavePresetLabel();
             }
 
-            var message = request.ChoiceId switch
+            bool cameraProposal = pendingProposal.CameraEvidence is not null;
+            bool cameraReviewWasActive = cameraReviewActive;
+            var message = cameraProposal
+                ? request.ChoiceId switch
+                {
+                    "accept" => "Camera proposal accepted into the isolated scenario. A missing ball remains Missing; no pot was inferred.",
+                    "keep-uncertain" => "Camera evidence was recorded with the table uncertain. No pot was inferred.",
+                    _ => "Camera proposal rejected; the scenario state is unchanged."
+                }
+                : request.ChoiceId switch
+                {
+                    "accept" => pendingProposal.Kind == "rules" ? "Rules recommendation accepted into the scenario journal." : "Event accepted into the scenario journal.",
+                    "keep-uncertain" => "Missing evidence kept, with the table marked uncertain; no pot was recorded.",
+                    var choice when choice.StartsWith("turn:", StringComparison.Ordinal) => "Manual turn choice recorded in the scenario journal.",
+                    _ => "Proposal discarded; the scenario state is unchanged."
+                };
+            if (cameraProposal)
             {
-                "accept" => pendingProposal.Kind == "rules" ? "Rules recommendation accepted into the scenario journal." : "Event accepted into the scenario journal.",
-                "keep-uncertain" => "Missing evidence kept, with the table marked uncertain; no pot was recorded.",
-                var choice when choice.StartsWith("turn:", StringComparison.Ordinal) => "Manual turn choice recorded in the scenario journal.",
-                _ => "Proposal discarded; the scenario state is unchanged."
-            };
+                if (selected is null)
+                {
+                    rejectedCameraLayout = pendingCameraLayout;
+                    cameraReviewStatus = "This stable layout was rejected. Waiting for another table change.";
+                    cameraStableSamples.Clear();
+                }
+                else if (session.State.Table.Uncertain)
+                    StopCameraReview("Camera review paused because the accepted layout left the scenario uncertain. Reset or reload the live match to resume.");
+                else if (cameraReviewWasActive)
+                {
+                    cameraReviewStatus = "Camera proposal accepted. Waiting for the next stable table change.";
+                    cameraStableSamples.Clear();
+                }
+                else cameraReviewStatus = "Camera proposal accepted. Camera review is off.";
+                pendingCameraLayout = [];
+            }
             ClearPending();
             return new(true, message, Current());
         }
@@ -452,7 +834,72 @@ public sealed class DashboardScenarioWorkspace
     DashboardScenarioSnapshot Current() => new(scenarioId, preset, session.State.Version,
         session.State, MatchView.From(session), session.History.Length,
         session.History.TakeLast(40).Reverse().Select(ToScenarioEvent).ToImmutableArray(),
-        pendingProposal, GetRulePrompt(), error);
+        pendingProposal, GetRulePrompt(), error)
+        { CameraReview = new(cameraReviewActive, cameraReviewStatus, cameraReviewSessionId, cameraReviewLastSequence) };
+
+    static ImmutableArray<ObservedBall> ToObserved(VisionResult detection)
+        => detection.Balls.Where(ball => TryColour(ball.Kind, out _)).Select(ball =>
+        {
+            _ = TryColour(ball.Kind, out var colour);
+            return new ObservedBall(ball.Id, colour, new(ball.Position.X / 2, ball.Position.Y), ball.Confidence);
+        }).ToImmutableArray();
+
+    static bool TryColour(string? value, out BallColour colour)
+        => Enum.TryParse(value, true, out colour) && Enum.IsDefined(colour) && colour != BallColour.Unknown;
+
+    static bool TryAssociate(ImmutableArray<(string Id, BallColour Colour, TablePosition Position)> prior,
+        ImmutableArray<ObservedBall> detected, double maximumDistance, out ImmutableArray<ObservedBall> associated)
+    {
+        var result = detected.ToArray();
+        foreach (var colour in new[] { BallColour.Cue, BallColour.Red, BallColour.Yellow, BallColour.Black })
+        {
+            var old = prior.Where(ball => ball.Colour == colour).ToArray();
+            var indices = Enumerable.Range(0, result.Length).Where(index => result[index].Colour == colour).ToArray();
+            if (indices.Length > old.Length) { associated = []; return false; }
+            if (indices.Length == 0) continue;
+
+            var bestCost = double.PositiveInfinity;
+            var secondCost = double.PositiveInfinity;
+            int[]? best = null;
+            var selected = new int[indices.Length];
+            var used = new bool[old.Length];
+            void Search(int depth, double cost)
+            {
+                if (cost > secondCost) return;
+                if (depth == indices.Length)
+                {
+                    if (cost < bestCost)
+                    {
+                        secondCost = bestCost;
+                        bestCost = cost;
+                        best = selected.ToArray();
+                    }
+                    else if (cost < secondCost) secondCost = cost;
+                    return;
+                }
+                var observed = result[indices[depth]];
+                for (int candidate = 0; candidate < old.Length; candidate++)
+                {
+                    if (used[candidate]) continue;
+                    double dx = (observed.Position!.X - old[candidate].Position.X) * 2;
+                    double dy = observed.Position.Y - old[candidate].Position.Y;
+                    double distance = Math.Sqrt(dx * dx + dy * dy);
+                    if (distance > maximumDistance) continue;
+                    used[candidate] = true;
+                    selected[depth] = candidate;
+                    Search(depth + 1, cost + distance * distance);
+                    used[candidate] = false;
+                }
+            }
+            Search(0, 0);
+            if (best is null || double.IsFinite(secondCost)
+                && secondCost - bestCost <= Math.Max(.00025, bestCost * .1))
+            { associated = []; return false; }
+            for (int i = 0; i < indices.Length; i++) result[indices[i]] = result[indices[i]] with { Id = old[best[i]].Id };
+        }
+        associated = result.ToImmutableArray();
+        return true;
+    }
 
     DashboardScenarioProposal CreateEvidenceProposal(string action, GameSession proposed, EventEnvelope[] added,
         bool inferredPot, bool hasUncertainChoice)

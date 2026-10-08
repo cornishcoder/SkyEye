@@ -1,3 +1,5 @@
+using SkyEye.GameState;
+
 namespace SkyEye.Core.Analysis;
 
 public sealed record VisionDiagnosticSample(
@@ -8,7 +10,10 @@ public sealed record VisionDiagnosticSample(
     long FrameId,
     long SourceTimeUs,
     string FrameSource,
-    VisionResult Detection);
+    VisionResult Detection)
+{
+    public EvidenceSource? Source { get; init; }
+}
 
 public sealed record VisionDiagnosticsSnapshot(
     bool Active,
@@ -228,7 +233,13 @@ public sealed partial class TableAnalysisSession
                     {
                         var sample = new VisionDiagnosticSample(++visionDiagnosticsTotalSamples, frame.CapturedAt,
                             (time.GetUtcNow() - frame.CapturedAt).TotalMilliseconds, receipt.MediaGeneration, receipt.FrameId,
-                            sourceTimeUs, frame.FrameSource, detection);
+                            sourceTimeUs, frame.FrameSource, detection)
+                        {
+                            Source = admitted.CameraIdentity is { } identity
+                                ? new EvidenceSource(identity, frame.Timeline, admitted.Generation + 1,
+                                    admitted.CalibrationId, admitted.Source!.ConnectionId.ToString("N"))
+                                : null
+                        };
                         visionDiagnosticSamples.Add(sample);
                         if (visionDiagnosticSamples.Count > MaximumVisionDiagnosticSamples) visionDiagnosticSamples.RemoveAt(0);
                         visionDiagnosticsLiveFrame = liveJpeg is null ? null
