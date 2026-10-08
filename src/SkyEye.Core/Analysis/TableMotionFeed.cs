@@ -29,7 +29,14 @@ public interface ITableMotionFrameSource : ITableFrameSource
 }
 public sealed record MotionFeedSnapshot(long Acquired, long Processed, long Replaced, long DuplicateOrBackwards, long Stale,
     long AcquisitionFailures, long ScopeRejected, long WorkerFailures, long GapResets, int Active, int Pending,
-    string? StopReason, MotionMeasurement? Latest, double LastAcquisitionMs, double LastWorkerMs, double LastResultAgeMs);
+    string? StopReason, MotionMeasurement? Latest, double LastAcquisitionMs, double LastWorkerMs, double LastResultAgeMs)
+{
+    public int RequestedHz { get; init; }
+    public int FrameWidth { get; init; }
+    public int FrameHeight { get; init; }
+    public int CadenceSampleCount { get; init; }
+    public double? ProcessedSourceCadenceHz { get; init; }
+}
 
 /// <summary>Explicitly started, one active/one latest frame. No detector, rule or event submission.</summary>
 public sealed class TableMotionFeed : IAsyncDisposable
@@ -43,6 +50,7 @@ public sealed class TableMotionFeed : IAsyncDisposable
     readonly TimeProvider time;
     readonly CancellationTokenSource stopped = new();
     readonly SemaphoreSlim wake = new(0, 1);
+    readonly Queue<long> recentProcessedSourceTimes = new();
     TableFrame? pending;
     Task? run;
     long acquired, processed, replaced, duplicate, stale, acquisitionFailures, scopeRejected, workerFailures, gaps;
@@ -62,8 +70,29 @@ public sealed class TableMotionFeed : IAsyncDisposable
     }
     public MotionFeedSnapshot Snapshot
     {
-        get { lock (gate) return new(acquired, processed, replaced, duplicate, stale, acquisitionFailures, scopeRejected,
-            workerFailures, gaps, active, pending is null ? 0 : 1, stopReason, latest, acquisitionMs, workerMs, resultAgeMs); }
+        get
+        {
+            lock (gate)
+            {
+                var cadenceSamples = recentProcessedSourceTimes.Count;
+                double? cadence = null;
+                if (cadenceSamples > 1)
+                {
+                    var first = recentProcessedSourceTimes.Peek();
+                    var last = recentProcessedSourceTimes.Last();
+                    if (last > first) cadence = (cadenceSamples - 1) * 1_000_000d / (last - first);
+                }
+                return new(acquired, processed, replaced, duplicate, stale, acquisitionFailures, scopeRejected,
+                    workerFailures, gaps, active, pending is null ? 0 : 1, stopReason, latest, acquisitionMs, workerMs, resultAgeMs)
+                {
+                    RequestedHz = options.FramesPerSecond,
+                    FrameWidth = width,
+                    FrameHeight = height,
+                    CadenceSampleCount = cadenceSamples,
+                    ProcessedSourceCadenceHz = cadence
+                };
+            }
+        }
     }
     public Task Completion { get { lock (gate) return run ?? Task.CompletedTask; } }
     public void Start()
@@ -186,7 +215,13 @@ public sealed class TableMotionFeed : IAsyncDisposable
                         if (!Current()) continue;
                         if (!Fresh(frame)) { stale++; lastProcessedUs = -1; continue; }
                         if (result.SourceTimeUs != context!.SourceTimeUs) throw new InvalidDataException("Worker result lost source time.");
+                        if (context.Reset) recentProcessedSourceTimes.Clear();
                         processed++; lastProcessedUs = context.SourceTimeUs; latest = result;
+                        recentProcessedSourceTimes.Enqueue(context.SourceTimeUs);
+                        while (recentProcessedSourceTimes.Count > 1
+                            && (recentProcessedSourceTimes.Count > 601
+                                || context.SourceTimeUs - recentProcessedSourceTimes.Peek() > 10_000_000))
+                            recentProcessedSourceTimes.Dequeue();
                         workerMs = clock.Elapsed.TotalMilliseconds; resultAgeMs = (time.GetUtcNow() - frame.CapturedAt).TotalMilliseconds;
                     }
                 }
