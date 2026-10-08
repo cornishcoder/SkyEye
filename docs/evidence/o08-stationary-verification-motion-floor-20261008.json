@@ -1,0 +1,48 @@
+{
+  "SchemaVersion": 1,
+  "Device": "Pixel 11 Pro XL",
+  "Package": "uk.co.skyeye.companion.lab",
+  "Method": "Live calibrated table verification metrics; no camera images saved.",
+  "Scene": "The user reported the table and balls stationary.",
+  "Before": {
+    "Configuration": "o08-provisional-v13",
+    "TemplateMotionThresholdPixels": 0.4,
+    "IndependentFrames": 3,
+    "Outcome": "Unsettled",
+    "Reason": "Moving",
+    "ConsensusConflict": "insufficient-or-obstructed",
+    "DetectionFrames": 2,
+    "LastSample": {
+      "DetectedBalls": 16,
+      "Uncertain": false,
+      "Obstructed": false,
+      "SupportedBodies": 16,
+      "SensitiveTileChange": 0.001953125,
+      "TemplateDisplacementPixels": 0.4225538436,
+      "DetectedCentreDisplacementPixels": 1.4091120397,
+      "DetectedCentreMotionThresholdPixels": 6
+    }
+  },
+  "After": {
+    "Configuration": "o08-provisional-v14",
+    "TemplateMotionThresholdPixels": 1,
+    "IndependentFrames": 5,
+    "Outcome": "Ready",
+    "Reason": "None",
+    "Motion": "Still",
+    "ConsensusConflict": null,
+    "TableBallCount": 16,
+    "TableSettled": true,
+    "TableOccluded": false,
+    "TableManuallyConfirmed": false,
+    "Samples": [
+      { "FrameId": 223, "Motion": "Unknown", "Reason": "InsufficientEvidence", "DetectedBalls": 16, "Uncertain": false },
+      { "FrameId": 243, "Motion": "Still", "Reason": "None", "TemplateDisplacementPixels": 0.2411448645 },
+      { "FrameId": 254, "Motion": "Still", "Reason": "None", "TemplateDisplacementPixels": 0.2535233371, "DetectedCentreDisplacementPixels": 2.1873964534, "DetectedBalls": 16, "Uncertain": false },
+      { "FrameId": 270, "Motion": "Still", "Reason": "None", "TemplateDisplacementPixels": 0.1773974435 },
+      { "FrameId": 284, "Motion": "Still", "Reason": "None", "TemplateDisplacementPixels": 0.2063726795, "DetectedCentreDisplacementPixels": 2.1015194793, "DetectedBalls": 16, "Uncertain": false }
+    ]
+  },
+  "Interpretation": "The pre-change run stopped because a subpixel patch displacement barely exceeded the 0.4-pixel threshold; detected centre displacement was below the 6-pixel threshold. With the versioned 1-pixel floor, the live verification completed five frames and produced a clear still consensus. This is one user-reported stationary scene, not a lighting-stratified acceptance result.",
+  "RemainingGate": "The separate motion-feed capture requires the user to manually confirm the settled layout; it was not started in this evidence run."
+}
