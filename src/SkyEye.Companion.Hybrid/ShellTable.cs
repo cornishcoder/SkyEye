@@ -22,6 +22,18 @@ public sealed partial class ShellSession
     public bool CanAnalyzeTable => sessionMode == TableSessionMode.Live
         && app.State.Camera is { CanControl: true, Capture: CaptureState.Active } && selection.Kind == ViewingSource.Live;
     public bool HasTableCalibration => table.State.Calibration is not null;
+    public bool CanConfirmTable
+    {
+        get
+        {
+            if (!CanAnalyzeTable || EditingTable) return false;
+            var snapshot = table.State;
+            if (snapshot.Calibration is null || snapshot.Table is not { } layout || layout.Balls.Length is < 1 or > 16 || table.HasPendingWork) return false;
+            var diagnostics = table.VisionDiagnostics;
+            return !diagnostics.Active || diagnostics.LabelFrame is null && !diagnostics.LabelCapturePending
+                && (visionDiagnosticSavedLabels == 0 || visionDiagnosticLabelSessionFinalized);
+        }
+    }
     public bool CanCorrectTable => CanAnalyzeTable && table.VisionDiagnostics.Active == false && table.State is { Calibration: not null, Table: not null };
     public bool CanApplyTableEdit => CanAnalyzeTable && edit.Matches(table.State.Generation, table.State.Table?.Version)
         && (edit.Mode == TableEditMode.Correction || edit.Corners.Count == 4);
@@ -93,19 +105,24 @@ public sealed partial class ShellSession
                 : "Open the active calibrated live table and finish any table edit or analysis first.";
             Changed?.Invoke(); return;
         }
-        if (table.StartVisionDiagnostics(out var message)) VisionDiagnosticsStatus = message;
+        if (table.StartVisionDiagnostics(out var message))
+        {
+            VisionDiagnosticsStatus = message;
+            visionDashboardSamplingPaused = false;
+            if (VisionDashboardActive) VisionDashboardStatus = "Dashboard is live; fresh sampling resumed.";
+        }
         else VisionDiagnosticsStatus = message;
         Changed?.Invoke();
     });
     public async Task StopVisionDiagnosticsAsync()
     {
         bool hadDashboard = VisionDashboardActive;
-        await StopVisionDashboardServerAsync().ConfigureAwait(false);
+        if (hadDashboard) await MainThread.InvokeOnMainThreadAsync(() => visionDashboardSamplingPaused = true);
         await table.StopVisionDiagnosticsAsync().ConfigureAwait(false);
         if (!disposed) await MainThread.InvokeOnMainThreadAsync(() =>
         {
             VisionDiagnosticsStatus = table.VisionDiagnostics.Status;
-            if (hadDashboard) VisionDashboardStatus = "Laptop dashboard stopped.";
+            if (hadDashboard) VisionDashboardStatus = "Dashboard is live; sampling paused.";
             Changed?.Invoke();
         });
     }
@@ -237,9 +254,37 @@ public sealed partial class ShellSession
     });
     public Task ConfirmTableAsync() => MainThread.InvokeOnMainThreadAsync(async () =>
     {
-        if (!CanAnalyzeTable || foreground is null || EditingTable) return;
-        await UpdateTableAsync(foreground.Token);
-        try { table.Confirm(table.State.Table?.Version ?? -1); Message = "Ball layout confirmed."; Publish(); }
-        catch (InvalidOperationException e) { ShowError(e.Message); }
+        if (!CanConfirmTable || foreground is null) return;
+        bool resumeDiagnostics = VisionDiagnosticsActive;
+        if (resumeDiagnostics && VisionDashboardActive) visionDashboardSamplingPaused = true;
+        try
+        {
+            // TableAnalysisSession serializes sequential diagnostics and table verification.
+            // Pause only sampling so the laptop dashboard server stays available.
+            if (resumeDiagnostics) await table.StopVisionDiagnosticsAsync();
+            await UpdateTableAsync(foreground.Token, mode: ObservationMode.VerifyForAdvice);
+            try { table.Confirm(table.State.Table?.Version ?? -1); Message = "Ball layout confirmed."; Publish(); }
+            catch (InvalidOperationException e) { ShowError(e.Message); }
+        }
+        finally
+        {
+            if (resumeDiagnostics)
+            {
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    if (!disposed && CanStartVisionDiagnostics)
+                    {
+                        if (table.StartVisionDiagnostics(out var status))
+                        {
+                            VisionDiagnosticsStatus = status;
+                            if (VisionDashboardActive) VisionDashboardStatus = "Dashboard is live; fresh sampling resumed.";
+                        }
+                        else VisionDiagnosticsStatus = status;
+                    }
+                    visionDashboardSamplingPaused = false;
+                    Changed?.Invoke();
+                });
+            }
+        }
     });
 }

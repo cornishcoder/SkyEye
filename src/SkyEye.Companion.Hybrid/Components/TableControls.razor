@@ -4,7 +4,7 @@
     <h2>Table awareness</h2><p class="hint" role="status">@Session.TableStatus</p>
     <button class="secondary" disabled="@(Busy || !Session.CanAnalyzeTable)" @onclick="Calibrate">Calibrate table</button>
     <div class="clip-actions">
-        <button class="secondary" disabled="@(Busy || !Session.CanCorrectTable)" @onclick="Confirm">Confirm balls</button>
+        <button class="secondary" disabled="@(Busy || !Session.CanConfirmTable)" @onclick="Confirm">Confirm balls</button>
         <button class="secondary" disabled="@(Busy || !Session.CanCorrectTable)" @onclick="Correct">Correct layout</button>
     </div>
     @if (Session.Match.Id is null || Session.Match.Finished)

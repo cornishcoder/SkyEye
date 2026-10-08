@@ -37,6 +37,7 @@ public sealed partial class ShellSession
     readonly DashboardScenarioWorkspace dashboardScenario;
     LocalHttpServer? visionDashboardServer;
     bool visionDashboardStartedDiagnostics;
+    bool visionDashboardSamplingPaused;
     CancellationTokenSource? visionDashboardMaintenance;
     Task? visionDashboardMaintenanceTask;
     public bool VisionDashboardActive => visionDashboardServer is not null;
@@ -103,6 +104,7 @@ public sealed partial class ShellSession
             server.Start();
             visionDashboardServer = server;
             visionDashboardStartedDiagnostics = startedHere;
+            visionDashboardSamplingPaused = false;
             VisionDashboardUrl = $"http://{address}:{server.Port}/?dashboard={VisionDashboardAssetVersion}";
             VisionScenarioUrl = $"http://{address}:{server.Port}/scenario?view={VisionScenarioAssetVersion}";
             VisionDashboardStatus = "Dashboard is live on your local Wi-Fi. Any device on this network can access it while SkyEye is open.";
@@ -129,7 +131,7 @@ public sealed partial class ShellSession
                 await Task.Delay(TimeSpan.FromSeconds(3), cancellation).ConfigureAwait(false);
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
-                    if (cancellation.IsCancellationRequested || disposed || !VisionDashboardActive || !active) return;
+                    if (cancellation.IsCancellationRequested || disposed || !VisionDashboardActive || !active || visionDashboardSamplingPaused) return;
                     if (VisionDiagnosticsActive || !CanStartVisionDiagnostics) return;
                     if (table.StartVisionDiagnostics(out var message))
                     {
@@ -390,6 +392,7 @@ public sealed partial class ShellSession
         VisionDashboardUrl = "";
         VisionScenarioUrl = "";
         visionDashboardStartedDiagnostics = false;
+        visionDashboardSamplingPaused = false;
         if (server is not null) await server.DisposeAsync().ConfigureAwait(false);
         if (maintenanceTask is not null) await maintenanceTask.ConfigureAwait(false);
         maintenance?.Dispose();
