@@ -36,6 +36,9 @@ public sealed record MotionFeedSnapshot(long Acquired, long Processed, long Repl
     public int FrameHeight { get; init; }
     public int CadenceSampleCount { get; init; }
     public double? ProcessedSourceCadenceHz { get; init; }
+    public string SeedSource { get; init; } = "unknown";
+    public long? SeedFrameId { get; init; }
+    public double? SeedFrameAgeMs { get; init; }
 }
 
 /// <summary>Explicitly started, one active/one latest frame. No detector, rule or event submission.</summary>

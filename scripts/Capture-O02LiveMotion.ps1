@@ -56,6 +56,9 @@ try {
         $taskRows.Add([pscustomobject]@{
             CapturedAtUtc = [DateTimeOffset]::UtcNow.ToString('O')
             RequestedHz = $taskMotion.requestedHz
+            SeedSource = $taskMotion.seedSource
+            SeedFrameId = $taskMotion.seedFrameId
+            SeedFrameAgeMs = $taskMotion.seedFrameAgeMs
             FrameWidth = $taskMotion.frameWidth
             FrameHeight = $taskMotion.frameHeight
             Acquired = $taskMotion.acquired

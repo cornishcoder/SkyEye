@@ -1,4 +1,5 @@
 using SkyEye.Core.Analysis;
+using SkyEye.Core;
 using SkyEye.Companion;
 using SkyEye.Vision.Android;
 
@@ -9,8 +10,19 @@ public sealed partial class ShellSession
     TableMotionFeed? motion;
     RoiMotionProcessor? motionProcessor;
     MotionFeedSnapshot? lastMotion;
+    string motionSeedSource = "unknown";
+    long? motionSeedFrameId;
+    double? motionSeedFrameAgeMs;
     readonly SemaphoreSlim motionGate = new(1, 1);
-    public MotionFeedSnapshot? MotionMetrics => motion?.Snapshot ?? lastMotion;
+    public MotionFeedSnapshot? MotionMetrics
+    {
+        get
+        {
+            var snapshot = motion?.Snapshot ?? lastMotion;
+            return snapshot is null ? null : snapshot with
+            { SeedSource = motionSeedSource, SeedFrameId = motionSeedFrameId, SeedFrameAgeMs = motionSeedFrameAgeMs };
+        }
+    }
 
     // Explicit developer/diagnostic enablement. Normal startup never starts a feed.
     // O03/O04 will supply the product observation-session behavior and ROI recentering.
@@ -23,16 +35,44 @@ public sealed partial class ShellSession
             if (hz is not (15 or 30 or 60)) throw new ArgumentException("Unsupported observation cadence.");
             var seed = table.State; var owner = player;
             if (owner is not null) MediaGeneration();
-            if (!active || owner is null || EditingTable || !CanAnalyzeTable || seed.Source is null || seed.Calibration is null
-                || seed.Table is not { Confirmed: true, Settled: true, Occluded: false } layout || layout.Balls.Length is < 1 or > 16
-                || (DateTimeOffset.UtcNow - layout.CapturedAt).TotalSeconds is > 6 or < -2)
-                throw new InvalidOperationException("Confirm a clear settled live layout before observing motion.");
+            if (!active || owner is null || EditingTable || !CanAnalyzeTable || seed.Source is null || seed.Calibration is null)
+                throw new InvalidOperationException("Open the active calibrated live table before observing motion.");
+            if (seed.Table is not { Confirmed: true, Settled: true, Occluded: false } layout || layout.Balls.Length is < 1 or > 16)
+                throw new InvalidOperationException("Confirm a clear, settled live layout before observing motion.");
+            Ball[] roiBalls = layout.Balls;
+            var layoutAgeMs = (DateTimeOffset.UtcNow - layout.CapturedAt).TotalMilliseconds;
+            long? seedFrameId = seed.Observation?.DecodedReceipt?.FrameId;
+            string seedSource = "confirmed-table-layout";
+            VisionDiagnosticSample? diagnosticSeed = null;
+            if (!double.IsFinite(layoutAgeMs) || layoutAgeMs is < -200 or > ObservationPolicy.ReviewFreshnessSeconds * 1000)
+            {
+                var diagnostic = table.VisionDiagnostics;
+                diagnosticSeed = diagnostic.Active ? diagnostic.LiveFrame?.Sample : null;
+                var detectorAgeMs = diagnosticSeed is null ? double.PositiveInfinity : (DateTimeOffset.UtcNow - diagnosticSeed.CapturedAt).TotalMilliseconds;
+                bool sameScope = diagnosticSeed?.Source is { } evidence
+                    && evidence.Camera == seed.CameraIdentity
+                    && evidence.Calibration == seed.CalibrationId
+                    && evidence.Connection == seed.Source.ConnectionId.ToString("N");
+                bool matchesConfirmed = diagnosticSeed is { } sample
+                    && !sample.Detection.Uncertain && !sample.Detection.Obstructed
+                    && sample.Detection.Balls.Length is > 0 and <= 16
+                    && TableTracker.SameLayout(layout.Balls, sample.Detection.Balls);
+                if (!sameScope || !double.IsFinite(detectorAgeMs) || detectorAgeMs is < -200 or > ObservationPolicy.ReviewFreshnessSeconds * 1000 || !matchesConfirmed)
+                    throw new InvalidOperationException("The confirmed layout is stale and the latest clear detector sample does not match it. Confirm the current balls again.");
+                roiBalls = diagnosticSeed!.Detection.Balls;
+                seedFrameId = diagnosticSeed.FrameId;
+                layoutAgeMs = detectorAgeMs;
+                seedSource = "fresh-detector-matched-to-confirmed-layout";
+            }
             var frames = new PlayerTableFrameSource(() => player, () => app.State.Camera,
                 () => active && sessionMode == TableSessionMode.Live && selection.Kind == ViewingSource.Live);
             using (var pixels = await frames.ReadAsync(seed.Source, foreground!.Token))
             {
                 var receipt = pixels.DecodedReceipt ?? throw new InvalidOperationException("A paired live frame is required.");
-                var rois = layout.Balls.Select((ball, index) =>
+                if (diagnosticSeed is { } sample && (sample.MediaGeneration != receipt.MediaGeneration || sample.Source?.Timeline != pixels.Timeline
+                    || (DateTimeOffset.UtcNow - sample.CapturedAt).TotalMilliseconds is < -200 or > ObservationPolicy.ReviewFreshnessSeconds * 1000))
+                    throw new InvalidOperationException("The matched detector sample no longer belongs to the current live video frame.");
+                var rois = roiBalls.Select((ball, index) =>
                 {
                     var point = seed.Calibration.Unmap(ball.Position);
                     int size = Math.Min(128, Math.Min(receipt.Width, receipt.Height));
@@ -49,6 +89,9 @@ public sealed partial class ShellSession
                         && Interlocked.Read(ref mediaGeneration) == scope.MediaGeneration;
                 }
                 motionProcessor = processor;
+                motionSeedSource = seedSource;
+                motionSeedFrameId = seedFrameId;
+                motionSeedFrameAgeMs = layoutAgeMs;
                 motion = new(frames, processor, scope, Current, new(hz));
             }
             // Startup's seed lease is gone before producer/worker ownership begins.
