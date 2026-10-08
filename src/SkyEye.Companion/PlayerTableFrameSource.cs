@@ -9,6 +9,7 @@ namespace SkyEye.Companion;
 public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Func<CameraConnection> connection, Func<bool> live,
     Func<CancellationToken, Task>? refreshClock = null) : ITableMotionFrameSource, ITableVerificationFrameSource
 {
+    const int DecodedCopyRetryDelayMs = 17;
     public Task RefreshVerificationClockAsync(CancellationToken cancellation) => refreshClock?.Invoke(cancellation) ?? Task.CompletedTask;
     public Task<bool> IsVerificationSourceCurrentAsync(CameraScope source, long mediaGeneration, string timeline, CancellationToken cancellation)
     {
@@ -73,7 +74,8 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
                 {
                     // A render/copy race may be refused even while live video is
                     // healthy. Yield to the next latch without weakening pairing.
-                    if (remaining > 0) { main.PostDelayed(() => Attempt(remaining - 1), 40); return; }
+                    // Short retries avoid repeatedly sampling the same phase of a live texture update.
+                    if (remaining > 0) { main.PostDelayed(() => Attempt(remaining - 1), DecodedCopyRetryDelayMs); return; }
                     var code = owner.LastCopyFailure();
                     throw new FrameAcquisitionException(code == "unmapped-source-clock" ? ObservationReason.ClockUntrusted : ObservationReason.FrameUnavailable,
                         string.IsNullOrWhiteSpace(code) ? "paired-frame-unavailable" : code, owner.ObservationSourceStatus());
