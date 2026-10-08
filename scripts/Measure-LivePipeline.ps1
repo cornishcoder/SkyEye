@@ -7,7 +7,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 if ($Samples -lt 1 -or $Samples -gt 600) { throw 'Choose 1 to 600 samples.' }
-& $AdbPath -s $CompanionSerial forward tcp:18768 tcp:8768
+& $AdbPath -s $CompanionSerial forward tcp:18768 tcp:8769
 if ($LASTEXITCODE -ne 0) { throw 'Could not forward development metrics.' }
 $taskSamples = @()
 try {

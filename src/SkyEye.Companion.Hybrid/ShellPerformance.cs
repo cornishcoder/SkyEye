@@ -15,7 +15,8 @@ public sealed partial class ShellSession
         if (performanceServer is not null) return;
         PipelineDiagnostics.Enabled = true;
         player?.SetDiagnostics(true);
-        performanceServer = new(8768, async (r, ct) =>
+        // Lab reserves 8768 for its corrected-clip relay; diagnostics use a separate loopback port.
+        performanceServer = new(8769, async (r, ct) =>
         {
             if (r.Method == "GET" && r.Path == "/ping") return HttpResponse.Json(new { diagnostic = true, package = Android.App.Application.Context.PackageName });
             if (r.Method == "POST" && r.Path == "/connect")

@@ -8,7 +8,7 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $taskLocalPort = 18768
-$taskRemotePort = 8768
+$taskRemotePort = 8769
 $taskAddress = "http://127.0.0.1:$taskLocalPort"
 $taskOutputPath = [IO.Path]::GetFullPath($OutputPath)
 if (Test-Path -LiteralPath $taskOutputPath) { throw 'Choose a new output path; this collector will not overwrite evidence.' }
