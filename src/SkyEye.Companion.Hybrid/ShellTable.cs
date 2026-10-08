@@ -79,8 +79,7 @@ public sealed partial class ShellSession
             VisionDiagnosticsStatus = snapshot.Status;
             if (!snapshot.Active && VisionDashboardActive)
             {
-                CloseVisionDashboard();
-                VisionDashboardStatus = "Dashboard stopped because live sampling ended.";
+                VisionDashboardStatus = "Dashboard is available; sampling paused. " + snapshot.Status;
             }
             Changed?.Invoke();
         });

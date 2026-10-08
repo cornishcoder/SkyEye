@@ -217,7 +217,7 @@ public sealed partial class ShellSession : IDisposable
     }
     public void Suspend()
     {
-        CloseVisionDashboard();
+        if (VisionDashboardActive) VisionDashboardStatus = "Dashboard is available; waiting for SkyEye to resume fresh sampling.";
         ReleaseMotion();
         CheckpointAnnotations();
         StopPocketFraming();

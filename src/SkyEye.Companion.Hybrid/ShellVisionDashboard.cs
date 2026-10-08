@@ -29,10 +29,12 @@ sealed record VisionDashboardSample(int Sequence, DateTimeOffset CapturedAt, dou
 public sealed partial class ShellSession
 {
     const string VisionDashboardAsset = "vision-diagnostics-dashboard.html";
-    const int VisionDashboardAssetVersion = 4;
+    const int VisionDashboardAssetVersion = 5;
     const int VisionDashboardPort = 8770;
     LocalHttpServer? visionDashboardServer;
     bool visionDashboardStartedDiagnostics;
+    CancellationTokenSource? visionDashboardMaintenance;
+    Task? visionDashboardMaintenanceTask;
     public bool VisionDashboardActive => visionDashboardServer is not null;
     public string VisionDashboardUrl { get; private set; } = "";
     public string VisionDashboardStatus { get; private set; } = "Laptop dashboard is off.";
@@ -100,6 +102,8 @@ public sealed partial class ShellSession
             visionDashboardStartedDiagnostics = startedHere;
             VisionDashboardUrl = $"http://{address}:{server.Port}/?dashboard={VisionDashboardAssetVersion}";
             VisionDashboardStatus = "Dashboard is live on your local Wi-Fi. Any device on this network can access it while SkyEye is open.";
+            visionDashboardMaintenance = new();
+            visionDashboardMaintenanceTask = MaintainVisionDashboardSamplingAsync(visionDashboardMaintenance.Token);
         }
         catch (Exception)
         {
@@ -111,6 +115,30 @@ public sealed partial class ShellSession
         Changed?.Invoke();
     }
 
+    async Task MaintainVisionDashboardSamplingAsync(CancellationToken cancellation)
+    {
+        try
+        {
+            while (true)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(3), cancellation).ConfigureAwait(false);
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    if (cancellation.IsCancellationRequested || disposed || !VisionDashboardActive || !active) return;
+                    if (VisionDiagnosticsActive || !CanStartVisionDiagnostics) return;
+                    if (table.StartVisionDiagnostics(out var message))
+                    {
+                        visionDashboardStartedDiagnostics = true;
+                        VisionDashboardStatus = "Dashboard is live; fresh sampling restarted after an interruption.";
+                    }
+                    else VisionDashboardStatus = "Dashboard is available; waiting for fresh sampling. " + message;
+                    Changed?.Invoke();
+                }).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
+    }
+
     async Task<HttpResponse> HandleVisionDashboardRequestAsync(HttpRequest request, CancellationToken cancellation,
         byte[] html)
     {
@@ -118,8 +146,12 @@ public sealed partial class ShellSession
         if (request.Path == "/") return new(200, "text/html; charset=utf-8", html);
         if (request.Path == "/api/frame")
         {
-            var live = table.VisionDiagnostics.LiveFrame;
+            var diagnostic = table.VisionDiagnostics;
+            var live = diagnostic.Active ? diagnostic.LiveFrame : null;
             if (live is null) return HttpResponse.Json(new { error = "Waiting for the first analyzed frame" }, 404);
+            if (request.Query.TryGetValue("sessionId", out var requestedSession)
+                && !requestedSession.Equals(diagnostic.SessionId.ToString(), StringComparison.OrdinalIgnoreCase))
+                return HttpResponse.Json(new { error = "A new diagnostic session is available" }, 409);
             if (request.Query.TryGetValue("sequence", out var requestedSequence)
                 && int.TryParse(requestedSequence, out var expectedSequence)
                 && live.Sample.Sequence != expectedSequence)
@@ -133,7 +165,7 @@ public sealed partial class ShellSession
             {
                 cancellation.ThrowIfCancellationRequested();
                 var diagnostic = table.VisionDiagnostics;
-                var live = diagnostic.LiveFrame;
+                var live = diagnostic.Active ? diagnostic.LiveFrame : null;
                 var sample = live?.Sample;
                 var calibration = table.State.Calibration;
                 var detection = sample?.Detection;
@@ -221,11 +253,18 @@ public sealed partial class ShellSession
 
     async Task StopVisionDashboardServerAsync()
     {
+        var maintenance = visionDashboardMaintenance;
+        var maintenanceTask = visionDashboardMaintenanceTask;
+        visionDashboardMaintenance = null;
+        visionDashboardMaintenanceTask = null;
+        maintenance?.Cancel();
         var server = visionDashboardServer;
         visionDashboardServer = null;
         VisionDashboardUrl = "";
         visionDashboardStartedDiagnostics = false;
         if (server is not null) await server.DisposeAsync().ConfigureAwait(false);
+        if (maintenanceTask is not null) await maintenanceTask.ConfigureAwait(false);
+        maintenance?.Dispose();
     }
 
     void CloseVisionDashboard()

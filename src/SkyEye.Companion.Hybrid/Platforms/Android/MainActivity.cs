@@ -30,6 +30,12 @@ public class MainActivity : MauiAppCompatActivity
     void UpdateBack() => MainThread.BeginInvokeOnMainThread(() =>
     {
         if (sheetBack is not null) sheetBack.Enabled = shell?.SheetOpen == true || shell?.EditingTable == true;
+        bool keepAwake = shell?.VisionDashboardActive == true || shell?.VisionDiagnosticsActive == true;
+#if SKYEYE_PERFORMANCE
+        keepAwake = true;
+#endif
+        if (keepAwake) Window?.AddFlags(Android.Views.WindowManagerFlags.KeepScreenOn);
+        else Window?.ClearFlags(Android.Views.WindowManagerFlags.KeepScreenOn);
     });
     protected override void OnDestroy()
     {

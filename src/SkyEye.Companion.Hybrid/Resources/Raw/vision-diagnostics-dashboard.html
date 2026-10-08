@@ -63,7 +63,9 @@
 (() => {
   const $ = id => document.getElementById(id);
   const canvas = $('table'), ctx = canvas.getContext('2d');
-  let state = null, currentImage = null, displayedDetection = null, drawnSequence = -1, requestBusy = false;
+  let state = null, currentImage = null, displayedDetection = null, drawnFrameKey = null, requestBusy = false;
+  const frameKey = snapshot => snapshot?.frame?`${snapshot.sessionId}:${snapshot.frame.mediaGeneration}:${snapshot.frame.frameId}:${snapshot.frame.sequence}`:null;
+  function clearImage(){if(currentImage?.src?.startsWith('blob:'))URL.revokeObjectURL(currentImage.src);currentImage=null;displayedDetection=null;drawnFrameKey=null;$('empty').hidden=false;}
   const color = kind => ({cue:'#f5f7f4',red:'#ff665f',yellow:'#ffd447',black:'#182126',unknown:'#ffc66c'})[String(kind||'unknown').toLowerCase()] || '#ffc66c';
   const displayKind = kind => String(kind||'unknown').toLowerCase()==='cue'?'cue ball':String(kind||'unknown');
   const displayId = id => String(id||'').replace(/^cue(?=-\d)/i,'cue ball');
@@ -127,19 +129,21 @@
       if(!response.ok)throw new Error(`Pixel replied ${response.status}`);
       const next=await response.json();state=next;
       const fr=next.frame,det=next.detection;
+      if(!fr)clearImage();
       $('status').textContent=next.status||'Connected';$('dot').className=`dot ${next.active?'on':'bad'}`;
       $('m-frame').textContent=fr?`#${fr.sequence} · ${fr.frameId}`:'Waiting';$('m-age').textContent=fr?`${fmt(fr.frameAgeMs,0)} ms`:'—';
       $('m-balls').textContent=det?`${det.balls.length} / ${det.circleCount}${det.unclassifiedCount?` · ${det.unclassifiedCount} unknown`:''}${det.uncertain?' · check':''}`:'—';$('m-time').textContent=det?`${fmt(det.elapsedMs,1)} ms`:'—';
       $('frame-info').textContent=fr?`${fr.width}×${fr.height} · ${fr.frameSource} · source ${fr.sourceTimeUs} µs · ${new Date(fr.capturedAt).toLocaleTimeString()}`:'Waiting for fresh pixels';
       $('empty').hidden=!!currentImage;
       renderBalls(det);renderVision(det);renderGame(next);renderSamples(next.samples);
-      if(fr&&fr.sequence!==drawnSequence){
-        const imageResponse=await fetch(`/api/frame?sequence=${fr.sequence}`,{cache:'no-store'});
+      const requestedFrameKey=frameKey(next);
+      if(fr&&requestedFrameKey!==drawnFrameKey){
+        const imageResponse=await fetch(`/api/frame?sequence=${fr.sequence}&sessionId=${encodeURIComponent(next.sessionId)}`,{cache:'no-store'});
         if(imageResponse.status===409)return;
         if(!imageResponse.ok)throw new Error('The latest frame is not available yet');
         if(imageResponse.headers.get('X-Diagnostic-Sequence')!==String(fr.sequence))return;
         const blob=await imageResponse.blob(),url=URL.createObjectURL(blob),img=new Image(),frameState=next;
-        img.onload=()=>{if(currentImage?.src?.startsWith('blob:'))URL.revokeObjectURL(currentImage.src);currentImage=img;displayedDetection=frameState.detection;drawnSequence=fr.sequence;$('empty').hidden=true;resizeAndDraw();};img.onerror=()=>URL.revokeObjectURL(url);img.src=url;
+        img.onload=()=>{if(frameKey(state)!==requestedFrameKey){URL.revokeObjectURL(url);return;}if(currentImage?.src?.startsWith('blob:'))URL.revokeObjectURL(currentImage.src);currentImage=img;displayedDetection=frameState.detection;drawnFrameKey=requestedFrameKey;$('empty').hidden=true;resizeAndDraw();};img.onerror=()=>URL.revokeObjectURL(url);img.src=url;
       }
       resizeAndDraw();
     }catch(e){$('status').textContent=e.message||'Connection to Pixel was interrupted';$('dot').className='dot bad';}

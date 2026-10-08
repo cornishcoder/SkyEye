@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "recordedAt": "2026-10-08T16:27:34.7511433+00:00",
+  "recordedAt": "2026-10-08T17:27:34.7511433+01:00",
   "scope": "Development replay of the user's stationary-table regression with manually reviewed visible ball regions; not a blind holdout or live-pixel proof",
   "passed": true,
   "cueAndNegativeChecksPassed": true,
@@ -139,5 +139,18 @@
       "analysisMs": 908.6447
     }
   ],
-  "limitations": "Development JPEG replay using agent visually reviewed centre regions and user-confirmed stationary layout. No blind lighting holdout or live acceptance yet."
+  "limitations": "Development JPEG replay using agent visually reviewed centre regions and user-confirmed stationary layout. No blind lighting holdout or live acceptance yet.",
+  "liveDashboardValidation": {
+    "startedAt": "2026-10-08T17:50:33.0044735+01:00",
+    "endedAt": "2026-10-08T17:53:33.3866152+01:00",
+    "distinctAnalyses": 132,
+    "incorrectOrUncertainAnalyses": 0,
+    "httpReads": 234,
+    "unavailableReads": 0,
+    "inactiveReads": 4,
+    "diagnosticSessions": 2,
+    "screenAwakeFlagObserved": true,
+    "fullReportSha256": "84b2fe38fafc58b47174aaa5c3cb7d50e35d419fa64a37a9e8a32f98efb5ca41",
+    "scope": "Observed live stationary-table run after version 5 update; recovered sampling interruption, not broader lighting Holdout acceptance"
+  }
 }
