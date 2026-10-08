@@ -366,7 +366,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     }
     int ClothHue(byte[] pixels)
         => ClothRange(pixels).Hue;
-    (int Hue, int SaturationFloor, int ValueFloor) ClothRange(byte[] pixels)
+    (int Hue, int SaturationFloor, int ValueFloor, int MedianValue) ClothRange(byte[] pixels)
     {
         // Low-saturation blue/grey cloth is the normal mounted-camera lighting.
         // Estimate both its hue and usable S/V floors from many interior samples.
@@ -378,9 +378,11 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         }
         int hue = Array.IndexOf(histogram, histogram.Max()) * 3 + 1;
         var cloth = samples.Where(p => Math.Min(Math.Abs(p.H - hue), 180 - Math.Abs(p.H - hue)) <= settings.HueBand).ToArray();
-        if (cloth.Length < 20) return (hue, 60, 60);
+        if (cloth.Length < 20) return (hue, 60, 60, 0);
         double Median(IEnumerable<double> values) { var sorted = values.Order().ToArray(); return sorted[sorted.Length / 2]; }
-        return (hue, (int)Math.Clamp(Median(cloth.Select(p => p.S)) * .45, 8, 60), (int)Math.Clamp(Median(cloth.Select(p => p.V)) * .45, 15, 60));
+        double medianValue = Median(cloth.Select(p => p.V));
+        return (hue, (int)Math.Clamp(Median(cloth.Select(p => p.S)) * .45, 8, 60),
+            (int)Math.Clamp(medianValue * .45, 15, 60), (int)Math.Round(medianValue));
     }
     MatLease ClothMask(Mat hsv, byte[] pixels, bool separateBalls = true)
     {
@@ -416,9 +418,24 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     }
     bool LargeObstruction(Mat hsv, byte[] pixels)
     {
-        // Obstruction checks retain the broad cloth range: local saturation
-        // variations in shadows are not themselves evidence of a large object.
-        using var mask = ClothMask(hsv, pixels, separateBalls: false); Cv.Bitwise_not(mask.Value, mask.Value);
+        // Obstruction checks retain the broad cloth range: local saturation and
+        // value shifts are not themselves evidence of a large object. The
+        // ordinary neutral fallback has a fixed upper ceiling to protect white
+        // ball classification; use a cloth-relative range here so dim or bright
+        // neutral felt is not mistaken for one connected obstruction.
+        var clothRange = ClothRange(pixels);
+        using var mask = ClothMask(hsv, pixels, separateBalls: false);
+        if (clothRange.MedianValue > 0)
+        {
+            int minimumNeutralValue = (int)Math.Floor(clothRange.MedianValue * .25);
+            int maximumNeutralValue = (int)Math.Ceiling(clothRange.MedianValue * 1.8);
+            using var neutral = new MatLease(new Mat());
+            using var low = new Scalar(0, 0, minimumNeutralValue);
+            using var high = new Scalar(179, 45, Math.Min(255, maximumNeutralValue));
+            Cv.InRange(hsv, low, high, neutral.Value);
+            Cv.Bitwise_or(mask.Value, neutral.Value, mask.Value);
+        }
+        Cv.Bitwise_not(mask.Value, mask.Value);
         // Crop only the uncertain calibration border; a hand connected to an image
         // edge must still count as an obstruction inside the playable surface.
         int border = (int)(65 * coordinates.Width / 1000.0);
@@ -492,7 +509,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         // Texture holes with matching cloth brightness are not ball proposals.
         return Math.Abs(centre - surrounding) >= Math.Max(8, surrounding * .1);
     }
-    bool IsClothBody(Circle circle, byte[] hsv, (int Hue, int SaturationFloor, int ValueFloor) cloth)
+    bool IsClothBody(Circle circle, byte[] hsv, (int Hue, int SaturationFloor, int ValueFloor, int MedianValue) cloth)
     {
         int samples = 0, matching = 0;
         ForPixels(circle, .85, (x, y) =>
