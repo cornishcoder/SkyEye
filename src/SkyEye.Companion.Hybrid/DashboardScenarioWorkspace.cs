@@ -24,7 +24,11 @@ public sealed record DashboardScenarioProposal(Guid Id, string Kind, string Titl
 {
     public DashboardScenarioCameraEvidence? CameraEvidence { get; init; }
 }
-public sealed record DashboardScenarioCameraBall(string Id, string Colour, double X, double Y, double Confidence);
+public sealed record DashboardScenarioCameraBall(string Id, string Colour, double X, double Y, double Confidence)
+{
+    public double? PreviousX { get; init; }
+    public double? PreviousY { get; init; }
+}
 public sealed record DashboardScenarioCameraEvidence(Guid SessionId, int FirstSequence, int SettledSequence,
     long FirstSourceTimeUs, long SettledSourceTimeUs, string Camera, string Timeline, long Generation,
     string Calibration, long MediaGeneration, long FrameId, DateTimeOffset CapturedAt, bool IdentitiesResolved,
@@ -588,6 +592,16 @@ public sealed class DashboardScenarioWorkspace
         var moved = resolved ? associated.Where(current => table.Any(old => old.Id == current.Id && old.Position is { } p
                 && current.Position is { } q && Distance(p, q) > .005)).Select(ball => ball.Id).ToArray() : [];
         var missing = resolved ? table.Where(old => !associated.Any(ball => ball.Id == old.Id)).Select(ball => ball.Id).ToArray() : [];
+        var cameraEvidenceBalls = observationBalls.Select(ball =>
+        {
+            var previous = resolved ? table.FirstOrDefault(old => old.Id == ball.Id) : null;
+            return new DashboardScenarioCameraBall(ball.Id, ball.Colour.ToString(),
+                ball.Position?.X ?? 0, ball.Position?.Y ?? 0, ball.Confidence ?? inferredConfidence)
+            {
+                PreviousX = previous?.Position?.X,
+                PreviousY = previous?.Position?.Y
+            };
+        }).ToImmutableArray();
         var choices = ImmutableArray.CreateBuilder<DashboardScenarioChoice>();
         choices.Add(new("accept", "Accept camera proposal", resolved
             ? shotTimingBounded
@@ -618,8 +632,7 @@ public sealed class DashboardScenarioWorkspace
                 first.Sample.Sequence, settled.Sample.Sequence, first.Sample.SourceTimeUs, settled.Sample.SourceTimeUs,
                 source.Camera, source.Timeline, source.Generation, source.Calibration,
                 settled.Sample.MediaGeneration, settled.Sample.FrameId, settled.Sample.CapturedAt,
-                resolved, observationBalls.Select(ball => new DashboardScenarioCameraBall(ball.Id, ball.Colour.ToString(),
-                    ball.Position?.X ?? 0, ball.Position?.Y ?? 0, ball.Confidence ?? inferredConfidence)).ToImmutableArray())
+                resolved, cameraEvidenceBalls)
             {
                 MotionStartWindow = shotTimingBounded ? motionStartWindow : null,
                 MotionEndWindow = shotTimingBounded ? motionEndWindow : null
