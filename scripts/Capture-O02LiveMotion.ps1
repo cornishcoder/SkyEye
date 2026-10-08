@@ -27,7 +27,7 @@ if ($taskForward) {
 
 $taskFeedStarted = $false
 $taskRows = [System.Collections.Generic.List[object]]::new()
-$taskStartedAt = [DateTimeOffset]::UtcNow
+$taskStartedAt = $null
 try {
     $taskPing = Invoke-RestMethod -Method Get -Uri "$taskAddress/ping" -TimeoutSec 5
     if (-not $taskPing.diagnostic -or $taskPing.package -ne 'uk.co.skyeye.companion.lab') {
@@ -35,6 +35,18 @@ try {
     }
     $null = Invoke-RestMethod -Method Post -Uri "$taskAddress/motion-feed?enabled=1&hz=$Hz" -TimeoutSec 10
     $taskFeedStarted = $true
+    $taskStartupDeadline = [DateTimeOffset]::UtcNow.AddSeconds(20)
+    do {
+        $taskMetrics = Invoke-RestMethod -Method Get -Uri "$taskAddress/metrics" -TimeoutSec 5
+        $taskMotion = $taskMetrics.motion
+        if ($taskMotion -and $taskMotion.processed -gt 0 -and $taskMotion.latest) { break }
+        if ($taskMotion -and $taskMotion.active -eq 0) { throw 'The motion feed stopped before producing a processed sample.' }
+        Start-Sleep -Seconds 1
+    } while ([DateTimeOffset]::UtcNow -lt $taskStartupDeadline)
+    if (-not $taskMotion -or $taskMotion.processed -eq 0 -or -not $taskMotion.latest) {
+        throw 'No processed camera sample arrived within 20 seconds; no measurement was saved.'
+    }
+    $taskStartedAt = [DateTimeOffset]::UtcNow
     $taskDeadline = [DateTimeOffset]::UtcNow.AddSeconds($DurationSeconds)
     while ([DateTimeOffset]::UtcNow -lt $taskDeadline) {
         $taskMetrics = Invoke-RestMethod -Method Get -Uri "$taskAddress/metrics" -TimeoutSec 5
