@@ -24,8 +24,11 @@
     <p class="hint" role="status">@Session.VisionDashboardStatus</p>
     @if (Session.VisionDashboardActive)
     {
-        <label for="vision-dashboard-address">Open this address on your laptop</label>
+        <label for="vision-dashboard-address">Live vision dashboard</label>
         <input id="vision-dashboard-address" type="text" readonly value="@Session.VisionDashboardUrl" />
+        <label for="vision-scenario-address">Separate match scenario lab</label>
+        <input id="vision-scenario-address" type="text" readonly value="@Session.VisionScenarioUrl" />
+        <p class="hint">Use the Scenario Lab address to reset and edit a disposable match. The live table page stays read-only.</p>
         <button class="secondary" @onclick="Session.StopVisionDashboardAsync">Stop laptop dashboard</button>
     }
     else

@@ -75,6 +75,7 @@ public sealed partial class ShellSession : IDisposable
         app = new(clipSaves: saveOperations, cameraControls: effects,
             observations: new TableObservationEffect(() => table, () => player is null ? 0 : MediaGeneration(), () => active && sessionMode == TableSessionMode.Live && selection.Kind == ViewingSource.Live),
             gameJournal: new GameJournalStore(Path.Combine(FileSystem.AppDataDirectory, "game-state")), phoneCorrected: savedPhoneCorrection);
+        dashboardScenario = new DashboardScenarioWorkspace(Path.Combine(FileSystem.AppDataDirectory, "vision-dashboard-scenarios"));
         InitializeAnnotations();
         InitializeClips();
         InitializeTable();

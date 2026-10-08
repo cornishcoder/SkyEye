@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.NetworkInformation;
+using System.Text.Json;
 using SkyEye.Companion.Hybrid.Probes;
 using SkyEye.Core;
 using SkyEye.Core.Analysis;
@@ -29,14 +30,18 @@ sealed record VisionDashboardSample(int Sequence, DateTimeOffset CapturedAt, dou
 public sealed partial class ShellSession
 {
     const string VisionDashboardAsset = "vision-diagnostics-dashboard.html";
+    const string VisionScenarioAsset = "vision-scenario-lab.html";
     const int VisionDashboardAssetVersion = 6;
+    const int VisionScenarioAssetVersion = 1;
     const int VisionDashboardPort = 8770;
+    readonly DashboardScenarioWorkspace dashboardScenario;
     LocalHttpServer? visionDashboardServer;
     bool visionDashboardStartedDiagnostics;
     CancellationTokenSource? visionDashboardMaintenance;
     Task? visionDashboardMaintenanceTask;
     public bool VisionDashboardActive => visionDashboardServer is not null;
     public string VisionDashboardUrl { get; private set; } = "";
+    public string VisionScenarioUrl { get; private set; } = "";
     public string VisionDashboardStatus { get; private set; } = "Laptop dashboard is off.";
 
     public Task StartVisionDashboardAsync() => MainThread.InvokeOnMainThreadAsync(StartVisionDashboardCoreAsync);
@@ -65,13 +70,11 @@ public sealed partial class ShellSession
             return;
         }
 
-        byte[] html;
+        byte[] html, scenarioHtml;
         try
         {
-            await using var asset = await FileSystem.OpenAppPackageFileAsync(VisionDashboardAsset);
-            using var content = new MemoryStream();
-            await asset.CopyToAsync(content);
-            html = content.ToArray();
+            html = await ReadDashboardAssetAsync(VisionDashboardAsset);
+            scenarioHtml = await ReadDashboardAssetAsync(VisionScenarioAsset);
         }
         catch (Exception)
         {
@@ -95,12 +98,13 @@ public sealed partial class ShellSession
         try
         {
             var server = new LocalHttpServer(VisionDashboardPort,
-                (request, cancellation) => HandleVisionDashboardRequestAsync(request, cancellation, html),
+                (request, cancellation) => HandleVisionDashboardRequestAsync(request, cancellation, html, scenarioHtml),
                 IPAddress.Any);
             server.Start();
             visionDashboardServer = server;
             visionDashboardStartedDiagnostics = startedHere;
             VisionDashboardUrl = $"http://{address}:{server.Port}/?dashboard={VisionDashboardAssetVersion}";
+            VisionScenarioUrl = $"http://{address}:{server.Port}/scenario?view={VisionScenarioAssetVersion}";
             VisionDashboardStatus = "Dashboard is live on your local Wi-Fi. Any device on this network can access it while SkyEye is open.";
             visionDashboardMaintenance = new();
             visionDashboardMaintenanceTask = MaintainVisionDashboardSamplingAsync(visionDashboardMaintenance.Token);
@@ -109,6 +113,7 @@ public sealed partial class ShellSession
         {
             visionDashboardServer = null;
             VisionDashboardUrl = "";
+            VisionScenarioUrl = "";
             if (startedHere) await table.StopVisionDiagnosticsAsync();
             VisionDashboardStatus = "The Pixel could not open a local dashboard port. Stop another dashboard and try again.";
         }
@@ -139,11 +144,34 @@ public sealed partial class ShellSession
         catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
     }
 
-    async Task<HttpResponse> HandleVisionDashboardRequestAsync(HttpRequest request, CancellationToken cancellation,
-        byte[] html)
+    static async Task<byte[]> ReadDashboardAssetAsync(string assetName)
     {
-        if (request.Method != "GET") return HttpResponse.Json(new { error = "GET only" }, 405);
+        await using var asset = await FileSystem.OpenAppPackageFileAsync(assetName);
+        using var content = new MemoryStream();
+        await asset.CopyToAsync(content);
+        return content.ToArray();
+    }
+
+    async Task<HttpResponse> HandleVisionDashboardRequestAsync(HttpRequest request, CancellationToken cancellation,
+        byte[] html, byte[] scenarioHtml)
+    {
+        if (request.Path == "/api/scenario/reset" && request.Method == "POST")
+        {
+            if (request.Body.Length > 4096) return HttpResponse.Json(new { error = "Scenario command is too large." }, 413);
+            if (!request.Headers.GetValueOrDefault("Content-Type", "").StartsWith("application/json", StringComparison.OrdinalIgnoreCase))
+                return HttpResponse.Json(new { error = "Send the scenario command as JSON." }, 415);
+            DashboardScenarioResetRequest command;
+            try { command = request.Json<DashboardScenarioResetRequest>(); }
+            catch (JsonException) { return HttpResponse.Json(new { error = "The scenario command is not valid JSON." }, 400); }
+            catch (ArgumentException e) { return HttpResponse.Json(new { error = e.Message }, 400); }
+            var result = dashboardScenario.Reset(command);
+            return HttpResponse.Json(result, result.Accepted ? 200 : 409);
+        }
+
+        if (request.Method != "GET") return HttpResponse.Json(new { error = "This route is read-only." }, 405);
         if (request.Path == "/") return new(200, "text/html; charset=utf-8", html);
+        if (request.Path == "/scenario") return new(200, "text/html; charset=utf-8", scenarioHtml);
+        if (request.Path == "/api/scenario") return HttpResponse.Json(dashboardScenario.Snapshot());
         if (request.Path == "/api/frame")
         {
             var diagnostic = table.VisionDiagnostics;
@@ -261,6 +289,7 @@ public sealed partial class ShellSession
         var server = visionDashboardServer;
         visionDashboardServer = null;
         VisionDashboardUrl = "";
+        VisionScenarioUrl = "";
         visionDashboardStartedDiagnostics = false;
         if (server is not null) await server.DisposeAsync().ConfigureAwait(false);
         if (maintenanceTask is not null) await maintenanceTask.ConfigureAwait(false);
