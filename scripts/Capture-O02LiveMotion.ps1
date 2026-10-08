@@ -161,6 +161,12 @@ try {
             CopyFailures = $taskMetrics.copy.failures
             CopyFailureDelta = $taskCopyFailureDelta
             DecoderMediaGeneration = $taskPlayer.mediaGeneration
+            PlayerPlaybackState = $taskPlayer.playbackState
+            PlayerLastErrorCode = $taskPlayer.lastErrorCode
+            PlayerEndedCount = $taskPlayer.endedCount
+            PlayerPlaying = $taskPlayer.playing
+            PlayerPlayWhenReady = $taskPlayer.playWhenReady
+            PlayerSuppressionReason = $taskPlayer.suppressionReason
             DecoderFrames = $taskPlayer.decodedFrames
             DecoderFrameDelta = $taskDecoderDelta
             TextureFrames = $taskPlayer.textureFrames
@@ -210,7 +216,7 @@ finally {
 
 if ($taskRows.Count -eq 0) { throw 'No motion-feed samples were collected.' }
 $taskReport = [pscustomobject]@{
-    SchemaVersion = 6
+    SchemaVersion = 7
     DeviceSerial = $CompanionSerial
     Package = $taskPing.package
     StartedAtUtc = $taskStartedAt.ToString('O')
@@ -222,7 +228,7 @@ $taskReport = [pscustomobject]@{
     CaptureError = $taskCaptureError
     ImagesSaved = $false
     Samples = $taskRows
-    Scope = 'Opt-in candidate availability, main-thread probe/read queue timing, TextureView update counts and age, native bitmap-copy duration, source PTS, per-gap acquisition/worker telemetry, decoder-release/texture and copy-failure counters, and dimensions. No detector tracking or ball identity claim.'
+    Scope = 'Opt-in candidate availability, main-thread probe/read queue timing, TextureView update counts and age, native bitmap-copy duration, source PTS, per-gap acquisition/worker telemetry, decoder-release/texture and copy-failure counters, player restart/error state and dimensions. No detector tracking or ball identity claim.'
 }
 $taskOutputDirectory = Split-Path -Parent $taskOutputPath
 if ($taskOutputDirectory -and -not (Test-Path -LiteralPath $taskOutputDirectory -PathType Container)) {

@@ -9,7 +9,7 @@ namespace SkyEye.Companion;
 
 public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Func<CameraConnection> connection, Func<bool> live,
     Func<CancellationToken, Task>? refreshClock = null, int decodedReadbackScale = 1) : ITableMotionFrameSource, ITableMotionFrameProbe,
-    ITableMotionFrameCandidateReader, ITableVerificationFrameSource
+    ITableMotionFrameCandidateReader, ITableMotionFrameUpdateWaiter, ITableVerificationFrameSource
 {
     sealed class MotionFrameUpdateCallback(Action callback) : Java.Lang.Object, Bridge.PlayerBridge.IMotionFrameUpdateListener
     {
@@ -18,7 +18,7 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
 
     readonly int readbackScale = decodedReadbackScale is 1 or 2 ? decodedReadbackScale
         : throw new ArgumentOutOfRangeException(nameof(decodedReadbackScale));
-    const int DecodedCopyRetryDelayMs = 17;
+    const int MotionUpdateFallbackMs = 250;
     public Task RefreshVerificationClockAsync(CancellationToken cancellation) => refreshClock?.Invoke(cancellation) ?? Task.CompletedTask;
     public Task<bool> IsVerificationSourceCurrentAsync(CameraScope source, long mediaGeneration, string timeline, CancellationToken cancellation)
     {
@@ -89,6 +89,74 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
             changedScope ? "scope-changed" : isNew ? "new" : "unchanged", frameId, sourceTimeUs)
         { MainThreadQueueMs = queueMs, ProbeDurationMs = probeMs, TextureUpdateCount = textureUpdateCount, TextureAgeMs = textureAgeMs };
     }
+    public Task WaitForNextFrameUpdateAsync(MotionFeedScope scope, long afterFrameId, long afterSourceTimeUs,
+        CancellationToken cancellation)
+    {
+        var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Bridge.PlayerBridge? waitingOwner = null;
+        MotionFrameUpdateCallback? waitingListener = null;
+        CancellationTokenRegistration cancellationRegistration = default;
+        void ClearWaitingListener()
+        {
+            if (waitingOwner is { } owner && waitingListener is { } listener) owner.RemoveMotionFrameUpdateListener(listener);
+            waitingOwner = null;
+            waitingListener = null;
+        }
+        void CompleteCancelled()
+        {
+            ClearWaitingListener();
+            completion.TrySetCanceled(cancellation);
+        }
+        cancellationRegistration = cancellation.Register(() =>
+        {
+            try { main.Post(CompleteCancelled); }
+            catch (ObjectDisposedException) { completion.TrySetCanceled(cancellation); }
+        });
+        _ = completion.Task.ContinueWith(_ => cancellationRegistration.Dispose(), CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+
+        Action? fallback = null;
+        fallback = () =>
+        {
+            if (completion.Task.IsCompleted) return;
+            ClearWaitingListener();
+            completion.TrySetResult(true);
+        };
+        main.Post(() =>
+        {
+            try
+            {
+                cancellation.ThrowIfCancellationRequested();
+                if (player() is not { } owner || !live() || connection().Scope != scope.Source || !connection().CanControl)
+                    throw new FrameAcquisitionException(ObservationReason.SourceChanged, "motion-source-changed");
+                var probe = ProbeCandidateOnMain(owner, scope, afterFrameId, afterSourceTimeUs, 0);
+                if (probe.Disposition == MotionFrameCandidateDisposition.New)
+                {
+                    completion.TrySetResult(true);
+                    return;
+                }
+
+                waitingOwner = owner;
+                waitingListener = new MotionFrameUpdateCallback(() =>
+                {
+                    if (completion.Task.IsCompleted) return;
+                    ClearWaitingListener();
+                    if (cancellation.IsCancellationRequested) { completion.TrySetCanceled(cancellation); return; }
+                    if (player() != owner || !live() || connection().Scope != scope.Source || !connection().CanControl)
+                    { completion.TrySetException(new FrameAcquisitionException(ObservationReason.SourceChanged, "motion-source-changed")); return; }
+                    completion.TrySetResult(true);
+                });
+                owner.AddMotionFrameUpdateListener(waitingListener);
+                main.PostDelayed(fallback, MotionUpdateFallbackMs);
+            }
+            catch (Exception error)
+            {
+                ClearWaitingListener();
+                completion.TrySetException(error);
+            }
+        });
+        return completion.Task;
+    }
     public Task<MotionFrameCandidateRead> ReadNewCandidateAsync(MotionFeedScope scope, long afterFrameId,
         long afterSourceTimeUs, Action beforeReadback, CancellationToken cancellation)
     {
@@ -102,7 +170,7 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
         CancellationTokenRegistration cancellationRegistration = default;
         void ClearWaitingListener()
         {
-            if (waitingOwner is { } owner) owner.SetMotionFrameUpdateListener(null);
+            if (waitingOwner is { } owner && waitingListener is { } listener) owner.RemoveMotionFrameUpdateListener(listener);
             waitingOwner = null;
             waitingListener = null;
         }
@@ -148,24 +216,32 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
                 {
                     if (remaining > 0)
                     {
-                        var nextUpdate = new MotionFrameUpdateCallback(() =>
+                        bool retryStarted = false;
+                        Action Retry = () =>
                         {
+                            if (retryStarted || completion.Task.IsCompleted) return;
+                            retryStarted = true;
                             ClearWaitingListener();
                             Attempt(remaining - 1, Stopwatch.GetTimestamp(), 0);
-                        });
+                        };
                         waitingOwner = owner;
-                        waitingListener = nextUpdate;
-                        owner.SetMotionFrameUpdateListener(nextUpdate);
+                        waitingListener = new MotionFrameUpdateCallback(Retry);
+                        owner.AddMotionFrameUpdateListener(waitingListener);
+                        main.PostDelayed(Retry, MotionUpdateFallbackMs);
                         return;
                     }
                     var code = owner.LastCopyFailure();
-                    throw new FrameAcquisitionException(code == "unmapped-source-clock" ? ObservationReason.ClockUntrusted : ObservationReason.FrameUnavailable,
-                        string.IsNullOrWhiteSpace(code) ? "paired-frame-unavailable" : code, owner.ObservationSourceStatus());
+                    var failureCode = string.IsNullOrWhiteSpace(code) ? "paired-frame-unavailable" : code;
+                    Android.Util.Log.Warn("SkyEyeFrameSource", $"Live candidate frame unavailable after {acquisitionAttempts} attempts: {failureCode}");
+                    throw new FrameAcquisitionException(failureCode == "unmapped-source-clock" ? ObservationReason.ClockUntrusted : ObservationReason.FrameUnavailable,
+                        failureCode, owner.ObservationSourceStatus());
                 }
                 completion.TrySetResult(new(probe, frame));
             }
             catch (Exception error)
             {
+                if (error is not OperationCanceledException)
+                    Android.Util.Log.Warn("SkyEyeFrameSource", $"Live candidate acquisition failed after {acquisitionAttempts} attempts: {error.GetType().Name}: {error.Message}");
                 ClearWaitingListener();
                 cancellationRegistration.Dispose();
                 completion.TrySetException(error);
@@ -254,16 +330,39 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
                 if (frame is null)
                 {
                     // A render/copy race may be refused even while live video is
-                    // healthy. Yield to the next latch without weakening pairing.
-                    // Short retries avoid repeatedly sampling the same phase of a live texture update.
-                    if (remaining > 0) { main.PostDelayed(() => Attempt(remaining - 1), DecodedCopyRetryDelayMs); return; }
+                    // healthy. Retry on the next texture latch without weakening pairing.
+                    if (remaining > 0)
+                    {
+                        bool retryStarted = false;
+                        MotionFrameUpdateCallback? waitingListener = null;
+                        void Retry()
+                        {
+                            if (retryStarted || completion.Task.IsCompleted) return;
+                            retryStarted = true;
+                            if (waitingListener is { } listener) owner.RemoveMotionFrameUpdateListener(listener);
+                            waitingListener = null;
+                            Attempt(remaining - 1);
+                        }
+                        waitingListener = new MotionFrameUpdateCallback(Retry);
+                        owner.AddMotionFrameUpdateListener(waitingListener);
+                        // A stopped or hidden texture must not hold an observation indefinitely.
+                        main.PostDelayed(Retry, MotionUpdateFallbackMs);
+                        return;
+                    }
                     var code = owner.LastCopyFailure();
-                    throw new FrameAcquisitionException(code == "unmapped-source-clock" ? ObservationReason.ClockUntrusted : ObservationReason.FrameUnavailable,
-                        string.IsNullOrWhiteSpace(code) ? "paired-frame-unavailable" : code, owner.ObservationSourceStatus());
+                    var failureCode = string.IsNullOrWhiteSpace(code) ? "paired-frame-unavailable" : code;
+                    Android.Util.Log.Warn("SkyEyeFrameSource", $"Live observation frame unavailable after {acquisitionAttempts} attempts: {failureCode}");
+                    throw new FrameAcquisitionException(failureCode == "unmapped-source-clock" ? ObservationReason.ClockUntrusted : ObservationReason.FrameUnavailable,
+                        failureCode, owner.ObservationSourceStatus());
                 }
                 completion.TrySetResult(frame);
             }
-            catch (Exception error) { completion.TrySetException(error); }
+            catch (Exception error)
+            {
+                if (error is not OperationCanceledException)
+                    Android.Util.Log.Warn("SkyEyeFrameSource", $"Live observation acquisition failed after {acquisitionAttempts} attempts: {error.GetType().Name}: {error.Message}");
+                completion.TrySetException(error);
+            }
         }
         main.Post(() => Attempt(3));
         return completion.Task;

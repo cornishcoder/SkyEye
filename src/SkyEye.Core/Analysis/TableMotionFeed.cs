@@ -86,6 +86,12 @@ public interface ITableMotionFrameCandidateReader
     Task<MotionFrameCandidateRead> ReadNewCandidateAsync(MotionFeedScope scope, long afterFrameId,
         long afterSourceTimeUs, Action beforeReadback, CancellationToken cancellation);
 }
+public interface ITableMotionFrameUpdateWaiter
+{
+    /// <summary>Waits for a newer surface update, with a bounded fallback wake.</summary>
+    Task WaitForNextFrameUpdateAsync(MotionFeedScope scope, long afterFrameId, long afterSourceTimeUs,
+        CancellationToken cancellation);
+}
 public sealed record MotionFeedSnapshot(long Acquired, long Processed, long Replaced, long DuplicateOrBackwards, long Stale,
     long AcquisitionFailures, long ScopeRejected, long WorkerFailures, long GapResets, int Active, int Pending,
     string? StopReason, MotionMeasurement? Latest, double LastAcquisitionMs, double LastWorkerMs, double LastResultAgeMs)
@@ -276,11 +282,21 @@ public sealed class TableMotionFeed : IAsyncDisposable
     }
     async Task ProduceAsync()
     {
-        using var cadence = new PeriodicTimer(TimeSpan.FromSeconds(1d / options.FramesPerSecond), time);
+        using var cadence = source is ITableMotionFrameUpdateWaiter
+            ? null : new PeriodicTimer(TimeSpan.FromSeconds(1d / options.FramesPerSecond), time);
         try
         {
-            do
+            bool firstTick = true;
+            while (!stopped.IsCancellationRequested)
             {
+                if (!firstTick)
+                {
+                    if (source is ITableMotionFrameUpdateWaiter updateWaiter)
+                        await updateWaiter.WaitForNextFrameUpdateAsync(scope, lastReceivedId, lastReceivedUs, stopped.Token).ConfigureAwait(false);
+                    else if (cadence is not null && !await cadence.WaitForNextTickAsync(stopped.Token).ConfigureAwait(false))
+                        break;
+                }
+                firstTick = false;
                 if (!Current()) { Stop("Source, calibration or enablement changed"); break; }
                 MotionFrameCandidateProbe? candidateProbe = null;
                 TableFrame? frame = null;
@@ -384,7 +400,7 @@ public sealed class TableMotionFeed : IAsyncDisposable
                 catch (IOException) { lock (gate) acquisitionFailures++; }
                 catch (Exception) { lock (gate) scopeRejected++; Stop("Acquisition/source failed"); break; }
                 finally { frame?.Dispose(); }
-            } while (await cadence.WaitForNextTickAsync(stopped.Token).ConfigureAwait(false));
+            }
         }
         catch (OperationCanceledException) when (stopped.IsCancellationRequested) { }
         catch (Exception) { lock (gate) scopeRejected++; Stop("Candidate/source failed"); }

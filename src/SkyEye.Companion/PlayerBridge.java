@@ -31,10 +31,11 @@ public final class PlayerBridge {
     private final android.os.Handler retry=new android.os.Handler(android.os.Looper.getMainLooper());private volatile long generation;private String activeUrl="";private boolean released;
     private int rotation;private int videoWidth=1920,videoHeight=1080;private org.json.JSONObject scene,tvScene;private boolean sceneApplied;private Bitmap captureScratch;private final android.graphics.Paint videoPaint=new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG|android.graphics.Paint.FILTER_BITMAP_FLAG|android.graphics.Paint.DITHER_FLAG);
     private boolean diagnostics;private long decodedFrames,textureFrames,measurementStart,lastTextureNs,lastReleaseNs;private double releaseToTextureMs,lastBitmapCopyMs;
-    private MotionFrameUpdateListener motionFrameUpdateListener;
+    private final java.util.concurrent.CopyOnWriteArrayList<MotionFrameUpdateListener> motionFrameUpdateListeners=new java.util.concurrent.CopyOnWriteArrayList<>();
     private static boolean liveUrl(String url){return url.contains(".m3u8")||url.contains("/live/stream.ts");}
     public void setDiagnostics(boolean enabled){diagnostics=enabled;if(measurementStart==0)measurementStart=System.nanoTime();}
-    public void setMotionFrameUpdateListener(MotionFrameUpdateListener listener){motionFrameUpdateListener=listener;}
+    public void addMotionFrameUpdateListener(MotionFrameUpdateListener listener){if(listener!=null)motionFrameUpdateListeners.addIfAbsent(listener);}
+    public void removeMotionFrameUpdateListener(MotionFrameUpdateListener listener){if(listener!=null)motionFrameUpdateListeners.remove(listener);}
     public PlayerBridge(Activity context,Listener listener){
         this.listener=listener;texture=new TextureView(context);texture.setOpaque(false);
         androidx.media3.exoplayer.DefaultLoadControl buffering=new androidx.media3.exoplayer.DefaultLoadControl.Builder()
@@ -47,13 +48,13 @@ public final class PlayerBridge {
         texture.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->transform());
         // Preserve Media3's surface lifecycle listener; observe its texture callback.
         TextureView.SurfaceTextureListener delegate=texture.getSurfaceTextureListener();
-        texture.setSurfaceTextureListener(new TextureView.SurfaceTextureListener(){public void onSurfaceTextureAvailable(android.graphics.SurfaceTexture t,int w,int h){delegate.onSurfaceTextureAvailable(t,w,h);}public void onSurfaceTextureSizeChanged(android.graphics.SurfaceTexture t,int w,int h){delegate.onSurfaceTextureSizeChanged(t,w,h);}public boolean onSurfaceTextureDestroyed(android.graphics.SurfaceTexture t){return delegate.onSurfaceTextureDestroyed(t);}public void onSurfaceTextureUpdated(android.graphics.SurfaceTexture t){delegate.onSurfaceTextureUpdated(t);annotationRecorder.textureUpdated();if(diagnostics){textureFrames++;lastTextureNs=System.nanoTime();releaseToTextureMs=(lastTextureNs-lastReleaseNs)/1000000d;}MotionFrameUpdateListener listener=motionFrameUpdateListener;if(listener!=null){motionFrameUpdateListener=null;listener.onFrameUpdated();}}});
+        texture.setSurfaceTextureListener(new TextureView.SurfaceTextureListener(){public void onSurfaceTextureAvailable(android.graphics.SurfaceTexture t,int w,int h){delegate.onSurfaceTextureAvailable(t,w,h);}public void onSurfaceTextureSizeChanged(android.graphics.SurfaceTexture t,int w,int h){delegate.onSurfaceTextureSizeChanged(t,w,h);}public boolean onSurfaceTextureDestroyed(android.graphics.SurfaceTexture t){return delegate.onSurfaceTextureDestroyed(t);}public void onSurfaceTextureUpdated(android.graphics.SurfaceTexture t){delegate.onSurfaceTextureUpdated(t);annotationRecorder.textureUpdated();if(diagnostics){textureFrames++;lastTextureNs=System.nanoTime();releaseToTextureMs=(lastTextureNs-lastReleaseNs)/1000000d;}for(MotionFrameUpdateListener pending:motionFrameUpdateListeners)if(motionFrameUpdateListeners.remove(pending))pending.onFrameUpdated();}});
         player.addListener(new Player.Listener(){
-            public void onPlayerError(PlaybackException e){lastPlaybackErrorCode=e.errorCode;listener.onError(liveUrl(activeUrl)?"Viewing interrupted. Waiting for the live feed to recover.":"Downloaded clip could not be played.");long expected=generation;
+            public void onPlayerError(PlaybackException e){lastPlaybackErrorCode=e.errorCode;android.util.Log.w("SkyEyePlayer","Playback error code="+e.errorCode+" live="+liveUrl(activeUrl)+"; waiting for retry");listener.onError(liveUrl(activeUrl)?"Viewing interrupted. Waiting for the live feed to recover.":"Downloaded clip could not be played.");long expected=generation;
                 if(liveUrl(activeUrl))retry.postDelayed(()->{if(!released&&expected==generation){play(activeUrl);}},1000);
             }
             public void onIsPlayingChanged(boolean playing){listener.onPlaying(playing);}
-            public void onPlaybackStateChanged(int state){if(state==Player.STATE_ENDED&&liveUrl(activeUrl)){endedCount++;long expected=generation;retry.postDelayed(()->{if(!released&&expected==generation)play(activeUrl);},100);}}
+            public void onPlaybackStateChanged(int state){if(state==Player.STATE_ENDED&&liveUrl(activeUrl)){endedCount++;android.util.Log.w("SkyEyePlayer","Live source ended; restarting transport="+(activeUrl.contains("/live/stream.ts")?"phone-ts":"hls")+" generation="+generation);long expected=generation;retry.postDelayed(()->{if(!released&&expected==generation)play(activeUrl);},100);}}
             public void onVideoSizeChanged(VideoSize size){if(size.width<=0||size.height<=0)return;videoWidth=size.width;videoHeight=size.height;transform();listener.onPlaying(player.isPlaying());}
         });
     }
@@ -208,5 +209,5 @@ public final class PlayerBridge {
         float scale=Math.min(w/(rotation==90?vh:vw),h/(rotation==90?vw:vh));
         Matrix matrix=new Matrix();matrix.setScale(vw*scale/w,vh*scale/h,w/2,h/2);matrix.postRotate(rotation,w/2,h/2);texture.setTransform(matrix);
     }
-    public void release(){released=true;generation++;decodedLedger.reset(generation);retry.removeCallbacksAndMessages(null);player.release();if(captureScratch!=null){captureScratch.recycle();captureScratch=null;}}
+    public void release(){released=true;generation++;motionFrameUpdateListeners.clear();decodedLedger.reset(generation);retry.removeCallbacksAndMessages(null);player.release();if(captureScratch!=null){captureScratch.recycle();captureScratch=null;}}
 }
