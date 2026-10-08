@@ -6,7 +6,7 @@
 {
     <section class="vision-label-editor" aria-label="Independent ball labelling">
         <h3>Label this frame</h3>
-        <p class="hint">Detector output is hidden here. Drag a box around each visible ball, then choose its colour and visibility. Use Unknown when colour is unclear. For a shot sequence, reuse the same ID for the same physical ball in every frame; mark uncertain identities honestly.</p>
+        <p class="hint">Detector output is hidden here. Choose the colour and visibility, then drag a tight box around the whole ball. Repeat for every visible ball. Use Unknown when colour is unclear. For a shot sequence, reuse the same ID for the same physical ball in every frame; mark uncertain identities honestly.</p>
         <div class="vision-label-tags">
             <label for="vision-label-lighting">Lighting</label>
             <select id="vision-label-lighting" value="@Session.VisionDiagnosticLabelLighting" @onchange="SetLighting">

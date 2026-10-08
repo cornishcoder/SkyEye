@@ -1,0 +1,1066 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-10-08T15:29:14.9019809+00:00",
+  "passed": true,
+  "device": "Pixel 11 Pro XL",
+  "scope": "Controlled native synthetic failures/negatives and saved development replays. Partial labels validate only a marked cue; they are excluded from O09 full-table training/comparison. Not a lighting holdout or current-room accuracy result",
+  "configuration": "{\"Algorithm\":\"cue-ball-current-body-v2\",\"Settings\":{\"Width\":1000,\"MinimumRadius\":18,\"MaximumRadius\":35,\"Separation\":45,\"MorphologyKernel\":5,\"HoughDp\":1.3,\"EdgeThreshold\":150,\"InitialVotes\":15,\"NormalizedVotes\":14,\"HueBand\":7,\"PocketExclusionRadius\":55,\"LocalIlluminationNormalization\":true,\"IlluminationKernelWidth\":151,\"FreshCueBallRecovery\":true,\"VerificationBodyRefinement\":false}}",
+  "baseline": "FreshCueBallRecovery=false",
+  "candidate": "FreshCueBallRecovery=true",
+  "fullReport": "work/o08/cue-ball-recovery/pixel-proof.json",
+  "fullReportSha256": "b0086da7beb68c30c0f8f7a223386cceb6fdd152ebeff0b0566365e821bad75c",
+  "sources": [
+    {
+      "path": "src/SkyEye.Vision.Android/VisionAnalyzer.cs",
+      "workingFileSha256": "809a804d4810bf36795ae5aad357a245d65bd6bcd22bd57c8a68cb3a1888d08a"
+    },
+    {
+      "path": "src/SkyEye.Vision.Android/CueBallRecovery.cs",
+      "workingFileSha256": "2daa776788adb8fddb00ede769dcda8e380c7328044efb1e7739f8cfa5bc0502"
+    },
+    {
+      "path": "src/SkyEye.Vision.Android/VisionSettings.cs",
+      "workingFileSha256": "39552caff9fe680ad569e27c64c8cf9477fbf4e48f082f074469d9f1db0a71d6"
+    },
+    {
+      "path": "src/SkyEye.Core/Analysis/ObservationPolicy.cs",
+      "workingFileSha256": "5f28194c7eeab5d10679a47248a0935e3e972944f851c9eb3ef589d0c5487e02"
+    },
+    {
+      "path": "tests/SkyEye.Vision.Device/CueBallRecoveryInstrumentation.cs",
+      "workingFileSha256": "3375037bebf5bdda4425cd8c43194a1ea43f87ee1c49eb22ebd2cd091570ff6c"
+    }
+  ],
+  "comparisons": [
+    {
+      "name": "synthetic-neutral-body-96",
+      "pixelSha256": "721a0f172f2d057a57c182bb44f840f3cb679cc64cf4b98c771c30ef28300fe3",
+      "settings": {
+        "width": 1000,
+        "minimumRadius": 18,
+        "maximumRadius": 35,
+        "separation": 45,
+        "morphologyKernel": 5,
+        "houghDp": 1.3,
+        "edgeThreshold": 150,
+        "initialVotes": 80,
+        "normalizedVotes": 14,
+        "hueBand": 7,
+        "pocketExclusionRadius": 55,
+        "localIlluminationNormalization": true,
+        "illuminationKernelWidth": 151,
+        "freshCueBallRecovery": true,
+        "verificationBodyRefinement": false
+      },
+      "before": {
+        "cueCount": 0,
+        "candidateCount": 0,
+        "classifiedCount": 0,
+        "uncertain": true,
+        "elapsedMs": 291.0505
+      },
+      "after": {
+        "cueCount": 1,
+        "candidateCount": 1,
+        "classifiedCount": 1,
+        "uncertain": true,
+        "elapsedMs": 434.6052,
+        "cueRecovery": {
+          "initialCueBallCount": 0,
+          "beforeNormalizationCueBallCount": 1,
+          "afterNormalizationCueBallCount": 1,
+          "finalCueBallCount": 1,
+          "neutralBodyCandidates": 1,
+          "neutralBodiesRecovered": 1,
+          "geometryRetained": true,
+          "reason": "preserved-current-frame-geometry",
+          "boundarySupport": 1,
+          "rejectedInitialCueBodies": 0,
+          "rejectedNormalizedCueBodies": 0
+        }
+      },
+      "cueImageCentres": [
+        {
+          "x": 0.5002,
+          "y": 0.3501,
+          "length": 0.6105489742846186
+        }
+      ]
+    },
+    {
+      "name": "synthetic-neutral-body-160",
+      "pixelSha256": "5de58c2ed84fc7cb1f2bbd4b816266913b280b50713ec2d4c355fece14336b5c",
+      "settings": {
+        "width": 1000,
+        "minimumRadius": 18,
+        "maximumRadius": 35,
+        "separation": 45,
+        "morphologyKernel": 5,
+        "houghDp": 1.3,
+        "edgeThreshold": 150,
+        "initialVotes": 80,
+        "normalizedVotes": 14,
+        "hueBand": 7,
+        "pocketExclusionRadius": 55,
+        "localIlluminationNormalization": true,
+        "illuminationKernelWidth": 151,
+        "freshCueBallRecovery": true,
+        "verificationBodyRefinement": false
+      },
+      "before": {
+        "cueCount": 0,
+        "candidateCount": 0,
+        "classifiedCount": 0,
+        "uncertain": true,
+        "elapsedMs": 317.403
+      },
+      "after": {
+        "cueCount": 1,
+        "candidateCount": 1,
+        "classifiedCount": 1,
+        "uncertain": true,
+        "elapsedMs": 700.9695,
+        "cueRecovery": {
+          "initialCueBallCount": 0,
+          "beforeNormalizationCueBallCount": 1,
+          "afterNormalizationCueBallCount": 1,
+          "finalCueBallCount": 1,
+          "neutralBodyCandidates": 1,
+          "neutralBodiesRecovered": 1,
+          "geometryRetained": true,
+          "reason": "preserved-current-frame-geometry",
+          "boundarySupport": 1,
+          "rejectedInitialCueBodies": 0,
+          "rejectedNormalizedCueBodies": 0
+        }
+      },
+      "cueImageCentres": [
+        {
+          "x": 0.5002,
+          "y": 0.3501,
+          "length": 0.6105489742846186
+        }
+      ]
+    },
+    {
+      "name": "synthetic-neutral-body-230",
+      "pixelSha256": "3b5a9110983671358f7240cd332f4625be84386b75cd7546ae3f7fbf4fd64a8d",
+      "settings": {
+        "width": 1000,
+        "minimumRadius": 18,
+        "maximumRadius": 35,
+        "separation": 45,
+        "morphologyKernel": 5,
+        "houghDp": 1.3,
+        "edgeThreshold": 150,
+        "initialVotes": 80,
+        "normalizedVotes": 14,
+        "hueBand": 7,
+        "pocketExclusionRadius": 55,
+        "localIlluminationNormalization": true,
+        "illuminationKernelWidth": 151,
+        "freshCueBallRecovery": true,
+        "verificationBodyRefinement": false
+      },
+      "before": {
+        "cueCount": 0,
+        "candidateCount": 0,
+        "classifiedCount": 0,
+        "uncertain": true,
+        "elapsedMs": 526.2054
+      },
+      "after": {
+        "cueCount": 1,
+        "candidateCount": 1,
+        "classifiedCount": 1,
+        "uncertain": true,
+        "elapsedMs": 591.5473,
+        "cueRecovery": {
+          "initialCueBallCount": 0,
+          "beforeNormalizationCueBallCount": 1,
+          "afterNormalizationCueBallCount": 1,
+          "finalCueBallCount": 1,
+          "neutralBodyCandidates": 1,
+          "neutralBodiesRecovered": 1,
+          "geometryRetained": true,
+          "reason": "preserved-current-frame-geometry",
+          "boundarySupport": 1,
+          "rejectedInitialCueBodies": 0,
+          "rejectedNormalizedCueBodies": 0
+        }
+      },
+      "cueImageCentres": [
+        {
+          "x": 0.5002,
+          "y": 0.3501,
+          "length": 0.6105489742846186
+        }
+      ]
+    },
+    {
+      "name": "synthetic-normalized-proposal-loss",
+      "pixelSha256": "5de58c2ed84fc7cb1f2bbd4b816266913b280b50713ec2d4c355fece14336b5c",
+      "settings": {
+        "width": 1000,
+        "minimumRadius": 18,
+        "maximumRadius": 35,
+        "separation": 45,
+        "morphologyKernel": 5,
+        "houghDp": 1.3,
+        "edgeThreshold": 150,
+        "initialVotes": 15,
+        "normalizedVotes": 80,
+        "hueBand": 7,
+        "pocketExclusionRadius": 55,
+        "localIlluminationNormalization": true,
+        "illuminationKernelWidth": 151,
+        "freshCueBallRecovery": true,
+        "verificationBodyRefinement": false
+      },
+      "before": {
+        "cueCount": 0,
+        "candidateCount": 0,
+        "classifiedCount": 0,
+        "uncertain": true,
+        "elapsedMs": 541.0272
+      },
+      "after": {
+        "cueCount": 1,
+        "candidateCount": 1,
+        "classifiedCount": 1,
+        "uncertain": true,
+        "elapsedMs": 560.0799,
+        "cueRecovery": {
+          "initialCueBallCount": 1,
+          "beforeNormalizationCueBallCount": 1,
+          "afterNormalizationCueBallCount": 1,
+          "finalCueBallCount": 1,
+          "neutralBodyCandidates": 0,
+          "neutralBodiesRecovered": 0,
+          "geometryRetained": true,
+          "reason": "preserved-current-frame-geometry",
+          "boundarySupport": 1,
+          "rejectedInitialCueBodies": 0,
+          "rejectedNormalizedCueBodies": 0
+        }
+      },
+      "cueImageCentres": [
+        {
+          "x": 0.49964998168945307,
+          "y": 0.34992498168945313,
+          "length": 0.6099980303350453
+        }
+      ]
+    },
+    {
+      "name": "synthetic-negative-empty",
+      "pixelSha256": "0c6861c60de0f4e90f8f0e1ca62927f6c44907d15db1f08594fe26ca6a2f5b98",
+      "settings": {
+        "width": 1000,
+        "minimumRadius": 18,
+        "maximumRadius": 35,
+        "separation": 45,
+        "morphologyKernel": 5,
+        "houghDp": 1.3,
+        "edgeThreshold": 150,
+        "initialVotes": 15,
+        "normalizedVotes": 14,
+        "hueBand": 7,
+        "pocketExclusionRadius": 55,
+        "localIlluminationNormalization": true,
+        "illuminationKernelWidth": 151,
+        "freshCueBallRecovery": true,
+        "verificationBodyRefinement": false
+      },
+      "before": {
+        "cueCount": 0,
+        "candidateCount": 0,
+        "classifiedCount": 0,
+        "uncertain": true,
+        "elapsedMs": 416.979
+      },
+      "after": {
+        "cueCount": 0,
+        "candidateCount": 0,
+        "classifiedCount": 0,
+        "uncertain": true,
+        "elapsedMs": 529.5608,
+        "cueRecovery": {
+          "initialCueBallCount": 0,
+          "beforeNormalizationCueBallCount": 0,
+          "afterNormalizationCueBallCount": null,
+          "finalCueBallCount": 0,
+          "neutralBodyCandidates": 0,
+          "neutralBodiesRecovered": 0,
+          "geometryRetained": false,
+          "reason": "no-unique-first-pass-cue",
+          "boundarySupport": null,
+          "rejectedInitialCueBodies": 0,
+          "rejectedNormalizedCueBodies": 0
+        }
+      },
+      "cueImageCentres": []
+    },
+    {
+      "name": "synthetic-negative-stripes",
+      "pixelSha256": "4e0dcda9886c0d0e754d73521ea39f29eeb6482b98f9dbdefbf6863d45e25d36",
+      "settings": {
+        "width": 1000,
+        "minimumRadius": 18,
+        "maximumRadius": 35,
+        "separation": 45,
+        "morphologyKernel": 5,
+        "houghDp": 1.3,
+        "edgeThreshold": 150,
+        "initialVotes": 15,
+        "normalizedVotes": 14,
+        "hueBand": 7,
+        "pocketExclusionRadius": 55,
+        "localIlluminationNormalization": true,
+        "illuminationKernelWidth": 151,
+        "freshCueBallRecovery": true,
+        "verificationBodyRefinement": false
+      },
+      "before": {
+        "cueCount": 0,
+        "candidateCount": 0,
+        "classifiedCount": 0,
+        "uncertain": true,
+        "elapsedMs": 535.5955
+      },
+      "after": {
+        "cueCount": 0,
+        "candidateCount": 0,
+        "classifiedCount": 0,
+        "uncertain": true,
+        "elapsedMs": 390.4707,
+        "cueRecovery": {
+          "initialCueBallCount": 0,
+          "beforeNormalizationCueBallCount": 0,
+          "afterNormalizationCueBallCount": null,
+          "finalCueBallCount": 0,
+          "neutralBodyCandidates": 0,
+          "neutralBodiesRecovered": 0,
+          "geometryRetained": false,
+          "reason": "no-unique-first-pass-cue",
+          "boundarySupport": null,
+          "rejectedInitialCueBodies": 0,
+          "rejectedNormalizedCueBodies": 0
+        }
+      },
+      "cueImageCentres": []
+    },
+    {
+      "name": "synthetic-negative-number-patch",
+      "pixelSha256": "8a7209dec10dbe87af15738b2d7640724630f82d376ede5d446adc31722b977b",
+      "settings": {
+        "width": 1000,
+        "minimumRadius": 18,
+        "maximumRadius": 35,
+        "separation": 45,
+        "morphologyKernel": 5,
+        "houghDp": 1.3,
+        "edgeThreshold": 150,
+        "initialVotes": 15,
+        "normalizedVotes": 14,
+        "hueBand": 7,
+        "pocketExclusionRadius": 55,
+        "localIlluminationNormalization": true,
+        "illuminationKernelWidth": 151,
+        "freshCueBallRecovery": true,
+        "verificationBodyRefinement": false
+      },
+      "before": {
+        "cueCount": 0,
+        "candidateCount": 1,
+        "classifiedCount": 1,
+        "uncertain": true,
+        "elapsedMs": 377.1149
+      },
+      "after": {
+        "cueCount": 0,
+        "candidateCount": 1,
+        "classifiedCount": 1,
+        "uncertain": true,
+        "elapsedMs": 485.3851,
+        "cueRecovery": {
+          "initialCueBallCount": 0,
+          "beforeNormalizationCueBallCount": 0,
+          "afterNormalizationCueBallCount": null,
+          "finalCueBallCount": 0,
+          "neutralBodyCandidates": 0,
+          "neutralBodiesRecovered": 0,
+          "geometryRetained": false,
+          "reason": "no-unique-first-pass-cue",
+          "boundarySupport": null,
+          "rejectedInitialCueBodies": 0,
+          "rejectedNormalizedCueBodies": 0
+        }
+      },
+      "cueImageCentres": []
+    },
+    {
+      "name": "synthetic-unsupported-boundary",
+      "pixelSha256": "417a8e26a9292cac49b9c1ff2c4dd20fa9700b84a67d00b7af9e8ee78f6352fe",
+      "settings": {
+        "width": 1000,
+        "minimumRadius": 18,
+        "maximumRadius": 35,
+        "separation": 45,
+        "morphologyKernel": 5,
+        "houghDp": 1.3,
+        "edgeThreshold": 150,
+        "initialVotes": 80,
+        "normalizedVotes": 80,
+        "hueBand": 7,
+        "pocketExclusionRadius": 55,
+        "localIlluminationNormalization": true,
+        "illuminationKernelWidth": 151,
+        "freshCueBallRecovery": true,
+        "verificationBodyRefinement": false
+      },
+      "before": {
+        "cueCount": 0,
+        "candidateCount": 0,
+        "classifiedCount": 0,
+        "uncertain": true,
+        "elapsedMs": 422.733
+      },
+      "after": {
+        "cueCount": 0,
+        "candidateCount": 0,
+        "classifiedCount": 0,
+        "uncertain": true,
+        "elapsedMs": 662.7988,
+        "cueRecovery": {
+          "initialCueBallCount": 0,
+          "beforeNormalizationCueBallCount": 0,
+          "afterNormalizationCueBallCount": null,
+          "finalCueBallCount": 0,
+          "neutralBodyCandidates": 0,
+          "neutralBodiesRecovered": 0,
+          "geometryRetained": false,
+          "reason": "no-unique-first-pass-cue",
+          "boundarySupport": null,
+          "rejectedInitialCueBodies": 0,
+          "rejectedNormalizedCueBodies": 0
+        }
+      },
+      "cueImageCentres": []
+    },
+    {
+      "name": "synthetic-two-neutral-bodies",
+      "pixelSha256": "a6e30d5316ceaafc81bacb2de7846c71181d68f9bd9d8c1602157e5ab01bb7b1",
+      "settings": {
+        "width": 1000,
+        "minimumRadius": 18,
+        "maximumRadius": 35,
+        "separation": 45,
+        "morphologyKernel": 5,
+        "houghDp": 1.3,
+        "edgeThreshold": 150,
+        "initialVotes": 80,
+        "normalizedVotes": 14,
+        "hueBand": 7,
+        "pocketExclusionRadius": 55,
+        "localIlluminationNormalization": true,
+        "illuminationKernelWidth": 151,
+        "freshCueBallRecovery": true,
+        "verificationBodyRefinement": false
+      },
+      "before": {
+        "cueCount": 0,
+        "candidateCount": 0,
+        "classifiedCount": 0,
+        "uncertain": true,
+        "elapsedMs": 543.5699
+      },
+      "after": {
+        "cueCount": 0,
+        "candidateCount": 2,
+        "classifiedCount": 0,
+        "uncertain": true,
+        "elapsedMs": 528.3843,
+        "cueRecovery": {
+          "initialCueBallCount": 0,
+          "beforeNormalizationCueBallCount": 2,
+          "afterNormalizationCueBallCount": null,
+          "finalCueBallCount": 0,
+          "neutralBodyCandidates": 2,
+          "neutralBodiesRecovered": 2,
+          "geometryRetained": false,
+          "reason": "no-unique-first-pass-cue",
+          "boundarySupport": null,
+          "rejectedInitialCueBodies": 0,
+          "rejectedNormalizedCueBodies": 0
+        }
+      },
+      "cueImageCentres": []
+    },
+    {
+      "name": "pixel-table",
+      "pixelSha256": "8bc034e99a81114e11a67e435e730cf1d69799ced243e98954bb8e6e72e80831",
+      "settings": {
+        "width": 1000,
+        "minimumRadius": 18,
+        "maximumRadius": 35,
+        "separation": 45,
+        "morphologyKernel": 5,
+        "houghDp": 1.3,
+        "edgeThreshold": 150,
+        "initialVotes": 15,
+        "normalizedVotes": 14,
+        "hueBand": 7,
+        "pocketExclusionRadius": 55,
+        "localIlluminationNormalization": true,
+        "illuminationKernelWidth": 151,
+        "freshCueBallRecovery": true,
+        "verificationBodyRefinement": false
+      },
+      "before": {
+        "cueCount": 1,
+        "candidateCount": 16,
+        "classifiedCount": 16,
+        "uncertain": false,
+        "elapsedMs": 697.1315
+      },
+      "after": {
+        "cueCount": 1,
+        "candidateCount": 16,
+        "classifiedCount": 16,
+        "uncertain": false,
+        "elapsedMs": 916.5053,
+        "cueRecovery": {
+          "initialCueBallCount": 1,
+          "beforeNormalizationCueBallCount": 1,
+          "afterNormalizationCueBallCount": 1,
+          "finalCueBallCount": 1,
+          "neutralBodyCandidates": 0,
+          "neutralBodiesRecovered": 0,
+          "geometryRetained": true,
+          "reason": "preserved-current-frame-geometry",
+          "boundarySupport": 1,
+          "rejectedInitialCueBodies": 0,
+          "rejectedNormalizedCueBodies": 0
+        }
+      },
+      "cueImageCentres": [
+        {
+          "x": 0.22117325695082546,
+          "y": 0.5441166033245431,
+          "length": 0.5873503959338702
+        }
+      ]
+    },
+    {
+      "name": "synthetic-dim",
+      "pixelSha256": "51a2c8ea5d6142a704b0316c99478f28d1436377d773849599659c9b4587ab7e",
+      "settings": {
+        "width": 1000,
+        "minimumRadius": 18,
+        "maximumRadius": 35,
+        "separation": 45,
+        "morphologyKernel": 5,
+        "houghDp": 1.3,
+        "edgeThreshold": 150,
+        "initialVotes": 15,
+        "normalizedVotes": 14,
+        "hueBand": 7,
+        "pocketExclusionRadius": 55,
+        "localIlluminationNormalization": true,
+        "illuminationKernelWidth": 151,
+        "freshCueBallRecovery": true,
+        "verificationBodyRefinement": false
+      },
+      "before": {
+        "cueCount": 1,
+        "candidateCount": 17,
+        "classifiedCount": 16,
+        "uncertain": true,
+        "elapsedMs": 1060.5786
+      },
+      "after": {
+        "cueCount": 1,
+        "candidateCount": 16,
+        "classifiedCount": 16,
+        "uncertain": false,
+        "elapsedMs": 592.4191,
+        "cueRecovery": {
+          "initialCueBallCount": 1,
+          "beforeNormalizationCueBallCount": 1,
+          "afterNormalizationCueBallCount": 1,
+          "finalCueBallCount": 1,
+          "neutralBodyCandidates": 0,
+          "neutralBodiesRecovered": 0,
+          "geometryRetained": true,
+          "reason": "preserved-current-frame-geometry",
+          "boundarySupport": 1,
+          "rejectedInitialCueBodies": 0,
+          "rejectedNormalizedCueBodies": 0
+        }
+      },
+      "cueImageCentres": [
+        {
+          "x": 0.22155811324524463,
+          "y": 0.5440019165837088,
+          "length": 0.5873892089505399
+        }
+      ]
+    },
+    {
+      "name": "pixel-later-light",
+      "pixelSha256": "8a0c255be54fdf1c113edb56f4e0dd92d8f81c1598d47cd8c5a97f8ed30e86c3",
+      "settings": {
+        "width": 1000,
+        "minimumRadius": 18,
+        "maximumRadius": 35,
+        "separation": 45,
+        "morphologyKernel": 5,
+        "houghDp": 1.3,
+        "edgeThreshold": 150,
+        "initialVotes": 15,
+        "normalizedVotes": 14,
+        "hueBand": 7,
+        "pocketExclusionRadius": 55,
+        "localIlluminationNormalization": true,
+        "illuminationKernelWidth": 151,
+        "freshCueBallRecovery": true,
+        "verificationBodyRefinement": false
+      },
+      "before": {
+        "cueCount": 0,
+        "candidateCount": 16,
+        "classifiedCount": 14,
+        "uncertain": true,
+        "elapsedMs": 943.8355
+      },
+      "after": {
+        "cueCount": 1,
+        "candidateCount": 16,
+        "classifiedCount": 15,
+        "uncertain": true,
+        "elapsedMs": 860.2331,
+        "cueRecovery": {
+          "initialCueBallCount": 1,
+          "beforeNormalizationCueBallCount": 1,
+          "afterNormalizationCueBallCount": 1,
+          "finalCueBallCount": 1,
+          "neutralBodyCandidates": 0,
+          "neutralBodiesRecovered": 0,
+          "geometryRetained": true,
+          "reason": "preserved-current-frame-geometry",
+          "boundarySupport": 0.9375,
+          "rejectedInitialCueBodies": 0,
+          "rejectedNormalizedCueBodies": 0
+        }
+      },
+      "cueImageCentres": [
+        {
+          "x": 0.22121681796344628,
+          "y": 0.5438282671799455,
+          "length": 0.5870997059561643
+        }
+      ]
+    },
+    {
+      "name": "pixel-cushion-shadow",
+      "pixelSha256": "27dd9960037a7317e8800d95b003c514c1beed7592e22be736effc0e43bff60a",
+      "settings": {
+        "width": 1000,
+        "minimumRadius": 18,
+        "maximumRadius": 35,
+        "separation": 45,
+        "morphologyKernel": 5,
+        "houghDp": 1.3,
+        "edgeThreshold": 150,
+        "initialVotes": 15,
+        "normalizedVotes": 14,
+        "hueBand": 7,
+        "pocketExclusionRadius": 55,
+        "localIlluminationNormalization": true,
+        "illuminationKernelWidth": 151,
+        "freshCueBallRecovery": true,
+        "verificationBodyRefinement": false
+      },
+      "before": {
+        "cueCount": 1,
+        "candidateCount": 16,
+        "classifiedCount": 15,
+        "uncertain": true,
+        "elapsedMs": 799.1059
+      },
+      "after": {
+        "cueCount": 1,
+        "candidateCount": 16,
+        "classifiedCount": 15,
+        "uncertain": true,
+        "elapsedMs": 853.8924,
+        "cueRecovery": {
+          "initialCueBallCount": 1,
+          "beforeNormalizationCueBallCount": 1,
+          "afterNormalizationCueBallCount": 1,
+          "finalCueBallCount": 1,
+          "neutralBodyCandidates": 0,
+          "neutralBodiesRecovered": 0,
+          "geometryRetained": true,
+          "reason": "preserved-current-frame-geometry",
+          "boundarySupport": 0.96875,
+          "rejectedInitialCueBodies": 0,
+          "rejectedNormalizedCueBodies": 0
+        }
+      },
+      "cueImageCentres": [
+        {
+          "x": 0.2210586028031145,
+          "y": 0.5441072876590917,
+          "length": 0.5872986006768607
+        }
+      ]
+    },
+    {
+      "name": "pixel-spread-dim",
+      "pixelSha256": "fb9600502aaadf0198d18205777d658c75da104ff8f0a629ba8a3fcf75be026b",
+      "settings": {
+        "width": 1000,
+        "minimumRadius": 18,
+        "maximumRadius": 35,
+        "separation": 45,
+        "morphologyKernel": 5,
+        "houghDp": 1.3,
+        "edgeThreshold": 150,
+        "initialVotes": 15,
+        "normalizedVotes": 14,
+        "hueBand": 7,
+        "pocketExclusionRadius": 55,
+        "localIlluminationNormalization": true,
+        "illuminationKernelWidth": 151,
+        "freshCueBallRecovery": true,
+        "verificationBodyRefinement": false
+      },
+      "before": {
+        "cueCount": 0,
+        "candidateCount": 19,
+        "classifiedCount": 7,
+        "uncertain": true,
+        "elapsedMs": 845.2628
+      },
+      "after": {
+        "cueCount": 1,
+        "candidateCount": 19,
+        "classifiedCount": 16,
+        "uncertain": true,
+        "elapsedMs": 1331.1514,
+        "cueRecovery": {
+          "initialCueBallCount": 0,
+          "beforeNormalizationCueBallCount": 1,
+          "afterNormalizationCueBallCount": 1,
+          "finalCueBallCount": 1,
+          "neutralBodyCandidates": 1,
+          "neutralBodiesRecovered": 1,
+          "geometryRetained": true,
+          "reason": "preserved-current-frame-geometry",
+          "boundarySupport": 0.96875,
+          "rejectedInitialCueBodies": 0,
+          "rejectedNormalizedCueBodies": 0
+        }
+      },
+      "cueImageCentres": [
+        {
+          "x": 0.4150104564710382,
+          "y": 0.795119985999512,
+          "length": 0.8969110720222845
+        }
+      ]
+    },
+    {
+      "name": "pixel-spread-snapshot",
+      "pixelSha256": "8e25ba80a4436d5e5ec1cea16b63282be526bf29e67022152cf4e42a1afef7be",
+      "settings": {
+        "width": 1000,
+        "minimumRadius": 18,
+        "maximumRadius": 35,
+        "separation": 45,
+        "morphologyKernel": 5,
+        "houghDp": 1.3,
+        "edgeThreshold": 150,
+        "initialVotes": 15,
+        "normalizedVotes": 14,
+        "hueBand": 7,
+        "pocketExclusionRadius": 55,
+        "localIlluminationNormalization": true,
+        "illuminationKernelWidth": 151,
+        "freshCueBallRecovery": true,
+        "verificationBodyRefinement": false
+      },
+      "before": {
+        "cueCount": 0,
+        "candidateCount": 33,
+        "classifiedCount": 13,
+        "uncertain": true,
+        "elapsedMs": 646.8663
+      },
+      "after": {
+        "cueCount": 1,
+        "candidateCount": 33,
+        "classifiedCount": 13,
+        "uncertain": true,
+        "elapsedMs": 1093.3891,
+        "cueRecovery": {
+          "initialCueBallCount": 0,
+          "beforeNormalizationCueBallCount": 1,
+          "afterNormalizationCueBallCount": 19,
+          "finalCueBallCount": 1,
+          "neutralBodyCandidates": 1,
+          "neutralBodiesRecovered": 1,
+          "geometryRetained": true,
+          "reason": "preserved-current-frame-geometry",
+          "boundarySupport": 1,
+          "rejectedInitialCueBodies": 0,
+          "rejectedNormalizedCueBodies": 18
+        }
+      },
+      "cueImageCentres": [
+        {
+          "x": 0.41517366659760163,
+          "y": 0.7958338278907323,
+          "length": 0.8976194377637509
+        }
+      ]
+    },
+    {
+      "name": "partial-label-development-222",
+      "pixelSha256": "cf249003c4ba801601e7d5645720a22843803e3a666416c3369ade810fdd748b",
+      "settings": {
+        "width": 1000,
+        "minimumRadius": 18,
+        "maximumRadius": 35,
+        "separation": 45,
+        "morphologyKernel": 5,
+        "houghDp": 1.3,
+        "edgeThreshold": 150,
+        "initialVotes": 15,
+        "normalizedVotes": 14,
+        "hueBand": 7,
+        "pocketExclusionRadius": 55,
+        "localIlluminationNormalization": true,
+        "illuminationKernelWidth": 151,
+        "freshCueBallRecovery": true,
+        "verificationBodyRefinement": false
+      },
+      "before": {
+        "cueCount": 0,
+        "candidateCount": 33,
+        "classifiedCount": 2,
+        "uncertain": true,
+        "elapsedMs": 1117.1758
+      },
+      "after": {
+        "cueCount": 1,
+        "candidateCount": 33,
+        "classifiedCount": 5,
+        "uncertain": true,
+        "elapsedMs": 1118.1839,
+        "cueRecovery": {
+          "initialCueBallCount": 1,
+          "beforeNormalizationCueBallCount": 1,
+          "afterNormalizationCueBallCount": 29,
+          "finalCueBallCount": 1,
+          "neutralBodyCandidates": 0,
+          "neutralBodiesRecovered": 0,
+          "geometryRetained": true,
+          "reason": "preserved-current-frame-geometry",
+          "boundarySupport": 1,
+          "rejectedInitialCueBodies": 0,
+          "rejectedNormalizedCueBodies": 28
+        }
+      },
+      "cueImageCentres": [
+        {
+          "x": 0.6267351324013095,
+          "y": 0.676239012113511,
+          "length": 0.9220065768151245
+        }
+      ]
+    },
+    {
+      "name": "partial-label-development-3390",
+      "pixelSha256": "e59b05d620bf1459a49a38c7356be1f8cf64eb8476f2b90ee183f71215957c2d",
+      "settings": {
+        "width": 1000,
+        "minimumRadius": 18,
+        "maximumRadius": 35,
+        "separation": 45,
+        "morphologyKernel": 5,
+        "houghDp": 1.3,
+        "edgeThreshold": 150,
+        "initialVotes": 15,
+        "normalizedVotes": 14,
+        "hueBand": 7,
+        "pocketExclusionRadius": 55,
+        "localIlluminationNormalization": true,
+        "illuminationKernelWidth": 151,
+        "freshCueBallRecovery": true,
+        "verificationBodyRefinement": false
+      },
+      "before": {
+        "cueCount": 0,
+        "candidateCount": 33,
+        "classifiedCount": 3,
+        "uncertain": true,
+        "elapsedMs": 957.6926
+      },
+      "after": {
+        "cueCount": 1,
+        "candidateCount": 33,
+        "classifiedCount": 4,
+        "uncertain": true,
+        "elapsedMs": 748.5672,
+        "cueRecovery": {
+          "initialCueBallCount": 3,
+          "beforeNormalizationCueBallCount": 1,
+          "afterNormalizationCueBallCount": 30,
+          "finalCueBallCount": 1,
+          "neutralBodyCandidates": 0,
+          "neutralBodiesRecovered": 0,
+          "geometryRetained": true,
+          "reason": "preserved-current-frame-geometry",
+          "boundarySupport": 1,
+          "rejectedInitialCueBodies": 2,
+          "rejectedNormalizedCueBodies": 29
+        }
+      },
+      "cueImageCentres": [
+        {
+          "x": 0.6265707597145869,
+          "y": 0.6762364188684384,
+          "length": 0.9218929499314574
+        }
+      ]
+    }
+  ],
+  "labelCorrespondence": [
+    {
+      "name": "pixel-table-label-correspondence",
+      "correspondence": [
+        {
+          "kind": "red",
+          "before": 7,
+          "after": 7
+        },
+        {
+          "kind": "yellow",
+          "before": 7,
+          "after": 7
+        },
+        {
+          "kind": "black",
+          "before": 1,
+          "after": 1
+        }
+      ]
+    },
+    {
+      "name": "synthetic-dim-label-correspondence",
+      "correspondence": [
+        {
+          "kind": "red",
+          "before": 7,
+          "after": 7
+        },
+        {
+          "kind": "yellow",
+          "before": 7,
+          "after": 7
+        },
+        {
+          "kind": "black",
+          "before": 1,
+          "after": 1
+        }
+      ]
+    },
+    {
+      "name": "pixel-later-light-label-correspondence",
+      "correspondence": [
+        {
+          "kind": "red",
+          "before": 7,
+          "after": 7
+        },
+        {
+          "kind": "yellow",
+          "before": 7,
+          "after": 7
+        },
+        {
+          "kind": "black",
+          "before": 0,
+          "after": 0
+        }
+      ]
+    },
+    {
+      "name": "pixel-cushion-shadow-label-correspondence",
+      "correspondence": [
+        {
+          "kind": "red",
+          "before": 7,
+          "after": 7
+        },
+        {
+          "kind": "yellow",
+          "before": 7,
+          "after": 7
+        },
+        {
+          "kind": "black",
+          "before": 0,
+          "after": 0
+        }
+      ]
+    },
+    {
+      "name": "pixel-spread-dim-label-correspondence",
+      "correspondence": [
+        {
+          "kind": "red",
+          "before": 7,
+          "after": 7
+        },
+        {
+          "kind": "yellow",
+          "before": 0,
+          "after": 7
+        },
+        {
+          "kind": "black",
+          "before": 0,
+          "after": 1
+        }
+      ]
+    },
+    {
+      "name": "pixel-spread-snapshot-label-correspondence",
+      "correspondence": [
+        {
+          "kind": "red",
+          "before": 6,
+          "after": 6
+        },
+        {
+          "kind": "yellow",
+          "before": 6,
+          "after": 6
+        },
+        {
+          "kind": "black",
+          "before": 0,
+          "after": 0
+        }
+      ]
+    }
+  ],
+  "freshnessSequencePassed": true,
+  "timingNote": "One sequential development replay measurement per case/branch. These are not controlled latency estimates, live camera timings or resource/endurance acceptance.",
+  "remaining": "Several saved fixtures retain unknown candidates or missing black/red/yellow labels. No whole-table or sunlight holdout accuracy claim. Partial old captures are not a complete O09 training/evaluation corpus."
+}

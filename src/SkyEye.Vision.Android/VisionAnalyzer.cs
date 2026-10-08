@@ -71,6 +71,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         if (settings.FreshCueBallRecovery)
             ValidateCueBodies(rawWarped.Value, circles, initialLabels, recoveredBoundaries,
                 recoveredClassifications, cancellation, out rejectedCueBodies);
+        var initialClassificationCache = new Dictionary<Circle, BallClassification>();
+        for (int i = 0; i < circles.Length; i++) initialClassificationCache[circles[i]] = initialLabels[i];
         if (settings.FreshCueBallRecovery && initialLabels.All(l => l.Kind != "cue"))
             circles = RecoverNeutralCueBodies(rawWarped.Value, circles, recoveredBoundaries, recoveredClassifications,
                 cancellation, out neutralCandidates, out neutralRecovered);
@@ -95,8 +97,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 boundaries[refined] = fit; candidateBoundaries[refined] = fit; circles[i] = refined;
             }
         }
-        var first = appearance is null && neutralRecovered == 0 ? initialLabels
-            : circles.Select(c => Classify(c, pixels, inspectRim)).ToArray();
+        var first = circles.Select(c => initialClassificationCache.TryGetValue(c, out var cached)
+            ? cached : Classify(c, pixels, inspectRim)).ToArray();
         // A supported neutral body is evidence from this frame's raw colour
         // image. Illumination smoothing must not erase it before white balancing.
         for (int i = 0; i < circles.Length; i++)
@@ -445,8 +447,11 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         });
         return BallClassifier.ClassifyWithRim(samples.ToArray(), rim.ToArray(), lowLightNeutralCueBallContrast);
     }
-    static double NeutralClothValueCeiling(int clothValueFloor)
-        => Math.Clamp(clothValueFloor / .45 * .9, 45, 90);
+    double NeutralClothValueCeiling(int clothValueFloor)
+        // The fixed 90 ceiling makes holes in bright neutral cloth. Follow the
+        // measured cloth value; dim scenes keep their original lower ceiling.
+        // Fresh raw-body recovery supplies an independent check for the cue ball.
+        => Math.Clamp(clothValueFloor / .45 * .9, 45, settings.FreshCueBallRecovery ? 120 : 90);
     bool HasLowLightNeutralBallContrast(Circle circle, byte[] hsv, bool includeWarmCream = false)
     {
         var bodyValues = new List<byte>(); int bodySamples = 0;

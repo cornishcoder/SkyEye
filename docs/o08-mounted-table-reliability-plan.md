@@ -93,6 +93,8 @@ Validate compatible stored calibration with cheap observed reference checks when
 
 ## Photometric stability and detection recovery
 
+The [8 October cue body/geometry candidate](cue-ball-detection-recovery-plan.md) now separates ordinary colour correction from proposal location, adds raw neutral-body recovery and validates false cue identities against current boundaries. Native development checks and the guarded Lab update are recorded there. This is incremental O08.04/O08.05 evidence, not completion of physical or Holdout acceptance; temporal extension follows the measured live result.
+
 1. Record raw/normalized detection branches, gain/reference values, cloth estimates, Hough/contour candidates, rejected candidates and colour evidence for representative sequences.
 2. Freeze one validated normalization/settings snapshot within each burst. Establish its reference from adequate neutral/cue evidence across samples; refuse conflicting references. Detect changes outside that reference's support and end/restart verification explicitly. Bound any reuse between bursts by source, lighting health and age.
 3. Inspect auto-exposure/white-balance/focus capabilities on the actual camera. Evaluate locking only after stabilization, behind an optional scoped configuration with restoration and unsupported-device fallback. Do not promise lock support or require a camera rebuild for the first baseline.

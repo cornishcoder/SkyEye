@@ -20,10 +20,10 @@ public sealed partial class VisionAnalyzer
         {
             cancellation.ThrowIfCancellationRequested();
             BallBoundary? fit = null; BallClassification? label = null;
-            if (indices.Length <= 4)
+            var supported = boundaries.Where(p => SameBody(p.Key, circles[index])).Select(p => p.Value).Distinct().ToArray();
+            fit = supported.Length == 1 ? supported[0] : null;
+            if (fit is not null || indices.Length <= 4)
             {
-                var supported = boundaries.Where(p => SameBody(p.Key, circles[index])).Select(p => p.Value).Distinct().ToArray();
-                fit = supported.Length == 1 ? supported[0] : null;
                 if (fit is null)
                 {
                     bgr ??= Read(raw);

@@ -22,13 +22,14 @@ sealed record VisionDashboardSample(int Sequence, DateTimeOffset CapturedAt, dou
 {
     // Keep the v1 field for already-open dashboard tabs during an app update.
     public int BallCount => ClassifiedBallCount;
+    public CueBallRecoveryTelemetry? CueBallRecovery { get; init; }
 }
 
 /// <summary>Opt-in, read-only laptop view over the latest sequential vision diagnostic.</summary>
 public sealed partial class ShellSession
 {
     const string VisionDashboardAsset = "vision-diagnostics-dashboard.html";
-    const int VisionDashboardAssetVersion = 3;
+    const int VisionDashboardAssetVersion = 4;
     const int VisionDashboardPort = 8770;
     LocalHttpServer? visionDashboardServer;
     bool visionDashboardStartedDiagnostics;
@@ -163,7 +164,8 @@ public sealed partial class ShellSession
                     item.Detection.Balls.Count(ball => ball.Kind == "unknown"), item.Detection.Uncertain, item.Detection.ElapsedMs,
                     item.Detection.Illumination?.ReferenceBrightness,
                     item.Detection.Illumination?.MinimumGain, item.Detection.Illumination?.MaximumGain,
-                    item.Detection.Warnings)).ToArray();
+                    item.Detection.Warnings)
+                    { CueBallRecovery = item.Detection.Recognition?.CueBallRecovery }).ToArray();
                 var tracked = table.State.Table;
                 var camera = app.State.Camera;
                 var current = app.State;
