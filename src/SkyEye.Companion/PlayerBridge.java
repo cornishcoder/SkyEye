@@ -82,6 +82,18 @@ public final class PlayerBridge {
         if(android.os.Looper.myLooper()!=android.os.Looper.getMainLooper())throw new IllegalStateException("Decoded copy requires the player looper");
         if(released||!player.isPlaying()||!texture.isAvailable())return copyFailure("no-playing-texture");
         long media=generation;android.graphics.SurfaceTexture surface=texture.getSurfaceTexture();if(surface==null)return null;
+        // If a new texture frame arrives during getBitmap(), immediately retry
+        // against the newly latched timestamp. Waiting for another callback
+        // would discard a frame that is already available and can phase-lock
+        // repeated readbacks to the same copy race.
+        for(int attempt=0;attempt<2;attempt++){
+            DecodedFrameSnapshot snapshot=snapshotDecodedFrameOnce(media,surface,readbackScale);
+            if(snapshot!=null||!"changed-during-copy".equals(lastCopyFailure)
+                ||media!=generation||surface!=texture.getSurfaceTexture())return snapshot;
+        }
+        return null;
+    }
+    private DecodedFrameSnapshot snapshotDecodedFrameOnce(long media,android.graphics.SurfaceTexture surface,int readbackScale){
         long stamp=surface.getTimestamp();copyBefore=stamp;DecodedFrameLedger.Stamp paired=decodedLedger.match(media,stamp);
         if(paired==null)return copyFailure("unmapped-surface");
         // Media3 stamps the requested render time. TextureView may latch its
@@ -99,7 +111,7 @@ public final class PlayerBridge {
         try{
             long bitmapCopyStartedNs=System.nanoTime();
             Bitmap copied=texture.getBitmap(bitmap);
-            lastBitmapCopyMs=(System.nanoTime()-bitmapCopyStartedNs)/1000000d;
+            lastBitmapCopyMs+=(System.nanoTime()-bitmapCopyStartedNs)/1000000d;
             if(copied==null||android.graphics.Color.alpha(bitmap.getPixel(copyWidth/2,copyHeight/2))==0)
                 return copyFailure("empty-copy");
             copyAfter=surface.getTimestamp();
@@ -118,7 +130,7 @@ public final class PlayerBridge {
                 .put("textureUpdateCount",textureFrames).put("textureAgeMs",lastTextureNs==0?JSONObject.NULL:(System.nanoTime()-lastTextureNs)/1000000d)
                 .put("bitmapCopyMs",lastBitmapCopyMs)
                 .put("pairing","exact-surface-timestamp").toString();
-            DecodedFrameSnapshot result=new DecodedFrameSnapshot(bitmap,metadata);bitmap=null;return result;
+            DecodedFrameSnapshot result=new DecodedFrameSnapshot(bitmap,metadata);bitmap=null;lastCopyFailure="";return result;
         }catch(org.json.JSONException invalid){return copyFailure("invalid-source-metadata");}finally{if(bitmap!=null)bitmap.recycle();}
     }
     public String decodedFrameCandidate(){
