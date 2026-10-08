@@ -12,6 +12,7 @@ import org.json.JSONObject;
 
 public final class PlayerBridge {
     public interface Listener { void onError(String error); void onPlaying(boolean playing); }
+    public interface MotionFrameUpdateListener { void onFrameUpdated(); }
     private final AnnotationRecorder annotationRecorder=new AnnotationRecorder();
     private final DecodedFrameLedger decodedLedger=new DecodedFrameLedger();
     private final java.util.Map<String,Integer> copyFailures=new java.util.LinkedHashMap<>();private long copyBefore,copyAfter;
@@ -30,8 +31,10 @@ public final class PlayerBridge {
     private final android.os.Handler retry=new android.os.Handler(android.os.Looper.getMainLooper());private volatile long generation;private String activeUrl="";private boolean released;
     private int rotation;private int videoWidth=1920,videoHeight=1080;private org.json.JSONObject scene,tvScene;private boolean sceneApplied;private Bitmap captureScratch;private final android.graphics.Paint videoPaint=new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG|android.graphics.Paint.FILTER_BITMAP_FLAG|android.graphics.Paint.DITHER_FLAG);
     private boolean diagnostics;private long decodedFrames,textureFrames,measurementStart,lastTextureNs,lastReleaseNs;private double releaseToTextureMs,lastBitmapCopyMs;
+    private MotionFrameUpdateListener motionFrameUpdateListener;
     private static boolean liveUrl(String url){return url.contains(".m3u8")||url.contains("/live/stream.ts");}
     public void setDiagnostics(boolean enabled){diagnostics=enabled;if(measurementStart==0)measurementStart=System.nanoTime();}
+    public void setMotionFrameUpdateListener(MotionFrameUpdateListener listener){motionFrameUpdateListener=listener;}
     public PlayerBridge(Activity context,Listener listener){
         this.listener=listener;texture=new TextureView(context);texture.setOpaque(false);
         androidx.media3.exoplayer.DefaultLoadControl buffering=new androidx.media3.exoplayer.DefaultLoadControl.Builder()
@@ -44,7 +47,7 @@ public final class PlayerBridge {
         texture.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->transform());
         // Preserve Media3's surface lifecycle listener; observe its texture callback.
         TextureView.SurfaceTextureListener delegate=texture.getSurfaceTextureListener();
-        texture.setSurfaceTextureListener(new TextureView.SurfaceTextureListener(){public void onSurfaceTextureAvailable(android.graphics.SurfaceTexture t,int w,int h){delegate.onSurfaceTextureAvailable(t,w,h);}public void onSurfaceTextureSizeChanged(android.graphics.SurfaceTexture t,int w,int h){delegate.onSurfaceTextureSizeChanged(t,w,h);}public boolean onSurfaceTextureDestroyed(android.graphics.SurfaceTexture t){return delegate.onSurfaceTextureDestroyed(t);}public void onSurfaceTextureUpdated(android.graphics.SurfaceTexture t){delegate.onSurfaceTextureUpdated(t);annotationRecorder.textureUpdated();if(diagnostics){textureFrames++;lastTextureNs=System.nanoTime();releaseToTextureMs=(lastTextureNs-lastReleaseNs)/1000000d;}}});
+        texture.setSurfaceTextureListener(new TextureView.SurfaceTextureListener(){public void onSurfaceTextureAvailable(android.graphics.SurfaceTexture t,int w,int h){delegate.onSurfaceTextureAvailable(t,w,h);}public void onSurfaceTextureSizeChanged(android.graphics.SurfaceTexture t,int w,int h){delegate.onSurfaceTextureSizeChanged(t,w,h);}public boolean onSurfaceTextureDestroyed(android.graphics.SurfaceTexture t){return delegate.onSurfaceTextureDestroyed(t);}public void onSurfaceTextureUpdated(android.graphics.SurfaceTexture t){delegate.onSurfaceTextureUpdated(t);annotationRecorder.textureUpdated();if(diagnostics){textureFrames++;lastTextureNs=System.nanoTime();releaseToTextureMs=(lastTextureNs-lastReleaseNs)/1000000d;}MotionFrameUpdateListener listener=motionFrameUpdateListener;if(listener!=null){motionFrameUpdateListener=null;listener.onFrameUpdated();}}});
         player.addListener(new Player.Listener(){
             public void onPlayerError(PlaybackException e){lastPlaybackErrorCode=e.errorCode;listener.onError(liveUrl(activeUrl)?"Viewing interrupted. Waiting for the live feed to recover.":"Downloaded clip could not be played.");long expected=generation;
                 if(liveUrl(activeUrl))retry.postDelayed(()->{if(!released&&expected==generation){play(activeUrl);}},1000);

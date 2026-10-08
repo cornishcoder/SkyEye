@@ -287,29 +287,51 @@ public sealed class TableMotionFeed : IAsyncDisposable
                 double? coalescedAcquisitionMs = null;
                 // A decoder can be polled faster than its source. Keep a valid
                 // pending frame when the native source has no newer candidate.
-                if (source is ITableMotionFrameCandidateReader candidateReader)
+                try
                 {
-                    var coalescedClock = Stopwatch.StartNew();
-                    var candidateRead = await candidateReader.ReadNewCandidateAsync(scope, lastReceivedId, lastReceivedUs,
-                        DropPendingBeforeReadback, stopped.Token).ConfigureAwait(false);
-                    coalescedClock.Stop();
-                    coalescedAcquisitionMs = coalescedClock.Elapsed.TotalMilliseconds;
-                    RecordCandidateProbe(candidateRead.Probe);
-                    if (!CandidateIsNew(candidateRead.Probe)) continue;
-                    candidateProbe = candidateRead.Probe;
-                    frame = candidateRead.Frame ?? throw new IOException("New candidate had no paired image.");
+                    if (source is ITableMotionFrameCandidateReader candidateReader)
+                    {
+                        var coalescedClock = Stopwatch.StartNew();
+                        var candidateRead = await candidateReader.ReadNewCandidateAsync(scope, lastReceivedId, lastReceivedUs,
+                            DropPendingBeforeReadback, stopped.Token).ConfigureAwait(false);
+                        coalescedClock.Stop();
+                        coalescedAcquisitionMs = coalescedClock.Elapsed.TotalMilliseconds;
+                        RecordCandidateProbe(candidateRead.Probe);
+                        if (!CandidateIsNew(candidateRead.Probe)) continue;
+                        candidateProbe = candidateRead.Probe;
+                        frame = candidateRead.Frame ?? throw new IOException("New candidate had no paired image.");
+                    }
+                    else if (source is ITableMotionFrameProbe detailedProbe)
+                    {
+                        var probe = await detailedProbe.ProbeNewCandidateAsync(scope, lastReceivedId, lastReceivedUs, stopped.Token).ConfigureAwait(false);
+                        RecordCandidateProbe(probe);
+                        if (!CandidateIsNew(probe)) continue;
+                        candidateProbe = probe;
+                    }
+                    else if (source is ITableMotionFrameSource peek)
+                    {
+                        if (!await peek.HasNewFrameAsync(scope, lastReceivedId, lastReceivedUs, stopped.Token).ConfigureAwait(false))
+                        { lock (gate) noNewFramePolls++; continue; }
+                    }
                 }
-                else if (source is ITableMotionFrameProbe detailedProbe)
+                catch (OperationCanceledException) when (stopped.IsCancellationRequested) { break; }
+                catch (FrameAcquisitionException error)
                 {
-                    var probe = await detailedProbe.ProbeNewCandidateAsync(scope, lastReceivedId, lastReceivedUs, stopped.Token).ConfigureAwait(false);
-                    RecordCandidateProbe(probe);
-                    if (!CandidateIsNew(probe)) continue;
-                    candidateProbe = probe;
+                    if (error.Reason == ObservationReason.SourceChanged)
+                    {
+                        lock (gate) scopeRejected++;
+                        Stop("Candidate/source changed: " + error.Code);
+                        break;
+                    }
+                    // A paired bitmap can be refused while the live decoder is
+                    // still advancing. Count the miss and retry on the next tick.
+                    lock (gate) acquisitionFailures++;
+                    continue;
                 }
-                else if (source is ITableMotionFrameSource peek)
+                catch (IOException)
                 {
-                    if (!await peek.HasNewFrameAsync(scope, lastReceivedId, lastReceivedUs, stopped.Token).ConfigureAwait(false))
-                    { lock (gate) noNewFramePolls++; continue; }
+                    lock (gate) acquisitionFailures++;
+                    continue;
                 }
                 // Coalesced sources dispose pending inside the same callback that
                 // immediately allocates its bitmap. Other sources dispose it here.

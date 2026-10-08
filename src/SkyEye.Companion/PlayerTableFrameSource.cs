@@ -11,6 +11,11 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
     Func<CancellationToken, Task>? refreshClock = null, int decodedReadbackScale = 1) : ITableMotionFrameSource, ITableMotionFrameProbe,
     ITableMotionFrameCandidateReader, ITableVerificationFrameSource
 {
+    sealed class MotionFrameUpdateCallback(Action callback) : Java.Lang.Object, Bridge.PlayerBridge.IMotionFrameUpdateListener
+    {
+        public void OnFrameUpdated() => callback();
+    }
+
     readonly int readbackScale = decodedReadbackScale is 1 or 2 ? decodedReadbackScale
         : throw new ArgumentOutOfRangeException(nameof(decodedReadbackScale));
     const int DecodedCopyRetryDelayMs = 17;
@@ -90,8 +95,27 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
         ArgumentNullException.ThrowIfNull(beforeReadback);
         var completion = new TaskCompletionSource<MotionFrameCandidateRead>(TaskCreationOptions.RunContinuationsAsynchronously);
         Bridge.PlayerBridge? admittedOwner = null;
+        Bridge.PlayerBridge? waitingOwner = null;
+        MotionFrameUpdateCallback? waitingListener = null;
         int acquisitionAttempts = 0;
         double bitmapCopyMs = 0;
+        CancellationTokenRegistration cancellationRegistration = default;
+        void ClearWaitingListener()
+        {
+            if (waitingOwner is { } owner) owner.SetMotionFrameUpdateListener(null);
+            waitingOwner = null;
+            waitingListener = null;
+        }
+        void CompleteCancelled()
+        {
+            ClearWaitingListener();
+            completion.TrySetCanceled(cancellation);
+        }
+        cancellationRegistration = cancellation.Register(() =>
+        {
+            try { main.Post(CompleteCancelled); }
+            catch (ObjectDisposedException) { completion.TrySetCanceled(cancellation); }
+        });
         void Schedule(int remaining, int intentionalDelayMs = 0)
         {
             long queuedAt = Stopwatch.GetTimestamp();
@@ -122,15 +146,35 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
                 bitmapCopyMs += attemptCopyMs;
                 if (frame is null)
                 {
-                    if (remaining > 0) { Schedule(remaining - 1, DecodedCopyRetryDelayMs); return; }
+                    if (remaining > 0)
+                    {
+                        var nextUpdate = new MotionFrameUpdateCallback(() =>
+                        {
+                            ClearWaitingListener();
+                            Attempt(remaining - 1, Stopwatch.GetTimestamp(), 0);
+                        });
+                        waitingOwner = owner;
+                        waitingListener = nextUpdate;
+                        owner.SetMotionFrameUpdateListener(nextUpdate);
+                        return;
+                    }
                     var code = owner.LastCopyFailure();
                     throw new FrameAcquisitionException(code == "unmapped-source-clock" ? ObservationReason.ClockUntrusted : ObservationReason.FrameUnavailable,
                         string.IsNullOrWhiteSpace(code) ? "paired-frame-unavailable" : code, owner.ObservationSourceStatus());
                 }
                 completion.TrySetResult(new(probe, frame));
             }
-            catch (Exception error) { completion.TrySetException(error); }
+            catch (Exception error)
+            {
+                ClearWaitingListener();
+                cancellationRegistration.Dispose();
+                completion.TrySetException(error);
+            }
         }
+        _ = completion.Task.ContinueWith(_ =>
+        {
+            cancellationRegistration.Dispose();
+        }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
         Schedule(3);
         return completion.Task;
     }
