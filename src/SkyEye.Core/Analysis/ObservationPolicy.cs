@@ -17,7 +17,7 @@ public static class ObservationPolicy
     public const double SampleIntervalSeconds = .5;
     public const double MinimumDetectedBallMotionFraction = .006;
     public const double MinimumSupportedBoundaryFraction = 18 / 32d;
-    public const string VerificationConfiguration = "o08-provisional-v11";
+    public const string VerificationConfiguration = "o08-provisional-v12";
 }
 
 public enum TableMotion { Unknown, Still, Moving }
@@ -71,5 +71,15 @@ public static class VerificationObjectMotion
 }
 
 public sealed record RecognitionTelemetry(string Branch, int RawCircleCount, int FinalCircleCount,
-    string[] RawLabels, double[] Gains, int ClothHue, string[] Warnings);
+    string[] RawLabels, double[] Gains, int ClothHue, string[] Warnings)
+{
+    public CueBallRecoveryTelemetry? CueBallRecovery { get; init; }
+}
+public sealed record CueBallRecoveryTelemetry(int InitialCueBallCount, int BeforeNormalizationCueBallCount,
+    int? AfterNormalizationCueBallCount, int FinalCueBallCount, int NeutralBodyCandidates,
+    int NeutralBodiesRecovered, bool GeometryRetained, string Reason, double? BoundarySupport)
+{
+    public int RejectedInitialCueBodies { get; init; }
+    public int RejectedNormalizedCueBodies { get; init; }
+}
 public sealed record LayoutChangeTelemetry(int PreviousCount, int CurrentCount, bool SpatiallyCompatible, bool LabelsCompatible);

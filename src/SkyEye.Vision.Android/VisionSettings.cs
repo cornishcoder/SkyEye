@@ -8,6 +8,8 @@ public sealed record VisionSettings(int Width = 1000, double MinimumRadius = 18,
 {
     public bool LocalIlluminationNormalization { get; init; } = true;
     public int IlluminationKernelWidth { get; init; } = 151;
+    // Controlled replay ablation for fresh neutral-body / geometry recovery.
+    public bool FreshCueBallRecovery { get; init; } = true;
     // Development-only branch experiment. O08 replay showed poorer colour
     // availability with this refinement; normal verification leaves it disabled.
     public bool VerificationBodyRefinement { get; init; }

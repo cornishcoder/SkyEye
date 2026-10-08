@@ -22,7 +22,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     public VisionAnalyzer(int width = 1000) : this(new VisionSettings(Width: width)) { }
     public VisionAnalyzer(VisionSettings settings) { settings.Validate(); this.settings = settings; coordinates = new(settings.Width); }
     public string ConfigurationIdentity => System.Text.Json.JsonSerializer.Serialize(new
-    { Algorithm = "cue-ball-local-contrast-v1", Settings = settings });
+    { Algorithm = "cue-ball-current-body-v2", Settings = settings });
     static void Load()
     {
         lock (loadGate)
@@ -61,8 +61,21 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         else illumination = new(false, 0, 1, 1, 0);
         using var hsv = new MatLease(new Mat()); Imgproc.CvtColor(warped.Value, hsv.Value, Imgproc.ColorBgr2hsv);
         byte[] pixels = Read(hsv.Value); var circles = Detect(hsv.Value, pixels, settings.InitialVotes, appearance is not null && settings.VerificationBodyRefinement);
+        bool inspectRim = appearance is not null || settings.FreshCueBallRecovery;
+        var initialLabels = circles.Select(c => Classify(c, pixels, inspectRim)).ToArray();
+        int initialCueCount = initialLabels.Count(l => l.Kind == "cue");
+        int neutralCandidates = 0, neutralRecovered = 0;
+        var recoveredBoundaries = new Dictionary<Circle, BallBoundary>();
+        var recoveredClassifications = new Dictionary<Circle, BallClassification>();
+        int rejectedCueBodies = 0, rejectedNormalizedCueBodies = 0;
+        if (settings.FreshCueBallRecovery)
+            ValidateCueBodies(rawWarped.Value, circles, initialLabels, recoveredBoundaries,
+                recoveredClassifications, cancellation, out rejectedCueBodies);
+        if (settings.FreshCueBallRecovery && initialLabels.All(l => l.Kind != "cue"))
+            circles = RecoverNeutralCueBodies(rawWarped.Value, circles, recoveredBoundaries, recoveredClassifications,
+                cancellation, out neutralCandidates, out neutralRecovered);
         var proposals = circles.ToArray();
-        var boundaries = new Dictionary<Circle, BallBoundary>();
+        var boundaries = new Dictionary<Circle, BallBoundary>(recoveredBoundaries);
         var candidateBoundaries = new Dictionary<Circle, BallBoundary>();
         bool boundaryUncertain = false;
         if (appearance is not null)
@@ -70,7 +83,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             var raw = Read(rawWarped.Value);
             for (int i = 0; i < circles.Length; i++)
             {
-                var fit = BallBoundaryRefiner.Refine(raw, coordinates.Width, coordinates.Height, new(circles[i].X, circles[i].Y), PoolGeometry.Radius * coordinates.Width);
+                var fit = recoveredBoundaries.GetValueOrDefault(circles[i])
+                    ?? BallBoundaryRefiner.Refine(raw, coordinates.Width, coordinates.Height, new(circles[i].X, circles[i].Y), PoolGeometry.Radius * coordinates.Width);
                 if (fit is null) { boundaryUncertain = true; continue; }
                 candidateBoundaries[circles[i]] = fit;
                 // Support is sampled at 32 fixed angles. The 18-sector minimum
@@ -81,11 +95,26 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 boundaries[refined] = fit; candidateBoundaries[refined] = fit; circles[i] = refined;
             }
         }
-        var first = circles.Select(c => Classify(c, pixels, appearance is not null)).ToArray();
+        var first = appearance is null && neutralRecovered == 0 ? initialLabels
+            : circles.Select(c => Classify(c, pixels, inspectRim)).ToArray();
+        // A supported neutral body is evidence from this frame's raw colour
+        // image. Illumination smoothing must not erase it before white balancing.
+        for (int i = 0; i < circles.Length; i++)
+            if (recoveredClassifications.TryGetValue(circles[i], out var rawCue)) first[i] = rawCue;
+        var classificationCache = new Dictionary<Circle, BallClassification>();
+        for (int i = 0; i < circles.Length; i++) classificationCache[circles[i]] = first[i];
+        Circle? referenceCue = null;
+        int? normalizedCueCount = null;
+        bool cueGeometryRetained = false;
+        double? retainedBoundarySupport = null;
+        string cueRecoveryReason = settings.FreshCueBallRecovery ? "no-unique-first-pass-cue" : "disabled";
         int rawCircleCount = circles.Length;
         bool normalized = false, referenceValid = false, referenceConflict = false; double[] colourGains = [1, 1, 1]; var cueIndices = Enumerable.Range(0, first.Length).Where(i => first[i].Kind == "cue").ToArray();
         if (cueIndices.Length == 1)
         {
+            referenceCue = circles[cueIndices[0]];
+            if (settings.FreshCueBallRecovery)
+                cueRecoveryReason = appearance is null ? "colour-reference-unavailable" : "verification-preserves-geometry";
             byte[] bgr = Read(warped.Value); var cue = circles[cueIndices[0]];
             var channels = new[] { new List<byte>(), new List<byte>(), new List<byte>() };
             ForPixels(cue, .7, (x, y) => { int offset = (y * coordinates.Width + x) * 3; for (int k = 0; k < 3; k++) channels[k].Add(bgr[offset + k]); });
@@ -104,19 +133,42 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             {
                 for (int i = 0; i < bgr.Length; i++) bgr[i] = (byte)Math.Clamp((int)(bgr[i] * colourGains[i % 3]), 0, 255);
                 warped.Value.Put(0, 0, bgr); Imgproc.CvtColor(warped.Value, hsv.Value, Imgproc.ColorBgr2hsv); pixels = Read(hsv.Value);
-                // A slightly lower vote threshold retains circles merged with a cushion shadow.
-                // Verification freezes the geometry branch as well as gains. The
-                // normalized re-detection can fit a cream number patch instead of
-                // its surrounding black body. Every burst body still comes from
-                // this frame's raw detection; nothing is carried from old frames.
-                if (appearance is null) circles = Detect(hsv.Value, pixels, settings.NormalizedVotes);
+                classificationCache.Clear(); // Cached labels belong to the previous colour image.
+                // Colour correction classifies this frame's geometry. Replacing
+                // all proposals here can lose an already observed ball or add
+                // clipped-cloth circles. Preserve the original branch for ablation.
+                if (appearance is null)
+                {
+                    if (!settings.FreshCueBallRecovery) circles = Detect(hsv.Value, pixels, settings.NormalizedVotes);
+                    var normalizedLabels = circles.Select(c => Classify(c, pixels, inspectRim)).ToArray();
+                    normalizedCueCount = normalizedLabels.Count(l => l.Kind == "cue");
+                    if (settings.FreshCueBallRecovery)
+                    {
+                        ValidateCueBodies(rawWarped.Value, circles, normalizedLabels, recoveredBoundaries,
+                            recoveredClassifications, cancellation, out rejectedNormalizedCueBodies);
+                        foreach (var pair in recoveredBoundaries) boundaries[pair.Key] = pair.Value;
+                    }
+                    for (int i = 0; i < circles.Length; i++) classificationCache[circles[i]] = normalizedLabels[i];
+                    if (settings.FreshCueBallRecovery && referenceCue is { } currentCue)
+                    {
+                        cueRecoveryReason = "preserved-current-frame-geometry";
+                        cueGeometryRetained = true;
+                        retainedBoundarySupport = recoveredBoundaries.GetValueOrDefault(currentCue)?.SupportedSectors;
+                        // The raw, full-body cue observation remains fresh evidence
+                        // even if colour correction clips or shifts its appearance.
+                        for (int i = 0; i < circles.Length; i++)
+                            if (recoveredClassifications.TryGetValue(circles[i], out var supportedLabel))
+                                classificationCache[circles[i]] = supportedLabel;
+                    }
+                }
                 normalized = true;
             }
         }
         if (!normalized) warnings.Add("No unique cue ball reference; colours were analyzed without normalization.");
         cancellation.ThrowIfCancellationRequested(); var balls = new List<Ball>(); var observations = new List<CircleObservation>();
         var ordered = circles.OrderBy(c => c.Y).ThenBy(c => c.X).ToArray();
-        var rawLabels = ordered.Select(c => Classify(c, pixels, appearance is not null)).ToArray();
+        var rawLabels = ordered.Select(c => classificationCache.TryGetValue(c, out var cached)
+            ? cached : Classify(c, pixels, inspectRim)).ToArray();
         var labels = BallClassifier.ConstrainInventory(rawLabels);
         if (appearance is not null && !referenceValid)
             labels = labels.Select(l => l with { Kind = "unknown", Quality = 0 }).ToArray();
@@ -141,7 +193,11 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         if (obstructed) { uncertain = true; warnings.Add("A large object covers part of the playable surface."); }
         for (int i = 0; i < balls.Count; i++) for (int j = i + 1; j < balls.Count; j++) if ((balls[i].Position - balls[j].Position).Length < .040) { uncertain = true; warnings.Add("Overlapping circle candidates need checking."); }
         return new(balls.ToArray(), uncertain, warnings.Distinct().ToArray(), watch.Elapsed.TotalMilliseconds, circles.Length, normalized, Cv.Version, colourGains, ClothHue(pixels), obstructed, observations.ToArray())
-        { Recognition = new(normalized ? "cue-normalized" : "raw", rawCircleCount, circles.Length, rawLabels.Select(l => l.Kind).ToArray(), colourGains, ClothHue(pixels), warnings.Distinct().ToArray()),
+        { Recognition = new(normalized ? "cue-normalized" : "raw", rawCircleCount, circles.Length, rawLabels.Select(l => l.Kind).ToArray(), colourGains, ClothHue(pixels), warnings.Distinct().ToArray())
+            { CueBallRecovery = new(initialCueCount, cueIndices.Length, normalizedCueCount,
+                labels.Count(l => l.Kind == "cue"), neutralCandidates, neutralRecovered,
+                cueGeometryRetained, cueRecoveryReason, retainedBoundarySupport)
+                { RejectedInitialCueBodies = rejectedCueBodies, RejectedNormalizedCueBodies = rejectedNormalizedCueBodies } },
             VerificationReason = referenceConflict ? ObservationReason.LightingChanged : null, Illumination = illumination };
     }
     IlluminationTelemetry NormalizeIllumination(Mat image, CancellationToken cancellation)
@@ -391,13 +447,15 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     }
     static double NeutralClothValueCeiling(int clothValueFloor)
         => Math.Clamp(clothValueFloor / .45 * .9, 45, 90);
-    bool HasLowLightNeutralBallContrast(Circle circle, byte[] hsv)
+    bool HasLowLightNeutralBallContrast(Circle circle, byte[] hsv, bool includeWarmCream = false)
     {
         var bodyValues = new List<byte>(); int bodySamples = 0;
         ForPixels(circle, .75, (x, y) =>
         {
             int offset = (y * coordinates.Width + x) * 3; bodySamples++;
-            if (hsv[offset + 1] < 85 && hsv[offset + 2] >= 35) bodyValues.Add(hsv[offset + 2]);
+            if (hsv[offset + 1] < 85 && hsv[offset + 2] >= 35
+                || includeWarmCream && hsv[offset] is >= 8 and <= 30 && hsv[offset + 1] < 160 && hsv[offset + 2] > 130)
+                bodyValues.Add(hsv[offset + 2]);
         });
         if (bodySamples < 8 || bodyValues.Count / (double)bodySamples < .65) return false;
 
