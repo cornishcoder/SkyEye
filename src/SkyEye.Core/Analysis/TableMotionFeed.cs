@@ -78,6 +78,14 @@ public interface ITableMotionFrameProbe
     Task<MotionFrameCandidateProbe> ProbeNewCandidateAsync(MotionFeedScope scope, long afterFrameId,
         long afterSourceTimeUs, CancellationToken cancellation);
 }
+public sealed record MotionFrameCandidateRead(MotionFrameCandidateProbe Probe, TableFrame? Frame);
+public interface ITableMotionFrameCandidateReader
+{
+    /// <summary>Checks and copies a new candidate in one source-thread dispatch.</summary>
+    /// <param name="beforeReadback">Called only for a new candidate, immediately before pixel allocation.</param>
+    Task<MotionFrameCandidateRead> ReadNewCandidateAsync(MotionFeedScope scope, long afterFrameId,
+        long afterSourceTimeUs, Action beforeReadback, CancellationToken cancellation);
+}
 public sealed record MotionFeedSnapshot(long Acquired, long Processed, long Replaced, long DuplicateOrBackwards, long Stale,
     long AcquisitionFailures, long ScopeRejected, long WorkerFailures, long GapResets, int Active, int Pending,
     string? StopReason, MotionMeasurement? Latest, double LastAcquisitionMs, double LastWorkerMs, double LastResultAgeMs)
@@ -275,33 +283,27 @@ public sealed class TableMotionFeed : IAsyncDisposable
             {
                 if (!Current()) { Stop("Source, calibration or enablement changed"); break; }
                 MotionFrameCandidateProbe? candidateProbe = null;
+                TableFrame? frame = null;
+                double? coalescedAcquisitionMs = null;
                 // A decoder can be polled faster than its source. Keep a valid
                 // pending frame when the native source has no newer candidate.
-                if (source is ITableMotionFrameProbe detailedProbe)
+                if (source is ITableMotionFrameCandidateReader candidateReader)
+                {
+                    var coalescedClock = Stopwatch.StartNew();
+                    var candidateRead = await candidateReader.ReadNewCandidateAsync(scope, lastReceivedId, lastReceivedUs,
+                        DropPendingBeforeReadback, stopped.Token).ConfigureAwait(false);
+                    coalescedClock.Stop();
+                    coalescedAcquisitionMs = coalescedClock.Elapsed.TotalMilliseconds;
+                    RecordCandidateProbe(candidateRead.Probe);
+                    if (!CandidateIsNew(candidateRead.Probe)) continue;
+                    candidateProbe = candidateRead.Probe;
+                    frame = candidateRead.Frame ?? throw new IOException("New candidate had no paired image.");
+                }
+                else if (source is ITableMotionFrameProbe detailedProbe)
                 {
                     var probe = await detailedProbe.ProbeNewCandidateAsync(scope, lastReceivedId, lastReceivedUs, stopped.Token).ConfigureAwait(false);
-                    lock (gate)
-                    {
-                        lastCandidateProbeQueueMs = probe.MainThreadQueueMs;
-                        lastCandidateProbeDurationMs = probe.ProbeDurationMs;
-                        lastCandidateFrameId = probe.FrameId;
-                        lastCandidateSourceTimeUs = probe.SourceTimeUs;
-                        lastCandidateTextureUpdateCount = probe.TextureUpdateCount;
-                        lastCandidateTextureAgeMs = probe.TextureAgeMs;
-                    }
-                    if (probe.Disposition == MotionFrameCandidateDisposition.Unchanged)
-                    { lock (gate) noNewFramePolls++; continue; }
-                    if (probe.Disposition == MotionFrameCandidateDisposition.Unavailable)
-                    {
-                        lock (gate)
-                        {
-                            unavailableCandidatePolls++;
-                            var reason = probe.Reason is "not-playing" or "no-surface" or "unmapped-surface" or "unmapped-source-clock"
-                                ? probe.Reason : "unknown";
-                            unavailableCandidateReasons[reason] = unavailableCandidateReasons.GetValueOrDefault(reason) + 1;
-                        }
-                        continue;
-                    }
+                    RecordCandidateProbe(probe);
+                    if (!CandidateIsNew(probe)) continue;
                     candidateProbe = probe;
                 }
                 else if (source is ITableMotionFrameSource peek)
@@ -309,21 +311,20 @@ public sealed class TableMotionFeed : IAsyncDisposable
                     if (!await peek.HasNewFrameAsync(scope, lastReceivedId, lastReceivedUs, stopped.Token).ConfigureAwait(false))
                     { lock (gate) noNewFramePolls++; continue; }
                 }
-                // Dispose the previous pending frame BEFORE allocating another copy.
-                // Even transient native ownership therefore stays at active + acquisition/latest.
-                TableFrame? discard;
-                lock (gate) { discard = pending; pending = null; pendingProbe = null; if (discard is not null) replaced++; }
-                discard?.Dispose();
-                TableFrame? frame = null;
+                // Coalesced sources dispose pending inside the same callback that
+                // immediately allocates its bitmap. Other sources dispose it here.
+                if (frame is null) DropPendingBeforeReadback();
                 try
                 {
                     var clock = Stopwatch.StartNew();
-                    frame = await source.ReadAsync(scope.Source, stopped.Token).ConfigureAwait(false);
+                    frame ??= await source.ReadAsync(scope.Source, stopped.Token).ConfigureAwait(false);
                     clock.Stop();
+                    var measuredAcquisitionMs = coalescedAcquisitionMs is { } coalescedMs
+                        ? coalescedMs + clock.Elapsed.TotalMilliseconds : clock.Elapsed.TotalMilliseconds;
                     bool rejectScope;
                     lock (gate)
                     {
-                        acquired++; acquisitionMs = clock.Elapsed.TotalMilliseconds;
+                        acquired++; acquisitionMs = measuredAcquisitionMs;
                         lastAcquisitionAttempts = Math.Clamp(frame.AcquisitionAttempts, 1, 16);
                         acquisitionRetries += lastAcquisitionAttempts - 1;
                         lastReadMainThreadQueueMs = frame.MainThreadQueueMs;
@@ -366,6 +367,40 @@ public sealed class TableMotionFeed : IAsyncDisposable
         catch (OperationCanceledException) when (stopped.IsCancellationRequested) { }
         catch (Exception) { lock (gate) scopeRejected++; Stop("Candidate/source failed"); }
         finally { Stop(stopReason ?? "Acquisition ended"); }
+    }
+    void RecordCandidateProbe(MotionFrameCandidateProbe probe)
+    {
+        lock (gate)
+        {
+            lastCandidateProbeQueueMs = probe.MainThreadQueueMs;
+            lastCandidateProbeDurationMs = probe.ProbeDurationMs;
+            lastCandidateFrameId = probe.FrameId;
+            lastCandidateSourceTimeUs = probe.SourceTimeUs;
+            lastCandidateTextureUpdateCount = probe.TextureUpdateCount;
+            lastCandidateTextureAgeMs = probe.TextureAgeMs;
+        }
+    }
+    bool CandidateIsNew(MotionFrameCandidateProbe probe)
+    {
+        if (probe.Disposition == MotionFrameCandidateDisposition.New) return true;
+        lock (gate)
+        {
+            if (probe.Disposition == MotionFrameCandidateDisposition.Unchanged) noNewFramePolls++;
+            else
+            {
+                unavailableCandidatePolls++;
+                var reason = probe.Reason is "not-playing" or "no-surface" or "unmapped-surface" or "unmapped-source-clock"
+                    ? probe.Reason : "unknown";
+                unavailableCandidateReasons[reason] = unavailableCandidateReasons.GetValueOrDefault(reason) + 1;
+            }
+        }
+        return false;
+    }
+    void DropPendingBeforeReadback()
+    {
+        TableFrame? discard;
+        lock (gate) { discard = pending; pending = null; pendingProbe = null; if (discard is not null) replaced++; }
+        discard?.Dispose();
     }
     bool Fresh(TableFrame frame)
     {
