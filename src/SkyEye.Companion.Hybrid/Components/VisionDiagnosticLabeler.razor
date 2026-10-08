@@ -1,0 +1,125 @@
+@implements IAsyncDisposable
+@using Microsoft.JSInterop
+@inject Microsoft.JSInterop.IJSRuntime JS
+
+@if (Session.VisionDiagnosticLabelFrame is { } frame)
+{
+    <section class="vision-label-editor" aria-label="Independent ball labelling">
+        <h3>Label this frame</h3>
+        <p class="hint">Detector output is hidden here. Drag a box around each visible ball, then choose its colour and visibility. Use Unknown when colour is unclear.</p>
+        <div class="vision-label-tags">
+            <label for="vision-label-lighting">Lighting</label>
+            <select id="vision-label-lighting" value="@Session.VisionDiagnosticLabelLighting" @onchange="SetLighting">
+                <option value="ordinary">Ordinary room</option>
+                <option value="dim">Dim</option>
+                <option value="bright">Bright</option>
+                <option value="blind-sunlight">Sunlight through blinds</option>
+            </select>
+            <label for="vision-label-motion">Table state</label>
+            <select id="vision-label-motion" value="@Session.VisionDiagnosticLabelMotion" @onchange="SetMotion">
+                <option value="still">Balls settled</option>
+                <option value="moving">Balls moving</option>
+            </select>
+        </div>
+        <div class="vision-label-scene-tags" role="group" aria-label="Scene conditions">
+            @foreach (var tag in SceneTags)
+            {
+                <label><input type="checkbox" checked="@Session.HasVisionDiagnosticSceneTag(tag.Value)"
+                    @onchange="args => Session.ToggleVisionDiagnosticSceneTag(tag.Value, Checked(args))" /> @tag.Label</label>
+            }
+        </div>
+        <label for="vision-label-notes">Lighting or scene details</label>
+        <input id="vision-label-notes" type="text" maxlength="400" value="@Session.VisionDiagnosticLabelNotes"
+            @oninput="SetNotes" placeholder="Stripe position or changes, shadows, overlap, or anything ambiguous" />
+        <p class="hint">Frame @frame.FrameId · @frame.Width × @frame.Height · source time @frame.SourceTimeUs µs</p>
+        <div class="vision-label-palette" role="group" aria-label="Ball class">
+            @foreach (var colour in Colours)
+            {
+                <button type="button" class="@(Session.VisionDiagnosticLabelColour == colour.Value ? "primary" : "secondary")"
+                    aria-pressed="@(Session.VisionDiagnosticLabelColour == colour.Value)"
+                    @onclick="() => Session.SetVisionDiagnosticLabelColour(colour.Value)">@colour.Label</button>
+            }
+        </div>
+        <label for="vision-label-visibility">Box visibility</label>
+        <select id="vision-label-visibility" value="@Session.VisionDiagnosticLabelVisibility" @onchange="SetVisibility">
+            <option value="Visible">Visible</option>
+            <option value="Occluded">Occluded</option>
+            <option value="Uncertain">Uncertain</option>
+        </select>
+        <div class="vision-label-surface" @ref="surface" style="aspect-ratio:@frame.Width/@frame.Height">
+            <img src="@Session.VisionDiagnosticLabelImageUri" alt="Captured table frame for manual ball labels" draggable="false" />
+            @foreach (var mark in Session.VisionDiagnosticMarks)
+            {
+                <div class="vision-label-box colour-@mark.Colour @(mark.Visibility == "Visible" ? "" : "uncertain")"
+                    style="@BoxStyle(mark)" aria-label="@($"{mark.Visibility} {mark.Colour} ball")">
+                    <span>@mark.Id · @mark.Colour</span>
+                </div>
+            }
+        </div>
+        <p class="hint">Marked @Session.VisionDiagnosticMarks.Count ball(s) · boxes save centre and X/Y radii for training.</p>
+        <div class="clip-actions">
+            <button type="button" class="secondary" disabled="@(Session.VisionDiagnosticMarks.Count == 0)" @onclick="Session.RemoveLastVisionDiagnosticBox">Undo last box</button>
+            <button type="button" class="quiet" disabled="@(Session.VisionDiagnosticMarks.Count == 0)" @onclick="Session.ClearVisionDiagnosticBoxes">Clear boxes</button>
+        </div>
+        <label class="vision-label-empty"><input type="checkbox" checked="@Session.VisionDiagnosticEmptyFrameConfirmed"
+            @onchange="args => Session.SetVisionDiagnosticEmptyFrameConfirmed(Checked(args))" /> I checked the whole frame; no balls are visible</label>
+        <p class="hint" role="status">@Session.VisionDiagnosticLabelStatus</p>
+        <div class="clip-actions">
+            <button type="button" class="primary" disabled="@(Session.VisionDiagnosticLabelSavePending || Session.VisionDiagnosticMarks.Count == 0 && !Session.VisionDiagnosticEmptyFrameConfirmed)"
+                @onclick="Session.SaveVisionDiagnosticLabelsAsync">Save reviewed frame</button>
+            <button type="button" class="secondary" disabled="@Session.VisionDiagnosticLabelSavePending" @onclick="Session.DiscardVisionDiagnosticLabelFrame">Discard frame</button>
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter, EditorRequired] public ShellSession Session { get; set; } = null!;
+    ElementReference surface;
+    DotNetObjectReference<VisionDiagnosticLabeler>? dotNet;
+    bool attached;
+    static readonly (string Value, string Label)[] Colours =
+        [("cue", "Cue"), ("black", "Black"), ("red", "Red"), ("yellow", "Yellow"), ("unknown", "Unknown")];
+    static readonly (string Value, string Label)[] SceneTags =
+        [("touching", "Touching balls"), ("near-cushion", "Near cushion/pocket"), ("occlusion", "Partial occlusion"), ("empty-region", "Empty area included")];
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        bool hasFrame = Session.VisionDiagnosticLabelFrame is not null;
+        if (hasFrame && !attached)
+        {
+            dotNet ??= DotNetObjectReference.Create(this);
+            await JS.InvokeVoidAsync("skyEyeVisionLabel.attach", surface, dotNet);
+            attached = true;
+        }
+        else if (!hasFrame && attached)
+        {
+            await JS.InvokeVoidAsync("skyEyeVisionLabel.detach", surface);
+            attached = false;
+        }
+    }
+
+    [JSInvokable]
+    public Task OnBoxDrawn(double x1, double y1, double x2, double y2)
+    {
+        Session.AddVisionDiagnosticBox(x1, y1, x2, y2);
+        return Task.CompletedTask;
+    }
+
+    static string BoxStyle(VisionDiagnosticBallMark mark) => FormattableString.Invariant(
+        $"left:{(mark.X - mark.RadiusX) * 100:0.###}%;top:{(mark.Y - mark.RadiusY) * 100:0.###}%;width:{mark.RadiusX * 200:0.###}%;height:{mark.RadiusY * 200:0.###}%");
+    static bool Checked(ChangeEventArgs args) => args.Value is bool value && value;
+    void SetLighting(ChangeEventArgs args) => Session.SetVisionDiagnosticLabelLighting(args.Value?.ToString());
+    void SetMotion(ChangeEventArgs args) => Session.SetVisionDiagnosticLabelMotion(args.Value?.ToString());
+    void SetVisibility(ChangeEventArgs args) => Session.SetVisionDiagnosticLabelVisibility(args.Value?.ToString());
+    void SetNotes(ChangeEventArgs args) => Session.SetVisionDiagnosticLabelNotes(args.Value?.ToString());
+
+    public async ValueTask DisposeAsync()
+    {
+        if (attached)
+        {
+            try { await JS.InvokeVoidAsync("skyEyeVisionLabel.detach", surface); }
+            catch (Microsoft.JSInterop.JSDisconnectedException) { }
+        }
+        dotNet?.Dispose();
+    }
+}

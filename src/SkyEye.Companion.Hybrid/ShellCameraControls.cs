@@ -34,11 +34,75 @@ public sealed partial class ShellSession
         ApplyCameraView(selection.Generation); Publish();
     });
 
-    public Task WatchLiveAsync() => MainThread.InvokeOnMainThreadAsync(async () =>
+    public Task StartLiveSessionAsync() => StartSessionAsync(dark: false);
+    public Task StartDarkSessionAsync() => StartSessionAsync(dark: true);
+
+    Task StartSessionAsync(bool dark) => MainThread.InvokeOnMainThreadAsync(async () =>
+    {
+        if (!active || disposed || foreground is null) return;
+        if (sessionMode != TableSessionMode.None)
+        { ShowError("End the current session before starting another."); return; }
+
+        DismissNotice();
+        Message = dark ? "Starting a dark recording session…" : "Starting your live session…";
+        Publish();
+        await HostLiveSessionFromVoiceAsync(Guid.NewGuid().ToString("N"), foreground.Token);
+        var camera = app.State.Camera;
+        if (camera is not { CanControl: true, Capture: CaptureState.Active })
+        {
+            ShowError("The camera is not ready to record. Check its connection and host status in Settings.");
+            return;
+        }
+
+        sessionMode = dark ? TableSessionMode.Dark : TableSessionMode.Live;
+        if (dark)
+        {
+            Stop();
+            Playback = "Dark session · recording · physics unavailable";
+            Message = "Dark session recording. Sky can save clips and manage the match; table physics is unavailable.";
+            Publish();
+            return;
+        }
+
+        await WatchLiveAsync(foreground.Token);
+        if (!HasSource)
+        {
+            sessionMode = TableSessionMode.None;
+            ShowError("Recording started, but the live camera view is unavailable. Check the connection in Settings.");
+            return;
+        }
+        Message = "Live session ready. Table analysis is available.";
+        Publish();
+    });
+
+    public Task EndSessionAsync() => MainThread.InvokeOnMainThreadAsync(async () =>
+    {
+        if (!active || disposed || foreground is null || sessionMode == TableSessionMode.None) return;
+        var camera = app.State.Camera;
+        if (camera.Capture is CaptureState.Active or CaptureState.Paused)
+        {
+            if (!camera.CanControl || camera.Scope is not { } scope)
+            { ShowError("Host control was lost. The camera may still be recording; reconnect as host to stop it."); return; }
+            var result = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, app.State.Version,
+                new ChangeCapture(scope, CaptureAction.Stop)), foreground.Token);
+            if (!result.Succeeded) { ShowError(result.Message); return; }
+        }
+        sessionMode = TableSessionMode.None;
+        Stop();
+        Playback = "Session ended";
+        Message = "Session ended. Camera recording stopped.";
+        Publish();
+    });
+
+    public Task WatchLiveAsync() => WatchLiveAsync(CancellationToken.None);
+    public Task WatchLiveAsync(CancellationToken operationCancellation) => MainThread.InvokeOnMainThreadAsync(async () =>
     {
         if (!active || foreground is null) return;
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(foreground.Token, operationCancellation);
+        var token = linked.Token;
+        sessionMode = TableSessionMode.Live;
         Stop(); selection.Begin(ViewingSource.Live);
-        await RefreshAsync(foreground.Token);
+        await RefreshAsync(token);
         if (active && !HasSource) ShowError("Start recording on the camera before watching live.");
     });
 
@@ -47,7 +111,7 @@ public sealed partial class ShellSession
         if (!active || foreground is null) return;
         var token = foreground.Token;
         if (await Permissions.RequestAsync<LocalNetworkPermission>() != PermissionStatus.Granted)
-        { ShowError("Allow nearby devices to find your camera."); return; }
+        { discoveries = []; ShowError("Allow nearby devices to find your camera."); return; }
         token.ThrowIfCancellationRequested(); StopDiscovery(); discoveries = [];
         var generation = ++discoveryGeneration;
         discoveryListener = new(this, generation);
@@ -55,6 +119,28 @@ public sealed partial class ShellSession
         FindingCamera = true; discovery.Start(); Message = "Looking for cameras nearby…"; Publish();
         _ = EndDiscoveryAsync(generation, token);
     });
+    public async Task<IReadOnlyList<CameraChoice>> FindCamerasFromVoiceAsync(CancellationToken cancellation)
+    {
+        cancellation.ThrowIfCancellationRequested();
+        await FindCamerasAsync();
+        try
+        {
+            for (int attempt = 0; attempt < 45; attempt++)
+            {
+                cancellation.ThrowIfCancellationRequested();
+                var snapshot = await MainThread.InvokeOnMainThreadAsync(() => (FindingCamera, Cameras.ToArray()));
+                if (!snapshot.FindingCamera) return snapshot.Item2;
+                await Task.Delay(250, cancellation);
+            }
+            await MainThread.InvokeOnMainThreadAsync(StopDiscovery);
+            return Cameras.ToArray();
+        }
+        catch (OperationCanceledException)
+        {
+            await MainThread.InvokeOnMainThreadAsync(() => { if (FindingCamera) StopDiscovery(); });
+            throw;
+        }
+    }
     async Task EndDiscoveryAsync(long generation, CancellationToken token)
     {
         try
@@ -120,14 +206,22 @@ public sealed partial class ShellSession
         return false;
     }
     public Task ChooseTvAsync() => MainThread.InvokeOnMainThreadAsync(async () =>
+    { await ChooseTvCoreAsync(CancellationToken.None); });
+    public Task<bool> ChooseTvFromVoiceAsync(CancellationToken cancellation) =>
+        MainThread.InvokeOnMainThreadAsync(() => ChooseTvCoreAsync(cancellation));
+    async Task<bool> ChooseTvCoreAsync(CancellationToken operationCancellation)
     {
-        if (!active || foreground is null) return;
-        var token = foreground.Token;
+        if (!active || disposed || foreground is null) return false;
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(foreground.Token, operationCancellation);
+        var token = linked.Token;
         if (await Permissions.RequestAsync<LocalNetworkPermission>() != PermissionStatus.Granted)
-        { ShowError("Allow nearby devices to choose your TV."); return; }
-        if (!active || disposed || token.IsCancellationRequested) return;
-        RevealControls(); cast?.Button?.PerformClick();
-    });
+        { ShowError("Allow nearby devices to choose your TV."); return false; }
+        token.ThrowIfCancellationRequested();
+        if (!active || disposed || cast?.Button is null) { ShowError("Chromecast is unavailable on this phone."); return false; }
+        RevealControls(); cast.Button.PerformClick();
+        Message = "Choose a Chromecast in Android's Cast picker."; Publish();
+        return true;
+    }
     public void PlayTv()
     {
         if (!MainThread.IsMainThread) { MainThread.BeginInvokeOnMainThread(PlayTv); return; }

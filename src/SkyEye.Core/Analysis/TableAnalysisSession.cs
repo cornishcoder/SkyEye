@@ -16,7 +16,9 @@ public sealed record VisionResult(Ball[] Balls, bool Uncertain, string[] Warning
 {
     public RecognitionTelemetry? Recognition { get; init; }
     public ObservationReason? VerificationReason { get; init; }
+    public IlluminationTelemetry? Illumination { get; init; }
 }
+public sealed record IlluminationTelemetry(bool Applied, double ReferenceBrightness, double MinimumGain, double MaximumGain, double AdjustedPixelPercent);
 public interface ITableAnalyzer
 {
     VisionResult Analyze(byte[] jpeg, TableCalibration calibration, CancellationToken cancellation = default);
@@ -119,7 +121,7 @@ public sealed partial class TableAnalysisSession(ITableFrameSource frames, ITabl
     }
     void InvalidateLocked()
     {
-        active?.Cancel(); tracker.Reset(); lastTimeline = null;
+        active?.Cancel(); StopVisionDiagnosticsLocked("Stopped because the camera or table calibration changed."); tracker.Reset(); lastTimeline = null;
         state = state with { Generation = checked(state.Generation + 1), Picking = false, Table = null, Vision = null, Jpeg = null, Observation = null, Choices = [], ChoicesComputed = false, VerificationProgress = null };
     }
     public Task UpdateAsync(CancellationToken cancellation = default, bool reviewFrame = false)
@@ -128,6 +130,7 @@ public sealed partial class TableAnalysisSession(ITableFrameSource frames, ITabl
         lock (gate)
         {
             ThrowIfDisposed(); cancellation.ThrowIfCancellationRequested();
+            if (visionDiagnosticsCancellation is not null) throw new InvalidOperationException("Stop vision diagnostics before running a table observation.");
             if (verificationRunning) throw new InvalidOperationException("Cancel the current table verification before observing once.");
             if (pending is { IsCompleted: false }) { PipelineDiagnostics.Count("coalescedRequests"); return pending; }
             if (state.Source is null || state.Calibration is null || state.Picking) return Task.CompletedTask;

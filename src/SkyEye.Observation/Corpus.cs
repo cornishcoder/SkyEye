@@ -27,7 +27,12 @@ public sealed record BallLabel(string Id, string Colour, double X, double Y, Lab
     public double? RadiusY { get; init; }
 }
 public sealed record FrameLabels(string SampleId, string PixelSha256, string CoordinateSpace,
-    ImmutableArray<BallLabel> Balls, string Notes);
+    ImmutableArray<BallLabel> Balls, string Notes)
+{
+    // Optional frame-level conditions allow lighting/motion to change within a recording session.
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public ImmutableArray<string> Tags { get; init; }
+}
 public sealed record LabelInterval(string Kind, long FromUs, long ToUs, string Certainty, ImmutableArray<string> BallIds, string Notes);
 public sealed record SequenceLabels(int SchemaVersion, string SequenceId, string Annotator, string CalibrationVersion,
     bool Reviewed, ImmutableArray<FrameLabels> Frames, ImmutableArray<LabelInterval> Intervals);

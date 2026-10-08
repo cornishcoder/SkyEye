@@ -3,8 +3,13 @@ package uk.co.skyeye.companion.nativebridge;
 import android.Manifest;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.media.AudioDeviceCallback;
+import android.media.AudioDeviceInfo;
+import android.media.AudioManager;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 
 import org.webrtc.AudioSource;
 import org.webrtc.AudioTrack;
@@ -53,6 +58,11 @@ public final class SkyEyeRtcSession {
     private AudioSource audioSource;
     private AudioTrack audioTrack;
     private DataChannel dataChannel;
+    private AudioManager audioManager;
+    private AudioDeviceCallback audioDeviceCallback;
+    private int previousAudioMode = AudioManager.MODE_NORMAL;
+    private boolean changedAudioMode;
+    private boolean speakerCommunicationDeviceRequested;
     private boolean iceGatheringComplete;
     private boolean started;
     private volatile boolean stopped;
@@ -75,6 +85,7 @@ public final class SkyEyeRtcSession {
         started = true;
         postState("connecting", "");
         try {
+            startCommunicationAudio();
             initializeFactory(appContext);
             audioDeviceModule = JavaAudioDeviceModule.builder(appContext)
                     .setUseHardwareAcousticEchoCanceler(true)
@@ -165,6 +176,86 @@ public final class SkyEyeRtcSession {
                     PeerConnectionFactory.InitializationOptions.builder(context).createInitializationOptions());
             factoryInitialized = true;
         }
+    }
+
+    private void startCommunicationAudio() {
+        try {
+            audioManager = (AudioManager) appContext.getSystemService(Context.AUDIO_SERVICE);
+            if (audioManager == null) return;
+            previousAudioMode = audioManager.getMode();
+            audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+            changedAudioMode = previousAudioMode != AudioManager.MODE_IN_COMMUNICATION;
+            audioDeviceCallback = new AudioDeviceCallback() {
+                @Override public void onAudioDevicesAdded(AudioDeviceInfo[] addedDevices) {
+                    mainHandler.post(SkyEyeRtcSession.this::updateCommunicationRoute);
+                }
+                @Override public void onAudioDevicesRemoved(AudioDeviceInfo[] removedDevices) {
+                    mainHandler.post(SkyEyeRtcSession.this::updateCommunicationRoute);
+                }
+            };
+            audioManager.registerAudioDeviceCallback(audioDeviceCallback, mainHandler);
+            updateCommunicationRoute();
+        } catch (RuntimeException error) {
+            Log.w("SkyEyeRtcSession", "Could not select the hands-free audio route.", error);
+        }
+    }
+
+    private void updateCommunicationRoute() {
+        if (stopped || audioManager == null || Build.VERSION.SDK_INT < Build.VERSION_CODES.S
+                || audioManager.getMode() != AudioManager.MODE_IN_COMMUNICATION) return;
+        try {
+            AudioDeviceInfo speaker = null;
+            boolean externalCommunicationDeviceAvailable = false;
+            for (AudioDeviceInfo device : audioManager.getAvailableCommunicationDevices()) {
+                int type = device.getType();
+                if (type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) speaker = device;
+                else if (type != AudioDeviceInfo.TYPE_BUILTIN_EARPIECE) externalCommunicationDeviceAvailable = true;
+            }
+            if (externalCommunicationDeviceAvailable) {
+                if (speakerCommunicationDeviceRequested) {
+                    audioManager.clearCommunicationDevice();
+                    speakerCommunicationDeviceRequested = false;
+                }
+                return;
+            }
+            if (speaker != null && !speakerCommunicationDeviceRequested) {
+                speakerCommunicationDeviceRequested = audioManager.setCommunicationDevice(speaker);
+            }
+        } catch (RuntimeException error) {
+            Log.w("SkyEyeRtcSession", "Could not update the hands-free audio route.", error);
+        }
+    }
+
+    private void stopCommunicationAudio() {
+        AudioManager manager = audioManager;
+        if (manager == null) return;
+        if (audioDeviceCallback != null) {
+            try {
+                manager.unregisterAudioDeviceCallback(audioDeviceCallback);
+            } catch (RuntimeException error) {
+                Log.w("SkyEyeRtcSession", "Could not unregister the audio device callback.", error);
+            }
+            audioDeviceCallback = null;
+        }
+        if (speakerCommunicationDeviceRequested && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                manager.clearCommunicationDevice();
+            } catch (RuntimeException error) {
+                Log.w("SkyEyeRtcSession", "Could not clear the selected speaker route.", error);
+            }
+            speakerCommunicationDeviceRequested = false;
+        }
+        if (changedAudioMode) {
+            try {
+                if (manager.getMode() == AudioManager.MODE_IN_COMMUNICATION) {
+                    manager.setMode(previousAudioMode);
+                }
+            } catch (RuntimeException error) {
+                Log.w("SkyEyeRtcSession", "Could not restore the previous audio mode.", error);
+            }
+        }
+        audioManager = null;
+        changedAudioMode = false;
     }
 
     private PeerConnection.Observer createPeerObserver() {
@@ -279,5 +370,6 @@ public final class SkyEyeRtcSession {
             try { audioDeviceModule.release(); } catch (RuntimeException ignored) { }
             audioDeviceModule = null;
         }
+        stopCommunicationAudio();
     }
 }

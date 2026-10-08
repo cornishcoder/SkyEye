@@ -2,131 +2,238 @@
 @inject ShellSession Session
 
 <AgentBoundary Agent="Session.Agent">
-    <main class="shell @(Session.SheetOpen ? "expanded" : "")">
+    <SkyVoiceAgentBridge Session="Session" />
+    <main class="shell app-shell">
         @if (Session.EditingTable)
         {
             <TableEditor Session="Session" Busy="busy" Apply="ApplyTable" />
         }
-        else
+        else if (screen == Screen.Home)
         {
-        @if (Session.SheetOpen)
-        {
-            <section class="sheet" aria-label="Table controls">
-                <div class="sheet-heading"><h1>Your table</h1><button class="quiet" @onclick="Close" aria-label="Close controls">Close</button></div>
-                <p class="camera-state" role="status">@Session.Agent.State.Value.Camera</p>
-                <MatchControls Session="Session" Busy="busy" />
-                <section class="control-section" aria-label="Camera connection">
-                <h2>Camera</h2>
-                <button class="secondary" disabled="@(busy || Session.FindingCamera)" @onclick="Find">@(Session.FindingCamera ? "Finding cameras…" : "Find camera")</button>
-                @foreach (var camera in Session.Cameras)
-                { <button class="secondary" disabled="@busy" @onclick="() => SelectCamera(camera)">@camera.Name</button> }
-                <label for="camera-address">Camera address</label>
-                <input id="camera-address" type="url" inputmode="url" autocomplete="off" spellcheck="false" @bind="address" />
-                <button class="primary" disabled="@busy" @onclick="Connect">@(busy ? "Connecting…" : "Connect camera")</button>
-                </section>
-                <CameraControls View="Session.Agent.State.Value" Busy="busy" HostName="Session.HostName" OnCommand="Control" />
-                <section class="control-section" aria-label="Live viewing">
-                <h2>Live table</h2><p class="hint" role="status">@Session.LiveAvailability</p>
-                <button class="secondary" disabled="@(busy || !Session.CanCastLive)" @onclick="Watch">Watch live</button>
-                @if (Session.HasSource) { <button class="quiet" @onclick="Session.Stop">Stop viewing</button> }
-                <p class="hint" role="status">@Session.FramingStatus</p>
-                <button class="secondary" disabled="@(busy || !Session.CanFrameTable && !Session.FrameTableRequested)" @onclick="() => Session.SetTableFraming(!Session.FrameTableRequested)">@(Session.FrameTableRequested ? "Show whole camera" : "Rectangular table")</button>
-                </section>
-                <ShotControls Session="Session" Busy="busy" Version="Session.Agent.State.Value.Version" />
-                <section class="control-section" aria-label="TV viewing" tabindex="-1" @ref="tvSection">
-                <h2>TV</h2><p class="hint" role="status">@Session.TvStatus</p>
-                @if (Session.TvReplaySelected) { <p class="hint" role="status">@Session.TvReplayProgress</p> }
-                <TvReplayControls Session="Session" Busy="@(busy || Session.PreparingRecentReplay)" />
-                @if (Session.TvLiveConfirmation.Length > 0) { <p class="hint" role="status">@Session.TvLiveConfirmation</p> }
-                <button class="secondary" disabled="@busy" @onclick="ChooseTv">Choose TV</button>
-                <button class="secondary" disabled="@(busy || !Session.CanCastLive || !Session.TvConnected)" @onclick="Session.PlayTv">Play live on TV</button>
-                <p class="hint">@(Session.HasTableCalibration ? "TV shows the corrected table with SkyEye branding." : "SkyEye branding is on. Calibrate the table for its corrected TV view.")</p>
-                <button class="quiet" disabled="@(busy || !Session.TvConnected)" @onclick="Session.StopTv">Disconnect TV</button>
-                </section>
-                <TableControls Session="Session" Busy="busy" Version="Session.Agent.State.Value.Version" Calibrate="CalibrateTable" Correct="CorrectTable" Confirm="ConfirmTable" />
-                <RecentReplayControls Session="Session" Busy="busy" Prepare="PrepareRecentReplay" Watch="WatchRecentReplay" />
-                <ClipControls Session="Session" Busy="busy" Share="ShareClip" WatchTv="WatchClipOnTv" />
-                <section class="control-section" aria-label="Personal voice setup">
-                <h2>Sky voice</h2><p class="hint" role="status">@Session.KeyStatus</p>
-                <p class="hint">Your personal key stays on this phone.</p>
-                <button class="secondary" disabled="@busy" @onclick="SetupKey">@(Session.PersonalKeyConfigured ? "Replace personal key" : "Set personal key")</button>
-                @if (Session.PersonalKeyConfigured) { <button class="quiet" disabled="@busy" @onclick="Session.RemoveKey">Remove personal key</button> }
-                </section>
-                @if (Session.HasMoreControls)
-                {
-                    <section class="control-section" aria-label="More controls">
-                        <h2>More controls</h2>
-                        <p class="hint">Save recent recording, candidate shots and voice.</p>
-                        <button class="secondary" disabled="@(busy || Session.TransferringClip)" @onclick="MoreControls">More controls</button>
-                    </section>
-                }
+            <section class="home-panel" aria-label="SkyEye home">
+                <header class="home-heading">
+                    <div>
+                        <span class="eyebrow">SKYEYE</span>
+                        <p class="home-status" role="status">@HomeStatus</p>
+                    </div>
+                </header>
+
+                <div class="home-actions" aria-label="Main actions">
+                    <button class="home-icon-button settings-home-button" @onclick="() => Navigate(Screen.Settings)" aria-label="Settings" title="Settings">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 8.2a3.8 3.8 0 1 0 0 7.6 3.8 3.8 0 0 0 0-7.6Zm0-5.2 1.1 1.8 2.2.6 1.9-.7 1.5 1.5-.7 1.9.6 2.2 1.8 1.1v2.1l-1.8 1.1-.6 2.2.7 1.9-1.5 1.5-1.9-.7-2.2.6-1.1 1.8h-2.1l-1.1-1.8-2.2-.6-1.9.7-1.5-1.5.7-1.9-.6-2.2L1.5 13.5v-2.1l1.8-1.1.6-2.2-.7-1.9 1.5-1.5 1.9.7 2.2-.6L10 3h2Z" /></svg>
+                    </button>
+
+                    <button class="home-icon-button sky-button @(Session.SkyConnected ? "selected" : "")" disabled="@busy" @onclick="SkyToggle" aria-label="@(Session.SkyConnected || Session.CanEndSky ? "End Sky conversation" : "Talk to Sky")" title="@(Session.SkyConnected || Session.CanEndSky ? "End Sky conversation" : "Talk to Sky")" aria-pressed="@(Session.SkyConnected || Session.CanEndSky)">
+                        @if (Session.SkyConnected || Session.CanEndSky)
+                        { <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4.7 3.8 8 3.1a1.7 1.7 0 0 1 1.9 1l1.2 2.8a1.7 1.7 0 0 1-.4 1.9L9 10.4a14.1 14.1 0 0 0 4.6 4.6l1.6-1.7a1.7 1.7 0 0 1 1.9-.4l2.8 1.2a1.7 1.7 0 0 1 1 1.9l-.7 3.3a1.7 1.7 0 0 1-1.7 1.4C10.2 20.7 3.3 13.8 3.3 5.5a1.7 1.7 0 0 1 1.4-1.7Z" /><path d="m4 4 16 16" /></svg> }
+                        else
+                        { <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="12" rx="3" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3m-4 0h8" /></svg> }
+                    </button>
+
+                    @if (Session.SessionActive)
+                    {
+                        <button class="home-icon-button end-session" disabled="@busy" @onclick="() => Run(Session.EndSessionAsync)" aria-label="End recording session" title="End recording session">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12" rx="2" /></svg>
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="home-icon-button live-session" disabled="@busy" @onclick="() => Run(Session.StartLiveSessionAsync)" aria-label="Start live session" title="Start live session">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="13" height="12" rx="2" /><path d="m16 10 5-3v10l-5-3z" /></svg>
+                        </button>
+                        <button class="home-icon-button dark-session" disabled="@busy" @onclick="() => Run(Session.StartDarkSessionAsync)" aria-label="Start dark session" title="Start dark session">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M19.2 15.2A8.5 8.5 0 0 1 8.8 4.8 8.6 8.6 0 1 0 19.2 15.2Z" /></svg>
+                        </button>
+                    }
+
+                    <button class="home-icon-button clips-button" @onclick="() => Navigate(Screen.Clips)" aria-label="Open clips" title="Open clips">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M7 5v4m5-4v4m5-4v4M7 15v4m5-4v4m5-4v4" /></svg>
+                    </button>
+
+                    <button class="home-icon-button match-button" @onclick="() => Navigate(Screen.Match)" aria-label="Open match controls" title="Open match controls">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M12 8v8M7 9h1m-1 6h1m7-6h1m-1 6h1" /></svg>
+                    </button>
+                </div>
+
+                <p class="physics-status" role="status"><span class="status-dot @(Session.PhysicsAvailable ? "ready" : "off")"></span>@HomePhysicsStatus</p>
                 @if (error.Length > 0) { <p class="notice" role="alert">@error</p> }
-                @if (Session.IsLab) { <details class="lab-tools"><summary>Lab checks</summary><button class="secondary" disabled="@busy" @onclick="Preview">Play test video</button><p class="hint">A recorded playback check, separate from your live table.</p><button class="secondary" disabled="@(!Session.CanFrameTable)" @onclick="Session.ToggleFrameGuides">@(Session.FrameGuides ? "Hide framing guides" : "Show framing guides")</button><p class="hint">Alignment guides for this lab. They are not shot suggestions.</p><button class="secondary" disabled="@(!Session.SceneCheck && !Session.CanSceneCheck)" @onclick="SceneCheck">@(Session.SceneCheck ? "Clear scene check" : "Show scene check")</button><p class="hint">@Session.SceneCheckStatus</p><button class="secondary" disabled="@(!Session.CanSceneCheck || busy)" @onclick="JournalCheck">Check annotation journal</button><button class="secondary" disabled="@(!Session.CanSceneCheck || busy)" @onclick="AnnotatedExportCheck">Check annotated replay export</button></details> }
+                @if (Session.NeedsAttention)
+                { <div class="home-message" role="status"><span>@Session.Message</span><button class="quiet" @onclick="Session.DismissNotice">Dismiss</button></div> }
             </section>
         }
-        @if (Session.ControlsVisible)
-        {
-        <footer class="dock">
-            <MatchHud Match="Session.Match" />
-            <div class="sky"><span class="sky-orb" aria-hidden="true"></span><div><strong>Sky</strong><span role="status">@Session.Playback</span></div></div>
-            <button class="controls" @onclick="Toggle" aria-expanded="@Session.SheetOpen" aria-label="@(Session.SheetOpen ? "Close table controls" : "Open table controls")">@(Session.SheetOpen ? "Hide" : "Controls") <span aria-hidden="true">⌃</span></button>
-            <p class="message" role="status">@Session.Message</p>
-            @if (Session.NeedsAttention) { <button class="quiet acknowledge" @onclick="Session.DismissNotice">Dismiss message</button> }
-        </footer>
-        }
         else
         {
-            <footer class="resting"><MatchHud Match="Session.Match" /><button class="sky-rest" @onclick="Session.RevealControls" aria-label="Show table controls"><span class="sky-orb" aria-hidden="true"></span>Sky</button></footer>
-        }
+            <section class="screen-panel" aria-label="@ScreenTitle">
+                <header class="screen-heading">
+                    <button class="icon-button back-button" @onclick="() => Navigate(Screen.Home)" aria-label="Back to home" title="Back">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 5-7 7 7 7" /></svg>
+                    </button>
+                    <div><span class="eyebrow">SKYEYE</span><h1>@ScreenTitle</h1></div>
+                    @if (screen == Screen.Settings)
+                    { <span class="settings-physics">@Session.PhysicsStatus</span> }
+                </header>
+
+                @if (screen == Screen.Settings)
+                {
+                    <section class="control-section camera-settings" aria-label="Camera and recording">
+                        <h2>Camera and recording</h2>
+                        <p class="camera-state" role="status">@Session.Agent.State.Value.Camera · @Session.Agent.State.Value.Connection.Capture</p>
+                        <button class="secondary" disabled="@(busy || Session.FindingCamera)" @onclick="Find">@(Session.FindingCamera ? "Finding cameras…" : "Find camera")</button>
+                        @foreach (var camera in Session.Cameras)
+                        { <button class="secondary" disabled="@busy" @onclick="() => SelectCamera(camera)">@camera.Name</button> }
+                        <label for="camera-address">Camera address</label>
+                        <input id="camera-address" type="url" inputmode="url" autocomplete="off" spellcheck="false" @bind="address" />
+                        <button class="primary" disabled="@busy" @onclick="Connect">@(busy ? "Connecting…" : "Connect camera")</button>
+                        <CameraControls View="Session.Agent.State.Value" Busy="busy" HostName="Session.HostName" OnCommand="Control" />
+                        <button class="secondary" disabled="@(busy || !Session.CanCastLive)" @onclick="Watch">Watch live on this phone</button>
+                    </section>
+
+                    <details class="settings-group" open>
+                        <summary>Table analysis and shot display</summary>
+                        <TableControls Session="Session" Busy="busy" Version="Session.Agent.State.Value.Version" Calibrate="CalibrateTable" Correct="CorrectTable" Confirm="ConfirmTable" />
+                        <ShotControls Session="Session" Busy="busy" Version="Session.Agent.State.Value.Version" />
+                    </details>
+
+                    <details class="settings-group">
+                        <summary>TV and Chromecast</summary>
+                        <section class="control-section" aria-label="TV viewing" tabindex="-1" @ref="tvSection">
+                            <h2>TV</h2><p class="hint" role="status">@Session.TvStatus</p>
+                            @if (Session.TvReplaySelected) { <p class="hint" role="status">@Session.TvReplayProgress</p> }
+                            <TvReplayControls Session="Session" Busy="@(busy || Session.PreparingRecentReplay)" />
+                            @if (Session.TvLiveConfirmation.Length > 0) { <p class="hint" role="status">@Session.TvLiveConfirmation</p> }
+                            <button class="secondary" disabled="@busy" @onclick="ChooseTv">Choose TV</button>
+                            <button class="secondary" disabled="@(busy || !Session.CanCastLive || !Session.TvConnected)" @onclick="Session.PlayTv">Play live on TV</button>
+                            <p class="hint">@(Session.HasTableCalibration ? "TV shows the corrected table with SkyEye branding." : "SkyEye branding is on. Calibrate the table for its corrected TV view.")</p>
+                            <button class="quiet" disabled="@(busy || !Session.TvConnected)" @onclick="Session.StopTv">Disconnect TV</button>
+                        </section>
+                    </details>
+
+                    <details class="settings-group">
+                        <summary>Sky voice and conversation</summary>
+                        <section class="control-section" aria-label="Personal voice setup">
+                            <p class="hint" role="status">@Session.KeyStatus</p>
+                            <p class="hint">Your personal key stays on this phone.</p>
+                            <p class="hint" role="status" aria-live="polite">@Session.SkyStatus</p>
+                            @if (Session.SkyToolStatus.Length > 0) { <p class="hint" role="status">@Session.SkyToolStatus</p> }
+                            <button class="primary" disabled="@(busy || !Session.CanEditSkyKey)" @onclick="SetupKey">@(Session.PersonalKeyConfigured ? "Replace personal key" : "Set personal key")</button>
+                            <button class="secondary" disabled="@(busy || !Session.CanMuteSky)" @onclick="Session.ToggleSkyMute">@(Session.SkyMuted ? "Unmute microphone" : "Mute microphone")</button>
+                            @if (Session.PersonalKeyConfigured) { <button class="quiet" disabled="@(busy || !Session.CanEditSkyKey)" @onclick="RemoveKey">Remove personal key</button> }
+                            @if (Session.SkyState != SkyEye.Companion.SkyVoiceState.Disconnected || Session.SkyTranscript.Length > 0)
+                            {
+                                <div class="sky-conversation" aria-label="Sky conversation">
+                                    @if (Session.SkyTranscript.Length > 0) { <p class="sky-message" aria-live="polite">@Session.SkyTranscript</p> }
+                                    <MessageList>
+                                        <EmptyContent>@if (Session.SkyTranscript.Length == 0) { <p class="hint">Your Sky conversation will appear here.</p> }</EmptyContent>
+                                        <ChildContent>
+                                            <BlockRenderer TBlock="RichContentBlock" Context="block"><p class="sky-message">@block.RawText</p></BlockRenderer>
+                                            <BlockRenderer TBlock="FunctionInvocationContentBlock" Context="block">
+                                                <details class="sky-tool"><summary>@block.ToolName · @(block.HasResult ? "complete" : "working")</summary><pre>@block.Arguments</pre>@if (block.HasResult) { <pre>@block.Result</pre> }</details>
+                                            </BlockRenderer>
+                                        </ChildContent>
+                                    </MessageList>
+                                </div>
+                            }
+                        </section>
+                    </details>
+
+                    @if (Session.HasMoreControls)
+                    {
+                        <details class="settings-group"><summary>Advanced camera controls</summary>
+                            <p class="hint">Open the dedicated controls for additional camera settings.</p>
+                            <button class="secondary" disabled="@(busy || Session.TransferringClip)" @onclick="MoreControls">Open advanced controls</button>
+                        </details>
+                    }
+                    @if (Session.IsLab)
+                    {
+                        <details class="settings-group lab-tools"><summary>Lab checks</summary>
+                            <button class="secondary" disabled="@busy" @onclick="Preview">Play test video</button><p class="hint">A recorded playback check, separate from your live table.</p>
+                            <button class="secondary" disabled="@(!Session.CanFrameTable)" @onclick="Session.ToggleFrameGuides">@(Session.FrameGuides ? "Hide framing guides" : "Show framing guides")</button><p class="hint">Alignment guides for this lab. They are not shot suggestions.</p>
+                            <button class="secondary" disabled="@(!Session.SceneCheck && !Session.CanSceneCheck)" @onclick="SceneCheck">@(Session.SceneCheck ? "Clear scene check" : "Show scene check")</button><p class="hint">@Session.SceneCheckStatus</p>
+                            <button class="secondary" disabled="@(!Session.CanSceneCheck || busy)" @onclick="JournalCheck">Check annotation journal</button>
+                            <button class="secondary" disabled="@(!Session.CanSceneCheck || busy)" @onclick="AnnotatedExportCheck">Check annotated replay export</button>
+                        </details>
+                    }
+                }
+                else if (screen == Screen.Clips)
+                {
+                    <ClipControls Session="Session" Busy="busy" Share="ShareClip" WatchTv="WatchClipOnTv" Play="PlayClip" />
+                    <RecentReplayControls Session="Session" Busy="@(busy || Session.PreparingRecentReplay)" Prepare="PrepareRecentReplay" Watch="WatchRecentReplay" />
+                }
+                else if (screen == Screen.Match)
+                {
+                    <p class="hint">Sky can update the score from clear player conversation. Image analysis never decides a pot, foul or winner.</p>
+                    <MatchControls Session="Session" Busy="busy" />
+                }
+
+                @if (error.Length > 0) { <p class="notice" role="alert">@error</p> }
+                @if (Session.NeedsAttention) { <p class="notice" role="status">@Session.Message</p> }
+            </section>
         }
     </main>
 </AgentBoundary>
 
 @code {
+    enum Screen { Home, Settings, Clips, Match }
+    Screen screen = Screen.Home;
     string address = "", lastSavedAddress = "", error = "";
     bool busy, disposed;
     protected override void OnInitialized() { address = lastSavedAddress = Session.SavedAddress; Session.Changed += Changed; }
+    string ScreenTitle => screen switch { Screen.Settings => "Settings", Screen.Clips => "Clips", Screen.Match => "Match", _ => "Home" };
+    string HomeStatus => Session.SessionMode switch
+    {
+        TableSessionMode.Dark => "Dark session · camera recording",
+        TableSessionMode.Live => "Live session · " + Session.Agent.State.Value.Camera,
+        _ => Session.Agent.State.Value.Camera
+    };
+    string HomePhysicsStatus => Session.PhysicsAvailable ? "Physics available" : Session.SessionMode == TableSessionMode.Dark ? "Physics unavailable · dark session" : "Physics unavailable";
     void Changed() { if (!disposed) _ = InvokeAsync(() => { var saved = Session.SavedAddress; if (saved != lastSavedAddress) address = lastSavedAddress = saved; StateHasChanged(); }); }
-    void Toggle() => Session.SetSheet(!Session.SheetOpen);
-    void Close() => Session.SetSheet(false);
-    async Task Connect() => await Run(() => Session.ConnectAsync(address), close: true);
+    void Navigate(Screen target)
+    {
+        screen = target;
+        error = "";
+        Session.SetSheet(target != Screen.Home);
+    }
+    async Task Connect() => await Run(() => Session.ConnectAsync(address));
     async Task SceneCheck() => await Run(Session.ToggleSceneCheckAsync);
     async Task AnnotatedExportCheck() => await Run(Session.CheckAnnotatedExportAsync);
     async Task JournalCheck() => await Run(Session.CheckAnnotationJournalAsync);
-    async Task Preview() => await Run(Session.FixtureAsync, close: true);
+    async Task Preview() => await Run(Session.FixtureAsync);
     async Task Find() => await Run(Session.FindCamerasAsync);
     async Task SelectCamera(CameraChoice camera) { address = camera.Address; await Connect(); }
     async Task Control(CameraControlRequest request) => await Run(() => Session.ControlCameraAsync(request));
-    async Task Watch() => await Run(Session.WatchLiveAsync, close: true);
+    async Task Watch() => await Run(Session.WatchLiveAsync, goHome: true);
+    async Task SkyToggle() { if (Session.SkyConnected || Session.CanEndSky) await Run(Session.EndSkyAsync); else await Run(Session.StartSkyAsync); }
     async Task ChooseTv() => await Run(Session.ChooseTvAsync);
     async Task ShareClip(string id) => await Run(() => Session.ShareClipAsync(id));
+    async Task PlayClip(string id) => await Run(() => Session.PlayClipAsync(id), goHome: true);
     ElementReference tvSection;
     async Task PrepareRecentReplay(int seconds)
     {
         await Run(() => Session.RecentReplayAsync(seconds));
-        if (Session.TvReplaySelected) await tvSection.FocusAsync();
+        if (Session.TvReplaySelected && screen == Screen.Settings) await tvSection.FocusAsync();
     }
-    async Task WatchRecentReplay()
-    {
-        Session.WatchRecentReplay();
-        if (Session.TvReplaySelected) await tvSection.FocusAsync();
-    }
-    async Task WatchClipOnTv(ShellClipChoice clip)
-    {
-        await Run(()=>Session.PlayClipOnTvAsync(clip));
-        if (Session.TvReplaySelected) await tvSection.FocusAsync();
-    }
+    async Task WatchRecentReplay() => Session.WatchRecentReplay();
+    async Task WatchClipOnTv(ShellClipChoice clip) => await Run(() => Session.PlayClipOnTvAsync(clip));
     async Task SetupKey() => await Run(Session.SetupKeyAsync);
+    async Task RemoveKey() => await Run(Session.RemoveSkyKeyAsync);
     async Task MoreControls() => await Run(Session.MoreControlsAsync);
     async Task CalibrateTable() => await Run(Session.CalibrateTableAsync);
     async Task CorrectTable() => await Run(Session.CorrectTableAsync);
     async Task ConfirmTable() => await Run(Session.ConfirmTableAsync);
-    async Task ApplyTable() => await Run(Session.ApplyTableEditAsync);
-    async Task Run(Func<Task> action, bool close = false)
+    async Task ApplyTable() => await Run(Session.ApplyTableEditAsync, goHome: true);
+    async Task Run(Func<Task> action, bool goHome = false)
     {
         if (busy) return;
         busy = true; error = "";
-        try { await action(); if (!disposed && close && Session.HasSource) Close(); }
+        try
+        {
+            await action();
+            if (!disposed && goHome && Session.HasSource)
+            {
+                screen = Screen.Home;
+                Session.SetSheet(false);
+            }
+        }
         catch (OperationCanceledException) { }
         catch (Exception) { error = "The request could not finish. Check the connection and try again."; Session.ShowError(error); }
         finally { busy = false; }

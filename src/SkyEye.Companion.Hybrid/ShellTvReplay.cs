@@ -38,7 +38,8 @@ public sealed partial class ShellSession
     };
     static string Clock(long seconds) => $"{seconds / 60}:{seconds % 60:00}";
 
-    public Task PlayClipOnTvAsync(ShellClipChoice choice) => MainThread.InvokeOnMainThreadAsync(async () =>
+    public Task PlayClipOnTvAsync(ShellClipChoice choice) => PlayClipOnTvAsync(choice, CancellationToken.None);
+    public Task PlayClipOnTvAsync(ShellClipChoice choice, CancellationToken operationCancellation) => MainThread.InvokeOnMainThreadAsync(async () =>
     {
         if (!active || disposed || cast is null || foreground is null || TransferringClip || PreparingRecentReplay) return;
         ObserveCast();
@@ -46,7 +47,7 @@ public sealed partial class ShellSession
         var admitted = catalog;
         var clip = admitted?.ConnectionId == choice.ConnectionId ? admitted.Clips.FirstOrDefault(c => c.Id == choice.Id) : null;
         if (admitted is null || clip is null) { ShowError("Refresh camera clips before playing this shot on TV."); return; }
-        using var cancellation=CancellationTokenSource.CreateLinkedTokenSource(foreground.Token,clipLifetime.Token);
+        using var cancellation=CancellationTokenSource.CreateLinkedTokenSource(foreground.Token,clipLifetime.Token,operationCancellation);
         transferCancellation=cancellation;
         try
         {

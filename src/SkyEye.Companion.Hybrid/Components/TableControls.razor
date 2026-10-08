@@ -18,6 +18,64 @@
     else { <p class="hint">Shot targets follow the current player's declared match colours.</p> }
 </section>
 
+<section class="control-section vision-diagnostics" aria-label="Live laptop vision dashboard">
+    <h3>Live vision dashboard</h3>
+    <p class="hint">Serve the labelled camera view and SkyEye debug state to a browser on your Wi-Fi. Fresh analysis runs about once per second and stays read-only.</p>
+    <p class="hint" role="status">@Session.VisionDashboardStatus</p>
+    @if (Session.VisionDashboardActive)
+    {
+        <label for="vision-dashboard-address">Open this address on your laptop</label>
+        <input id="vision-dashboard-address" type="text" readonly value="@Session.VisionDashboardUrl" />
+        <button class="secondary" @onclick="Session.StopVisionDashboardAsync">Stop laptop dashboard</button>
+    }
+    else
+    {
+        <button class="primary" disabled="@(!Session.CanOpenVisionDashboard)" @onclick="Session.StartVisionDashboardAsync">Start laptop dashboard</button>
+    }
+    <details class="settings-group vision-training-tools" open="@(Session.VisionDiagnosticLabelFrame is not null)">
+        <summary>Optional labelled training frames</summary>
+        <p class="hint">Save selected frames as reviewed O01 labels. This is separate from the live detector labels shown on the laptop.</p>
+        @if (Session.VisionDiagnosticSessionId != Guid.Empty)
+        {
+            <p class="hint">Diagnostic batch: <code>@(Session.VisionDiagnosticSessionId.ToString("N"))</code></p>
+            <p class="hint">Camera recording session: <code>@Session.VisionDiagnosticRecordingSessionId</code></p>
+        }
+        @if (Session.VisionDiagnosticsActive)
+        {
+            <button class="secondary" @onclick="Session.StopVisionDiagnosticsAsync">Stop sequential sampling</button>
+        }
+        else
+        {
+            <button class="secondary" disabled="@(!Session.CanStartVisionDiagnostics)" @onclick="Session.StartVisionDiagnosticsAsync">Start sequential sampling</button>
+        }
+        @if (Session.VisionDiagnosticLabelFrame is not null)
+        {
+            <VisionDiagnosticLabeler Session="Session" />
+        }
+        else if (Session.VisionDiagnosticLabelCapturePending)
+        {
+            <p class="hint" role="status">@Session.VisionDiagnosticLabelStatus</p>
+        }
+        else
+        {
+            @if (Session.VisionDiagnosticsActive)
+            {
+                <button class="secondary" disabled="@(Session.VisionDiagnosticLabelSessionFinalized || Session.VisionDiagnosticSavedLabels >= 120 || Session.VisionDiagnosticLabelCapturePending)"
+                    @onclick="Session.RequestVisionDiagnosticLabelFrame">Capture fresh frame to label</button>
+            }
+            @if (Session.CanFinishVisionDiagnosticLabelSession)
+            {
+                <button class="primary" @onclick="Session.FinishVisionDiagnosticLabelSession">Finish reviewed label session</button>
+            }
+            <p class="hint" role="status">@Session.VisionDiagnosticLabelStatus</p>
+            <details class="vision-diagnostic-output">
+                <summary>Recent raw detection detail</summary>
+                <pre class="vision-diagnostics-dump" aria-label="Recent raw vision detections">@Session.VisionDiagnosticsDump</pre>
+            </details>
+        }
+    </details>
+</section>
+
 @code {
     [Parameter, EditorRequired] public ShellSession Session { get; set; } = null!;
     [Parameter] public bool Busy { get; set; }

@@ -45,7 +45,8 @@ public sealed partial class ShellSession
         try
         {
             var changedCamera = RestoreSharedHostCredential();
-            if (changedCamera is not null) await ConnectCoreAsync(changedCamera);
+            if (changedCamera is not null)
+                await ConnectCoreAsync(changedCamera, SkyEye.Core.Application.CommandOrigin.Touch, Guid.NewGuid(), token);
             if (!token.IsCancellationRequested && active && !disposed) await PollAsync(token);
         }
         catch (OperationCanceledException) { }

@@ -14,8 +14,18 @@ public sealed class VoiceService : Service
         base.OnCreate(); var manager = (NotificationManager)GetSystemService(NotificationService)!;
         // Keep the installed channel ID and its user notification preferences.
         manager.CreateNotificationChannel(new NotificationChannel("maeve", "Sky conversation", NotificationImportance.Low));
-        var open = PendingIntent.GetActivity(this, 2, new Intent(this, typeof(MainActivity)), PendingIntentFlags.Immutable | PendingIntentFlags.UpdateCurrent);
-        StartForeground(2001, new Notification.Builder(this, "maeve").SetContentTitle("Sky is with you").SetContentText("Open SkyEye to mute or end the conversation.").SetSmallIcon(Android.Resource.Drawable.IcMenuCall).SetContentIntent(open).SetOngoing(true).Build(), ForegroundService.TypeMicrophone);
+        var openIntent = PackageManager?.GetLaunchIntentForPackage(PackageName ?? string.Empty);
+        var notification = new Notification.Builder(this, "maeve")
+            .SetContentTitle("Sky is with you")
+            .SetContentText("Open SkyEye to mute or end the conversation.")
+            .SetSmallIcon(Android.Resource.Drawable.IcMenuCall)
+            .SetOngoing(true);
+        if (openIntent is not null)
+        {
+            var open = PendingIntent.GetActivity(this, 2, openIntent, PendingIntentFlags.Immutable | PendingIntentFlags.UpdateCurrent);
+            notification.SetContentIntent(open);
+        }
+        StartForeground(2001, notification.Build(), ForegroundService.TypeMicrophone);
     }
     public override StartCommandResult OnStartCommand(Intent? intent, StartCommandFlags flags, int startId) => StartCommandResult.NotSticky;
 }

@@ -27,6 +27,7 @@ public sealed class LocalHttpServer(int port, Func<HttpRequest, CancellationToke
     Task? run;
     readonly System.Collections.Concurrent.ConcurrentDictionary<long, Task> clients = new();
     long nextClient;
+    public int Port => ((IPEndPoint)listener.LocalEndpoint).Port;
     public void Start() { listener.Start(32); run = AcceptAsync(); }
     async Task AcceptAsync()
     {

@@ -26,14 +26,15 @@ public sealed partial class ShellSession
     public IReadOnlyList<ShotChoice> ShotChoices => CurrentShotCatalog ? app.State.ShotChoices.Choices : [];
     public long ChoiceTableVersion => app.State.ShotChoices.TableVersion;
     bool CurrentShotCatalog => app.State.ShotChoices.Matches(app.State.Camera, app.State.Advice.TargetGroup, DateTimeOffset.UtcNow)
-        && table.State.Table?.Version == app.State.ShotChoices.TableVersion && !EditingTable && selection.Kind == ViewingSource.Live;
+        && table.State.Table?.Version == app.State.ShotChoices.TableVersion && !EditingTable && CanAnalyzeTable;
     public string CandidateStatus => CheckingTable ? "Checking table… Keep the view clear and the balls still."
+        : SessionMode == TableSessionMode.Dark ? "Unavailable · dark session has no image analysis or shot physics."
         : !CanAnalyzeTable ? "Become host on an active camera to check shot choices."
         : !HasTableCalibration ? "Calibrate the table before showing choices."
         : ShotChoices.Count == 0 && lastVerificationStatus is not null ? lastVerificationStatus
         : !app.State.Presentation.ShotChoicesEnabled ? TvReplaySelected ? $"Choices are off · {TvReplayKind} on TV." : "Choices are off · live table on both screens."
         : ShotChoices.Count == 0 ? shotMessage : $"{ShotChoices.Count} choices · cycle every 2 seconds · expires after 15 seconds";
-    public bool CanShowChoices => active && selection.Kind == ViewingSource.Live && CanCastLive && !EditingTable;
+    public bool CanShowChoices => active && CanAnalyzeTable && CanCastLive && !EditingTable;
 
     public Task SetShotDisplayAsync(long expectedVersion, SceneTarget target, ShotDisplayMode mode) => MainThread.InvokeOnMainThreadAsync(async () =>
     {
@@ -67,6 +68,10 @@ public sealed partial class ShellSession
     public Task<CommandReceipt> ExecuteApplicationCommandAsync(CommandEnvelope request, CancellationToken cancellation = default) => MainThread.InvokeOnMainThreadAsync(async () =>
     {
         if (!active || disposed || EditingTable) return new CommandReceipt(request.OperationId, CommandOutcome.Rejected, app.State.Version, "Use the active application surface.");
+        if (SessionMode == TableSessionMode.Dark && request.Command is SkyEye.Core.Application.ObserveTable or PinShot or ShowShot or ShowAnnotation
+            or SetShotDisplay { Mode: ShotDisplayMode.Cycling or ShotDisplayMode.Pinned })
+            return new CommandReceipt(request.OperationId, CommandOutcome.Rejected, app.State.Version,
+                "Image-based table analysis and shot physics are unavailable during a dark session.");
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellation, foreground?.Token ?? CancellationToken.None);
         var receipt = await app.DispatchAsync(request, linked.Token);
         if (request.Command is ObserveTable { Mode: ObservationMode.VerifyForAdvice }) lastVerificationStatus = receipt.Message;
@@ -140,7 +145,7 @@ public sealed partial class ShellSession
             shotMessage = "Choices expired or the layout changed. Request a fresh observation.";
         }
     }
-    async Task RefreshShotChoicesAsync(CancellationToken token)
+    async Task RefreshShotChoicesAsync(CancellationToken token, Guid? observationOperationId = null, CommandOrigin origin = CommandOrigin.Touch)
     {
         if (candidateVerification is not null) return;
         using var checking = CancellationTokenSource.CreateLinkedTokenSource(token);
@@ -150,7 +155,8 @@ public sealed partial class ShellSession
         try
         {
             await ClearShotCatalogAsync(token); RenderShotScenes(); Publish();
-            await UpdateTableAsync(token, includeChoices: true, mode: ObservationMode.VerifyForAdvice);
+            await UpdateTableAsync(token, includeChoices: true, mode: ObservationMode.VerifyForAdvice,
+                operationId: observationOperationId, origin: origin);
             token.ThrowIfCancellationRequested();
             var snapshot = table.State; var layout = snapshot.Table;
             if (!CanAnalyzeTable || EditingTable || snapshot.Source != app.State.Camera.Scope || app.State.Observation?.Outcome != ObservationOutcome.Ready || layout is null || !layout.Settled || layout.Occluded)

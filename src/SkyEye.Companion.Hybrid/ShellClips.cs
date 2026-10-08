@@ -15,6 +15,7 @@ public sealed partial class ShellSession
     CompanionCorrectedClips correctedClips = null!;
     CameraClipCatalog? catalog;
     ShellClipChoice[] remoteClips = [], localClips = [];
+    string? clipCatalogError;
     CancellationTokenSource? transferCancellation;
     long catalogGeneration;
     bool preparingCorrected;
@@ -24,6 +25,8 @@ public sealed partial class ShellSession
     public bool TransferringClip => transferCancellation is not null || preparingCorrected;
     public string ClipStatus { get; private set; } = "Your saved shots, ready to watch again.";
     public bool CanLoadClips => app.State.Camera.Reachability == CameraReachability.Reachable;
+    public bool PhoneSavedClipSelected => selection.Kind == ViewingSource.LocalClip;
+    public bool PhoneIsPlayingSavedClip => PhoneSavedClipSelected && Playing;
 
     void InitializeClips()
     {
@@ -40,10 +43,13 @@ public sealed partial class ShellSession
         if (catalog is null || catalog.ConnectionId == connection) return;
         catalog = null; remoteClips = [];
     }
-    public Task LoadClipsAsync() => MainThread.InvokeOnMainThreadAsync(async () =>
+    public Task LoadClipsAsync() => LoadClipsAsync(CancellationToken.None);
+    public Task LoadClipsAsync(CancellationToken operationCancellation) => MainThread.InvokeOnMainThreadAsync(async () =>
     {
         if (!active || foreground is null || LoadingClips || !CanLoadClips) return;
-        var token = foreground.Token; var generation = ++catalogGeneration;
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(foreground.Token, operationCancellation);
+        var token = linked.Token; var generation = ++catalogGeneration;
+        clipCatalogError = null;
         LoadingClips = true; ClipStatus = "Loading camera clips…"; Publish();
         try
         {
@@ -55,16 +61,17 @@ public sealed partial class ShellSession
             ClipStatus = remoteClips.Length == 0 ? "Saved camera clips will appear here." : "Choose a shot to watch on TV or keep on this phone.";
         }
         catch (OperationCanceledException) { }
-        catch (Exception) { if (!token.IsCancellationRequested && !disposed) ShowError("Camera clips could not load. Check the connection and refresh."); }
+        catch (Exception) { if (!token.IsCancellationRequested && !disposed) { clipCatalogError = "Camera clips could not load. Check the connection and refresh."; ShowError("Camera clips could not load. Check the connection and refresh."); } }
         finally { if (generation == catalogGeneration) { LoadingClips = false; if (!disposed) Publish(); } }
     });
-    public Task DownloadClipAsync(ShellClipChoice choice) => MainThread.InvokeOnMainThreadAsync(async () =>
+    public Task DownloadClipAsync(ShellClipChoice choice) => DownloadClipAsync(choice, CancellationToken.None);
+    public Task DownloadClipAsync(ShellClipChoice choice, CancellationToken operationCancellation) => MainThread.InvokeOnMainThreadAsync(async () =>
     {
         if (!active || disposed || TransferringClip) return;
         var admitted = catalog;
         var clip = admitted?.ConnectionId == choice.ConnectionId ? admitted.Clips.FirstOrDefault(c => c.Id == choice.Id) : null;
         if (admitted is null || clip is null) { ShowError("Refresh camera clips before downloading this shot."); return; }
-        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(clipLifetime.Token);
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(clipLifetime.Token, operationCancellation);
         transferCancellation = cancellation; var lastProgress = TimeSpan.FromSeconds(-1);
         DismissNotice(); ClipStatus = "Downloading clip…"; Publish();
         try
@@ -92,10 +99,11 @@ public sealed partial class ShellSession
         finally { if (transferCancellation == cancellation) transferCancellation = null; if (!disposed) Publish(); }
     });
     public void CancelClipTransfer() => transferCancellation?.Cancel();
-    public Task PlayClipAsync(string id) => MainThread.InvokeOnMainThreadAsync(async () =>
+    public Task PlayClipAsync(string id) => PlayClipAsync(id, CancellationToken.None);
+    public Task PlayClipAsync(string id, CancellationToken operationCancellation) => MainThread.InvokeOnMainThreadAsync(async () =>
     {
         if (!active || disposed || foreground is null || TransferringClip) return;
-        using var cancellation=CancellationTokenSource.CreateLinkedTokenSource(foreground.Token,clipLifetime.Token);
+        using var cancellation=CancellationTokenSource.CreateLinkedTokenSource(foreground.Token,clipLifetime.Token,operationCancellation);
         transferCancellation=cancellation;var token=cancellation.Token;var previous=selection.Generation;preparingCorrected=true;ClipStatus="Preparing corrected playback…";Publish();
         try{var local=await correctedClips.LocalAsync(id,token);if(token.IsCancellationRequested||disposed||!active||previous!=selection.Generation)return;
             Stop();var generation=selection.Begin(ViewingSource.LocalClip);selection.Observe(generation,ViewingSource.LocalClip,new Uri(local.Portrait).AbsoluteUri);

@@ -1,0 +1,112 @@
+# O09 — Learned Ball Detection Spike
+
+8 October 2026 · **P0 detector investigation; live diagnostics/dashboard, capture labelling and offline tooling implemented in source.** The user reports that table vision is borderline unusable under current room conditions, with multiple errors among missed balls, false detections in shadows and wrong colours. O09 now has opt-in on-device frame labelling, a read-only laptop dashboard served over local Wi-Fi, an O01 importer, a Development-only YOLO dataset exporter and a frozen three-candidate comparison command; none has been run against a reviewed room-lighting holdout. The [O08 reliability plan](o08-mounted-table-reliability-plan.md) remains the release gate for safe, current table observations.
+
+## Outcome
+
+Determine whether a small learned detector, alone or paired with the existing OpenCV geometry refinement, materially improves ball recall, false-positive rate and colour accuracy across held-out lighting conditions while meeting Pixel latency and resource needs. Keep the production path unchanged unless a candidate wins the frozen evaluation and passes O08 safety and release gates.
+
+The current production pipeline remains the reference baseline. The 8 October build adds opt-in sequential diagnostics, local illumination normalization and circular hue clustering, but no reviewed striped-sunlight holdout result has been collected. Diagnostics sample fresh frames about once per second and expose recent detector records through Sky. The Pixel-served dashboard shows the exact latest analyzed image with every classified ball and circle candidate labelled, plus frame age/identity, illumination and recognition telemetry, warnings, tracked table state and canonical `SkyEye.GameState`. It retains one paired JPEG and is read-only; it does not change confirmed table/game state. A separate optional capture action holds one fresh JPEG at a time for manual box/class labelling, records frame receipts and per-frame lighting/motion tags, and hides detector output from the label editor and Sky while the image is open. Images persist only after an explicit save, with a 4 MiB/frame and 40 MiB/120-frame app-local bound. The detector changes remain candidate branches, not evidence that the problem is solved.
+
+## Comparison candidates
+
+| Candidate | Proposal and refinement | Question |
+| --- | --- | --- |
+| A — Current baseline | Existing HSV/cloth mask, Hough/body proposals, colour classifier and current geometry checks | What does the production path do on each same labelled frame? |
+| B — Learned detector | Small model proposes cue, black, red and yellow ball regions, with confidence/abstention retained as uncertainty | Does learned appearance generalize across room lighting, shadows, overlap and table positions? |
+| C — Learned proposal plus OpenCV refinement | Learned regions constrain local search; existing ball-size and radial-edge evidence refines centre/radius and checks geometry | Can the hybrid keep precise geometry while reducing shadow-driven proposals and colour errors? |
+
+Keep the detector output as candidate evidence. An uncertain/unknown candidate must remain unknown; inventory must not force a red, yellow, cue or black label. The learned path must not depend on finding one cue ball to set global white balance. Compare reasonably raw colour input with a fixed, documented training normalization; retain cloth/exposure/reference readings as diagnostic features unless results show they are needed.
+
+## Data and evaluation
+
+Use the existing O01 workbench and its session-level split; do not create a parallel corpus. Extend its reviewed still/negative sequence support as needed. Capture original local Pixel table frames through an explicit opt-in, size-limited path with the actual source/frame receipt, calibration/configuration identity and lighting/motion condition. The current rolling detection dump alone is not labelled source imagery; do not turn on unbounded recording or auto-upload as part of the debug workflow.
+
+Freeze development and held-out recording sessions **before training or augmentation**. Keep every frame and augmented derivative from one source session on the same side of the split. Augment training data only: exposure changes up to ±2 stops, brightness/gamma/contrast, warm/cool white balance, saturation, directional and partial shadows, blind-like stripes, specular highlights, dim/bright rooms, motion blur, slight defocus, compression/noise, overlaps and partial occlusion. Synthetic augmentation supports real data; it does not replace real held-out sessions.
+
+Include the user's closed-blind sunlight pattern as a separately labelled lighting stratum, recording stripe position/change over time and whether balls are settled or moving. Also cover ordinary, dim and bright room lighting; shadows, touching/overlapping balls, cushion/pocket edges, partial occlusion and empty regions where false positives can occur. Review labels without seeing model output: visible/unknown/occluded status, class, centre/radius or box, and motion/lighting interval.
+
+Run A, B and C on the exact same frozen frames and report results per lighting and scene stratum, with denominators and session-aware uncertainty:
+
+- visible-ball recall, candidate precision and false positives per frame;
+- colour accuracy and abstention/unknown rate;
+- centre error relative to ball diameter, radius error, merges/splits and near-cushion/touching-ball performance;
+- false-ready/unsafe outcomes under O08's existing conservative gates;
+- whole-path and model latency, peak memory, CPU/GPU use, thermal behavior and battery cost on Pixel 11 at the real input resolution.
+
+Set comparison and acceptance thresholds before opening the held-out results. A high aggregate score cannot hide a failure in the sunlight-stripe or dim-light stratum. Augmented or synthetic-only accuracy is not release evidence.
+
+## Android and architecture limits
+
+Benchmark a small model on Pixel CPU/GPU first. Measure settled/request-time inference, since the detector is needed after setup, when the table settles, on an explicit request or for bounded recovery; do not run full-frame learned detection at 30/60 fps. Keep O02/O03 responsible for lightweight ROI/flow tracking during motion, seeded by a reviewed settled layout. Investigate a Pixel accelerator only if measured CPU/GPU results justify the integration cost.
+
+Prefer the hybrid path if it improves held-out detections: let the model propose a neighbourhood, then use calibrated ball dimensions and local edge/body evidence to refine centre/radius. Do not infer precise table geometry from a bounding box alone. Preserve source timestamps, uncertainty, current-support rules and the single `TableAnalysisSession`/`VisionAnalyzer` ownership path; no parallel table state or game ledger.
+
+Treat Poolgame-AI-shot-prediction, Pool Vision, ai-billiard-system, Pool-Table-Tracker and Cuevision as architecture/evaluation leads only. Before reusing code, weights, training assets or model artifacts, verify the exact revision, file/model licence, notices and SkyEye distribution rights. In particular, inspect the existing [Poolgame port provenance](poolgame-port.md); its checked-out source did not include the described YOLO assets and had no detected licence. Do not assume a README's model claims or a repository-level licence covers absent weights.
+
+## Bounded on-device labelling
+
+In **Table controls → Live vision dashboard → Optional labelled training frames**, start sequential sampling, choose **Capture fresh frame to label**, and drag a box around each ball in the captured image. Choose cue/black/red/yellow or unknown, and visible/occluded/uncertain. Empty frames require an explicit checkbox. Add the lighting, settled/moving and scene tags; use the note field for blind-stripe position/change and other context. The label view hides the detector dump and Sky's diagnostic readout until the image is saved or discarded. A saved frame contains the hand-drawn image-normalized centre and X/Y radii, exact pixel hash, source/frame/time scope, calibration corners and analyzer settings identity. It contains no detector output.
+
+### Pixel-served laptop dashboard
+
+With an active live camera session and calibrated table, open **Settings → Table analysis and shot display → Live vision dashboard** on the Pixel and tap **Start laptop dashboard**. The app requests local-network permission if Android has not granted it. Open the displayed address on a laptop connected to the same Wi-Fi. The address uses fixed port 8770 and has no per-session key; any device on that Wi-Fi can read the live camera frame, detector diagnostics and game state while the dashboard is active. HTTP is unencrypted, so start it only on a trusted network. The full-width camera frame appears first; scroll below it for the ball list, detector details, game state and sample history. The page updates every 500 ms but only new sequential analyses (about once per second) produce a new labelled image. It shows detector balls and confidence, every circle candidate, illumination normalization and colour gains, warnings, source frame ID/time/age, rolling sample history, current table tracker state and the canonical game snapshot. Keep SkyEye open while the page is in use; pausing the app stops the local server. Stop the dashboard from the phone when finished. All dashboard routes accept GET only.
+
+Frames are saved under the app's external `files/o09-labels/<diagnostic-session-id>` directory. After stopping diagnostics, choose **Finish reviewed label session** to write a batch summary. Each **Save reviewed frame** action is independently reviewed, so the importer can also recover saved frames if the app closes before the batch summary is written. The UI shows both the diagnostic batch ID and the camera recording-session ID: if one camera recording spans multiple diagnostic batches, keep those batches in the same O01 split. The local image budget is 40 MiB and 120 reviewed frames, with a 4 MiB limit per image; there is no automatic upload or deletion.
+
+Copy the lab app's capture directory into `work/o09/label-captures`:
+
+```powershell
+adb pull /sdcard/Android/data/uk.co.skyeye.companion.lab/files/o09-labels work/o09/label-captures
+```
+
+Create `work/o09/session-assignments.json` before training or augmentation, assigning every diagnostic batch and condition. The importer groups them by the original camera recording session, so it rejects a split that leaks batches from one recording session across Development and Holdout.
+
+```json
+{
+  "schemaVersion": 1,
+  "sessions": [
+    { "diagnosticSessionId": "DIAGNOSTIC_BATCH_ID", "split": "Development", "holdoutCondition": null },
+    { "diagnosticSessionId": "ANOTHER_BATCH_ID", "split": "Holdout", "holdoutCondition": "still" }
+  ]
+}
+```
+
+Use `still`, `moving`, `obstructed`, `lighting-changed` or `camera-changed` for Holdout conditions. Each Holdout diagnostic batch needs two or more fresh frames with increasing source time. Keep lighting and scene detail in the per-frame tags/notes so changing blind stripes are not flattened into one session label.
+
+```powershell
+dotnet run --project src/SkyEye.Observation.Workbench -- import-diagnostic-labels work/o09/label-captures work/o09/corpus-v1 work/o09/session-assignments.json
+dotnet run --project src/SkyEye.Observation.Workbench -- freeze --root work/o09/corpus-v1 --manifest work/o09/corpus-v1/manifest.json --output work/o09/corpus-v1/split-lock.json
+```
+
+The importer preserves reviewed hand labels, exact frame receipts and original camera recording-session IDs in O01 sequence-label schema v2. The Holdout verifier supports still/negative condition receipts; these image-normalized labels serve O09 comparison and are not a substitute for O08's table-coordinate safety verification.
+
+## Implemented offline workbench slice
+
+`export-yolo` exports reviewed real **Development** samples only. It partitions whole Development sessions deterministically into train and validation sets, requires at least three sessions, image-normalized labels and reviewed X/Y radii, and refuses ambiguous/occluded labels. The report records the frozen manifest and session assignments. O01 Holdout pixels are never copied; this exporter does not perform augmentation or select a training framework. Apply the planned appearance augmentation to train only.
+
+```powershell
+dotnet run --project src/SkyEye.Observation.Workbench -- export-yolo --root PATH-TO-CORPUS --manifest PATH-TO-MANIFEST --lock PATH-TO-LOCK --output-dir work/o09/train-v1
+```
+
+`compare` requires three complete `StoredDetection[]` files named current, learned and hybrid. Each file must contain exactly one record per reviewed sample in the selected frozen real `Development` or `Holdout` split; encode abstention as an explicit empty/uncertain result. Pixel hashes and coordinate spaces must match the labels. The report includes input hashes, per-sample failures, per-session and per-tag metrics, centre/radius error where radii are labelled, and deterministic 95% cluster-bootstrap intervals for precision, recall and colour accuracy. Fewer than two contributing sessions yields no interval. Use O08's separate verification scorer for false-ready/current-layout results.
+
+```powershell
+dotnet run --project src/SkyEye.Observation.Workbench -- compare --root PATH-TO-CORPUS --manifest PATH-TO-MANIFEST --lock PATH-TO-LOCK --split Holdout --current work/o09/current.json --learned work/o09/learned.json --hybrid work/o09/hybrid.json --tolerance 0.027 --output work/o09/holdout-v1.json
+```
+
+Pass `--tolerance` explicitly and freeze it before a Holdout run; image-normalized coordinates require an aspect-aware threshold choice. The default from the legacy `baseline` command is not silently reused for O09.
+
+The checked-in O01 v1 seed has one real regression still plus synthetic receipt contracts, and no O09 Development or Holdout sessions. It cannot produce a training export or a valid O09 comparison. The new labeller/importer makes reviewed data collection concrete, but it does not create labels until used under the actual room conditions. No learned weights, inference adapter, Pixel latency result or lighting accuracy result is claimed.
+
+## Bounded chunks
+
+| Chunk | Result | Gate |
+| --- | --- | --- |
+| O09.01 — Prepare comparable data | O01/O08 capture import, hand-labelled bounded capture, original recording-session splits and Development-only YOLO export | Capture labeller/importer/exporter are implemented in source; reviewed lighting sequences and Holdout remain to be collected |
+| O09.02 — Freeze baseline and candidate contracts | Three-candidate same-sample scorer with strict coverage/hash/coordinate checks and session-aware metrics | Comparator is implemented in source; candidate inference outputs and labelled split are still needed |
+| O09.03 — Train and compare | Train a small learned proposal/classifier and evaluate B/C with train-only augmentation | Not started: choose a trainer/model only after reviewed data and exact code/weight distribution rights are available |
+| O09.04 — Measure Pixel inference | Package a prototype behind the existing analysis seam and compare CPU/GPU at actual resolution | Not started: requires frozen trained weights and a Pixel 11 run; no 30/60 fps full-frame inference |
+| O09.05 — Decide | Publish go/no-go recommendation and retained baseline/model provenance | Open: candidate must beat A on untouched real sessions, meet per-stratum and O08 safety gates, and have distributable rights; otherwise retain A and record the result |
+
+**No production detector replacement is part of this spike.** A winning candidate would move to a separate bounded integration slice with reproducible model/build provenance, verified distribution rights, O08 acceptance using the selected detector and a guarded installed-release check. O09 does not establish moving-ball identity, pot detection, refereeing or shot-outcome inference.

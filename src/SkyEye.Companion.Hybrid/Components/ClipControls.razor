@@ -1,8 +1,8 @@
-<details class="control-section clip-section" aria-label="Saved clips">
-    <summary>Clips</summary>
-    <p class="hint" role="status">@Session.ClipStatus</p>
-    <p class="hint">Watch a camera clip on TV with room audio. Your phone can stay live while the camera keeps recording.</p>
-    <button class="secondary" disabled="@(Busy || Session.LoadingClips || !Session.CanLoadClips)" @onclick="Session.LoadClipsAsync">@(Session.LoadingClips ? "Loading clips…" : "Refresh camera clips")</button>
+<section class="control-section clip-section" aria-label="Saved clips">
+    <div class="clips-heading"><div><h2>Camera clips</h2><p class="hint" role="status">@Session.ClipStatus</p></div>
+        <button class="icon-button refresh-button" disabled="@(Busy || Session.LoadingClips || !Session.CanLoadClips)" @onclick="Session.LoadClipsAsync" aria-label="Refresh camera clips" title="Refresh">↻</button>
+    </div>
+    <p class="hint">Watch a camera clip on TV with room audio, download it for offline use, or share it.</p>
     @if (Session.TransferringClip) { <button class="quiet" @onclick="Session.CancelClipTransfer">Cancel download</button> }
     @foreach (var clip in Session.RemoteClips)
     {
@@ -13,30 +13,31 @@
             {
                 <p class="hint">Saved on this phone</p>
                 <div class="clip-actions">
-                    <button class="secondary" disabled="@Busy" @onclick="() => Session.PlayClipAsync(clip.Id)" aria-label="@($"Play {clip.Name}")">Play</button>
+                    <button class="secondary" disabled="@Busy" @onclick="() => Play.InvokeAsync(clip.Id)" aria-label="@($"Play {clip.Name}")">Play</button>
                     <button class="secondary" disabled="@Busy" @onclick="() => Share.InvokeAsync(clip.Id)" aria-label="@($"Share {clip.Name}")">Share</button>
                 </div>
             }
             else { <button class="secondary" disabled="@(Busy || Session.TransferringClip || !Session.CanLoadClips)" @onclick="() => Session.DownloadClipAsync(clip)" aria-label="@($"Download {clip.Name}")">Download portrait clip</button> }
         </article>
     }
-    <h3>On this phone</h3>
-    @if (Session.LocalClips.Count == 0) { <p class="hint">Download a shot to watch or share it here.</p> }
+    <h2 class="local-clips-heading">Saved on this phone</h2>
+    @if (Session.LocalClips.Count == 0) { <p class="hint">Downloaded clips will appear here for offline viewing and sharing.</p> }
     @foreach (var clip in Session.LocalClips)
     {
         <article class="clip" @key="@($"local-{clip.Id}")">
             <p>@clip.Name <span class="hint">· available offline</span></p>
             <div class="clip-actions">
-                <button class="secondary" disabled="@Busy" @onclick="() => Session.PlayClipAsync(clip.Id)" aria-label="@($"Play {clip.Name}")">Play</button>
+                <button class="secondary" disabled="@Busy" @onclick="() => Play.InvokeAsync(clip.Id)" aria-label="@($"Play {clip.Name}")">Play</button>
                 <button class="secondary" disabled="@Busy" @onclick="() => Share.InvokeAsync(clip.Id)" aria-label="@($"Share {clip.Name}")">Share</button>
             </div>
         </article>
     }
-</details>
+</section>
 
 @code {
     [Parameter, EditorRequired] public ShellSession Session { get; set; } = null!;
     [Parameter] public bool Busy { get; set; }
     [Parameter] public EventCallback<string> Share { get; set; }
     [Parameter] public EventCallback<ShellClipChoice> WatchTv { get; set; }
+    [Parameter] public EventCallback<string> Play { get; set; }
 }

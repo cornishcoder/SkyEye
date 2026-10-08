@@ -19,6 +19,7 @@ public sealed partial class TableAnalysisSession
                 if (operationId == verificationOperationId && mediaGeneration == verificationMediaGeneration && state.Generation == verificationAnalysisGeneration && reviewFrame == verificationReviewFrame) return pending;
                 throw new InvalidOperationException("Another table verification is running. Cancel it or wait for its result.");
             }
+            if (visionDiagnosticsCancellation is not null) throw new InvalidOperationException("Stop vision diagnostics before verifying the table for advice.");
             if (active is not null || state.Picking) throw new InvalidOperationException("Another table operation is finishing. Retry when it completes.");
             if (operationId == Guid.Empty || mediaGeneration <= 0 || state.Source is null || state.Calibration is null || analyzer is not ITableVerificationAnalyzer)
                 throw new InvalidOperationException("Calibrate an active live table before verifying it.");

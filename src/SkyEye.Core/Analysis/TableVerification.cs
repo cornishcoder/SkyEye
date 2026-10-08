@@ -17,6 +17,10 @@ public interface ITableVerificationAnalyzer
 {
     ITableVerificationWorker CreateVerification(TableCalibration calibration);
 }
+public interface ITableAnalyzerMetadata
+{
+    string ConfigurationIdentity { get; }
+}
 public interface ITableVerificationFrameSource : ITableFrameSource
 {
     Task RefreshVerificationClockAsync(CancellationToken cancellation);

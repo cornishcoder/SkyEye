@@ -27,7 +27,8 @@ public sealed partial class ShellSession
                 || seed.Table is not { Confirmed: true, Settled: true, Occluded: false } layout || layout.Balls.Length is < 1 or > 16
                 || (DateTimeOffset.UtcNow - layout.CapturedAt).TotalSeconds is > 6 or < -2)
                 throw new InvalidOperationException("Confirm a clear settled live layout before observing motion.");
-            var frames = new PlayerTableFrameSource(() => player, () => app.State.Camera, () => active && selection.Kind == ViewingSource.Live);
+            var frames = new PlayerTableFrameSource(() => player, () => app.State.Camera,
+                () => active && sessionMode == TableSessionMode.Live && selection.Kind == ViewingSource.Live);
             using (var pixels = await frames.ReadAsync(seed.Source, foreground!.Token))
             {
                 var receipt = pixels.DecodedReceipt ?? throw new InvalidOperationException("A paired live frame is required.");
@@ -43,7 +44,7 @@ public sealed partial class ShellSession
                 bool Current()
                 {
                     var snapshot = table.State;
-                    return active && !EditingTable && selection.Kind == ViewingSource.Live && player == owner && app.State.Camera.CanControl
+                    return active && sessionMode == TableSessionMode.Live && !EditingTable && selection.Kind == ViewingSource.Live && player == owner && app.State.Camera.CanControl
                         && app.State.Camera.Scope == scope.Source && snapshot.Generation == seed.Generation && snapshot.CalibrationId == scope.CalibrationId
                         && Interlocked.Read(ref mediaGeneration) == scope.MediaGeneration;
                 }

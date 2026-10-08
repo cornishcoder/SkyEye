@@ -14,13 +14,15 @@ public sealed record ShellViewState(long Version, string Camera, bool Playing)
     public CameraConnection Connection { get; init; } = CameraConnection.Empty;
 }
 
+public enum TableSessionMode { None, Live, Dark }
+
 public sealed partial class ShellSession : IDisposable
 {
     readonly CameraClient client = new();
     readonly CameraControlEffect effects;
     readonly AppCoordinator app;
     readonly IDisposable subscription;
-    readonly ProjectionClient agentClient = new();
+    readonly SkyVoiceProjectionClient agentClient = new();
     Bridge.PlayerBridge? player;
     Bridge.CastBridge? cast;
     CancellationTokenSource? foreground;
@@ -28,12 +30,23 @@ public sealed partial class ShellSession : IDisposable
     readonly System.Diagnostics.Stopwatch clock = System.Diagnostics.Stopwatch.StartNew();
     readonly ControlChrome chrome;
     bool active, disposed;
+    TableSessionMode sessionMode;
     public UIAgent<ShellViewState> Agent { get; }
     public bool SheetOpen { get; private set; }
+    public TableSessionMode SessionMode => sessionMode;
+    public bool SessionActive => sessionMode != TableSessionMode.None;
+    public bool PhysicsAvailable => CanAnalyzeTable && HasTableCalibration;
+    public string PhysicsStatus => sessionMode == TableSessionMode.Dark ? "Unavailable · dark session has no image analysis"
+        : !CanAnalyzeTable ? sessionMode == TableSessionMode.Live
+            ? selection.Kind != ViewingSource.Live ? "Unavailable · open the live camera view to enable image analysis"
+                : "Unavailable · active host capture is required for image analysis"
+            : "Unavailable · start a live session to enable image analysis"
+        : !HasTableCalibration ? "Live image analysis is on · calibrate the table for shot choices"
+        : "Available · fresh, settled table evidence is still required";
     public bool ControlsVisible => chrome.Visible;
     public bool NeedsAttention => chrome.Attention;
     public double FontScale { get; private set; } = 1;
-    public double DockHeight => ((ControlsVisible ? NeedsAttention ? 240 : 160 : 80) + (Match.Id is not null ? 76 : 0)) * FontScale;
+    public double DockHeight => (ControlsVisible ? NeedsAttention ? 360 : 320 : 80) * FontScale;
     public string Message { get; private set; } = "Your table. Every shot.";
     public string Playback { get; private set; } = "Waiting for your table";
     public bool Playing { get; private set; }
@@ -57,12 +70,15 @@ public sealed partial class ShellSession : IDisposable
             edit.Apply();
         });
         var savedPhoneCorrection = settings.GetBoolean("phone-corrected", true);
-        app = new(cameraControls: effects, observations: new TableObservationEffect(() => table, () => player is null ? 0 : MediaGeneration(), () => active && selection.Kind == ViewingSource.Live),
+        var saveOperations = new ClipSaveExecutor(Path.Combine(FileSystem.AppDataDirectory, "save-operations"),
+            new CameraClipSaveEffect(client, clip => { try { annotations.Preserve(clip); } catch (Exception) { } }));
+        app = new(clipSaves: saveOperations, cameraControls: effects,
+            observations: new TableObservationEffect(() => table, () => player is null ? 0 : MediaGeneration(), () => active && sessionMode == TableSessionMode.Live && selection.Kind == ViewingSource.Live),
             gameJournal: new GameJournalStore(Path.Combine(FileSystem.AppDataDirectory, "game-state")), phoneCorrected: savedPhoneCorrection);
         InitializeAnnotations();
         InitializeClips();
         InitializeTable();
-        Agent = new(agentClient, _ => { }, new ShellViewState());
+        Agent = new(agentClient, options => options.AddGeneratedToolBlocks(), new ShellViewState());
         subscription = app.Subscribe(state => {
             if (savedPhoneCorrection != state.Presentation.PhoneCorrected)
             {
@@ -120,19 +136,24 @@ public sealed partial class ShellSession : IDisposable
         ShowError(selection.Kind == ViewingSource.Live ? "The table view is reconnecting." : "This clip could not play. Try opening it again.");
     }
 
-    public Task ConnectAsync(string address) => MainThread.InvokeOnMainThreadAsync(() => ConnectCoreAsync(address));
-    async Task ConnectCoreAsync(string address)
+    public Task ConnectAsync(string address) => MainThread.InvokeOnMainThreadAsync(async () =>
+    { await ConnectCoreAsync(address, CommandOrigin.Touch, Guid.NewGuid(), CancellationToken.None); });
+    public Task<CommandReceipt?> ConnectCameraFromVoiceAsync(string address, string callId, CancellationToken cancellation) =>
+        MainThread.InvokeOnMainThreadAsync(() => ConnectCoreAsync(address, CommandOrigin.Sky, VoiceOperationId(callId, "connect-camera"), cancellation));
+
+    async Task<CommandReceipt?> ConnectCoreAsync(string address, CommandOrigin origin, Guid operationId, CancellationToken operationCancellation)
     {
-        if (!active || foreground is null) return;
+        if (!active || foreground is null) return null;
         DismissNotice();
-        var cancellation = foreground.Token;
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(foreground.Token, operationCancellation);
+        var cancellation = linked.Token;
         if (await Permissions.RequestAsync<LocalNetworkPermission>() != PermissionStatus.Granted)
-        { ShowError("Allow nearby devices to connect your camera."); return; }
+        { ShowError("Allow nearby devices to connect your camera."); return null; }
         cancellation.ThrowIfCancellationRequested();
-        Stop(); var generation = selection.Begin(ViewingSource.Live);
+        sessionMode = TableSessionMode.None; Stop(); var generation = selection.Begin(ViewingSource.Live);
         Message = "Connecting to your camera…"; Publish();
-        var result = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, app.State.Version, new ConnectCamera(address)), cancellation);
-        if (cancellation.IsCancellationRequested || generation != selection.Generation || disposed) return;
+        var result = await app.DispatchAsync(new(operationId, origin, app.State.Version, new ConnectCamera(address)), cancellation);
+        if (cancellation.IsCancellationRequested || generation != selection.Generation || disposed) return null;
         Message = result.Succeeded ? "Camera connected." : result.Message;
         chrome.SetAttention(!result.Succeeded);
         if (result.Succeeded)
@@ -141,6 +162,7 @@ public sealed partial class ShellSession : IDisposable
             Android.App.Application.Context.GetSharedPreferences("skyeye", Android.Content.FileCreationMode.Private)!.Edit()!.PutString("camera", client.Address)!.Apply();
         }
         ApplyCameraView(generation); Publish();
+        return result;
     }
     public string SavedAddress => Android.App.Application.Context.GetSharedPreferences("skyeye", Android.Content.FileCreationMode.Private)!
         .GetString("camera", Preferences.Get("shell-camera", "http://192.168.1.124:8765"))!;
@@ -195,6 +217,7 @@ public sealed partial class ShellSession : IDisposable
     }
     public void Suspend()
     {
+        CloseVisionDashboard();
         ReleaseMotion();
         CheckpointAnnotations();
         StopPocketFraming();
@@ -273,6 +296,8 @@ public sealed partial class ShellSession : IDisposable
     {
         if (disposed) return;
         var state = app.State.Camera;
+        if (sessionMode != TableSessionMode.None && state.Reachability == CameraReachability.Reachable
+            && state.Capture is not (CaptureState.Active or CaptureState.Paused)) sessionMode = TableSessionMode.None;
         if (TvReplaySelected && tvReplay.Connection != state.ConnectionId) { tvReplay.Clear(); cast?.Configure("", true); }
         if (tvLive.Request is not null && tvLive.Connection != state.ConnectionId) { tvLive.Clear(); cast?.Configure("", true); }
         InvalidateClipCatalog(state.ConnectionId);
@@ -294,6 +319,8 @@ public sealed partial class ShellSession : IDisposable
     public void Dispose()
     {
         if (disposed) return;
+        CloseVisionDashboard();
+        if (sky is not null) _ = EndSkyAsync();
         StopBackgroundTv();
 #if SKYEYE_PERFORMANCE
         StopPerformance();
@@ -301,15 +328,5 @@ public sealed partial class ShellSession : IDisposable
         Suspend(); disposed = true; clipLifetime.Cancel(); CancelClipTransfer(); clipLifetime.Dispose();
         table.Dispose();correctedClips?.Dispose();
         subscription.Dispose(); client.Dispose(); Agent.Dispose(); agentClient.Dispose();
-    }
-    // H01 only projects canonical state. Voice/tool transport is connected in A02.
-    sealed class ProjectionClient : IChatClient
-    {
-        public Task<ChatResponse> GetResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Voice is not connected in this shell yet.");
-        public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
-            => throw new NotSupportedException("Voice is not connected in this shell yet.");
-        public object? GetService(Type serviceType, object? serviceKey = null) => serviceKey is null && serviceType.IsInstanceOfType(this) ? this : null;
-        public void Dispose() { }
     }
 }

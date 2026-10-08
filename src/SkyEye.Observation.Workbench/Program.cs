@@ -1,14 +1,19 @@
 using SkyEye.Observation;
+using System.Collections.Immutable;
+using System.Security.Cryptography;
 
 try
 {
     if (args.Length == 3 && args[0] == "seed") { SeedFixtures.Write(args[1], args[2]); return; }
     if (args.Length == 3 && args[0] == "import-verification") { Console.WriteLine(VerificationCaptureImport.Import(args[1], args[2])); return; }
-    if (args.Length == 0 || args[0] is not ("validate" or "replay" or "freeze" or "baseline" or "verification"))
-        throw new ArgumentException("Usage: validate|replay|freeze|baseline|verification --root DIR --manifest FILE [--output FILE] [--lock FILE] [--detections FILE] [--requests FILE] [--tolerance NUMBER]");
+    if (args.Length == 4 && args[0] == "import-diagnostic-labels")
+    { Console.WriteLine(DiagnosticLabelCaptureImport.Import(args[1], args[2], args[3])); return; }
+    if (args.Length == 0 || args[0] is not ("validate" or "replay" or "freeze" or "baseline" or "verification" or "compare" or "export-yolo"))
+        throw new ArgumentException("Usage: validate|replay|freeze|baseline|verification|compare|export-yolo --root DIR --manifest FILE [--output FILE] [--output-dir DIR] [--lock FILE] [--detections FILE] [--requests FILE] [--current FILE --learned FILE --hybrid FILE --split Development|Holdout] [--tolerance NUMBER] | import-diagnostic-labels CAPTURE_ROOT OUTPUT_ROOT ASSIGNMENTS.json");
     var options = new Dictionary<string, string>();
     for (int i = 1; i < args.Length; i += 2)
-        if (i + 1 == args.Length || args[i] is not ("--root" or "--manifest" or "--output" or "--lock" or "--detections" or "--requests" or "--tolerance")
+        if (i + 1 == args.Length || args[i] is not ("--root" or "--manifest" or "--output" or "--lock" or "--detections" or "--requests" or "--tolerance"
+            or "--current" or "--learned" or "--hybrid" or "--split" or "--output-dir")
             || !options.TryAdd(args[i], args[i + 1])) throw new ArgumentException("Unknown, duplicate or incomplete option.");
     string Required(string name) => options.GetValueOrDefault(name) ?? throw new ArgumentException("Missing " + name);
     var manifestPath = Path.GetFullPath(Required("--manifest"));
@@ -16,6 +21,8 @@ try
     var manifest = CorpusJson.Read<CorpusManifest>(manifestPath);
     var audit = CorpusValidation.Validate(manifest, files);
     var frozen = SplitLock.Freeze(manifest, files, manifestPath);
+    if ((args[0] is "compare" or "export-yolo") && !options.ContainsKey("--lock"))
+        throw new ArgumentException("O09 comparison/export requires --lock to freeze the session split and labels.");
     if (options.TryGetValue("--lock", out var lockPath)) SplitLock.Verify(CorpusJson.Read<FrozenCorpus>(lockPath), frozen);
     object result = args[0] switch
     {
@@ -28,8 +35,40 @@ try
             requestSha256 = CorpusFiles.Hash(File.ReadAllBytes(Required("--requests"))),
             provenance = "Recorded request scoring; offline timing is not live acceptance. Preserve per-session and per-stratum denominators.",
             windows = VerificationEvaluation.Score(manifest, files, CorpusJson.Read<VerificationWindow[]>(Required("--requests"))) },
+        "compare" => Compare(),
+        "export-yolo" => ExportYolo(),
         _ => throw new ArgumentException("Unknown command")
     };
+    object ExportYolo()
+    {
+        var outputDirectory = Path.GetFullPath(Required("--output-dir"));
+        var report = O09YoloDatasetExport.Export(manifest, frozen, files, outputDirectory);
+        return new { directory = outputDirectory, report };
+    }
+    object Compare()
+    {
+        var split = Required("--split").ToLowerInvariant() switch
+        {
+            "development" => CorpusSplit.Development,
+            "holdout" => CorpusSplit.Holdout,
+            _ => throw new ArgumentException("O09 --split must be Development or Holdout.")
+        };
+        if (!options.ContainsKey("--tolerance")) throw new ArgumentException("O09 comparison requires a precommitted --tolerance appropriate to the frozen coordinate space.");
+        double tolerance = double.Parse(Required("--tolerance"), System.Globalization.CultureInfo.InvariantCulture);
+        O09CandidateInput Candidate(string name, string key)
+        {
+            var path = Path.GetFullPath(Required(key));
+            var info = new FileInfo(path);
+            if (!info.Exists || info.Length > 256L * 1024 * 1024) throw new InvalidDataException("Candidate output is missing or exceeds the 256 MiB read bound: " + key);
+            var bytes = File.ReadAllBytes(path);
+            var sha = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+            var detections = (System.Text.Json.JsonSerializer.Deserialize<StoredDetection[]>(bytes, CorpusJson.Options)
+                ?? throw new InvalidDataException("Candidate output is empty: " + key)).ToImmutableArray();
+            return new(name, sha, detections);
+        }
+        return O09Comparison.Compare(manifest, frozen, files, split,
+            [Candidate("current", "--current"), Candidate("learned", "--learned"), Candidate("hybrid", "--hybrid")], tolerance);
+    }
     object Baseline()
     {
         var detections = CorpusJson.Read<StoredDetection[]>(Required("--detections"));

@@ -1,0 +1,43 @@
+@implements IDisposable
+
+@code {
+    readonly SemaphoreSlim turnGate = new(1, 1);
+    CancellationTokenSource? activeTurn;
+    [CascadingParameter] public AgentContext Context { get; set; } = null!;
+    [Parameter] public ShellSession Session { get; set; } = null!;
+
+    protected override void OnInitialized()
+    {
+        Session.SkyAgentTurnRequested += SendTurn;
+        Session.SkyAgentTurnInterrupted += InterruptTurn;
+    }
+
+    void SendTurn(string transcript) => _ = SendTurnAsync(transcript);
+
+    async Task SendTurnAsync(string transcript)
+    {
+        await turnGate.WaitAsync();
+        using var turn = new CancellationTokenSource();
+        activeTurn = turn;
+        try { await Context.SendMessageAsync(new Microsoft.Extensions.AI.ChatMessage(Microsoft.Extensions.AI.ChatRole.User, transcript), turn.Token); }
+        catch (OperationCanceledException) { }
+        catch (Exception) { Session.ReportSkyAgentProjectionFailure(); }
+        finally
+        {
+            if (ReferenceEquals(activeTurn, turn)) activeTurn = null;
+            turnGate.Release();
+        }
+    }
+
+    void InterruptTurn()
+    {
+        try { activeTurn?.Cancel(); } catch (ObjectDisposedException) { }
+    }
+
+    public void Dispose()
+    {
+        Session.SkyAgentTurnRequested -= SendTurn;
+        Session.SkyAgentTurnInterrupted -= InterruptTurn;
+        try { activeTurn?.Cancel(); } catch (ObjectDisposedException) { }
+    }
+}

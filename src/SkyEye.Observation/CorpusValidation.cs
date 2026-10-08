@@ -53,7 +53,7 @@ public static class CorpusValidation
             throw new InvalidDataException("Invalid source or split: " + s.Id);
         files.VerifyMedia(source.File, source.Sha256);
         var labels = CorpusJson.Read<SequenceLabels>(files.Resolve(s.LabelsFile));
-        if (labels.SchemaVersion != 1 || labels.SequenceId != s.Id || labels.CalibrationVersion != source.CalibrationVersion
+        if (labels.SchemaVersion is not (1 or 2) || labels.SequenceId != s.Id || labels.CalibrationVersion != source.CalibrationVersion
             || !CorpusFiles.Text(labels.Annotator) || labels.Frames.IsDefault || labels.Intervals.IsDefault
             || labels.Frames.Select(f => f.SampleId).Distinct().Count() != labels.Frames.Length
             || s.Split == CorpusSplit.Holdout && (!labels.Reviewed || s.Kind != CorpusKind.Real || !(s.Purpose == SequencePurpose.Shot || Verification(s.Purpose))))
@@ -70,6 +70,9 @@ public static class CorpusValidation
             var frame = indexed.SingleOrDefault(f => f.SampleId == label.SampleId);
             if (frame is null || frame.PixelSha256 != label.PixelSha256 || label.Balls.IsDefault
                 || label.CoordinateSpace is not ("image-normalized" or "table-2x1") || label.Balls.Length > 64
+                || labels.SchemaVersion == 1 && !label.Tags.IsDefaultOrEmpty
+                || !label.Tags.IsDefault && (label.Tags.Length > 32 || label.Tags.Any(tag => !CorpusFiles.Text(tag))
+                    || label.Tags.Distinct(StringComparer.Ordinal).Count() != label.Tags.Length)
                 || label.Balls.Select(b => b.Id).Distinct().Count() != label.Balls.Length
                 || label.Balls.Any(b => !CorpusFiles.Text(b.Id) || b.Colour is not ("red" or "yellow" or "cue" or "black" or "unknown")
                     || !Enum.IsDefined(b.Visibility) || !double.IsFinite(b.X) || !double.IsFinite(b.Y) || b.X < 0

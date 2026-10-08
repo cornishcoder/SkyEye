@@ -7,6 +7,10 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.AI" Version="0.1.0-preview.1.26466.103" />
     <Compile Include="../../src/SkyEye.Companion.Hybrid/Probes/ProbeChatClient.cs" Link="ProbeChatClient.cs" />
+    <Compile Include="../../src/SkyEye.Companion.Hybrid/SkyVoiceProjectionClient.cs" Link="SkyVoiceProjectionClient.cs" />
+    <Compile Include="../../src/SkyEye.Companion.Hybrid/SkyVoiceTranscript.cs" Link="SkyVoiceTranscript.cs" />
+    <Compile Include="../../src/SkyEye.Companion.Hybrid/SkyVoiceToolBlocks.cs" Link="SkyVoiceToolBlocks.cs" />
+    <Compile Include="../../src/SkyEye.Companion.Hybrid/SkyVoiceGameTools.cs" Link="SkyVoiceGameTools.cs" />
     <Compile Include="../../src/SkyEye.Companion.Hybrid/PlaybackSelection.cs" Link="PlaybackSelection.cs" />
     <Compile Include="../../src/SkyEye.Companion.Hybrid/TvReplaySelection.cs" Link="TvReplaySelection.cs" />
     <Compile Include="../../src/SkyEye.Companion.Hybrid/TvLiveSelection.cs" Link="TvLiveSelection.cs" />

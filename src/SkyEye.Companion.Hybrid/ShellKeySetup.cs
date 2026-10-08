@@ -23,6 +23,7 @@ public sealed partial class ShellSession
     public Task SetupKeyAsync() => MainThread.InvokeOnMainThreadAsync(async () =>
     {
         if (!active || disposed || keyDialog is not null) return;
+        if (sky is not null) { Message = "End the current Sky conversation before changing its key."; Changed?.Invoke(); return; }
         var token = foreground?.Token ?? new CancellationToken(true);
         var activity = Platform.CurrentActivity ?? throw new InvalidOperationException("Android activity required.");
         var closed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);

@@ -45,6 +45,33 @@ h3 { font-size: 14px; font-weight: 600; margin: 24px 0 8px; }
 .clip-actions { display: flex; gap: 12px; }
 .clip-section > summary { font-size: 17px; font-weight: 600; color: #e9f2f3; }
 .control-section { border-top: 1px solid #263a3b; margin-top: 20px; padding-top: 20px; }
+.sky-conversation { max-height: 260px; overflow-y: auto; margin-top: 14px; padding: 12px; border: 1px solid #263a3b; border-radius: 16px; background: #0b1517; white-space: pre-wrap; overflow-wrap: anywhere; }
+.sky-message { margin: 8px 0; color: #d4e4e4; font-size: 13px; line-height: 1.5; overflow-wrap: anywhere; }
+.sky-tool { margin: 8px 0; color: #a6babc; font-size: 12px; }
+.sky-tool pre { max-height: 120px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; color: #d4e4e4; }
+.vision-diagnostics-dump { max-height: 360px; overflow: auto; padding: 10px; border: 1px solid #263a3b; border-radius: 12px; background: #091214; color: #b9d6d2; font-size: 11px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+.vision-diagnostic-output { margin-top: 10px; }
+.vision-diagnostic-output > summary { min-height: 42px; display: flex; align-items: center; color: #a6babc; }
+.vision-label-editor { margin-top: 14px; padding: 12px; border: 1px solid #3a5554; border-radius: 12px; background: #0d191a; }
+.vision-label-editor h3 { margin: 0 0 8px; font-size: 16px; }
+.vision-label-tags { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; align-items: center; }
+.vision-label-tags label, .vision-label-editor > label { margin: 8px 0 4px; }
+.vision-label-tags select, .vision-label-editor > select { width: 100%; min-height: 40px; padding: 8px; border: 1px solid #3a5554; border-radius: 8px; background: #101d20; color: #eef5f2; }
+.vision-label-editor #vision-label-notes { display: block; width: 100%; box-sizing: border-box; padding: 8px; border: 1px solid #3a5554; border-radius: 8px; background: #101d20; color: #eef5f2; }
+.vision-label-scene-tags { display: flex; flex-wrap: wrap; gap: 4px 12px; margin: 8px 0; }
+.vision-label-scene-tags label, .vision-label-empty { display: inline-flex; align-items: center; gap: 6px; margin: 4px 0; }
+.vision-label-palette { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.vision-label-surface { position: relative; width: 100%; overflow: hidden; touch-action: none; user-select: none; background: #061012; border-radius: 8px; }
+.vision-label-surface img { display: block; width: 100%; height: 100%; object-fit: fill; pointer-events: none; }
+.vision-label-box, .vision-label-drag { position: absolute; box-sizing: border-box; border: 2px solid #fff; background: #ffffff18; pointer-events: none; }
+.vision-label-box span { position: absolute; left: 0; top: 0; padding: 1px 3px; color: #081114; background: #fff; font-size: 10px; white-space: nowrap; }
+.vision-label-box.colour-cue { border-color: #fff; }
+.vision-label-box.colour-black { border-color: #dc70ee; }
+.vision-label-box.colour-red { border-color: #ff5959; }
+.vision-label-box.colour-yellow { border-color: #ffe25a; }
+.vision-label-box.colour-unknown { border-color: #67dfff; }
+.vision-label-box.uncertain { border-style: dashed; }
+.vision-label-drag { border-color: #64f0ba; border-style: dashed; background: #64f0ba22; }
 .capture-actions { display: flex; flex-direction: column; }
 .quiet { background: transparent; color: #a5d9d0; }
 .camera-state { color: #87dfcb; font-size: 13px; }
@@ -66,3 +93,65 @@ summary { min-height: 48px; font-size: 13px; color: #a6babc; cursor: pointer; }
 #blazor-error-ui { display: none; padding: 16px; background: #601e2a; position: fixed; bottom: 0; width: 100%; z-index: 10; }
 #blazor-error-ui a { color: white; }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+
+/* Focused home actions with dedicated secondary screens. */
+.app-shell { justify-content: flex-end; padding: 12px 14px max(14px, env(safe-area-inset-bottom)); }
+.home-panel, .screen-panel { width: min(100%, 720px); max-height: min(88dvh, 900px); align-self: center; overflow-y: auto; overscroll-behavior: contain; padding: 18px; border: 1px solid #263a3b; border-radius: 26px; background: #0d191bf5; box-shadow: 0 12px 44px #0008; }
+.home-panel { max-height: none; overflow: visible; display: flex; flex-direction: column; gap: 9px; padding: 14px; }
+.home-heading, .screen-heading { display: flex; align-items: center; gap: 12px; }
+.home-heading { justify-content: flex-start; min-height: 36px; }
+.eyebrow { color: #88e0cd; font-size: 10px; font-weight: 800; letter-spacing: .18em; }
+.home-status { margin: 3px 0 0; color: #a6babc; font-size: 13px; }
+.icon-button { width: 48px; min-width: 48px; min-height: 48px; height: 48px; display: inline-grid; place-items: center; padding: 11px; border: 1px solid #35494b; border-radius: 15px; background: #152527; color: #d9e8e8; }
+.icon-button svg, .action-icon svg { width: 23px; height: 23px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+.settings-button svg { fill: currentColor; stroke-width: 0; }
+.back-button svg { width: 24px; height: 24px; }
+.screen-heading { position: sticky; top: -18px; z-index: 2; margin: -18px -18px 4px; padding: 12px 18px; border-bottom: 1px solid #263a3b; background: #0d191b; }
+.screen-heading h1 { margin-top: 1px; }
+.settings-physics { margin-left: auto; max-width: 42%; color: #a6babc; font-size: 11px; line-height: 1.4; text-align: right; }
+.home-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.home-icon-button { width: 100%; min-width: 0; min-height: 76px; max-height: 104px; aspect-ratio: 1.15; display: grid; place-items: center; padding: 10px; border: 1px solid #293e40; border-radius: 20px; background: #152527; color: #91e4d1; }
+.home-icon-button svg { width: 36px; height: 36px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
+.home-icon-button:active { background: #203536; transform: scale(.97); }
+.settings-home-button { color: #c9d7d8; }
+.settings-home-button svg { fill: currentColor; stroke-width: 0; }
+.sky-button.selected { border-color: #75dfb9; background: #17312d; color: #a8f2d2; box-shadow: inset 0 0 0 1px #75dfb955; }
+.dark-session { color: #c6b9ff; }
+.end-session { border-color: #634448; background: #2a1d20; color: #ffaaa7; }
+.physics-status { display: flex; align-items: center; gap: 8px; min-height: 15px; margin: 0; padding: 1px 2px 0; color: #a6babc; font-size: 11px; line-height: 1.3; }
+.status-dot { width: 8px; height: 8px; flex: 0 0 8px; border-radius: 50%; background: #778b8c; }
+.status-dot.ready { background: #75dfb9; box-shadow: 0 0 9px #75dfb977; }
+.status-dot.off { background: #819091; }
+.home-message { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: #ffcfaa; font-size: 12px; line-height: 1.4; }
+.home-message .quiet { flex: 0 0 auto; min-height: 38px; }
+.screen-panel { padding-top: 18px; }
+.screen-panel > .control-section:first-of-type { margin-top: 4px; }
+.settings-group { margin-top: 12px; padding: 0 14px 12px; border: 1px solid #263a3b; border-radius: 18px; background: #111f21; }
+.settings-group > summary { min-height: 52px; display: flex; align-items: center; color: #e9f2f3; font-size: 14px; font-weight: 600; list-style-position: outside; }
+.settings-group[open] > summary { border-bottom: 1px solid #263a3b; }
+.settings-group .control-section { margin-top: 14px; padding-top: 14px; }
+.settings-group .control-section:first-child { border-top: 0; }
+.camera-settings { margin-top: 8px; }
+.camera-settings > h2 { margin-top: 0; }
+.clips-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.clips-heading h2 { margin-bottom: 2px; }
+.clips-heading .hint { margin: 0; }
+.refresh-button { font-size: 23px; }
+.local-clips-heading { margin-top: 28px; padding-top: 18px; border-top: 1px solid #263a3b; }
+.clip { padding: 13px 0; }
+.clip-actions button { flex: 1; }
+.screen-panel > .control-section { border-top: 0; margin-top: 10px; padding-top: 0; }
+@media (max-width: 360px) {
+    .app-shell { padding-inline: 8px; }
+    .home-panel, .screen-panel { padding-inline: 12px; border-radius: 22px; }
+    .home-panel { padding: 12px; gap: 7px; }
+    .home-icon-button { min-height: 68px; border-radius: 17px; }
+    .home-icon-button svg { width: 32px; height: 32px; }
+    .screen-heading { margin-inline: -12px; padding-inline: 12px; }
+}
+@media (max-height: 760px) {
+    .home-panel { gap: 7px; padding-block: 10px; }
+    .home-actions { gap: 6px; }
+    .home-icon-button { min-height: 64px; aspect-ratio: 1.35; border-radius: 16px; }
+    .home-icon-button svg { width: 30px; height: 30px; }
+}

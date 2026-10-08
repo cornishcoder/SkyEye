@@ -1,3 +1,4 @@
+using System.Text.Json;
 using SkyEye.Core;
 using SkyEye.Core.Analysis;
 using SkyEye.Core.Application;
@@ -18,12 +19,40 @@ public sealed partial class ShellSession
     public bool EditingTable => edit.Mode != TableEditMode.None;
     public double EditorHeight => Math.Min(editorLimit, (edit.Mode == TableEditMode.Correction ? 360 : 260) * FontScale);
     public void SetEditorLimit(double height) { if (height > 0 && Math.Abs(editorLimit - height) > .5) { editorLimit = height; Changed?.Invoke(); } }
-    public bool CanAnalyzeTable => app.State.Camera is { CanControl: true, Capture: CaptureState.Active } && selection.Kind == ViewingSource.Live;
+    public bool CanAnalyzeTable => sessionMode == TableSessionMode.Live
+        && app.State.Camera is { CanControl: true, Capture: CaptureState.Active } && selection.Kind == ViewingSource.Live;
     public bool HasTableCalibration => table.State.Calibration is not null;
-    public bool CanCorrectTable => CanAnalyzeTable && table.State is { Calibration: not null, Table: not null };
+    public bool CanCorrectTable => CanAnalyzeTable && table.VisionDiagnostics.Active == false && table.State is { Calibration: not null, Table: not null };
     public bool CanApplyTableEdit => CanAnalyzeTable && edit.Matches(table.State.Generation, table.State.Table?.Version)
         && (edit.Mode == TableEditMode.Correction || edit.Corners.Count == 4);
     public AdviceTargetGroup TargetGroup => app.State.Advice.TargetGroup;
+    public bool VisionDiagnosticsActive => table.VisionDiagnostics.Active;
+    public bool CanOpenVisionDashboard => CanAnalyzeTable && HasTableCalibration && !EditingTable
+        && (VisionDiagnosticsActive || CanStartVisionDiagnostics);
+    public Guid VisionDiagnosticSessionId => table.VisionDiagnostics.SessionId;
+    public string VisionDiagnosticRecordingSessionId => table.VisionDiagnostics.RecordingSessionId;
+    public bool VisionDiagnosticLabelCapturePending => table.VisionDiagnostics.LabelCapturePending;
+    public bool CanStartVisionDiagnostics => CanAnalyzeTable && HasTableCalibration && !EditingTable && !VisionDiagnosticsActive
+        && !table.HasPendingWork && (visionDiagnosticSavedLabels == 0 || visionDiagnosticLabelSessionFinalized);
+    public string VisionDiagnosticsStatus { get; private set; } = "Diagnostics are off.";
+    public string VisionDiagnosticsDump
+    {
+        get
+        {
+            var snapshot = table.VisionDiagnostics;
+            if (snapshot.LabelFrame is not null || snapshot.LabelCapturePending) return "Detector output is hidden while a frame is being labelled.";
+            var recent = snapshot.Samples.TakeLast(8).ToArray();
+            return JsonSerializer.Serialize(new
+            {
+                active = snapshot.Active,
+                sessionId = snapshot.SessionId,
+                snapshot.StartedAt,
+                snapshot.Status,
+                snapshot.TotalSamples,
+                shownSamples = recent
+            }, new JsonSerializerOptions { WriteIndented = true });
+        }
+    }
     public Task ObserveTableAsync() => MainThread.InvokeOnMainThreadAsync(async () =>
     { if (active && foreground is not null && !EditingTable) await UpdateTableAsync(foreground.Token); });
     public string TableStatus { get; private set; } = "Calibrate your table to check its balls.";
@@ -31,12 +60,61 @@ public sealed partial class ShellSession
         : edit.Mode == TableEditMode.Correction ? edit.AddingBall ? "Tap the cloth to add the selected colour." : "Tap a ball to select it. Drag it to adjust its position."
         : edit.Corners.Count == 4 ? "Use these points only if they match the cloth boundary." : "Tap the cloth corners in order: top right, bottom right, bottom left, top left.";
 
-    void InitializeTable() => table = new(new PlayerTableFrameSource(() => player, () => app.State.Camera, () => active && selection.Kind == ViewingSource.Live,
-        token => MainThread.InvokeOnMainThreadAsync(() => RefreshAsync(token))), new VisionAnalyzer(),
-        new CameraCalibrationStore(Android.App.Application.Context, () => client.Address, GeometryKey));
+    void InitializeTable()
+    {
+        table = new(new PlayerTableFrameSource(() => player, () => app.State.Camera,
+            () => active && sessionMode == TableSessionMode.Live && selection.Kind == ViewingSource.Live,
+            token => MainThread.InvokeOnMainThreadAsync(() => RefreshAsync(token))), new VisionAnalyzer(),
+            new CameraCalibrationStore(Android.App.Application.Context, () => client.Address, GeometryKey));
+        table.VisionDiagnosticsChanged += OnVisionDiagnosticsChanged;
+    }
+    void OnVisionDiagnosticsChanged()
+    {
+        if (disposed) return;
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            if (disposed) return;
+            var snapshot = table.VisionDiagnostics;
+            SyncVisionDiagnosticLabelState(snapshot);
+            VisionDiagnosticsStatus = snapshot.Status;
+            if (!snapshot.Active && VisionDashboardActive)
+            {
+                CloseVisionDashboard();
+                VisionDashboardStatus = "Dashboard stopped because live sampling ended.";
+            }
+            Changed?.Invoke();
+        });
+    }
+    public Task StartVisionDiagnosticsAsync() => MainThread.InvokeOnMainThreadAsync(() =>
+    {
+        if (!CanStartVisionDiagnostics)
+        {
+            VisionDiagnosticsStatus = visionDiagnosticSavedLabels > 0 && !visionDiagnosticLabelSessionFinalized
+                ? "Finish the current reviewed label session before starting another."
+                : "Open the active calibrated live table and finish any table edit or analysis first.";
+            Changed?.Invoke(); return;
+        }
+        if (table.StartVisionDiagnostics(out var message)) VisionDiagnosticsStatus = message;
+        else VisionDiagnosticsStatus = message;
+        Changed?.Invoke();
+    });
+    public async Task StopVisionDiagnosticsAsync()
+    {
+        bool hadDashboard = VisionDashboardActive;
+        await StopVisionDashboardServerAsync().ConfigureAwait(false);
+        await table.StopVisionDiagnosticsAsync().ConfigureAwait(false);
+        if (!disposed) await MainThread.InvokeOnMainThreadAsync(() =>
+        {
+            VisionDiagnosticsStatus = table.VisionDiagnostics.Status;
+            if (hadDashboard) VisionDashboardStatus = "Laptop dashboard stopped.";
+            Changed?.Invoke();
+        });
+    }
     void BindTable(SkyEyeState state) => table.Bind(state.Camera, state.Advice.TargetGroup.ToString().ToLowerInvariant());
     void ObserveTable()
     {
+        if (sessionMode == TableSessionMode.Dark)
+        { TableStatus = "Dark session · table image analysis and shot physics are unavailable."; return; }
         var snapshot = table.State;
         if (EditingTable && (snapshot.Source is null || snapshot.Generation != edit.Generation))
         { CloseTableEdit(invalidatePicking: false); Message = "Camera changed. Table edit cancelled."; chrome.SetAttention(true); }
@@ -57,13 +135,14 @@ public sealed partial class ShellSession
                 : state.Occluded ? "Uncertain or obstructed. Check the detections."
                 : !state.Settled ? "Wait for the table to settle." : state.Confirmed ? "Layout confirmed." : "Check every ball before confirming.");
     }
-    async Task UpdateTableAsync(CancellationToken token, bool reviewFrame = false, bool includeChoices = false, ObservationMode mode = ObservationMode.Single)
+    async Task UpdateTableAsync(CancellationToken token, bool reviewFrame = false, bool includeChoices = false,
+        ObservationMode mode = ObservationMode.Single, Guid? operationId = null, CommandOrigin origin = CommandOrigin.Touch)
     {
         if (!CanAnalyzeTable) return;
         try
         {
             if (player is null || table.State.Source is not { } source) return;
-            var receipt = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, app.State.Version,
+            var receipt = await app.DispatchAsync(new(operationId ?? Guid.NewGuid(), origin, app.State.Version,
                 new ObserveTable(source, table.State.Generation, MediaGeneration(), reviewFrame, includeChoices, mode)), token);
             if (mode == ObservationMode.VerifyForAdvice) lastVerificationStatus = shotMessage = receipt.Message;
             if (!receipt.Succeeded)
@@ -77,10 +156,12 @@ public sealed partial class ShellSession
         catch (Exception) { if (!token.IsCancellationRequested && !disposed) await MainThread.InvokeOnMainThreadAsync(() => ShowError("Table analysis interrupted. Check the camera and try again.")); }
         if (!token.IsCancellationRequested && !disposed) await MainThread.InvokeOnMainThreadAsync(async () => { await ReconcileShotCatalogAsync(token); Publish(); });
     }
-    public Task CalibrateTableAsync() => MainThread.InvokeOnMainThreadAsync(async () =>
+    public Task CalibrateTableAsync() => PrepareTableCalibrationAsync(CancellationToken.None);
+    async Task PrepareTableCalibrationAsync(CancellationToken cancellation) => await MainThread.InvokeOnMainThreadAsync(async () =>
     {
         if (!CanAnalyzeTable || foreground is null || EditingTable) return;
-        var token = foreground.Token; DismissNotice(); suppressShotLoop = true; StopShotScenes(closeRelay:false); ClearSceneCheck();
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(foreground.Token, cancellation);
+        var token = linked.Token; DismissNotice(); suppressShotLoop = true; StopShotScenes(closeRelay:false); ClearSceneCheck();
         try
         {
             table.InvalidateCalibration(forgetStored: true);
@@ -88,7 +169,9 @@ public sealed partial class ShellSession
             var draft = await table.PrepareCalibrationAsync(token);
             if (token.IsCancellationRequested || disposed || draft.Generation != table.State.Generation) return;
             frozenFrame = draft.Jpeg; edit.BeginCalibration(draft.Generation, draft.Proposed);
-            SheetOpen = false; chrome.SetEditing(true); Message = "Review the frozen table corners."; Publish();
+            chrome.SetEditing(true); Message = edit.Corners.Count == 4
+                ? "Review the automatically detected table corners."
+                : "Review the frozen frame and select the four table corners."; Publish();
         }
         finally { suppressShotLoop = EditingTable; Publish(); }
     });
@@ -104,24 +187,31 @@ public sealed partial class ShellSession
             await ClearShotCatalogAsync(token);
             if (token.IsCancellationRequested || disposed || snapshot.Generation != table.State.Generation) return;
             player?.SetOverlay("{}"); frozenFrame = jpeg; edit.BeginCorrection(snapshot.Generation, layout, calibration);
-            SheetOpen = false; chrome.SetEditing(true); Message = "Review every ball on this frozen frame."; Publish();
+            chrome.SetEditing(true); Message = "Review every ball on this frozen frame."; Publish();
         }
         finally { suppressShotLoop = EditingTable; Publish(); }
     });
-    public async Task ApplyTableEditAsync()
+    public Task ApplyTableEditAsync() => ApplyTableEditAsync(CommandOrigin.Touch, null, CancellationToken.None);
+    async Task ApplyTableEditAsync(CommandOrigin origin, Guid? operationId, CancellationToken cancellation)
     {
-        if (!MainThread.IsMainThread) { await MainThread.InvokeOnMainThreadAsync(ApplyTableEditAsync); return; }
+        if (!MainThread.IsMainThread) { await MainThread.InvokeOnMainThreadAsync(() => ApplyTableEditAsync(origin, operationId, cancellation)); return; }
         if (!EditingTable || foreground is null || !active) return;
-        var token = foreground.Token;
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(foreground.Token, cancellation);
+        var token = linked.Token;
         try
         {
-            if (edit.Mode == TableEditMode.Correction) await UpdateTableAsync(token);
+            var editMode = edit.Mode;
+            if (editMode == TableEditMode.Correction) await UpdateTableAsync(token);
             if (token.IsCancellationRequested || !CanApplyTableEdit) { ShowError("This edit is no longer current. Cancel and review a fresh frame."); return; }
-            if (edit.Mode == TableEditMode.Calibration) table.ApplyCalibration(edit.Generation, edit.Corners.ToArray());
+            if (editMode == TableEditMode.Calibration) table.ApplyCalibration(edit.Generation, edit.Corners.ToArray());
             else table.Correct(edit.TableVersion, edit.LayoutText());
             player?.SetOverlay("{}"); CloseTableEdit(invalidatePicking: false);
-            Message = "Table update applied. Checking the current layout."; DismissNotice(); Publish();
-            await UpdateTableAsync(token);
+            Message = editMode == TableEditMode.Calibration
+                ? "Corners applied. Checking several fresh table views."
+                : "Table update applied. Checking the current layout.";
+            DismissNotice(); Publish();
+            await UpdateTableAsync(token, mode: editMode == TableEditMode.Calibration ? ObservationMode.VerifyForAdvice : ObservationMode.Single,
+                operationId: editMode == TableEditMode.Calibration ? operationId : null, origin: origin);
         }
         catch (OperationCanceledException) { }
         catch (ArgumentException e) { ShowError(e.Message); }

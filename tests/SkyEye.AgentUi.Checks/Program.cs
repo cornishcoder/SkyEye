@@ -1,9 +1,93 @@
 using Microsoft.AspNetCore.Components.AI;
 using System.Collections.Immutable;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using SkyEye.Core.Application;
+using SkyEye.GameState;
 using Microsoft.Extensions.AI;
+using SkyEye.Companion.Hybrid;
 using SkyEye.Companion.Hybrid.Probes;
 
 static void Check(bool condition, string name) { if (!condition) throw new Exception(name); }
+static Guid OperationId(string callId, string action) => new(SHA256.HashData(Encoding.UTF8.GetBytes(callId + "\n" + action)).AsSpan(0, 16));
+
+var transcript = new SkyVoiceTranscript();
+transcript.BeginSession();
+transcript.AddUserTranscript("Show ", final: false);
+transcript.AddUserTranscript("Show my shots", final: true);
+transcript.BeginResponse("response-voice");
+transcript.AddAssistantTranscript("response-voice", "response.output_text.delta", "I found two shots.");
+transcript.AddAssistantTranscript("response-voice", "response.output_audio_transcript.delta", "I found two shots.");
+transcript.FinishResponse("response-voice", completesTurn: true);
+Check(transcript.Text == "You: Show my shots" + Environment.NewLine + "Sky: I found two shots.", "transcript keeps both speakers and prefers the spoken transcript channel");
+transcript.BeginSession();
+transcript.AddAssistantTranscript("early-response", "response.output_audio_transcript.delta", "A response arrived early.");
+transcript.FinishResponse("early-response", completesTurn: true);
+transcript.AddUserTranscript("What is on the table?", final: true);
+Check(transcript.Text.EndsWith("You: What is on the table?" + Environment.NewLine + "Sky: A response arrived early.", StringComparison.Ordinal), "early response text is ordered after its late user transcript");
+for (int i = 0; i < 14; i++)
+{
+    transcript.AddUserTranscript("Turn " + i, final: true);
+    transcript.BeginResponse("bounded-" + i);
+    transcript.AddAssistantTranscript("bounded-" + i, "response.output_audio_transcript.delta", "Reply " + i);
+    transcript.FinishResponse("bounded-" + i, completesTurn: true);
+}
+Check(transcript.Text.Split(Environment.NewLine).Length <= 12 && !transcript.Text.Contains("Turn 0", StringComparison.Ordinal), "transcript history remains bounded to recent lines");
+transcript.AddUserTranscript("Explain the shot", final: true);
+transcript.BeginResponse("interrupted-response");
+transcript.AddAssistantTranscript("interrupted-response", "response.output_audio_transcript.delta", "It looks like ");
+transcript.InterruptResponse("interrupted-response");
+transcript.AddUserTranscript("Actually, stop", final: true);
+Check(!transcript.Text.Contains("It looks like", StringComparison.Ordinal) && transcript.Text.EndsWith("You: Actually, stop", StringComparison.Ordinal), "interruption drops partial speech and starts the new user turn cleanly");
+transcript.BeginSession();
+Check(transcript.Text.Contains("New Sky conversation", StringComparison.Ordinal), "transcript remains visible in memory across reconnects with a separator");
+Console.WriteLine("PASS bounded Sky transcript preserves user/assistant turns, event ordering, and spoken text");
+
+var gameApp = new AppCoordinator();
+var gameTools = new SkyVoiceGameTools(() => gameApp.State,
+    (envelope, token) => gameApp.DispatchAsync(envelope, token), OperationId);
+var newMatch = await gameTools.StartMatchAsync("match-start", 0, "Richard", "Alex", 3, CancellationToken.None);
+Check(JsonSerializer.SerializeToElement(newMatch).GetProperty("succeeded").GetBoolean() && gameApp.State.Game.Version == 1,
+    "voice starts a match through the canonical application writer");
+var staleFrame = await gameTools.StartFrameAsync("frame-stale", 0, "Richard", CancellationToken.None);
+Check(!JsonSerializer.SerializeToElement(staleFrame).GetProperty("succeeded").GetBoolean() && gameApp.State.Game.Version == 1,
+    "stale voice game versions are refused without changing state");
+var newFrame = await gameTools.StartFrameAsync("frame-start", 1, "Richard", CancellationToken.None);
+Check(JsonSerializer.SerializeToElement(newFrame).GetProperty("succeeded").GetBoolean() && gameApp.State.Game.Version == 2,
+    "voice starts a frame by the exact current player name");
+var colours = await gameTools.DeclareColoursAsync("colours", 2, "red", "Richard", CancellationToken.None);
+Check(JsonSerializer.SerializeToElement(colours).GetProperty("succeeded").GetBoolean()
+    && gameApp.State.Match.Players.Single(player => player.Name == "Richard").Group == "reds"
+    && gameApp.State.Match.Players.Single(player => player.Name == "Alex").Group == "yellows",
+    "voice group declaration uses the rules reducer and complementary colours");
+var turnChange = await gameTools.CorrectAsync("turn", 3, "turn", "Alex", null, null, null, null, CancellationToken.None);
+Check(JsonSerializer.SerializeToElement(turnChange).GetProperty("succeeded").GetBoolean()
+    && gameApp.State.Match.Name(gameApp.State.Game.Frame!.CurrentPlayer.Value) == "Alex",
+    "voice turn correction updates canonical GameState");
+var undone = await gameTools.UndoAsync("undo", 4, CancellationToken.None);
+Check(JsonSerializer.SerializeToElement(undone).GetProperty("succeeded").GetBoolean()
+    && gameApp.State.Match.Name(gameApp.State.Game.Frame!.CurrentPlayer.Value) == "Richard",
+    "voice undo reverses the latest eligible declared decision");
+var declaredShot = await gameTools.RecordShotAsync("shot", 5,
+    new DeclaredShot(false, DeclaredLegality.Unknown), replaceLatest: false, CancellationToken.None);
+Check(JsonSerializer.SerializeToElement(declaredShot).GetProperty("succeeded").GetBoolean()
+    && gameApp.State.Match.Rules is { Pending: true } && gameApp.State.Match.CorrectableShotInputId is not null,
+    "voice records only declared shot facts and exposes unresolved rules as pending");
+var correctedShot = await gameTools.RecordShotAsync("shot-correction", 6,
+    new DeclaredShot(false, DeclaredLegality.Legal), replaceLatest: true, CancellationToken.None);
+Check(JsonSerializer.SerializeToElement(correctedShot).GetProperty("succeeded").GetBoolean()
+    && gameApp.State.Match.CorrectableShotInputId == OperationId("shot-correction", "replace-shot"),
+    "voice replaces only the latest current-frame shot decision");
+var darkAwareTools = new SkyVoiceGameTools(() => gameApp.State,
+    (envelope, token) => gameApp.DispatchAsync(envelope, token), OperationId,
+    () => (false, "Unavailable during a dark session."));
+var darkAwareMatch = JsonSerializer.SerializeToElement(darkAwareTools.Read(CancellationToken.None));
+Check(!darkAwareMatch.GetProperty("physicsAvailable").GetBoolean()
+    && darkAwareMatch.GetProperty("physicsStatus").GetString() == "Unavailable during a dark session.",
+    "Sky match-state reads carry current physics availability and its limitation");
+Console.WriteLine("PASS Sky match tools read and update canonical GameState with version fences, declared facts and reversible corrections");
+
 using var client = new ProbeChatClient(TimeSpan.Zero);
 using var agent = ProbeAgent.Create(client);
 var blocks = new List<ContentBlock>(); bool pending = false;
@@ -17,6 +101,127 @@ Check(pending && tool.HasResult && tool.Group == "red" && tool.CandidateCount ==
 Check(agent.State.Value == new ProbeState(1, "red", 3) && client.CompletedOperations == 1, "application snapshot mapping");
 Check(blocks.OfType<RichContentBlock>().Any(b => b.RawText.Contains("Three fixture choices")), "streamed text update");
 Console.WriteLine("PASS real Blazor AI streaming, source-generated typed tool block and observable state mapping");
+
+using var voiceClient = new SkyVoiceProjectionClient();
+UIAgent<ProbeState> voiceAgent = new(voiceClient, options => options.AddGeneratedToolBlocks(), new ProbeState());
+using var voiceContext = new AgentContext(voiceAgent);
+var voiceBlocks = new System.Collections.Concurrent.ConcurrentQueue<ContentBlock>();
+using var voiceRegistration = voiceContext.RegisterOnBlockAdded((_, block) => voiceBlocks.Enqueue(block));
+Check(voiceClient.BeginTurn("Show my shots") is not null, "native transcript opens an Agent turn");
+var voiceTurn = Task.Run(() => voiceContext.SendMessageAsync(new ChatMessage(ChatRole.User, "Show my shots")));
+Check(voiceClient.StartResponse("response-1"), "native response correlates with the active Agent turn");
+Check(voiceClient.PublishAssistantText("response-1", "Checking the table."), "assistant transcript streams to Agent");
+Check(voiceClient.PublishToolCall("response-1", "call-1", "suggest_shots", "{}"), "native function call becomes an Agent tool block");
+Check(!voiceClient.PublishToolCall("response-1", "call-1", "suggest_shots", "{}"), "duplicate native function call is suppressed");
+Check(voiceClient.PublishToolResult("call-1", "{\"shown\":true}"), "native function result pairs with its call");
+Check(!voiceClient.PublishToolResult("call-1", "{\"shown\":true}"), "duplicate native result is suppressed");
+Check(voiceClient.PublishToolCall("response-1", "call-2", "select_shot_by_number", "{\"number\":2}"), "typed native arguments project to the selection block");
+Check(voiceClient.PublishToolResult("call-2", "{\"selected\":true}"), "selection result pairs with its correlated call");
+Check(voiceClient.PublishToolCall("response-1", "call-camera", "connect_camera", "{\"camera_index\":1}"), "camera connection request becomes a typed voice block");
+Check(voiceClient.PublishToolResult("call-camera", "{\"connected\":true}"), "camera connection result pairs with its call");
+Check(voiceClient.PublishToolCall("response-1", "call-live-session", "host_live_session", "{}"), "hosted live session request becomes a typed voice block");
+Check(voiceClient.PublishToolResult("call-live-session", "{\"ready\":true}"), "hosted live session result pairs with its call");
+Check(voiceClient.PublishToolCall("response-1", "call-host", "claim_camera_host", "{}"), "host claim becomes a typed voice block");
+Check(voiceClient.PublishToolResult("call-host", "{\"host\":true}"), "host claim result pairs with its call");
+Check(voiceClient.PublishToolCall("response-1", "call-capture", "start_capture", "{}"), "capture start becomes a typed voice block");
+Check(voiceClient.PublishToolResult("call-capture", "{\"succeeded\":true}"), "capture result pairs with its call");
+Check(voiceClient.PublishToolCall("response-1", "call-picker", "choose_chromecast", "{}"), "native Chromecast picker request becomes a typed voice block");
+Check(voiceClient.PublishToolResult("call-picker", "{\"pickerOpened\":true}"), "Cast picker result pairs with its call");
+Check(voiceClient.PublishToolCall("response-1", "call-cast", "cast_live_table", "{}"), "live Cast request becomes a typed voice block");
+Check(voiceClient.PublishToolResult("call-cast", "{\"playing\":true}"), "live Cast result pairs with its call");
+Check(voiceClient.PublishToolCall("response-1", "call-match-state", "get_match_state", "{}"), "match state read becomes a typed voice block");
+Check(voiceClient.PublishToolResult("call-match-state", "{\"gameVersion\":3}"), "match state result pairs with its call");
+Check(voiceClient.PublishToolCall("response-1", "call-match-correct", "correct_match_state", "{\"kind\":\"turn\",\"player_name\":\"Alex\",\"expected_game_version\":3}"), "match correction becomes a typed voice block");
+Check(voiceClient.PublishToolResult("call-match-correct", "{\"succeeded\":true}"), "match correction result pairs with its call");
+Check(voiceClient.PublishToolCall("response-1", "call-shot", "record_declared_shot", "{\"legality\":\"Unknown\",\"expected_game_version\":3}"), "declared shot becomes a typed voice block");
+Check(voiceClient.PublishToolResult("call-shot", "{\"succeeded\":true}"), "declared shot result pairs with its call");
+Check(voiceClient.PublishToolCall("response-1", "call-save", "save_recent_clip", "{\"seconds\":30}"), "saved clip request becomes a typed voice block");
+Check(voiceClient.PublishToolResult("call-save", "{\"saved\":true}"), "saved clip result pairs with its call");
+Check(voiceClient.PublishToolCall("response-1", "call-replay", "replay_recent", "{\"seconds\":30}"), "recent replay request becomes a typed voice block");
+Check(voiceClient.PublishToolResult("call-replay", "{\"playing\":true}"), "recent replay result pairs with its call");
+Check(voiceClient.PublishToolCall("response-1", "call-clips", "get_saved_clips", "{}"), "saved clip list becomes a typed voice block");
+Check(voiceClient.PublishToolResult("call-clips", "{\"available\":true}"), "saved clip list result pairs with its call");
+Check(voiceClient.PublishToolCall("response-1", "call-play-clip", "play_saved_clip", "{\"clip_number\":2,\"target\":\"tv\"}"), "saved clip playback becomes a typed voice block");
+Check(voiceClient.PublishToolResult("call-play-clip", "{\"playing\":true}"), "saved clip playback result pairs with its call");
+Check(voiceClient.PublishToolCall("response-1", "call-tv-control", "control_tv_replay", "{\"action\":\"seek\",\"seconds\":42}"), "TV replay control becomes a typed voice block");
+Check(voiceClient.PublishToolResult("call-tv-control", "{\"confirmed\":true}"), "TV replay control result pairs with its call");
+Check(voiceClient.PublishToolCall("response-1", "call-return-live", "return_to_live", "{}"), "return-live action becomes a typed voice block");
+Check(voiceClient.PublishToolResult("call-return-live", "{\"confirmed\":true}"), "return-live result pairs with its call");
+Check(voiceClient.FinishResponse("response-1", completesTurn: false), "tool-call response ends without closing the user turn");
+Check(voiceClient.StartResponse("response-2"), "tool follow-up response stays in the same Agent turn");
+Check(voiceClient.PublishAssistantText("response-2", "Three choices are ready."), "follow-up speech streams to Agent");
+Check(voiceClient.CompleteResponse("response-2"), "final native response closes the Agent stream");
+await voiceTurn.WaitAsync(TimeSpan.FromSeconds(5));
+var projectedTool = voiceBlocks.OfType<SkySuggestShotsBlock>().Single();
+Check(projectedTool.HasResult && projectedTool.ResultText == "{\"shown\":true}", "generated Sky tool block shows the native result");
+Check(voiceBlocks.OfType<SkySelectShotNumberBlock>().Single() is { HasResult: true, Number: 2 }, "generated Sky selection block retains its typed number");
+Check(voiceBlocks.OfType<SkyConnectCameraBlock>().Single() is { HasResult: true, CameraIndex: 1 }, "generated camera block retains the discovered camera index and operation result");
+Check(voiceBlocks.OfType<SkyHostLiveSessionBlock>().Single() is { HasResult: true, ResultText: "{\"ready\":true}" }, "generated hosted-session block exposes its operation result");
+Check(voiceBlocks.OfType<SkyClaimCameraHostBlock>().Single().HasResult && voiceBlocks.OfType<SkyStartCaptureBlock>().Single().HasResult, "generated host and capture blocks expose their operation results");
+Check(voiceBlocks.OfType<SkyChooseChromecastBlock>().Single().HasResult && voiceBlocks.OfType<SkyCastLiveTableBlock>().Single().HasResult, "generated Chromecast and live playback blocks expose correlated results");
+Check(voiceBlocks.OfType<SkyMatchStateBlock>().Single() is { HasResult: true, ResultText: "{\"gameVersion\":3}" }, "generated match state block shows the canonical snapshot result");
+Check(voiceBlocks.OfType<SkyCorrectMatchStateBlock>().Single() is { HasResult: true, Kind: "turn", ExpectedGameVersion: 3 }, "generated match correction block retains its versioned arguments");
+Check(voiceBlocks.OfType<SkyRecordDeclaredShotBlock>().Single() is { HasResult: true, Legality: "Unknown", ExpectedGameVersion: 3 }, "generated shot block retains explicit declaration fields");
+Check(voiceBlocks.OfType<SkySaveRecentClipBlock>().Single() is { HasResult: true, Seconds: 30 }
+    && voiceBlocks.OfType<SkyReplayRecentBlock>().Single() is { HasResult: true, Seconds: 30 }, "generated media blocks show their bounded actions and results");
+Check(voiceBlocks.OfType<SkySavedClipsBlock>().Single().HasResult
+    && voiceBlocks.OfType<SkyPlaySavedClipBlock>().Single() is { HasResult: true, ClipNumber: 2, Target: "tv" }, "generated saved-clip blocks retain current target selection");
+Check(voiceBlocks.OfType<SkyControlTvReplayBlock>().Single() is { HasResult: true, Action: "seek", Seconds: 42 }
+    && voiceBlocks.OfType<SkyReturnToLiveBlock>().Single().HasResult, "generated TV replay controls and return-live expose receiver results");
+Check(voiceBlocks.OfType<RichContentBlock>().Any(block => block.RawText.Contains("Three choices are ready")), "native assistant transcript becomes rich content");
+Check(!voiceClient.PublishAssistantText("response-2", "stale"), "completed response cannot append stale text");
+voiceAgent.Dispose();
+Console.WriteLine("PASS native Sky transcript, correlated tool/result blocks, follow-up response and duplicate suppression");
+
+using var bufferedClient = new SkyVoiceProjectionClient();
+UIAgent<ProbeState> bufferedAgent = new(bufferedClient, options => options.AddGeneratedToolBlocks(), new ProbeState());
+using var bufferedContext = new AgentContext(bufferedAgent);
+var bufferedBlocks = new System.Collections.Concurrent.ConcurrentQueue<ContentBlock>();
+using var bufferedRegistration = bufferedContext.RegisterOnBlockAdded((_, block) => bufferedBlocks.Enqueue(block));
+Check(bufferedClient.StartResponse("early-response"), "native response can arrive before transcript completion");
+Check(bufferedClient.PublishAssistantText("early-response", "I have your table."), "early response text is buffered");
+Check(bufferedClient.PublishToolCall("early-response", "early-call", "get_table_state", "{}"), "early native tool call is buffered");
+Check(bufferedClient.PublishToolResult("early-call", "{\"fresh\":true}"), "early native tool result is buffered");
+Check(bufferedClient.FinishResponse("early-response", completesTurn: false), "early tool response is marked finished");
+Check(bufferedClient.StartResponse("early-followup"), "early follow-up response is buffered in order");
+Check(bufferedClient.PublishAssistantText("early-followup", "The layout is fresh."), "early follow-up text is buffered");
+Check(bufferedClient.FinishResponse("early-followup", completesTurn: true), "early final response is marked complete");
+Check(bufferedClient.BeginTurn("Check this layout") is not null, "late transcript attaches all earlier response events");
+await bufferedContext.SendMessageAsync(new ChatMessage(ChatRole.User, "Check this layout")).WaitAsync(TimeSpan.FromSeconds(5));
+Check(bufferedBlocks.OfType<SkyTableStateBlock>().Single() is { HasResult: true, ResultText: "{\"fresh\":true}" }, "late transcript retains the buffered typed tool result");
+Check(bufferedBlocks.OfType<RichContentBlock>().Any(block => block.RawText.Contains("The layout is fresh")), "late transcript retains buffered assistant text");
+bufferedAgent.Dispose();
+Console.WriteLine("PASS response-before-transcript ordering buffers text, tool results and the final response");
+
+var interruptedClient = new SkyVoiceProjectionClient();
+UIAgent<ProbeState> interruptedVoiceAgent = new(interruptedClient, options => options.AddGeneratedToolBlocks(), new ProbeState());
+Check(interruptedClient.BeginTurn("Stop that answer") is not null, "interrupted voice turn is queued");
+var interruptedUpdate = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+var interruptedTurn = Task.Run(async () =>
+{
+    await foreach (var _ in interruptedVoiceAgent.SendMessageAsync(new(ChatRole.User, "Stop that answer")))
+        interruptedUpdate.TrySetResult();
+});
+Check(interruptedClient.StartResponse("response-old"), "interrupted response is correlated");
+Check(interruptedClient.PublishAssistantText("response-old", "The answer is starting."), "interrupted stream receives an initial update");
+await interruptedUpdate.Task.WaitAsync(TimeSpan.FromSeconds(5));
+interruptedClient.InterruptCurrent();
+bool streamStopped = false;
+try { await interruptedTurn.WaitAsync(TimeSpan.FromSeconds(5)); streamStopped = true; }
+catch (OperationCanceledException) { streamStopped = true; }
+Check(streamStopped && !interruptedClient.PublishAssistantText("response-old", "stale response"), "interruption ends UI stream and rejects late response events");
+Check(interruptedClient.BeginTurn("Fresh reply") is not null, "new user transcript opens a new turn after interruption");
+var recoveredTurn = Task.Run(async () =>
+{
+    await foreach (var _ in interruptedVoiceAgent.SendMessageAsync(new(ChatRole.User, "Fresh reply"))) { }
+});
+Check(interruptedClient.StartResponse("response-new"), "new response maps to the replacement turn");
+interruptedClient.InterruptResponse("response-old");
+Check(interruptedClient.PublishAssistantText("response-new", "The fresh response continues."), "late cancellation for an old response cannot cancel the new turn");
+Check(interruptedClient.CompleteResponse("response-new"), "replacement turn completes normally");
+await recoveredTurn.WaitAsync(TimeSpan.FromSeconds(5));
+interruptedVoiceAgent.Dispose();
+Console.WriteLine("PASS native voice interruption cancels the Agent stream, drops late events and preserves the next turn");
 
 using var slowClient = new ProbeChatClient(TimeSpan.FromSeconds(2));
 using var slowAgent = ProbeAgent.Create(slowClient);

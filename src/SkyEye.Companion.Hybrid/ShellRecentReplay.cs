@@ -19,10 +19,12 @@ public sealed partial class ShellSession
     public string RecentReplayStatus => !RecentReplaySupported && CanLoadClips ? "Update SkyEye Camera to use recent replay. Saved clips still work."
         : recentReplay is not null && !PreparingRecentReplay && !CanWatchRecentReplay ? "Temporary replay unavailable. Connect your TV and request recent footage again." : recentReplayStatus;
 
-    public Task RecentReplayAsync(int seconds) => MainThread.InvokeOnMainThreadAsync(async () =>
+    public Task RecentReplayAsync(int seconds) => RecentReplayAsync(seconds, CancellationToken.None);
+    public Task RecentReplayAsync(int seconds, CancellationToken operationCancellation) => MainThread.InvokeOnMainThreadAsync(async () =>
     {
         if (!CanRequestRecentReplay || foreground is null || disposed) return;
-        var token = foreground.Token; var oldClipRequest = tvReplay.Request; var oldLiveRequest = tvLive.Request;
+        using var linked = CancellationTokenSource.CreateLinkedTokenSource(foreground.Token, operationCancellation);
+        var token = linked.Token; var oldClipRequest = tvReplay.Request; var oldLiveRequest = tvLive.Request;
         PreparingRecentReplay = true; recentReplayStatus = "Preparing recent camera footage…"; DismissNotice(); Publish();
         try
         {

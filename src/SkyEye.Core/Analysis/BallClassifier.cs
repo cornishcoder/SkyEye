@@ -82,21 +82,32 @@ public static class BallClassifier
         for (int iteration = 0; iteration < 30; iteration++)
         {
             Array.Clear(counts); var sums = new HsvPixel[centres.Count];
+            var hueSines = new double[centres.Count]; var hueCosines = new double[centres.Count];
             for (int i = 0; i < pixels.Length; i++)
             {
                 int best = 0; double nearest = double.MaxValue;
                 for (int j = 0; j < centres.Count; j++) { double d = Distance(pixels[i], centres[j]); if (d < nearest) { nearest = d; best = j; } }
-                labels[i] = best; counts[best]++; var sum = sums[best]; var p = pixels[i]; sums[best] = new(sum.H + p.H, sum.S + p.S, sum.V + p.V);
+                labels[i] = best; counts[best]++; var sum = sums[best]; var p = pixels[i]; sums[best] = new(0, sum.S + p.S, sum.V + p.V);
+                double hueRadians = p.H * Math.PI / 90;
+                hueSines[best] += Math.Sin(hueRadians); hueCosines[best] += Math.Cos(hueRadians);
             }
             double movement = 0;
             for (int j = 0; j < centres.Count; j++) if (counts[j] > 0)
             {
-                var mean = new HsvPixel(sums[j].H / counts[j], sums[j].S / counts[j], sums[j].V / counts[j]);
+                double angle = Math.Atan2(hueSines[j], hueCosines[j]);
+                if (angle < 0) angle += 2 * Math.PI;
+                var mean = new HsvPixel(angle * 90 / Math.PI, sums[j].S / counts[j], sums[j].V / counts[j]);
                 movement += Distance(mean, centres[j]); centres[j] = mean;
             }
             if (movement < .01) break;
         }
         return centres.Select((c, i) => new ColourCluster(c, counts[i])).Where(c => c.Count > 0).ToArray();
     }
-    static double Distance(HsvPixel a, HsvPixel b) => (a.H - b.H) * (a.H - b.H) + (a.S - b.S) * (a.S - b.S) + (a.V - b.V) * (a.V - b.V);
+    static double Distance(HsvPixel a, HsvPixel b)
+    {
+        // OpenCV hue wraps at 180; red values close to 0 and 179 are neighbours.
+        double hue = Math.Abs(a.H - b.H);
+        hue = Math.Min(hue, 180 - hue);
+        return hue * hue + (a.S - b.S) * (a.S - b.S) + (a.V - b.V) * (a.V - b.V);
+    }
 }

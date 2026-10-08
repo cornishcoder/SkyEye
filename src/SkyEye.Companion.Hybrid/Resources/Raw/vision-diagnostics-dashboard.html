@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>SkyEye live vision diagnostics</title>
+  <style>
+    :root{font:14px/1.4 system-ui,sans-serif;color:#e8f0f1;background:#0b1115;color-scheme:dark;--muted:#9cabb2;--line:#273740;--panel:#111b20;--mint:#75e0ca;--amber:#ffc66c;--red:#ff756e}
+    *{box-sizing:border-box}body{margin:0;height:100vh;overflow:hidden;display:grid;grid-template-rows:58px 76px minmax(0,1fr) 190px;gap:10px;padding:12px}
+    header{display:flex;align-items:center;gap:14px;min-width:0}h1{font-size:19px;letter-spacing:.04em;margin:0}header p{margin:2px 0 0;color:var(--muted);font-size:12px}.live{margin-left:auto;display:flex;align-items:center;gap:8px;color:var(--muted)}.dot{width:9px;height:9px;border-radius:50%;background:#65747a}.dot.on{background:var(--mint);box-shadow:0 0 12px #75e0ca88}.dot.bad{background:var(--red)}
+    .metrics{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:9px}.metric,.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px}.metric{padding:10px 13px;min-width:0}.metric span{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}.metric strong{display:block;font-size:18px;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.workspace{display:grid;grid-template-columns:minmax(0,1.85fr) minmax(330px,1fr);gap:10px;min-height:0}.panel{min-width:0;min-height:0;overflow:hidden}.image-panel{display:grid;grid-template-rows:auto minmax(0,1fr)}.panel-heading{padding:10px 13px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px}.panel-heading h2,.section-title{margin:0;font-size:13px;letter-spacing:.04em}.panel-heading small{color:var(--muted);margin-left:auto}.canvas-wrap{position:relative;min-height:0;padding:8px;display:flex;align-items:center;justify-content:center;background:#080d10}.canvas-wrap canvas{display:block;width:100%;height:100%}.empty{position:absolute;color:var(--muted);text-align:center;padding:20px;pointer-events:none}
+    aside{display:grid;grid-template-rows:minmax(0,1.1fr) minmax(0,.9fr);gap:10px;min-height:0}.scroll{overflow:auto;padding:11px 13px}.section-title{margin-bottom:8px}.ball-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.ball{border:1px solid var(--line);border-radius:7px;padding:7px 8px;display:flex;gap:8px;align-items:center;min-width:0}.swatch{width:10px;height:10px;border-radius:50%;flex:0 0 auto}.ball strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ball small{margin-left:auto;color:var(--muted);white-space:nowrap}.kv{display:grid;grid-template-columns:minmax(100px,.7fr) minmax(0,1.3fr);gap:4px 10px;margin:0}.kv dt{color:var(--muted)}.kv dd{margin:0;overflow-wrap:anywhere}.warn{color:#ffd08c}.good{color:var(--mint)}.muted{color:var(--muted)}details{margin-top:9px}summary{cursor:pointer;color:#c4d0d3}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#091014;padding:9px;border-radius:7px;color:#bdd0d4;font:11px/1.4 ui-monospace,monospace;margin:7px 0 0}.history{display:grid;grid-template-rows:auto minmax(0,1fr)}.history-body{overflow:auto;padding:0 12px 9px}table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums;font-size:12px}th,td{text-align:left;border-bottom:1px solid #202e35;padding:5px 8px;white-space:nowrap}th{position:sticky;top:0;background:var(--panel);color:var(--muted);font-weight:500}.error{color:var(--red)}
+    @media(max-width:900px){body{height:auto;min-height:100vh;overflow:auto;grid-template-rows:auto auto auto auto}.workspace{grid-template-columns:1fr}.image-panel{min-height:55vh}aside{grid-template-rows:auto auto}.history{min-height:220px}.metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.metric:last-child{grid-column:1/-1}}
+    body{height:auto;min-height:100vh;overflow-x:hidden;overflow-y:auto;grid-template-rows:auto auto auto auto}
+    .workspace{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto}
+    .image-panel{height:72vh;min-height:420px}
+    aside{grid-template-columns:repeat(2,minmax(0,1fr));grid-template-rows:auto}
+    aside>.scroll{height:360px}
+    .history{height:240px;min-height:240px}
+    @media(max-width:900px){.image-panel{height:62vh;min-height:360px}aside{grid-template-columns:1fr;grid-template-rows:auto auto}aside>.scroll{height:300px}}
+  </style>
+</head>
+<body>
+  <header>
+    <div><h1>SKYEYE · LIVE VISION</h1><p>Sequential camera frames with detector and canonical game diagnostics</p></div>
+    <div class="live"><span id="dot" class="dot"></span><span id="status">Connecting to Pixel…</span></div>
+  </header>
+  <section class="metrics" aria-label="Live summary">
+    <div class="metric"><span>Analyzed frame</span><strong id="m-frame">Waiting</strong></div>
+    <div class="metric"><span>Frame age</span><strong id="m-age">—</strong></div>
+    <div class="metric"><span>Detected balls</span><strong id="m-balls">—</strong></div>
+    <div class="metric"><span>Analysis time</span><strong id="m-time">—</strong></div>
+    <div class="metric"><span>Game table</span><strong id="m-game">—</strong></div>
+  </section>
+  <main class="workspace">
+    <section class="panel image-panel">
+      <div class="panel-heading"><h2>Latest analyzed camera frame</h2><small id="frame-info">Waiting for fresh pixels</small></div>
+      <div class="canvas-wrap"><canvas id="table" aria-label="Camera frame with ball and candidate labels"></canvas><div id="empty" class="empty">Waiting for the first fresh analyzed frame from the Pixel</div></div>
+    </section>
+    <aside>
+      <section class="panel scroll">
+        <h2 class="section-title">Detected balls and candidates</h2>
+        <div id="balls" class="ball-list"><span class="muted">No analyzed frame yet.</span></div>
+        <details><summary>Every circle candidate</summary><div id="candidates" class="muted">Waiting for analysis.</div></details>
+      </section>
+      <section class="panel scroll">
+        <h2 class="section-title">Lighting and detector</h2><dl id="vision" class="kv"><dt>Detector</dt><dd>Waiting</dd></dl>
+        <details><summary>Warnings and raw frame analysis</summary><pre id="raw-vision">Waiting for analysis.</pre></details>
+        <details><summary>Canonical GameState and table state</summary><dl id="game" class="kv"></dl><pre id="raw-game">Waiting for state.</pre></details>
+      </section>
+    </aside>
+  </main>
+  <section class="panel history">
+    <div class="panel-heading"><h2>Recent sequential samples</h2><small>Latest 24 · new analysis about once per second</small></div>
+    <div class="history-body"><table><thead><tr><th>Sample</th><th>Captured</th><th>Frame ID</th><th>Balls</th><th>Analysis</th><th>Illumination gain</th><th>Detector state</th><th>Warnings</th></tr></thead><tbody id="samples"></tbody></table></div>
+  </section>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const canvas = $('table'), ctx = canvas.getContext('2d');
+  let state = null, currentImage = null, displayedDetection = null, drawnSequence = -1, requestBusy = false;
+  const color = kind => ({cue:'#f5f7f4',red:'#ff665f',yellow:'#ffd447',black:'#182126',unknown:'#ffc66c'})[String(kind||'unknown').toLowerCase()] || '#ffc66c';
+  const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const pretty = value => JSON.stringify(value,null,2);
+  function resizeAndDraw(){
+    const box=canvas.getBoundingClientRect(), dpr=window.devicePixelRatio||1;
+    if(!box.width||!box.height)return;
+    const w=Math.round(box.width*dpr),h=Math.round(box.height*dpr);
+    if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;}
+    ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,box.width,box.height);
+    if(!currentImage)return;
+    const scale=Math.min(box.width/currentImage.naturalWidth,box.height/currentImage.naturalHeight);
+    const dw=currentImage.naturalWidth*scale,dh=currentImage.naturalHeight*scale,ox=(box.width-dw)/2,oy=(box.height-dh)/2;
+    ctx.drawImage(currentImage,ox,oy,dw,dh);
+    const det=displayedDetection;if(!det)return;
+    for(const c of det.candidates||[]){
+      const x=ox+c.x*dw,y=oy+c.y*dh,rx=Math.max(4,c.radiusX*dw),ry=Math.max(4,c.radiusY*dh);
+      ctx.save();ctx.setLineDash([5,4]);ctx.lineWidth=1.5;ctx.strokeStyle='rgba(255,198,108,.68)';ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.stroke();ctx.restore();
+    }
+    for(const b of det.balls||[]){
+      const x=ox+b.x*dw,y=oy+b.y*dh,rx=Math.max(5,b.radiusX*dw),ry=Math.max(5,b.radiusY*dh),c=color(b.kind);
+      ctx.save();ctx.lineWidth=2.5;ctx.strokeStyle=c;ctx.fillStyle='rgba(8,14,17,.78)';ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+      const text=`${b.id} · ${b.kind} · ${(b.confidence*100).toFixed(0)}%`;ctx.font='600 12px system-ui';const tw=ctx.measureText(text).width+12,bh=21,lx=Math.max(ox,Math.min(ox+dw-tw,x-tw/2)),ly=Math.max(oy,y-ry-bh-3);
+      ctx.fillStyle='rgba(5,10,13,.92)';ctx.fillRect(lx,ly,tw,bh);ctx.strokeStyle=c;ctx.lineWidth=1;ctx.strokeRect(lx,ly,tw,bh);ctx.fillStyle='#f5f7f4';ctx.fillText(text,lx+6,ly+14);ctx.restore();
+    }
+  }
+  function renderBalls(det){
+    const balls=det?.balls||[];
+    $('balls').innerHTML=balls.length?balls.map(b=>`<div class="ball"><span class="swatch" style="background:${color(b.kind)}"></span><strong>${esc(b.id)} · ${esc(b.kind)}</strong><small>${(b.confidence*100).toFixed(0)}%</small></div>`).join(''):'<span class="muted">No balls detected in this frame.</span>';
+    const candidates=det?.candidates||[];
+    $('candidates').innerHTML=candidates.length?`<table><thead><tr><th>Label</th><th>Pattern</th><th>Body dark</th><th>Rim dark</th><th>Boundary support</th></tr></thead><tbody>${candidates.map(c=>`<tr><td>${esc(c.id)}</td><td>${esc(c.pattern)}</td><td>${fmt(c.bodyDarkFraction)}</td><td>${fmt(c.rimDarkFraction)}</td><td>${fmt(c.boundarySupport)} / ${fmt(c.candidateBoundarySupport)}</td></tr>`).join('')}</tbody></table>`:'No circle candidates.';
+  }
+  function fmt(v,d=2){return Number.isFinite(v)?Number(v).toFixed(d):'—'}
+  function renderVision(det){
+    const light=det?.illumination,rec=det?.recognition;
+    const entries=[['Normalization',light?.applied?'Applied':'Off'],['Reference brightness',fmt(light?.referenceBrightness,1)],['Illumination gain range',light?`${fmt(light.minimumGain)}–${fmt(light.maximumGain)}`:'—'],['Pixels adjusted',light?`${fmt(light.adjustedPixelPercent,1)}%`:'—'],['Recognition branch',rec?.branch||'—'],['Raw / final circles',rec?`${rec.rawCircleCount} / ${rec.finalCircleCount}`:'—'],['Cloth hue',det?det.clothHue+'°':'—'],['Color gains',det?.colourGains?.map(x=>fmt(x)).join(' · ')||'—'],['Runtime',det?.runtime||'—'],['Obstructed',det?String(det.obstructed):'—']];
+    $('vision').innerHTML=entries.map(([a,b])=>`<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join('');
+    $('raw-vision').textContent=pretty({uncertain:det?.uncertain,warnings:det?.warnings,verificationReason:det?.verificationReason,recognition:rec,illumination:light,circles:det?.circles});
+  }
+  function renderGame(s){
+    const g=s?.game||{},t=g.table||{},f=g.frame||{},m=g.match||{},tracked=s?.trackedTable;
+    const pairs=[['Game version',g.version??'—'],['Match',m.id||'None'],['Frame',f.id||'None'],['Current player',f.currentPlayer?.value||'—'],['Visit',f.visit??'—'],['Canonical motion',t.motion||'Unknown'],['Canonical table uncertain',t.uncertain??'—'],['Canonical table current',s?.gameTableCurrent?'Yes':'No / stale'],['Tracked detector layout',tracked?`${tracked.balls?.length||0} balls · ${tracked.settled?'settled':'not settled'} · ${tracked.occluded?'uncertain':'clear'}`:'None'],['Camera',s?.camera?`${s.camera.reachability} · ${s.camera.capture}${s.camera.canControl?' · host':''}`:'—']];
+    $('game').innerHTML=pairs.map(([a,b])=>`<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join('');
+    $('raw-game').textContent=pretty({game:g,match:s?.match,gameTableCurrent:s?.gameTableCurrent,gameError:s?.gameError,observation:s?.observation,trackedTable:tracked});
+    $('m-game').textContent=s?.gameTableCurrent?'Current':t.uncertain?'Uncertain':'Unknown';
+  }
+  function renderSamples(samples){
+    $('samples').innerHTML=(samples||[]).slice().reverse().map(s=>`<tr><td>${s.sequence}</td><td>${new Date(s.capturedAt).toLocaleTimeString()}</td><td>${s.frameId}</td><td class="${s.uncertain?'warn':'good'}">${s.ballCount}${s.uncertain?' · check':''}</td><td>${fmt(s.elapsedMs,1)} ms</td><td>${s.minimumGain==null?'—':fmt(s.minimumGain)}–${fmt(s.maximumGain)}</td><td>${s.uncertain?'Uncertain':'Clear'}</td><td>${esc((s.warnings||[]).join(' · '))}</td></tr>`).join('');
+  }
+  async function refresh(){
+    if(requestBusy)return;requestBusy=true;
+    try{
+      const response=await fetch('/api/snapshot',{cache:'no-store'});
+      if(!response.ok)throw new Error(`Pixel replied ${response.status}`);
+      const next=await response.json();state=next;
+      const fr=next.frame,det=next.detection;
+      $('status').textContent=next.status||'Connected';$('dot').className=`dot ${next.active?'on':'bad'}`;
+      $('m-frame').textContent=fr?`#${fr.sequence} · ${fr.frameId}`:'Waiting';$('m-age').textContent=fr?`${fmt(fr.frameAgeMs,0)} ms`:'—';
+      $('m-balls').textContent=det?`${det.balls.length} / ${det.circleCount}${det.uncertain?' · check':''}`:'—';$('m-time').textContent=det?`${fmt(det.elapsedMs,1)} ms`:'—';
+      $('frame-info').textContent=fr?`${fr.width}×${fr.height} · ${fr.frameSource} · source ${fr.sourceTimeUs} µs · ${new Date(fr.capturedAt).toLocaleTimeString()}`:'Waiting for fresh pixels';
+      $('empty').hidden=!!currentImage;
+      renderBalls(det);renderVision(det);renderGame(next);renderSamples(next.samples);
+      if(fr&&fr.sequence!==drawnSequence){
+        const imageResponse=await fetch(`/api/frame?sequence=${fr.sequence}`,{cache:'no-store'});
+        if(imageResponse.status===409)return;
+        if(!imageResponse.ok)throw new Error('The latest frame is not available yet');
+        if(imageResponse.headers.get('X-Diagnostic-Sequence')!==String(fr.sequence))return;
+        const blob=await imageResponse.blob(),url=URL.createObjectURL(blob),img=new Image(),frameState=next;
+        img.onload=()=>{if(currentImage?.src?.startsWith('blob:'))URL.revokeObjectURL(currentImage.src);currentImage=img;displayedDetection=frameState.detection;drawnSequence=fr.sequence;$('empty').hidden=true;resizeAndDraw();};img.onerror=()=>URL.revokeObjectURL(url);img.src=url;
+      }
+      resizeAndDraw();
+    }catch(e){$('status').textContent=e.message||'Connection to Pixel was interrupted';$('dot').className='dot bad';}
+    finally{requestBusy=false;}
+  }
+  window.addEventListener('resize',resizeAndDraw);setInterval(refresh,500);refresh();
+})();
+</script>
+</body>
+</html>

@@ -13,7 +13,7 @@ namespace SkyEye.Vision.Android;
 
 /// <summary>C# port of the upstream HSV/morphology/Hough pipeline with calibrated
 /// pocket masks, cue-reference normalization and bounded C# colour clustering.</summary>
-public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationAnalyzer
+public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationAnalyzer, ITableAnalyzerMetadata
 {
     static readonly object loadGate = new(); static bool loaded;
     readonly AnalysisCoordinates coordinates;
@@ -21,6 +21,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     readonly record struct Circle(double X, double Y, double Radius);
     public VisionAnalyzer(int width = 1000) : this(new VisionSettings(Width: width)) { }
     public VisionAnalyzer(VisionSettings settings) { settings.Validate(); this.settings = settings; coordinates = new(settings.Width); }
+    public string ConfigurationIdentity => System.Text.Json.JsonSerializer.Serialize(settings);
     static void Load()
     {
         lock (loadGate)
@@ -48,7 +49,15 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     VisionResult AnalyzePixels(Mat source, TableCalibration calibration, CancellationToken cancellation, BurstAppearance? appearance = null)
     {
         cancellation.ThrowIfCancellationRequested(); var watch = Stopwatch.StartNew(); var warnings = new List<string>();
-        using var warped = Warp(source, calibration);
+        using var rawWarped = Warp(source, calibration);
+        using var warped = new MatLease(new Mat()); rawWarped.Value.CopyTo(warped.Value);
+        IlluminationTelemetry illumination;
+        if (settings.LocalIlluminationNormalization)
+        {
+            using var correction = PipelineDiagnostics.Measure("illuminationNormalizationMs");
+            illumination = NormalizeIllumination(warped.Value, cancellation);
+        }
+        else illumination = new(false, 0, 1, 1, 0);
         using var hsv = new MatLease(new Mat()); Imgproc.CvtColor(warped.Value, hsv.Value, Imgproc.ColorBgr2hsv);
         byte[] pixels = Read(hsv.Value); var circles = Detect(hsv.Value, pixels, settings.InitialVotes, appearance is not null && settings.VerificationBodyRefinement);
         var proposals = circles.ToArray();
@@ -57,7 +66,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         bool boundaryUncertain = false;
         if (appearance is not null)
         {
-            var raw = Read(warped.Value);
+            var raw = Read(rawWarped.Value);
             for (int i = 0; i < circles.Length; i++)
             {
                 var fit = BallBoundaryRefiner.Refine(raw, coordinates.Width, coordinates.Height, new(circles[i].X, circles[i].Y), PoolGeometry.Radius * coordinates.Width);
@@ -132,7 +141,52 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         for (int i = 0; i < balls.Count; i++) for (int j = i + 1; j < balls.Count; j++) if ((balls[i].Position - balls[j].Position).Length < .040) { uncertain = true; warnings.Add("Overlapping circle candidates need checking."); }
         return new(balls.ToArray(), uncertain, warnings.Distinct().ToArray(), watch.Elapsed.TotalMilliseconds, circles.Length, normalized, Cv.Version, colourGains, ClothHue(pixels), obstructed, observations.ToArray())
         { Recognition = new(normalized ? "cue-normalized" : "raw", rawCircleCount, circles.Length, rawLabels.Select(l => l.Kind).ToArray(), colourGains, ClothHue(pixels), warnings.Distinct().ToArray()),
-            VerificationReason = referenceConflict ? ObservationReason.LightingChanged : null };
+            VerificationReason = referenceConflict ? ObservationReason.LightingChanged : null, Illumination = illumination };
+    }
+    IlluminationTelemetry NormalizeIllumination(Mat image, CancellationToken cancellation)
+    {
+        int width = image.Cols(), height = image.Rows();
+        using var gray = new MatLease(new Mat()); using var field = new MatLease(new Mat());
+        Imgproc.CvtColor(image, gray.Value, Imgproc.ColorBgr2gray);
+        int maximumKernel = Math.Min(width, height);
+        if (maximumKernel % 2 == 0) maximumKernel--;
+        int kernelWidth = Math.Min(maximumKernel, Math.Max(3, (int)Math.Round(settings.IlluminationKernelWidth * width / 1000.0) | 1));
+        if (kernelWidth < 3) return new(false, 0, 1, 1, 0);
+        using (var size = new Size(kernelWidth, kernelWidth)) Imgproc.GaussianBlur(gray.Value, field.Value, size, 0);
+        byte[] illumination = Read(field.Value);
+        var tableSamples = new List<byte>();
+        for (int y = height / 10; y < height * 9 / 10; y += 10)
+            for (int x = width / 10; x < width * 9 / 10; x += 10)
+            {
+                byte value = illumination[y * width + x];
+                if (value > 12) tableSamples.Add(value);
+            }
+        if (tableSamples.Count < 20) return new(false, 0, 1, 1, 0);
+        tableSamples.Sort();
+        double reference = tableSamples[tableSamples.Count / 2];
+        byte[] bgr = Read(image);
+        double minimumGain = double.MaxValue, maximumGain = 0;
+        long adjusted = 0;
+        for (int y = 0; y < height; y++)
+        {
+            if ((y & 31) == 0) cancellation.ThrowIfCancellationRequested();
+            int row = y * width;
+            int rowOffset = row * 3;
+            for (int x = 0; x < width; x++)
+            {
+                double gain = Math.Clamp(reference / Math.Max(55, (int)illumination[row + x]), .65, 1.55);
+                minimumGain = Math.Min(minimumGain, gain);
+                maximumGain = Math.Max(maximumGain, gain);
+                if (Math.Abs(gain - 1) > .05) adjusted++;
+                int offset = rowOffset + x * 3;
+                bgr[offset] = (byte)Math.Clamp((int)Math.Round(bgr[offset] * gain), 0, 255);
+                bgr[offset + 1] = (byte)Math.Clamp((int)Math.Round(bgr[offset + 1] * gain), 0, 255);
+                bgr[offset + 2] = (byte)Math.Clamp((int)Math.Round(bgr[offset + 2] * gain), 0, 255);
+            }
+        }
+        cancellation.ThrowIfCancellationRequested();
+        image.Put(0, 0, bgr);
+        return new(true, reference, minimumGain, maximumGain, adjusted * 100d / (width * (double)height));
     }
     MatLease Warp(Mat source, TableCalibration calibration)
     {
