@@ -7,12 +7,15 @@ public sealed record VerificationMeasurement(TableMotion Motion, ObservationReas
     double MaximumTileChange, double PerimeterChange, double IlluminationChange, VisionResult? Vision)
 {
     public double SensitiveTileChange { get; init; }
+    /// <summary>Strong changed-pixel fraction after removing the tile's per-channel exposure offset.</summary>
+    public double PhotometricResidualTileChange { get; init; }
     public double? MaximumBodyDisplacement { get; init; }
     public double? MaximumDetectedBodyDisplacement { get; init; }
     public double? MinimumTemplateMotionPixels { get; init; }
     public int SupportedBodies { get; init; }
     public Point? MaximumTileOrigin { get; init; }
     public Point? SensitiveTileOrigin { get; init; }
+    public Point? PhotometricResidualTileOrigin { get; init; }
 }
 public interface ITableVerificationAnalyzer
 {

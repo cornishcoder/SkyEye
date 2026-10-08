@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-10-08T21:43:12.7115287+01:00",
+  "analysisConfiguration": "o08-provisional-v14",
+  "userReportedPhysicalState": "stationary-and-clear",
+  "captureAdmission": "blocked",
+  "table": {
+    "ballCount": 16,
+    "detectorWarnings": [],
+    "confirmed": false,
+    "settled": false,
+    "softwareOccluded": true,
+    "observationOutcome": "Unsettled",
+    "motion": "Unknown",
+    "quality": "Unknown",
+    "reason": "InsufficientEvidence"
+  },
+  "verification": {
+    "independentFrames": 5,
+    "sourceSpanMs": 2033.511,
+    "maximumGapMs": 533.378,
+    "samples": [
+      { "frameId": 635, "motion": "Unknown", "reason": "InsufficientEvidence", "coverageValid": true, "maximumTileChange": 0.0, "sensitiveTileChange": 0.0, "perimeterChange": 0.0, "illuminationChange": 0.0, "maximumBodyDisplacementPx": null, "maximumDetectedBodyDisplacementPx": null, "supportedBodies": 0, "maximumTileOrigin": null },
+      { "frameId": 650, "motion": "Still", "reason": "None", "coverageValid": true, "maximumTileChange": 0.0, "sensitiveTileChange": 0.0, "perimeterChange": 0.0000411218, "illuminationChange": 0.828903125, "maximumBodyDisplacementPx": 0.21635642, "maximumDetectedBodyDisplacementPx": null, "supportedBodies": 16, "maximumTileOrigin": null },
+      { "frameId": 666, "motion": "Still", "reason": "None", "coverageValid": true, "maximumTileChange": 0.0, "sensitiveTileChange": 0.00390625, "perimeterChange": 0.0000205609, "illuminationChange": 1.055528125, "maximumBodyDisplacementPx": 0.282596998, "maximumDetectedBodyDisplacementPx": 2.094923659, "supportedBodies": 16, "maximumTileOrigin": null },
+      { "frameId": 681, "motion": "Unknown", "reason": "InsufficientEvidence", "coverageValid": true, "maximumTileChange": 0.01953125, "sensitiveTileChange": 0.009765625, "perimeterChange": 0.000411218, "illuminationChange": 2.733775, "maximumBodyDisplacementPx": 0.228306153, "maximumDetectedBodyDisplacementPx": null, "supportedBodies": 16, "maximumTileOrigin": { "x": 88, "y": 760 } },
+      { "frameId": 696, "motion": "Unknown", "reason": "InsufficientEvidence", "coverageValid": true, "maximumTileChange": 0.034179688, "sensitiveTileChange": 0.001953125, "perimeterChange": 0.001912164, "illuminationChange": 5.3399375, "maximumBodyDisplacementPx": 0.278209025, "maximumDetectedBodyDisplacementPx": 2.069051904, "supportedBodies": 16, "maximumTileOrigin": { "x": 88, "y": 696 } }
+    ]
+  },
+  "interpretation": "The user confirmed the table was physically still and clear. All 16 body templates had coverage; supported template displacement stayed below 0.29 warped pixels, and detected centre displacement stayed below the 6-pixel motion threshold. Two samples were withheld because a local raw tile change exceeded the 1% uncertainty threshold while edge-sensitive and perimeter changes remained low. The data is consistent with local illumination change but cannot prove its cause. No images were saved.",
+  "followupAttempts": [
+    {
+      "capturedAt": "2026-10-08T21:48:25.169405+01:00",
+      "analysisConfiguration": "o08-provisional-v14",
+      "userReportedPhysicalState": "stationary-and-clear",
+      "captureAdmission": "blocked",
+      "observationOutcome": "Unsettled",
+      "reason": "LightingChanged",
+      "ballCount": 16,
+      "detectorWarnings": [],
+      "verification": {
+        "independentFrames": 2,
+        "maximumGapMs": 504.411,
+        "samples": [
+          { "frameId": 726, "reason": "InsufficientEvidence", "illuminationChange": 0.0, "maximumTileChange": 0.0, "photometricResidualTileChange": 0.0, "sensitiveTileChange": 0.0, "perimeterChange": 0.0, "supportedBodies": 0 },
+          { "frameId": 741, "reason": "LightingChanged", "illuminationChange": 9.78788125, "maximumTileChange": 1.0, "photometricResidualTileChange": 0.349609375, "sensitiveTileChange": 0.35546875, "perimeterChange": 0.18204622, "maximumBodyDisplacementPx": 0.342812627, "maximumDetectedBodyDisplacementPx": null, "supportedBodies": 13, "photometricResidualTileOrigin": { "x": 248, "y": 664 } }
+        ]
+      },
+      "interpretation": "After the per-tile photometric correction was installed, the next confirmation stopped after two frames because the global mean changed by 9.79 gray levels. Local residual and perimeter changes were also high; the second frame had no full ball detection, so this attempt cannot distinguish a moving light pattern from another scene change. No motion feed was started."
+    },
+    {
+      "capturedAt": "2026-10-08T21:50:42.9397488+01:00",
+      "analysisConfiguration": "o08-provisional-v14",
+      "userReportedPhysicalState": "stationary-and-clear",
+      "captureAdmission": "blocked",
+      "observationOutcome": "Unsettled",
+      "reason": "Obstructed",
+      "ballCount": 16,
+      "detectorWarnings": ["A large object covers part of the playable surface."],
+      "verification": { "independentFrames": 1, "frameId": 4823, "sourceSpanMs": 0 },
+      "illumination": { "referenceBrightness": 48, "colourGains": [3.0, 2.575757576, 1.917293233], "adjustedPixelPercent": 100 },
+      "interpretation": "The following retry detected all 16 balls but stopped on a one-frame obstruction warning, despite the user's report that the table was still and clear. A subsequent live dashboard image visibly showed the table and balls without a person or cue over the cloth; it looked dim. This is evidence of a likely low-light/appearance false positive, not proof that obstruction detection is generally safe. No images were saved."
+    }
+  ],
+  "imagesSaved": false
+}
