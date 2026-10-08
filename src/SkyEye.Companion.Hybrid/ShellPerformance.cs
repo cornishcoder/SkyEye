@@ -119,6 +119,20 @@ public sealed partial class ShellSession
                 ,calibration = table.State.Calibration?.Corners
                 ,table = table.State.Table
                 ,candidateStatus = CandidateStatus
+                ,analysis = new
+                {
+                    sessionMode = sessionMode.ToString(),
+                    viewingSource = selection.Kind.ToString(),
+                    active,
+                    mediaGeneration = MediaGeneration(),
+                    generation = table.State.Generation,
+                    hasSource = table.State.Source is not null,
+                    hasCalibration = table.State.Calibration is not null,
+                    hasPendingWork = table.HasPendingWork,
+                    verificationProgress = table.State.VerificationProgress,
+                    diagnosticsActive = table.VisionDiagnostics.Active,
+                    diagnosticsStatus = table.VisionDiagnostics.Status
+                }
                 ,scene = JsonSerializer.Deserialize<JsonElement>(player?.SceneMetrics() ?? "{}")
                 ,copy = JsonSerializer.Deserialize<JsonElement>(player?.DecodedCopyMetrics() ?? "{}")
             }));
