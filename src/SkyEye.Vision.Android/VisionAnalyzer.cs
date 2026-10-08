@@ -22,7 +22,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     public VisionAnalyzer(int width = 1000) : this(new VisionSettings(Width: width)) { }
     public VisionAnalyzer(VisionSettings settings) { settings.Validate(); this.settings = settings; coordinates = new(settings.Width); }
     public string ConfigurationIdentity => System.Text.Json.JsonSerializer.Serialize(new
-    { Algorithm = "cue-ball-current-body-v2", Settings = settings });
+    { Algorithm = "body-priority-local-contrast-v3", Settings = settings });
     static void Load()
     {
         lock (loadGate)
@@ -60,7 +60,9 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         }
         else illumination = new(false, 0, 1, 1, 0);
         using var hsv = new MatLease(new Mat()); Imgproc.CvtColor(warped.Value, hsv.Value, Imgproc.ColorBgr2hsv);
-        byte[] pixels = Read(hsv.Value); var circles = Detect(hsv.Value, pixels, settings.InitialVotes, appearance is not null && settings.VerificationBodyRefinement);
+        byte[] pixels = Read(hsv.Value); var circles = Detect(hsv.Value, pixels, settings.InitialVotes,
+            appearance is not null && settings.VerificationBodyRefinement,
+            settings.FreshCueBallRecovery && settings.BodyProposalPriority ? rawWarped.Value : null);
         bool inspectRim = appearance is not null || settings.FreshCueBallRecovery;
         var initialLabels = circles.Select(c => Classify(c, pixels, inspectRim)).ToArray();
         int initialCueCount = initialLabels.Count(l => l.Kind == "cue");
@@ -260,12 +262,18 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         }
         finally { foreach (var point in original.Concat(portrait)) point.Dispose(); }
     }
-    Circle[] Detect(Mat hsv, byte[] pixels, double votes, bool refineGeometry = false)
+    Circle[] Detect(Mat hsv, byte[] pixels, double votes, bool refineGeometry = false, Mat? rawImage = null)
     {
         using var mask = ClothMask(hsv, pixels); using var circles = new MatLease(new Mat());
         double scale = coordinates.Width / 1000.0;
         Imgproc.HoughCircles(mask.Value, circles.Value, Imgproc.HoughGradient, settings.HoughDp, settings.Separation * scale, settings.EdgeThreshold, votes * scale, (int)(settings.MinimumRadius * scale), (int)(settings.MaximumRadius * scale));
         var result = new List<Circle>(); int count = Math.Max(circles.Value.Cols(), circles.Value.Rows()); var clothRange = ClothRange(pixels); int clothHue = clothRange.Hue;
+        // Strong compact paint bodies get a bounded proposal budget before
+        // binary-mask texture can fill the Hough list with cloth holes.
+        bool prioritizeBodies = settings.FreshCueBallRecovery && settings.BodyProposalPriority;
+        byte[]? rawBoundaryPixels = null;
+        if (prioritizeBodies) AddColourBodies(hsv, pixels, result, scale);
+        if (prioritizeBodies && rawImage is not null) AddDarkBodies(rawImage, result, scale);
         for (int i = 0; i < count && result.Count <= 32; i++)
         {
             var value = circles.Value.Get(circles.Value.Rows() == 1 ? 0 : i, circles.Value.Rows() == 1 ? i : 0);
@@ -274,6 +282,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             if (c.X < margin || c.Y < margin || c.X > coordinates.Width - margin || c.Y > coordinates.Height - margin) continue;
             // An opening is not a ball; ball-adjacent uncertain cases remain visible through review.
             if (PocketCentres().Any(p => (new Point(c.X, c.Y) - p).Length < settings.PocketExclusionRadius * scale)) continue;
+            if (prioritizeBodies && result.Any(p => (new Point(p.X, p.Y) - new Point(c.X, c.Y)).Length < settings.Separation * scale)) continue;
             // Cloth shadows can produce circle edges anywhere. Keep the sampled
             // cloth rejection bounded, while rescuing a low-light neutral circle
             // only when its body contrasts with the immediately surrounding cloth.
@@ -284,13 +293,26 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                     int offset = (y * coordinates.Width + x) * 3; int difference = Math.Abs(pixels[offset] - clothHue); sampled++;
                     if ((Math.Min(difference, 180 - difference) <= Math.Max(12, settings.HueBand) || pixels[offset + 1] < 45) &&
                         pixels[offset + 1] < Math.Max(60, clothRange.SaturationFloor / .45 * 1.5) &&
-                        pixels[offset + 2] > 20 && pixels[offset + 2] < NeutralClothValueCeiling(clothRange.ValueFloor)) cloth++;
+                        pixels[offset + 2] > 20 && (prioritizeBodies || pixels[offset + 2] < NeutralClothValueCeiling(clothRange.ValueFloor))) cloth++;
                 });
-                if (sampled > 0 && cloth / (double)sampled > .9 && !HasLowLightNeutralBallContrast(c, pixels)) continue;
+                if (sampled > 0 && cloth / (double)sampled > .9
+                    && !(prioritizeBodies ? HasLocalBodyValueContrast(c, pixels) : HasLowLightNeutralBallContrast(c, pixels))) continue;
+            }
+            if (prioritizeBodies && rawImage is not null)
+            {
+                rawBoundaryPixels ??= Read(rawImage);
+                var fit = BallBoundaryRefiner.Refine(rawBoundaryPixels, coordinates.Width, coordinates.Height,
+                    new(c.X, c.Y), PoolGeometry.Radius * coordinates.Width, settings.MinimumHoughBoundarySupport);
+                if (fit is null || fit.SupportedSectors < settings.MinimumHoughBoundarySupport) continue;
+                c = new(fit.Centre.X, fit.Centre.Y, fit.Radius);
+                if (result.Any(p => (new Point(p.X, p.Y) - new Point(c.X, c.Y)).Length < settings.Separation * scale)) continue;
+                // A fit near a neighbouring edge can move off the initial
+                // contrast patch. Its centre must still belong to a body.
+                if (IsClothBody(c, pixels, clothRange) && !HasLocalBodyValueContrast(c, pixels)) continue;
             }
             result.Add(c);
         }
-        AddColourBodies(hsv, pixels, result, scale);
+        if (!prioritizeBodies) AddColourBodies(hsv, pixels, result, scale);
         if (refineGeometry) RefineBodyGeometry(mask.Value, result, scale);
         return result.ToArray();
     }
@@ -325,7 +347,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         Cv.InRange(hsv, low, high, mask.Value);
         byte[] body = Read(mask.Value);
         for (int i = 0; i < body.Length; i++)
-            if (pixels[i * 3] > 37 && pixels[i * 3] < 163) body[i] = 0;
+            if (pixels[i * 3] > 37 && pixels[i * 3] < (settings.FreshCueBallRecovery && settings.BodyProposalPriority ? 150 : 163)) body[i] = 0;
         mask.Value.Put(0, 0, body);
         using var labels = new MatLease(new Mat()); using var stats = new MatLease(new Mat()); using var centres = new MatLease(new Mat());
         int count = Imgproc.ConnectedComponentsWithStats(mask.Value, labels.Value, stats.Value, centres.Value);
@@ -452,6 +474,36 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         // measured cloth value; dim scenes keep their original lower ceiling.
         // Fresh raw-body recovery supplies an independent check for the cue ball.
         => Math.Clamp(clothValueFloor / .45 * .9, 45, settings.FreshCueBallRecovery ? 120 : 90);
+    bool HasLocalBodyValueContrast(Circle circle, byte[] hsv)
+    {
+        var body = new List<byte>(); var ring = new List<byte>();
+        ForPixels(circle, .75, (x, y) => body.Add(hsv[(y * coordinates.Width + x) * 3 + 2]));
+        double inner = circle.Radius * 1.08, outer = circle.Radius * 1.4;
+        for (int y = Math.Max(0, (int)(circle.Y - outer)); y <= Math.Min(coordinates.Height - 1, (int)(circle.Y + outer)); y++)
+        for (int x = Math.Max(0, (int)(circle.X - outer)); x <= Math.Min(coordinates.Width - 1, (int)(circle.X + outer)); x++)
+        {
+            double distance = Math.Pow(x - circle.X, 2) + Math.Pow(y - circle.Y, 2);
+            if (distance >= inner * inner && distance <= outer * outer) ring.Add(hsv[(y * coordinates.Width + x) * 3 + 2]);
+        }
+        if (body.Count < 8 || ring.Count < 12) return false;
+        body.Sort(); ring.Sort();
+        double centre = body[body.Count / 2], surrounding = ring[ring.Count / 2];
+        // Positive white-body or negative dark-body contrast is current evidence.
+        // Texture holes with matching cloth brightness are not ball proposals.
+        return Math.Abs(centre - surrounding) >= Math.Max(8, surrounding * .1);
+    }
+    bool IsClothBody(Circle circle, byte[] hsv, (int Hue, int SaturationFloor, int ValueFloor) cloth)
+    {
+        int samples = 0, matching = 0;
+        ForPixels(circle, .85, (x, y) =>
+        {
+            int offset = (y * coordinates.Width + x) * 3;
+            int difference = Math.Abs(hsv[offset] - cloth.Hue); samples++;
+            if ((Math.Min(difference, 180 - difference) <= Math.Max(12, settings.HueBand) || hsv[offset + 1] < 45)
+                && hsv[offset + 1] < Math.Max(60, cloth.SaturationFloor / .45 * 1.5)) matching++;
+        });
+        return samples > 0 && matching / (double)samples > .9;
+    }
     bool HasLowLightNeutralBallContrast(Circle circle, byte[] hsv, bool includeWarmCream = false)
     {
         var bodyValues = new List<byte>(); int bodySamples = 0;

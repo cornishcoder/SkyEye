@@ -151,6 +151,9 @@ static class VerificationChecks
         var fit = BallBoundaryRefiner.Refine(image, width, height, new(84, 77), 27);
         Check(fit is not null && (fit.Centre - new Point(80, 80)).Length < 2 && Math.Abs(fit.Radius - 27) < 2,
             "Current outer boundary recovers a displaced proposal without fitting the cream patch");
+        var strictFit = BallBoundaryRefiner.Refine(image, width, height, new(84, 77), 27, .75);
+        Check(strictFit is not null && strictFit.SupportedSectors >= .75 && (strictFit.Centre - new Point(80, 80)).Length < 2,
+            "Stronger proposal support still fits the full body rather than the cream patch");
         Check(BallBoundaryRefiner.Refine(new byte[width * height * 3], width, height, new(80, 80), 27) is null,
             "Radius prior cannot invent a ball on a blank image");
         var motionAnchor = new[]

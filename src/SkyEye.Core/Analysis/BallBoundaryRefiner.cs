@@ -10,11 +10,14 @@ public static class BallBoundaryRefiner
     static readonly (double X, double Y)[] directions = Enumerable.Range(0, 32)
         .Select(i => (Math.Cos(i * Math.PI / 16), Math.Sin(i * Math.PI / 16))).ToArray();
 
-    public static BallBoundary? Refine(byte[] bgr, int width, int height, Point proposal, double expectedRadius)
+    public static BallBoundary? Refine(byte[] bgr, int width, int height, Point proposal, double expectedRadius,
+        double minimumSupportedFraction = ObservationPolicy.MinimumSupportedBoundaryFraction)
     {
         if (width <= 0 || height <= 0 || bgr.Length != checked(width * height * 3)
             || !double.IsFinite(expectedRadius) || expectedRadius < 5 || expectedRadius > 100
-            || !double.IsFinite(proposal.X) || !double.IsFinite(proposal.Y)) throw new ArgumentException("Invalid boundary image or proposal.");
+            || !double.IsFinite(proposal.X) || !double.IsFinite(proposal.Y)
+            || !double.IsFinite(minimumSupportedFraction) || minimumSupportedFraction is < .5 or > 1)
+            throw new ArgumentException("Invalid boundary image or proposal.");
         double step = Math.Max(1.5, expectedRadius / 9), extent = expectedRadius * .4;
         var background = new double[3];
         for (int channel = 0; channel < 3; channel++)
@@ -66,7 +69,7 @@ public static class BallBoundaryRefiner
             score = supported * 2 + score / directions.Length - .1 * Math.Abs(radius - expectedRadius);
             var candidate = new BallBoundary(new(x, y), radius, supported / (double)directions.Length, score);
             if (best is null || score > best.Score) best = candidate;
-            if (supported >= ObservationPolicy.MinimumSupportedBoundaryFraction * directions.Length
+            if (supported >= minimumSupportedFraction * directions.Length
                 && (supportedBest is null || score > supportedBest.Score)) supportedBest = candidate;
         }
     }

@@ -10,6 +10,10 @@ public sealed record VisionSettings(int Width = 1000, double MinimumRadius = 18,
     public int IlluminationKernelWidth { get; init; } = 151;
     // Controlled replay ablation for fresh neutral-body / geometry recovery.
     public bool FreshCueBallRecovery { get; init; } = true;
+    // Separately replay the whole-table proposal fix against the v2 cue branch.
+    public bool BodyProposalPriority { get; init; } = true;
+    public double MinimumHoughBoundarySupport { get; init; } = .75;
+    public int DarkBodyValueCeiling { get; init; } = 40;
     // Development-only branch experiment. O08 replay showed poorer colour
     // availability with this refinement; normal verification leaves it disabled.
     public bool VerificationBodyRefinement { get; init; }
@@ -20,5 +24,8 @@ public sealed record VisionSettings(int Width = 1000, double MinimumRadius = 18,
             HueBand is < 2 or > 20 || HoughDp is < 1 or > 3 || PocketExclusionRadius > 80 ||
             IlluminationKernelWidth is < 31 or > 301 || IlluminationKernelWidth % 2 == 0)
             throw new ArgumentException("Invalid table vision settings.");
+        if (!double.IsFinite(MinimumHoughBoundarySupport) || MinimumHoughBoundarySupport is < .5625 or > 1)
+            throw new ArgumentException("Invalid Hough body boundary support.");
+        if (DarkBodyValueCeiling is < 10 or > 55) throw new ArgumentException("Invalid dark body ceiling.");
     }
 }

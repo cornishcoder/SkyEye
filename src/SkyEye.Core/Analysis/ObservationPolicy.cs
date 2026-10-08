@@ -17,7 +17,7 @@ public static class ObservationPolicy
     public const double SampleIntervalSeconds = .5;
     public const double MinimumDetectedBallMotionFraction = .006;
     public const double MinimumSupportedBoundaryFraction = 18 / 32d;
-    public const string VerificationConfiguration = "o08-provisional-v12";
+    public const string VerificationConfiguration = "o08-provisional-v13";
 }
 
 public enum TableMotion { Unknown, Still, Moving }
