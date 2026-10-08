@@ -1,6 +1,6 @@
 # G06 — Dashboard Match and Tracking Scenario Lab
 
-8 October 2026 · Planned as the next Lab implementation slice. This expands the existing laptop vision dashboard so match tracking can be inspected and exercised against the canonical `SkyEye.GameState` model.
+8 October 2026 · G06.01a is implemented and installed; G06.01b and the isolated scenario workspace remain open. This expands the existing laptop vision dashboard so match tracking can be inspected and exercised against the canonical `SkyEye.GameState` model.
 
 ## Goal
 
@@ -40,7 +40,8 @@ All injected or replayed scenario data must carry a visible Scenario/Test badge 
 
 | Chunk | Deliverable | Acceptance |
 |---|---|---|
-| G06.01 | Live canonical match and tracking panel in the laptop dashboard | On the same revision, match/frame/score/player/visit/table facts and provenance agree with `SkyEye.GameState`; uncertainty and stale source time stay explicit; refresh or a new diagnostic session does not show stale state. Live dashboard requests cannot mutate the match. |
+| G06.01a | Readable live match and state summary | Show derived match score, players/groups/current player, frame ledger and archives, plus canonical ball position/presence/provenance and source/motion/shot facts from the current `MatchView` and `GameSnapshot`. Live dashboard requests cannot mutate the match. |
+| G06.01b | Bounded evidence and event history | On the same revision, event/correction history agrees with the canonical journal; uncertainty and stale source time stay explicit; refresh or a new diagnostic session does not show stale state. Live dashboard requests remain read-only. |
 | G06.02 | Isolated scenario session, reset, presets and typed state controls | Reset returns only the scenario to its selected baseline. Player/frame/score/correction/undo and ball/table edits go through supported inputs and the same reducer; stale versions and duplicate operation IDs are rejected. Scenario state never appears in the production match journal. |
 | G06.03 | Steppable tracking evidence scenarios and result comparison | A repeatable source-timed scenario can be stepped, reset and replayed. Before/after snapshots, proposed/accepted events, uncertainty, provenance and score changes are visible. Replay calls the implemented O03–O05 seams; unimplemented tracking stages are clearly marked unavailable rather than simulated as successful. |
 

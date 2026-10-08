@@ -20,6 +20,7 @@
     .history{height:240px;min-height:240px}
     .history{grid-template-rows:auto auto minmax(0,1fr)}
     .history>.hint{margin:6px 12px;color:var(--muted);font-size:12px}
+    .match-summary{border-top:1px solid var(--line);margin-top:13px;padding-top:12px}.match-title{display:flex;align-items:center;gap:8px}.match-title h3,.match-summary h4{margin:0;font-size:12px;letter-spacing:.04em}.match-target{margin-left:auto;color:var(--muted);font-size:11px}.match-score{font-size:20px;font-weight:700;margin:6px 0 1px;font-variant-numeric:tabular-nums}.match-status{color:var(--mint);margin-bottom:9px}.match-players{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.match-player{border:1px solid var(--line);border-radius:7px;padding:7px;min-width:0}.match-player strong,.match-player span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.match-player span{font-size:11px;color:var(--muted)}.match-summary h4{margin:12px 0 6px;color:var(--muted);text-transform:uppercase}.frame-ledger,.canonical-balls{display:grid;gap:5px}.frame-row,.canonical-ball{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:7px;align-items:center;border-bottom:1px solid #202e35;padding:5px 0;font-size:12px}.frame-row small,.canonical-ball small{color:var(--muted)}.canonical-ball{grid-template-columns:minmax(50px,.7fr) minmax(48px,.65fr) minmax(70px,1fr) minmax(78px,1fr);font-size:11px}.canonical-ball span{overflow-wrap:anywhere}.match-empty{color:var(--muted);font-size:12px}
     @media(max-width:900px){.image-panel{height:62vh;min-height:360px}aside{grid-template-columns:1fr;grid-template-rows:auto auto}aside>.scroll{height:300px}}
   </style>
 </head>
@@ -49,8 +50,18 @@
       </section>
       <section class="panel scroll">
         <h2 class="section-title">Lighting and detector</h2><dl id="vision" class="kv"><dt>Detector</dt><dd>Waiting</dd></dl>
+        <section class="match-summary" aria-label="Canonical match and table state">
+          <div class="match-title"><h3>Canonical match</h3><span id="match-target" class="match-target">Waiting for state</span></div>
+          <div id="match-score" class="match-score">No active match</div>
+          <div id="match-status" class="match-status">Match state is read-only</div>
+          <div id="match-players" class="match-players"></div>
+          <dl id="game" class="kv" style="margin-top:9px"></dl>
+          <h4>Frame ledger</h4><div id="frame-ledger" class="frame-ledger"><span class="match-empty">No frames</span></div>
+          <h4>Previous matches</h4><div id="archived-matches" class="frame-ledger"><span class="match-empty">No archived matches</span></div>
+          <h4>Canonical ball inventory</h4><div id="canonical-balls" class="canonical-balls"><span class="match-empty">No canonical ball state</span></div>
+        </section>
         <details><summary>Warnings and raw frame analysis</summary><pre id="raw-vision">Waiting for analysis.</pre></details>
-        <details><summary>Canonical GameState and table state</summary><dl id="game" class="kv"></dl><pre id="raw-game">Waiting for state.</pre></details>
+        <details><summary>Raw canonical GameState</summary><pre id="raw-game">Waiting for state.</pre></details>
       </section>
     </aside>
   </main>
@@ -102,6 +113,7 @@
     $('candidates').innerHTML=candidates.length?`<table><thead><tr><th>Label</th><th>Pattern</th><th>Body dark</th><th>Rim dark</th><th>Boundary support</th></tr></thead><tbody>${candidates.map(c=>`<tr><td>${esc(displayId(c.id))}</td><td>${esc(c.pattern)}</td><td>${fmt(c.bodyDarkFraction)}</td><td>${fmt(c.rimDarkFraction)}</td><td>${fmt(c.boundarySupport)} / ${fmt(c.candidateBoundarySupport)}</td></tr>`).join('')}</tbody></table>`:'No circle candidates.';
   }
   function fmt(v,d=2){return Number.isFinite(v)?Number(v).toFixed(d):'—'}
+  const enumText=(value,names)=>typeof value==='number'?(names[value]||String(value)):String(value||'Unknown');
   function renderVision(det){
     const light=det?.illumination,rec=det?.recognition;
     const cueBallCount=(rec?.rawLabels||[]).filter(kind=>String(kind).toLowerCase()==='cue').length;
@@ -112,10 +124,36 @@
     $('raw-vision').textContent=pretty({uncertain:det?.uncertain,warnings:det?.warnings,verificationReason:det?.verificationReason,recognition:rec,illumination:light,circles:det?.circles});
   }
   function renderGame(s){
-    const g=s?.game||{},t=g.table||{},f=g.frame||{},m=g.match||{},tracked=s?.trackedTable;
-    const pairs=[['Game version',g.version??'—'],['Match',m.id||'None'],['Frame',f.id||'None'],['Current player',f.currentPlayer?.value||'—'],['Visit',f.visit??'—'],['Canonical motion',t.motion||'Unknown'],['Canonical table uncertain',t.uncertain??'—'],['Canonical table current',s?.gameTableCurrent?'Yes':'No / stale'],['Tracked detector layout',tracked?`${tracked.balls?.length||0} balls · ${tracked.settled?'settled':'not settled'} · ${tracked.occluded?'uncertain':'clear'}`:'None'],['Camera',s?.camera?`${s.camera.reachability} · ${s.camera.capture}${s.camera.canControl?' · host':''}`:'—']];
+    const g=s?.game||{},t=g.table||{},f=g.frame||{},match=s?.match||{},tracked=s?.trackedTable;
+    const ballColour=value=>enumText(value,['Cue ball','Red','Yellow','Black','Unknown']);
+    const ballPresence=value=>enumText(value,['Unknown','On table','Missing','Potted']);
+    const provenance=value=>enumText(value,['Observed','Inferred','Player confirmed','Player corrected']);
+    const motion=value=>enumText(value,['Unknown','Moving','Settled']);
+    const matchPlayers=match.players||[],playerName=id=>matchPlayers.find(p=>p.id===id)?.name||id||'—';
+    $('match-score').textContent=match.id?(match.score||matchPlayers.map(p=>`${p.name} ${p.score}`).join(' · ')):'No active match';
+    $('match-target').textContent=match.id?`First to ${match.target} frames`:'Live state · read-only';
+    $('match-status').textContent=match.id?(match.status||'Match in progress'):'No active match';
+    $('match-players').innerHTML=matchPlayers.length?matchPlayers.map(p=>`<div class="match-player"><strong>${esc(p.name)} · ${p.score}</strong><span>${esc(p.group||'open table')}${match.currentPlayer===p.id?' · current player':''}</span></div>`).join(''):'<span class="match-empty">Start a match to see players and scores.</span>';
+    const frames=match.frames||[];
+    $('frame-ledger').innerHTML=frames.length?frames.map(frame=>`<div class="frame-row"><strong>Frame ${esc(frame.number)}</strong><span>${esc(frame.result||'Result pending')}</span>${frame.current?'<small>Current</small>':''}</div>`).join(''):'<span class="match-empty">No frames in this match.</span>';
+    const archives=match.archives||[];
+    $('archived-matches').innerHTML=archives.length?archives.slice(0,5).map(item=>`<div class="frame-row"><strong>${esc(item.score||'Previous match')}</strong><span>${esc(item.outcome||'Result unavailable')}</span><small>${esc(item.recordedFrames??0)} / ${esc(item.totalFrames??0)} frames</small></div>`).join(''):'<span class="match-empty">No archived matches.</span>';
+    const balls=Object.values(t.balls||{}).sort((a,b)=>String(a.id).localeCompare(String(b.id)));
+    $('canonical-balls').innerHTML=balls.length?balls.map(ball=>{
+      const position=ball.position?`${fmt(ball.position.x,3)}, ${fmt(ball.position.y,3)}`:'—';
+      const presence=ball.presence||{};
+      const confidence=presence.confidence==null?'':` · feature ${fmt(presence.confidence)}`;
+      return `<div class="canonical-ball"><strong>${esc(ball.id)}</strong><span>${esc(ballColour(ball.colour))}</span><span>${esc(ballPresence(presence.value))} · ${esc(position)}</span><small>${esc(provenance(presence.source))}${confidence}</small></div>`;
+    }).join(''):'<span class="match-empty">No canonical ball inventory yet.</span>';
+    const lastSettled=t.lastSettled;
+    const settledAt=lastSettled?.at?new Date(lastSettled.at).toLocaleTimeString():'—';
+    const playerGroups=matchPlayers.map(p=>`${p.name}: ${p.group||'open table'}`).join(' · ')||'—';
+    const shot=g.shot;
+    const source=t.source;
+    const approaches=shot?.approaches?Object.keys(shot.approaches).length:0;
+    const pairs=[['Game revision',g.version??'—'],['Match',match.id||'None'],['Target',match.id?match.target:'—'],['Frame',f.id||'None'],['Current player',playerName(match.currentPlayer||f.currentPlayer?.value)],['Visit',f.visit??'—'],['Groups',playerGroups],['Foul',match.foul==null?'—':String(match.foul)],['Frame winner',f.winner?.value?playerName(f.winner.value):'—'],['Match winner',match.winner?playerName(match.winner):'—'],['Frame pots',Object.keys(f.pots||{}).length],['Table motion',motion(t.motion)],['Table uncertain',t.uncertain??'—'],['Settled/certain',s?.gameTableCurrent?'Yes':'No'],['Source',source?`${source.camera} · ${source.timeline} · generation ${source.generation}`:'—'],['Calibration',source?.calibration||s?.calibration?.calibrationId||'—'],['Last settled',settledAt],['Source time',lastSettled?.sourceTimeUs==null?'—':`${lastSettled.sourceTimeUs} µs`],['Active shot',shot?`${shot.id} · ${shot.ended?'ended':'active'} · ${shot.resolved?'resolved':'unresolved'} · ${approaches} pocket approaches`:'None'],['Tracked detector layout',tracked?`${tracked.balls?.length||0} balls · ${tracked.settled?'settled':'not settled'} · ${tracked.occluded?'uncertain':'clear'}`:'None'],['Camera',s?.camera?`${s.camera.reachability} · ${s.camera.capture}${s.camera.canControl?' · host':''}`:'—']];
     $('game').innerHTML=pairs.map(([a,b])=>`<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join('');
-    $('raw-game').textContent=pretty({game:g,match:s?.match,gameTableCurrent:s?.gameTableCurrent,gameError:s?.gameError,observation:s?.observation,trackedTable:tracked});
+    $('raw-game').textContent=pretty({game:g,match,gameTableCurrent:s?.gameTableCurrent,gameError:s?.gameError,observation:s?.observation,trackedTable:tracked});
     $('m-game').textContent=s?.gameTableCurrent?'Current':t.uncertain?'Uncertain':'Unknown';
   }
   function renderSamples(samples){
