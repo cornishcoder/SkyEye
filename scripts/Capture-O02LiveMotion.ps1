@@ -79,6 +79,14 @@ try {
             Pending = $taskMotion.pending
             CadenceSampleCount = $taskMotion.cadenceSampleCount
             ProcessedSourceCadenceHz = $taskMotion.processedSourceCadenceHz
+            GapThresholdUs = $taskMotion.gapThresholdUs
+            LastProcessedDeltaUs = $taskMotion.lastProcessedDeltaUs
+            LastGapUs = $taskMotion.lastGapUs
+            LargestGapUs = $taskMotion.largestGapUs
+            RecentDeltaSampleCount = $taskMotion.recentDeltaSampleCount
+            RecentDeltaP50Us = $taskMotion.recentDeltaP50Us
+            RecentDeltaP95Us = $taskMotion.recentDeltaP95Us
+            RecentDeltaMaxUs = $taskMotion.recentDeltaMaxUs
             LastAcquisitionMs = $taskMotion.lastAcquisitionMs
             LastWorkerMs = $taskMotion.lastWorkerMs
             LastResultAgeMs = $taskMotion.lastResultAgeMs

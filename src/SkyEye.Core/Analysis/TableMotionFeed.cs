@@ -15,6 +15,7 @@ public sealed record MotionFeedOptions(int FramesPerSecond = 30, long MaximumGap
 public sealed record MotionFrameContext(MotionFeedScope Scope, long FrameId, long SourceTimeUs, bool Reset, double? DeltaSeconds)
 {
     public double AcquisitionMs { get; init; }
+    public long? SourceDeltaUs { get; init; }
 }
 public sealed record RoiMotion(string Id, int Features, int Supported, double? DxPixels, double? DyPixels,
     double? VelocityXPixelsPerSecond, double? VelocityYPixelsPerSecond, string Status);
@@ -39,6 +40,14 @@ public sealed record MotionFeedSnapshot(long Acquired, long Processed, long Repl
     public string SeedSource { get; init; } = "unknown";
     public long? SeedFrameId { get; init; }
     public double? SeedFrameAgeMs { get; init; }
+    public long GapThresholdUs { get; init; }
+    public long? LastProcessedDeltaUs { get; init; }
+    public long? LastGapUs { get; init; }
+    public long? LargestGapUs { get; init; }
+    public int RecentDeltaSampleCount { get; init; }
+    public long? RecentDeltaP50Us { get; init; }
+    public long? RecentDeltaP95Us { get; init; }
+    public long? RecentDeltaMaxUs { get; init; }
 }
 
 /// <summary>Explicitly started, one active/one latest frame. No detector, rule or event submission.</summary>
@@ -54,10 +63,13 @@ public sealed class TableMotionFeed : IAsyncDisposable
     readonly CancellationTokenSource stopped = new();
     readonly SemaphoreSlim wake = new(0, 1);
     readonly Queue<long> recentProcessedSourceTimes = new();
+    readonly Queue<long> recentProcessedDeltasUs = new();
     TableFrame? pending;
     Task? run;
     long acquired, processed, replaced, duplicate, stale, acquisitionFailures, scopeRejected, workerFailures, gaps;
     long lastReceivedId = -1, lastReceivedUs = -1, lastProcessedUs = -1;
+    long? lastProcessedDeltaUs, lastGapUs;
+    long largestGapUs;
     int active, width, height;
     string? stopReason;
     MotionMeasurement? latest;
@@ -92,10 +104,25 @@ public sealed class TableMotionFeed : IAsyncDisposable
                     FrameWidth = width,
                     FrameHeight = height,
                     CadenceSampleCount = cadenceSamples,
-                    ProcessedSourceCadenceHz = cadence
+                    ProcessedSourceCadenceHz = cadence,
+                    GapThresholdUs = options.MaximumGapUs,
+                    LastProcessedDeltaUs = lastProcessedDeltaUs,
+                    LastGapUs = lastGapUs,
+                    LargestGapUs = largestGapUs == 0 ? null : largestGapUs,
+                    RecentDeltaSampleCount = recentProcessedDeltasUs.Count,
+                    RecentDeltaP50Us = Percentile(recentProcessedDeltasUs, 0.50),
+                    RecentDeltaP95Us = Percentile(recentProcessedDeltasUs, 0.95),
+                    RecentDeltaMaxUs = recentProcessedDeltasUs.Count == 0 ? null : recentProcessedDeltasUs.Max()
                 };
             }
         }
+    }
+    static long? Percentile(IEnumerable<long> samples, double percentile)
+    {
+        var ordered = samples.Order().ToArray();
+        if (ordered.Length == 0) return null;
+        int index = Math.Clamp((int)Math.Ceiling(percentile * ordered.Length) - 1, 0, ordered.Length - 1);
+        return ordered[index];
     }
     public Task Completion { get { lock (gate) return run ?? Task.CompletedTask; } }
     public void Start()
@@ -199,10 +226,17 @@ public sealed class TableMotionFeed : IAsyncDisposable
                     if (frame is not null)
                     {
                         active = 1;
-                        bool reset = lastProcessedUs < 0 || frame.SourceTimeUs!.Value - lastProcessedUs > options.MaximumGapUs;
-                        if (reset && lastProcessedUs >= 0) gaps++;
+                        long? sourceDeltaUs = lastProcessedUs < 0 ? null : frame.SourceTimeUs!.Value - lastProcessedUs;
+                        bool reset = sourceDeltaUs is null || sourceDeltaUs.Value > options.MaximumGapUs;
+                        if (reset && sourceDeltaUs is { } gapUs)
+                        {
+                            gaps++;
+                            lastGapUs = gapUs;
+                            largestGapUs = Math.Max(largestGapUs, gapUs);
+                        }
                         context = new(scope, frame.DecodedReceipt!.FrameId, frame.SourceTimeUs!.Value, reset,
-                            reset ? null : (frame.SourceTimeUs.Value - lastProcessedUs) / 1000000d) { AcquisitionMs = pendingAcquisitionMs };
+                            reset ? null : sourceDeltaUs!.Value / 1000000d)
+                        { AcquisitionMs = pendingAcquisitionMs, SourceDeltaUs = sourceDeltaUs };
                     }
                 }
                 if (frame is null) continue;
@@ -220,6 +254,12 @@ public sealed class TableMotionFeed : IAsyncDisposable
                         if (result.SourceTimeUs != context!.SourceTimeUs) throw new InvalidDataException("Worker result lost source time.");
                         if (context.Reset) recentProcessedSourceTimes.Clear();
                         processed++; lastProcessedUs = context.SourceTimeUs; latest = result;
+                        if (context.SourceDeltaUs is { } sourceDeltaUs)
+                        {
+                            lastProcessedDeltaUs = sourceDeltaUs;
+                            recentProcessedDeltasUs.Enqueue(sourceDeltaUs);
+                            while (recentProcessedDeltasUs.Count > 601) recentProcessedDeltasUs.Dequeue();
+                        }
                         recentProcessedSourceTimes.Enqueue(context.SourceTimeUs);
                         while (recentProcessedSourceTimes.Count > 1
                             && (recentProcessedSourceTimes.Count > 601
