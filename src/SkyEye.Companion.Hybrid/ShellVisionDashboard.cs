@@ -8,18 +8,27 @@ using Point = SkyEye.Core.Point;
 namespace SkyEye.Companion.Hybrid;
 
 sealed record VisionDashboardBall(string Id, string Kind, double ClassifierScore,
-    double X, double Y, double RadiusX, double RadiusY);
+    double X, double Y, double RadiusX, double RadiusY)
+{
+    // Keep the v1 field while an already-open dashboard tab is still running its old script.
+    public double Confidence => ClassifierScore;
+}
 sealed record VisionDashboardCandidate(string Id, string Pattern, double X, double Y,
     double RadiusX, double RadiusY, double? BodyDarkFraction, double? RimDarkFraction,
     double? BoundarySupport, double? CandidateBoundarySupport);
 sealed record VisionDashboardSample(int Sequence, DateTimeOffset CapturedAt, double FrameAgeMs,
     long FrameId, long SourceTimeUs, int ClassifiedBallCount, int CircleCandidateCount, int UnclassifiedCandidateCount,
-    bool Uncertain, double ElapsedMs, double? ReferenceBrightness, double? MinimumGain, double? MaximumGain, string[] Warnings);
+    bool Uncertain, double ElapsedMs, double? ReferenceBrightness, double? MinimumGain, double? MaximumGain, string[] Warnings)
+{
+    // Keep the v1 field for already-open dashboard tabs during an app update.
+    public int BallCount => ClassifiedBallCount;
+}
 
 /// <summary>Opt-in, read-only laptop view over the latest sequential vision diagnostic.</summary>
 public sealed partial class ShellSession
 {
     const string VisionDashboardAsset = "vision-diagnostics-dashboard.html";
+    const int VisionDashboardAssetVersion = 2;
     const int VisionDashboardPort = 8770;
     LocalHttpServer? visionDashboardServer;
     bool visionDashboardStartedDiagnostics;
@@ -88,7 +97,7 @@ public sealed partial class ShellSession
             server.Start();
             visionDashboardServer = server;
             visionDashboardStartedDiagnostics = startedHere;
-            VisionDashboardUrl = $"http://{address}:{server.Port}/";
+            VisionDashboardUrl = $"http://{address}:{server.Port}/?dashboard={VisionDashboardAssetVersion}";
             VisionDashboardStatus = "Dashboard is live on your local Wi-Fi. Any device on this network can access it while SkyEye is open.";
         }
         catch (Exception)

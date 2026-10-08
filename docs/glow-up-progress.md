@@ -44,6 +44,8 @@ The dashboard now separates classified ball labels from raw circle candidates. U
 
 The Hybrid Release build succeeds with zero errors and nine warnings (five generated OpenCV binding warnings, two Blazor JS interop warnings, and two duplicate native-library packaging warnings). The Lab APK was updated in place and launched on the Pixel 11 Pro XL; its UID remained 10646. No tests were run. The new reference-brightness history is diagnostic only and does not yet reject dark frames.
 
+The first dashboard update renamed JSON fields while an existing browser tab could remain open, producing `undefined` counts and `NaN` scores. The API now keeps the old field aliases for open tabs and the phone presents a versioned dashboard URL to load the matching page after restart.
+
 ## Previous priority — Sky and companion UX, 7 October 2026
 
 A02.01/A02.02 and A03.01/A05.01 source slices are implemented; controlled Agent UI checks pass. The user confirms the A04.02 camera-connect/host/live-Cast path worked end to end on Pixel 11. **A03.02 match reads/declarations/corrections, A04.01 save/replay tools and the companion UI refresh are implemented in source and Release-build verified.** The latest build is installed in place on Pixel 11 Pro XL; launch, the refreshed home and launcher icon were visually checked. Spoken parity, receiver confirmations, camera save/replay, interruption and lifecycle remain open. See the [bounded voice plan](sky-voice-priority-plan.md), [runtime report](sky-voice-runtime-report.md) and [companion UI plan](companion-ui-refresh-plan.md).
