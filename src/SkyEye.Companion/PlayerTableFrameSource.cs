@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Diagnostics;
 using SkyEye.Core.Analysis;
 using SkyEye.Core.Application;
 using SkyEye.Vision.Android;
@@ -40,25 +41,39 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
         long afterSourceTimeUs, CancellationToken cancellation)
     {
         var completion = new TaskCompletionSource<MotionFrameCandidateProbe>(TaskCreationOptions.RunContinuationsAsynchronously);
+        long queuedAt = Stopwatch.GetTimestamp();
         main.Post(() =>
         {
             try
             {
+                double queueMs = Stopwatch.GetElapsedTime(queuedAt).TotalMilliseconds;
                 cancellation.ThrowIfCancellationRequested();
                 if (player() is not { } owner || !live() || connection().Scope != scope.Source || !connection().CanControl)
                     throw new FrameAcquisitionException(ObservationReason.SourceChanged, "motion-source-changed");
+                long probeStarted = Stopwatch.GetTimestamp();
                 var json = owner.DecodedFrameProbe();
                 if (json is null) { completion.TrySetResult(new(MotionFrameCandidateDisposition.Unavailable, "invalid-probe")); return; }
                 using var candidate = JsonDocument.Parse(json); var stamp = candidate.RootElement;
+                long? textureUpdateCount = stamp.TryGetProperty("textureUpdateCount", out var updateCount)
+                    && updateCount.ValueKind == JsonValueKind.Number && updateCount.TryGetInt64(out var parsedUpdateCount) ? parsedUpdateCount : null;
+                double? textureAgeMs = stamp.TryGetProperty("textureAgeMs", out var textureAge)
+                    && textureAge.ValueKind == JsonValueKind.Number && textureAge.TryGetDouble(out var parsedTextureAge)
+                    && double.IsFinite(parsedTextureAge) ? parsedTextureAge : null;
+                double probeMs = Stopwatch.GetElapsedTime(probeStarted).TotalMilliseconds;
                 var status = stamp.GetProperty("candidateStatus").GetString() ?? "unknown";
                 if (status != "available")
-                { completion.TrySetResult(new(MotionFrameCandidateDisposition.Unavailable, status)); return; }
+                {
+                    completion.TrySetResult(new(MotionFrameCandidateDisposition.Unavailable, status)
+                    { MainThreadQueueMs = queueMs, ProbeDurationMs = probeMs, TextureUpdateCount = textureUpdateCount, TextureAgeMs = textureAgeMs });
+                    return;
+                }
                 long frameId = stamp.GetProperty("frameId").GetInt64(); long sourceTimeUs = stamp.GetProperty("sourceUs").GetInt64();
                 bool changedScope = stamp.GetProperty("mediaGeneration").GetInt64() != scope.MediaGeneration
                     || stamp.GetProperty("timeline").GetString() != scope.Timeline;
                 bool isNew = changedScope || frameId > afterFrameId && sourceTimeUs > afterSourceTimeUs;
                 completion.TrySetResult(new(isNew ? MotionFrameCandidateDisposition.New : MotionFrameCandidateDisposition.Unchanged,
-                    changedScope ? "scope-changed" : isNew ? "new" : "unchanged", frameId, sourceTimeUs));
+                    changedScope ? "scope-changed" : isNew ? "new" : "unchanged", frameId, sourceTimeUs)
+                { MainThreadQueueMs = queueMs, ProbeDurationMs = probeMs, TextureUpdateCount = textureUpdateCount, TextureAgeMs = textureAgeMs });
             }
             catch (Exception error) { completion.TrySetException(error); }
         });
@@ -69,8 +84,12 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
         var completion = new TaskCompletionSource<TableFrame>(TaskCreationOptions.RunContinuationsAsynchronously);
         Bridge.PlayerBridge? admittedOwner = null;
         int acquisitionAttempts = 0;
+        long queuedAt = Stopwatch.GetTimestamp();
+        double? mainThreadQueueMs = null;
+        double bitmapCopyMs = 0;
         void Attempt(int remaining)
         {
+            mainThreadQueueMs ??= Stopwatch.GetElapsedTime(queuedAt).TotalMilliseconds;
             BitmapTableImage? pixels = null;
             try
             {
@@ -82,6 +101,7 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
                 admittedOwner = owner;
                 using var timing = PipelineDiagnostics.Measure("textureCopyMs");
                 using var snapshot = owner.SnapshotDecodedFrame(readbackScale);
+                bitmapCopyMs += owner.LastBitmapCopyMs();
                 if (snapshot is null)
                 {
                     // A render/copy race may be refused even while live video is
@@ -104,6 +124,11 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
                     var imageHeight = stamp.TryGetProperty("imageHeight", out var ih) ? ih.GetInt32() : stamp.GetProperty("height").GetInt32();
                     var uncertainty = stamp.TryGetProperty("clockUncertaintyMs", out var u) ? u.GetDouble() : -1;
                     var clockAge = stamp.TryGetProperty("clockSampleAgeMs", out var ca) ? ca.GetDouble() : -1;
+                    long? textureUpdateCount = stamp.TryGetProperty("textureUpdateCount", out var updateCount)
+                        && updateCount.ValueKind == JsonValueKind.Number && updateCount.TryGetInt64(out var parsedUpdateCount) ? parsedUpdateCount : null;
+                    double? textureAgeMs = stamp.TryGetProperty("textureAgeMs", out var textureAge)
+                        && textureAge.ValueKind == JsonValueKind.Number && textureAge.TryGetDouble(out var parsedTextureAge)
+                        && double.IsFinite(parsedTextureAge) ? parsedTextureAge : null;
                     if (!double.IsFinite(age) || age is < -200 or > 6000) throw new FrameAcquisitionException(ObservationReason.FrameTooOld, "source-age-out-of-range");
                     cancellation.ThrowIfCancellationRequested();
                     if (player() != owner || !live() || connection().Scope != source || !connection().CanControl)
@@ -114,6 +139,10 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
                         AcquisitionAttempts = acquisitionAttempts,
                         ImageWidth = imageWidth,
                         ImageHeight = imageHeight,
+                        MainThreadQueueMs = mainThreadQueueMs,
+                        BitmapCopyMs = bitmapCopyMs,
+                        TextureUpdateCount = textureUpdateCount,
+                        TextureAgeMs = textureAgeMs,
                         ClockSampleAgeMs = clockAge >= 0 ? clockAge : null,
                         ClockUncertaintyMs = uncertainty >= 0 ? uncertainty : null,
                         DecodedReceipt = new(stamp.GetProperty("mediaGeneration").GetInt64(), stamp.GetProperty("frameId").GetInt64(),

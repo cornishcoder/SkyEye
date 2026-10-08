@@ -35,6 +35,10 @@ public sealed record TableFrame(byte[] Jpeg, DateTimeOffset CapturedAt, string T
     public int AcquisitionAttempts { get; init; } = 1;
     public int ImageWidth { get; init; }
     public int ImageHeight { get; init; }
+    public double? MainThreadQueueMs { get; init; }
+    public double? BitmapCopyMs { get; init; }
+    public long? TextureUpdateCount { get; init; }
+    public double? TextureAgeMs { get; init; }
     public string FrameSource { get; init; } = "camera-snapshot";
     public DecodedFrameReceipt? DecodedReceipt { get; init; }
     public double? ClockSampleAgeMs { get; init; }

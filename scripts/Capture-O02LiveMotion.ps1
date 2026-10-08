@@ -141,6 +141,23 @@ try {
             LastClockUncertaintyMs = $taskMotion.lastClockUncertaintyMs
             AcquisitionRetries = $taskMotion.acquisitionRetries
             LastAcquisitionAttempts = $taskMotion.lastAcquisitionAttempts
+            LastCandidateProbeQueueMs = $taskMotion.lastCandidateProbeQueueMs
+            LastCandidateProbeDurationMs = $taskMotion.lastCandidateProbeDurationMs
+            LastPolledCandidateFrameId = $taskMotion.lastCandidateFrameId
+            LastCandidateSourceTimeUs = $taskMotion.lastCandidateSourceTimeUs
+            LastCandidateTextureUpdateCount = $taskMotion.lastCandidateTextureUpdateCount
+            LastCandidateTextureAgeMs = $taskMotion.lastCandidateTextureAgeMs
+            LastReadMainThreadQueueMs = $taskMotion.lastReadMainThreadQueueMs
+            LastBitmapCopyMs = $taskMotion.lastBitmapCopyMs
+            LastAcquisitionCandidateFrameId = $taskMotion.lastAcquisitionCandidateFrameId
+            LastAcquisitionCandidateSourceTimeUs = $taskMotion.lastAcquisitionCandidateSourceTimeUs
+            LastReadFrameId = $taskMotion.lastReadFrameId
+            LastReadSourceTimeUs = $taskMotion.lastReadSourceTimeUs
+            LastCandidateToReadFrameIdDelta = $taskMotion.lastCandidateToReadFrameIdDelta
+            LastCandidateToReadSourceDeltaUs = $taskMotion.lastCandidateToReadSourceDeltaUs
+            LastReadTextureUpdateCount = $taskMotion.lastReadTextureUpdateCount
+            LastReadTextureAgeMs = $taskMotion.lastReadTextureAgeMs
+            LastProcessedTextureUpdateDelta = $taskMotion.lastProcessedTextureUpdateDelta
             CopyFailures = $taskMetrics.copy.failures
             CopyFailureDelta = $taskCopyFailureDelta
             DecoderMediaGeneration = $taskPlayer.mediaGeneration
@@ -193,7 +210,7 @@ finally {
 
 if ($taskRows.Count -eq 0) { throw 'No motion-feed samples were collected.' }
 $taskReport = [pscustomobject]@{
-    SchemaVersion = 5
+    SchemaVersion = 6
     DeviceSerial = $CompanionSerial
     Package = $taskPing.package
     StartedAtUtc = $taskStartedAt.ToString('O')
@@ -205,7 +222,7 @@ $taskReport = [pscustomobject]@{
     CaptureError = $taskCaptureError
     ImagesSaved = $false
     Samples = $taskRows
-    Scope = 'Opt-in candidate availability, source PTS, per-gap acquisition/worker telemetry, decoder-release/texture and copy-failure counters, and dimensions. No detector tracking or ball identity claim.'
+    Scope = 'Opt-in candidate availability, main-thread probe/read queue timing, TextureView update counts and age, native bitmap-copy duration, source PTS, per-gap acquisition/worker telemetry, decoder-release/texture and copy-failure counters, and dimensions. No detector tracking or ball identity claim.'
 }
 $taskOutputDirectory = Split-Path -Parent $taskOutputPath
 if ($taskOutputDirectory -and -not (Test-Path -LiteralPath $taskOutputDirectory -PathType Container)) {

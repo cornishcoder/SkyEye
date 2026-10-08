@@ -29,7 +29,7 @@ public final class PlayerBridge {
     private volatile String phoneScene="{}",phoneFraming="{}";
     private final android.os.Handler retry=new android.os.Handler(android.os.Looper.getMainLooper());private volatile long generation;private String activeUrl="";private boolean released;
     private int rotation;private int videoWidth=1920,videoHeight=1080;private org.json.JSONObject scene,tvScene;private boolean sceneApplied;private Bitmap captureScratch;private final android.graphics.Paint videoPaint=new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG|android.graphics.Paint.FILTER_BITMAP_FLAG|android.graphics.Paint.DITHER_FLAG);
-    private boolean diagnostics;private long decodedFrames,textureFrames,measurementStart,lastTextureNs,lastReleaseNs;private double releaseToTextureMs;
+    private boolean diagnostics;private long decodedFrames,textureFrames,measurementStart,lastTextureNs,lastReleaseNs;private double releaseToTextureMs,lastBitmapCopyMs;
     private static boolean liveUrl(String url){return url.contains(".m3u8")||url.contains("/live/stream.ts");}
     public void setDiagnostics(boolean enabled){diagnostics=enabled;if(measurementStart==0)measurementStart=System.nanoTime();}
     public PlayerBridge(Activity context,Listener listener){
@@ -73,6 +73,7 @@ public final class PlayerBridge {
     public DecodedFrameSnapshot snapshotDecodedFrame(){return snapshotDecodedFrame(1);}
     public DecodedFrameSnapshot snapshotDecodedFrame(int readbackScale){
         if(readbackScale<1||readbackScale>4)throw new IllegalArgumentException("Decoded readback scale is outside the supported bounds");
+        lastBitmapCopyMs=0;
         lastCopyFailure="";
         if(android.os.Looper.myLooper()!=android.os.Looper.getMainLooper())throw new IllegalStateException("Decoded copy requires the player looper");
         if(released||!player.isPlaying()||!texture.isAvailable())return copyFailure("no-playing-texture");
@@ -92,7 +93,10 @@ public final class PlayerBridge {
         int copyWidth=Math.max(1,paired.width/readbackScale),copyHeight=Math.max(1,paired.height/readbackScale);
         Bitmap bitmap=Bitmap.createBitmap(copyWidth,copyHeight,Bitmap.Config.ARGB_8888);
         try{
-            if(texture.getBitmap(bitmap)==null||android.graphics.Color.alpha(bitmap.getPixel(copyWidth/2,copyHeight/2))==0)
+            long bitmapCopyStartedNs=System.nanoTime();
+            Bitmap copied=texture.getBitmap(bitmap);
+            lastBitmapCopyMs=(System.nanoTime()-bitmapCopyStartedNs)/1000000d;
+            if(copied==null||android.graphics.Color.alpha(bitmap.getPixel(copyWidth/2,copyHeight/2))==0)
                 return copyFailure("empty-copy");
             copyAfter=surface.getTimestamp();
             if(media!=generation||surface!=texture.getSurfaceTexture()||stamp!=copyAfter
@@ -107,6 +111,8 @@ public final class PlayerBridge {
             String metadata=clock.put("mediaGeneration",media).put("frameId",paired.frameId).put("presentationUs",paired.presentationUs)
                 .put("surfaceTimestampNs",stamp).put("releaseTimestampNs",paired.releaseNs).put("width",paired.width).put("height",paired.height)
                 .put("imageWidth",bitmap.getWidth()).put("imageHeight",bitmap.getHeight())
+                .put("textureUpdateCount",textureFrames).put("textureAgeMs",lastTextureNs==0?JSONObject.NULL:(System.nanoTime()-lastTextureNs)/1000000d)
+                .put("bitmapCopyMs",lastBitmapCopyMs)
                 .put("pairing","exact-surface-timestamp").toString();
             DecodedFrameSnapshot result=new DecodedFrameSnapshot(bitmap,metadata);bitmap=null;return result;
         }catch(org.json.JSONException invalid){return copyFailure("invalid-source-metadata");}finally{if(bitmap!=null)bitmap.recycle();}
@@ -124,11 +130,14 @@ public final class PlayerBridge {
         JSONObject clock=annotationRecorder.exactFrameMetrics(stamp,generation);
         if(clock==null)return unavailableCandidateProbe("unmapped-source-clock",stamp);
         try{return clock.put("candidateStatus","available").put("mediaGeneration",generation).put("frameId",frame.frameId)
+            .put("textureUpdateCount",textureFrames).put("textureAgeMs",lastTextureNs==0?JSONObject.NULL:(System.nanoTime()-lastTextureNs)/1000000d)
             .put("presentationUs",frame.presentationUs).put("surfaceTimestampNs",stamp).put("releaseTimestampNs",frame.releaseNs).toString();}
         catch(org.json.JSONException invalid){return null;}
     }
+    public double lastBitmapCopyMs(){return lastBitmapCopyMs;}
     private String unavailableCandidateProbe(String reason,long surfaceTimestampNs){
-        try{return new JSONObject().put("candidateStatus",reason).put("surfaceTimestampNs",surfaceTimestampNs).toString();}
+        try{return new JSONObject().put("candidateStatus",reason).put("surfaceTimestampNs",surfaceTimestampNs)
+            .put("textureUpdateCount",textureFrames).put("textureAgeMs",lastTextureNs==0?JSONObject.NULL:(System.nanoTime()-lastTextureNs)/1000000d).toString();}
         catch(org.json.JSONException invalid){return null;}
     }
     public String framingMetrics(){return phoneFraming;}

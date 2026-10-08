@@ -18,9 +18,37 @@ public sealed record MotionFrameContext(MotionFeedScope Scope, long FrameId, lon
     public int AcquisitionAttempts { get; init; } = 1;
     public long? SourceDeltaUs { get; init; }
     public long? FrameIdDelta { get; init; }
+    public double? CandidateProbeQueueMs { get; init; }
+    public double? CandidateProbeDurationMs { get; init; }
+    public long? CandidateFrameId { get; init; }
+    public long? CandidateSourceTimeUs { get; init; }
+    public long? CandidateToReadFrameIdDelta { get; init; }
+    public long? CandidateToReadSourceDeltaUs { get; init; }
+    public long? CandidateTextureUpdateCount { get; init; }
+    public double? CandidateTextureAgeMs { get; init; }
+    public double? ReadMainThreadQueueMs { get; init; }
+    public double? BitmapCopyMs { get; init; }
+    public long? TextureUpdateCount { get; init; }
+    public long? TextureUpdateDelta { get; init; }
+    public double? TextureAgeMs { get; init; }
 }
 public sealed record MotionGapDiagnostic(long FrameId, long SourceTimeUs, long? FrameIdDelta, long SourceDeltaUs,
-    int AcquisitionAttempts, double AcquisitionMs, double WorkerMs, double ResultAgeMs);
+    int AcquisitionAttempts, double AcquisitionMs, double WorkerMs, double ResultAgeMs)
+{
+    public double? CandidateProbeQueueMs { get; init; }
+    public double? CandidateProbeDurationMs { get; init; }
+    public long? CandidateFrameId { get; init; }
+    public long? CandidateSourceTimeUs { get; init; }
+    public long? CandidateToReadFrameIdDelta { get; init; }
+    public long? CandidateToReadSourceDeltaUs { get; init; }
+    public long? CandidateTextureUpdateCount { get; init; }
+    public double? CandidateTextureAgeMs { get; init; }
+    public double? ReadMainThreadQueueMs { get; init; }
+    public double? BitmapCopyMs { get; init; }
+    public long? TextureUpdateCount { get; init; }
+    public long? TextureUpdateDelta { get; init; }
+    public double? TextureAgeMs { get; init; }
+}
 public sealed record RoiMotion(string Id, int Features, int Supported, double? DxPixels, double? DyPixels,
     double? VelocityXPixelsPerSecond, double? VelocityYPixelsPerSecond, string Status);
 public sealed record MotionMeasurement(long SourceTimeUs, IReadOnlyList<RoiMotion> Regions, double ConversionMs, double FlowMs)
@@ -38,7 +66,13 @@ public interface ITableMotionFrameSource : ITableFrameSource
 }
 public enum MotionFrameCandidateDisposition { New, Unchanged, Unavailable }
 public sealed record MotionFrameCandidateProbe(MotionFrameCandidateDisposition Disposition, string Reason,
-    long? FrameId = null, long? SourceTimeUs = null);
+    long? FrameId = null, long? SourceTimeUs = null)
+{
+    public double? MainThreadQueueMs { get; init; }
+    public double? ProbeDurationMs { get; init; }
+    public long? TextureUpdateCount { get; init; }
+    public double? TextureAgeMs { get; init; }
+}
 public interface ITableMotionFrameProbe
 {
     Task<MotionFrameCandidateProbe> ProbeNewCandidateAsync(MotionFeedScope scope, long afterFrameId,
@@ -73,6 +107,23 @@ public sealed record MotionFeedSnapshot(long Acquired, long Processed, long Repl
     public long NoNewFramePolls { get; init; }
     public long UnavailableCandidatePolls { get; init; }
     public IReadOnlyDictionary<string, long> UnavailableCandidateReasons { get; init; } = new Dictionary<string, long>();
+    public double? LastCandidateProbeQueueMs { get; init; }
+    public double? LastCandidateProbeDurationMs { get; init; }
+    public long? LastCandidateFrameId { get; init; }
+    public long? LastCandidateSourceTimeUs { get; init; }
+    public long? LastCandidateTextureUpdateCount { get; init; }
+    public double? LastCandidateTextureAgeMs { get; init; }
+    public double? LastReadMainThreadQueueMs { get; init; }
+    public double? LastBitmapCopyMs { get; init; }
+    public long? LastAcquisitionCandidateFrameId { get; init; }
+    public long? LastAcquisitionCandidateSourceTimeUs { get; init; }
+    public long? LastReadFrameId { get; init; }
+    public long? LastReadSourceTimeUs { get; init; }
+    public long? LastCandidateToReadFrameIdDelta { get; init; }
+    public long? LastCandidateToReadSourceDeltaUs { get; init; }
+    public long? LastReadTextureUpdateCount { get; init; }
+    public double? LastReadTextureAgeMs { get; init; }
+    public long? LastProcessedTextureUpdateDelta { get; init; }
     public IReadOnlyList<MotionGapDiagnostic> RecentGaps { get; init; } = Array.Empty<MotionGapDiagnostic>();
 }
 
@@ -92,6 +143,7 @@ public sealed class TableMotionFeed : IAsyncDisposable
     readonly Queue<long> recentProcessedSourceTimes = new();
     readonly Queue<long> recentProcessedDeltasUs = new();
     TableFrame? pending;
+    MotionFrameCandidateProbe? pendingProbe;
     Task? run;
     long acquired, processed, replaced, duplicate, noNewFramePolls, unavailableCandidatePolls, stale, acquisitionFailures, scopeRejected, workerFailures, gaps;
     readonly Dictionary<string, long> unavailableCandidateReasons = new(StringComparer.Ordinal);
@@ -99,7 +151,14 @@ public sealed class TableMotionFeed : IAsyncDisposable
     long lastReceivedId = -1, lastReceivedUs = -1, lastProcessedId = -1, lastProcessedUs = -1;
     long? lastProcessedDeltaUs, lastGapUs;
     long? lastProcessedFrameIdDelta, lastGapFrameIdDelta;
+    long? lastProcessedTextureUpdateCount, lastProcessedTextureUpdateDelta;
     double? lastClockSampleAgeMs, lastClockUncertaintyMs;
+    double? lastCandidateProbeQueueMs, lastCandidateProbeDurationMs, lastCandidateTextureAgeMs;
+    long? lastCandidateFrameId, lastCandidateSourceTimeUs, lastCandidateTextureUpdateCount;
+    double? lastReadMainThreadQueueMs, lastBitmapCopyMs, lastReadTextureAgeMs;
+    long? lastReadFrameId, lastReadSourceTimeUs, lastReadTextureUpdateCount;
+    long? lastAcquisitionCandidateFrameId, lastAcquisitionCandidateSourceTimeUs;
+    long? lastCandidateToReadFrameIdDelta, lastCandidateToReadSourceDeltaUs;
     long largestGapUs;
     int active, width, height, lastAcquisitionAttempts = 1, pendingAcquisitionAttempts = 1;
     string? stopReason;
@@ -153,6 +212,23 @@ public sealed class TableMotionFeed : IAsyncDisposable
                     NoNewFramePolls = noNewFramePolls,
                     UnavailableCandidatePolls = unavailableCandidatePolls,
                     UnavailableCandidateReasons = new Dictionary<string, long>(unavailableCandidateReasons),
+                    LastCandidateProbeQueueMs = lastCandidateProbeQueueMs,
+                    LastCandidateProbeDurationMs = lastCandidateProbeDurationMs,
+                    LastCandidateFrameId = lastCandidateFrameId,
+                    LastCandidateSourceTimeUs = lastCandidateSourceTimeUs,
+                    LastCandidateTextureUpdateCount = lastCandidateTextureUpdateCount,
+                    LastCandidateTextureAgeMs = lastCandidateTextureAgeMs,
+                    LastReadMainThreadQueueMs = lastReadMainThreadQueueMs,
+                    LastBitmapCopyMs = lastBitmapCopyMs,
+                    LastAcquisitionCandidateFrameId = lastAcquisitionCandidateFrameId,
+                    LastAcquisitionCandidateSourceTimeUs = lastAcquisitionCandidateSourceTimeUs,
+                    LastReadFrameId = lastReadFrameId,
+                    LastReadSourceTimeUs = lastReadSourceTimeUs,
+                    LastCandidateToReadFrameIdDelta = lastCandidateToReadFrameIdDelta,
+                    LastCandidateToReadSourceDeltaUs = lastCandidateToReadSourceDeltaUs,
+                    LastReadTextureUpdateCount = lastReadTextureUpdateCount,
+                    LastReadTextureAgeMs = lastReadTextureAgeMs,
+                    LastProcessedTextureUpdateDelta = lastProcessedTextureUpdateDelta,
                     RecentGaps = recentGaps.ToArray()
                 };
             }
@@ -177,7 +253,7 @@ public sealed class TableMotionFeed : IAsyncDisposable
     public void Stop(string reason = "Stopped")
     {
         TableFrame? discard;
-        lock (gate) { stopReason ??= reason; latest = null; discard = pending; pending = null; }
+        lock (gate) { stopReason ??= reason; latest = null; discard = pending; pending = null; pendingProbe = null; }
         stopped.Cancel(); discard?.Dispose();
     }
     public async Task StopAsync(string reason = "Stopped") { Stop(reason); await Completion.ConfigureAwait(false); }
@@ -198,11 +274,21 @@ public sealed class TableMotionFeed : IAsyncDisposable
             do
             {
                 if (!Current()) { Stop("Source, calibration or enablement changed"); break; }
+                MotionFrameCandidateProbe? candidateProbe = null;
                 // A decoder can be polled faster than its source. Keep a valid
                 // pending frame when the native source has no newer candidate.
                 if (source is ITableMotionFrameProbe detailedProbe)
                 {
                     var probe = await detailedProbe.ProbeNewCandidateAsync(scope, lastReceivedId, lastReceivedUs, stopped.Token).ConfigureAwait(false);
+                    lock (gate)
+                    {
+                        lastCandidateProbeQueueMs = probe.MainThreadQueueMs;
+                        lastCandidateProbeDurationMs = probe.ProbeDurationMs;
+                        lastCandidateFrameId = probe.FrameId;
+                        lastCandidateSourceTimeUs = probe.SourceTimeUs;
+                        lastCandidateTextureUpdateCount = probe.TextureUpdateCount;
+                        lastCandidateTextureAgeMs = probe.TextureAgeMs;
+                    }
                     if (probe.Disposition == MotionFrameCandidateDisposition.Unchanged)
                     { lock (gate) noNewFramePolls++; continue; }
                     if (probe.Disposition == MotionFrameCandidateDisposition.Unavailable)
@@ -216,6 +302,7 @@ public sealed class TableMotionFeed : IAsyncDisposable
                         }
                         continue;
                     }
+                    candidateProbe = probe;
                 }
                 else if (source is ITableMotionFrameSource peek)
                 {
@@ -225,7 +312,7 @@ public sealed class TableMotionFeed : IAsyncDisposable
                 // Dispose the previous pending frame BEFORE allocating another copy.
                 // Even transient native ownership therefore stays at active + acquisition/latest.
                 TableFrame? discard;
-                lock (gate) { discard = pending; pending = null; if (discard is not null) replaced++; }
+                lock (gate) { discard = pending; pending = null; pendingProbe = null; if (discard is not null) replaced++; }
                 discard?.Dispose();
                 TableFrame? frame = null;
                 try
@@ -239,6 +326,18 @@ public sealed class TableMotionFeed : IAsyncDisposable
                         acquired++; acquisitionMs = clock.Elapsed.TotalMilliseconds;
                         lastAcquisitionAttempts = Math.Clamp(frame.AcquisitionAttempts, 1, 16);
                         acquisitionRetries += lastAcquisitionAttempts - 1;
+                        lastReadMainThreadQueueMs = frame.MainThreadQueueMs;
+                        lastBitmapCopyMs = frame.BitmapCopyMs;
+                        lastReadFrameId = frame.DecodedReceipt?.FrameId;
+                        lastReadSourceTimeUs = frame.SourceTimeUs;
+                        lastCandidateToReadFrameIdDelta = candidateProbe?.FrameId is { } candidateId && frame.DecodedReceipt is { } readReceipt
+                            ? readReceipt.FrameId - candidateId : null;
+                        lastCandidateToReadSourceDeltaUs = candidateProbe?.SourceTimeUs is { } candidateSourceUs && frame.SourceTimeUs is { } readSourceUs
+                            ? readSourceUs - candidateSourceUs : null;
+                        lastAcquisitionCandidateFrameId = candidateProbe?.FrameId;
+                        lastAcquisitionCandidateSourceTimeUs = candidateProbe?.SourceTimeUs;
+                        lastReadTextureUpdateCount = frame.TextureUpdateCount;
+                        lastReadTextureAgeMs = frame.TextureAgeMs;
                         var receipt = frame.DecodedReceipt;
                         rejectScope = !Current() || receipt is null || frame.Image is null || frame.SourceTimeUs is null or < 0
                             || frame.Timeline != scope.Timeline || receipt.MediaGeneration != scope.MediaGeneration
@@ -251,7 +350,7 @@ public sealed class TableMotionFeed : IAsyncDisposable
                         {
                             width = receipt.Width; height = receipt.Height;
                             lastReceivedId = receipt.FrameId; lastReceivedUs = frame.SourceTimeUs!.Value;
-                            pending = frame; pendingAcquisitionMs = acquisitionMs; frame = null;
+                            pending = frame; pendingProbe = candidateProbe; pendingAcquisitionMs = acquisitionMs; frame = null;
                             pendingAcquisitionAttempts = lastAcquisitionAttempts;
                             if (wake.CurrentCount == 0) wake.Release();
                         }
@@ -280,15 +379,17 @@ public sealed class TableMotionFeed : IAsyncDisposable
             while (true)
             {
                 await wake.WaitAsync(stopped.Token).ConfigureAwait(false);
-                TableFrame? frame; MotionFrameContext? context;
+                TableFrame? frame; MotionFrameCandidateProbe? candidateProbe; MotionFrameContext? context;
                 lock (gate)
                 {
-                    frame = pending; pending = null; context = null;
+                    frame = pending; pending = null; candidateProbe = pendingProbe; pendingProbe = null; context = null;
                     if (frame is not null)
                     {
                         active = 1;
                         long? sourceDeltaUs = lastProcessedUs < 0 ? null : frame.SourceTimeUs!.Value - lastProcessedUs;
                         long? frameIdDelta = lastProcessedId < 0 ? null : frame.DecodedReceipt!.FrameId - lastProcessedId;
+                        long? textureUpdateDelta = frame.TextureUpdateCount is { } updateCount && lastProcessedTextureUpdateCount is { } previousUpdateCount
+                            ? updateCount - previousUpdateCount : null;
                         bool reset = sourceDeltaUs is null || sourceDeltaUs.Value > options.MaximumGapUs;
                         if (reset && sourceDeltaUs is { } gapUs)
                         {
@@ -300,7 +401,20 @@ public sealed class TableMotionFeed : IAsyncDisposable
                         context = new(scope, frame.DecodedReceipt!.FrameId, frame.SourceTimeUs!.Value, reset,
                             reset ? null : sourceDeltaUs!.Value / 1000000d)
                         { AcquisitionMs = pendingAcquisitionMs, AcquisitionAttempts = pendingAcquisitionAttempts,
-                            SourceDeltaUs = sourceDeltaUs, FrameIdDelta = frameIdDelta };
+                            SourceDeltaUs = sourceDeltaUs, FrameIdDelta = frameIdDelta,
+                            CandidateProbeQueueMs = candidateProbe?.MainThreadQueueMs,
+                            CandidateProbeDurationMs = candidateProbe?.ProbeDurationMs,
+                            CandidateFrameId = candidateProbe?.FrameId,
+                            CandidateSourceTimeUs = candidateProbe?.SourceTimeUs,
+                            CandidateToReadFrameIdDelta = candidateProbe?.FrameId is { } candidateFrameId
+                                ? frame.DecodedReceipt!.FrameId - candidateFrameId : null,
+                            CandidateToReadSourceDeltaUs = candidateProbe?.SourceTimeUs is { } candidateSourceTimeUs
+                                ? frame.SourceTimeUs!.Value - candidateSourceTimeUs : null,
+                            CandidateTextureUpdateCount = candidateProbe?.TextureUpdateCount,
+                            CandidateTextureAgeMs = candidateProbe?.TextureAgeMs,
+                            ReadMainThreadQueueMs = frame.MainThreadQueueMs, BitmapCopyMs = frame.BitmapCopyMs,
+                            TextureUpdateCount = frame.TextureUpdateCount, TextureUpdateDelta = textureUpdateDelta,
+                            TextureAgeMs = frame.TextureAgeMs };
                     }
                 }
                 if (frame is null) continue;
@@ -318,6 +432,8 @@ public sealed class TableMotionFeed : IAsyncDisposable
                         if (result.SourceTimeUs != context!.SourceTimeUs) throw new InvalidDataException("Worker result lost source time.");
                         if (context.Reset) recentProcessedSourceTimes.Clear();
                         processed++; lastProcessedId = context.FrameId; lastProcessedUs = context.SourceTimeUs; latest = result;
+                        if (frame.TextureUpdateCount is { } updateCount) lastProcessedTextureUpdateCount = updateCount;
+                        lastProcessedTextureUpdateDelta = context.TextureUpdateDelta;
                         lastProcessedFrameIdDelta = context.FrameIdDelta;
                         lastClockSampleAgeMs = frame.ClockSampleAgeMs;
                         lastClockUncertaintyMs = frame.ClockUncertaintyMs;
@@ -336,7 +452,22 @@ public sealed class TableMotionFeed : IAsyncDisposable
                         if (context.SourceDeltaUs is { } gapUs && gapUs > options.MaximumGapUs)
                         {
                             recentGaps.Enqueue(new(context.FrameId, context.SourceTimeUs, context.FrameIdDelta, gapUs,
-                                context.AcquisitionAttempts, context.AcquisitionMs, workerMs, resultAgeMs));
+                                context.AcquisitionAttempts, context.AcquisitionMs, workerMs, resultAgeMs)
+                            {
+                                CandidateProbeQueueMs = context.CandidateProbeQueueMs,
+                                CandidateProbeDurationMs = context.CandidateProbeDurationMs,
+                                CandidateFrameId = context.CandidateFrameId,
+                                CandidateSourceTimeUs = context.CandidateSourceTimeUs,
+                                CandidateToReadFrameIdDelta = context.CandidateToReadFrameIdDelta,
+                                CandidateToReadSourceDeltaUs = context.CandidateToReadSourceDeltaUs,
+                                CandidateTextureUpdateCount = context.CandidateTextureUpdateCount,
+                                CandidateTextureAgeMs = context.CandidateTextureAgeMs,
+                                ReadMainThreadQueueMs = context.ReadMainThreadQueueMs,
+                                BitmapCopyMs = context.BitmapCopyMs,
+                                TextureUpdateCount = context.TextureUpdateCount,
+                                TextureUpdateDelta = context.TextureUpdateDelta,
+                                TextureAgeMs = context.TextureAgeMs
+                            });
                             while (recentGaps.Count > 64) recentGaps.Dequeue();
                         }
                     }
