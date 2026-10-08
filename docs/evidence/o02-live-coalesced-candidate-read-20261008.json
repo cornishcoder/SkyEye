@@ -1,0 +1,112 @@
+{
+  "schemaVersion": 1,
+  "captureDate": "2026-10-08",
+  "captureDurationSeconds": 30,
+  "sampleSpanSeconds": 29.16,
+  "sampleCount": 29,
+  "requestedHz": 30,
+  "completed": true,
+  "imagesSaved": false,
+  "frameSize": {
+    "decoded": [1920, 1080],
+    "analysis": [960, 540]
+  },
+  "counterDeltas": {
+    "decodedFrameCallbacks": 868,
+    "textureUpdates": 806,
+    "acquired": 691,
+    "processed": 689,
+    "processedHz": 23.627,
+    "replaced": 1,
+    "noNewFramePolls": 185,
+    "unavailableCandidatePolls": 0,
+    "duplicateOrBackwardsReceipts": 0,
+    "acquisitionRetries": 37,
+    "gapEventsCaptured": 4,
+    "gapResetsAtFirstSample": 1,
+    "gapResetsAtLastSample": 4,
+    "gapResetDeltaAfterFirstSample": 3,
+    "gapThresholdUs": 125000,
+    "stale": 0,
+    "acquisitionFailures": 0,
+    "scopeRejected": 0,
+    "workerFailures": 0,
+    "changedDuringCopyCounterDelta": 37,
+    "changedDuringCopyCounterScope": "Cumulative PlayerBridge counter observed over the capture; it cannot be attributed to individual motion-feed acquisitions.",
+    "playerLoadingSamples": 29,
+    "activeAtEnd": 1,
+    "pendingAtEnd": 0
+  },
+  "snapshotTimingP95Ms": {
+    "candidateQueue": 28.733,
+    "candidateProbe": 0.258,
+    "readQueue": 38.706,
+    "bitmapCopy": 9.598,
+    "acquisition": 42.44,
+    "worker": 17.802,
+    "resultAge": 498.258,
+    "candidateTextureAge": 39.169,
+    "readTextureAge": 22.924
+  },
+  "gapRanges": {
+    "sourceDeltaUs": [133344, 134511],
+    "decoderFrameDelta": [4, 4],
+    "candidateToReadFrameDelta": [0, 0],
+    "candidateToReadSourceDeltaUs": [0, 0],
+    "combinedDispatchQueueMs": [0.317, 15.97],
+    "candidateProbeMs": [0.084, 0.243],
+    "acquisitionMs": [67.581, 123.469],
+    "bitmapCopyMs": [5.31, 16.294],
+    "workerMs": [7.936, 11.052],
+    "resultAgeMs": [456.727, 501.038],
+    "textureAgeMs": [5.366, 14.599],
+    "textureUpdateDelta": [2, 4]
+  },
+  "gapEvents": [
+    {
+      "decoderFrameDelta": 4,
+      "sourceDeltaUs": 134511,
+      "acquisitionMs": 123.469,
+      "combinedDispatchQueueMs": 0.317,
+      "bitmapCopyMs": 16.294,
+      "workerMs": 10.689,
+      "candidateToReadFrameDelta": 0,
+      "candidateToReadSourceDeltaUs": 0,
+      "textureUpdateDelta": 4
+    },
+    {
+      "decoderFrameDelta": 4,
+      "sourceDeltaUs": 134511,
+      "acquisitionMs": 67.581,
+      "combinedDispatchQueueMs": 6.711,
+      "bitmapCopyMs": 12.676,
+      "workerMs": 11.052,
+      "candidateToReadFrameDelta": 0,
+      "candidateToReadSourceDeltaUs": 0,
+      "textureUpdateDelta": 3
+    },
+    {
+      "decoderFrameDelta": 4,
+      "sourceDeltaUs": 133344,
+      "acquisitionMs": 76.08,
+      "combinedDispatchQueueMs": 9.389,
+      "bitmapCopyMs": 5.31,
+      "workerMs": 7.936,
+      "candidateToReadFrameDelta": 0,
+      "candidateToReadSourceDeltaUs": 0,
+      "textureUpdateDelta": 3
+    },
+    {
+      "decoderFrameDelta": 4,
+      "sourceDeltaUs": 134511,
+      "acquisitionMs": 74.907,
+      "combinedDispatchQueueMs": 15.97,
+      "bitmapCopyMs": 8.787,
+      "workerMs": 8.093,
+      "candidateToReadFrameDelta": 0,
+      "candidateToReadSourceDeltaUs": 0,
+      "textureUpdateDelta": 2
+    }
+  ],
+  "interpretation": "Coalescing made every sampled candidate/read pair refer to the same frame and source time. The four gap-associated combined-dispatch queue waits were 0.317–15.97 ms, below the previous capture's separate candidate wait maximum of 92.77 ms and read wait maximum of 34.75 ms. Overall processed cadence was 23.627 Hz, below the prior run's 24.172 Hz, and three additional gaps crossed the unchanged 125 ms reset threshold after the first sample. This is a partial source-pairing/queueing improvement, not a continuity or moving-ball accuracy pass. PlayerBridge reported loading in all 29 snapshots while decoder and texture counters continued to advance; this does not establish playback buffering health."
+}
