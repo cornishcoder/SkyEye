@@ -1,0 +1,113 @@
+{
+  "schemaVersion": 1,
+  "captureDate": "2026-10-08",
+  "captureDurationSeconds": 30,
+  "sampleSpanSeconds": 29.06,
+  "sampleCount": 29,
+  "requestedHz": 60,
+  "completed": true,
+  "imagesSaved": false,
+  "frameSize": {
+    "decoded": [1920, 1080],
+    "analysis": [960, 540]
+  },
+  "counterDeltas": {
+    "decodedFrameCallbacks": 865,
+    "textureUpdates": 817,
+    "acquired": 759,
+    "processed": 758,
+    "processedHz": 26.085,
+    "replaced": 1,
+    "noNewFramePolls": 913,
+    "unavailableCandidatePolls": 0,
+    "duplicateOrBackwardsReceipts": 0,
+    "acquisitionRetries": 36,
+    "gapEventsCaptured": 4,
+    "gapResetsAtFirstSample": 0,
+    "gapResetsAtLastSample": 4,
+    "gapResetDeltaAfterFirstSample": 4,
+    "gapThresholdUs": 125000,
+    "stale": 0,
+    "acquisitionFailures": 0,
+    "scopeRejected": 0,
+    "workerFailures": 0,
+    "playerLoadingSamples": 29,
+    "activeAtEnd": 1,
+    "pendingAtEnd": 0
+  },
+  "snapshotTimingP95Ms": {
+    "candidateQueue": 32.124,
+    "candidateProbe": 0.18,
+    "readQueue": 38.487,
+    "bitmapCopy": 15.379,
+    "acquisition": 44.0,
+    "worker": 17.393,
+    "resultAge": 561.12,
+    "candidateTextureAge": 32.98,
+    "readTextureAge": 21.08
+  },
+  "gapRanges": {
+    "sourceDeltaUs": [134511, 134511],
+    "decoderFrameDelta": [4, 4],
+    "candidateToReadFrameDelta": [0, 0],
+    "candidateToReadSourceDeltaUs": [0, 0],
+    "combinedDispatchQueueMs": [3.63, 22.332],
+    "candidateProbeMs": [0.093, 0.312],
+    "acquisitionAttempts": [2, 3],
+    "acquisitionMs": [75.867, 127.593],
+    "bitmapCopyMs": [7.172, 18.502],
+    "workerMs": [5.226, 35.878],
+    "textureUpdateDelta": [2, 4]
+  },
+  "gapEvents": [
+    {
+      "decoderFrameDelta": 4,
+      "sourceDeltaUs": 134511,
+      "acquisitionAttempts": 3,
+      "acquisitionMs": 80.948,
+      "combinedDispatchQueueMs": 9.845,
+      "bitmapCopyMs": 18.502,
+      "workerMs": 5.226,
+      "candidateToReadFrameDelta": 0,
+      "candidateToReadSourceDeltaUs": 0,
+      "textureUpdateDelta": 3
+    },
+    {
+      "decoderFrameDelta": 4,
+      "sourceDeltaUs": 134511,
+      "acquisitionAttempts": 3,
+      "acquisitionMs": 92.348,
+      "combinedDispatchQueueMs": 3.63,
+      "bitmapCopyMs": 15.707,
+      "workerMs": 30.808,
+      "candidateToReadFrameDelta": 0,
+      "candidateToReadSourceDeltaUs": 0,
+      "textureUpdateDelta": 4
+    },
+    {
+      "decoderFrameDelta": 4,
+      "sourceDeltaUs": 134511,
+      "acquisitionAttempts": 3,
+      "acquisitionMs": 127.593,
+      "combinedDispatchQueueMs": 22.332,
+      "bitmapCopyMs": 10.125,
+      "workerMs": 34.246,
+      "candidateToReadFrameDelta": 0,
+      "candidateToReadSourceDeltaUs": 0,
+      "textureUpdateDelta": 4
+    },
+    {
+      "decoderFrameDelta": 4,
+      "sourceDeltaUs": 134511,
+      "acquisitionAttempts": 2,
+      "acquisitionMs": 75.867,
+      "combinedDispatchQueueMs": 19.929,
+      "bitmapCopyMs": 7.172,
+      "workerMs": 35.878,
+      "candidateToReadFrameDelta": 0,
+      "candidateToReadSourceDeltaUs": 0,
+      "textureUpdateDelta": 2
+    }
+  ],
+  "interpretation": "The 60 Hz requested poll processed 758 frames over 29.06 seconds (26.085 Hz), compared with 689 frames (23.627 Hz) at 30 Hz. Both runs had no stale, unavailable, duplicate/backwards, acquisition, scope, or worker failures. The higher request produced 913 no-new-frame polls (31.4 per second) and did not remove four-frame, 134.511 ms gaps. Every candidate/read pair remained exact. Each gap acquisition used two or three attempts and took 75.867–127.593 ms. This single stationary comparison supports denser polling as a partial cadence improvement; it does not pass the 125 ms continuity gate or establish moving-ball accuracy. PlayerBridge reported loading in all samples while decoder and texture counters advanced."
+}
