@@ -53,6 +53,7 @@
       <button id="start-camera-review" class="secondary" type="button">Copy live match and review camera</button>
       <button id="stop-camera-review" class="secondary" type="button" hidden>Stop camera review</button>
       <p id="camera-review-status" class="hint" role="status">Camera review is off.</p>
+      <p class="hint">If the saved table is out of date, three steady camera frames are offered as a starting layout for this test scenario. No shot or pot is inferred.</p>
       <div id="message" class="status" role="status" aria-live="polite">Connecting to the Pixel…</div>
       <div class="rows" style="margin-top:14px">
         <div class="row"><span>Scenario ID</span><span id="scenario-id">—</span></div>
@@ -225,7 +226,7 @@
       button.disabled=disabled;
     }
     for(const button of document.querySelectorAll('[data-review-choice],[data-review-evaluate]'))button.disabled=busy;
-    $('start-camera-review').disabled=busy||!liveSnapshot?.frame||!liveSnapshot?.gameTableCurrent||!!snapshot?.pendingProposal;
+    $('start-camera-review').disabled=busy||!liveSnapshot?.frame||!liveSnapshot?.match?.playingFrame||!!snapshot?.pendingProposal;
     $('stop-camera-review').disabled=busy;
   }
   function renderReview(data){
@@ -235,13 +236,13 @@
     const key=proposal?`proposal:${proposal.id}`:`rules:${data.scenarioId}:${data.version}:${prompt.shotId}`;
     if(key===reviewKey)return;reviewKey=key;
     if(proposal){
-      const isRules=proposal.kind==='rules',position=proposal.rulePosition;
+      const isRules=proposal.kind==='rules',isBaseline=proposal.kind==='camera-baseline',position=proposal.rulePosition;
       const events=(proposal.events||[]).map(item=>`<span class="pill">${esc(label(item.event))} · ${esc(label(item.provenance))}</span>`).join('');
       const choices=(proposal.choices||[]).map(choice=>`<button type="button" class="${choice.recommended?'':'secondary'}" data-review-choice="${esc(choice.id)}"><strong>${esc(choice.label)}</strong><small>${esc(choice.description)}</small></button>`).join('');
       const rules=position?`<div class="review-result"><div><span>Next player</span><strong>${esc(proposal.proposedTurn)}</strong></div><div><span>Proposed target</span><strong>${esc(enumLabel(position.target,['Unknown','Open colours','Red','Yellow','Black','Finished']))}</strong></div><div><span>Foul</span><strong>${position.foul==null?'Not decided':position.foul?'Yes':'No'}</strong></div><div><span>Rule clauses</span><strong>${esc((position.clauses||[]).join(', ')||'—')}</strong></div></div>`:`<div class="review-result"><div><span>Proposed score</span><strong>${esc(proposal.proposedScore||'—')}</strong></div><div><span>Proposed turn</span><strong>${esc(proposal.proposedTurn||'—')}</strong></div></div>`;
       const camera=proposal.cameraEvidence;
       const cameraLayout=camera?`<div class="review-camera"><strong>Camera samples ${camera.firstSequence}–${camera.settledSequence} · frame ${camera.frameId}</strong><p>Source ${esc(camera.camera)} · timeline ${esc(camera.timeline)} · calibration ${esc(camera.calibration)} · PTS ${camera.settledSourceTimeUs}</p><div>${(camera.balls||[]).map(ball=>`<span class="pill">${esc(ball.colour==='Cue'?'Cue ball':label(ball.colour))} · ${esc(ball.id)} · ${Number(ball.x).toFixed(3)}, ${Number(ball.y).toFixed(3)} · ${Math.round(Number(ball.confidence)*100)}%</span>`).join(' ')||'No classified balls'}</div></div>`:'';
-      $('review-content').innerHTML=`<p class="review-kicker">${isRules?'Rules engine proposal':camera?'Live camera proposal':'GameState event proposal'} · scenario only</p><h2 id="review-title">${esc(proposal.title)}</h2><p>${esc(proposal.summary)}</p><p class="review-summary">${esc(proposal.recommendation)}</p>${cameraLayout}<div class="review-events">${events||'<span class="pill">No new event</span>'}</div>${rules}<div class="review-actions">${choices}</div>`;
+      $('review-content').innerHTML=`<p class="review-kicker">${isBaseline?'Camera baseline proposal':isRules?'Rules engine proposal':camera?'Live camera proposal':'GameState event proposal'} · scenario only</p><h2 id="review-title">${esc(proposal.title)}</h2><p>${esc(proposal.summary)}</p><p class="review-summary">${esc(proposal.recommendation)}</p>${cameraLayout}<div class="review-events">${events||'<span class="pill">No new event</span>'}</div>${rules}<div class="review-actions">${choices}</div>`;
       return;
     }
     const movement=prompt.noPotAfterMovement?`${prompt.movedBallCount} ball(s) moved and no pot was recorded. The engine can propose a turn change after you confirm the facts.`:`Shot settled · ${prompt.movedBallCount} ball(s) moved · ${prompt.potCount} pot(s) recorded. Confirm facts the camera cannot know.`;

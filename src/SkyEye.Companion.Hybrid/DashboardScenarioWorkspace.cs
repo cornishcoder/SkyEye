@@ -65,6 +65,7 @@ public sealed class DashboardScenarioWorkspace
     DashboardScenarioProposal? pendingProposal;
     readonly Dictionary<string, GameSession> pendingChoices = new(StringComparer.Ordinal);
     bool cameraReviewActive;
+    bool cameraBaselinePending;
     string cameraReviewStatus = "Camera review is off.";
     Guid? cameraReviewSessionId;
     int cameraReviewLastSequence;
@@ -144,10 +145,10 @@ public sealed class DashboardScenarioWorkspace
             var onTable = live.State.Table.Balls.Values.Where(ball => ball.Presence.Value == BallPresence.OnTable
                 && ball.Position is not null).ToImmutableArray();
             var detected = ToObserved(sample.Detection);
-            var prior = onTable.Select(ball => (ball.Id, ball.Colour, ball.Position!)).ToImmutableArray();
-            if (onTable.Length == 0 || onTable.Length != detected.Length
-                || !TryAssociate(prior, detected, .08, out _))
-                return new(false, "The fresh camera layout does not uniquely match the current live inventory. Update the live table observation, then try again.", Current());
+            if (onTable.Length == 0 || !SameColourInventory(onTable, detected))
+                return new(false, "The live match and camera show different ball counts or colours. Correct the test inventory before reviewing camera changes.", Current());
+
+            bool baselinePending = !SameScenarioLayout(onTable, detected);
 
             try
             {
@@ -164,10 +165,14 @@ public sealed class DashboardScenarioWorkspace
                 session = imported;
                 ClearPending();
                 cameraReviewActive = true;
+                cameraBaselinePending = baselinePending;
                 cameraReviewSessionId = diagnostics.SessionId;
                 cameraReviewLastSequence = sample.Sequence;
-                cameraReviewStatus = "Live match copied into the isolated scenario. Waiting for a stable changed table layout.";
+                cameraReviewStatus = baselinePending
+                    ? "Live match copied into the isolated scenario. Waiting for three stable frames to propose a camera baseline."
+                    : "Live match copied into the isolated scenario. Waiting for a stable changed table layout.";
                 cameraStableSamples.Clear();
+                cameraStableSamples.Add(new(sample, detected));
                 pendingCameraLayout = [];
                 rejectedCameraLayout = [];
                 error = null;
@@ -194,6 +199,7 @@ public sealed class DashboardScenarioWorkspace
     void StopCameraReview(string status)
     {
         cameraReviewActive = false;
+        cameraBaselinePending = false;
         cameraReviewStatus = status;
         cameraReviewSessionId = null;
         cameraReviewLastSequence = 0;
@@ -252,6 +258,12 @@ public sealed class DashboardScenarioWorkspace
                     cameraReviewStatus = "Waiting for clear camera evidence. " + reason;
                     continue;
                 }
+                if (cameraBaselinePending && sample.Detection.Uncertain)
+                {
+                    cameraStableSamples.Clear();
+                    cameraReviewStatus = "Waiting for three clear frames before proposing a camera baseline.";
+                    continue;
+                }
                 if (cameraStableSamples.Count > 0)
                 {
                     var previous = cameraStableSamples[^1];
@@ -268,6 +280,11 @@ public sealed class DashboardScenarioWorkspace
                 }
 
                 var settled = cameraStableSamples[^1];
+                if (cameraBaselinePending)
+                {
+                    StageCameraBaselineProposal(cameraStableSamples[0], settled);
+                    return new(true, "Stable camera baseline ready for review.", Current());
+                }
                 var onTable = session.State.Table.Balls.Values.Where(ball => ball.Presence.Value == BallPresence.OnTable
                     && ball.Position is not null).ToImmutableArray();
                 if (SameScenarioLayout(onTable, settled.Balls))
@@ -306,6 +323,83 @@ public sealed class DashboardScenarioWorkspace
         { reason = "all visible balls need supported labels and confidence."; return false; }
         balls = ToObserved(sample.Detection);
         reason = sample.Detection.Uncertain ? "the detector marked this frame uncertain; only an uncertain proposal can be offered." : "";
+        return true;
+    }
+
+    void StageCameraBaselineProposal(CameraLayoutSample first, CameraLayoutSample settled)
+    {
+        var onTable = session.State.Table.Balls.Values.Where(ball => ball.Presence.Value == BallPresence.OnTable)
+            .ToImmutableArray();
+        if (!TryAssignBaselineIdentities(onTable, settled.Balls, out var associated))
+        {
+            StopCameraReview("Camera baseline needs the same clearly labelled ball counts as the copied match. Edit the test inventory, then start review again.");
+            return;
+        }
+
+        var source = settled.Sample.Source!;
+        var matchId = session.State.Match!.Id;
+        var frameId = session.State.Frame!.Id;
+        var input = new GameInputEnvelope(Guid.NewGuid(), matchId, frameId, settled.Sample.CapturedAt,
+            new SkyEye.GameState.TableObservation(associated, Settled: true, Uncertain: false, IdentitiesResolved: true),
+            source, settled.Sample.SourceTimeUs, Provenance.PlayerConfirmed, .95);
+        var result = session.Accept(input);
+        if (result.Outcome != InputOutcome.Applied)
+        {
+            cameraReviewStatus = "Camera baseline could not be staged: " + result.Message;
+            cameraStableSamples.Clear();
+            return;
+        }
+
+        var candidate = result.Session;
+        var added = candidate.History.Skip(session.History.Length).ToArray();
+        var match = MatchView.From(candidate);
+        var proposal = new DashboardScenarioProposal(Guid.NewGuid(), "camera-baseline", "Camera baseline awaiting your choice",
+            $"Three clear frames agree on a {associated.Length}-ball layout. The saved positions differ, so same-colour balls are assigned to scenario IDs from left to right.",
+            "Accepting updates positions in this isolated scenario only. It does not record a shot, change the turn or score, or infer a pot.",
+            added.Select(ToScenarioEvent).ToImmutableArray(), match.Score,
+            match.CurrentPlayer is null ? "—" : match.Name(match.CurrentPlayer),
+            [new("accept", "Use as scenario baseline", "Set the confirmed camera positions as the starting layout for later test events.", true),
+             new("reject", "Keep the saved layout", "Discard this baseline and leave the scenario state unchanged.", false)])
+        {
+            CameraEvidence = new(cameraReviewSessionId!.Value,
+                first.Sample.Sequence, settled.Sample.Sequence, first.Sample.SourceTimeUs, settled.Sample.SourceTimeUs,
+                source.Camera, source.Timeline, source.Generation, source.Calibration,
+                settled.Sample.MediaGeneration, settled.Sample.FrameId, settled.Sample.CapturedAt,
+                true, associated.Select(ball => new DashboardScenarioCameraBall(ball.Id, ball.Colour.ToString(),
+                    ball.Position?.X ?? 0, ball.Position?.Y ?? 0, ball.Confidence ?? .95)).ToImmutableArray())
+        };
+        pendingSession = candidate;
+        pendingProposal = proposal;
+        pendingChoices.Clear();
+        pendingChoices["accept"] = candidate;
+        pendingCameraLayout = settled.Balls;
+        cameraReviewLastSequence = settled.Sample.Sequence;
+        cameraReviewStatus = "Camera baseline is waiting for your choice.";
+    }
+
+    static bool SameColourInventory(ImmutableArray<KnownBall> existing, ImmutableArray<ObservedBall> detected)
+    {
+        if (existing.Length != detected.Length || existing.Any(ball => ball.Colour == BallColour.Unknown)
+            || detected.Any(ball => ball.Colour == BallColour.Unknown)) return false;
+        return new[] { BallColour.Cue, BallColour.Red, BallColour.Yellow, BallColour.Black }
+            .All(colour => existing.Count(ball => ball.Colour == colour) == detected.Count(ball => ball.Colour == colour));
+    }
+
+    static bool TryAssignBaselineIdentities(ImmutableArray<KnownBall> existing,
+        ImmutableArray<ObservedBall> detected, out ImmutableArray<ObservedBall> associated)
+    {
+        associated = [];
+        if (!SameColourInventory(existing, detected)) return false;
+        var result = ImmutableArray.CreateBuilder<ObservedBall>(detected.Length);
+        foreach (var colour in new[] { BallColour.Cue, BallColour.Red, BallColour.Yellow, BallColour.Black })
+        {
+            var known = existing.Where(ball => ball.Colour == colour)
+                .OrderBy(ball => ball.Id, StringComparer.Ordinal).ToArray();
+            var observed = detected.Where(ball => ball.Colour == colour)
+                .OrderBy(ball => ball.Position!.X).ThenBy(ball => ball.Position!.Y).ToArray();
+            for (var i = 0; i < known.Length; i++) result.Add(observed[i] with { Id = known[i].Id });
+        }
+        associated = result.ToImmutable();
         return true;
     }
 
@@ -675,8 +769,13 @@ public sealed class DashboardScenarioWorkspace
             }
 
             bool cameraProposal = pendingProposal.CameraEvidence is not null;
+            bool cameraBaselineProposal = pendingProposal.Kind == "camera-baseline";
             bool cameraReviewWasActive = cameraReviewActive;
-            var message = cameraProposal
+            var message = cameraBaselineProposal
+                ? request.ChoiceId == "accept"
+                    ? "Camera baseline accepted into the isolated scenario. The live match is unchanged."
+                    : "Camera baseline rejected; the isolated scenario is unchanged."
+                : cameraProposal
                 ? request.ChoiceId switch
                 {
                     "accept" => "Camera proposal accepted into the isolated scenario. A missing ball remains Missing; no pot was inferred.",
@@ -692,7 +791,19 @@ public sealed class DashboardScenarioWorkspace
                 };
             if (cameraProposal)
             {
-                if (selected is null)
+                if (cameraBaselineProposal)
+                {
+                    if (selected is null)
+                        StopCameraReview("Camera baseline rejected. The scenario stayed unchanged; start review again when ready.");
+                    else
+                    {
+                        cameraBaselinePending = false;
+                        cameraStableSamples.Clear();
+                        rejectedCameraLayout = [];
+                        cameraReviewStatus = "Camera baseline accepted in the isolated scenario. Waiting for the next stable table change.";
+                    }
+                }
+                else if (selected is null)
                 {
                     rejectedCameraLayout = pendingCameraLayout;
                     cameraReviewStatus = "This stable layout was rejected. Waiting for another table change.";

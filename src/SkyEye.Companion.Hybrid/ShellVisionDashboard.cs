@@ -32,7 +32,7 @@ public sealed partial class ShellSession
     const string VisionDashboardAsset = "vision-diagnostics-dashboard.html";
     const string VisionScenarioAsset = "vision-scenario-lab.html";
     const int VisionDashboardAssetVersion = 6;
-    const int VisionScenarioAssetVersion = 2;
+    const int VisionScenarioAssetVersion = 3;
     const int VisionDashboardPort = 8770;
     readonly DashboardScenarioWorkspace dashboardScenario;
     LocalHttpServer? visionDashboardServer;
