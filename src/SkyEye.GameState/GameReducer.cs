@@ -126,7 +126,9 @@ public static class GameReducer
                 var corrected = s.Table.Balls[c.BallId];
                 if (corrected.Presence.Source > e.Provenance && Protected(corrected, s)) return s;
                 return s with { Table = s.Table with { Balls = s.Table.Balls.SetItem(c.BallId,
-                    corrected with { Presence = Fact(c.Presence, e), ProtectedThroughShot = s.Shot?.Id ?? "" }) } };
+                    corrected with { Presence = Fact(c.Presence, e),
+                        Position = c.Presence == BallPresence.Potted ? null : corrected.Position,
+                        ProtectedThroughShot = s.Shot?.Id ?? "" }) } };
             default: throw new ArgumentException("Unsupported event.");
         }
     }

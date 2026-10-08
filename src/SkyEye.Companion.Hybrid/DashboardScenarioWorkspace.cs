@@ -138,17 +138,18 @@ public sealed class DashboardScenarioWorkspace
                 || sample.Detection.Balls.Any(ball => !TryColour(ball.Kind, out _) || !double.IsFinite(ball.Confidence) || ball.Confidence < .5))
                 return new(false, "Wait for a fresh, clear camera sample with confidently labelled balls.", Current());
             if (live.State.Match is null || live.State.Frame is null || live.State.Frame.Winner is not null
-                || live.State.Table.Motion != SkyEye.GameState.TableMotion.Settled || live.State.Table.Uncertain
                 || live.State.Shot is not null || live.State.Table.Source != source)
-                return new(false, "The live match needs an active frame, a settled certain table and no unresolved shot on this camera source.", Current());
+                return new(false, "The live match needs an active frame, no unresolved shot and the same camera source as diagnostics.", Current());
 
             var onTable = live.State.Table.Balls.Values.Where(ball => ball.Presence.Value == BallPresence.OnTable
                 && ball.Position is not null).ToImmutableArray();
             var detected = ToObserved(sample.Detection);
-            if (onTable.Length == 0 || !SameColourInventory(onTable, detected))
-                return new(false, "The live match and camera show different ball counts or colours. Correct the test inventory before reviewing camera changes.", Current());
+            if (onTable.Length == 0 || !CanAssignBaselineInventory(onTable, detected))
+                return new(false, "The camera shows an unsupported colour or more balls of a colour than the copied match inventory. Correct the test inventory before reviewing camera changes.", Current());
 
-            bool baselinePending = !SameScenarioLayout(onTable, detected);
+            bool baselinePending = live.State.Table.Motion != SkyEye.GameState.TableMotion.Settled
+                || live.State.Table.Uncertain || live.State.Table.LastSettled is null
+                || !SameScenarioLayout(onTable, detected);
 
             try
             {
@@ -332,7 +333,7 @@ public sealed class DashboardScenarioWorkspace
             .ToImmutableArray();
         if (!TryAssignBaselineIdentities(onTable, settled.Balls, out var associated))
         {
-            StopCameraReview("Camera baseline needs the same clearly labelled ball counts as the copied match. Edit the test inventory, then start review again.");
+            StopCameraReview("Camera baseline shows an unsupported colour or more balls of a colour than the copied match inventory. Correct the test inventory, then start review again.");
             return;
         }
 
@@ -353,13 +354,34 @@ public sealed class DashboardScenarioWorkspace
         var candidate = result.Session;
         var added = candidate.History.Skip(session.History.Length).ToArray();
         var match = MatchView.From(candidate);
+        var missing = onTable.Where(ball => !associated.Any(observed => observed.Id == ball.Id)).ToArray();
+        var missingSummary = missing.Length == 0 ? "All saved balls are visible." :
+            missing.Length == 1 ? $"One {missing[0].Colour} ball is absent from the stable camera layout." :
+            $"{missing.Length} balls are absent from the stable camera layout.";
+        var missingChoice = missing.Length == 0 ? "Use as scenario baseline" : "Set baseline and mark absent balls Missing";
+        GameSession? confirmedPot = null;
+        if (missing.Length == 1 && missing[0].Colour is BallColour.Red or BallColour.Yellow)
+        {
+            var correction = new GameInputEnvelope(Guid.NewGuid(), matchId, frameId,
+                settled.Sample.CapturedAt.AddTicks(1),
+                new PlayerCorrection(new SetBallPresence(missing[0].Id, BallPresence.Potted)), source,
+                settled.Sample.SourceTimeUs, Provenance.PlayerConfirmed, .99);
+            var potResult = candidate.Accept(correction);
+            if (potResult.Outcome == InputOutcome.Applied) confirmedPot = potResult.Session;
+        }
+        var choices = ImmutableArray.CreateBuilder<DashboardScenarioChoice>();
+        choices.Add(new("accept", missingChoice,
+            "Set the confirmed camera positions in this test scenario. Absent balls remain Missing and do not count as pots.", true));
+        if (confirmedPot is not null)
+            choices.Add(new("confirm-pot", $"Confirm absent {missing[0].Colour} was potted",
+                "Record a player-confirmed Potted presence for the one absent ball. Shooter, pocket, shot result, score and turn stay unchanged for now.", false));
+        choices.Add(new("reject", "Keep the saved layout", "Discard this baseline and leave the scenario state unchanged.", false));
         var proposal = new DashboardScenarioProposal(Guid.NewGuid(), "camera-baseline", "Camera baseline awaiting your choice",
-            $"Three clear frames agree on a {associated.Length}-ball layout. The saved positions differ, so same-colour balls are assigned to scenario IDs from left to right.",
-            "Accepting updates positions in this isolated scenario only. It does not record a shot, change the turn or score, or infer a pot.",
+            $"Three clear frames agree on a {associated.Length}-ball layout. {missingSummary} Same-colour balls are assigned to scenario IDs from left to right.",
+            "Choose whether any absent ball stays Missing or, if you know it was potted, confirm its presence as Potted. This baseline cannot establish the shooter, pocket, turn or shot result.",
             added.Select(ToScenarioEvent).ToImmutableArray(), match.Score,
             match.CurrentPlayer is null ? "—" : match.Name(match.CurrentPlayer),
-            [new("accept", "Use as scenario baseline", "Set the confirmed camera positions as the starting layout for later test events.", true),
-             new("reject", "Keep the saved layout", "Discard this baseline and leave the scenario state unchanged.", false)])
+            choices.ToImmutable())
         {
             CameraEvidence = new(cameraReviewSessionId!.Value,
                 first.Sample.Sequence, settled.Sample.Sequence, first.Sample.SourceTimeUs, settled.Sample.SourceTimeUs,
@@ -372,24 +394,25 @@ public sealed class DashboardScenarioWorkspace
         pendingProposal = proposal;
         pendingChoices.Clear();
         pendingChoices["accept"] = candidate;
+        if (confirmedPot is not null) pendingChoices["confirm-pot"] = confirmedPot;
         pendingCameraLayout = settled.Balls;
         cameraReviewLastSequence = settled.Sample.Sequence;
         cameraReviewStatus = "Camera baseline is waiting for your choice.";
     }
 
-    static bool SameColourInventory(ImmutableArray<KnownBall> existing, ImmutableArray<ObservedBall> detected)
+    static bool CanAssignBaselineInventory(ImmutableArray<KnownBall> existing, ImmutableArray<ObservedBall> detected)
     {
-        if (existing.Length != detected.Length || existing.Any(ball => ball.Colour == BallColour.Unknown)
+        if (detected.Length == 0 || detected.Length > existing.Length || existing.Any(ball => ball.Colour == BallColour.Unknown)
             || detected.Any(ball => ball.Colour == BallColour.Unknown)) return false;
         return new[] { BallColour.Cue, BallColour.Red, BallColour.Yellow, BallColour.Black }
-            .All(colour => existing.Count(ball => ball.Colour == colour) == detected.Count(ball => ball.Colour == colour));
+            .All(colour => detected.Count(ball => ball.Colour == colour) <= existing.Count(ball => ball.Colour == colour));
     }
 
     static bool TryAssignBaselineIdentities(ImmutableArray<KnownBall> existing,
         ImmutableArray<ObservedBall> detected, out ImmutableArray<ObservedBall> associated)
     {
         associated = [];
-        if (!SameColourInventory(existing, detected)) return false;
+        if (!CanAssignBaselineInventory(existing, detected)) return false;
         var result = ImmutableArray.CreateBuilder<ObservedBall>(detected.Length);
         foreach (var colour in new[] { BallColour.Cue, BallColour.Red, BallColour.Yellow, BallColour.Black })
         {
@@ -397,7 +420,7 @@ public sealed class DashboardScenarioWorkspace
                 .OrderBy(ball => ball.Id, StringComparer.Ordinal).ToArray();
             var observed = detected.Where(ball => ball.Colour == colour)
                 .OrderBy(ball => ball.Position!.X).ThenBy(ball => ball.Position!.Y).ToArray();
-            for (var i = 0; i < known.Length; i++) result.Add(observed[i] with { Id = known[i].Id });
+            for (var i = 0; i < observed.Length; i++) result.Add(observed[i] with { Id = known[i].Id });
         }
         associated = result.ToImmutable();
         return true;
@@ -773,7 +796,9 @@ public sealed class DashboardScenarioWorkspace
             bool cameraReviewWasActive = cameraReviewActive;
             var message = cameraBaselineProposal
                 ? request.ChoiceId == "accept"
-                    ? "Camera baseline accepted into the isolated scenario. The live match is unchanged."
+                    ? "Camera baseline accepted into the isolated scenario. Absent balls remain Missing; the live match is unchanged."
+                    : request.ChoiceId == "confirm-pot"
+                        ? "The absent ball was marked Potted by your confirmation in the isolated scenario. Shooter, pocket, shot result and turn remain undecided."
                     : "Camera baseline rejected; the isolated scenario is unchanged."
                 : cameraProposal
                 ? request.ChoiceId switch

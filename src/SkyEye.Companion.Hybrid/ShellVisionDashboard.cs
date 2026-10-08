@@ -220,8 +220,6 @@ public sealed partial class ShellSession
             var started = await MainThread.InvokeOnMainThreadAsync(() =>
             {
                 var current = app.State;
-                if (!current.HasFreshGameTable(DateTimeOffset.UtcNow))
-                    return new DashboardScenarioLiveResponse(false, "Take a fresh live table observation before copying the match into the scenario.", dashboardScenario.Snapshot());
                 var session = app.CaptureGameSession();
                 if (session.State.Version != current.Game.Version)
                     return new DashboardScenarioLiveResponse(false, "The live match changed during capture. Refresh and try again.", dashboardScenario.Snapshot());
