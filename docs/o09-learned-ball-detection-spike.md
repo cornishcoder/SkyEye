@@ -10,6 +10,8 @@ The current production pipeline remains the reference baseline. The 8 October bu
 
 ## Comparison candidates
 
+Immediate incremental work follows the [cue ball recovery plan](cue-ball-detection-recovery-plan.md): inspect proposal loss during colour correction, recover only from supported current pixels and measure first/normalized/final stages. Freeze each baseline configuration and retain before/after Development evidence; this work does not establish a learned-model result. Keep separate-frame consensus as a later measured extension after this detector outcome.
+
 | Candidate | Proposal and refinement | Question |
 | --- | --- | --- |
 | A — Current baseline | Existing HSV/cloth mask, Hough/body proposals, colour classifier and current geometry checks | What does the production path do on each same labelled frame? |
