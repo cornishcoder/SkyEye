@@ -7,6 +7,7 @@ namespace SkyEye.Observation;
 public sealed record DiagnosticBallLabel(string Id, string Colour, double X, double Y, string Visibility,
     double? RadiusX, double? RadiusY);
 public sealed record DiagnosticLabelCapture(int SchemaVersion, string DiagnosticSessionId, string RecordingSessionId, bool Reviewed,
+    bool AllVisibleBallsLabelled, bool EmptyFrameConfirmed,
     DateTimeOffset CapturedAt, double FrameAgeMs, long AnalysisGeneration, string CalibrationId, string AnalyzerConfiguration,
     Point[] CalibrationCorners, string FrameSource, IndexedFrame IndexedFrame,
     ImmutableArray<string> Tags, ImmutableArray<DiagnosticBallLabel> Balls, string Notes)
@@ -101,9 +102,17 @@ public static class DiagnosticLabelCaptureImport
             {
                 if (new FileInfo(receiptPath).Length > 512 * 1024) throw new InvalidDataException("Diagnostic label receipt exceeds bounds.");
                 var capture = CorpusJson.Read<DiagnosticLabelCapture>(receiptPath);
+                if (capture.SchemaVersion != 2)
+                    throw new InvalidDataException("Diagnostic label receipt predates complete-frame review. Recapture or relabel every visible ball before O01 import: " + receiptPath);
+                if (!capture.Reviewed || capture.Balls.IsDefault)
+                    throw new InvalidDataException("Diagnostic label receipt is not a reviewed frame: " + receiptPath);
+                if (capture.Balls.IsEmpty
+                    ? !capture.EmptyFrameConfirmed || capture.AllVisibleBallsLabelled
+                    : !capture.AllVisibleBallsLabelled || capture.EmptyFrameConfirmed)
+                    throw new InvalidDataException("Diagnostic frame is incomplete: confirm every visible ball is labelled, or confirm that the checked frame is empty: " + receiptPath);
                 var frame = capture.IndexedFrame;
                 string imageName = Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(receiptPath)) + ".jpg";
-                if (capture.SchemaVersion != 1 || !capture.Reviewed || capture.DiagnosticSessionId != diagnosticSessionId
+                if (capture.DiagnosticSessionId != diagnosticSessionId
                     || !Guid.TryParseExact(capture.RecordingSessionId, "N", out _)
                     || session is not null && capture.RecordingSessionId != session.RecordingSessionId
                     || frame is null || frame.SampleId != capture.DiagnosticSessionId + "-" + frame.FrameId.ToString("D12", System.Globalization.CultureInfo.InvariantCulture)
@@ -117,7 +126,7 @@ public static class DiagnosticLabelCaptureImport
                     || capture.AnalysisGeneration <= 0 || !CorpusFiles.Text(capture.FrameSource)
                     || !double.IsFinite(capture.FrameAgeMs) || capture.FrameAgeMs is < -200 or > 60_000
                     || capture.CalibrationCorners is not { Length: 4 }
-                    || capture.Balls.IsDefault || capture.Balls.Length > 64
+                    || capture.Balls.Length > 64
                     || capture.Tags.IsDefault || capture.Tags.Length > 32
                     || capture.Tags.Any(t => !CorpusFiles.Text(t))
                     || capture.Tags.Distinct(StringComparer.Ordinal).Count() != capture.Tags.Length

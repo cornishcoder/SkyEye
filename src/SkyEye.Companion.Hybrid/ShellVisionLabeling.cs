@@ -16,6 +16,7 @@ sealed record VisionDiagnosticStoredFrame(string SampleId, long FrameId, long? S
     VisionDiagnosticStoredScope Scope, string PixelFile, string PixelSha256, string Encoding,
     int Width, int Height, bool EmbeddedFrameId);
 sealed record VisionDiagnosticLabelReceipt(int SchemaVersion, string DiagnosticSessionId, string RecordingSessionId, bool Reviewed,
+    bool AllVisibleBallsLabelled, bool EmptyFrameConfirmed,
     DateTimeOffset CapturedAt, double FrameAgeMs, long AnalysisGeneration, string CalibrationId,
     string AnalyzerConfiguration, SkyEye.Core.Point[] CalibrationCorners, string FrameSource, VisionDiagnosticStoredFrame IndexedFrame,
     string[] Tags, VisionDiagnosticStoredBall[] Balls, string Notes)
@@ -43,6 +44,7 @@ public sealed partial class ShellSession
     string visionDiagnosticLabelMotion = "still";
     string visionDiagnosticLabelNotes = "";
     bool visionDiagnosticEmptyFrameConfirmed;
+    bool visionDiagnosticAllBallsLabelledConfirmed;
     bool visionDiagnosticLabelSavePending;
     int visionDiagnosticSavedLabels;
     bool visionDiagnosticLabelSessionFinalized;
@@ -58,6 +60,7 @@ public sealed partial class ShellSession
     public string VisionDiagnosticLabelMotion => visionDiagnosticLabelMotion;
     public string VisionDiagnosticLabelNotes => visionDiagnosticLabelNotes;
     public bool VisionDiagnosticEmptyFrameConfirmed => visionDiagnosticEmptyFrameConfirmed;
+    public bool VisionDiagnosticAllBallsLabelledConfirmed => visionDiagnosticAllBallsLabelledConfirmed;
     public int VisionDiagnosticSavedLabels => visionDiagnosticSavedLabels;
     public bool VisionDiagnosticLabelSessionFinalized => visionDiagnosticLabelSessionFinalized;
     public bool VisionDiagnosticLabelSavePending => visionDiagnosticLabelSavePending;
@@ -75,6 +78,7 @@ public sealed partial class ShellSession
             visionDiagnosticMarks.Clear();
             visionDiagnosticKnownBallIds.Clear();
             visionDiagnosticEmptyFrameConfirmed = false;
+            visionDiagnosticAllBallsLabelledConfirmed = false;
             visionDiagnosticSavedLabels = 0;
             visionDiagnosticLabelSessionFinalized = false;
             visionDiagnosticLabelLighting = "ordinary";
@@ -104,6 +108,7 @@ public sealed partial class ShellSession
             visionDiagnosticLabelPreviewSampleId = frame?.SampleId;
             visionDiagnosticMarks.Clear();
             visionDiagnosticEmptyFrameConfirmed = false;
+            visionDiagnosticAllBallsLabelledConfirmed = false;
             visionDiagnosticLabelNotes = "";
             visionDiagnosticLabelImageUri = frame is null ? null : "data:image/jpeg;base64," + Convert.ToBase64String(frame.Jpeg);
         }
@@ -170,6 +175,14 @@ public sealed partial class ShellSession
         Changed?.Invoke();
     }
 
+    public void SetVisionDiagnosticAllBallsLabelledConfirmed(bool confirmed)
+    {
+        if (visionDiagnosticLabelSavePending) return;
+        visionDiagnosticAllBallsLabelledConfirmed = confirmed && visionDiagnosticMarks.Count > 0;
+        if (visionDiagnosticAllBallsLabelledConfirmed) visionDiagnosticEmptyFrameConfirmed = false;
+        Changed?.Invoke();
+    }
+
     public void AddVisionDiagnosticBox(double x1, double y1, double x2, double y2)
     {
         if (visionDiagnosticLabelSavePending || VisionDiagnosticLabelFrame is null || visionDiagnosticMarks.Count >= 64) return;
@@ -180,6 +193,7 @@ public sealed partial class ShellSession
             visionDiagnosticLabelVisibility, (left + right) / 2, (top + bottom) / 2,
             (right - left) / 2, (bottom - top) / 2));
         visionDiagnosticEmptyFrameConfirmed = false;
+        visionDiagnosticAllBallsLabelledConfirmed = false;
         Changed?.Invoke();
     }
 
@@ -203,7 +217,12 @@ public sealed partial class ShellSession
     public void RemoveLastVisionDiagnosticBox()
     {
         if (visionDiagnosticLabelSavePending) return;
-        if (visionDiagnosticMarks.Count > 0) visionDiagnosticMarks.RemoveAt(visionDiagnosticMarks.Count - 1);
+        if (visionDiagnosticMarks.Count > 0)
+        {
+            visionDiagnosticMarks.RemoveAt(visionDiagnosticMarks.Count - 1);
+            visionDiagnosticAllBallsLabelledConfirmed = false;
+        }
+        if (visionDiagnosticMarks.Count == 0) visionDiagnosticEmptyFrameConfirmed = false;
         Changed?.Invoke();
     }
 
@@ -212,6 +231,7 @@ public sealed partial class ShellSession
         if (visionDiagnosticLabelSavePending) return;
         visionDiagnosticMarks.Clear();
         visionDiagnosticEmptyFrameConfirmed = false;
+        visionDiagnosticAllBallsLabelledConfirmed = false;
         Changed?.Invoke();
     }
 
@@ -219,9 +239,12 @@ public sealed partial class ShellSession
     {
         var frame = VisionDiagnosticLabelFrame;
         if (visionDiagnosticLabelSavePending) return;
-        if (frame is null || visionDiagnosticMarks.Count == 0 && !visionDiagnosticEmptyFrameConfirmed)
+        if (frame is null || visionDiagnosticMarks.Count == 0 && !visionDiagnosticEmptyFrameConfirmed
+            || visionDiagnosticMarks.Count > 0 && !visionDiagnosticAllBallsLabelledConfirmed)
         {
-            visionDiagnosticLabelStatus = "Draw each visible ball, or explicitly confirm that no balls are visible.";
+            visionDiagnosticLabelStatus = visionDiagnosticMarks.Count == 0
+                ? "Box every visible ball, or confirm that you checked the whole frame and no balls are visible."
+                : "Before saving, confirm that every visible ball has a box. Include unclear or partly hidden balls and label them honestly.";
             Changed?.Invoke();
             return;
         }
@@ -242,7 +265,10 @@ public sealed partial class ShellSession
         Changed?.Invoke();
         try
         {
-            await Task.Run(() => SaveVisionDiagnosticLabelFrame(frame, marks, tags, notes)).ConfigureAwait(false);
+            bool allVisibleBallsLabelled = visionDiagnosticAllBallsLabelledConfirmed;
+            bool emptyFrameConfirmed = visionDiagnosticEmptyFrameConfirmed;
+            await Task.Run(() => SaveVisionDiagnosticLabelFrame(frame, marks, tags, notes,
+                allVisibleBallsLabelled, emptyFrameConfirmed)).ConfigureAwait(false);
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
                 visionDiagnosticSavedLabels++;
@@ -269,6 +295,7 @@ public sealed partial class ShellSession
         if (visionDiagnosticLabelSavePending) return;
         visionDiagnosticMarks.Clear();
         visionDiagnosticEmptyFrameConfirmed = false;
+        visionDiagnosticAllBallsLabelledConfirmed = false;
         table.CompleteVisionDiagnosticLabelFrame("Frame discarded. The detector sample remains only in the bounded diagnostics view.");
         visionDiagnosticLabelStatus = "Frame discarded without saving image or labels.";
     }
@@ -285,7 +312,7 @@ public sealed partial class ShellSession
         var startedAt = snapshot.StartedAt ?? completedAt;
         var session = new VisionDiagnosticLabelSessionReceipt(1, snapshot.SessionId.ToString("N"), snapshot.RecordingSessionId, startedAt,
             completedAt, true, receiptPaths.Length,
-            "Every included frame was labelled by a person without showing detector results in the label view.");
+            "Every visible ball in each included frame was labelled by a person without showing detector results in the label view; empty frames were explicitly confirmed.");
         try
         {
             if (File.Exists(Path.Combine(directory, "session.json")))
@@ -305,7 +332,8 @@ public sealed partial class ShellSession
         Android.App.Application.Context.GetExternalFilesDir(null)!.AbsolutePath, "o09-labels");
 
     static void SaveVisionDiagnosticLabelFrame(VisionDiagnosticLabelFrame frame,
-        VisionDiagnosticBallMark[] marks, string[] tags, string notes)
+        VisionDiagnosticBallMark[] marks, string[] tags, string notes,
+        bool allVisibleBallsLabelled, bool emptyFrameConfirmed)
     {
         if (frame.Jpeg.Length is < 1 or > VisionLabelMaximumImageBytes || frame.Width <= 0 || frame.Height <= 0
             || frame.FrameId <= 0 || frame.SourceTimeUs < 0 || frame.MediaGeneration <= 0
@@ -334,7 +362,8 @@ public sealed partial class ShellSession
             "Jpeg", frame.Width, frame.Height, false);
         var balls = marks.Select(mark => new VisionDiagnosticStoredBall(mark.Id, mark.Colour, mark.X, mark.Y,
             mark.Visibility, mark.RadiusX, mark.RadiusY)).ToArray();
-        var receipt = new VisionDiagnosticLabelReceipt(1, frame.SessionId.ToString("N"), frame.RecordingSessionId, true,
+        var receipt = new VisionDiagnosticLabelReceipt(2, frame.SessionId.ToString("N"), frame.RecordingSessionId, true,
+            allVisibleBallsLabelled, emptyFrameConfirmed,
             frame.CapturedAt, frame.FrameAgeMs, frame.AnalysisGeneration, frame.CalibrationId, frame.AnalyzerConfiguration,
             frame.CalibrationCorners, frame.FrameSource, storedFrame, tags, balls, notes)
         {

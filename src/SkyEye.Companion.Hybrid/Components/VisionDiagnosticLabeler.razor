@@ -74,16 +74,21 @@
                 }
             </datalist>
         }
-        <p class="hint">Marked @Session.VisionDiagnosticMarks.Count ball(s) · boxes save centre and X/Y radii for training.</p>
+        <p class="hint">Marked @Session.VisionDiagnosticMarks.Count ball(s) · box every visible ball, including partly hidden or unclear ones. Use Unknown when colour is unclear.</p>
         <div class="clip-actions">
             <button type="button" class="secondary" disabled="@(Session.VisionDiagnosticMarks.Count == 0)" @onclick="Session.RemoveLastVisionDiagnosticBox">Undo last box</button>
             <button type="button" class="quiet" disabled="@(Session.VisionDiagnosticMarks.Count == 0)" @onclick="Session.ClearVisionDiagnosticBoxes">Clear boxes</button>
         </div>
         <label class="vision-label-empty"><input type="checkbox" checked="@Session.VisionDiagnosticEmptyFrameConfirmed"
             @onchange="args => Session.SetVisionDiagnosticEmptyFrameConfirmed(Checked(args))" /> I checked the whole frame; no balls are visible</label>
+        @if (Session.VisionDiagnosticMarks.Count > 0)
+        {
+            <label class="vision-label-empty"><input type="checkbox" checked="@Session.VisionDiagnosticAllBallsLabelledConfirmed"
+                @onchange="args => Session.SetVisionDiagnosticAllBallsLabelledConfirmed(Checked(args))" /> I labelled every visible ball in this frame</label>
+        }
         <p class="hint" role="status">@Session.VisionDiagnosticLabelStatus</p>
         <div class="clip-actions">
-            <button type="button" class="primary" disabled="@(Session.VisionDiagnosticLabelSavePending || Session.VisionDiagnosticMarks.Count == 0 && !Session.VisionDiagnosticEmptyFrameConfirmed)"
+            <button type="button" class="primary" disabled="@(Session.VisionDiagnosticLabelSavePending || Session.VisionDiagnosticMarks.Count == 0 && !Session.VisionDiagnosticEmptyFrameConfirmed || Session.VisionDiagnosticMarks.Count > 0 && !Session.VisionDiagnosticAllBallsLabelledConfirmed)"
                 @onclick="Session.SaveVisionDiagnosticLabelsAsync">Save reviewed frame</button>
             <button type="button" class="secondary" disabled="@Session.VisionDiagnosticLabelSavePending" @onclick="Session.DiscardVisionDiagnosticLabelFrame">Discard frame</button>
         </div>
