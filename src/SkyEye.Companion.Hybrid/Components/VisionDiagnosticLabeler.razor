@@ -52,7 +52,7 @@
             {
                 <div class="vision-label-box colour-@mark.Colour @(mark.Visibility == "Visible" ? "" : "uncertain")"
                     style="@BoxStyle(mark)" aria-label="@($"{mark.Visibility} {mark.Colour} ball")">
-                    <span>@mark.Id · @mark.Colour</span>
+                    <span>@mark.Id · @DisplayColour(mark.Colour)</span>
                 </div>
             }
         </div>
@@ -61,7 +61,7 @@
             <div class="vision-label-identities">
                 @foreach (var mark in Session.VisionDiagnosticMarks)
                 {
-                    <label>@mark.Colour · @mark.Id
+                    <label>@DisplayColour(mark.Colour) · @mark.Id
                         <input aria-label="Ball identity for @mark.Colour ball" value="@mark.Id" maxlength="64"
                             list="vision-label-known-ball-ids" @onchange="args => Session.RenameVisionDiagnosticBall(mark.Id, args.Value?.ToString())" />
                     </label>
@@ -96,7 +96,7 @@
     DotNetObjectReference<VisionDiagnosticLabeler>? dotNet;
     bool attached;
     static readonly (string Value, string Label)[] Colours =
-        [("cue", "Cue"), ("black", "Black"), ("red", "Red"), ("yellow", "Yellow"), ("unknown", "Unknown")];
+        [("cue", "Cue ball"), ("black", "Black"), ("red", "Red"), ("yellow", "Yellow"), ("unknown", "Unknown")];
     static readonly (string Value, string Label)[] SceneTags =
         [("touching", "Touching balls"), ("near-cushion", "Near cushion/pocket"), ("occlusion", "Partial occlusion"), ("empty-region", "Empty area included")];
 
@@ -125,6 +125,7 @@
 
     static string BoxStyle(VisionDiagnosticBallMark mark) => FormattableString.Invariant(
         $"left:{(mark.X - mark.RadiusX) * 100:0.###}%;top:{(mark.Y - mark.RadiusY) * 100:0.###}%;width:{mark.RadiusX * 200:0.###}%;height:{mark.RadiusY * 200:0.###}%");
+    static string DisplayColour(string colour) => colour == "cue" ? "Cue ball" : colour;
     static bool Checked(ChangeEventArgs args) => args.Value is bool value && value;
     void SetLighting(ChangeEventArgs args) => Session.SetVisionDiagnosticLabelLighting(args.Value?.ToString());
     void SetMotion(ChangeEventArgs args) => Session.SetVisionDiagnosticLabelMotion(args.Value?.ToString());

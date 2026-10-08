@@ -21,7 +21,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     readonly record struct Circle(double X, double Y, double Radius);
     public VisionAnalyzer(int width = 1000) : this(new VisionSettings(Width: width)) { }
     public VisionAnalyzer(VisionSettings settings) { settings.Validate(); this.settings = settings; coordinates = new(settings.Width); }
-    public string ConfigurationIdentity => System.Text.Json.JsonSerializer.Serialize(settings);
+    public string ConfigurationIdentity => System.Text.Json.JsonSerializer.Serialize(new
+    { Algorithm = "cue-ball-local-contrast-v1", Settings = settings });
     static void Load()
     {
         lock (loadGate)
@@ -112,7 +113,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 normalized = true;
             }
         }
-        if (!normalized) warnings.Add("No unique cue reference; colours were analyzed without normalization.");
+        if (!normalized) warnings.Add("No unique cue ball reference; colours were analyzed without normalization.");
         cancellation.ThrowIfCancellationRequested(); var balls = new List<Ball>(); var observations = new List<CircleObservation>();
         var ordered = circles.OrderBy(c => c.Y).ThenBy(c => c.X).ToArray();
         var rawLabels = ordered.Select(c => Classify(c, pixels, appearance is not null)).ToArray();
@@ -133,7 +134,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         bool uncertain = balls.Any(b => b.Kind == "unknown") || balls.Count > 16 || balls.Count(b => b.Kind == "cue") != 1 || balls.Count(b => b.Kind == "black") != 1 || balls.Count(b => b.Kind == "red") > 7 || balls.Count(b => b.Kind == "yellow") > 7;
         if (boundaryUncertain) { uncertain = true; warnings.Add("Current ball boundary lacks sufficient edge support."); }
         if (appearance is not null && (!referenceValid || referenceConflict))
-        { uncertain = true; warnings.Add(referenceConflict ? "Current cue reference conflicts with the frozen burst gains." : "No validated burst colour reference. Review the table."); }
+        { uncertain = true; warnings.Add(referenceConflict ? "Current cue ball reference conflicts with the frozen burst gains." : "No validated burst colour reference. Review the table."); }
         if (uncertain) warnings.Add("Check uncertain colours or ball counts before using advice.");
         if (PocketColourNeedsReview(pixels)) { uncertain = true; warnings.Add("Check a coloured ball at a pocket opening; the pocket mask may hide part of it."); }
         bool obstructed = LargeObstruction(hsv.Value, pixels);
@@ -215,9 +216,9 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             if (c.X < margin || c.Y < margin || c.X > coordinates.Width - margin || c.Y > coordinates.Height - margin) continue;
             // An opening is not a ball; ball-adjacent uncertain cases remain visible through review.
             if (PocketCentres().Any(p => (new Point(c.X, c.Y) - p).Length < settings.PocketExclusionRadius * scale)) continue;
-            // Cloth shadows can produce circle edges anywhere. A wider hue band
-            // tolerates dim texture only when S/V also resemble the cloth, so it
-            // cannot swallow saturated yellows or the bright cream cue.
+            // Cloth shadows can produce circle edges anywhere. Keep the sampled
+            // cloth rejection bounded, while rescuing a low-light neutral circle
+            // only when its body contrasts with the immediately surrounding cloth.
             {
                 int sampled = 0, cloth = 0;
                 ForPixels(c, .85, (x, y) =>
@@ -225,9 +226,9 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                     int offset = (y * coordinates.Width + x) * 3; int difference = Math.Abs(pixels[offset] - clothHue); sampled++;
                     if ((Math.Min(difference, 180 - difference) <= Math.Max(12, settings.HueBand) || pixels[offset + 1] < 45) &&
                         pixels[offset + 1] < Math.Max(60, clothRange.SaturationFloor / .45 * 1.5) &&
-                        pixels[offset + 2] > 20 && pixels[offset + 2] < Math.Max(80, clothRange.ValueFloor / .45 * 1.8)) cloth++;
+                        pixels[offset + 2] > 20 && pixels[offset + 2] < NeutralClothValueCeiling(clothRange.ValueFloor)) cloth++;
                 });
-                if (sampled > 0 && cloth / (double)sampled > .9) continue;
+                if (sampled > 0 && cloth / (double)sampled > .9 && !HasLowLightNeutralBallContrast(c, pixels)) continue;
             }
             result.Add(c);
         }
@@ -319,10 +320,10 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 Cv.InRange(hsv, l, u, wrapped.Value); Cv.Bitwise_or(mask.Value, wrapped.Value, mask.Value);
             }
             // Video snapshot decoders quantize dim neutral cloth: its hue can
-            // swing wildly while saturation stays low. Bright cue paint and
-            // genuinely dark black bodies fall outside this bounded fallback.
+            // swing wildly while saturation stays low. Keep the fallback below
+            // a typical white cue ball so its circular edge remains available.
             using var neutral = new MatLease(new Mat()); using var neutralLow = new Scalar(0, 0, range.ValueFloor);
-            using var neutralHigh = new Scalar(179, 45, Math.Min(130, Math.Max(80, range.ValueFloor / .45 * 1.8)));
+            using var neutralHigh = new Scalar(179, 45, NeutralClothValueCeiling(range.ValueFloor));
             Cv.InRange(hsv, neutralLow, neutralHigh, neutral.Value); Cv.Bitwise_or(mask.Value, neutral.Value, mask.Value);
             int kernelWidth = Math.Max(3, (int)Math.Round(settings.MorphologyKernel * w / 1000.0) | 1); using var size = new Size(kernelWidth, kernelWidth);
             using var kernel = new MatLease(Imgproc.GetStructuringElement(Imgproc.MorphRect, size));
@@ -375,17 +376,45 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     BallClassification Classify(Circle circle, byte[] hsv, bool inspectRim = false)
     {
         var samples = new List<HsvPixel>();
+        bool lowLightNeutralCueBallContrast = HasLowLightNeutralBallContrast(circle, hsv);
         // Include enough of the ball body to distinguish the black from its large
         // cream number patch when the fitted circle centre lands on a highlight.
         ForPixels(circle, .85, (x, y) => { int offset = (y * coordinates.Width + x) * 3; samples.Add(new(hsv[offset], hsv[offset + 1], hsv[offset + 2])); });
-        if (!inspectRim) return BallClassifier.Classify(samples.ToArray());
+        if (!inspectRim) return BallClassifier.Classify(samples.ToArray(), lowLightNeutralCueBallContrast);
         var rim = new List<HsvPixel>();
         ForPixels(circle, .95, (x, y) =>
         {
             if ((x - circle.X) * (x - circle.X) + (y - circle.Y) * (y - circle.Y) < circle.Radius * circle.Radius * .8 * .8) return;
             int offset = (y * coordinates.Width + x) * 3; rim.Add(new(hsv[offset], hsv[offset + 1], hsv[offset + 2]));
         });
-        return BallClassifier.ClassifyWithRim(samples.ToArray(), rim.ToArray());
+        return BallClassifier.ClassifyWithRim(samples.ToArray(), rim.ToArray(), lowLightNeutralCueBallContrast);
+    }
+    static double NeutralClothValueCeiling(int clothValueFloor)
+        => Math.Clamp(clothValueFloor / .45 * .9, 45, 90);
+    bool HasLowLightNeutralBallContrast(Circle circle, byte[] hsv)
+    {
+        var bodyValues = new List<byte>(); int bodySamples = 0;
+        ForPixels(circle, .75, (x, y) =>
+        {
+            int offset = (y * coordinates.Width + x) * 3; bodySamples++;
+            if (hsv[offset + 1] < 85 && hsv[offset + 2] >= 35) bodyValues.Add(hsv[offset + 2]);
+        });
+        if (bodySamples < 8 || bodyValues.Count / (double)bodySamples < .65) return false;
+
+        var surroundingValues = new List<byte>();
+        double innerRadius = circle.Radius * 1.08, outerRadius = circle.Radius * 1.4;
+        double innerSquared = innerRadius * innerRadius, outerSquared = outerRadius * outerRadius;
+        for (int y = Math.Max(0, (int)(circle.Y - outerRadius)); y <= Math.Min(coordinates.Height - 1, (int)(circle.Y + outerRadius)); y++)
+        for (int x = Math.Max(0, (int)(circle.X - outerRadius)); x <= Math.Min(coordinates.Width - 1, (int)(circle.X + outerRadius)); x++)
+        {
+            double dx = x - circle.X, dy = y - circle.Y, distance = dx * dx + dy * dy;
+            if (distance < innerSquared || distance > outerSquared) continue;
+            surroundingValues.Add(hsv[(y * coordinates.Width + x) * 3 + 2]);
+        }
+        if (surroundingValues.Count < 12) return false;
+        bodyValues.Sort(); surroundingValues.Sort();
+        double bodyMedian = bodyValues[bodyValues.Count / 2], surroundingMedian = surroundingValues[surroundingValues.Count / 2];
+        return bodyMedian >= Math.Max(48, Math.Max(surroundingMedian + 8, surroundingMedian * 1.1));
     }
     void ForPixels(Circle circle, double fraction, Action<int, int> action)
     {

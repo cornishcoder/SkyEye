@@ -62,6 +62,8 @@
   const canvas = $('table'), ctx = canvas.getContext('2d');
   let state = null, currentImage = null, displayedDetection = null, drawnSequence = -1, requestBusy = false;
   const color = kind => ({cue:'#f5f7f4',red:'#ff665f',yellow:'#ffd447',black:'#182126',unknown:'#ffc66c'})[String(kind||'unknown').toLowerCase()] || '#ffc66c';
+  const displayKind = kind => String(kind||'unknown').toLowerCase()==='cue'?'cue ball':String(kind||'unknown');
+  const displayId = id => String(id||'').replace(/^cue(?=-\d)/i,'cue ball');
   const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const pretty = value => JSON.stringify(value,null,2);
   function resizeAndDraw(){
@@ -82,7 +84,7 @@
     for(const b of det.balls||[]){
       const x=ox+b.x*dw,y=oy+b.y*dh,rx=Math.max(5,b.radiusX*dw),ry=Math.max(5,b.radiusY*dh),c=color(b.kind);
       ctx.save();ctx.lineWidth=2.5;ctx.strokeStyle=c;ctx.fillStyle='rgba(8,14,17,.78)';ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fill();ctx.stroke();
-      const text=`${b.id} · ${b.kind} · score ${b.classifierScore.toFixed(2)}`;ctx.font='600 12px system-ui';const tw=ctx.measureText(text).width+12,bh=21,lx=Math.max(ox,Math.min(ox+dw-tw,x-tw/2)),ly=Math.max(oy,y-ry-bh-3);
+      const text=`${displayId(b.id)} · ${displayKind(b.kind)} · score ${b.classifierScore.toFixed(2)}`;ctx.font='600 12px system-ui';const tw=ctx.measureText(text).width+12,bh=21,lx=Math.max(ox,Math.min(ox+dw-tw,x-tw/2)),ly=Math.max(oy,y-ry-bh-3);
       ctx.fillStyle='rgba(5,10,13,.92)';ctx.fillRect(lx,ly,tw,bh);ctx.strokeStyle=c;ctx.lineWidth=1;ctx.strokeRect(lx,ly,tw,bh);ctx.fillStyle='#f5f7f4';ctx.fillText(text,lx+6,ly+14);ctx.restore();
     }
   }
@@ -90,14 +92,15 @@
     const balls=det?.balls||[];
     const unclassified=det?.unclassifiedCount||0;
     const summary=unclassified?`<div class="muted" style="grid-column:1/-1">${unclassified} unclassified candidate${unclassified===1?'':'s'}; not included among classified labels.</div>`:'';
-    $('balls').innerHTML=(balls.length?balls.map(b=>`<div class="ball"><span class="swatch" style="background:${color(b.kind)}"></span><strong>${esc(b.id)} · ${esc(b.kind)}</strong><small>score ${b.classifierScore.toFixed(2)}</small></div>`).join(''):'<span class="muted">No classified labels in this frame.</span>')+summary;
+    $('balls').innerHTML=(balls.length?balls.map(b=>`<div class="ball"><span class="swatch" style="background:${color(b.kind)}"></span><strong>${esc(displayId(b.id))} · ${esc(displayKind(b.kind))}</strong><small>score ${b.classifierScore.toFixed(2)}</small></div>`).join(''):'<span class="muted">No classified labels in this frame.</span>')+summary;
     const candidates=det?.candidates||[];
-    $('candidates').innerHTML=candidates.length?`<table><thead><tr><th>Label</th><th>Pattern</th><th>Body dark</th><th>Rim dark</th><th>Boundary support</th></tr></thead><tbody>${candidates.map(c=>`<tr><td>${esc(c.id)}</td><td>${esc(c.pattern)}</td><td>${fmt(c.bodyDarkFraction)}</td><td>${fmt(c.rimDarkFraction)}</td><td>${fmt(c.boundarySupport)} / ${fmt(c.candidateBoundarySupport)}</td></tr>`).join('')}</tbody></table>`:'No circle candidates.';
+    $('candidates').innerHTML=candidates.length?`<table><thead><tr><th>Label</th><th>Pattern</th><th>Body dark</th><th>Rim dark</th><th>Boundary support</th></tr></thead><tbody>${candidates.map(c=>`<tr><td>${esc(displayId(c.id))}</td><td>${esc(c.pattern)}</td><td>${fmt(c.bodyDarkFraction)}</td><td>${fmt(c.rimDarkFraction)}</td><td>${fmt(c.boundarySupport)} / ${fmt(c.candidateBoundarySupport)}</td></tr>`).join('')}</tbody></table>`:'No circle candidates.';
   }
   function fmt(v,d=2){return Number.isFinite(v)?Number(v).toFixed(d):'—'}
   function renderVision(det){
     const light=det?.illumination,rec=det?.recognition;
-    const entries=[['Normalization',light?.applied?'Applied':'Off'],['Reference brightness',fmt(light?.referenceBrightness,1)],['Illumination gain range',light?`${fmt(light.minimumGain)}–${fmt(light.maximumGain)}`:'—'],['Pixels adjusted',light?`${fmt(light.adjustedPixelPercent,1)}%`:'—'],['Recognition branch',rec?.branch||'—'],['Raw / final circles',rec?`${rec.rawCircleCount} / ${rec.finalCircleCount}`:'—'],['Cloth hue',det?det.clothHue+'°':'—'],['Color gains',det?.colourGains?.map(x=>fmt(x)).join(' · ')||'—'],['Runtime',det?.runtime||'—'],['Obstructed',det?String(det.obstructed):'—']];
+    const cueBallCount=(rec?.rawLabels||[]).filter(kind=>String(kind).toLowerCase()==='cue').length;
+    const entries=[['Normalization',light?.applied?'Applied':'Off'],['Reference brightness',fmt(light?.referenceBrightness,1)],['Illumination gain range',light?`${fmt(light.minimumGain)}–${fmt(light.maximumGain)}`:'—'],['Pixels adjusted',light?`${fmt(light.adjustedPixelPercent,1)}%`:'—'],['Recognition branch',rec?.branch||'—'],['Raw / final circles',rec?`${rec.rawCircleCount} / ${rec.finalCircleCount}`:'—'],['Cue ball classifications',rec?`${cueBallCount}`:'—'],['Cloth hue',det?det.clothHue+'°':'—'],['Color gains',det?.colourGains?.map(x=>fmt(x)).join(' · ')||'—'],['Runtime',det?.runtime||'—'],['Obstructed',det?String(det.obstructed):'—']];
     $('vision').innerHTML=entries.map(([a,b])=>`<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join('');
     $('raw-vision').textContent=pretty({uncertain:det?.uncertain,warnings:det?.warnings,verificationReason:det?.verificationReason,recognition:rec,illumination:light,circles:det?.circles});
   }

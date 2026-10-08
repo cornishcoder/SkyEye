@@ -25,7 +25,7 @@ public static class BallClassifier
         }).Select(g => g.Key).ToHashSet();
         return labels.Select(b => ambiguous.Contains(b.Kind) ? b with { Kind = "unknown", Quality = 0 } : b).ToArray();
     }
-    public static BallClassification Classify(HsvPixel[] samples)
+    public static BallClassification Classify(HsvPixel[] samples, bool lowLightNeutralCueBallContrast = false)
     {
         var pixels = samples.Where(p => double.IsFinite(p.H) && p.H is >= 0 and <= 179 && p.S is >= 0 and <= 255 && p.V is > 5 and <= 255).ToArray();
         if (pixels.Length < 8) return new("unknown", "unknown", 0, []);
@@ -40,6 +40,9 @@ public static class BallClassifier
         double dark = pixels.Count(p => p.V < 40 || p.V < 80 && p.S < 160) / (double)pixels.Length;
         double darkBody = clusters.Where(c => c.Centre.V < 40 || c.Centre.V < 80 && c.Centre.S < 160).Sum(c => c.Count) / (double)pixels.Length;
         double neutral = pixels.Count(p => p.S < 100 && p.V > 130) / (double)pixels.Length;
+        double dimNeutral = pixels.Count(p => p.S < 85 && p.V >= 35) / (double)pixels.Length;
+        if (lowLightNeutralCueBallContrast && dimNeutral > .55)
+            return new("cue", pattern, Math.Min(.9, .72 + dimNeutral * .18), clusters);
         if (dark > .45 || pattern == "black" && darkBody > .45) return new("black", pattern, Math.Min(.9, .72 + Math.Max(dark, darkBody) * .18), clusters);
         if (neutral > .55) return new("cue", pattern, Math.Min(.9, .72 + neutral * .18), clusters);
         double warmCream = pixels.Count(p => p.H is >= 8 and <= 30 && p.S < 160 && p.V > 130) / (double)pixels.Length;
@@ -54,9 +57,9 @@ public static class BallClassifier
     }
     /// <summary>Bounded verification recovery for a black body's large cream number patch.
     /// Inventory is not used to choose a replacement label. Conflicting or unsupported rims retain the baseline label.</summary>
-    public static BallClassification ClassifyWithRim(HsvPixel[] samples, HsvPixel[] rim)
+    public static BallClassification ClassifyWithRim(HsvPixel[] samples, HsvPixel[] rim, bool lowLightNeutralCueBallContrast = false)
     {
-        var baseline = Classify(samples);
+        var baseline = Classify(samples, lowLightNeutralCueBallContrast);
         bool Valid(HsvPixel p) => double.IsFinite(p.H) && p.H is >= 0 and <= 179 && p.V is > 5 and <= 255 && p.S is >= 0 and <= 255;
         var body = samples.Where(Valid).ToArray();
         var edge = rim.Where(Valid).ToArray();

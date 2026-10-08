@@ -130,7 +130,7 @@ public sealed partial class ShellSession
             : snapshot.VerificationProgress is { } progress ? $"Checking table · {progress.IndependentFrames} fresh views."
             : snapshot.Calibration is null ? "Calibrate your table to check its balls."
             : state is null ? "Ready to observe when you ask."
-            : $"{state.Balls.Count(b => b.Kind == "red")} reds · {state.Balls.Count(b => b.Kind == "yellow")} yellows · {state.Balls.Count(b => b.Kind == "cue")} cue · {state.Balls.Count(b => b.Kind == "black")} black. "
+            : $"{state.Balls.Count(b => b.Kind == "red")} reds · {state.Balls.Count(b => b.Kind == "yellow")} yellows · {state.Balls.Count(b => b.Kind == "cue")} cue balls · {state.Balls.Count(b => b.Kind == "black")} black. "
                 + ((DateTimeOffset.UtcNow - state.CapturedAt).TotalSeconds is > 6 or < -2 ? "Frame out of date."
                 : state.Occluded ? "Uncertain or obstructed. Check the detections."
                 : !state.Settled ? "Wait for the table to settle." : state.Confirmed ? "Layout confirmed." : "Check every ball before confirming.");

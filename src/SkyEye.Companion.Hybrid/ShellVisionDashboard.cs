@@ -28,7 +28,7 @@ sealed record VisionDashboardSample(int Sequence, DateTimeOffset CapturedAt, dou
 public sealed partial class ShellSession
 {
     const string VisionDashboardAsset = "vision-diagnostics-dashboard.html";
-    const int VisionDashboardAssetVersion = 2;
+    const int VisionDashboardAssetVersion = 3;
     const int VisionDashboardPort = 8770;
     LocalHttpServer? visionDashboardServer;
     bool visionDashboardStartedDiagnostics;

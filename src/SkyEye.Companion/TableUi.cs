@@ -111,7 +111,7 @@ public sealed partial class MainActivity
         tableView.Calibration = snapshot.Calibration; tableView.Balls = state.Balls; RefreshCandidates(); tableView.Invalidate();
         var balls = state.Balls;
         double age = (DateTimeOffset.UtcNow - state.CapturedAt).TotalSeconds;
-        tableLabel.Text = $"{balls.Length} balls · {balls.Count(b => b.Kind == "red")} reds · {balls.Count(b => b.Kind == "yellow")} yellows · {balls.Count(b => b.Kind == "cue")} cue · {balls.Count(b => b.Kind == "black")} black\n{state.Group} · " + (age > 6 || age < -2 ? "frame is out of date" : state.Occluded ? "uncertain/obstructed" : !state.Settled ? "layout changing" : state.Confirmed ? "confirmed" : "check and confirm detections") +
+        tableLabel.Text = $"{balls.Length} balls · {balls.Count(b => b.Kind == "red")} reds · {balls.Count(b => b.Kind == "yellow")} yellows · {balls.Count(b => b.Kind == "cue")} cue balls · {balls.Count(b => b.Kind == "black")} black\n{state.Group} · " + (age > 6 || age < -2 ? "frame is out of date" : state.Occluded ? "uncertain/obstructed" : !state.Settled ? "layout changing" : state.Confirmed ? "confirmed" : "check and confirm detections") +
             $" · frame {age:0.0}s old · analysis {vision?.ElapsedMs ?? 0:0}ms" + (vision?.Warnings.Length > 0 ? "\n" + string.Join(" ", vision.Warnings) : "");
 #if DEBUG
         // A bounded latest-result diagnostic; no JPEG, credentials or history.

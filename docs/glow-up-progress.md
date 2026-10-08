@@ -46,6 +46,12 @@ The Hybrid Release build succeeds with zero errors and nine warnings (five gener
 
 The first dashboard update renamed JSON fields while an existing browser tab could remain open, producing `undefined` counts and `NaN` scores. The API now keeps the old field aliases for open tabs and the phone presents a versioned dashboard URL to load the matching page after restart.
 
+## O08 low-light cue ball recovery — 8 October 2026
+
+The user reports intermittent cue ball loss while the table otherwise detects 14–16 balls. The detector's neutral-cloth fallback and a second candidate filter both treated dim, low-saturation ball pixels as cloth; the classifier also required bright pixels before it could call a circle a cue ball. The detector now limits that fallback using the sampled cloth brightness and can recognize a dim neutral circle only when most of its body is neutral and its median brightness is measurably above a local ring around it. The ordinary colour thresholds and inventory-conflict uncertainty remain in place. Cue ball wording and a raw cue ball classification count are now visible in the dashboard and label controls; detector and verification identities were advanced to invalidate stale evidence.
+
+The Hybrid Release build succeeds with zero errors and nine warnings. The Lab APK was updated in place on Pixel 11 Pro XL; package UID remained 10646. No tests were run, and no post-update camera capture or reviewed lighting corpus has measured the improvement. The cue ball may still be missed when its local contrast is not visible; O08 held-out and physical acceptance remain open. Reload the laptop dashboard at `?dashboard=3` after reopening the active calibrated table and starting the dashboard.
+
 ## Previous priority — Sky and companion UX, 7 October 2026
 
 A02.01/A02.02 and A03.01/A05.01 source slices are implemented; controlled Agent UI checks pass. The user confirms the A04.02 camera-connect/host/live-Cast path worked end to end on Pixel 11. **A03.02 match reads/declarations/corrections, A04.01 save/replay tools and the companion UI refresh are implemented in source and Release-build verified.** The latest build is installed in place on Pixel 11 Pro XL; launch, the refreshed home and launcher icon were visually checked. Spoken parity, receiver confirmations, camera save/replay, interruption and lifecycle remain open. See the [bounded voice plan](sky-voice-priority-plan.md), [runtime report](sky-voice-runtime-report.md) and [companion UI plan](companion-ui-refresh-plan.md).
