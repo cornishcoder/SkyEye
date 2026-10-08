@@ -39,8 +39,10 @@ try {
     do {
         $taskMetrics = Invoke-RestMethod -Method Get -Uri "$taskAddress/metrics" -TimeoutSec 5
         $taskMotion = $taskMetrics.motion
+        if ($taskMotion -and -not [string]::IsNullOrWhiteSpace([string]$taskMotion.stopReason)) {
+            throw "The motion feed stopped before producing a processed sample: $($taskMotion.stopReason)"
+        }
         if ($taskMotion -and $taskMotion.processed -gt 0 -and $taskMotion.latest) { break }
-        if ($taskMotion -and $taskMotion.active -eq 0) { throw 'The motion feed stopped before producing a processed sample.' }
         Start-Sleep -Seconds 1
     } while ([DateTimeOffset]::UtcNow -lt $taskStartupDeadline)
     if (-not $taskMotion -or $taskMotion.processed -eq 0 -or -not $taskMotion.latest) {
@@ -52,6 +54,9 @@ try {
         $taskMetrics = Invoke-RestMethod -Method Get -Uri "$taskAddress/metrics" -TimeoutSec 5
         $taskMotion = $taskMetrics.motion
         if ($null -eq $taskMotion) { throw 'The Lab returned no motion-feed metrics.' }
+        if (-not [string]::IsNullOrWhiteSpace([string]$taskMotion.stopReason)) {
+            throw "The motion feed stopped during capture: $($taskMotion.stopReason)"
+        }
         $taskLatest = $taskMotion.latest
         $taskRows.Add([pscustomobject]@{
             CapturedAtUtc = [DateTimeOffset]::UtcNow.ToString('O')
