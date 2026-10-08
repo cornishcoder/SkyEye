@@ -29,7 +29,7 @@
   <section class="metrics" aria-label="Live summary">
     <div class="metric"><span>Analyzed frame</span><strong id="m-frame">Waiting</strong></div>
     <div class="metric"><span>Frame age</span><strong id="m-age">—</strong></div>
-    <div class="metric"><span>Detected balls</span><strong id="m-balls">—</strong></div>
+    <div class="metric"><span>Classified / candidates</span><strong id="m-balls">—</strong></div>
     <div class="metric"><span>Analysis time</span><strong id="m-time">—</strong></div>
     <div class="metric"><span>Game table</span><strong id="m-game">—</strong></div>
   </section>
@@ -40,9 +40,10 @@
     </section>
     <aside>
       <section class="panel scroll">
-        <h2 class="section-title">Detected balls and candidates</h2>
+        <h2 class="section-title">Classified detections</h2>
+        <p class="muted">The score is a colour-feature score, not a probability or measured accuracy. Unclassified circles remain visible as candidates and keep the layout uncertain.</p>
         <div id="balls" class="ball-list"><span class="muted">No analyzed frame yet.</span></div>
-        <details><summary>Every circle candidate</summary><div id="candidates" class="muted">Waiting for analysis.</div></details>
+        <details><summary>Every circle candidate, including unclassified</summary><div id="candidates" class="muted">Waiting for analysis.</div></details>
       </section>
       <section class="panel scroll">
         <h2 class="section-title">Lighting and detector</h2><dl id="vision" class="kv"><dt>Detector</dt><dd>Waiting</dd></dl>
@@ -53,7 +54,7 @@
   </main>
   <section class="panel history">
     <div class="panel-heading"><h2>Recent sequential samples</h2><small>Latest 24 · new analysis about once per second</small></div>
-    <div class="history-body"><table><thead><tr><th>Sample</th><th>Captured</th><th>Frame ID</th><th>Balls</th><th>Analysis</th><th>Illumination gain</th><th>Detector state</th><th>Warnings</th></tr></thead><tbody id="samples"></tbody></table></div>
+    <div class="history-body"><table><thead><tr><th>Sample</th><th>Captured</th><th>Frame ID</th><th>Classified / candidates</th><th>Analysis</th><th>Reference brightness</th><th>Illumination gain</th><th>Detector state</th><th>Warnings</th></tr></thead><tbody id="samples"></tbody></table></div>
   </section>
 <script>
 (() => {
@@ -81,13 +82,15 @@
     for(const b of det.balls||[]){
       const x=ox+b.x*dw,y=oy+b.y*dh,rx=Math.max(5,b.radiusX*dw),ry=Math.max(5,b.radiusY*dh),c=color(b.kind);
       ctx.save();ctx.lineWidth=2.5;ctx.strokeStyle=c;ctx.fillStyle='rgba(8,14,17,.78)';ctx.beginPath();ctx.ellipse(x,y,rx,ry,0,0,Math.PI*2);ctx.fill();ctx.stroke();
-      const text=`${b.id} · ${b.kind} · ${(b.confidence*100).toFixed(0)}%`;ctx.font='600 12px system-ui';const tw=ctx.measureText(text).width+12,bh=21,lx=Math.max(ox,Math.min(ox+dw-tw,x-tw/2)),ly=Math.max(oy,y-ry-bh-3);
+      const text=`${b.id} · ${b.kind} · score ${b.classifierScore.toFixed(2)}`;ctx.font='600 12px system-ui';const tw=ctx.measureText(text).width+12,bh=21,lx=Math.max(ox,Math.min(ox+dw-tw,x-tw/2)),ly=Math.max(oy,y-ry-bh-3);
       ctx.fillStyle='rgba(5,10,13,.92)';ctx.fillRect(lx,ly,tw,bh);ctx.strokeStyle=c;ctx.lineWidth=1;ctx.strokeRect(lx,ly,tw,bh);ctx.fillStyle='#f5f7f4';ctx.fillText(text,lx+6,ly+14);ctx.restore();
     }
   }
   function renderBalls(det){
     const balls=det?.balls||[];
-    $('balls').innerHTML=balls.length?balls.map(b=>`<div class="ball"><span class="swatch" style="background:${color(b.kind)}"></span><strong>${esc(b.id)} · ${esc(b.kind)}</strong><small>${(b.confidence*100).toFixed(0)}%</small></div>`).join(''):'<span class="muted">No balls detected in this frame.</span>';
+    const unclassified=det?.unclassifiedCount||0;
+    const summary=unclassified?`<div class="muted" style="grid-column:1/-1">${unclassified} unclassified candidate${unclassified===1?'':'s'}; not included among classified labels.</div>`:'';
+    $('balls').innerHTML=(balls.length?balls.map(b=>`<div class="ball"><span class="swatch" style="background:${color(b.kind)}"></span><strong>${esc(b.id)} · ${esc(b.kind)}</strong><small>score ${b.classifierScore.toFixed(2)}</small></div>`).join(''):'<span class="muted">No classified labels in this frame.</span>')+summary;
     const candidates=det?.candidates||[];
     $('candidates').innerHTML=candidates.length?`<table><thead><tr><th>Label</th><th>Pattern</th><th>Body dark</th><th>Rim dark</th><th>Boundary support</th></tr></thead><tbody>${candidates.map(c=>`<tr><td>${esc(c.id)}</td><td>${esc(c.pattern)}</td><td>${fmt(c.bodyDarkFraction)}</td><td>${fmt(c.rimDarkFraction)}</td><td>${fmt(c.boundarySupport)} / ${fmt(c.candidateBoundarySupport)}</td></tr>`).join('')}</tbody></table>`:'No circle candidates.';
   }
@@ -106,7 +109,7 @@
     $('m-game').textContent=s?.gameTableCurrent?'Current':t.uncertain?'Uncertain':'Unknown';
   }
   function renderSamples(samples){
-    $('samples').innerHTML=(samples||[]).slice().reverse().map(s=>`<tr><td>${s.sequence}</td><td>${new Date(s.capturedAt).toLocaleTimeString()}</td><td>${s.frameId}</td><td class="${s.uncertain?'warn':'good'}">${s.ballCount}${s.uncertain?' · check':''}</td><td>${fmt(s.elapsedMs,1)} ms</td><td>${s.minimumGain==null?'—':fmt(s.minimumGain)}–${fmt(s.maximumGain)}</td><td>${s.uncertain?'Uncertain':'Clear'}</td><td>${esc((s.warnings||[]).join(' · '))}</td></tr>`).join('');
+    $('samples').innerHTML=(samples||[]).slice().reverse().map(s=>`<tr><td>${s.sequence}</td><td>${new Date(s.capturedAt).toLocaleTimeString()}</td><td>${s.frameId}</td><td class="${s.uncertain?'warn':'good'}">${s.classifiedBallCount} / ${s.circleCandidateCount}${s.unclassifiedCandidateCount?` · ${s.unclassifiedCandidateCount} unclassified`:''}${s.uncertain?' · check':''}</td><td>${fmt(s.elapsedMs,1)} ms</td><td>${fmt(s.referenceBrightness,1)}</td><td>${s.minimumGain==null?'—':fmt(s.minimumGain)}–${fmt(s.maximumGain)}</td><td>${s.uncertain?'Uncertain':'Clear'}</td><td>${esc((s.warnings||[]).join(' · '))}</td></tr>`).join('');
   }
   async function refresh(){
     if(requestBusy)return;requestBusy=true;
@@ -117,7 +120,7 @@
       const fr=next.frame,det=next.detection;
       $('status').textContent=next.status||'Connected';$('dot').className=`dot ${next.active?'on':'bad'}`;
       $('m-frame').textContent=fr?`#${fr.sequence} · ${fr.frameId}`:'Waiting';$('m-age').textContent=fr?`${fmt(fr.frameAgeMs,0)} ms`:'—';
-      $('m-balls').textContent=det?`${det.balls.length} / ${det.circleCount}${det.uncertain?' · check':''}`:'—';$('m-time').textContent=det?`${fmt(det.elapsedMs,1)} ms`:'—';
+      $('m-balls').textContent=det?`${det.balls.length} / ${det.circleCount}${det.unclassifiedCount?` · ${det.unclassifiedCount} unknown`:''}${det.uncertain?' · check':''}`:'—';$('m-time').textContent=det?`${fmt(det.elapsedMs,1)} ms`:'—';
       $('frame-info').textContent=fr?`${fr.width}×${fr.height} · ${fr.frameSource} · source ${fr.sourceTimeUs} µs · ${new Date(fr.capturedAt).toLocaleTimeString()}`:'Waiting for fresh pixels';
       $('empty').hidden=!!currentImage;
       renderBalls(det);renderVision(det);renderGame(next);renderSamples(next.samples);

@@ -7,14 +7,14 @@ using Point = SkyEye.Core.Point;
 
 namespace SkyEye.Companion.Hybrid;
 
-sealed record VisionDashboardBall(string Id, string Kind, double Confidence,
+sealed record VisionDashboardBall(string Id, string Kind, double ClassifierScore,
     double X, double Y, double RadiusX, double RadiusY);
 sealed record VisionDashboardCandidate(string Id, string Pattern, double X, double Y,
     double RadiusX, double RadiusY, double? BodyDarkFraction, double? RimDarkFraction,
     double? BoundarySupport, double? CandidateBoundarySupport);
 sealed record VisionDashboardSample(int Sequence, DateTimeOffset CapturedAt, double FrameAgeMs,
-    long FrameId, long SourceTimeUs, int BallCount, bool Uncertain, double ElapsedMs,
-    double? MinimumGain, double? MaximumGain, string[] Warnings);
+    long FrameId, long SourceTimeUs, int ClassifiedBallCount, int CircleCandidateCount, int UnclassifiedCandidateCount,
+    bool Uncertain, double ElapsedMs, double? ReferenceBrightness, double? MinimumGain, double? MaximumGain, string[] Warnings);
 
 /// <summary>Opt-in, read-only laptop view over the latest sequential vision diagnostic.</summary>
 public sealed partial class ShellSession
@@ -128,7 +128,7 @@ public sealed partial class ShellSession
                 var calibration = table.State.Calibration;
                 var detection = sample?.Detection;
                 var detectedBalls = detection is null || calibration is null ? []
-                    : detection.Balls.Select(ball =>
+                    : detection.Balls.Where(ball => ball.Kind != "unknown").Select(ball =>
                     {
                         var centre = calibration.Unmap(ball.Position);
                         var horizontal = calibration.Unmap(ball.Position + new Point(PoolGeometry.Radius, 0));
@@ -150,7 +150,9 @@ public sealed partial class ShellSession
                     }).ToArray();
                 var samples = diagnostic.Samples.TakeLast(24).Select(item => new VisionDashboardSample(
                     item.Sequence, item.CapturedAt, item.FrameAgeMs, item.FrameId, item.SourceTimeUs,
-                    item.Detection.Balls.Length, item.Detection.Uncertain, item.Detection.ElapsedMs,
+                    item.Detection.Balls.Count(ball => ball.Kind != "unknown"), item.Detection.CircleCount,
+                    item.Detection.Balls.Count(ball => ball.Kind == "unknown"), item.Detection.Uncertain, item.Detection.ElapsedMs,
+                    item.Detection.Illumination?.ReferenceBrightness,
                     item.Detection.Illumination?.MinimumGain, item.Detection.Illumination?.MaximumGain,
                     item.Detection.Warnings)).ToArray();
                 var tracked = table.State.Table;
@@ -172,6 +174,7 @@ public sealed partial class ShellSession
                     detection = detection is null ? null : new
                     {
                         detection.Uncertain, detection.Warnings, detection.ElapsedMs, detection.CircleCount,
+                        unclassifiedCount = detection.Balls.Count(ball => ball.Kind == "unknown"),
                         detection.Normalized, detection.Runtime, detection.ColourGains, detection.ClothHue,
                         detection.Obstructed, detection.Recognition, detection.VerificationReason,
                         detection.Illumination, detection.Circles,
