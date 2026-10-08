@@ -1,0 +1,280 @@
+{
+  "schemaVersion": 1,
+  "captureDate": "2026-10-08",
+  "captureDurationSeconds": 30,
+  "sampleSpanSeconds": 28.976,
+  "sampleCount": 29,
+  "requestedHz": 60,
+  "completed": true,
+  "captureError": null,
+  "imagesSaved": false,
+  "seed": {
+    "source": "fresh-detector-matched-to-confirmed-layout",
+    "ageMs": 1695.9,
+    "matchedConfirmedLayout": true
+  },
+  "frameSize": {
+    "decoded": [
+      1920,
+      1080
+    ],
+    "analysis": [
+      960,
+      540
+    ]
+  },
+  "counterDeltas": {
+    "decodedFrameCallbacks": 862,
+    "textureUpdates": 808,
+    "acquired": 735,
+    "processed": 733,
+    "acquiredHz": 25.366,
+    "processedHz": 25.297,
+    "replaced": 1,
+    "noNewFramePolls": 877,
+    "unavailableCandidatePolls": 0,
+    "duplicateOrBackwardsReceipts": 0,
+    "acquisitionRetries": 14,
+    "acquisitionFailures": 13,
+    "gapEventsCaptured": 14,
+    "gapResetsAtFirstSample": 1,
+    "gapResetsAtLastSample": 14,
+    "gapResetDeltaAfterFirstSample": 13,
+    "gapThresholdUs": 125000,
+    "stale": 0,
+    "scopeRejected": 0,
+    "workerFailures": 0,
+    "activeAtEnd": 1,
+    "pendingAtEnd": 0,
+    "stopReasonCount": 0,
+    "playerLoadingSamples": 29
+  },
+  "snapshotTimingP95Ms": {
+    "candidateQueue": 9.422,
+    "candidateProbe": 0.201,
+    "readQueue": 27.584,
+    "bitmapCopy": 8.43,
+    "acquisition": 33.208,
+    "worker": 16.907,
+    "resultAge": 507.001
+  },
+  "appWideCopyFailureCounter": {
+    "firstSample": 9,
+    "lastSample": 75,
+    "deltaAfterFirstSample": 66,
+    "attribution": "Cumulative PlayerBridge counter; not attributable to individual motion-feed reads."
+  },
+  "gapRanges": {
+    "sourceDeltaUs": [
+      168133.0,
+      201767.0
+    ],
+    "decoderFrameDelta": [
+      5.0,
+      6.0
+    ],
+    "candidateToReadFrameDelta": [
+      0,
+      0
+    ],
+    "candidateToReadSourceDeltaUs": [
+      0,
+      0
+    ],
+    "coalescedDispatchQueueMs": [
+      0.0015,
+      2.0729
+    ],
+    "acquisitionAttempts": [
+      1.0,
+      2.0
+    ],
+    "acquisitionMs": [
+      3.7109,
+      17.8935
+    ],
+    "bitmapCopyMs": [
+      2.835234,
+      7.190664999999999
+    ],
+    "workerMs": [
+      2.0671,
+      44.8429
+    ],
+    "textureUpdateDelta": [
+      4.0,
+      5.0
+    ]
+  },
+  "gapEvents": [
+    {
+      "decoderFrameDelta": 5,
+      "sourceDeltaUs": 168144,
+      "acquisitionAttempts": 1,
+      "acquisitionMs": 4.858,
+      "coalescedDispatchQueueMs": 0.374,
+      "bitmapCopyMs": 3.9,
+      "workerMs": 44.843,
+      "candidateToReadFrameDelta": 0,
+      "candidateToReadSourceDeltaUs": 0,
+      "textureUpdateDelta": 4
+    },
+    {
+      "decoderFrameDelta": 5,
+      "sourceDeltaUs": 168144,
+      "acquisitionAttempts": 1,
+      "acquisitionMs": 6.053,
+      "coalescedDispatchQueueMs": 2.073,
+      "bitmapCopyMs": 3.613,
+      "workerMs": 2.253,
+      "candidateToReadFrameDelta": 0,
+      "candidateToReadSourceDeltaUs": 0,
+      "textureUpdateDelta": 4
+    },
+    {
+      "decoderFrameDelta": 5,
+      "sourceDeltaUs": 168144,
+      "acquisitionAttempts": 1,
+      "acquisitionMs": 4.956,
+      "coalescedDispatchQueueMs": 0.542,
+      "bitmapCopyMs": 3.817,
+      "workerMs": 10.582,
+      "candidateToReadFrameDelta": 0,
+      "candidateToReadSourceDeltaUs": 0,
+      "textureUpdateDelta": 4
+    },
+    {
+      "decoderFrameDelta": 5,
+      "sourceDeltaUs": 168133,
+      "acquisitionAttempts": 1,
+      "acquisitionMs": 4.88,
+      "coalescedDispatchQueueMs": 0.669,
+      "bitmapCopyMs": 3.641,
+      "workerMs": 12.014,
+      "candidateToReadFrameDelta": 0,
+      "candidateToReadSourceDeltaUs": 0,
+      "textureUpdateDelta": 4
+    },
+    {
+      "decoderFrameDelta": 5,
+      "sourceDeltaUs": 168133,
+      "acquisitionAttempts": 1,
+      "acquisitionMs": 6.191,
+      "coalescedDispatchQueueMs": 0.506,
+      "bitmapCopyMs": 5.174,
+      "workerMs": 10.428,
+      "candidateToReadFrameDelta": 0,
+      "candidateToReadSourceDeltaUs": 0,
+      "textureUpdateDelta": 4
+    },
+    {
+      "decoderFrameDelta": 5,
+      "sourceDeltaUs": 168134,
+      "acquisitionAttempts": 1,
+      "acquisitionMs": 6.308,
+      "coalescedDispatchQueueMs": 0.349,
+      "bitmapCopyMs": 5.139,
+      "workerMs": 9.572,
+      "candidateToReadFrameDelta": 0,
+      "candidateToReadSourceDeltaUs": 0,
+      "textureUpdateDelta": 4
+    },
+    {
+      "decoderFrameDelta": 5,
+      "sourceDeltaUs": 168144,
+      "acquisitionAttempts": 1,
+      "acquisitionMs": 4.86,
+      "coalescedDispatchQueueMs": 0.265,
+      "bitmapCopyMs": 4.097,
+      "workerMs": 4.612,
+      "candidateToReadFrameDelta": 0,
+      "candidateToReadSourceDeltaUs": 0,
+      "textureUpdateDelta": 4
+    },
+    {
+      "decoderFrameDelta": 5,
+      "sourceDeltaUs": 168144,
+      "acquisitionAttempts": 1,
+      "acquisitionMs": 3.83,
+      "coalescedDispatchQueueMs": 0.272,
+      "bitmapCopyMs": 3.209,
+      "workerMs": 2.067,
+      "candidateToReadFrameDelta": 0,
+      "candidateToReadSourceDeltaUs": 0,
+      "textureUpdateDelta": 4
+    },
+    {
+      "decoderFrameDelta": 5,
+      "sourceDeltaUs": 168133,
+      "acquisitionAttempts": 1,
+      "acquisitionMs": 6.0,
+      "coalescedDispatchQueueMs": 0.562,
+      "bitmapCopyMs": 4.887,
+      "workerMs": 3.223,
+      "candidateToReadFrameDelta": 0,
+      "candidateToReadSourceDeltaUs": 0,
+      "textureUpdateDelta": 4
+    },
+    {
+      "decoderFrameDelta": 5,
+      "sourceDeltaUs": 168133,
+      "acquisitionAttempts": 1,
+      "acquisitionMs": 4.14,
+      "coalescedDispatchQueueMs": 0.292,
+      "bitmapCopyMs": 3.485,
+      "workerMs": 8.017,
+      "candidateToReadFrameDelta": 0,
+      "candidateToReadSourceDeltaUs": 0,
+      "textureUpdateDelta": 4
+    },
+    {
+      "decoderFrameDelta": 6,
+      "sourceDeltaUs": 201767,
+      "acquisitionAttempts": 1,
+      "acquisitionMs": 3.711,
+      "coalescedDispatchQueueMs": 0.364,
+      "bitmapCopyMs": 2.835,
+      "workerMs": 4.337,
+      "candidateToReadFrameDelta": 0,
+      "candidateToReadSourceDeltaUs": 0,
+      "textureUpdateDelta": 4
+    },
+    {
+      "decoderFrameDelta": 5,
+      "sourceDeltaUs": 168134,
+      "acquisitionAttempts": 1,
+      "acquisitionMs": 4.766,
+      "coalescedDispatchQueueMs": 0.329,
+      "bitmapCopyMs": 3.974,
+      "workerMs": 11.758,
+      "candidateToReadFrameDelta": 0,
+      "candidateToReadSourceDeltaUs": 0,
+      "textureUpdateDelta": 4
+    },
+    {
+      "decoderFrameDelta": 6,
+      "sourceDeltaUs": 201767,
+      "acquisitionAttempts": 2,
+      "acquisitionMs": 17.894,
+      "coalescedDispatchQueueMs": 0.002,
+      "bitmapCopyMs": 7.191,
+      "workerMs": 20.854,
+      "candidateToReadFrameDelta": 0,
+      "candidateToReadSourceDeltaUs": 0,
+      "textureUpdateDelta": 5
+    },
+    {
+      "decoderFrameDelta": 5,
+      "sourceDeltaUs": 168133,
+      "acquisitionAttempts": 1,
+      "acquisitionMs": 5.911,
+      "coalescedDispatchQueueMs": 0.285,
+      "bitmapCopyMs": 4.722,
+      "workerMs": 8.396,
+      "candidateToReadFrameDelta": 0,
+      "candidateToReadSourceDeltaUs": 0,
+      "textureUpdateDelta": 4
+    }
+  ],
+  "interpretation": "Stationary-table feed capture only. Texture-update-driven copy retry and transient acquisition-miss recovery were installed. Exact candidate/read pairing held. The 125 ms continuity gate still reset on repeated 168–202 ms source gaps. Loading was reported in every snapshot while decoder and texture counters advanced; this does not establish buffering health. No moving-ball accuracy claim."
+}

@@ -37,7 +37,7 @@ The laptop **Match Scenario Lab** keeps experimental match state in a separate j
 
 **O02 decoded-frame pairing** replaces separate pixel/timestamp reads with an owned receipt matched to the actual surface timestamp. Controlled Pixel tests cover MP4, live TS source time, restart and the C# bitmap handoff. See the [pairing report](docs/o02-frame-pairing-report.md). Real 1080p cadence and held-out shot accuracy remain open.
 
-The subsequent [motion feed slice](docs/o02-motion-feed-report.md) implements one-active/one-latest ownership, metadata-only duplicate polling, scoped stop/reset and bounded native ROI feature flow. Controlled Pixel measurements and overload/disposal checks pass. Enablement is diagnostic only; normal startup performs no motion polling. Real 1080p cadence, fixed-region limitations, low-light accuracy and O03/O04 tracking remain open.
+The subsequent [motion feed slice](docs/o02-motion-feed-report.md) implements one-active/one-latest ownership, metadata-only duplicate polling, scoped stop/reset and bounded native ROI feature flow. A stationary 1080p Pixel capture completed after update-driven copy retries, but recorded fourteen 168–202 ms source gaps against the 125 ms continuity limit. Exact frame pairing held; live cadence and moving-ball accuracy remain open. Enablement is diagnostic only; normal startup performs no motion polling.
 
 APKs embed their managed assemblies and can be installed directly using ADB or Android's installer. Use the ARM64 APKs for the physical phones. Apps have separate package IDs (`uk.co.skyeye.camera`, `uk.co.skyeye.companion`), leaving Maeve Watch intact.
 
