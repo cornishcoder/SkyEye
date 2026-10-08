@@ -53,6 +53,8 @@ public sealed record MotionFeedSnapshot(long Acquired, long Processed, long Repl
     public long? LastGapFrameIdDelta { get; init; }
     public double? LastClockSampleAgeMs { get; init; }
     public double? LastClockUncertaintyMs { get; init; }
+    public long AcquisitionRetries { get; init; }
+    public int LastAcquisitionAttempts { get; init; } = 1;
 }
 
 /// <summary>Explicitly started, one active/one latest frame. No detector, rule or event submission.</summary>
@@ -72,12 +74,13 @@ public sealed class TableMotionFeed : IAsyncDisposable
     TableFrame? pending;
     Task? run;
     long acquired, processed, replaced, duplicate, stale, acquisitionFailures, scopeRejected, workerFailures, gaps;
+    long acquisitionRetries;
     long lastReceivedId = -1, lastReceivedUs = -1, lastProcessedId = -1, lastProcessedUs = -1;
     long? lastProcessedDeltaUs, lastGapUs;
     long? lastProcessedFrameIdDelta, lastGapFrameIdDelta;
     double? lastClockSampleAgeMs, lastClockUncertaintyMs;
     long largestGapUs;
-    int active, width, height;
+    int active, width, height, lastAcquisitionAttempts = 1;
     string? stopReason;
     MotionMeasurement? latest;
     double acquisitionMs, pendingAcquisitionMs, workerMs, resultAgeMs;
@@ -123,7 +126,9 @@ public sealed class TableMotionFeed : IAsyncDisposable
                     LastProcessedFrameIdDelta = lastProcessedFrameIdDelta,
                     LastGapFrameIdDelta = lastGapFrameIdDelta,
                     LastClockSampleAgeMs = lastClockSampleAgeMs,
-                    LastClockUncertaintyMs = lastClockUncertaintyMs
+                    LastClockUncertaintyMs = lastClockUncertaintyMs,
+                    AcquisitionRetries = acquisitionRetries,
+                    LastAcquisitionAttempts = lastAcquisitionAttempts
                 };
             }
         }
@@ -190,6 +195,8 @@ public sealed class TableMotionFeed : IAsyncDisposable
                     lock (gate)
                     {
                         acquired++; acquisitionMs = clock.Elapsed.TotalMilliseconds;
+                        lastAcquisitionAttempts = Math.Clamp(frame.AcquisitionAttempts, 1, 16);
+                        acquisitionRetries += lastAcquisitionAttempts - 1;
                         var receipt = frame.DecodedReceipt;
                         rejectScope = !Current() || receipt is null || frame.Image is null || frame.SourceTimeUs is null or < 0
                             || frame.Timeline != scope.Timeline || receipt.MediaGeneration != scope.MediaGeneration

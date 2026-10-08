@@ -89,6 +89,8 @@ try {
             LastGapFrameIdDelta = $taskMotion.lastGapFrameIdDelta
             LastClockSampleAgeMs = $taskMotion.lastClockSampleAgeMs
             LastClockUncertaintyMs = $taskMotion.lastClockUncertaintyMs
+            AcquisitionRetries = $taskMotion.acquisitionRetries
+            LastAcquisitionAttempts = $taskMotion.lastAcquisitionAttempts
             LastAcquisitionMs = $taskMotion.lastAcquisitionMs
             LastWorkerMs = $taskMotion.lastWorkerMs
             LastResultAgeMs = $taskMotion.lastResultAgeMs

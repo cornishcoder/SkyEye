@@ -55,11 +55,13 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
     {
         var completion = new TaskCompletionSource<TableFrame>(TaskCreationOptions.RunContinuationsAsynchronously);
         Bridge.PlayerBridge? admittedOwner = null;
+        int acquisitionAttempts = 0;
         void Attempt(int remaining)
         {
             BitmapTableImage? pixels = null;
             try
             {
+                acquisitionAttempts++;
                 cancellation.ThrowIfCancellationRequested(); var owner = player();
                 if (owner is null || !live() || connection().Scope != source || !connection().CanControl)
                     throw new FrameAcquisitionException(ObservationReason.SourceChanged, "inactive-live-source");
@@ -93,6 +95,7 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
                     completion.TrySetResult(new([], DateTimeOffset.UtcNow.AddMilliseconds(-Math.Max(0, age)), stamp.GetProperty("timeline").GetString()!)
                     {
                         Image = pixels, SourceTimeUs = stamp.GetProperty("sourceUs").GetInt64(), FrameSource = "decoded-live-texture",
+                        AcquisitionAttempts = acquisitionAttempts,
                         ClockSampleAgeMs = clockAge >= 0 ? clockAge : null,
                         ClockUncertaintyMs = uncertainty >= 0 ? uncertainty : null,
                         DecodedReceipt = new(stamp.GetProperty("mediaGeneration").GetInt64(), stamp.GetProperty("frameId").GetInt64(),
