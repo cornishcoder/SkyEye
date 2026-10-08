@@ -1,0 +1,151 @@
+{
+  "schemaVersion": 1,
+  "captureDate": "2026-10-09",
+  "requestedHz": 60,
+  "imagesSaved": false,
+  "readbackChange": "When the SurfaceTexture timestamp changes during bitmap copy, retry once immediately against the latest timestamp. Accept pixels only when the SurfaceTexture timestamp is unchanged across the copy and exactly matches the decoder receipt.",
+  "frameSize": {
+    "decoded": [
+      1920,
+      1080
+    ],
+    "analysis": [
+      960,
+      540
+    ]
+  },
+  "runs": [
+    {
+      "captureDurationSeconds": 30.254,
+      "sampleSpanSeconds": 29.125,
+      "sampleCount": 29,
+      "completed": true,
+      "captureError": null,
+      "seed": {
+        "source": "fresh-detector-matched-to-confirmed-layout",
+        "frameAgeMs": 1701.85,
+        "matchedConfirmedLayout": true
+      },
+      "counterDeltas": {
+        "decodedFrameCallbacks": 871,
+        "textureUpdates": 806,
+        "acquired": 797,
+        "processed": 796,
+        "acquiredHz": 26.34,
+        "processedHz": 26.31,
+        "replaced": 0,
+        "noNewFramePolls": 0,
+        "unavailableCandidatePolls": 0,
+        "duplicateOrBackwardsReceipts": 0,
+        "acquisitionRetries": 0,
+        "acquisitionFailures": 0,
+        "gapResetAtFirstSample": 0,
+        "gapResetAtLastSample": 0,
+        "gapResetDeltaAfterFirstSample": 0,
+        "gapEventsCaptured": 0,
+        "gapThresholdUs": 125000,
+        "maximumRecentSourceDeltaUs": 100889,
+        "recentSourceDeltaP50Us": 33622,
+        "recentSourceDeltaP95Us": 67255,
+        "stale": 0,
+        "scopeRejected": 0,
+        "workerFailures": 0
+      },
+      "snapshotTimingP95Ms": {
+        "candidateQueue": 2.482,
+        "candidateProbe": 0.183,
+        "readQueue": 2.482,
+        "bitmapCopy": 8.783,
+        "acquisition": 16.39,
+        "worker": 16.777,
+        "resultAge": 554.99,
+        "conversion": 5.112,
+        "flow": 11.765
+      },
+      "appWideCopyFailureCounter": {
+        "firstSample": 5,
+        "lastSample": 32,
+        "deltaAfterFirstSample": 27,
+        "attribution": "Shared PlayerBridge counter; includes dashboard sampling and cannot be assigned to motion-feed reads."
+      },
+      "player": {
+        "mediaGenerationFirst": 6,
+        "mediaGenerationLast": 6,
+        "endedCountFirst": 2,
+        "endedCountLast": 2,
+        "lastErrorCode": 0,
+        "playingAtEnd": true
+      }
+    },
+    {
+      "captureDurationSeconds": 30.075,
+      "sampleSpanSeconds": 29.007,
+      "sampleCount": 29,
+      "completed": true,
+      "captureError": null,
+      "seed": {
+        "source": "fresh-detector-matched-to-confirmed-layout",
+        "frameAgeMs": 1862.68,
+        "matchedConfirmedLayout": true
+      },
+      "counterDeltas": {
+        "decodedFrameCallbacks": 870,
+        "textureUpdates": 806,
+        "acquired": 789,
+        "processed": 790,
+        "acquiredHz": 26.23,
+        "processedHz": 26.27,
+        "replaced": 0,
+        "noNewFramePolls": 3,
+        "unavailableCandidatePolls": 0,
+        "duplicateOrBackwardsReceipts": 0,
+        "acquisitionRetries": 0,
+        "acquisitionFailures": 0,
+        "gapResetAtFirstSample": 0,
+        "gapResetAtLastSample": 0,
+        "gapResetDeltaAfterFirstSample": 0,
+        "gapEventsCaptured": 0,
+        "gapThresholdUs": 125000,
+        "maximumRecentSourceDeltaUs": 100011,
+        "recentSourceDeltaP50Us": 33334,
+        "recentSourceDeltaP95Us": 66677,
+        "stale": 0,
+        "scopeRejected": 0,
+        "workerFailures": 0
+      },
+      "snapshotTimingP95Ms": {
+        "candidateQueue": 1.17,
+        "candidateProbe": 0.193,
+        "readQueue": 1.17,
+        "bitmapCopy": 8.042,
+        "acquisition": 9.135,
+        "worker": 17.956,
+        "resultAge": 576.015,
+        "conversion": 6.96,
+        "flow": 12.255
+      },
+      "appWideCopyFailureCounter": {
+        "firstSample": 36,
+        "lastSample": 67,
+        "deltaAfterFirstSample": 31,
+        "attribution": "Shared PlayerBridge counter; includes dashboard sampling and cannot be assigned to motion-feed reads."
+      },
+      "player": {
+        "mediaGenerationFirst": 6,
+        "mediaGenerationLast": 6,
+        "endedCountFirst": 2,
+        "endedCountLast": 2,
+        "lastErrorCode": 0,
+        "playingAtEnd": true
+      }
+    }
+  ],
+  "dashboardAtReview": {
+    "active": true,
+    "balls": 16,
+    "unknown": 0,
+    "uncertain": false,
+    "obstructed": false
+  },
+  "interpretation": "Two consecutive stationary-table captures completed on one stable decoder generation without acquisition failures or source intervals above the unchanged 125 ms continuity gate. The previous 30-second capture on the same updated listener build recorded repeated 168 ms gaps and failed acquisitions; immediate in-place retry correlates with a substantial continuity improvement. The shared copy-failure counter still rose by 27 and 31, and cannot attribute those races to the motion feed. This short stationary result is promising, not O02 acceptance: moving-ball accuracy, longer endurance, resource use and lifecycle recovery remain unmeasured."
+}
