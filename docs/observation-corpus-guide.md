@@ -1,6 +1,6 @@
 # O01 observation corpus and offline workbench
 
-6 October 2026. The workbench validates and replays indexed frame receipts, freezes corpus versions and scores stored detector outputs. It does not decode MP4s, run native CV, track motion or submit GameState events. The checked-in seed has one previously tuned real still and one synthetic contract sequence; it has zero real timed shots and zero held-out shots.
+6 October 2026; updated 8 October 2026. The workbench validates and replays indexed frame receipts, freezes corpus versions, scores stored detector outputs and provides an offline O04 association/movement-threshold evaluator. It does not decode MP4s, run native CV or submit GameState events. The checked-in seed has one previously tuned real still and one synthetic contract sequence; it has zero real timed shots and zero held-out shots, so O04 cannot yet produce real tracking-accuracy evidence.
 
 ## Run the checked-in seed
 
@@ -57,6 +57,18 @@ Always pass `--lock` during accepted replay/scoring. It freezes exact manifest/i
 Collect at least 60 real mounted-setup sequences with at least 20 held out by session, including at least 10 simple pots and 10 simple misses. Add separate negative challenges. Cover normal/slow/hard shots, cushions, multiple moving balls, cue scratch/replacement, black pots, near-mouth/cushion balls, crossings, close successive contacts, hands/cue occlusion, shadows/reflections, hiding, break/rerack, interruption, ordinary light and dim failures. Minimum counts do not establish coverage or accuracy. A repeatedly consulted holdout becomes development and needs replacement. `accuracyGateReady` stays false until a separate reviewed acceptance process establishes the full physical/accuracy gate.
 
 ## Interpret reports
+
+### Tune association and movement offline (O04)
+
+`association` replays one candidate detection file over reviewed, real `Shot` sequences from one explicitly selected frozen split. Every candidate record must correspond to a labelled indexed frame. O04 requires `table-2x1` coordinates and increasing source PTS within each source scope; image-normalized positions do not preserve table movement distance under perspective.
+
+```powershell
+dotnet run --project src/SkyEye.Observation.Workbench -- association --root PATH-TO-CORPUS --manifest PATH-TO-MANIFEST --lock FROZEN-LOCK --split Development --detections CANDIDATE.json --candidate-name CURRENT --max-balls COUNT --tolerance NUMBER --max-speed NUMBER --association-slack NUMBER --move-start NUMBER --move-stop NUMBER --truth-move-start NUMBER --truth-move-stop NUMBER --max-gap-ms INTEGER --ambiguity-margin NUMBER --colour-penalty NUMBER --output NEW-REPORT.json
+```
+
+Set `--max-balls` to the selected ruleset's maximum. It is an upper bound, not the expected visible count. When unmatched candidates compete for fewer remaining slots, O04 reports them as constrained/ambiguous and does not choose arbitrarily. `--max-speed` and `--association-slack` tune source-time position gates. `--move-start` and `--move-stop` tune the predicted hysteresis thresholds in table-widths per second. Keep `--truth-move-start` and `--truth-move-stop` fixed across tuning runs; they classify movement from reviewed ground-truth positions and must be committed before comparing predicted thresholds. Use the same frame-centre tolerance and fixed truth thresholds for each candidate run.
+
+Reports aggregate by recording session and lighting/scene tag. They include track starts/continuations, ambiguous assignments, inventory conflicts, identity changes, movement confusion, classification coverage, detector misses/extras, and up to 10,000 frame IDs needing review. Use Development for tuning; run Holdout only after fixing the candidate and thresholds. Results are offline evaluation only; they do not feed runtime tracking or canonical `GameState`. The seed fixture has no timed real shot, so use a reviewed real O01 Development set before interpreting these metrics.
 
 For O08 request-level evaluation, save a JSON array of `VerificationWindow` records: unique `id` and `operationId`, `sequenceId`, `finalSampleId`, source-microsecond `fromUs`/`toUs`, target `group`, `timingKind` (`OfflineReplay` or `LiveRecorded`), and the complete `TableObservation` in `result`. Preserve refused requests too. The corpus must contain independently reviewed `StillVerification` or `NegativeVerification` sequences; do not promote development detector output into truth.
 

@@ -8,12 +8,14 @@ try
     if (args.Length == 3 && args[0] == "import-verification") { Console.WriteLine(VerificationCaptureImport.Import(args[1], args[2])); return; }
     if (args.Length == 4 && args[0] == "import-diagnostic-labels")
     { Console.WriteLine(DiagnosticLabelCaptureImport.Import(args[1], args[2], args[3])); return; }
-    if (args.Length == 0 || args[0] is not ("validate" or "replay" or "freeze" or "baseline" or "verification" or "compare" or "export-yolo"))
-        throw new ArgumentException("Usage: validate|replay|freeze|baseline|verification|compare|export-yolo --root DIR --manifest FILE [--output FILE] [--output-dir DIR] [--lock FILE] [--detections FILE] [--requests FILE] [--current FILE --learned FILE --hybrid FILE --split Development|Holdout] [--tolerance NUMBER] | import-diagnostic-labels CAPTURE_ROOT OUTPUT_ROOT ASSIGNMENTS.json");
+    if (args.Length == 0 || args[0] is not ("validate" or "replay" or "freeze" or "baseline" or "verification" or "compare" or "export-yolo" or "association"))
+        throw new ArgumentException("Usage: validate|replay|freeze|baseline|verification|compare|export-yolo|association --root DIR --manifest FILE [--output FILE] [--output-dir DIR] [--lock FILE] [--detections FILE] [--requests FILE] [--current FILE --learned FILE --hybrid FILE --split Development|Holdout] [--tolerance NUMBER] [association: --candidate-name NAME --max-balls INTEGER --max-speed NUMBER --association-slack NUMBER --move-start NUMBER --move-stop NUMBER --truth-move-start NUMBER --truth-move-stop NUMBER --max-gap-ms INTEGER --ambiguity-margin NUMBER --colour-penalty NUMBER] | import-diagnostic-labels CAPTURE_ROOT OUTPUT_ROOT ASSIGNMENTS.json");
     var options = new Dictionary<string, string>();
     for (int i = 1; i < args.Length; i += 2)
         if (i + 1 == args.Length || args[i] is not ("--root" or "--manifest" or "--output" or "--lock" or "--detections" or "--requests" or "--tolerance"
-            or "--current" or "--learned" or "--hybrid" or "--split" or "--output-dir")
+            or "--current" or "--learned" or "--hybrid" or "--split" or "--output-dir" or "--candidate-name" or "--max-speed"
+            or "--association-slack" or "--move-start" or "--move-stop" or "--truth-move-start" or "--truth-move-stop" or "--max-balls"
+            or "--max-gap-ms" or "--ambiguity-margin" or "--colour-penalty")
             || !options.TryAdd(args[i], args[i + 1])) throw new ArgumentException("Unknown, duplicate or incomplete option.");
     string Required(string name) => options.GetValueOrDefault(name) ?? throw new ArgumentException("Missing " + name);
     var manifestPath = Path.GetFullPath(Required("--manifest"));
@@ -21,8 +23,8 @@ try
     var manifest = CorpusJson.Read<CorpusManifest>(manifestPath);
     var audit = CorpusValidation.Validate(manifest, files);
     var frozen = SplitLock.Freeze(manifest, files, manifestPath);
-    if ((args[0] is "compare" or "export-yolo") && !options.ContainsKey("--lock"))
-        throw new ArgumentException("O09 comparison/export requires --lock to freeze the session split and labels.");
+    if ((args[0] is "compare" or "export-yolo" or "association") && !options.ContainsKey("--lock"))
+        throw new ArgumentException("O09/O04 comparison requires --lock to freeze the session split and labels.");
     if (options.TryGetValue("--lock", out var lockPath)) SplitLock.Verify(CorpusJson.Read<FrozenCorpus>(lockPath), frozen);
     object result = args[0] switch
     {
@@ -37,6 +39,7 @@ try
             windows = VerificationEvaluation.Score(manifest, files, CorpusJson.Read<VerificationWindow[]>(Required("--requests"))) },
         "compare" => Compare(),
         "export-yolo" => ExportYolo(),
+        "association" => Association(),
         _ => throw new ArgumentException("Unknown command")
     };
     object ExportYolo()
@@ -69,6 +72,35 @@ try
         return O09Comparison.Compare(manifest, frozen, files, split,
             [Candidate("current", "--current"), Candidate("learned", "--learned"), Candidate("hybrid", "--hybrid")], tolerance);
     }
+    object Association()
+    {
+        var split = Required("--split").ToLowerInvariant() switch
+        {
+            "development" => CorpusSplit.Development,
+            "holdout" => CorpusSplit.Holdout,
+            _ => throw new ArgumentException("O04 association --split must be Development or Holdout.")
+        };
+        string detectionPath = Path.GetFullPath(Required("--detections"));
+        var info = new FileInfo(detectionPath);
+        if (!info.Exists || info.Length > 256L * 1024 * 1024)
+            throw new InvalidDataException("O04 candidate output is missing or exceeds the 256 MiB read bound.");
+        var bytes = File.ReadAllBytes(detectionPath);
+        var candidate = System.Text.Json.JsonSerializer.Deserialize<StoredDetection[]>(bytes, CorpusJson.Options)
+            ?? throw new InvalidDataException("O04 candidate output is empty.");
+        double Number(string key) => double.Parse(Required(key), System.Globalization.CultureInfo.InvariantCulture);
+        long gapMs = long.Parse(Required("--max-gap-ms"), System.Globalization.CultureInfo.InvariantCulture);
+        if (gapMs is < 1 or > 15_000) throw new ArgumentException("O04 --max-gap-ms must be from 1 through 15000.");
+        int maximumBalls = int.Parse(Required("--max-balls"), System.Globalization.CultureInfo.InvariantCulture);
+        var tuning = new O04AssociationOptions(Number("--tolerance"), Number("--max-speed"),
+            Number("--association-slack"), Number("--move-start"), Number("--move-stop"),
+            Number("--truth-move-start"), Number("--truth-move-stop"), maximumBalls, checked(gapMs * 1000),
+            Number("--ambiguity-margin"), Number("--colour-penalty"));
+        string candidateName = options.GetValueOrDefault("--candidate-name")
+            ?? candidate.Where(d => d is not null).Select(d => d.Model).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).FirstOrDefault()
+            ?? "candidate";
+        return O04AssociationReplay.Replay(manifest, frozen, files, split, candidate,
+            Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant(), candidateName, tuning);
+    }
     object Baseline()
     {
         var detections = CorpusJson.Read<StoredDetection[]>(Required("--detections"));
@@ -98,7 +130,7 @@ try
     }
     else Console.WriteLine(json);
 }
-catch (Exception e) when (e is ArgumentException or IOException or InvalidDataException or System.Text.Json.JsonException or FormatException or InvalidOperationException)
+catch (Exception e) when (e is ArgumentException or IOException or InvalidDataException or System.Text.Json.JsonException or FormatException or InvalidOperationException or OverflowException)
 {
     Console.Error.WriteLine(e.Message); Environment.ExitCode = 1;
 }

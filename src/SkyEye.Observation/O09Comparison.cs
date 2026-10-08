@@ -178,7 +178,7 @@ public static class O09Comparison
     {
         int spatial = values.Sum(v => v.SpatialMatches), detections = values.Sum(v => v.Detections), visible = values.Sum(v => v.VisibleLabels);
         int correct = values.Sum(v => v.ColourCorrect);
-        return new("all", values.Length, values.Sum(v => v.Sequences), values.Sum(v => v.Frames), visible, detections,
+        return new("all", values.Sum(v => v.Sequences), values.Sum(v => v.Frames), visible, detections,
             spatial, values.Sum(v => v.FalsePositives), values.Sum(v => v.MissedVisible), correct,
             values.Sum(v => v.UnknownColourMatches), values.Sum(v => v.UncertainFrames),
             values.Sum(v => v.MatchesWithReviewedRadii), values.Sum(v => v.MatchesWithPredictedAndReviewedRadii),
