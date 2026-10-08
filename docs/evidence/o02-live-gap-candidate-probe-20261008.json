@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-10-08T22:22:20.8792784+01:00",
+  "requestedHz": 30,
+  "durationSeconds": 30,
+  "completed": true,
+  "sampleCount": 29,
+  "sampleSpanSeconds": 30.0,
+  "frameSize": {
+    "decodedWidth": 1920,
+    "decodedHeight": 1080,
+    "analysisImageWidth": 1920,
+    "analysisImageHeight": 1080
+  },
+  "seed": {
+    "source": "fresh-detector-matched-to-confirmed-layout",
+    "frameAgeMs": 1792.2493
+  },
+  "counters": {
+    "media3FrameReleaseCallbacks": 867,
+    "textureUpdates": 806,
+    "textureUpdatesHz": 26.8667,
+    "acquired": 697,
+    "processed": 691,
+    "processedHz": 23.0333,
+    "processedRollingCadenceHzAtEnd": 24.565,
+    "noNewFramePolls": 174,
+    "unavailableCandidatePolls": 0,
+    "duplicateOrBackwardsReceipts": 0,
+    "gapResets": 5,
+    "gapThresholdUs": 125000,
+    "acquisitionRetries": 19,
+    "copyFailuresDuringCapture": {
+      "changed-during-copy": 19,
+      "scope": "Cumulative PlayerBridge copy-failure counter delta observed during the window; not attributable to individual motion-feed acquisitions."
+    },
+    "stale": 0,
+    "acquisitionFailures": 0,
+    "scopeRejected": 0,
+    "workerFailures": 0
+  },
+  "oneSecondSnapshotP95Ms": {
+    "acquisition": 25.1802,
+    "worker": 54.6803,
+    "resultAge": 595.6302
+  },
+  "gapEvents": [
+    {
+      "frameId": 4405,
+      "frameIdDelta": 4,
+      "sourceDeltaUs": 134511,
+      "acquisitionAttempts": 2,
+      "acquisitionMs": 62.9762,
+      "workerMs": 23.0362,
+      "resultAgeMs": 532.605
+    },
+    {
+      "frameId": 4605,
+      "frameIdDelta": 4,
+      "sourceDeltaUs": 134511,
+      "acquisitionAttempts": 1,
+      "acquisitionMs": 24.8111,
+      "workerMs": 17.8384,
+      "resultAgeMs": 519.9675
+    },
+    {
+      "frameId": 4646,
+      "frameIdDelta": 4,
+      "sourceDeltaUs": 134511,
+      "acquisitionAttempts": 2,
+      "acquisitionMs": 76.1867,
+      "workerMs": 12.9873,
+      "resultAgeMs": 551.4643
+    },
+    {
+      "frameId": 4988,
+      "frameIdDelta": 4,
+      "sourceDeltaUs": 133344,
+      "acquisitionAttempts": 2,
+      "acquisitionMs": 74.4501,
+      "workerMs": 23.0016,
+      "resultAgeMs": 530.1886
+    },
+    {
+      "frameId": 5038,
+      "frameIdDelta": 4,
+      "sourceDeltaUs": 136467,
+      "acquisitionAttempts": 2,
+      "acquisitionMs": 41.349,
+      "workerMs": 18.0137,
+      "resultAgeMs": 538.0074
+    }
+  ],
+  "admission": {
+    "firstAttempt": "rejected-before-feed-start: confirmed layout did not match the latest clear detector sample",
+    "successfulAttempt": "after user reconfirmation, seeded from a fresh detector sample matching the confirmed layout"
+  },
+  "imagesSaved": false,
+  "interpretation": "No exact-frame/source-clock candidate unavailability or duplicate receipts occurred during this run. The five source-time gaps were all about 133-136 ms with four decoded frame IDs between motion samples. Four gap-associated acquisitions used two attempts and took about 41-76 ms; their associated worker times were about 13-23 ms. The one-second acquisition and worker P95 values include all sampled intervals and do not identify the cause of every gap. The PlayerBridge changed-during-copy counter rose by 19 during the window, matching the feed retry count numerically, but it is app-wide cumulative telemetry and cannot be assigned to specific feed attempts. This supports testing a smaller readback for the ROI-only motion diagnostic; it does not establish that readback size is the sole cause, or prove moving-ball accuracy. The 125 ms reset threshold is unchanged."
+}

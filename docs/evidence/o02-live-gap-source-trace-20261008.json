@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-10-08T22:11:02.528429+01:00",
+  "requestedHz": 30,
+  "durationSeconds": 30,
+  "completed": true,
+  "sampleCount": 29,
+  "sampleSpanSeconds": 29.0707,
+  "frameSize": {
+    "width": 1920,
+    "height": 1080
+  },
+  "counters": {
+    "media3FrameReleaseCallbacks": 865.0,
+    "textureUpdates": 806.0,
+    "acquired": 676.0,
+    "processed": 674.0,
+    "processedHz": 23.1848,
+    "gapResets": 3,
+    "gapThresholdUs": 125000,
+    "feedAcquisitionRetries": 22,
+    "noNewPollOutcomesUnclassified": 209,
+    "duplicateOrBackwardsReceipts": 0,
+    "stale": 0,
+    "acquisitionFailures": 0,
+    "scopeRejected": 0,
+    "workerFailures": 0
+  },
+  "oneSecondSnapshotP95Ms": {
+    "acquisition": 44.8402,
+    "worker": 28.5538
+  },
+  "gapEvents": [
+    {
+      "frameId": 2153,
+      "sourceTimeUs": 135337245289,
+      "frameIdDelta": 4,
+      "sourceDeltaUs": 134512,
+      "acquisitionAttempts": 2,
+      "acquisitionMs": 51.6844,
+      "workerMs": 23.8611,
+      "resultAgeMs": 570.4407
+    },
+    {
+      "frameId": 2698,
+      "sourceTimeUs": 135355572433,
+      "frameIdDelta": 4,
+      "sourceDeltaUs": 134511,
+      "acquisitionAttempts": 1,
+      "acquisitionMs": 23.6745,
+      "workerMs": 33.3379,
+      "resultAgeMs": 573.4895
+    },
+    {
+      "frameId": 2962,
+      "sourceTimeUs": 135364438800,
+      "frameIdDelta": 4,
+      "sourceDeltaUs": 131389,
+      "acquisitionAttempts": 2,
+      "acquisitionMs": 55.6411,
+      "workerMs": 24.7127,
+      "resultAgeMs": 576.1271
+    }
+  ],
+  "appSessionCopyFailureCountsAtEnd": {
+    "changedDuringCopy": 41,
+    "scope": "Cumulative since Lab launch, includes setup/verification and cannot be assigned to individual feed events."
+  },
+  "imagesSaved": false,
+  "interpretation": "Average frame release and texture update rates exceeded O02 acquired/processed rates. All three observed continuity gaps advanced four frame IDs and exceeded 125 ms; two associated acquisitions retried and took about 52–56 ms, while the third had one acquisition attempt and a 33.3 ms worker time. This points to acquisition/sampling as the primary throughput limit, with a possible worker contribution, but one-second rate counters do not establish the exact cause of each skipped interval. The no-new count in this capture combined unchanged candidates with unavailable frame/clock pairings. No accuracy or moving-ball claim is made."
+}
