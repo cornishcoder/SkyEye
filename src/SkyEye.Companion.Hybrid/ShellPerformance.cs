@@ -66,8 +66,10 @@ public sealed partial class ShellSession
             {
                 try
                 {
-                    await SetMotionFeedAsync(r.Query.GetValueOrDefault("enabled") == "1", int.Parse(r.Query.GetValueOrDefault("hz", "30")));
-                    return HttpResponse.Json(MotionMetrics);
+                    bool enabled = r.Query.GetValueOrDefault("enabled") == "1";
+                    await SetMotionFeedAsync(enabled, int.Parse(r.Query.GetValueOrDefault("hz", "30")));
+                    if (MotionMetrics is { } metrics) return HttpResponse.Json(metrics);
+                    return HttpResponse.Json(new { active = enabled ? 1 : 0, pending = 0, status = enabled ? "Starting" : "Stopped; no samples collected" });
                 }
                 catch (Exception e) when (e is InvalidOperationException or ArgumentException or FormatException)
                 { return HttpResponse.Json(new { error = e.Message }, 409); }

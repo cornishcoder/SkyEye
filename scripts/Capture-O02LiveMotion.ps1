@@ -1,0 +1,102 @@
+param(
+    [Parameter(Mandatory)][string]$CompanionSerial,
+    [Parameter(Mandatory)][string]$OutputPath,
+    [ValidateRange(5, 3600)][int]$DurationSeconds = 60,
+    [ValidateSet(15, 30, 60)][int]$Hz = 30,
+    [ValidateRange(1, 5)][int]$SampleIntervalSeconds = 1,
+    [string]$AdbPath = 'C:\Program Files (x86)\Android\android-sdk\platform-tools\adb.exe'
+)
+$ErrorActionPreference = 'Stop'
+$taskLocalPort = 18768
+$taskRemotePort = 8768
+$taskAddress = "http://127.0.0.1:$taskLocalPort"
+$taskOutputPath = [IO.Path]::GetFullPath($OutputPath)
+if (Test-Path -LiteralPath $taskOutputPath) { throw 'Choose a new output path; this collector will not overwrite evidence.' }
+$taskDeviceState = & $AdbPath -s $CompanionSerial get-state 2>$null
+if ($LASTEXITCODE -ne 0 -or $taskDeviceState -ne 'device') { throw 'Companion is not connected and authorized.' }
+$taskForwardRows = @(& $AdbPath -s $CompanionSerial forward --list)
+$taskForward = $taskForwardRows | Where-Object { $_ -match "^$([regex]::Escape($CompanionSerial))\s+tcp:$taskLocalPort\s+tcp:(\d+)$" }
+$taskOwnsForward = $false
+if ($taskForward) {
+    if ($taskForward -notmatch "tcp:$taskRemotePort$") { throw "Local port $taskLocalPort is already forwarded elsewhere." }
+} else {
+    & $AdbPath -s $CompanionSerial forward --no-rebind "tcp:$taskLocalPort" "tcp:$taskRemotePort" | Out-Null
+    if ($LASTEXITCODE -ne 0) { throw "Could not reserve local port $taskLocalPort for the diagnostic endpoint." }
+    $taskOwnsForward = $true
+}
+
+$taskFeedStarted = $false
+$taskRows = [System.Collections.Generic.List[object]]::new()
+$taskStartedAt = [DateTimeOffset]::UtcNow
+try {
+    $taskPing = Invoke-RestMethod -Method Get -Uri "$taskAddress/ping" -TimeoutSec 5
+    if (-not $taskPing.diagnostic -or $taskPing.package -ne 'uk.co.skyeye.companion.lab') {
+        throw 'The connected Lab app is not running its opt-in performance diagnostics build.'
+    }
+    $null = Invoke-RestMethod -Method Post -Uri "$taskAddress/motion-feed?enabled=1&hz=$Hz" -TimeoutSec 10
+    $taskFeedStarted = $true
+    $taskDeadline = [DateTimeOffset]::UtcNow.AddSeconds($DurationSeconds)
+    while ([DateTimeOffset]::UtcNow -lt $taskDeadline) {
+        $taskMetrics = Invoke-RestMethod -Method Get -Uri "$taskAddress/metrics" -TimeoutSec 5
+        $taskMotion = $taskMetrics.motion
+        if ($null -eq $taskMotion) { throw 'The Lab returned no motion-feed metrics.' }
+        $taskLatest = $taskMotion.latest
+        $taskRows.Add([pscustomobject]@{
+            CapturedAtUtc = [DateTimeOffset]::UtcNow.ToString('O')
+            RequestedHz = $taskMotion.requestedHz
+            FrameWidth = $taskMotion.frameWidth
+            FrameHeight = $taskMotion.frameHeight
+            Acquired = $taskMotion.acquired
+            Processed = $taskMotion.processed
+            Replaced = $taskMotion.replaced
+            DuplicateOrBackwards = $taskMotion.duplicateOrBackwards
+            Stale = $taskMotion.stale
+            AcquisitionFailures = $taskMotion.acquisitionFailures
+            ScopeRejected = $taskMotion.scopeRejected
+            WorkerFailures = $taskMotion.workerFailures
+            GapResets = $taskMotion.gapResets
+            Active = $taskMotion.active
+            Pending = $taskMotion.pending
+            CadenceSampleCount = $taskMotion.cadenceSampleCount
+            ProcessedSourceCadenceHz = $taskMotion.processedSourceCadenceHz
+            LastAcquisitionMs = $taskMotion.lastAcquisitionMs
+            LastWorkerMs = $taskMotion.lastWorkerMs
+            LastResultAgeMs = $taskMotion.lastResultAgeMs
+            SourceTimeUs = $taskLatest.sourceTimeUs
+            ConversionMs = $taskLatest.conversionMs
+            FlowMs = $taskLatest.flowMs
+            RegionCount = @($taskLatest.regions).Count
+            StopReason = $taskMotion.stopReason
+        })
+        Start-Sleep -Seconds $SampleIntervalSeconds
+    }
+}
+finally {
+    if ($taskFeedStarted) {
+        try { $null = Invoke-RestMethod -Method Post -Uri "$taskAddress/motion-feed?enabled=0" -TimeoutSec 10 } catch { }
+    }
+    if ($taskOwnsForward) {
+        & $AdbPath -s $CompanionSerial forward --remove "tcp:$taskLocalPort" | Out-Null
+    }
+}
+
+if ($taskRows.Count -eq 0) { throw 'No motion-feed samples were collected.' }
+$taskReport = [pscustomobject]@{
+    SchemaVersion = 1
+    DeviceSerial = $CompanionSerial
+    Package = $taskPing.package
+    StartedAtUtc = $taskStartedAt.ToString('O')
+    EndedAtUtc = [DateTimeOffset]::UtcNow.ToString('O')
+    RequestedHz = $Hz
+    DurationSeconds = $DurationSeconds
+    SampleIntervalSeconds = $SampleIntervalSeconds
+    ImagesSaved = $false
+    Samples = $taskRows
+    Scope = 'Opt-in source PTS, frame dimensions, acquisition and worker telemetry. No detector tracking or ball identity claim.'
+}
+$taskOutputDirectory = Split-Path -Parent $taskOutputPath
+if ($taskOutputDirectory -and -not (Test-Path -LiteralPath $taskOutputDirectory -PathType Container)) {
+    New-Item -ItemType Directory -Path $taskOutputDirectory | Out-Null
+}
+[IO.File]::WriteAllText($taskOutputPath, ($taskReport | ConvertTo-Json -Depth 10) + "`n")
+Write-Output "Saved $($taskRows.Count) O02 motion metric samples to $taskOutputPath"

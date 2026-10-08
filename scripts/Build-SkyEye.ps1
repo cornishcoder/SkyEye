@@ -1,11 +1,13 @@
 param(
     [ValidateSet('Baseline', 'Hybrid', 'Production', 'All')][string]$Target = 'Baseline',
-    [ValidateSet('Debug', 'Release')][string]$Configuration = 'Debug'
+    [ValidateSet('Debug', 'Release')][string]$Configuration = 'Debug',
+    [switch]$Performance
 )
 $ErrorActionPreference = 'Stop'
 $taskRoot = Split-Path -Parent $PSScriptRoot
+if ($Performance -and $Target -ne 'Hybrid') { throw 'Performance diagnostics are available only for the Hybrid Lab build.' }
 
-function Invoke-SkyEyeBuild([string]$Directory, [string]$Project) {
+function Invoke-SkyEyeBuild([string]$Directory, [string]$Project, [bool]$EnablePerformance = $false) {
     Push-Location -LiteralPath $Directory
     try {
         $taskExpected = (Get-Content -LiteralPath 'global.json' -Raw | ConvertFrom-Json).sdk.version
@@ -19,6 +21,7 @@ function Invoke-SkyEyeBuild([string]$Directory, [string]$Project) {
         Write-Host "Building $Project with SDK $taskActual ($Configuration)"
         $taskProperties = @()
         if ($Target -eq 'Production') { $taskProperties += '-p:SkyEyeProduction=true' }
+        if ($EnablePerformance) { $taskProperties += '-p:SkyEyePerformance=true' }
         & dotnet build $Project -c $Configuration -m:1 @taskProperties
         if ($LASTEXITCODE -ne 0) { throw "Build failed: $Project" }
     }
@@ -29,5 +32,5 @@ function Invoke-SkyEyeBuild([string]$Directory, [string]$Project) {
 # the .NET 10 solution directory or run the Android builds concurrently.
 if ($Target -in @('Baseline', 'All')) { Invoke-SkyEyeBuild $taskRoot 'SkyEye.sln' }
 if ($Target -in @('Hybrid', 'Production', 'All')) {
-    Invoke-SkyEyeBuild (Join-Path $taskRoot 'src\SkyEye.Companion.Hybrid') 'SkyEye.Companion.Hybrid.csproj'
+    Invoke-SkyEyeBuild (Join-Path $taskRoot 'src\SkyEye.Companion.Hybrid') 'SkyEye.Companion.Hybrid.csproj' $Performance.IsPresent
 }
