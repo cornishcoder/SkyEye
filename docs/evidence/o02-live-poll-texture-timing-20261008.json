@@ -1,0 +1,182 @@
+{
+  "schemaVersion": 1,
+  "captureDate": "2026-10-08",
+  "captureDurationSeconds": 30.0,
+  "sampleSpanSeconds": 29.0,
+  "sampleCount": 29,
+  "requestedHz": 30,
+  "imagesSaved": false,
+  "frameSize": {
+    "decoded": [
+      1920,
+      1080
+    ],
+    "analysis": [
+      960,
+      540
+    ]
+  },
+  "counterDeltas": {
+    "decodedFrameCallbacks": 875,
+    "textureUpdates": 822,
+    "acquired": 701,
+    "processed": 701,
+    "processedHz": 24.172,
+    "replaced": 0,
+    "noNewFramePolls": 170,
+    "unavailableCandidatePolls": 0,
+    "acquisitionRetries": 27,
+    "gapEventsCaptured": 7,
+    "gapResetsAtFirstSample": 1,
+    "gapResetsAtLastSample": 7,
+    "gapResetDeltaAfterFirstSample": 6,
+    "gapThresholdUs": 125000,
+    "largestGapUs": 133356,
+    "stale": 0,
+    "acquisitionFailures": 0,
+    "scopeRejected": 0,
+    "workerFailures": 0
+  },
+  "snapshotTimingP95Ms": {
+    "candidateQueue": 15.905,
+    "candidateProbe": 0.29,
+    "readQueue": 30.118,
+    "bitmapCopy": 14.008,
+    "acquisition": 62.709,
+    "worker": 15.769,
+    "resultAge": 562.657,
+    "candidateTextureAge": 31.624,
+    "readTextureAge": 23.146
+  },
+  "gapRanges": {
+    "sourceDeltaUs": [
+      133344.0,
+      133356.0
+    ],
+    "decoderFrameDelta": [
+      4.0,
+      4.0
+    ],
+    "candidateToReadFrameDelta": [
+      1.0,
+      3.0
+    ],
+    "candidateToReadSourceDeltaUs": [
+      33333.0,
+      100012.0
+    ],
+    "timingMs": {
+      "candidateQueueMs": [
+        1.082,
+        92.771
+      ],
+      "candidateProbeMs": [
+        0.131,
+        0.334
+      ],
+      "readQueueMs": [
+        0.196,
+        34.746
+      ],
+      "bitmapCopyMs": [
+        3.056,
+        20.429
+      ],
+      "workerMs": [
+        2.48,
+        11.697
+      ],
+      "candidateTextureAgeMs": [
+        1.304,
+        93.065
+      ],
+      "readTextureAgeMs": [
+        6.841,
+        30.727
+      ],
+      "textureUpdateDelta": [
+        2.0,
+        3.0
+      ]
+    }
+  },
+  "gapEvents": [
+    {
+      "sourceDeltaUs": 133345,
+      "decoderFrameDelta": 4,
+      "candidateToReadFrameDelta": 3,
+      "candidateToReadSourceDeltaUs": 100012,
+      "candidateQueueMs": 92.771,
+      "readQueueMs": 19.361,
+      "bitmapCopyMs": 3.056,
+      "textureUpdateDelta": 2,
+      "workerMs": 8.577
+    },
+    {
+      "sourceDeltaUs": 133344,
+      "decoderFrameDelta": 4,
+      "candidateToReadFrameDelta": 3,
+      "candidateToReadSourceDeltaUs": 100000,
+      "candidateQueueMs": 1.082,
+      "readQueueMs": 0.196,
+      "bitmapCopyMs": 20.429,
+      "textureUpdateDelta": 3,
+      "workerMs": 9.175
+    },
+    {
+      "sourceDeltaUs": 133356,
+      "decoderFrameDelta": 4,
+      "candidateToReadFrameDelta": 3,
+      "candidateToReadSourceDeltaUs": 100012,
+      "candidateQueueMs": 32.643,
+      "readQueueMs": 1.716,
+      "bitmapCopyMs": 10.501,
+      "textureUpdateDelta": 3,
+      "workerMs": 3.075
+    },
+    {
+      "sourceDeltaUs": 133344,
+      "decoderFrameDelta": 4,
+      "candidateToReadFrameDelta": 1,
+      "candidateToReadSourceDeltaUs": 33333,
+      "candidateQueueMs": 40.792,
+      "readQueueMs": 32.563,
+      "bitmapCopyMs": 10.739,
+      "textureUpdateDelta": 3,
+      "workerMs": 11.697
+    },
+    {
+      "sourceDeltaUs": 133345,
+      "decoderFrameDelta": 4,
+      "candidateToReadFrameDelta": 2,
+      "candidateToReadSourceDeltaUs": 66667,
+      "candidateQueueMs": 30.114,
+      "readQueueMs": 0.595,
+      "bitmapCopyMs": 11.342,
+      "textureUpdateDelta": 3,
+      "workerMs": 7.195
+    },
+    {
+      "sourceDeltaUs": 133344,
+      "decoderFrameDelta": 4,
+      "candidateToReadFrameDelta": 3,
+      "candidateToReadSourceDeltaUs": 100011,
+      "candidateQueueMs": 39.539,
+      "readQueueMs": 34.746,
+      "bitmapCopyMs": 6.81,
+      "textureUpdateDelta": 3,
+      "workerMs": 2.48
+    },
+    {
+      "sourceDeltaUs": 133344,
+      "decoderFrameDelta": 4,
+      "candidateToReadFrameDelta": 2,
+      "candidateToReadSourceDeltaUs": 66678,
+      "candidateQueueMs": 21.699,
+      "readQueueMs": 33.192,
+      "bitmapCopyMs": 10.07,
+      "textureUpdateDelta": 3,
+      "workerMs": 5.144
+    }
+  ]
+}
