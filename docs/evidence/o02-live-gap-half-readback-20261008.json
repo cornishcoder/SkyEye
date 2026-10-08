@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "startedAt": "2026-10-08T21:31:19.5794335+00:00",
+  "endedAt": "2026-10-08T21:31:49.7630310+00:00",
+  "requestedHz": 30,
+  "durationSeconds": 30.1836,
+  "sampleCount": 29,
+  "sampleSpanSeconds": 29.1170,
+  "frameSize": {
+    "decodedWidth": 1920,
+    "decodedHeight": 1080,
+    "analysisImageWidth": 960,
+    "analysisImageHeight": 540
+  },
+  "counters": {
+    "media3FrameReleaseCallbacks": 872,
+    "media3FrameReleaseHz": 29.948,
+    "textureUpdates": 825,
+    "textureUpdatesHz": 28.334,
+    "acquired": 706,
+    "processed": 706,
+    "processedHz": 24.247,
+    "noNewFramePolls": 170,
+    "unavailableCandidatePolls": 0,
+    "duplicateOrBackwardsReceipts": 0,
+    "gapResets": 6,
+    "gapThresholdUs": 125000,
+    "acquisitionRetries": 17,
+    "copyFailuresDuringCapture": {
+      "changed-during-copy": 17,
+      "scope": "Cumulative PlayerBridge copy-failure counter delta observed during the window; not attributable to individual motion-feed acquisitions."
+    },
+    "stale": 0,
+    "acquisitionFailures": 0,
+    "scopeRejected": 0,
+    "workerFailures": 0
+  },
+  "oneSecondSnapshotP95Ms": {
+    "acquisition": 9.2045,
+    "worker": 20.7901,
+    "resultAge": 604.4279
+  },
+  "gapEvents": [
+    {
+      "frameId": 2782,
+      "frameIdDelta": 4,
+      "sourceDeltaUs": 133344,
+      "acquisitionAttempts": 1,
+      "acquisitionMs": 59.6527,
+      "workerMs": 4.6619,
+      "resultAgeMs": 567.3442
+    },
+    {
+      "frameId": 2910,
+      "frameIdDelta": 5,
+      "sourceDeltaUs": 166677,
+      "acquisitionAttempts": 2,
+      "acquisitionMs": 97.6954,
+      "workerMs": 13.8329,
+      "resultAgeMs": 552.7055
+    },
+    {
+      "frameId": 2959,
+      "frameIdDelta": 4,
+      "sourceDeltaUs": 133344,
+      "acquisitionAttempts": 2,
+      "acquisitionMs": 38.244,
+      "workerMs": 10.2352,
+      "resultAgeMs": 566.8119
+    },
+    {
+      "frameId": 3093,
+      "frameIdDelta": 4,
+      "sourceDeltaUs": 133345,
+      "acquisitionAttempts": 1,
+      "acquisitionMs": 35.3432,
+      "workerMs": 10.8677,
+      "resultAgeMs": 553.501
+    },
+    {
+      "frameId": 3378,
+      "frameIdDelta": 4,
+      "sourceDeltaUs": 133344,
+      "acquisitionAttempts": 1,
+      "acquisitionMs": 45.0825,
+      "workerMs": 10.1436,
+      "resultAgeMs": 557.9504
+    },
+    {
+      "frameId": 3493,
+      "frameIdDelta": 4,
+      "sourceDeltaUs": 133344,
+      "acquisitionAttempts": 2,
+      "acquisitionMs": 61.0291,
+      "workerMs": 11.72,
+      "resultAgeMs": 542.1963
+    }
+  ],
+  "imagesSaved": false,
+  "comparison": {
+    "baseline": "o02-live-gap-candidate-probe-20261008.json",
+    "baselineAnalysisImage": "1920x1080",
+    "halfResolutionAnalysisImage": "960x540",
+    "acquisitionSnapshotP95Ms": "25.1802 to 9.2045",
+    "workerSnapshotP95Ms": "54.6803 to 20.7901",
+    "processedHz": "23.689 to 24.247",
+    "gapResets": "5 to 6",
+    "largestGapUs": "136467 to 166677"
+  },
+  "interpretation": "The half-size ROI path was active and substantially lowered one-second acquisition and worker snapshot P95 values. Overall processed cadence improved only slightly (23.689 to 24.247 Hz across sequential short runs), while the number of source-time resets rose from five to six and the largest gap increased from 136.467 to 166.677 ms. Source candidate availability remained clear and the continuity reset threshold was unchanged. The runs were sequential rather than controlled A/B captures; changing input resolution lowered processing cost but did not demonstrate improved continuity or moving-ball accuracy. The six event records show acquisition times of about 35-98 ms versus paired worker times of about 5-14 ms. Shared copy-failure deltas are not attributable to specific acquisitions."
+}

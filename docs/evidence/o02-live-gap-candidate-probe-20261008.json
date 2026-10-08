@@ -5,7 +5,7 @@
   "durationSeconds": 30,
   "completed": true,
   "sampleCount": 29,
-  "sampleSpanSeconds": 30.0,
+  "sampleSpanSeconds": 29.1697,
   "frameSize": {
     "decodedWidth": 1920,
     "decodedHeight": 1080,
@@ -19,10 +19,10 @@
   "counters": {
     "media3FrameReleaseCallbacks": 867,
     "textureUpdates": 806,
-    "textureUpdatesHz": 26.8667,
+    "textureUpdatesHz": 27.631,
     "acquired": 697,
     "processed": 691,
-    "processedHz": 23.0333,
+    "processedHz": 23.689,
     "processedRollingCadenceHzAtEnd": 24.565,
     "noNewFramePolls": 174,
     "unavailableCandidatePolls": 0,
