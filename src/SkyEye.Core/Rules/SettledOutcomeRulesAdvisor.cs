@@ -44,8 +44,7 @@ public static class SettledOutcomeRulesAdvisor
         var branches = ImmutableArray.CreateBuilder<SettledRuleBranch>(3);
         if (redsPotted + yellowsPotted == 0)
         {
-            questions.Add("Confirm this was a shot and that no ball was potted; the camera only shows the changed settled layout.");
-            questions.Add("Choose legal no-pot, standard foul, or loss of turn. First contact and legality are not visible to the camera.");
+            questions.Add("Default: treat the stable changed layout as a legal no-pot shot and pass the turn. The player can report a foul or other exception; first contact is not visible to the camera.");
             if (needsBreakCheck) questions.Add("Confirm whether this was the break; these previews assume an ordinary shot.");
 
             var noPotFacts = new DeclaredShot(Break: false, Legality: DeclaredLegality.Unknown,
@@ -58,7 +57,7 @@ public static class SettledOutcomeRulesAdvisor
             AddBranch("loss-of-turn-no-pot", "If it was a loss of turn", "ordinary shot; no ball potted; non-foul loss of turn",
                 noPotFacts with { Legality = DeclaredLegality.LossOfTurn });
 
-            return new("conditional", $"Possible no-pot shot consequences for {shooterName}; choose the branch that matches what happened.",
+            return new("default-legal", $"Assume a legal no-pot shot for {shooterName}; the turn passes unless the player reports an exception.",
                 questions.ToImmutable(), branches.ToImmutable());
         }
 

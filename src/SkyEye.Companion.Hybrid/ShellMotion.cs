@@ -762,7 +762,7 @@ public sealed partial class ShellSession
                         comparison.Changes, summary) { Recommendation = comparison.Recommendation };
                     motionActivityCandidateContext = comparison.Context;
                     motionActivityCandidateAfter = comparison.After;
-                    motionActivityStatus = "Settled after-table is ready for automatic pot inference or review.";
+                    motionActivityStatus = "Settled after-table is ready for automatic outcome inference or review.";
                     candidateReady = true;
                 }
             }
@@ -793,7 +793,9 @@ public sealed partial class ShellSession
                         outcomeAccepted = true;
                         candidateReady = false;
                         string outcome = settledComparison.After.Counts.CueBalls < settledComparison.Context.Before.Counts.CueBalls
-                            ? "cue-ball scratch" : "pot";
+                            ? "cue-ball scratch"
+                            : settledComparison.RemovedFromTable == 0 && settledComparison.AddedToTable == 0
+                                && settledComparison.LayoutChanged ? "legal no-pot shot" : "pot";
                         lock (motionActivityGate)
                         {
                             if (motionActivityLifecycle?.Context.Id == activityId)
@@ -808,7 +810,7 @@ public sealed partial class ShellSession
                                 motionActivityLifecycle = null;
                                 motionActivityVerificationAttempted = false;
                                 motionActivityLastSourceTimeUs = null;
-                                motionActivityStatus = $"Assumed the settled ball-count decrease was a {outcome}; rules updated. {ruling.Position.Reason} The pocket remains unknown.";
+                                motionActivityStatus = $"Applied the {outcome} default; the rules state is updated. {ruling.Position.Reason} The pocket remains unknown.";
                                 ResetSettledDifferenceCandidate();
                             }
                         }

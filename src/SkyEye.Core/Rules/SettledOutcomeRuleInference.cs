@@ -3,10 +3,10 @@ using SkyEye.GameState;
 namespace SkyEye.Core.Rules;
 
 /// <summary>
-/// Applies the product assumption that a stable settled disappearance is a pot.
-/// It infers the shot facts that follow from the count change, then delegates the
-/// turn/frame consequence to the rules engine. Pocket and exact ball identity are
-/// deliberately left unknown.
+/// Applies the product assumptions for stable settled outcomes: a ball-count
+/// decrease is a pot, and a changed same-count layout is a legal no-pot shot
+/// unless the player reports an exception. The rules engine determines the
+/// turn/frame consequence. Pocket and exact ball identity remain unknown.
 /// </summary>
 public static class SettledOutcomeRuleInference
 {
@@ -22,14 +22,18 @@ public static class SettledOutcomeRuleInference
 
         var before = comparison.Context.Before.Counts;
         var after = comparison.After.Counts;
-        if (!before.IsComplete || !after.IsComplete || comparison.AddedToTable > 0 || comparison.RemovedFromTable == 0)
+        bool noPotShot = comparison.RemovedFromTable == 0 && comparison.AddedToTable == 0
+            && comparison.LayoutChanged;
+        if (!before.IsComplete || !after.IsComplete || comparison.AddedToTable > 0
+            || comparison.RemovedFromTable == 0 && !noPotShot
+            || noPotShot && !comparison.After.HasBoundedClearStillnessProof)
             return false;
 
         int reds = comparison.Changes.Where(change => change.Colour == BallColour.Red).Sum(change => change.Removed);
         int yellows = comparison.Changes.Where(change => change.Colour == BallColour.Yellow).Sum(change => change.Removed);
         bool black = before.BlackBalls > after.BlackBalls;
         bool cue = before.CueBalls > after.CueBalls;
-        if (reds + yellows + (black ? 1 : 0) + (cue ? 1 : 0) == 0) return false;
+        if (!noPotShot && reds + yellows + (black ? 1 : 0) + (cue ? 1 : 0) == 0) return false;
 
         string shooter = frame.CurrentPlayer.Value;
         BallColour? group = frame.Colours.TryGetValue(shooter, out var assigned) ? assigned.Value : frame.Rules?.PlayerGroup;
@@ -43,7 +47,7 @@ public static class SettledOutcomeRuleInference
 
         BallColour? firstContact = null;
         if (black && blackWasOn) firstContact = BallColour.Black;
-        else if ((reds > 0) != (yellows > 0))
+        else if (!noPotShot && (reds > 0) != (yellows > 0))
         {
             firstContact = frame.OpenTable
                 ? reds > 0 ? BallColour.Red : BallColour.Yellow

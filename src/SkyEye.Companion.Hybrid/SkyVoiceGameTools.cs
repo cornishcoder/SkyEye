@@ -52,6 +52,8 @@ public sealed class SkyVoiceGameTools(
                 status = match.Status,
                 undoInputId = match.UndoInputId,
                 correctableShotInputId = match.CorrectableShotInputId,
+                latestShotCorrection = match.CorrectableShotInputId is null ? null
+                    : "The latest shot can be corrected. If the player reports that it was a standard foul, use record_declared_shot with standard-foul legality, the same pot counts, and replace_latest=true. This re-evaluates from before that shot; do not only flip the current foul flag.",
                 rules = match.Rules
             },
             table = new
@@ -82,18 +84,18 @@ public sealed class SkyVoiceGameTools(
             {
                 candidateId = outcomeProposal.ActivityWindowId,
                 status = outcomeProposal.Recommendation?.Kind == "settled-no-pot-shot"
-                    ? "shot likely from a same-count settled layout change; awaiting the player's result declaration"
+                    ? "stable same-count layout change; legal no-pot is the default, and a reported foul can correct the latest shot"
                     : "awaiting explicit settled inventory review",
                 outcomeProposal.Recommendation,
                 before = outcomeProposal.Before,
                 observed = outcomeProposal.After,
                 outcomeProposal.RulesAdvice,
                 choices = outcomeProposal.Recommendation?.Kind == "settled-no-pot-shot"
-                    ? new[] { "legal-no-pot", "standard-foul-no-pot", "loss-of-turn-no-pot", "reject" }
+                    ? new[] { "standard-foul-no-pot", "loss-of-turn-no-pot", "correct", "reject" }
                     : new[] { "accept", "correct", "reject" },
-                limitation = "Vision supplies settled count and position evidence. A player must confirm shot legality; pocket identity is not observed."
+                limitation = "Vision supplies settled count and position evidence, not first contact or foul evidence. Treat the shot as legal by default; if the player reports a foul, correct the latest ruling. Pocket identity is not observed."
             },
-            limitation = "This is the declared and observed match record. Image observations do not establish a pot, foul, winner or player declaration."
+            limitation = "Stable settled count changes are recorded under the match's pot policy; stable same-count layout changes default to a legal no-pot shot. The player can report an exception, such as a foul, for Sky to correct."
         };
     }
 

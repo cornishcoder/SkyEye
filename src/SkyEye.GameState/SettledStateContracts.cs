@@ -243,7 +243,7 @@ public static class SettledLayoutReconciler
     }
 }
 
-/// <summary>A settled count comparison. Physical removals may be treated as pots by policy, without inventing identity or pocket facts.</summary>
+/// <summary>A settled table comparison. Stable count decreases may be treated as pots and changed same-count layouts as legal no-pot shots by policy, without inventing identity or pocket facts.</summary>
 public sealed record SettledInventoryComparison(ActivityWindowContext Context, SettledTableEvidence After,
     ImmutableArray<BallCountChange> Changes)
 {
@@ -278,8 +278,10 @@ public sealed record SettledInventoryComparison(ActivityWindowContext Context, S
 
             if (Changes.IsEmpty)
                 return LayoutChanged
-                    ? new("settled-no-pot-shot", "review", $"The settled layout changed ({LayoutDifference.MovedBallCount} ball(s) moved) with no count change. This is likely a no-pot shot; confirm the result with the rules choices.", false,
-                        ["Record a legal no-pot shot", "Record a standard foul", "Record loss of turn", "Keep the current turn"])
+                    ? new("settled-no-pot-shot", After.HasBoundedClearStillnessProof ? "strong" : "suggested",
+                        $"The settled layout changed ({LayoutDifference.MovedBallCount} ball(s) moved) with no count change. Assume a legal no-pot shot and pass the turn unless the player reports a foul or other exception.",
+                        After.HasBoundedClearStillnessProof,
+                        ["Report a foul to Sky", "Correct or undo this result"])
                     : new("no-net-count-change", "informational", "No net ball-count or settled-layout change was detected.", false,
                         ["Review the table", "Reject this observation"]);
 

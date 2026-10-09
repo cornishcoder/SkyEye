@@ -55,6 +55,72 @@ static class SettledOutcomeReviewChecks
             && groupedGame.State.Version == groupedVersionBeforeAdvice,
             "Grouped-shot previews use conditional rules branches without mutating canonical state.");
 
+        var beforeLayout = ImmutableArray.Create(
+            new G.SettledBallPosition(G.BallColour.Red, .20, .20),
+            new G.SettledBallPosition(G.BallColour.Yellow, .70, .20),
+            new G.SettledBallPosition(G.BallColour.Cue, .30, .70),
+            new G.SettledBallPosition(G.BallColour.Black, .80, .70));
+        var noPotGame = BaselineGame(source, new(1, 1, 1, 1), beforeAt, beforeLayout);
+        noPotGame = Apply(noPotGame, Input(noPotGame, new G.DeclareColours("rich", G.BallColour.Yellow), 5,
+            provenance: G.Provenance.PlayerConfirmed));
+        Check(G.ActivityWindowContext.TryBegin(Guid.NewGuid(), noPotGame.State, 250, out var frozenNoPotContext),
+            "Freeze the assigned-group match and settled position baseline before a same-count shot.");
+        var noPotContext = frozenNoPotContext with
+        {
+            Before = frozenNoPotContext.Before with { Layout = beforeLayout, LayoutSourceTimeUs = 200 }
+        };
+        var afterLayout = ImmutableArray.Create(
+            new G.SettledBallPosition(G.BallColour.Red, .23, .22),
+            new G.SettledBallPosition(G.BallColour.Yellow, .61, .26),
+            new G.SettledBallPosition(G.BallColour.Cue, .34, .65),
+            new G.SettledBallPosition(G.BallColour.Black, .80, .70));
+        var noPotAfter = new G.SettledTableEvidence(Guid.NewGuid(), source, 300, beforeAt.AddSeconds(2),
+            new(1, 1, 1, 1), Settled: true, Clear: true)
+        {
+            BoundedStillnessVerified = true,
+            StableClearSampleCount = 3,
+            Layout = afterLayout,
+            LayoutSourceTimeUs = 300
+        };
+        var noPotComparison = G.SettledStateReconciler.Compare(noPotContext, noPotAfter).Comparison;
+        Check(noPotComparison?.Recommendation is { Kind: "settled-no-pot-shot", Strength: "strong", AutoApprovalEligible: true }
+            && noPotComparison.LayoutChanged,
+            "Three stable clear samples make a same-count settled layout change eligible for the legal-by-default policy.");
+        var unverifiedNoPot = noPotAfter with { BoundedStillnessVerified = false, StableClearSampleCount = 0 };
+        var unverifiedNoPotComparison = G.SettledStateReconciler.Compare(noPotContext, unverifiedNoPot).Comparison;
+        Check(unverifiedNoPotComparison is not null
+            && !unverifiedNoPotComparison.Recommendation.AutoApprovalEligible
+            && !SkyEye.Core.Rules.SettledOutcomeRuleInference.TryInfer(noPotGame.State, unverifiedNoPotComparison, out _),
+            "Same-count movement is not auto-applied until bounded clear/still verification succeeds.");
+        Check(SkyEye.Core.Rules.SettledOutcomeRuleInference.TryInfer(noPotGame.State, noPotComparison, out var inferredNoPot)
+            && inferredNoPot.Facts is { Legality: G.DeclaredLegality.Legal, RedsPotted: 0, YellowsPotted: 0 }
+            && inferredNoPot.Position is { Pending: false, Player: "guest", PlayerGroup: G.BallColour.Yellow, Target: G.LegalTarget.Red },
+            "A stable same-count layout change defaults to a legal no-pot ruling and passes the turn through the rules engine.");
+        var inferredNoPotInput = Input(noPotGame, new G.AcceptSettledOutcome(1, noPotContext, noPotAfter, inferredNoPot),
+            6, source, 300, G.Provenance.Inferred) with { Confidence = .9 };
+        var inferredNoPotResult = noPotGame.Accept(inferredNoPotInput);
+        Check(inferredNoPotResult.Accepted
+            && inferredNoPotResult.Session.State.Frame!.CurrentPlayer.Value == "guest"
+            && inferredNoPotResult.Session.State.Frame.Colours["rich"].Value == G.BallColour.Yellow
+            && inferredNoPotResult.Session.State.Frame.Foul is { Value: false }
+            && inferredNoPotResult.Session.State.Table.LastSettled?.EvidenceId == noPotAfter.EvidenceId,
+            "The verified legal no-pot default updates the turn and settled baseline without per-shot confirmation.");
+        Check(SkyEye.Core.Application.MatchView.From(inferredNoPotResult.Session).CorrectableShotInputId == inferredNoPotInput.Id,
+            "The auto-applied settled outcome remains exposed as the latest correctable shot for Sky.");
+        var foulFacts = new G.DeclaredShot(Break: false, Legality: G.DeclaredLegality.StandardFoul,
+            RedsBefore: 1, YellowsBefore: 1);
+        var foulPosition = SkyEye.Core.Rules.InternationalEightball.Evaluate(noPotGame.State, foulFacts);
+        var foulCorrection = Input(inferredNoPotResult.Session,
+            new G.ApplyShotRuling(new("rich", foulFacts, foulPosition, inferredNoPotInput.Id)), 7,
+            provenance: G.Provenance.PlayerConfirmed);
+        var foulCorrected = inferredNoPotResult.Session.Accept(foulCorrection);
+        Check(foulCorrected.Accepted
+            && foulCorrected.Session.State.Frame!.CurrentPlayer.Value == "guest"
+            && foulCorrected.Session.State.Frame.Foul is { Value: true }
+            && foulCorrected.Session.State.Frame.Rules is { Foul: true, CueBall: G.CueBallEntitlement.Anywhere }
+            && G.GameRevisions.Suppressed(foulCorrected.Session.History).Contains(inferredNoPotInput.Id),
+            "A player-reported foul replaces the legal-by-default miss and restores the rules engine's foul state.");
+
         var acceptedInput = Input(game, new G.AcceptSettledInventory(1, context, after), 5, source, 300,
             G.Provenance.PlayerConfirmed);
         var acceptedResult = game.Accept(acceptedInput);
@@ -193,7 +259,8 @@ static class SettledOutcomeReviewChecks
         => new(Guid.NewGuid(), game.State.Match?.Id ?? "match", game.State.Frame?.Id ?? "frame",
             DateTimeOffset.UnixEpoch.AddMinutes(1).AddSeconds(second), input, source, pts, provenance);
 
-    static G.GameSession BaselineGame(G.EvidenceSource source, G.SettledTableCounts counts, DateTimeOffset capturedAt)
+    static G.GameSession BaselineGame(G.EvidenceSource source, G.SettledTableCounts counts, DateTimeOffset capturedAt,
+        ImmutableArray<G.SettledBallPosition> layout = default)
     {
         var game = G.GameSession.Empty;
         game = Apply(game, Input(game, new G.StartMatch([new("rich", "Rich"), new("guest", "Guest")], 3), 1,
@@ -201,7 +268,13 @@ static class SettledOutcomeReviewChecks
         game = Apply(game, Input(game, new G.StartFrame("rich"), 2, provenance: G.Provenance.PlayerConfirmed));
         game = Apply(game, Input(game, new G.SelectSource(), 3, source, 100));
         var evidence = new G.SettledTableEvidence(Guid.NewGuid(), source, 200, capturedAt, counts,
-            Settled: true, Clear: true) { BoundedStillnessVerified = true, StableClearSampleCount = 3 };
+            Settled: true, Clear: true)
+        {
+            BoundedStillnessVerified = true,
+            StableClearSampleCount = 3,
+            Layout = layout.IsDefault ? [] : layout,
+            LayoutSourceTimeUs = layout.IsDefaultOrEmpty ? null : 200
+        };
         return Apply(game, Input(game, new G.EstablishSettledBaseline(1, evidence), 4, source, 200));
     }
 
