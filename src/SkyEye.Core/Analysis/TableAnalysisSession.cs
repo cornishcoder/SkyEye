@@ -181,7 +181,8 @@ public sealed partial class TableAnalysisSession(ITableFrameSource frames, ITabl
                                     { DecodedReceipt = frame.DecodedReceipt, Quality = detected.Obstructed ? LayoutQuality.Obstructed : detected.Uncertain ? LayoutQuality.Ambiguous : LayoutQuality.Clear,
                                         Reason = detected.Obstructed ? ObservationReason.Obstructed : detected.Uncertain ? ObservationReason.DetectionAmbiguous : table.Settled ? ObservationReason.None : ObservationReason.InsufficientEvidence,
                                         Recognition = detected.Recognition,
-                                        Change = new(previous.Length, detected.Balls.Length, SpatiallyCompatible(previous, detected.Balls), TableTracker.SameLayout(previous, detected.Balls)) } }; lastTimeline = frame.Timeline;
+                                        Change = detected.Uncertain || detected.Obstructed ? null
+                                            : new(previous.Length, detected.Balls.Length, SpatiallyCompatible(previous, detected.Balls), TableTracker.SameLayout(previous, detected.Balls)) } }; lastTimeline = frame.Timeline;
                         }
                     }
                 }

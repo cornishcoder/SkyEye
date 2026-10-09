@@ -32,16 +32,16 @@ public sealed partial class MainActivity
         {
             if (!tableAnalysis.RestoreCalibration()) return;
             tableView.Calibration = calibration;
-            tableLabel.Text = "Saved calibration loaded. Recalibrate if the mount moved; confirm the current balls.";
+            tableLabel.Text = "Saved calibration loaded. Recalibrate if the mount moved; readiness is automatic after a clear, still check.";
         }
         catch { Say("Saved calibration could not be loaded. Calibrate this table again."); }
     }
     void BuildTableUi(LinearLayout root)
     {
         root.AddView(Label("Table awareness", 22));
-        tableLabel = Label("Calibrate before using pool advice. Confirm or correct detections when the layout changes.", 13); root.AddView(tableLabel);
+        tableLabel = Label("Calibrate once. A clear, still layout becomes ready automatically; correct detections if needed.", 13); root.AddView(tableLabel);
         tableView = new TableView(this); root.AddView(tableView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, (int)(220 * Resources!.DisplayMetrics!.Density)));
-        var row = Row(root); Add(row, "Calibrate", () => _ = ActionAsync(CalibrateAsync)); Add(row, "Confirm balls", () => _ = ActionAsync(ConfirmBallsUiAsync)); Add(row, "Correct layout", CorrectLayout);
+        var row = Row(root); Add(row, "Calibrate", () => _ = ActionAsync(CalibrateAsync)); Add(row, "Correct layout", CorrectLayout);
         groupSelector = new Spinner(this); groupSelector.Adapter = new ArrayAdapter<string>(this, Android.Resource.Layout.SimpleSpinnerDropDownItem, ["Open table", "I'm reds", "I'm yellows", "I'm on the black"]);
         groupSelector.ItemSelected += (sender, e) => { _ = DispatchAppAsync(new SetTargetGroup((AdviceTargetGroup)e.Position)); }; root.AddView(groupSelector);
     }
@@ -59,7 +59,7 @@ public sealed partial class MainActivity
             {
                 tableAnalysis.ApplyCalibration(draft.Generation, corners);
                 tableView.Calibration = calibration; tableView.Picking = false; tableView.Calibrated = null;
-                ClearCandidatePresentation("Checking the new calibration..."); _ = ActionAsync(UpdateTableAsync);
+                ClearCandidatePresentation("Checking the new calibration..."); _ = ActionAsync(() => UpdateTableAsync(ObservationMode.VerifyForAdvice));
             }
             catch (Exception e) { tableView.Picks.Clear(); Say(e.Message); }
         }
@@ -78,25 +78,19 @@ public sealed partial class MainActivity
         tableView.Image = null; displayedTableFrame = null; tableBitmap?.Dispose(); tableBitmap = null;
         tableView.Balls = []; tableView.Shots = []; tableView.Invalidate(); ClearCandidatePresentation(reason); tableLabel.Text = reason;
     }
-    async Task UpdateTableAsync()
+    async Task UpdateTableAsync(ObservationMode mode = ObservationMode.Single)
     {
         long previousVersion = tableState?.Version ?? -1;
         var scope = tableAnalysis.State;
         if (scope.Source is null || scope.Calibration is null) return;
         var receipt = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, app.State.Version,
-            new ObserveTable(scope.Source, scope.Generation, LegacyMediaGeneration(), ReviewFrame: true)), lifetime.Token);
+            new ObserveTable(scope.Source, scope.Generation, LegacyMediaGeneration(), ReviewFrame: true, Mode: mode)), lifetime.Token);
         if (!receipt.Succeeded) { Say(receipt.Message); return; }
         if (lifetime.IsCancellationRequested) return;
         if (tableAnalysis.State.Jpeg is { } jpeg) SetTableImage(jpeg);
         ShowTable();
         var latest = tableState;
         if (sky is not null && latest is not null && (previousVersion != latest.Version || latest.Settled && latest.Confirmed)) await sky.UpdateTableAsync(latest);
-    }
-    async Task ConfirmBallsUiAsync()
-    {
-        await UpdateTableAsync(); if (lifetime.IsCancellationRequested) return;
-        var confirmed = tableAnalysis.Confirm(tableState?.Version ?? -1); ShowTable();
-        if (sky is not null) await sky.UpdateTableAsync(confirmed);
     }
     void SetTableImage(byte[] jpeg)
     {
@@ -111,7 +105,7 @@ public sealed partial class MainActivity
         tableView.Calibration = snapshot.Calibration; tableView.Balls = state.Balls; RefreshCandidates(); tableView.Invalidate();
         var balls = state.Balls;
         double age = (DateTimeOffset.UtcNow - state.CapturedAt).TotalSeconds;
-        tableLabel.Text = $"{balls.Length} balls · {balls.Count(b => b.Kind == "red")} reds · {balls.Count(b => b.Kind == "yellow")} yellows · {balls.Count(b => b.Kind == "cue")} cue balls · {balls.Count(b => b.Kind == "black")} black\n{state.Group} · " + (age > 6 || age < -2 ? "frame is out of date" : state.Occluded ? "uncertain/obstructed" : !state.Settled ? "layout changing" : state.Confirmed ? "confirmed" : "check and confirm detections") +
+        tableLabel.Text = $"{balls.Length} balls · {balls.Count(b => b.Kind == "red")} reds · {balls.Count(b => b.Kind == "yellow")} yellows · {balls.Count(b => b.Kind == "cue")} cue balls · {balls.Count(b => b.Kind == "black")} black\n{state.Group} · " + (age > 6 || age < -2 ? "frame is out of date" : state.Occluded ? "uncertain/obstructed" : !state.Settled ? "layout changing" : state.Confirmed ? "ready" : "check for a clear, still view") +
             $" · frame {age:0.0}s old · analysis {vision?.ElapsedMs ?? 0:0}ms" + (vision?.Warnings.Length > 0 ? "\n" + string.Join(" ", vision.Warnings) : "");
 #if DEBUG
         // A bounded latest-result diagnostic; no JPEG, credentials or history.

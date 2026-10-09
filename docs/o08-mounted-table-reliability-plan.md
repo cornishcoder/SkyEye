@@ -4,7 +4,7 @@
 
 ## Outcome and release decision
 
-A player with a mounted camera and a clear, stationary table presses **Show candidate shots** once. SkyEye performs a short, bounded verification, establishes a trustworthy current layout and displays eligible advice. If it cannot establish that layout, it identifies the problem and the useful next action. The player does not have to time repeated requests.
+A player with a mounted camera and a clear, stationary table presses **Show candidate shots** once. SkyEye performs a short, bounded verification, establishes a trustworthy current layout and displays eligible advice. A separate **Confirm balls** action is not part of normal readiness: a fresh, clear, supported layout that passes the stillness window becomes ready automatically. If verification cannot establish that layout, it identifies the problem and the useful next action. The player does not have to time repeated requests or certify a correct automatic result by hand.
 
 Repeatable failure under supported clear/still conditions blocks claims of dependable automatic shot advice. Keep declared match/rules, manual correction and delivered media usable while fixing observation reliability. The release gate is correct recognition with safe rejection of motion/uncertainty, not a higher rate of green “ready” messages.
 
@@ -48,6 +48,8 @@ Code anchors: [tracker](../src/SkyEye.Core/Analysis/TableTracker.cs), [analysis 
 ## Verification contract and state
 
 Maintain independent dimensions: **motion** (`unknown`, `still`, `moving`), **layout quality** (`unknown`, `clear`, `ambiguous`, `obstructed`) and **freshness/source validity**. These are proposed semantic values, not an instruction to replace all existing public enums. Add reason metadata and map conservatively into current `Ready`, `Unsettled`, `Unclear` until consumers migrate. `Ready` requires still + clear + valid/current source and an eligible layout. Unknown motion never implies still.
+
+"Confirm balls" is a UI workflow to remove, not a new confidence shortcut. A successful bounded still/clear verification supplies readiness automatically; manual correction remains available when the layout is wrong. Movement evidence may trigger a shot/event review, but cannot by itself establish which balls moved, were potted, or how the canonical match state changes. After motion ends, require a fresh clear settled layout, compare it with the prior trusted layout, and send a typed proposal through the O03/O04/O05 evidence and acceptance path.
 
 | Observable result | Meaning and next action |
 | --- | --- |
@@ -111,6 +113,8 @@ Aggregate supported centre estimates robustly and combine colour observations wi
 
 One dropout triggers targeted current-region rechecking. A previously supported ball can be retained as a hypothesis with age/missing evidence, but not silently promoted into a fresh clear layout. Final `Ready` requires current supporting visual evidence for every included ball, a clear search for unresolved extra bodies and motion/occlusion clearance. Persistent missing/extra/ambiguous bodies return unclear and clear affected advice. A one-time miss is neither movement nor a pot.
 
+Temporary same-source occlusion should retain the last trusted full layout as an explicitly stale/occluded reference, even when a player or cue blocks the table for up to a minute. Do not refresh its observation time, expose it as advice-ready, or interpret hidden balls as potted. Once clear, compare the new layout with the saved anchor and collect a fresh still span before restoring readiness. A changed layout becomes a reviewable candidate; a source or calibration change starts a new scope.
+
 A previously reviewed layout can seed search regions and reduce expensive re-detection while stillness and source/lighting/pose health remain verified. Freshness is explicit; do not refresh the timestamp of unobserved geometry. Player correction remains authoritative within its valid scope, and automatic work cannot overwrite it after a version change. Remove or alter canonical balls only through existing accepted evidence/correction seams. Burst IDs remain separate from O04 track IDs and nullable durable ball identities.
 
 ## Corpus, labels and measurable acceptance
@@ -144,7 +148,7 @@ These are future targets, not results. O08.01 records supported conditions and l
 | Dropout recovery | A transient miss receives bounded rechecking; all `Ready` balls have current visual support. Persistent disappearance/occlusion/extra bodies never become a fresh accepted unchanged layout through stale carry-forward |
 | Clock and freshness | Increasing scoped receipt IDs/PTS, adequate sampling coverage, explicit final-frame age/mapping quality and source-time still span. Duplicate frames, clock failure and interrupted spans cannot pass |
 | Resource/playback | One active/latest ownership, bounded work and prompt cancellation/disposal; verify actual resolution. Initial gate: ≤10% relative regression in p95 phone/TV frame-gap and latency metrics versus the same baseline scenario, no new stall >1 second, no monotonic retained-native-resource growth after warm-up/repeated checks |
-| User interaction | One actual tap produces result or specific reason; no timed second tap. Preset/select/clear does not increase detector calls. Sky/Touch typed parity passes; real voice audio/tool acceptance remains A02/A03 |
+| User interaction | One actual tap produces result or specific reason; no separate ball-confirmation tap or timed second tap. Preset/select/clear does not increase detector calls. Sky/Touch typed parity passes; real voice audio/tool acceptance remains A02/A03 |
 
 Choose resource sample sizes and the final source-age/coverage thresholds from the baseline before optimization. Record absolute values as well as relative changes; a poor baseline cannot legitimize poor playback. If a proposed gate is infeasible, document the measured blocker and revise supported scope explicitly before release. Never lower a safety gate merely to obtain a passing status.
 

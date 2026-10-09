@@ -155,8 +155,7 @@ public sealed partial class ShellSession
         try
         {
             await ClearShotCatalogAsync(token); RenderShotScenes(); Publish();
-            await UpdateTableAsync(token, includeChoices: true, mode: ObservationMode.VerifyForAdvice,
-                operationId: observationOperationId, origin: origin);
+            await VerifyTableWithDiagnosticsPausedAsync(token, operationId: observationOperationId, origin: origin);
             token.ThrowIfCancellationRequested();
             var snapshot = table.State; var layout = snapshot.Table;
             if (!CanAnalyzeTable || EditingTable || snapshot.Source != app.State.Camera.Scope || app.State.Observation?.Outcome != ObservationOutcome.Ready || layout is null || !layout.Settled || layout.Occluded)

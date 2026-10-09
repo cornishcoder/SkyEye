@@ -22,18 +22,6 @@ public sealed partial class ShellSession
     public bool CanAnalyzeTable => sessionMode == TableSessionMode.Live
         && app.State.Camera is { CanControl: true, Capture: CaptureState.Active } && selection.Kind == ViewingSource.Live;
     public bool HasTableCalibration => table.State.Calibration is not null;
-    public bool CanConfirmTable
-    {
-        get
-        {
-            if (!CanAnalyzeTable || EditingTable) return false;
-            var snapshot = table.State;
-            if (snapshot.Calibration is null || snapshot.Table is not { } layout || layout.Balls.Length is < 1 or > 16 || table.HasPendingWork) return false;
-            var diagnostics = table.VisionDiagnostics;
-            return !diagnostics.Active || diagnostics.LabelFrame is null && !diagnostics.LabelCapturePending
-                && (visionDiagnosticSavedLabels == 0 || visionDiagnosticLabelSessionFinalized);
-        }
-    }
     public bool CanCorrectTable => CanAnalyzeTable && table.VisionDiagnostics.Active == false && table.State is { Calibration: not null, Table: not null };
     public bool CanApplyTableEdit => CanAnalyzeTable && edit.Matches(table.State.Generation, table.State.Table?.Version)
         && (edit.Mode == TableEditMode.Correction || edit.Corners.Count == 4);
@@ -149,7 +137,7 @@ public sealed partial class ShellSession
             : $"{state.Balls.Count(b => b.Kind == "red")} reds · {state.Balls.Count(b => b.Kind == "yellow")} yellows · {state.Balls.Count(b => b.Kind == "cue")} cue balls · {state.Balls.Count(b => b.Kind == "black")} black. "
                 + ((DateTimeOffset.UtcNow - state.CapturedAt).TotalSeconds is > 6 or < -2 ? "Frame out of date."
                 : state.Occluded ? "Uncertain or obstructed. Check the detections."
-                : !state.Settled ? "Wait for the table to settle." : state.Confirmed ? "Layout confirmed." : "Check every ball before confirming.");
+                : !state.Settled ? "Wait for a fresh, clear still view." : state.Confirmed ? "Ready." : "Run a clear, still table check.");
     }
     async Task UpdateTableAsync(CancellationToken token, bool reviewFrame = false, bool includeChoices = false,
         ObservationMode mode = ObservationMode.Single, Guid? operationId = null, CommandOrigin origin = CommandOrigin.Touch)
@@ -171,6 +159,43 @@ public sealed partial class ShellSession
         catch (OperationCanceledException) { }
         catch (Exception) { if (!token.IsCancellationRequested && !disposed) await MainThread.InvokeOnMainThreadAsync(() => ShowError("Table analysis interrupted. Check the camera and try again.")); }
         if (!token.IsCancellationRequested && !disposed) await MainThread.InvokeOnMainThreadAsync(async () => { await ReconcileShotCatalogAsync(token); Publish(); });
+    }
+    async Task VerifyTableWithDiagnosticsPausedAsync(CancellationToken token, Guid? operationId = null,
+        CommandOrigin origin = CommandOrigin.Touch)
+    {
+        var diagnostics = table.VisionDiagnostics;
+        bool resumeDiagnostics = diagnostics.Active;
+        if (resumeDiagnostics && (diagnostics.LabelFrame is not null || diagnostics.LabelCapturePending))
+            throw new InvalidOperationException("Finish the labelled frame before checking table readiness.");
+        if (resumeDiagnostics && VisionDashboardActive) visionDashboardSamplingPaused = true;
+        try
+        {
+            // The verifier and sequential sampler share native vision resources.
+            // Pause sampling only; keep the laptop dashboard server available.
+            if (resumeDiagnostics) await table.StopVisionDiagnosticsAsync();
+            await UpdateTableAsync(token, includeChoices: true, mode: ObservationMode.VerifyForAdvice,
+                operationId: operationId, origin: origin);
+        }
+        finally
+        {
+            if (resumeDiagnostics)
+            {
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    if (!disposed && CanStartVisionDiagnostics)
+                    {
+                        if (table.StartVisionDiagnostics(out var status))
+                        {
+                            VisionDiagnosticsStatus = status;
+                            if (VisionDashboardActive) VisionDashboardStatus = "Dashboard is live; fresh sampling resumed.";
+                        }
+                        else VisionDiagnosticsStatus = status;
+                    }
+                    visionDashboardSamplingPaused = false;
+                    Changed?.Invoke();
+                });
+            }
+        }
     }
     public Task CalibrateTableAsync() => PrepareTableCalibrationAsync(CancellationToken.None);
     async Task PrepareTableCalibrationAsync(CancellationToken cancellation) => await MainThread.InvokeOnMainThreadAsync(async () =>
@@ -226,8 +251,9 @@ public sealed partial class ShellSession
                 ? "Corners applied. Checking several fresh table views."
                 : "Table update applied. Checking the current layout.";
             DismissNotice(); Publish();
-            await UpdateTableAsync(token, mode: editMode == TableEditMode.Calibration ? ObservationMode.VerifyForAdvice : ObservationMode.Single,
-                operationId: editMode == TableEditMode.Calibration ? operationId : null, origin: origin);
+            if (editMode == TableEditMode.Calibration)
+                await VerifyTableWithDiagnosticsPausedAsync(token, operationId, origin);
+            else await UpdateTableAsync(token, mode: ObservationMode.Single, origin: origin);
         }
         catch (OperationCanceledException) { }
         catch (ArgumentException e) { ShowError(e.Message); }
@@ -251,40 +277,5 @@ public sealed partial class ShellSession
         if (!active || foreground is null || EditingTable) return;
         var result = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, expectedVersion, new SetTargetGroup(group)), foreground.Token);
         if (!result.Succeeded) ShowError(result.Message); else Publish();
-    });
-    public Task ConfirmTableAsync() => MainThread.InvokeOnMainThreadAsync(async () =>
-    {
-        if (!CanConfirmTable || foreground is null) return;
-        bool resumeDiagnostics = VisionDiagnosticsActive;
-        if (resumeDiagnostics && VisionDashboardActive) visionDashboardSamplingPaused = true;
-        try
-        {
-            // TableAnalysisSession serializes sequential diagnostics and table verification.
-            // Pause only sampling so the laptop dashboard server stays available.
-            if (resumeDiagnostics) await table.StopVisionDiagnosticsAsync();
-            await UpdateTableAsync(foreground.Token, mode: ObservationMode.VerifyForAdvice);
-            try { table.Confirm(table.State.Table?.Version ?? -1); Message = "Ball layout confirmed."; Publish(); }
-            catch (InvalidOperationException e) { ShowError(e.Message); }
-        }
-        finally
-        {
-            if (resumeDiagnostics)
-            {
-                await MainThread.InvokeOnMainThreadAsync(() =>
-                {
-                    if (!disposed && CanStartVisionDiagnostics)
-                    {
-                        if (table.StartVisionDiagnostics(out var status))
-                        {
-                            VisionDiagnosticsStatus = status;
-                            if (VisionDashboardActive) VisionDashboardStatus = "Dashboard is live; fresh sampling resumed.";
-                        }
-                        else VisionDiagnosticsStatus = status;
-                    }
-                    visionDashboardSamplingPaused = false;
-                    Changed?.Invoke();
-                });
-            }
-        }
     });
 }

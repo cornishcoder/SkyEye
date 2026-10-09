@@ -17,12 +17,29 @@ public sealed class TableTracker(double maximumObservationGapSeconds = 6)
         bool sameSource = old is not null && old.CalibrationId == calibrationId && timeline == captureTimeline;
         double interval = old is null ? 0 : (capturedAt - old.CapturedAt).TotalSeconds;
         if (sameSource && interval <= 0) return old!;
+        // An ambiguous/obstructed view is not evidence that previously trusted
+        // balls disappeared. Keep the last clear layout and its identity anchor;
+        // advice remains blocked until a clear observation matches it again.
+        bool retainLastClearLayout = obstructed || uncertain && !(manual && old?.Confirmed == true);
+        if (sameSource && old is not null && retainLastClearLayout)
+        {
+            if (!old.Occluded || old.Settled || old.Group != group)
+                State = old with { Version = ++version, Group = group, Settled = false, Occluded = true };
+            PhysicallyObstructed = obstructed;
+            return State!;
+        }
+        var returnAnchor = manual && old is not null ? old.Balls : stableAnchor;
+        bool matchesLastKnown = sameSource && old is not null && SameLayout(returnAnchor, detected);
         bool same = sameSource && interval <= maximumGap && SameLayout(previous, detected) && SameLayout(stableAnchor, detected);
-        if (!same) { stableSince = capturedAt; stableAnchor = detected.ToArray(); manual = false; }
-        bool confirmed = same && old!.Confirmed && !obstructed;
+        bool clearReturnAfterLongOcclusion = sameSource && old is { Occluded: true } && interval > maximumGap
+            && matchesLastKnown && !uncertain && !obstructed;
+        if (clearReturnAfterLongOcclusion) stableSince = capturedAt;
+        else if (!same) { stableSince = capturedAt; stableAnchor = detected.ToArray(); manual = false; }
+        bool continuity = same || clearReturnAfterLongOcclusion;
+        bool confirmed = continuity && old!.Confirmed && !obstructed;
         bool occluded = obstructed || uncertain && !(manual && confirmed);
         bool settled = same && (capturedAt - stableSince).TotalSeconds >= ObservationPolicy.MinimumStillSeconds;
-        bool sameVersion = same && old!.Occluded == occluded && old.Group == group;
+        bool sameVersion = continuity && old!.Occluded == occluded && old.Group == group;
         State = new(sameVersion ? old!.Version : ++version, capturedAt, confirmed ? old!.Balls : detected.ToArray(), group, settled, occluded, confirmed, calibrationId);
         timeline = captureTimeline; previous = detected.ToArray(); PhysicallyObstructed = obstructed; return State;
     }
@@ -36,7 +53,10 @@ public sealed class TableTracker(double maximumObservationGapSeconds = 6)
     internal TableState Verified(string calibrationId, string captureTimeline, DateTimeOffset capturedAt, Ball[] balls, string group, bool still, bool unclear)
     {
         Reset(); timeline = captureTimeline; previous = balls.ToArray(); stableAnchor = balls.ToArray(); stableSince = capturedAt;
-        State = new(++version, capturedAt, balls.ToArray(), group, still, unclear, false, calibrationId);
+        // A successful bounded clear/still verification is itself the evidence
+        // needed to trust this current layout; separate user confirmation is
+        // not part of the normal readiness path.
+        State = new(++version, capturedAt, balls.ToArray(), group, still, unclear, still && !unclear, calibrationId);
         return State;
     }
     public TableState Correct(Ball[] balls, DateTimeOffset now)

@@ -90,7 +90,7 @@
 
                     <details class="settings-group" open>
                         <summary>Table analysis and shot display</summary>
-                        <TableControls Session="Session" Busy="busy" Version="Session.Agent.State.Value.Version" Calibrate="CalibrateTable" Correct="CorrectTable" Confirm="ConfirmTable" />
+                        <TableControls Session="Session" Busy="busy" Version="Session.Agent.State.Value.Version" Calibrate="CalibrateTable" Correct="CorrectTable" />
                         <ShotControls Session="Session" Busy="busy" Version="Session.Agent.State.Value.Version" />
                     </details>
 
@@ -219,7 +219,6 @@
     async Task MoreControls() => await Run(Session.MoreControlsAsync);
     async Task CalibrateTable() => await Run(Session.CalibrateTableAsync);
     async Task CorrectTable() => await Run(Session.CorrectTableAsync);
-    async Task ConfirmTable() => await Run(Session.ConfirmTableAsync);
     async Task ApplyTable() => await Run(Session.ApplyTableEditAsync, goHome: true);
     async Task Run(Func<Task> action, bool goHome = false)
     {

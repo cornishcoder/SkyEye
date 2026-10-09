@@ -95,7 +95,7 @@ public sealed partial class MainActivity
     }
     async Task RefreshAutomaticCandidatesAsync(int run)
     {
-        await UpdateTableAsync();
+        await UpdateTableAsync(ObservationMode.VerifyForAdvice);
         if (run != overlayRun || !overlayEnabled || !app.State.Camera.CanControl) return;
         if (run != overlayRun || !overlayEnabled || !app.State.Camera.CanControl) return;
         var snapshot = tableAnalysis.State; var state = snapshot.Table;
@@ -103,8 +103,7 @@ public sealed partial class MainActivity
         {
             ClearCandidatePresentation(tableState?.Occluded == true ? "Table unclear or obstructed. Request again when clear." : "Settlement is not established. Request again when the balls are still."); return;
         }
-        var confirmed = tableAnalysis.Confirm(state.Version);
-        carousel.Update(confirmed, DateTimeOffset.UtcNow);
+        carousel.Update(state, DateTimeOffset.UtcNow);
         overlayMessage = carousel.Candidates.Length == 0 ? "No clear candidate for this layout and group." : "";
         PublishCandidatePresentation(); ShowTable();
     }

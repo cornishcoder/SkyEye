@@ -186,15 +186,23 @@ public sealed partial class TableAnalysisSession
                 var quality = reason switch { ObservationReason.Obstructed => LayoutQuality.Obstructed,
                     ObservationReason.DetectionAmbiguous => LayoutQuality.Ambiguous, ObservationReason.None when ready => LayoutQuality.Clear,
                     _ => LayoutQuality.Unknown };
-                var layout = tracker.Verified(admitted.CalibrationId, timeline ?? "unavailable", lastDetection?.CapturedAt ?? capturedAt, balls, admittedGroup,
-                    still && reason is ObservationReason.None or ObservationReason.DetectionAmbiguous, !ready);
+                var priorLayout = tracker.State;
+                bool unclearDetection = reason is ObservationReason.Obstructed or ObservationReason.DetectionAmbiguous;
+                bool retainPriorLayout = !ready && unclearDetection
+                    && priorLayout is not null && priorLayout.CalibrationId == admitted.CalibrationId
+                    && timeline is not null && lastTimeline == timeline;
+                var layout = retainPriorLayout
+                    ? tracker.Observe(admitted.CalibrationId, timeline!, lastDetection?.CapturedAt ?? capturedAt,
+                        priorLayout!.Balls, admittedGroup, uncertain: true, obstructed: reason == ObservationReason.Obstructed)
+                    : tracker.Verified(admitted.CalibrationId, timeline ?? "unavailable", lastDetection?.CapturedAt ?? capturedAt, balls, admittedGroup,
+                        still && reason is ObservationReason.None or ObservationReason.DetectionAmbiguous, !ready);
                 var candidate = layout with { Confirmed = true };
                 if (ready && !ShotPlanner.Eligible(candidate, time.GetUtcNow()))
                 { ready = false; reason = ObservationReason.DetectionAmbiguous; quality = LayoutQuality.Ambiguous; layout = tracker.Verified(admitted.CalibrationId, timeline!, lastDetection?.CapturedAt ?? capturedAt, balls, admittedGroup, still, true); }
                 state = state with { Table = layout, Vision = visions.LastOrDefault(), Jpeg = finalReview, VerificationProgress = null,
                     Observation = new(admitted.Source!, admitted.Generation, mediaGeneration, timeline ?? "unavailable", layout.CapturedAt,
                         samples.LastOrDefault()?.SourceTimeUs, double.IsFinite(finalAge) ? Math.Max(0, finalAge) : 0, samples.Sum(s => s.AcquisitionMs), samples.Sum(s => s.ProcessingMs), time.GetElapsedTime(start).TotalMilliseconds,
-                        layout.Version, ready ? ObservationOutcome.Ready : still ? ObservationOutcome.Unclear : ObservationOutcome.Unsettled, "decoded-live-verification")
+                        layout.Version, ready ? ObservationOutcome.Ready : (unclearDetection || still) ? ObservationOutcome.Unclear : ObservationOutcome.Unsettled, "decoded-live-verification")
                     { Motion = reason == ObservationReason.Moving ? TableMotion.Moving : still ? TableMotion.Still : TableMotion.Unknown, Quality = quality, Reason = reason, DecodedReceipt = lastReceipt,
                         Recognition = visions.LastOrDefault()?.Recognition,
                         DetectionEvidence = lastDetection is null ? null : new(lastDetection.FrameId, lastDetection.SourceTimeUs,
