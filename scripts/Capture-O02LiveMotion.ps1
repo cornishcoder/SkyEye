@@ -60,6 +60,34 @@ try {
         $taskLatest = $taskMotion.latest
         $taskPlayer = $taskMetrics.player
         $taskNow = [DateTimeOffset]::UtcNow
+        $taskMotionRegions = @()
+        if ($taskLatest -and $taskLatest.regions) {
+            $taskMotionRegions = @($taskLatest.regions | ForEach-Object {
+                [pscustomobject]@{
+                    Id = $_.id
+                    Features = $_.features
+                    Supported = $_.supported
+                    DxPixels = $_.dxPixels
+                    DyPixels = $_.dyPixels
+                    VelocityXPixelsPerSecond = $_.velocityXPixelsPerSecond
+                    VelocityYPixelsPerSecond = $_.velocityYPixelsPerSecond
+                    Status = $_.status
+                }
+            })
+        }
+        $taskSupportedRegions = @($taskMotionRegions | Where-Object {
+            $_.Status -eq 'supported' -and $null -ne $_.VelocityXPixelsPerSecond -and $null -ne $_.VelocityYPixelsPerSecond
+        })
+        $taskSupportedSpeeds = @($taskSupportedRegions | ForEach-Object {
+            [math]::Sqrt([math]::Pow([double]$_.VelocityXPixelsPerSecond, 2) + [math]::Pow([double]$_.VelocityYPixelsPerSecond, 2))
+        })
+        $taskSupportedDisplacements = @($taskSupportedRegions | Where-Object {
+            $null -ne $_.DxPixels -and $null -ne $_.DyPixels
+        } | ForEach-Object {
+            [math]::Sqrt([math]::Pow([double]$_.DxPixels, 2) + [math]::Pow([double]$_.DyPixels, 2))
+        })
+        $taskPeakSupportedSpeed = if ($taskSupportedSpeeds.Count -gt 0) { ($taskSupportedSpeeds | Measure-Object -Maximum).Maximum } else { $null }
+        $taskPeakSupportedDisplacement = if ($taskSupportedDisplacements.Count -gt 0) { ($taskSupportedDisplacements | Measure-Object -Maximum).Maximum } else { $null }
         $taskDecoderDelta = $null
         $taskTextureDelta = $null
         $taskAcquiredDelta = $null
@@ -185,6 +213,10 @@ try {
             AnalysisImageWidth = if ($taskLatest) { $taskLatest.analysisImageWidth } else { $null }
             AnalysisImageHeight = if ($taskLatest) { $taskLatest.analysisImageHeight } else { $null }
             RegionCount = if ($taskLatest) { @($taskLatest.regions).Count } else { 0 }
+            SupportedRegionCount = $taskSupportedRegions.Count
+            MaxSupportedRegionSpeedPixelsPerSecond = $taskPeakSupportedSpeed
+            MaxSupportedRegionDisplacementPixels = $taskPeakSupportedDisplacement
+            MotionRegions = $taskMotionRegions
             StopReason = $taskMotion.stopReason
         })
         $taskPreviousSample = [pscustomobject]@{
@@ -216,7 +248,7 @@ finally {
 
 if ($taskRows.Count -eq 0) { throw 'No motion-feed samples were collected.' }
 $taskReport = [pscustomobject]@{
-    SchemaVersion = 7
+    SchemaVersion = 8
     DeviceSerial = $CompanionSerial
     Package = $taskPing.package
     StartedAtUtc = $taskStartedAt.ToString('O')
@@ -228,7 +260,12 @@ $taskReport = [pscustomobject]@{
     CaptureError = $taskCaptureError
     ImagesSaved = $false
     Samples = $taskRows
-    Scope = 'Opt-in candidate availability, main-thread probe/read queue timing, TextureView update counts and age, native bitmap-copy duration, source PTS, per-gap acquisition/worker telemetry, decoder-release/texture and copy-failure counters, player restart/error state and dimensions. No detector tracking or ball identity claim.'
+    MotionSummary = [pscustomobject]@{
+        SamplesWithSupportedRegions = @($taskRows | Where-Object SupportedRegionCount -gt 0).Count
+        PeakSupportedRegionSpeedPixelsPerSecond = if ($taskRows.Count -gt 0) { ($taskRows | Measure-Object -Property MaxSupportedRegionSpeedPixelsPerSecond -Maximum).Maximum } else { $null }
+        PeakSupportedRegionDisplacementPixels = if ($taskRows.Count -gt 0) { ($taskRows | Measure-Object -Property MaxSupportedRegionDisplacementPixels -Maximum).Maximum } else { $null }
+    }
+    Scope = 'Opt-in candidate availability, main-thread probe/read queue timing, TextureView update counts and age, native bitmap-copy duration, source PTS, per-gap acquisition/worker telemetry, decoder-release/texture and copy-failure counters, player restart/error state and dimensions. Per-region optical-flow evidence is indexed to the confirmed seed ROIs; it is not detector tracking, persistent ball identity, or shot adjudication.'
 }
 $taskOutputDirectory = Split-Path -Parent $taskOutputPath
 if ($taskOutputDirectory -and -not (Test-Path -LiteralPath $taskOutputDirectory -PathType Container)) {
