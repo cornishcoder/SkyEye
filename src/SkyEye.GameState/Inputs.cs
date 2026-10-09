@@ -25,6 +25,8 @@ public sealed record BallAppeared(ObservedBall Ball) : GameInput;
 public sealed record PossiblePocketEvent(string ShotId, string BallId, Pocket Pocket) : GameInput;
 public sealed record PossibleCollision(string ShotId, string FirstBall, string SecondBall) : GameInput;
 public sealed record PossibleCushionContact(string ShotId, string BallId) : GameInput;
+public sealed record AcceptSettledInventory(int ContractVersion, ActivityWindowContext Context,
+    SettledTableEvidence After) : GameInput;
 // Typed correction payloads can be supplied by touch, a player or a future Sky adapter.
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(AssignColour), "colour")]
@@ -32,11 +34,13 @@ public sealed record PossibleCushionContact(string ShotId, string BallId) : Game
 [JsonDerivedType(typeof(SetFoul), "foul")]
 [JsonDerivedType(typeof(SetBallPresence), "ball")]
 [JsonDerivedType(typeof(SetFrameWinner), "frame")]
+[JsonDerivedType(typeof(SetInventoryCounts), "inventory-counts")]
 public abstract record Correction;
 public sealed record AssignColour(string PlayerId, BallColour Colour) : Correction;
 public sealed record ChangeTurn(string PlayerId) : Correction;
 public sealed record SetFoul(bool Foul) : Correction;
 public sealed record SetBallPresence(string BallId, BallPresence Presence, Guid? CorrectedPot = null) : Correction;
 public sealed record SetFrameWinner(string PlayerId) : Correction;
+public sealed record SetInventoryCounts(SettledTableCounts Counts) : Correction;
 public sealed record PlayerCorrection(Correction Correction) : GameInput;
 public sealed record SkyCorrection(Correction Correction) : GameInput;

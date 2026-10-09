@@ -20,6 +20,9 @@ public sealed record RuleRuling(string Shooter, DeclaredShot Facts, RulePosition
 // Only the application rules consumer produces this interpretation.
 public sealed record ApplyShotRuling(RuleRuling Ruling) : GameInput;
 public sealed record RulesShotRecordedEvent(RuleRuling Ruling) : GameEvent;
+public sealed record SettledInventoryAcceptedEvent(int ContractVersion, ActivityWindowContext Context,
+    SettledTableEvidence After) : GameEvent;
+public sealed record SettledInventoryCorrectedEvent(int ContractVersion, SettledTableCounts Counts) : GameEvent;
 
 public static class GameRevisions
 {

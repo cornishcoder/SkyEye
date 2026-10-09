@@ -21,7 +21,7 @@ public sealed record SettledTableCounts(int? Reds, int? Yellows, int? CueBalls, 
 
 /// <summary>One source-referenced table observation. Clear and settled are separate eligibility facts.</summary>
 public sealed record SettledTableEvidence(Guid EvidenceId, EvidenceSource Source, long? SourceTimeUs,
-    SettledTableCounts Counts, bool Settled, bool Clear)
+    DateTimeOffset CapturedAt, SettledTableCounts Counts, bool Settled, bool Clear)
 {
     public static bool TryCapture(GameSnapshot snapshot, out SettledTableEvidence evidence)
     {
@@ -32,7 +32,7 @@ public sealed record SettledTableEvidence(Guid EvidenceId, EvidenceSource Source
             || !ValidSource(source) || sourceTime < 0 || SettledTableCounts.From(snapshot.Table) is not { } counts)
             return false;
 
-        evidence = new(settled.EvidenceId, source, sourceTime, counts, Settled: true, Clear: true);
+        evidence = new(settled.EvidenceId, source, sourceTime, settled.At, counts, Settled: true, Clear: true);
         return true;
     }
 
@@ -47,7 +47,7 @@ public sealed record SettledTableEvidence(Guid EvidenceId, EvidenceSource Source
 
 /// <summary>Canonical match facts frozen when an activity window begins.</summary>
 public sealed record FrozenGameContext(string MatchId, string FrameId, long GameVersion, string CurrentPlayer,
-    int Visit, bool OpenTable, ImmutableDictionary<string, Fact<BallColour?>> Groups, RulePosition? Rules)
+    int Visit, bool OpenTable, ImmutableDictionary<string, Fact<BallColour?>> Groups, Fact<bool?>? Foul, RulePosition? Rules)
 {
     public static bool TryCapture(GameSnapshot snapshot, out FrozenGameContext context)
     {
@@ -58,12 +58,35 @@ public sealed record FrozenGameContext(string MatchId, string FrameId, long Game
             return false;
 
         context = new(match.Id, frame.Id, snapshot.Version, frame.CurrentPlayer.Value, frame.Visit,
-            frame.OpenTable, frame.Colours, frame.Rules);
+            frame.OpenTable, frame.Colours, frame.Foul, frame.Rules);
         return true;
     }
 
     internal bool IsValid => Text(MatchId) && Text(FrameId) && GameVersion >= 0 && Text(CurrentPlayer)
-        && Visit >= 1 && Groups is not null;
+        && Visit >= 1 && Groups is not null && Groups.All(group => Text(group.Key) && group.Value is not null);
+
+    // GameVersion is retained for audit; compatible non-game events may advance it while an activity window is open.
+    internal bool Matches(GameSnapshot snapshot)
+    {
+        if (!IsValid || snapshot.Match is not { Finished: false } match || match.Id != MatchId
+            || snapshot.Frame is not { Winner: null } frame || frame.Id != FrameId
+            || frame.CurrentPlayer.Value != CurrentPlayer || frame.Visit != Visit || frame.OpenTable != OpenTable
+            || !SameRules(frame.Rules, Rules) || frame.Colours.Count != Groups.Count)
+            return false;
+        return Groups.All(group => frame.Colours.TryGetValue(group.Key, out var current) && SameFact(current, group.Value));
+    }
+
+    static bool SameFact<T>(Fact<T>? left, Fact<T>? right) => left is null ? right is null
+        : right is not null && EqualityComparer<T>.Default.Equals(left.Value, right.Value)
+            && left.Source == right.Source && left.Confidence == right.Confidence && left.EvidenceId == right.EvidenceId;
+
+    static bool SameRules(RulePosition? left, RulePosition? right) => left is null ? right is null
+        : right is not null && left.Profile == right.Profile && left.Player == right.Player
+            && left.PlayerGroup == right.PlayerGroup && left.Reds == right.Reds && left.Yellows == right.Yellows
+            && left.CueBall == right.CueBall && left.Target == right.Target && left.Foul == right.Foul
+            && left.Winner == right.Winner && left.BreakComplete == right.BreakComplete && left.Pending == right.Pending
+            && left.Reason == right.Reason && left.Clauses.SequenceEqual(right.Clauses)
+            && left.LastInputId == right.LastInputId && left.BlackNeedsRespot == right.BlackNeedsRespot;
 
     static bool Text(string? value) => !string.IsNullOrWhiteSpace(value) && value.Length <= 128;
 }

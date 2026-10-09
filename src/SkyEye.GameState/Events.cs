@@ -24,6 +24,8 @@ namespace SkyEye.GameState;
 [JsonDerivedType(typeof(ColoursDeclaredEvent), "colours-declared")]
 [JsonDerivedType(typeof(DecisionUndoneEvent), "decision-undone")]
 [JsonDerivedType(typeof(RulesShotRecordedEvent), "rules-shot")]
+[JsonDerivedType(typeof(SettledInventoryAcceptedEvent), "inventory-accepted")]
+[JsonDerivedType(typeof(SettledInventoryCorrectedEvent), "inventory-corrected")]
 public abstract record GameEvent;
 public sealed record MatchStartedEvent(ImmutableArray<Player> Players, int Target) : GameEvent;
 public sealed record FrameStartedEvent(string CurrentPlayer) : GameEvent;

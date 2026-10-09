@@ -69,6 +69,17 @@ public static class GameReducer
             case TableSettledEvent:
                 return s with { Table = s.Table with { Motion = TableMotion.Settled,
                     LastSettled = !s.Table.Uncertain ? new(e.InputId, e.At, e.SourceTimeUs, e.Source!) : s.Table.LastSettled } };
+            case SettledInventoryAcceptedEvent inventory:
+                if (inventory.ContractVersion != 1 || inventory.Context is null || inventory.After is null
+                    || !inventory.Context.Game.Matches(s)
+                    || s.Table.Source != inventory.Context.Before.Source
+                    || s.Table.LastSettled?.EvidenceId != inventory.Context.Before.EvidenceId
+                    || !SettledStateReconciler.Compare(inventory.Context, inventory.After).Ready)
+                    throw new ArgumentException("Settled inventory event has stale context or invalid evidence.");
+                return s with { Table = ApplyInventory(s.Table, inventory.After.Counts, e, inventory.After) };
+            case SettledInventoryCorrectedEvent correction:
+                if (correction.ContractVersion != 1) throw new ArgumentException("Unsupported settled inventory correction version.");
+                return s with { Table = ApplyInventory(s.Table, correction.Counts, e, null) };
             case PocketApproachedEvent p:
                 var ambiguous = s.Shot!.Approaches.TryGetValue(p.BallId, out var previous) && (previous.Ambiguous || previous.Pocket != p.Pocket);
                 return s with { Shot = s.Shot with { Approaches = s.Shot.Approaches.SetItem(p.BallId, new(p.BallId, p.Pocket, e.Confidence, e.InputId, ambiguous)) } };
@@ -134,4 +145,45 @@ public static class GameReducer
     }
     static bool Protected(KnownBall ball, GameSnapshot state) => ball.ProtectedThroughShot is not null
         && (state.Shot is null || ball.ProtectedThroughShot == state.Shot.Id);
+
+    static TableState ApplyInventory(TableState table, SettledTableCounts counts, EventEnvelope e,
+        SettledTableEvidence? evidence)
+    {
+        if (counts is null || !counts.IsValid) throw new ArgumentException("Invalid settled inventory counts.");
+        var groupCounts = ImmutableDictionary<BallColour, Fact<int>>.Empty;
+        Add(BallColour.Red, counts.Reds!.Value);
+        Add(BallColour.Yellow, counts.Yellows!.Value);
+        Add(BallColour.Cue, counts.CueBalls!.Value);
+        Add(BallColour.Black, counts.BlackBalls!.Value);
+
+        var balls = table.Balls;
+        foreach (var ball in table.Balls.Values)
+        {
+            if (!groupCounts.ContainsKey(ball.Colour)
+                || ball.Presence.Value == BallPresence.Potted && (ball.Colour is BallColour.Red or BallColour.Yellow)) continue;
+            var count = groupCounts[ball.Colour].Value;
+            var presence = count == 0 ? BallPresence.Missing
+                : ball.Colour is BallColour.Cue or BallColour.Black
+                    && table.Balls.Values.Count(candidate => candidate.Colour == ball.Colour) == 1 ? BallPresence.OnTable
+                : BallPresence.Unknown;
+            balls = balls.SetItem(ball.Id, ball with
+            {
+                Position = null,
+                Presence = new(presence, e.Provenance, e.Confidence, evidence?.EvidenceId ?? e.InputId),
+                ProtectedThroughShot = null
+            });
+        }
+
+        var updated = table with { Balls = balls, GroupCounts = groupCounts };
+        return evidence is null ? updated : updated with
+        {
+            Motion = TableMotion.Settled,
+            Source = evidence.Source,
+            LastSettled = new(evidence.EvidenceId, evidence.CapturedAt, evidence.SourceTimeUs, evidence.Source),
+            Uncertain = false
+        };
+
+        void Add(BallColour colour, int value) => groupCounts = groupCounts.SetItem(colour,
+            new(value, e.Provenance, e.Confidence, evidence?.EvidenceId ?? e.InputId));
+    }
 }

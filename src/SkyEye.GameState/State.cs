@@ -43,9 +43,14 @@ public sealed record TableState(ImmutableDictionary<string, KnownBall> Balls, Ta
     EvidenceSource? Source, SettledObservation? LastSettled, bool Uncertain)
 {
     public static TableState Empty { get; } = new(ImmutableDictionary<string, KnownBall>.Empty, TableMotion.Unknown, null, null, true);
-    public int? Remaining(BallColour colour) => Uncertain || Balls.Values.Any(b => b.Colour == colour && b.Presence.Value is BallPresence.Missing or BallPresence.Unknown)
-        ? null : Balls.Values.Count(b => b.Colour == colour && b.Presence.Value == BallPresence.OnTable);
-    public BallPresence Black => Balls.Values.FirstOrDefault(b => b.Colour == BallColour.Black)?.Presence.Value ?? BallPresence.Unknown;
+    public ImmutableDictionary<BallColour, Fact<int>> GroupCounts { get; init; } = ImmutableDictionary<BallColour, Fact<int>>.Empty;
+    public int? Remaining(BallColour colour) => Uncertain ? null
+        : GroupCounts.TryGetValue(colour, out var count) ? count.Value
+        : Balls.Values.Any(b => b.Colour == colour && b.Presence.Value is BallPresence.Missing or BallPresence.Unknown)
+            ? null : Balls.Values.Count(b => b.Colour == colour && b.Presence.Value == BallPresence.OnTable);
+    public BallPresence Black => Uncertain ? BallPresence.Unknown
+        : GroupCounts.TryGetValue(BallColour.Black, out var count) ? count.Value == 0 ? BallPresence.Missing : BallPresence.OnTable
+        : Balls.Values.FirstOrDefault(b => b.Colour == BallColour.Black)?.Presence.Value ?? BallPresence.Unknown;
 }
 public sealed record GameSnapshot(long Version, MatchState? Match, FrameState? Frame, TableState Table, ShotState? Shot)
 {

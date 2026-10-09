@@ -24,6 +24,9 @@ public sealed class GameSession
         if (history.Length > 10000 || history.Any(e => e is null || e.Event is null || e.EventId == Guid.Empty || e.InputId == Guid.Empty
                 || e.InputFingerprint is not { Length: 64 } || !e.InputFingerprint.All(Uri.IsHexDigit) || !Text(e.MatchId)
                 || !Enum.IsDefined(e.Provenance) || !Confidence(e.Confidence) || e.SourceTimeUs is < 0 || e.Source is { } source && !ValidSource(source))
+            || history.Any(e => e.Event is SettledInventoryAcceptedEvent inventory && !ValidAcceptedInventory(e, inventory)
+                || e.Event is SettledInventoryCorrectedEvent correction && (e.Provenance != Provenance.PlayerCorrected
+                    || correction.ContractVersion != 1 || correction.Counts is null || !correction.Counts.IsValid))
             || history.GroupBy(e => e.InputId).Any(g => g.Select(e => e.InputFingerprint).Distinct().Count() != 1)
             || history.Select(e => e.EventId).Distinct().Count() != history.Length) throw new ArgumentException("Invalid event identities.");
         foreach (var correction in history.Where(e => e.Event is StateCorrectedEvent { CorrectedPot: not null }))
@@ -120,7 +123,11 @@ public sealed class GameSession
                 ChangeTurn c when PlayerExists(c.PlayerId) => new TurnChangedEvent(c.PlayerId),
                 SetFoul c => new FoulRecordedEvent(c.Foul),
                 SetFrameWinner c when PlayerExists(c.PlayerId) => new FrameWonEvent(c.PlayerId),
+                SetInventoryCounts c when c.Counts is not null && c.Counts.IsValid
+                    && State.Table.Motion == TableMotion.Settled && !State.Table.Uncertain
+                    => new SettledInventoryCorrectedEvent(1, c.Counts),
                 SetBallPresence c when Enum.IsDefined(c.Presence) && State.Table.Balls.ContainsKey(c.BallId)
+                    && !State.Table.GroupCounts.ContainsKey(State.Table.Balls[c.BallId].Colour)
                     && (c.CorrectedPot is null || History.Any(e => e.EventId == c.CorrectedPot && e.FrameId == input.FrameId
                         && e.Event is BallPottedEvent p && p.BallId == c.BallId) && c.Presence != BallPresence.Potted)
                     => new StateCorrectedEvent(c.BallId, c.Presence, c.CorrectedPot),
@@ -132,6 +139,8 @@ public sealed class GameSession
                 provenance = Provenance.PlayerConfirmed;
             if (input.Input is SkyCorrection && correction is SetBallPresence { CorrectedPot: not null })
                 return Refuse(InputOutcome.Rejected, "A machine cannot revoke a committed pot; ask the player.");
+            if (input.Input is SkyCorrection && correction is SetInventoryCounts)
+                return Refuse(InputOutcome.Rejected, "Only a player can correct a settled inventory count.");
             return Commit(input with { Provenance = provenance }, fingerprint, [amended]);
         }
         if (State.Match.Finished || State.Frame!.Winner is not null) return Refuse(InputOutcome.Stale, "The frame or match has ended.");
@@ -147,6 +156,28 @@ public sealed class GameSession
         var last = History.LastOrDefault(e => e.FrameId == input.FrameId && e.Source == input.Source);
         if (last is not null && (input.At < last.At || input.SourceTimeUs is { } pts && last.SourceTimeUs is { } previousPts && pts < previousPts))
             return Refuse(InputOutcome.Stale, "Evidence is older than the accepted source watermark.");
+        if (input.Input is AcceptSettledInventory inventoryInput)
+        {
+            if (input.Provenance != Provenance.PlayerConfirmed)
+                return Refuse(InputOutcome.Rejected, "Settled inventory must be explicitly reviewed by a player before admission.");
+            if (inventoryInput.ContractVersion != 1 || inventoryInput.Context is null || inventoryInput.After is null
+                || input.Source != inventoryInput.After.Source || input.SourceTimeUs != inventoryInput.After.SourceTimeUs
+                || input.At < inventoryInput.After.CapturedAt)
+                return Refuse(InputOutcome.Rejected, "Settled inventory evidence does not match its source envelope.");
+            if (!inventoryInput.Context.Game.Matches(State)
+                || State.Table.Source != inventoryInput.Context.Before.Source
+                || State.Table.LastSettled?.EvidenceId != inventoryInput.Context.Before.EvidenceId)
+                return Refuse(InputOutcome.Stale, "The player, frame, rules, source or before-table changed; review this proposal again.");
+            if (last?.SourceTimeUs is { } lastPts && inventoryInput.After.SourceTimeUs <= lastPts)
+                return Refuse(InputOutcome.Stale, "This settled table sample is not newer than the accepted source watermark.");
+            var comparison = SettledStateReconciler.Compare(inventoryInput.Context, inventoryInput.After);
+            if (!comparison.Ready) return Refuse(InputOutcome.Rejected, comparison.Reason);
+            var inventoryEvents = new List<GameEvent>();
+            if (State.Shot is { Ended: false } activeShot) inventoryEvents.Add(new ShotEndedEvent(activeShot.Id));
+            inventoryEvents.Add(new SettledInventoryAcceptedEvent(1, inventoryInput.Context, inventoryInput.After));
+            if (State.Shot is { Resolved: false }) inventoryEvents.Add(new ShotResolvedEvent());
+            return Commit(input, fingerprint, inventoryEvents);
+        }
         if (input.Input is TableObservation && History.LastOrDefault(e => e.FrameId == input.FrameId && e.Source == input.Source
                 && e.Event is TableObservedEvent) is { } lastTable && (input.At <= lastTable.At
                     || input.SourceTimeUs is { } tablePts && lastTable.SourceTimeUs is { } oldTablePts && tablePts <= oldTablePts))
@@ -175,12 +206,22 @@ public sealed class GameSession
     }
     bool PlayerExists(string id) => State.Match!.Players.Any(p => p.Id == id);
     public static bool CanUndo(EventEnvelope e) => e.Provenance >= Provenance.PlayerConfirmed
-        && e.Event is ColourAssignedEvent or ColoursDeclaredEvent or TurnChangedEvent or FoulRecordedEvent or FrameWonEvent or StateCorrectedEvent or RulesShotRecordedEvent;
+        && e.Event is ColourAssignedEvent or ColoursDeclaredEvent or TurnChangedEvent or FoulRecordedEvent or FrameWonEvent
+            or StateCorrectedEvent or RulesShotRecordedEvent or SettledInventoryAcceptedEvent or SettledInventoryCorrectedEvent;
     bool CanStartShot(string id) => State.Table.Motion == TableMotion.Settled && !State.Table.Uncertain
         && (State.Shot is null || State.Shot.Ended) && !History.Any(e => e.FrameId == State.Frame!.Id && e.Event is ShotStartedEvent s && s.ShotId == id);
     static bool ValidObservation(TableObservation o) => !o.Balls.IsDefault && o.Balls.Length <= 64
         && o.Balls.All(ValidBall)
         && o.Balls.Select(b => b.Id).Distinct().Count() == o.Balls.Length;
+    static bool ValidAcceptedInventory(EventEnvelope envelope, SettledInventoryAcceptedEvent inventory)
+    {
+        if (inventory.ContractVersion != 1 || inventory.Context is null || inventory.After is null
+            || envelope.Provenance != Provenance.PlayerConfirmed || envelope.Source != inventory.After.Source
+            || envelope.SourceTimeUs != inventory.After.SourceTimeUs
+            || envelope.MatchId != inventory.Context.Game.MatchId || envelope.FrameId != inventory.Context.Game.FrameId
+            || envelope.At < inventory.After.CapturedAt) return false;
+        return SettledStateReconciler.Compare(inventory.Context, inventory.After).Ready;
+    }
     static bool ValidPosition(TablePosition? p) => p is null || double.IsFinite(p.X) && double.IsFinite(p.Y) && p.X is >= 0 and <= 1 && p.Y is >= 0 and <= 1;
     static bool ValidBall(ObservedBall b) => b is not null && Text(b.Id) && Enum.IsDefined(b.Colour) && Confidence(b.Confidence) && ValidPosition(b.Position);
     static bool Confidence(double? value) => value is null || double.IsFinite(value.Value) && value is >= 0 and <= 1;

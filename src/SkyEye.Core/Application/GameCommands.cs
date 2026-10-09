@@ -14,7 +14,7 @@ public sealed partial class AppCoordinator
     CommandReceipt GameCommand(CommandEnvelope envelope, SubmitGameInput command)
     {
         if (gameUnavailable) return Receipt(envelope, CommandOutcome.Failed, state.GameError!);
-        bool declared = command.Input?.Input is StartMatch or StartFrame or FinishMatch or DeclareColours or UndoDecision or PlayerCorrection;
+        bool declared = command.Input?.Input is StartMatch or StartFrame or FinishMatch or DeclareColours or UndoDecision or PlayerCorrection or AcceptSettledInventory;
         bool trustedRuling = command.Input?.Input is ApplyShotRuling && envelope.Origin == CommandOrigin.System;
         if (command.Input?.Input is ApplyShotRuling && !trustedRuling) return Receipt(envelope, CommandOutcome.Rejected, "Submit declared facts through the rules command.");
         bool local = command.Input?.Source is null && state.Camera.ConnectionId == Guid.Empty
