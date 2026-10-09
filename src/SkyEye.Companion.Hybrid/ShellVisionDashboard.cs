@@ -31,7 +31,7 @@ public sealed partial class ShellSession
 {
     const string VisionDashboardAsset = "vision-diagnostics-dashboard.html";
     const string VisionScenarioAsset = "vision-scenario-lab.html";
-    const int VisionDashboardAssetVersion = 7;
+    const int VisionDashboardAssetVersion = 8;
     const int VisionScenarioAssetVersion = 3;
     const int VisionDashboardPort = 8770;
     readonly DashboardScenarioWorkspace dashboardScenario;
@@ -358,7 +358,8 @@ public sealed partial class ShellSession
                     trackedTable = tracked,
                     motion = MotionMetrics is { } motion ? new
                     {
-                        active = motion.Active > 0,
+                        active = motion.StopReason is null && motion.Processed > 0,
+                        motion.StopReason,
                         motion.Processed,
                         motion.RequestedHz,
                         sourceTimeUs = motion.Latest?.SourceTimeUs,
