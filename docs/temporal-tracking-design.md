@@ -1,6 +1,6 @@
 # Settled-state reconciliation, game outcomes and post-shot trajectories
 
-Updated 9 October 2026 from the supplied **SkyEye — Reframe Game Understanding Around Settled-State Reconciliation** brief. This is a documentation-only architectural decision. It supersedes the earlier continuous-tracking dependency model; it does not implement or validate the proposed redesign. Preserve this file path and existing mission IDs for established links.
+Updated 9 October 2026 from the supplied **SkyEye — Reframe Game Understanding Around Settled-State Reconciliation** brief. Implementation has started with the frozen O03 context and pure O04.02 settled-count comparison in `SkyEye.GameState`. This first domain slice builds, but camera/activity orchestration, detector integration, review, journal admission and device acceptance remain open. It supersedes the earlier continuous-tracking dependency model. Preserve this file path and existing mission IDs for established links.
 
 > **Settled-state reconciliation tells SkyEye what happened. Post-shot trajectory analysis explains how it happened.**
 >
@@ -47,7 +47,7 @@ Same-source obstruction may last a minute or longer. It must not expire into a n
 
 If activity onset is missed, a verified layout change can propose an activity/shot window with unknown start time. It cannot invent a precise start timestamp. If several shots, a ball replacement or a rerack could have happened during the blind interval, require review rather than attribute everything to one shot.
 
-## O03 — Activity & Settlement Boundary (planned)
+## O03 — Activity & Settlement Boundary (in progress)
 
 Conceptual states: `Settled → ActivityDetected → Active → WaitingForClearTable → Settling → SettledCandidate`, with `Uncertain` for unsafe or discontinuous evidence. These are planned semantics, not a claim that current runtime enums implement them. Renewed activity returns to Active; renewed obstruction waits for clear evidence. Quiet pixels alone cannot establish settlement or an empty table.
 
@@ -58,7 +58,9 @@ Conceptual states: `Settled → ActivityDetected → Active → WaitingForClearT
 
 Capture context at window start: MatchId, FrameId, GameVersion, CurrentPlayer, CurrentVisit, Groups, OpenTable, rules profile/version, trusted table A, and source/timeline/generation/calibration identity. If onset is missed, use a provably compatible baseline context and mark timing uncertain; otherwise require user resolution. An incompatible canonical revision while analysis is pending requires re-review, never silent application to the new player or frame. No identity/trajectory completion requirement belongs to O03.
 
-## O04 — Settled-State Reconciliation & Physical Outcome Proposals (planned)
+**Implemented contract slice:** `FrozenGameContext` captures the canonical match/frame/version/player/visit/group/open-table/rules view. `ActivityWindowContext` holds that immutable context, trusted settled A and an optional source-time activity onset; a missing onset remains unknown. `TryBegin` only captures a clear settled baseline with complete counts and source PTS. This defines the boundary without yet detecting activity, retaining media or orchestrating obstruction/settlement.
+
+## O04 — Settled-State Reconciliation & Physical Outcome Proposals (in progress)
 
 A bounded pure reconciler, named `TableStateReconciler` only if that fits existing seams, takes **settled A + settled B + frozen game context** and emits a **proposed physical outcome** with evidence references and uncertainty. Raw samples and inferred outcomes remain outside the canonical ledger until admission.
 
@@ -82,6 +84,8 @@ Equal counts initially mean no observed net removal, not proof that nothing was 
 Preserve calibrated coordinate conventions: core analysis uses a 2:1 table; GameState uses normalized positions. Restore the physical aspect for distance comparisons, retain historical calibration, and never treat normalized units as metres. Geometry-specific facts need the actual versioned bounds and ball dimensions.
 
 A ruleset inventory maximum is an upper bound, not an expected current count. The planned domain group/count fact must be distinct from a detection ID, shot-local track ID or durable physical ball identity. The existing per-ball model and approach-plus-absence pot path do not already supply a general identity-free outcome contract. O04/O05 must plan and prove a narrow additive, versioned R01 input/event/reducer extension for accepted aggregate facts, correction and migration. Never select an arbitrary Y3 to satisfy a per-ball API or keep independent canonical counts alongside contradictory ball records. Unresolved individual membership remains explicit; projections must agree after correction/reload.
+
+**Implemented contract slice:** `SettledTableCounts`, `SettledTableEvidence`, `BallCountChange` and `SettledStateReconciler` compare complete red/yellow/cue/black counts only. The result requires matching camera, timeline, generation, connection and calibration, plus increasing source PTS. It reports removals/additions without calling a removal a pot or changing canonical state. Direct construction supports future detector evidence whose same-colour identities are unresolved; capture from the current `GameSnapshot` is available when its per-ball projection is complete. This is not yet the additive accepted GameState event/input or a production detector adapter.
 
 ## O05 — Outcome Review, Admission & Canonical Game Integration (planned)
 
@@ -172,7 +176,7 @@ Old 30/60 Hz tracker cadence and ≤250 ms boundary targets remain useful option
 | Delivered R01 story includes a pocket approach | R01 plan: preserve historical delivered story; additive aggregate-outcome integration is future O04/O05 work |
 | Historical progress/reports prescribe previous next work | Retain dated measurements; add current-direction notices and current progress entry rather than rewriting results |
 
-Next implementation: **O04.02 contract and deterministic before/after cases together with the minimum O03 context/boundary contract**, then O03 clear/settled orchestration, O04.03/.04 reconciliation and compact G06 review, O05 admission/correction/reload, and R04/R02 consequences. Collect O01 match evidence and resolve required O08/O02 reliability/resource blockers alongside these bounded chunks. O10 follows separately. This documentation change runs no production code, device update or new capture.
+Next implementation: connect O08 clear/still observations to the count evidence contract and implement the O03 activity/obstruction/settlement lifecycle. Then add the O04 review proposal, G06 presentation, O05 canonical aggregate input/event/reducer with corrections/reload, and R04/R02 rule consequences. Collect O01 match evidence and resolve required O08/O02 reliability/resource blockers alongside these bounded chunks. O10 follows separately. The first domain contract builds; no camera or device integration has been changed.
 
 ## O04.01 — Inventory-aware association from last-seen positions
 
