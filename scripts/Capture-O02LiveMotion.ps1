@@ -71,6 +71,9 @@ try {
                     DyPixels = $_.dyPixels
                     VelocityXPixelsPerSecond = $_.velocityXPixelsPerSecond
                     VelocityYPixelsPerSecond = $_.velocityYPixelsPerSecond
+                    IlluminationNormalizedChangedPixelFraction = $_.illuminationNormalizedChangedPixelFraction
+                    MedianBrightnessOffsetGray = $_.medianBrightnessOffsetGray
+                    ChangeThresholdGray = $_.changeThresholdGray
                     Status = $_.status
                 }
             })
@@ -248,7 +251,7 @@ finally {
 
 if ($taskRows.Count -eq 0) { throw 'No motion-feed samples were collected.' }
 $taskReport = [pscustomobject]@{
-    SchemaVersion = 8
+    SchemaVersion = 9
     DeviceSerial = $CompanionSerial
     Package = $taskPing.package
     StartedAtUtc = $taskStartedAt.ToString('O')
@@ -265,7 +268,7 @@ $taskReport = [pscustomobject]@{
         PeakSupportedRegionSpeedPixelsPerSecond = if ($taskRows.Count -gt 0) { ($taskRows | Measure-Object -Property MaxSupportedRegionSpeedPixelsPerSecond -Maximum).Maximum } else { $null }
         PeakSupportedRegionDisplacementPixels = if ($taskRows.Count -gt 0) { ($taskRows | Measure-Object -Property MaxSupportedRegionDisplacementPixels -Maximum).Maximum } else { $null }
     }
-    Scope = 'Opt-in candidate availability, main-thread probe/read queue timing, TextureView update counts and age, native bitmap-copy duration, source PTS, per-gap acquisition/worker telemetry, decoder-release/texture and copy-failure counters, player restart/error state and dimensions. Per-region optical-flow evidence is indexed to the confirmed seed ROIs; it is not detector tracking, persistent ball identity, or shot adjudication.'
+    Scope = 'Opt-in candidate availability, main-thread probe/read queue timing, TextureView update counts and age, native bitmap-copy duration, source PTS, per-gap acquisition/worker telemetry, decoder-release/texture and copy-failure counters, player restart/error state and dimensions. Per-region optical flow and illumination-normalized pixel-change evidence are indexed to the confirmed seed ROIs; they are not detector tracking, persistent ball identity, or shot adjudication.'
 }
 $taskOutputDirectory = Split-Path -Parent $taskOutputPath
 if ($taskOutputDirectory -and -not (Test-Path -LiteralPath $taskOutputDirectory -PathType Container)) {

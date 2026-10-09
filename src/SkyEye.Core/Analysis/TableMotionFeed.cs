@@ -50,7 +50,12 @@ public sealed record MotionGapDiagnostic(long FrameId, long SourceTimeUs, long? 
     public double? TextureAgeMs { get; init; }
 }
 public sealed record RoiMotion(string Id, int Features, int Supported, double? DxPixels, double? DyPixels,
-    double? VelocityXPixelsPerSecond, double? VelocityYPixelsPerSecond, string Status);
+    double? VelocityXPixelsPerSecond, double? VelocityYPixelsPerSecond, string Status)
+{
+    public double? IlluminationNormalizedChangedPixelFraction { get; init; }
+    public double? MedianBrightnessOffsetGray { get; init; }
+    public int? ChangeThresholdGray { get; init; }
+}
 public sealed record MotionMeasurement(long SourceTimeUs, IReadOnlyList<RoiMotion> Regions, double ConversionMs, double FlowMs)
 {
     public int AnalysisImageWidth { get; init; }
