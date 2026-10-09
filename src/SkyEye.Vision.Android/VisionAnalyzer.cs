@@ -208,11 +208,13 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     {
         int width = image.Cols(), height = image.Rows();
         using var gray = new MatLease(new Mat()); using var field = new MatLease(new Mat());
-        Imgproc.CvtColor(image, gray.Value, Imgproc.ColorBgr2gray);
+        using (PipelineDiagnostics.Measure("illuminationGrayMs"))
+            Imgproc.CvtColor(image, gray.Value, Imgproc.ColorBgr2gray);
         int maximumKernel = Math.Min(width, height);
         if (maximumKernel % 2 == 0) maximumKernel--;
         int kernelWidth = Math.Min(maximumKernel, Math.Max(3, (int)Math.Round(settings.IlluminationKernelWidth * width / 1000.0) | 1));
         if (kernelWidth < 3) return new(false, 0, 1, 1, 0);
+        using (PipelineDiagnostics.Measure("illuminationBlurMs"))
         using (var size = new Size(kernelWidth, kernelWidth)) Imgproc.GaussianBlur(gray.Value, field.Value, size, 0);
         byte[] illumination = Read(field.Value);
         var tableSamples = new List<byte>();
@@ -226,8 +228,25 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         tableSamples.Sort();
         double reference = tableSamples[tableSamples.Count / 2];
         byte[] bgr = Read(image);
-        double minimumGain = double.MaxValue, maximumGain = 0;
-        long adjusted = 0;
+        // The gain depends only on the local brightness byte. Precompute the
+        // exact per-channel rounded output so the two-million-pixel pass does
+        // table lookups instead of repeating division, rounding and clamping
+        // for every colour channel.
+        var gainsByBrightness = new double[256];
+        var adjustedByBrightness = new bool[256];
+        var correctedChannelByBrightness = new byte[256 * 256];
+        for (int brightness = 0; brightness < 256; brightness++)
+        {
+            double gain = Math.Clamp(reference / Math.Max(55, brightness), .65, 1.55);
+            gainsByBrightness[brightness] = gain;
+            adjustedByBrightness[brightness] = Math.Abs(gain - 1) > .05;
+            int lookupBase = brightness << 8;
+            for (int channel = 0; channel < 256; channel++)
+                correctedChannelByBrightness[lookupBase + channel] =
+                    (byte)Math.Clamp((int)Math.Round(channel * gain), 0, 255);
+        }
+
+        var brightnessCounts = new int[256];
         for (int y = 0; y < height; y++)
         {
             if ((y & 31) == 0) cancellation.ThrowIfCancellationRequested();
@@ -235,18 +254,28 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             int rowOffset = row * 3;
             for (int x = 0; x < width; x++)
             {
-                double gain = Math.Clamp(reference / Math.Max(55, (int)illumination[row + x]), .65, 1.55);
-                minimumGain = Math.Min(minimumGain, gain);
-                maximumGain = Math.Max(maximumGain, gain);
-                if (Math.Abs(gain - 1) > .05) adjusted++;
+                int brightness = illumination[row + x];
+                brightnessCounts[brightness]++;
+                int lookupBase = brightness << 8;
                 int offset = rowOffset + x * 3;
-                bgr[offset] = (byte)Math.Clamp((int)Math.Round(bgr[offset] * gain), 0, 255);
-                bgr[offset + 1] = (byte)Math.Clamp((int)Math.Round(bgr[offset + 1] * gain), 0, 255);
-                bgr[offset + 2] = (byte)Math.Clamp((int)Math.Round(bgr[offset + 2] * gain), 0, 255);
+                bgr[offset] = correctedChannelByBrightness[lookupBase + bgr[offset]];
+                bgr[offset + 1] = correctedChannelByBrightness[lookupBase + bgr[offset + 1]];
+                bgr[offset + 2] = correctedChannelByBrightness[lookupBase + bgr[offset + 2]];
             }
         }
         cancellation.ThrowIfCancellationRequested();
         image.Put(0, 0, bgr);
+        double minimumGain = double.MaxValue, maximumGain = 0;
+        long adjusted = 0;
+        for (int brightness = 0; brightness < brightnessCounts.Length; brightness++)
+        {
+            int count = brightnessCounts[brightness];
+            if (count == 0) continue;
+            double gain = gainsByBrightness[brightness];
+            minimumGain = Math.Min(minimumGain, gain);
+            maximumGain = Math.Max(maximumGain, gain);
+            if (adjustedByBrightness[brightness]) adjusted += count;
+        }
         return new(true, reference, minimumGain, maximumGain, adjusted * 100d / (width * (double)height));
     }
     MatLease Warp(Mat source, TableCalibration calibration)
@@ -264,6 +293,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     }
     Circle[] Detect(Mat hsv, byte[] pixels, double votes, bool refineGeometry = false, Mat? rawImage = null)
     {
+        using var timing = PipelineDiagnostics.Measure("circleDetectionMs");
         using var mask = ClothMask(hsv, pixels); using var circles = new MatLease(new Mat());
         double scale = coordinates.Width / 1000.0;
         Imgproc.HoughCircles(mask.Value, circles.Value, Imgproc.HoughGradient, settings.HoughDp, settings.Separation * scale, settings.EdgeThreshold, votes * scale, (int)(settings.MinimumRadius * scale), (int)(settings.MaximumRadius * scale));
