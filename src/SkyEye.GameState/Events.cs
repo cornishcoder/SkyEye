@@ -26,6 +26,7 @@ namespace SkyEye.GameState;
 [JsonDerivedType(typeof(RulesShotRecordedEvent), "rules-shot")]
 [JsonDerivedType(typeof(SettledInventoryAcceptedEvent), "inventory-accepted")]
 [JsonDerivedType(typeof(SettledInventoryCorrectedEvent), "inventory-corrected")]
+[JsonDerivedType(typeof(SettledInventoryRejectedEvent), "inventory-rejected")]
 [JsonDerivedType(typeof(SettledBaselineEstablishedEvent), "settled-baseline")]
 public abstract record GameEvent;
 public sealed record SettledBaselineEstablishedEvent(int ContractVersion, SettledTableEvidence Evidence) : GameEvent;

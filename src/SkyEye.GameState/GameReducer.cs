@@ -87,7 +87,27 @@ public static class GameReducer
                 return s with { Table = ApplyInventory(s.Table, baseline.Evidence.Counts, e, baseline.Evidence) };
             case SettledInventoryCorrectedEvent correction:
                 if (correction.ContractVersion != 1) throw new ArgumentException("Unsupported settled inventory correction version.");
-                return s with { Table = ApplyInventory(s.Table, correction.Counts, e, null) };
+                if ((correction.Context is null) != (correction.Observed is null))
+                    throw new ArgumentException("A reviewed count correction must retain both its frozen context and detector evidence.");
+                if (correction.Context is not null && (correction.Observed is null
+                    || !correction.Context.Game.Matches(s)
+                    || s.Table.Source != correction.Context.Before.Source
+                    || s.Table.LastSettled?.EvidenceId != correction.Context.Before.EvidenceId
+                    || e.Source != correction.Observed.Source || e.SourceTimeUs != correction.Observed.SourceTimeUs
+                    || !SettledStateReconciler.Compare(correction.Context, correction.Observed).Ready))
+                    throw new ArgumentException("Settled inventory correction has stale context or invalid evidence.");
+                var correctedEvidence = correction.Observed is null ? null : correction.Observed with
+                { EvidenceId = e.InputId, Counts = correction.Counts };
+                return s with { Table = ApplyInventory(s.Table, correction.Counts, e, correctedEvidence) };
+            case SettledInventoryRejectedEvent rejection:
+                if (rejection.ContractVersion != 1 || rejection.Context is null || rejection.After is null
+                    || !rejection.Context.Game.Matches(s)
+                    || s.Table.Source != rejection.Context.Before.Source
+                    || s.Table.LastSettled?.EvidenceId != rejection.Context.Before.EvidenceId
+                    || e.Source != rejection.After.Source || e.SourceTimeUs != rejection.After.SourceTimeUs
+                    || !SettledStateReconciler.Compare(rejection.Context, rejection.After).Ready)
+                    throw new ArgumentException("Rejected inventory review has stale context or invalid evidence.");
+                return s;
             case PocketApproachedEvent p:
                 var ambiguous = s.Shot!.Approaches.TryGetValue(p.BallId, out var previous) && (previous.Ambiguous || previous.Pocket != p.Pocket);
                 return s with { Shot = s.Shot with { Approaches = s.Shot.Approaches.SetItem(p.BallId, new(p.BallId, p.Pocket, e.Confidence, e.InputId, ambiguous)) } };

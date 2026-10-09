@@ -16,7 +16,8 @@ public sealed partial class AppCoordinator
         if (gameUnavailable) return Receipt(envelope, CommandOutcome.Failed, state.GameError!);
         if (command.Input?.Input is EstablishSettledBaseline && envelope.Origin != CommandOrigin.System)
             return Receipt(envelope, CommandOutcome.Rejected, "Starting inventory is established by the verified observation path.");
-        bool declared = command.Input?.Input is StartMatch or StartFrame or FinishMatch or DeclareColours or UndoDecision or PlayerCorrection or AcceptSettledInventory;
+        bool declared = command.Input?.Input is StartMatch or StartFrame or FinishMatch or DeclareColours or UndoDecision
+            or PlayerCorrection or AcceptSettledInventory or CorrectSettledInventory or RejectSettledInventory;
         bool trustedRuling = command.Input?.Input is ApplyShotRuling && envelope.Origin == CommandOrigin.System;
         if (command.Input?.Input is ApplyShotRuling && !trustedRuling) return Receipt(envelope, CommandOutcome.Rejected, "Submit declared facts through the rules command.");
         bool local = command.Input?.Source is null && state.Camera.ConnectionId == Guid.Empty
@@ -42,9 +43,12 @@ public sealed partial class AppCoordinator
             && frame.Colours.TryGetValue(frame.CurrentPlayer.Value, out var assigned)
                 ? assigned.Value == BallColour.Red ? AdviceTargetGroup.Red : assigned.Value == BallColour.Yellow ? AdviceTargetGroup.Yellow : AdviceTargetGroup.Open
                 : AdviceTargetGroup.Open;
+        bool reviewedTablePublished = command.Input.Input is AcceptSettledInventory or CorrectSettledInventory;
         var updated = ClearShotCatalog(state) with { Version = checked(state.Version + 1), Game = game.State, Match = MatchView.From(game), Advice = new(group),
-            GameTableCurrent = command.Input.Input is not (StartMatch or StartFrame or SelectSource or FinishMatch or UndoDecision or ApplyShotRuling)
-                && state.GameTableCurrent && !game.State.Table.Uncertain && game.State.Table.Motion == TableMotion.Settled };
+            GameTableCurrent = reviewedTablePublished
+                ? !game.State.Table.Uncertain && game.State.Table.Motion == TableMotion.Settled
+                : command.Input.Input is not (StartMatch or StartFrame or SelectSource or FinishMatch or UndoDecision or ApplyShotRuling)
+                    && state.GameTableCurrent && !game.State.Table.Uncertain && game.State.Table.Motion == TableMotion.Settled };
         Volatile.Write(ref state, updated); Notify(state);
         return Receipt(envelope, CommandOutcome.Applied, proposal.Message);
     }

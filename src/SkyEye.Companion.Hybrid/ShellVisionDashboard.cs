@@ -4,6 +4,8 @@ using System.Text.Json;
 using SkyEye.Companion.Hybrid.Probes;
 using SkyEye.Core;
 using SkyEye.Core.Analysis;
+using SkyEye.Core.Application;
+using SkyEye.GameState;
 using Point = SkyEye.Core.Point;
 
 namespace SkyEye.Companion.Hybrid;
@@ -25,13 +27,16 @@ sealed record VisionDashboardSample(int Sequence, DateTimeOffset CapturedAt, dou
     public int BallCount => ClassifiedBallCount;
     public CueBallRecoveryTelemetry? CueBallRecovery { get; init; }
 }
+sealed record VisionDashboardOutcomeReviewRequest(Guid CandidateId, string Action,
+    int? Reds = null, int? Yellows = null, int? CueBalls = null, int? BlackBalls = null);
+sealed record VisionDashboardOutcomeReviewResponse(bool Accepted, string Message);
 
-/// <summary>Opt-in, read-only laptop view over the latest sequential vision diagnostic.</summary>
+/// <summary>Opt-in laptop view for sequential vision evidence and explicit settled-count review.</summary>
 public sealed partial class ShellSession
 {
     const string VisionDashboardAsset = "vision-diagnostics-dashboard.html";
     const string VisionScenarioAsset = "vision-scenario-lab.html";
-    const int VisionDashboardAssetVersion = 14;
+    const int VisionDashboardAssetVersion = 15;
     const int VisionScenarioAssetVersion = 5;
     const int VisionDashboardPort = 8770;
     readonly DashboardScenarioWorkspace dashboardScenario;
@@ -207,6 +212,18 @@ public sealed partial class ShellSession
             catch (JsonException) { return HttpResponse.Json(new { error = "The scenario review is not valid JSON." }, 400); }
             catch (ArgumentException e) { return HttpResponse.Json(new { error = e.Message }, 400); }
             var result = dashboardScenario.Resolve(command);
+            return HttpResponse.Json(result, result.Accepted ? 200 : 409);
+        }
+        if (request.Path == "/api/live-match/review" && request.Method == "POST")
+        {
+            if (request.Body.Length > 4096) return HttpResponse.Json(new VisionDashboardOutcomeReviewResponse(false, "Review request is too large."), 413);
+            if (!request.Headers.GetValueOrDefault("Content-Type", "").StartsWith("application/json", StringComparison.OrdinalIgnoreCase))
+                return HttpResponse.Json(new VisionDashboardOutcomeReviewResponse(false, "Send the review as JSON."), 415);
+            VisionDashboardOutcomeReviewRequest command;
+            try { command = request.Json<VisionDashboardOutcomeReviewRequest>(); }
+            catch (JsonException) { return HttpResponse.Json(new VisionDashboardOutcomeReviewResponse(false, "The review request is not valid JSON."), 400); }
+            catch (ArgumentException e) { return HttpResponse.Json(new VisionDashboardOutcomeReviewResponse(false, e.Message), 400); }
+            var result = await ReviewLiveOutcomeAsync(command, cancellation);
             return HttpResponse.Json(result, result.Accepted ? 200 : 409);
         }
         if (request.Path == "/api/scenario/rules" && request.Method == "POST")
@@ -399,6 +416,124 @@ public sealed partial class ShellSession
         }
         return HttpResponse.Json(new { error = "Not found" }, 404);
     }
+
+    async Task<VisionDashboardOutcomeReviewResponse> ReviewLiveOutcomeAsync(
+        VisionDashboardOutcomeReviewRequest request, CancellationToken cancellation)
+    {
+        return await MainThread.InvokeOnMainThreadAsync(async () =>
+        {
+            cancellation.ThrowIfCancellationRequested();
+            ActivityWindowContext? context;
+            SettledTableEvidence? after;
+            lock (motionActivityGate)
+            {
+                if (motionActivityCandidate is not { } candidate || candidate.ActivityWindowId != request.CandidateId
+                    || motionActivityCandidateContext is null || motionActivityCandidateAfter is null)
+                    return new VisionDashboardOutcomeReviewResponse(false, "This table-change proposal is no longer available. Wait for a fresh settled result.");
+                context = motionActivityCandidateContext;
+                after = motionActivityCandidateAfter;
+            }
+
+            var currentSample = table.VisionDiagnostics is { Active: true, LiveFrame: { } liveFrame }
+                ? liveFrame.Sample : null;
+            var sampleAgeMs = currentSample is null ? double.PositiveInfinity
+                : (DateTimeOffset.UtcNow - currentSample.CapturedAt).TotalMilliseconds;
+            var currentCounts = currentSample is { Detection.Uncertain: false, Detection.Obstructed: false }
+                ? CountRecognizedBalls(currentSample.Detection.Balls) : null;
+            bool latestMatchesProposal = currentSample is not null && after.SourceTimeUs is { } afterSourceTime
+                && currentSample.Source == after.Source && currentSample.SourceTimeUs >= afterSourceTime
+                && double.IsFinite(sampleAgeMs) && sampleAgeMs is >= -200 and <= 2500
+                && currentCounts == after.Counts;
+            if (!latestMatchesProposal)
+            {
+                ExpireLiveOutcomeCandidate(request.CandidateId);
+                return new VisionDashboardOutcomeReviewResponse(false, "The live view no longer matches this proposal. It was cleared; wait for a fresh settled result.");
+            }
+
+            var canonical = app.CaptureGameSession();
+            if (!context.Game.IsCompatibleWith(canonical.State)
+                || canonical.State.Table.Source != context.Before.Source
+                || canonical.State.Table.LastSettled?.EvidenceId != context.Before.EvidenceId
+                || !SettledStateReconciler.Compare(context, after).Ready)
+            {
+                ExpireLiveOutcomeCandidate(request.CandidateId);
+                return new VisionDashboardOutcomeReviewResponse(false, "The match or before-table changed. The old proposal was cleared; wait for a fresh result.");
+            }
+
+            GameInput input;
+            string confirmation;
+            switch (request.Action?.Trim().ToLowerInvariant())
+            {
+                case "accept":
+                    input = new AcceptSettledInventory(1, context, after);
+                    confirmation = "Observed table counts accepted. No pocket, foul or turn was inferred.";
+                    break;
+                case "correct":
+                    if (!ValidLiveInventoryCounts(request.Reds, request.Yellows, request.CueBalls, request.BlackBalls))
+                        return new VisionDashboardOutcomeReviewResponse(false, "Enter valid counts: 0–7 reds and yellows, and 0 or 1 cue ball and black.");
+                    input = new CorrectSettledInventory(1, context, after,
+                        new(request.Reds, request.Yellows, request.CueBalls, request.BlackBalls));
+                    confirmation = "Corrected counts saved with the original detector evidence.";
+                    break;
+                case "reject":
+                    input = new RejectSettledInventory(1, context, after);
+                    confirmation = "Proposal rejected. The canonical inventory and match score are unchanged.";
+                    break;
+                default:
+                    return new VisionDashboardOutcomeReviewResponse(false, "Choose accept, correct or reject.");
+            }
+
+            cancellation.ThrowIfCancellationRequested();
+            var current = app.State;
+            var id = Guid.NewGuid();
+            var at = DateTimeOffset.UtcNow < after.CapturedAt ? after.CapturedAt : DateTimeOffset.UtcNow;
+            var envelope = new GameInputEnvelope(id, context.Game.MatchId, context.Game.FrameId, at,
+                input, after.Source, after.SourceTimeUs, Provenance.PlayerConfirmed);
+            var receipt = await app.DispatchAsync(new(id, CommandOrigin.Touch, current.Version,
+                new SubmitGameInput(envelope, canonical.State.Version)), cancellation);
+            if (!receipt.Succeeded)
+                return new VisionDashboardOutcomeReviewResponse(false, receipt.Message);
+
+            lock (motionActivityGate)
+            {
+                if (motionActivityCandidate?.ActivityWindowId == request.CandidateId)
+                {
+                    motionActivityCandidate = null;
+                    motionActivityCandidateContext = null;
+                    motionActivityCandidateAfter = null;
+                    motionActivityLifecycle = null;
+                    motionActivityVerificationPending = false;
+                    motionActivityVerificationAttempted = false;
+                    motionActivityLastSourceTimeUs = null;
+                    motionActivityStatus = input is AcceptSettledInventory or CorrectSettledInventory
+                        ? "Reviewed table counts are current; watching for the next settled change."
+                        : "Proposal rejected; the current match inventory stays in place.";
+                    ResetSettledDifferenceCandidate();
+                }
+            }
+            Changed?.Invoke();
+            return new VisionDashboardOutcomeReviewResponse(true, confirmation);
+        }).ConfigureAwait(false);
+    }
+
+    void ExpireLiveOutcomeCandidate(Guid candidateId)
+    {
+        lock (motionActivityGate)
+        {
+            if (motionActivityCandidate?.ActivityWindowId != candidateId) return;
+            motionActivityCandidate = null;
+            motionActivityCandidateContext = null;
+            motionActivityCandidateAfter = null;
+            motionActivityLifecycle = null;
+            motionActivityVerificationPending = false;
+            motionActivityStatus = "The proposal expired because its match or baseline changed. Waiting for fresh evidence.";
+            ResetSettledDifferenceCandidate();
+        }
+        Changed?.Invoke();
+    }
+
+    static bool ValidLiveInventoryCounts(int? reds, int? yellows, int? cueBalls, int? blackBalls)
+        => reds is >= 0 and <= 7 && yellows is >= 0 and <= 7 && cueBalls is 0 or 1 && blackBalls is 0 or 1;
 
     public async Task StopVisionDashboardAsync()
     {

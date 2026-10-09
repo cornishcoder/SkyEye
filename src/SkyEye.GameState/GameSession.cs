@@ -27,7 +27,10 @@ public sealed class GameSession
             || history.Any(e => e.Event is SettledInventoryAcceptedEvent inventory && !ValidAcceptedInventory(e, inventory)
                 || e.Event is SettledBaselineEstablishedEvent baseline && !ValidBaseline(e, baseline)
                 || e.Event is SettledInventoryCorrectedEvent correction && (e.Provenance != Provenance.PlayerCorrected
-                    || correction.ContractVersion != 1 || correction.Counts is null || !correction.Counts.IsValid))
+                    || correction.ContractVersion != 1 || correction.Counts is null || !correction.Counts.IsValid
+                    || (correction.Context is null) != (correction.Observed is null)
+                    || correction.Context is not null && !ValidCorrectedInventory(e, correction))
+                || e.Event is SettledInventoryRejectedEvent rejected && !ValidRejectedInventory(e, rejected))
             || history.GroupBy(e => e.InputId).Any(g => g.Select(e => e.InputFingerprint).Distinct().Count() != 1)
             || history.Select(e => e.EventId).Distinct().Count() != history.Length) throw new ArgumentException("Invalid event identities.");
         foreach (var correction in history.Where(e => e.Event is StateCorrectedEvent { CorrectedPot: not null }))
@@ -190,6 +193,40 @@ public sealed class GameSession
             if (State.Shot is { Resolved: false }) inventoryEvents.Add(new ShotResolvedEvent());
             return Commit(input, fingerprint, inventoryEvents);
         }
+        if (input.Input is CorrectSettledInventory correctionInput)
+        {
+            if (input.Provenance != Provenance.PlayerConfirmed)
+                return Refuse(InputOutcome.Rejected, "Settled counts can only be corrected by an explicit player review.");
+            if (!ValidCounts(correctionInput.CorrectedCounts)
+                || !ValidReviewEnvelope(input, correctionInput.ContractVersion, correctionInput.Context, correctionInput.Observed))
+                return Refuse(InputOutcome.Rejected, "Corrected counts or settled evidence are invalid.");
+            if (!CurrentReviewContext(correctionInput.Context))
+                return Refuse(InputOutcome.Stale, "The player, frame, rules, source or before-table changed; review this proposal again.");
+            if (last?.SourceTimeUs is { } lastPts && correctionInput.Observed.SourceTimeUs <= lastPts)
+                return Refuse(InputOutcome.Stale, "This settled table sample is not newer than the accepted source watermark.");
+            if (!SettledStateReconciler.Compare(correctionInput.Context, correctionInput.Observed).Ready)
+                return Refuse(InputOutcome.Rejected, "The original observation no longer supports a settled count review.");
+            var correctionEvents = new List<GameEvent>();
+            if (State.Shot is { Ended: false } activeShot) correctionEvents.Add(new ShotEndedEvent(activeShot.Id));
+            correctionEvents.Add(new SettledInventoryCorrectedEvent(1, correctionInput.CorrectedCounts,
+                correctionInput.Context, correctionInput.Observed));
+            if (State.Shot is { Resolved: false }) correctionEvents.Add(new ShotResolvedEvent());
+            return Commit(input with { Provenance = Provenance.PlayerCorrected }, fingerprint, correctionEvents);
+        }
+        if (input.Input is RejectSettledInventory rejectionInput)
+        {
+            if (input.Provenance != Provenance.PlayerConfirmed)
+                return Refuse(InputOutcome.Rejected, "Settled table proposals can only be rejected by an explicit player review.");
+            if (!ValidReviewEnvelope(input, rejectionInput.ContractVersion, rejectionInput.Context, rejectionInput.After))
+                return Refuse(InputOutcome.Rejected, "Settled evidence does not match the review request.");
+            if (!CurrentReviewContext(rejectionInput.Context))
+                return Refuse(InputOutcome.Stale, "The match or before-table changed; this proposal is no longer current.");
+            if (last?.SourceTimeUs is { } lastPts && rejectionInput.After.SourceTimeUs <= lastPts)
+                return Refuse(InputOutcome.Stale, "This settled table sample is not newer than the accepted source watermark.");
+            if (!SettledStateReconciler.Compare(rejectionInput.Context, rejectionInput.After).Ready)
+                return Refuse(InputOutcome.Rejected, "The proposed after-table is not a comparable clear, settled observation.");
+            return Commit(input, fingerprint, [new SettledInventoryRejectedEvent(1, rejectionInput.Context, rejectionInput.After)]);
+        }
         if (input.Input is TableObservation && History.LastOrDefault(e => e.FrameId == input.FrameId && e.Source == input.Source
                 && e.Event is TableObservedEvent) is { } lastTable && (input.At <= lastTable.At
                     || input.SourceTimeUs is { } tablePts && lastTable.SourceTimeUs is { } oldTablePts && tablePts <= oldTablePts))
@@ -219,7 +256,8 @@ public sealed class GameSession
     bool PlayerExists(string id) => State.Match!.Players.Any(p => p.Id == id);
     public static bool CanUndo(EventEnvelope e) => e.Provenance >= Provenance.PlayerConfirmed
         && e.Event is ColourAssignedEvent or ColoursDeclaredEvent or TurnChangedEvent or FoulRecordedEvent or FrameWonEvent
-            or StateCorrectedEvent or RulesShotRecordedEvent or SettledInventoryAcceptedEvent or SettledInventoryCorrectedEvent;
+            or StateCorrectedEvent or RulesShotRecordedEvent or SettledInventoryAcceptedEvent or SettledInventoryCorrectedEvent
+            or SettledInventoryRejectedEvent;
     bool CanStartShot(string id) => State.Table.Motion == TableMotion.Settled && !State.Table.Uncertain
         && (State.Shot is null || State.Shot.Ended) && !History.Any(e => e.FrameId == State.Frame!.Id && e.Event is ShotStartedEvent s && s.ShotId == id);
     static bool ValidObservation(TableObservation o) => !o.Balls.IsDefault && o.Balls.Length <= 64
@@ -234,6 +272,34 @@ public sealed class GameSession
             || envelope.At < inventory.After.CapturedAt) return false;
         return SettledStateReconciler.Compare(inventory.Context, inventory.After).Ready;
     }
+    static bool ValidCorrectedInventory(EventEnvelope envelope, SettledInventoryCorrectedEvent correction)
+    {
+        if (correction.ContractVersion != 1 || correction.Context is null || correction.Observed is null
+            || !ValidCounts(correction.Counts) || envelope.Provenance != Provenance.PlayerCorrected
+            || envelope.Source != correction.Observed.Source || envelope.SourceTimeUs != correction.Observed.SourceTimeUs
+            || envelope.MatchId != correction.Context.Game.MatchId || envelope.FrameId != correction.Context.Game.FrameId
+            || envelope.At < correction.Observed.CapturedAt) return false;
+        return SettledStateReconciler.Compare(correction.Context, correction.Observed).Ready;
+    }
+    static bool ValidRejectedInventory(EventEnvelope envelope, SettledInventoryRejectedEvent rejection)
+    {
+        if (rejection.ContractVersion != 1 || rejection.Context is null || rejection.After is null
+            || envelope.Provenance != Provenance.PlayerConfirmed || envelope.Source != rejection.After.Source
+            || envelope.SourceTimeUs != rejection.After.SourceTimeUs
+            || envelope.MatchId != rejection.Context.Game.MatchId || envelope.FrameId != rejection.Context.Game.FrameId
+            || envelope.At < rejection.After.CapturedAt) return false;
+        return SettledStateReconciler.Compare(rejection.Context, rejection.After).Ready;
+    }
+    static bool ValidReviewEnvelope(GameInputEnvelope input, int contractVersion, ActivityWindowContext context,
+        SettledTableEvidence after) => contractVersion == 1 && context is not null && after is not null
+        && input.Source == after.Source && input.SourceTimeUs == after.SourceTimeUs
+        && input.At >= after.CapturedAt && input.MatchId == context.Game.MatchId && input.FrameId == context.Game.FrameId;
+    bool CurrentReviewContext(ActivityWindowContext context) => context.Game.Matches(State)
+        && State.Table.Source == context.Before.Source
+        && State.Table.LastSettled?.EvidenceId == context.Before.EvidenceId;
+    static bool ValidCounts(SettledTableCounts counts) => counts.IsValid
+        && counts.Reds is >= 0 and <= 7 && counts.Yellows is >= 0 and <= 7
+        && counts.CueBalls is 0 or 1 && counts.BlackBalls is 0 or 1;
     static bool ValidBaseline(EventEnvelope envelope, SettledBaselineEstablishedEvent baseline)
         => ValidBaseline(envelope.Provenance, envelope.Source, envelope.SourceTimeUs, envelope.At, baseline);
     static bool ValidBaseline(Provenance provenance, EvidenceSource? source, long? sourceTimeUs,

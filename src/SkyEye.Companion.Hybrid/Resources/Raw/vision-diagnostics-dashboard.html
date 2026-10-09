@@ -21,6 +21,7 @@
     .history{grid-template-rows:auto auto minmax(0,1fr)}
     .history>.hint{margin:6px 12px;color:var(--muted);font-size:12px}
     .match-summary{border-top:1px solid var(--line);margin-top:13px;padding-top:12px}.match-title{display:flex;align-items:center;gap:8px}.match-title h3,.match-summary h4{margin:0;font-size:12px;letter-spacing:.04em}.match-target{margin-left:auto;color:var(--muted);font-size:11px}.match-score{font-size:20px;font-weight:700;margin:6px 0 1px;font-variant-numeric:tabular-nums}.match-status{color:var(--mint);margin-bottom:9px}.match-players{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.match-player{border:1px solid var(--line);border-radius:7px;padding:7px;min-width:0}.match-player strong,.match-player span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.match-player span{font-size:11px;color:var(--muted)}.match-summary h4{margin:12px 0 6px;color:var(--muted);text-transform:uppercase}.frame-ledger,.canonical-balls{display:grid;gap:5px}.frame-row,.canonical-ball{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:7px;align-items:center;border-bottom:1px solid #202e35;padding:5px 0;font-size:12px}.frame-row small,.canonical-ball small{color:var(--muted)}.canonical-ball{grid-template-columns:minmax(50px,.7fr) minmax(48px,.65fr) minmax(70px,1fr) minmax(78px,1fr);font-size:11px}.canonical-ball span{overflow-wrap:anywhere}.match-empty{color:var(--muted);font-size:12px}
+    .outcome-review{border:1px solid #80622f;background:#211c13;border-radius:8px;padding:10px;margin-top:10px}.outcome-review[hidden]{display:none}.outcome-review h4{margin:0 0 5px;color:#ffd08c}.outcome-counts{font-size:12px;line-height:1.6;margin:5px 0 9px}.review-actions{display:flex;flex-wrap:wrap;gap:6px}.review-actions button{border:1px solid var(--line);border-radius:6px;background:#17252b;color:#e8f0f1;padding:7px 9px;cursor:pointer}.review-actions button.primary{background:#295347;border-color:#447d6b}.review-actions button.reject{background:#342020;border-color:#654040}.review-counts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:8px 0}.review-counts label{font-size:10px;color:var(--muted)}.review-counts input{display:block;width:100%;margin-top:3px;background:#0b1115;border:1px solid var(--line);border-radius:5px;color:#e8f0f1;padding:6px}.review-result{font-size:12px;margin:6px 0 0;color:var(--mint)}
     @media(max-width:900px){.image-panel{height:62vh;min-height:360px}aside{grid-template-columns:1fr;grid-template-rows:auto auto}aside>.scroll{height:300px}}
   </style>
 </head>
@@ -59,8 +60,22 @@
         <section class="match-summary" aria-label="Canonical match and table state">
           <div class="match-title"><h3>Canonical match</h3><span id="match-target" class="match-target">Waiting for state</span></div>
           <div id="match-score" class="match-score">No active match</div>
-          <div id="match-status" class="match-status">Match state is read-only</div>
+          <div id="match-status" class="match-status">Awaiting match state</div>
           <div id="match-players" class="match-players"></div>
+          <section id="outcome-review" class="outcome-review" hidden aria-live="polite">
+            <h4>Settled table change</h4>
+            <div id="outcome-summary" class="muted"></div>
+            <div id="outcome-counts" class="outcome-counts"></div>
+            <div class="review-actions"><button id="accept-outcome" class="primary">Accept observed counts</button><button id="reject-outcome" class="reject">Reject proposal</button></div>
+            <div class="review-counts">
+              <label>Red<input id="correct-reds" type="number" min="0" max="7" step="1"></label>
+              <label>Yellow<input id="correct-yellows" type="number" min="0" max="7" step="1"></label>
+              <label>Cue ball<input id="correct-cue" type="number" min="0" max="1" step="1"></label>
+              <label>Black<input id="correct-black" type="number" min="0" max="1" step="1"></label>
+            </div>
+            <div class="review-actions"><button id="correct-outcome">Correct counts and save</button></div>
+          </section>
+          <p id="outcome-result" class="review-result" aria-live="polite"></p>
           <dl id="game" class="kv" style="margin-top:9px"></dl>
           <h4>Frame ledger</h4><div id="frame-ledger" class="frame-ledger"><span class="match-empty">No frames</span></div>
           <h4>Previous matches</h4><div id="archived-matches" class="frame-ledger"><span class="match-empty">No archived matches</span></div>
@@ -80,7 +95,7 @@
 (() => {
   const $ = id => document.getElementById(id);
   const canvas = $('table'), ctx = canvas.getContext('2d');
-  let state = null, currentImage = null, displayedDetection = null, drawnFrameKey = null, requestBusy = false;
+  let state = null, currentImage = null, displayedDetection = null, drawnFrameKey = null, requestBusy = false, activeReviewId = null, reviewBusy = false;
   const frameKey = snapshot => snapshot?.frame?`${snapshot.sessionId}:${snapshot.frame.mediaGeneration}:${snapshot.frame.frameId}:${snapshot.frame.sequence}`:null;
   function clearImage(){if(currentImage?.src?.startsWith('blob:'))URL.revokeObjectURL(currentImage.src);currentImage=null;displayedDetection=null;drawnFrameKey=null;$('empty').hidden=false;}
   const color = kind => ({cue:'#f5f7f4',red:'#ff665f',yellow:'#ffd447',black:'#182126',unknown:'#ffc66c'})[String(kind||'unknown').toLowerCase()] || '#ffc66c';
@@ -158,7 +173,7 @@
     const motion=value=>enumText(value,['Unknown','Moving','Settled']);
     const matchPlayers=match.players||[],playerName=id=>matchPlayers.find(p=>p.id===id)?.name||id||'—';
     $('match-score').textContent=match.id?(match.score||matchPlayers.map(p=>`${p.name} ${p.score}`).join(' · ')):'No active match';
-    $('match-target').textContent=match.id?`First to ${match.target} frames`:'Live state · read-only';
+    $('match-target').textContent=match.id?`First to ${match.target} frames`:'Live match';
     $('match-status').textContent=match.id?(match.status||'Match in progress'):'No active match';
     $('match-players').innerHTML=matchPlayers.length?matchPlayers.map(p=>`<div class="match-player"><strong>${esc(p.name)} · ${p.score}</strong><span>${esc(p.group||'open table')}${match.currentPlayer===p.id?' · current player':''}</span></div>`).join(''):'<span class="match-empty">Start a match to see players and scores.</span>';
     const frames=match.frames||[];
@@ -189,6 +204,39 @@
     $('raw-game').textContent=pretty({game:g,match,gameTableCurrent:s?.gameTableCurrent,gameError:s?.gameError,observation:s?.observation,trackedTable:tracked});
     $('m-game').textContent=s?.gameTableCurrent?'Current':t.uncertain?'Uncertain':'Unknown';
   }
+  function renderOutcomeReview(activity){
+    const candidate=activity?.candidate,box=$('outcome-review');box.hidden=!candidate;if(!candidate)return;
+    if(activeReviewId!==candidate.activityWindowId){
+      activeReviewId=candidate.activityWindowId;
+      $('correct-reds').value=candidate.after?.reds??0;$('correct-yellows').value=candidate.after?.yellows??0;
+      $('correct-cue').value=candidate.after?.cueBalls??0;$('correct-black').value=candidate.after?.blackBalls??0;
+      $('outcome-result').textContent='';
+    }
+    $('outcome-summary').textContent=candidate.recommendation?.summary||candidate.summary||'Review the settled count change.';
+    const presence=v=>v===1?'present':v===0?'absent':'—';
+    const label=c=>`${c?.reds??'—'} red · ${c?.yellows??'—'} yellow · cue ${presence(c?.cueBalls)} · black ${presence(c?.blackBalls)}`;
+    $('outcome-counts').innerHTML=`<strong>A before:</strong> ${esc(label(candidate.before))}<br><strong>B observed:</strong> ${esc(label(candidate.after))}`;
+  }
+  async function submitOutcome(action){
+    if(reviewBusy||!activeReviewId)return;
+    reviewBusy=true;const buttons=['accept-outcome','reject-outcome','correct-outcome'];buttons.forEach(id=>$(id).disabled=true);
+    $('outcome-result').textContent='Saving review…';
+    const request={candidateId:activeReviewId,action};
+    if(action==='correct'){
+      request.reds=Number($('correct-reds').value);request.yellows=Number($('correct-yellows').value);
+      request.cueBalls=Number($('correct-cue').value);request.blackBalls=Number($('correct-black').value);
+    }
+    try{
+      const response=await fetch('/api/live-match/review',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(request)});
+      const result=await response.json();$('outcome-result').textContent=result.message|| (response.ok?'Review saved.':'Review could not be saved.');
+      $('outcome-result').className=`review-result ${response.ok?'good':'warn'}`;
+      if(response.ok){activeReviewId=null;setTimeout(refresh,50);}
+    }catch(e){$('outcome-result').textContent=e.message||'Could not reach the match review service.';$('outcome-result').className='review-result warn';}
+    finally{reviewBusy=false;buttons.forEach(id=>$(id).disabled=false);}
+  }
+  $('accept-outcome').addEventListener('click',()=>submitOutcome('accept'));
+  $('reject-outcome').addEventListener('click',()=>submitOutcome('reject'));
+  $('correct-outcome').addEventListener('click',()=>submitOutcome('correct'));
   function renderSamples(samples){
     $('samples').innerHTML=(samples||[]).slice().reverse().map(s=>`<tr><td>${s.sequence}</td><td>${new Date(s.capturedAt).toLocaleTimeString()}</td><td>${s.frameId}</td><td class="${s.uncertain?'warn':'good'}">${s.classifiedBallCount} / ${s.circleCandidateCount}${s.unclassifiedCandidateCount?` · ${s.unclassifiedCandidateCount} unclassified`:''}${s.uncertain?' · check':''}</td><td>${cueStages(s.cueBallRecovery)}</td><td>${esc(s.cueBallRecovery?.reason?.replaceAll('-',' ')||'—')}</td><td>${fmt(s.elapsedMs,1)} ms</td><td>${fmt(s.referenceBrightness,1)}</td><td>${s.minimumGain==null?'—':fmt(s.minimumGain)}–${fmt(s.maximumGain)}</td><td>${s.uncertain?'Uncertain':'Clear'}</td><td>${esc((s.warnings||[]).join(' · '))}</td></tr>`).join('');
   }
@@ -206,7 +254,7 @@
       $('m-balls').textContent=det?`${det.balls.length} / ${det.circleCount}${det.unclassifiedCount?` · ${det.unclassifiedCount} unknown`:''}${det.uncertain?' · check':''}`:'—';$('m-time').textContent=det?`${fmt(det.elapsedMs,1)} ms`:'—';
       $('frame-info').textContent=fr?`${fr.width}×${fr.height} · ${fr.frameSource} · source ${fr.sourceTimeUs} µs · ${new Date(fr.capturedAt).toLocaleTimeString()}`:'Waiting for fresh pixels';
       $('empty').hidden=!!currentImage;
-      renderBalls(det);renderVision(det);renderMotion(next.motion,next.activityLifecycle);renderGame(next);renderSamples(next.samples);
+      renderBalls(det);renderVision(det);renderMotion(next.motion,next.activityLifecycle);renderGame(next);renderOutcomeReview(next.activityLifecycle);renderSamples(next.samples);
       const requestedFrameKey=frameKey(next);
       if(fr&&requestedFrameKey!==drawnFrameKey){
         const imageResponse=await fetch(`/api/frame?sequence=${fr.sequence}&sessionId=${encodeURIComponent(next.sessionId)}`,{cache:'no-store'});

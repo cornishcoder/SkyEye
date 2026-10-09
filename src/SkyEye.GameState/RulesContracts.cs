@@ -22,7 +22,10 @@ public sealed record ApplyShotRuling(RuleRuling Ruling) : GameInput;
 public sealed record RulesShotRecordedEvent(RuleRuling Ruling) : GameEvent;
 public sealed record SettledInventoryAcceptedEvent(int ContractVersion, ActivityWindowContext Context,
     SettledTableEvidence After) : GameEvent;
-public sealed record SettledInventoryCorrectedEvent(int ContractVersion, SettledTableCounts Counts) : GameEvent;
+public sealed record SettledInventoryCorrectedEvent(int ContractVersion, SettledTableCounts Counts,
+    ActivityWindowContext? Context = null, SettledTableEvidence? Observed = null) : GameEvent;
+public sealed record SettledInventoryRejectedEvent(int ContractVersion, ActivityWindowContext Context,
+    SettledTableEvidence After) : GameEvent;
 
 public static class GameRevisions
 {

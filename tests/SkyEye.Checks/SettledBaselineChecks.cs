@@ -72,10 +72,48 @@ static class SettledBaselineChecks
             Check((await Observe()).Succeeded && app.State.Game.Version == before.Version && app.State.Game.Table.LastSettled == before.Table.LastSettled
                 && app.State.Game.Table.Remaining(G.BallColour.Yellow) == 1 && !app.State.GameTableCurrent,
                 "A later count change holds A for outcome review instead of silently changing canonical inventory");
+            if (!G.SettledTableEvidence.TryCapture(before, out var liveBefore)
+                || !G.ActivityWindowContext.TryBegin(Guid.NewGuid(), before, liveBefore.SourceTimeUs!.Value + 1, out var liveContext))
+                throw new Exception("The live app retains a current A and frozen review context.");
+            var liveAfter = new G.SettledTableEvidence(Guid.NewGuid(), liveBefore.Source,
+                liveBefore.SourceTimeUs!.Value + 20_000_000, DateTimeOffset.UtcNow,
+                new(0, 0, 1, 0), Settled: true, Clear: true)
+            { BoundedStillnessVerified = true, StableClearSampleCount = 3 };
+            var acceptId = Guid.NewGuid();
+            var acceptEnvelope = new G.GameInputEnvelope(acceptId, before.Match!.Id, before.Frame!.Id,
+                liveAfter.CapturedAt.AddMilliseconds(1), new G.AcceptSettledInventory(1, liveContext, liveAfter),
+                liveAfter.Source, liveAfter.SourceTimeUs, G.Provenance.PlayerConfirmed);
+            var acceptReceipt = await app.DispatchAsync(new(acceptId, CommandOrigin.Touch, app.State.Version,
+                new SubmitGameInput(acceptEnvelope, before.Version)));
+            Check(acceptReceipt.Succeeded && app.State.GameTableCurrent
+                && app.State.Game.Table.Remaining(G.BallColour.Yellow) == 0
+                && store.Load().History.Any(item => item.Event is G.SettledInventoryAcceptedEvent),
+                "AppCoordinator persists reviewed A/B before publishing the accepted current inventory.");
+            var acceptedGame = app.CaptureGameSession();
+            if (!G.ActivityWindowContext.TryBegin(Guid.NewGuid(), acceptedGame.State,
+                    liveAfter.SourceTimeUs!.Value + 1, out var correctionContext))
+                throw new Exception("A reviewed layout becomes the correction path's new trusted A.");
+            var misreadAfter = new G.SettledTableEvidence(Guid.NewGuid(), liveAfter.Source,
+                liveAfter.SourceTimeUs.Value + 20_000_000, DateTimeOffset.UtcNow,
+                new(0, 1, 1, 0), Settled: true, Clear: true)
+            { BoundedStillnessVerified = true, StableClearSampleCount = 3 };
+            var correctionId = Guid.NewGuid();
+            var correctionEnvelope = new G.GameInputEnvelope(correctionId, acceptedGame.State.Match!.Id,
+                acceptedGame.State.Frame!.Id, misreadAfter.CapturedAt.AddMilliseconds(1),
+                new G.CorrectSettledInventory(1, correctionContext, misreadAfter, new(0, 0, 1, 0)),
+                misreadAfter.Source, misreadAfter.SourceTimeUs, G.Provenance.PlayerConfirmed);
+            var correctionReceipt = await app.DispatchAsync(new(correctionId, CommandOrigin.Touch, app.State.Version,
+                new SubmitGameInput(correctionEnvelope, acceptedGame.State.Version)));
+            Check(correctionReceipt.Succeeded && app.State.GameTableCurrent
+                && app.State.Game.Table.Remaining(G.BallColour.Yellow) == 0
+                && app.State.Game.Table.LastSettled?.EvidenceId == correctionId
+                && store.Load().History.Any(item => item.InputId == correctionId
+                    && item.Event is G.SettledInventoryCorrectedEvent { Context: not null, Observed: not null }),
+                "AppCoordinator saves a corrected count with the observed B evidence and marks the verified table current.");
             var invalid = history.SetItem(history.IndexOf(established), established with
             { Event = establishedEvent with { Evidence = establishedEvent.Evidence with { BoundedStillnessVerified = false } } });
             Throws(() => G.GameSession.Restore(invalid));
-            Console.WriteLine("PASS settled baseline: source-reset counts, no invented identities/outcomes, durable replay/duplicates, trusted-A hold and proof/origin fences");
+            Console.WriteLine("PASS settled baseline/review: source-reset counts, trusted-A hold, durable accept/correct with evidence, current-state publication and proof/origin fences");
         }
         finally
         {

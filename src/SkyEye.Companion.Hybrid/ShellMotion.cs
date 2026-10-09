@@ -40,6 +40,8 @@ public sealed partial class ShellSession
     SettledTableCounts? motionActivityPendingCounts;
     int motionActivityPendingStableSamples;
     long? motionActivityPendingFirstChangedSourceTimeUs;
+    ActivityWindowContext? motionActivityCandidateContext;
+    SettledTableEvidence? motionActivityCandidateAfter;
 
     public MotionActivityDisplay MotionActivityMetrics
     {
@@ -203,6 +205,8 @@ public sealed partial class ShellSession
             motionActivityVerificationPending = false;
             motionActivityVerificationAttempted = false;
             motionActivityCandidate = null;
+            motionActivityCandidateContext = null;
+            motionActivityCandidateAfter = null;
             motionActivityStatus = "Waiting for a trusted settled match baseline before monitoring count changes.";
             ResetSettledDifferenceCandidate();
 
@@ -282,7 +286,8 @@ public sealed partial class ShellSession
                 return null;
             }
 
-            var game = app.CaptureGameSession().State;
+            var canonical = app.CaptureGameSession();
+            var game = canonical.State;
             if (!SettledTableEvidence.TryCapture(game, out var before)
                 || !FrozenGameContext.TryCapture(game, out _))
             {
@@ -301,6 +306,26 @@ public sealed partial class ShellSession
                 ResetSettledDifferenceCandidate();
                 if (motionActivityLifecycle is null or { Phase: ActivitySettlementPhase.Settled })
                     motionActivityStatus = "Watching the trusted settled layout for a repeated count change.";
+                return null;
+            }
+
+            var suppressed = GameRevisions.Suppressed(canonical.History);
+            if (canonical.History.Any(entry => !suppressed.Contains(entry.InputId)
+                && entry.Event is SettledInventoryRejectedEvent rejected
+                && rejected.Context.Before.EvidenceId == before.EvidenceId
+                && rejected.After.Source == sample.Source && rejected.After.Counts == counts))
+            {
+                ResetSettledDifferenceCandidate();
+                motionActivityStatus = "This same count change was rejected; waiting for a different settled table state.";
+                return null;
+            }
+            if (canonical.History.Any(entry => !suppressed.Contains(entry.InputId)
+                && entry.InputId == before.EvidenceId && entry.Source == sample.Source
+                && entry.Event is SettledInventoryCorrectedEvent { Context: not null, Observed: not null } corrected
+                && corrected.Observed.Counts == counts && corrected.Counts != counts))
+            {
+                ResetSettledDifferenceCandidate();
+                motionActivityStatus = "The same detector result was corrected; waiting for a different settled table state.";
                 return null;
             }
 
@@ -533,6 +558,8 @@ public sealed partial class ShellSession
                         comparison.After.SourceTimeUs!.Value, comparison.After.CapturedAt,
                         comparison.Context.Before.Counts, comparison.After.Counts,
                         comparison.Changes, summary) { Recommendation = comparison.Recommendation };
+                    motionActivityCandidateContext = comparison.Context;
+                    motionActivityCandidateAfter = comparison.After;
                     motionActivityStatus = "Settled after-table is ready for review. Canonical game state has not changed.";
                     candidateReady = true;
                 }
@@ -672,6 +699,8 @@ public sealed partial class ShellSession
             motionActivityLastSourceTimeUs = sourceTime;
             motionActivityStatus = status;
             motionActivityCandidate = null;
+            motionActivityCandidateContext = null;
+            motionActivityCandidateAfter = null;
         }
     }
 
