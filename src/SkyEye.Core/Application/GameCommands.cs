@@ -68,7 +68,10 @@ public sealed partial class AppCoordinator
         else if (proposed.State.Table.GroupCounts.Count > 0 && proposed.State.Table.Source == source)
             // Retain A until a reviewed A/B outcome is admitted. Fresh detector IDs
             // cannot replace aggregate inventory or silently reset a shot.
-            return next with { GameTableCurrent = false };
+            return next with { GameTableCurrent = observation.Outcome == ObservationOutcome.Ready
+                && observation.GameEvidence.Balls.All(b => b.Colour != BallColour.Unknown)
+                && SettledTableEvidence.TryCapture(proposed.State, out var before)
+                && before.Counts == GameObservationAdapter.Counts(observation.GameEvidence) };
         else input = GameObservationAdapter.Translate(proposed.State, observation, operationId);
         var accepted = proposed.Accept(input);
         if (!accepted.Accepted) return next with { GameTableCurrent = false, GameError = accepted.Message };

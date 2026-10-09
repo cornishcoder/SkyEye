@@ -47,6 +47,21 @@ Console.WriteLine("PASS bounded Sky transcript preserves user/assistant turns, e
 var gameApp = new AppCoordinator();
 var gameTools = new SkyVoiceGameTools(() => gameApp.State,
     (envelope, token) => gameApp.DispatchAsync(envelope, token), OperationId);
+var aggregateTable = TableState.Empty with
+{
+    Motion = TableMotion.Settled, Uncertain = false,
+    GroupCounts = ImmutableDictionary<BallColour, Fact<int>>.Empty
+        .Add(BallColour.Red, new(7, Provenance.Observed, null, Guid.NewGuid()))
+        .Add(BallColour.Yellow, new(6, Provenance.Observed, null, Guid.NewGuid()))
+        .Add(BallColour.Cue, new(1, Provenance.Observed, null, Guid.NewGuid()))
+        .Add(BallColour.Black, new(1, Provenance.Observed, null, Guid.NewGuid()))
+};
+var inventoryRead = new SkyVoiceGameTools(() => gameApp.State with { Game = gameApp.State.Game with { Table = aggregateTable } },
+    (envelope, token) => gameApp.DispatchAsync(envelope, token), OperationId);
+var voiceInventory = JsonSerializer.SerializeToElement(inventoryRead.Read(CancellationToken.None)).GetProperty("table").GetProperty("inventory");
+Check(voiceInventory.GetProperty("reds").GetInt32() == 7 && voiceInventory.GetProperty("yellows").GetInt32() == 6
+    && voiceInventory.GetProperty("cueBalls").GetInt32() == 1 && voiceInventory.GetProperty("blackBalls").GetInt32() == 1
+    && voiceInventory.GetProperty("identityFree").GetBoolean(), "Sky reads aggregate inventory even when no individual ball IDs are available");
 var newMatch = await gameTools.StartMatchAsync("match-start", 0, "Richard", "Alex", 3, CancellationToken.None);
 Check(JsonSerializer.SerializeToElement(newMatch).GetProperty("succeeded").GetBoolean() && gameApp.State.Game.Version == 1,
     "voice starts a match through the canonical application writer");

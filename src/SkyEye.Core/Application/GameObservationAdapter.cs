@@ -8,10 +8,14 @@ public sealed record GameObservationEvidence(EvidenceSource Source, ImmutableArr
 
 public static class GameObservationAdapter
 {
+    internal static SettledTableCounts Counts(GameObservationEvidence evidence) => new(
+        evidence.Balls.Count(b => b.Colour == BallColour.Red), evidence.Balls.Count(b => b.Colour == BallColour.Yellow),
+        evidence.Balls.Count(b => b.Colour == BallColour.Cue), evidence.Balls.Count(b => b.Colour == BallColour.Black));
+
     public static GameInputEnvelope EstablishBaseline(GameSnapshot state, TableObservation observation, Guid evidenceId)
     {
         var observed = observation.GameEvidence ?? throw new ArgumentException("Observation has no matching game evidence.");
-        var counts = new SettledTableCounts(Count(BallColour.Red), Count(BallColour.Yellow), Count(BallColour.Cue), Count(BallColour.Black));
+        var counts = Counts(observed);
         var evidence = new SettledTableEvidence(evidenceId, observed.Source, observation.SourceTimeUs,
             observation.CapturedAt, counts, observation.Outcome == ObservationOutcome.Ready,
             observation.Quality == LayoutQuality.Clear && observed.Balls.All(b => b.Colour != BallColour.Unknown))
@@ -21,7 +25,6 @@ public static class GameObservationAdapter
         };
         return new(evidenceId, state.Match!.Id, state.Frame!.Id, observation.CapturedAt,
             new EstablishSettledBaseline(1, evidence), observed.Source, observation.SourceTimeUs);
-        int Count(BallColour colour) => observed.Balls.Count(b => b.Colour == colour);
     }
 
     public static GameInputEnvelope Translate(GameSnapshot state, TableObservation observation, Guid evidenceId)

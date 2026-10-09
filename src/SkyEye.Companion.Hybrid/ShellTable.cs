@@ -13,6 +13,8 @@ public sealed partial class ShellSession
     readonly TableEditDraft edit = new();
     string? restoredCamera;
     Guid? autoCalibrationAttemptedConnection;
+    bool automaticTableCheckPending;
+    string? automaticBaselineAttemptedFrame;
     byte[]? frozenFrame;
     double editorLimit = double.PositiveInfinity;
     public TableEditDraft TableEdit => edit;
@@ -136,7 +138,18 @@ public sealed partial class ShellSession
             && !EditingTable && autoCalibrationAttemptedConnection != source.ConnectionId)
         {
             autoCalibrationAttemptedConnection = source.ConnectionId;
+            automaticBaselineAttemptedFrame = app.State.Game.Frame?.Id;
+            automaticTableCheckPending = true;
             _ = TryAutoCalibrateConnectedCameraAsync(source.ConnectionId);
+        }
+        else if (snapshot.Source is not null && CanAnalyzeTable && active && player is not null
+            && snapshot.Calibration is not null && !EditingTable && !automaticTableCheckPending
+            && app.State.Game.Match is { Finished: false } && app.State.Game.Frame is { Winner: null } frame
+            && app.State.Game.Table.LastSettled is null && automaticBaselineAttemptedFrame != frame.Id)
+        {
+            automaticBaselineAttemptedFrame = frame.Id;
+            automaticTableCheckPending = true;
+            _ = TryEstablishFrameBaselineAsync();
         }
         var state = snapshot.Table;
         TableStatus = snapshot.Source is null ? "Watch an active camera as host to check the table."
@@ -174,7 +187,7 @@ public sealed partial class ShellSession
                     table.Invalidate();
                     Message = "No fresh corners were found; keeping the saved calibration and checking the table.";
                     Publish();
-                    await VerifyTableWithDiagnosticsPausedAsync(token);
+                    await CheckInitialTableAsync(token);
                     return;
                 }
                 try { _ = new TableCalibration(draft.Proposed); }
@@ -184,17 +197,17 @@ public sealed partial class ShellSession
                     table.Invalidate();
                     Message = "Fresh corners were invalid; keeping the saved calibration and checking the table.";
                     Publish();
-                    await VerifyTableWithDiagnosticsPausedAsync(token);
+                    await CheckInitialTableAsync(token);
                     return;
                 }
                 table.ApplyCalibration(draft.Generation, draft.Proposed);
                 Message = "Table corners detected and accepted. Checking the initial table layout…";
                 Publish();
-                await VerifyTableWithDiagnosticsPausedAsync(token);
+                await CheckInitialTableAsync(token);
                 if (token.IsCancellationRequested || disposed) return;
                 Message = table.State.Table is { Confirmed: true, Settled: true, Occluded: false }
                     ? "Table calibrated and ready."
-                    : "Corners were accepted. SkyEye will finish checking as the table stays still.";
+                    : "Corners accepted; table check is not ready yet.";
                 Publish();
             }
             catch (OperationCanceledException) when (token.IsCancellationRequested) { }
@@ -202,7 +215,7 @@ public sealed partial class ShellSession
             {
                 table.Invalidate();
                 Message = "Couldn’t refresh the corners; keeping the saved calibration and checking the table.";
-                Publish(); await VerifyTableWithDiagnosticsPausedAsync(token);
+                Publish(); await CheckInitialTableAsync(token);
             }
             catch (ArgumentException)
             {
@@ -212,13 +225,38 @@ public sealed partial class ShellSession
             {
                 table.Invalidate();
                 Message = "Couldn’t refresh the corners; keeping the saved calibration and checking the table.";
-                Publish(); await VerifyTableWithDiagnosticsPausedAsync(token);
+                Publish(); await CheckInitialTableAsync(token);
             }
             catch (Exception)
             {
                 Message = "Automatic calibration couldn’t finish. Tap Calibrate table to set the corners."; Publish();
             }
+            finally { automaticTableCheckPending = false; Publish(); }
         });
+    }
+    async Task TryEstablishFrameBaselineAsync()
+    {
+        try { await CheckInitialTableAsync(foreground?.Token ?? CancellationToken.None); }
+        catch (OperationCanceledException) { }
+        catch (Exception) { Message = "The starting table is not ready yet."; }
+        finally { automaticTableCheckPending = false; Publish(); }
+    }
+    async Task CheckInitialTableAsync(CancellationToken token)
+    {
+        var seed = table.State;
+        // The first decoder frames may fail coverage while video starts. Retry
+        // bounded verification; never turn a failed check into accepted evidence.
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            token.ThrowIfCancellationRequested();
+            if (disposed || !active || !CanAnalyzeTable || EditingTable
+                || seed.Source != table.State.Source || seed.Generation != table.State.Generation
+                || seed.CalibrationId != table.State.CalibrationId) return;
+            await VerifyTableWithDiagnosticsPausedAsync(token, origin: CommandOrigin.System);
+            if (app.State.Observation is { Outcome: ObservationOutcome.Ready, Reason: ObservationReason.None }
+                && table.State.Table is { Confirmed: true, Settled: true, Occluded: false }) return;
+            if (attempt < 2) await Task.Delay(TimeSpan.FromSeconds(2), token);
+        }
     }
     async Task UpdateTableAsync(CancellationToken token, bool reviewFrame = false, bool includeChoices = false,
         ObservationMode mode = ObservationMode.Single, Guid? operationId = null, CommandOrigin origin = CommandOrigin.Touch)

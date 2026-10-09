@@ -166,12 +166,18 @@
     const archives=match.archives||[];
     $('archived-matches').innerHTML=archives.length?archives.slice(0,5).map(item=>`<div class="frame-row"><strong>${esc(item.score||'Previous match')}</strong><span>${esc(item.outcome||'Result unavailable')}</span><small>${esc(item.recordedFrames??0)} / ${esc(item.totalFrames??0)} frames</small></div>`).join(''):'<span class="match-empty">No archived matches.</span>';
     const balls=Object.values(t.balls||{}).sort((a,b)=>String(a.id).localeCompare(String(b.id)));
-    $('canonical-balls').innerHTML=balls.length?balls.map(ball=>{
+    const counts=t.groupCounts||{};
+    const groups=[['Red',1,'Reds'],['Yellow',2,'Yellows'],['Cue',0,'Cue ball'],['Black',3,'Black']];
+    const groupRows=groups.map(([key,index,name])=>{
+      const fact=counts[key]||counts[index];
+      return fact?`<div class="canonical-ball"><strong>${esc(name)}</strong><span>${t.uncertain?'—':esc(fact.value)} on table</span><span>Individual positions unassigned</span><small>${esc(provenance(fact.source))}</small></div>`:'';
+    }).join('');
+    $('canonical-balls').innerHTML=groupRows|| (balls.length?balls.map(ball=>{
       const position=ball.position?`${fmt(ball.position.x,3)}, ${fmt(ball.position.y,3)}`:'—';
       const presence=ball.presence||{};
       const confidence=presence.confidence==null?'':` · feature ${fmt(presence.confidence)}`;
       return `<div class="canonical-ball"><strong>${esc(ball.id)}</strong><span>${esc(ballColour(ball.colour))}</span><span>${esc(ballPresence(presence.value))} · ${esc(position)}</span><small>${esc(provenance(presence.source))}${confidence}</small></div>`;
-    }).join(''):'<span class="match-empty">No canonical ball inventory yet.</span>';
+    }).join(''):'<span class="match-empty">No canonical ball inventory yet.</span>');
     const lastSettled=t.lastSettled;
     const settledAt=lastSettled?.at?new Date(lastSettled.at).toLocaleTimeString():'—';
     const playerGroups=matchPlayers.map(p=>`${p.name}: ${p.group||'open table'}`).join(' · ')||'—';

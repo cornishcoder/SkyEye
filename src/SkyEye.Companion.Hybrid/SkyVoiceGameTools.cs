@@ -58,6 +58,14 @@ public sealed class SkyVoiceGameTools(
                 current = state.GameTableCurrent,
                 fresh = state.HasFreshGameTable(DateTimeOffset.UtcNow),
                 settledAt = game.Table.LastSettled?.At,
+                inventory = new
+                {
+                    reds = game.Table.Remaining(BallColour.Red),
+                    yellows = game.Table.Remaining(BallColour.Yellow),
+                    cueBalls = game.Table.Remaining(BallColour.Cue),
+                    blackBalls = game.Table.Remaining(BallColour.Black),
+                    identityFree = game.Table.GroupCounts.Count > 0
+                },
                 balls = game.Table.Balls.Values.OrderBy(ball => ball.Id).Select(ball => new
                 {
                     ball.Id,

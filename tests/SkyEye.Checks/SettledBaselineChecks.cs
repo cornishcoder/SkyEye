@@ -63,6 +63,10 @@ static class SettledBaselineChecks
             Check(!overwrite.Accepted, "An existing trusted A cannot be replaced by baseline establishment");
             Check(!(await Send(new G.EstablishSettledBaseline(1, establishedEvent.Evidence), established.Source,
                 established.SourceTimeUs, CommandOrigin.Sky)).Succeeded, "A voice command cannot impersonate verified starting evidence");
+            var beforeRefresh = app.State.Game;
+            Check((await Observe()).Succeeded && app.State.GameTableCurrent && app.State.Game.Version == beforeRefresh.Version
+                && app.State.Game.Table.LastSettled == beforeRefresh.Table.LastSettled,
+                "An unchanged check confirms current counts without replacing A or writing duplicate observations");
             effect.YellowPresent = false;
             var before = app.State.Game;
             Check((await Observe()).Succeeded && app.State.Game.Version == before.Version && app.State.Game.Table.LastSettled == before.Table.LastSettled
