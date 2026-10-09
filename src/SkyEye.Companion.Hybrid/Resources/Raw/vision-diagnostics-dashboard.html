@@ -50,8 +50,8 @@
       </section>
       <section class="panel scroll">
         <h2 class="section-title">Lighting and detector</h2><dl id="vision" class="kv"><dt>Detector</dt><dd>Waiting</dd></dl>
-        <section class="match-summary" aria-label="Diagnostic table motion analyser">
-          <div class="match-title"><h3>Table motion analyser</h3><span class="match-target">diagnostic</span></div>
+        <section class="match-summary" aria-label="Settled table change and motion analysis">
+          <div class="match-title"><h3>Settled table change &amp; motion</h3><span class="match-target">counts lead · motion optional</span></div>
           <dl id="motion-analysis" class="kv" style="margin-top:9px"><dt>Analyser</dt><dd>Not running</dd></dl>
           <p class="muted">Movement gate: one region ≥2.5 px/frame, two regions ≥0.9 px/frame, or one region above 0.55 px/frame in the same direction for 3 frames.</p>
           <details><summary>Seed-region measurements</summary><div id="motion-regions" class="muted">No motion samples.</div></details>
@@ -129,16 +129,23 @@
     $('vision').innerHTML=entries.map(([a,b])=>`<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join('');
     $('raw-vision').textContent=pretty({uncertain:det?.uncertain,warnings:det?.warnings,verificationReason:det?.verificationReason,recognition:rec,illumination:light,circles:det?.circles});
   }
-  function renderMotion(motion){
+  function renderMotion(motion,activitySnapshot){
     const a=motion?.analysis;
-    if(!motion){$('motion-analysis').innerHTML='<dt>Analyser</dt><dd>Not running</dd>'; $('motion-regions').textContent='Start the diagnostic motion feed to collect measurements.';return;}
+    if(!motion){
+      const activity=activitySnapshot||{},candidate=activity.candidate,recommendation=candidate?.recommendation;
+      const entries=[['Movement feed','Optional · settled count changes do not wait for ball tracking'],['Match activity',activity.phase||'Unavailable'],['Activity status',activity.status||'Waiting for table samples'],['O08 verification',activity.verificationPending?'Running':candidate?'Candidate ready for review':activity.verificationAttempted?'Check complete · no candidate':'Not requested'],['Settled B proposal',recommendation?.summary||candidate?.summary||'—'],['Auto-approval',recommendation?.autoApprovalEligible?'Eligible after bounded clear/still verification':'Not eligible'],['Alternatives',(recommendation?.alternatives||[]).join(' · ')||'—'],['Activity onset · source µs',activity.activityStartSourceTimeUs??'unknown']];
+      $('motion-analysis').innerHTML=entries.map(([label,value])=>`<dt>${esc(label)}</dt><dd>${esc(value)}</dd>`).join('');
+      $('motion-regions').textContent='The settled-change trigger requires three consecutive fresh, clear samples with the same count difference, then O08 verifies the after-table.';
+      return;
+    }
     const phases=['Unknown','Settling','Settled','Moving','Obstructed'];
     const phase=motion.active?(typeof a?.phase==='number'?(phases[a.phase]||'Unknown'):String(a?.phase||'Unknown')):'Stopped';
     const obstructed=phase==='Obstructed';
-    const activity=motion.activityLifecycle||{};
+    const activity=motion.activityLifecycle||activitySnapshot||{};
     const sourceTimeUs=motion.latest?.sourceTimeUs,lastMotionAgeMs=sourceTimeUs==null||a?.lastMotionSourceTimeUs==null?'—':`${fmt(Math.max(0,(sourceTimeUs-a.lastMotionSourceTimeUs)/1000),0)} ms ago`;
     const verification=activity.verificationPending?'Running':activity.candidate?'Candidate ready for review':activity.verificationAttempted?'Check complete · no candidate':activity.phase==='Settling'?'Waiting for settled motion':'Not requested';
-    const entries=[['Feed',motion.active?`Running · ${motion.requestedHz||'—'} Hz`:'Stopped'],['Phase',phase],['Match activity',activity.phase||'Unavailable'],['Activity status',activity.status||'No lifecycle status'],['O08 verification',verification],['Settled B proposal',activity.candidate?.summary||'—'],['B source time · µs',activity.candidate?.sourceTimeUs??'—'],['Activity onset · source µs',activity.activityStartSourceTimeUs??'unknown'],['Template coverage',obstructed?'Paused by obstruction':`${a?.observedRegions??0} / ${a?.totalRegions??0} regions`],['Patches above 0.55 px/frame',obstructed?'—':(a?.movingRegions??0)],['Largest current shift',obstructed?'—':a?.peakDisplacementPixels==null?'—':`${fmt(a.peakDisplacementPixels,2)} px/frame`],['Recent peak · 2 s',obstructed?'—':a?.windowPeakDisplacementPixels==null?'—':`${fmt(a.windowPeakDisplacementPixels,2)} px/frame`],['Last motion',lastMotionAgeMs],['Quiet time',a?.quietForMs==null?'—':`${fmt(a.quietForMs,0)} ms`],['Evidence',motion.active?(a?.evidence||'Waiting for a paired sample'):(motion.stopReason||'Motion feed is not enabled')]];
+    const recommendation=activity.candidate?.recommendation;
+    const entries=[['Feed',motion.active?`Running · ${motion.requestedHz||'—'} Hz`:'Stopped'],['Phase',phase],['Match activity',activity.phase||'Unavailable'],['Activity status',activity.status||'No lifecycle status'],['O08 verification',verification],['Settled B proposal',recommendation?.summary||activity.candidate?.summary||'—'],['Auto-approval',recommendation?.autoApprovalEligible?'Eligible after bounded clear/still verification':'Not eligible'],['Alternatives',(recommendation?.alternatives||[]).join(' · ')||'—'],['B source time · µs',activity.candidate?.sourceTimeUs??'—'],['Activity onset · source µs',activity.activityStartSourceTimeUs??'unknown'],['Template coverage',obstructed?'Paused by obstruction':`${a?.observedRegions??0} / ${a?.totalRegions??0} regions`],['Patches above 0.55 px/frame',obstructed?'—':(a?.movingRegions??0)],['Largest current shift',obstructed?'—':a?.peakDisplacementPixels==null?'—':`${fmt(a.peakDisplacementPixels,2)} px/frame`],['Recent peak · 2 s',obstructed?'—':a?.windowPeakDisplacementPixels==null?'—':`${fmt(a?.windowPeakDisplacementPixels,2)} px/frame`],['Last motion',lastMotionAgeMs],['Quiet time',a?.quietForMs==null?'—':`${fmt(a?.quietForMs,0)} ms`],['Evidence',motion.active?(a?.evidence||'Waiting for a paired sample'):(motion.stopReason||'Motion feed is not enabled')]];
     $('motion-analysis').innerHTML=entries.map(([label,value])=>`<dt>${esc(label)}</dt><dd>${esc(value)}</dd>`).join('');
     const regions=motion.regions||[];
     $('motion-regions').innerHTML=regions.length?`<table><thead><tr><th>Seed region</th><th>Track</th><th>Shift · px/frame</th><th>Residual</th><th>Local change</th></tr></thead><tbody>${regions.map(r=>`<tr><td>${esc(r.id)}</td><td>${esc(r.templateStatus)}</td><td>${r.templateDxPixels==null||r.templateDyPixels==null?'—':`${fmt(r.templateDxPixels,2)}, ${fmt(r.templateDyPixels,2)}`}</td><td>${fmt(r.templateResidual,3)}</td><td>${r.illuminationNormalizedChangedPixelFraction==null?'—':fmt(r.illuminationNormalizedChangedPixelFraction,4)}</td></tr>`).join('')}</tbody></table>`:'No motion regions in the latest sample.';
@@ -193,7 +200,7 @@
       $('m-balls').textContent=det?`${det.balls.length} / ${det.circleCount}${det.unclassifiedCount?` · ${det.unclassifiedCount} unknown`:''}${det.uncertain?' · check':''}`:'—';$('m-time').textContent=det?`${fmt(det.elapsedMs,1)} ms`:'—';
       $('frame-info').textContent=fr?`${fr.width}×${fr.height} · ${fr.frameSource} · source ${fr.sourceTimeUs} µs · ${new Date(fr.capturedAt).toLocaleTimeString()}`:'Waiting for fresh pixels';
       $('empty').hidden=!!currentImage;
-      renderBalls(det);renderVision(det);renderMotion(next.motion);renderGame(next);renderSamples(next.samples);
+      renderBalls(det);renderVision(det);renderMotion(next.motion,next.activityLifecycle);renderGame(next);renderSamples(next.samples);
       const requestedFrameKey=frameKey(next);
       if(fr&&requestedFrameKey!==drawnFrameKey){
         const imageResponse=await fetch(`/api/frame?sequence=${fr.sequence}&sessionId=${encodeURIComponent(next.sessionId)}`,{cache:'no-store'});

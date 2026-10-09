@@ -11,10 +11,11 @@ public enum ActivitySettlementPhase
     Uncertain
 }
 
-/// <summary>Already-classified signals supplied by bounded motion and observation components.</summary>
+/// <summary>Already-classified signals supplied by motion and settled table observation components.</summary>
 public enum ActivitySettlementSignalKind
 {
     ActivityDetected,
+    SettledDifferenceObserved,
     Obstructed,
     ClearViewAvailable,
     MotionQuiet,
@@ -72,6 +73,14 @@ public sealed record ActivitySettlementLifecycle(ActivityWindowContext Context,
                     next = next with { Context = Context with { ActivityStartSourceTimeUs = signal.SourceTimeUs } };
                 return new(next with { Phase = ActivitySettlementPhase.Active }, ActivitySettlementOutcome.Applied,
                     "Activity detected; retain the frozen before-table and game context.");
+
+            case ActivitySettlementSignalKind.SettledDifferenceObserved:
+                if (Phase != ActivitySettlementPhase.Settled)
+                    return new(next, ActivitySettlementOutcome.Ignored, "A settled table difference only starts an activity window from the settled baseline.");
+                if (Context.ActivityStartSourceTimeUs is not { } activityStart || signal.SourceTimeUs <= activityStart)
+                    return MakeUncertain("The repeated settled difference must follow its first changed source sample.");
+                return new(next with { Phase = ActivitySettlementPhase.Settling }, ActivitySettlementOutcome.Applied,
+                    "Repeated clear samples show a settled table difference; request O08 verification.");
 
             case ActivitySettlementSignalKind.Obstructed:
                 return new(next with { Phase = ActivitySettlementPhase.WaitingForClearTable }, ActivitySettlementOutcome.Applied,

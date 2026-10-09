@@ -10,7 +10,10 @@ namespace SkyEye.Companion.Hybrid;
 
 public sealed record SettledTableCandidateDisplay(Guid ActivityWindowId, EvidenceSource Source,
     long SourceTimeUs, DateTimeOffset CapturedAt, SettledTableCounts Before, SettledTableCounts After,
-    ImmutableArray<BallCountChange> Changes, string Summary);
+    ImmutableArray<BallCountChange> Changes, string Summary)
+{
+    public SettledOutcomeRecommendation? Recommendation { get; init; }
+}
 
 public sealed record MotionActivityDisplay(string Phase, string Status, long? ActivityStartSourceTimeUs,
     long? BeforeSourceTimeUs, bool VerificationPending, bool VerificationAttempted,
@@ -27,16 +30,24 @@ public sealed partial class ShellSession
     readonly SemaphoreSlim motionGate = new(1, 1);
     readonly object motionActivityGate = new();
     ActivitySettlementLifecycle? motionActivityLifecycle;
-    string motionActivityStatus = "Motion remains diagnostic-only until a trusted match baseline is available.";
+    string motionActivityStatus = "Waiting for a trusted settled match baseline before monitoring count changes.";
     long? motionActivityLastSourceTimeUs;
     bool motionActivityVerificationPending, motionActivityVerificationAttempted;
     SettledTableCandidateDisplay? motionActivityCandidate;
+    Guid motionActivityDiagnosticSessionId;
+    int motionActivityLastDiagnosticSequence;
+    EvidenceSource? motionActivityPendingSource;
+    SettledTableCounts? motionActivityPendingCounts;
+    int motionActivityPendingStableSamples;
+    long? motionActivityPendingFirstChangedSourceTimeUs;
 
     public MotionActivityDisplay MotionActivityMetrics
     {
         get
         {
-            var snapshot = motion?.Snapshot ?? lastMotion;
+            // A retired feed may carry an older source timestamp; only a live
+            // feed is allowed to advance the activity lifecycle.
+            var snapshot = motion?.Snapshot;
             Guid? verify = null;
             MotionActivityDisplay display;
             lock (motionActivityGate)
@@ -192,7 +203,8 @@ public sealed partial class ShellSession
             motionActivityVerificationPending = false;
             motionActivityVerificationAttempted = false;
             motionActivityCandidate = null;
-            motionActivityStatus = "Motion remains diagnostic-only until a trusted match baseline is available.";
+            motionActivityStatus = "Waiting for a trusted settled match baseline before monitoring count changes.";
+            ResetSettledDifferenceCandidate();
 
             var game = app.CaptureGameSession().State;
             if (game.Match is null)
@@ -232,9 +244,124 @@ public sealed partial class ShellSession
             }
             motionActivityLifecycle = lifecycle;
             motionActivityLastSourceTimeUs = before.SourceTimeUs;
-            motionActivityStatus = "Watching for movement or obstruction; settled baseline is held.";
+            motionActivityStatus = "Watching for a settled table difference or obstruction; baseline is held.";
         }
     }
+
+    Guid? ObserveSettledDifferenceSamples(VisionDiagnosticsSnapshot diagnostics)
+    {
+        var sample = diagnostics.LiveFrame?.Sample;
+        if (sample is null) return null;
+
+        lock (motionActivityGate)
+        {
+            if (motionActivityDiagnosticSessionId != diagnostics.SessionId)
+            {
+                motionActivityDiagnosticSessionId = diagnostics.SessionId;
+                motionActivityLastDiagnosticSequence = 0;
+                ResetSettledDifferenceCandidate();
+            }
+            if (sample.Sequence <= motionActivityLastDiagnosticSequence) return null;
+            bool consecutive = motionActivityLastDiagnosticSequence == 0
+                || sample.Sequence == motionActivityLastDiagnosticSequence + 1;
+            motionActivityLastDiagnosticSequence = sample.Sequence;
+
+            if (motionActivityVerificationPending || motionActivityCandidate is not null
+                || motionActivityLifecycle?.Phase is ActivitySettlementPhase.SettledCandidate or ActivitySettlementPhase.Uncertain)
+                return null;
+
+            var detection = sample.Detection;
+            var ageMs = (DateTimeOffset.UtcNow - sample.CapturedAt).TotalMilliseconds;
+            var counts = !detection.Uncertain && !detection.Obstructed
+                && double.IsFinite(ageMs) && ageMs is >= -200 and <= ObservationPolicy.ReviewFreshnessSeconds * 1000
+                ? CountRecognizedBalls(detection.Balls) : null;
+            if (counts is null || !ValidRecognizedCounts(counts))
+            {
+                ResetSettledDifferenceCandidate();
+                motionActivityStatus = "Waiting for fresh, clear, fully classified samples before comparing the table.";
+                return null;
+            }
+
+            var game = app.CaptureGameSession().State;
+            if (!SettledTableEvidence.TryCapture(game, out var before)
+                || !FrozenGameContext.TryCapture(game, out _))
+            {
+                ResetSettledDifferenceCandidate();
+                motionActivityStatus = "Waiting for a trusted settled match baseline before comparing table counts.";
+                return null;
+            }
+            if (sample.Source != before.Source || sample.SourceTimeUs <= before.SourceTimeUs)
+            {
+                ResetSettledDifferenceCandidate();
+                motionActivityStatus = "The settled baseline belongs to another camera/calibration view. A fresh trusted baseline is required.";
+                return null;
+            }
+            if (counts == before.Counts)
+            {
+                ResetSettledDifferenceCandidate();
+                if (motionActivityLifecycle is null or { Phase: ActivitySettlementPhase.Settled })
+                    motionActivityStatus = "Watching the trusted settled layout for a repeated count change.";
+                return null;
+            }
+
+            bool samePending = consecutive && motionActivityPendingSource == sample.Source
+                && motionActivityPendingCounts == counts
+                && motionActivityPendingFirstChangedSourceTimeUs is { } firstChanged
+                && sample.SourceTimeUs > firstChanged;
+            if (!samePending)
+            {
+                motionActivityPendingSource = sample.Source;
+                motionActivityPendingCounts = counts;
+                motionActivityPendingStableSamples = 1;
+                motionActivityPendingFirstChangedSourceTimeUs = sample.SourceTimeUs;
+            }
+            else motionActivityPendingStableSamples++;
+
+            if (motionActivityPendingStableSamples < 3)
+            {
+                motionActivityStatus = $"Settled count difference found; checking the same clear result across {motionActivityPendingStableSamples}/3 fresh samples.";
+                return null;
+            }
+
+            if (motionActivityPendingFirstChangedSourceTimeUs is not { } activityStart
+                || !ActivityWindowContext.TryBegin(Guid.NewGuid(), game, activityStart, out var context)
+                || context.Before.Source != sample.Source
+                || !ActivitySettlementLifecycle.TryStart(context, out var lifecycle))
+            {
+                ResetSettledDifferenceCandidate();
+                motionActivityStatus = "The count change was stable, but the match/source context no longer matches its settled baseline.";
+                return null;
+            }
+
+            var step = lifecycle.Observe(new(ActivitySettlementSignalKind.SettledDifferenceObserved,
+                sample.Source!, sample.SourceTimeUs));
+            motionActivityLifecycle = step.Lifecycle;
+            motionActivityLastSourceTimeUs = sample.SourceTimeUs;
+            motionActivityStatus = step.Reason;
+            ResetSettledDifferenceCandidate();
+            if (step.Lifecycle.Phase != ActivitySettlementPhase.Settling)
+                return null;
+
+            motionActivityVerificationPending = true;
+            motionActivityVerificationAttempted = true;
+            motionActivityStatus = "Three fresh clear samples agree on a table count change; starting bounded O08 stillness verification.";
+            return context.Id;
+        }
+
+    }
+
+    void ResetSettledDifferenceCandidate()
+    {
+        motionActivityPendingSource = null;
+        motionActivityPendingCounts = null;
+        motionActivityPendingStableSamples = 0;
+        motionActivityPendingFirstChangedSourceTimeUs = null;
+    }
+
+    static bool ValidRecognizedCounts(SettledTableCounts counts)
+        => counts.Reds is >= 0 and <= 7 && counts.Yellows is >= 0 and <= 7
+            && counts.CueBalls is 0 or 1 && counts.BlackBalls is 0 or 1
+            && counts.Reds + counts.Yellows + counts.CueBalls + counts.BlackBalls is > 0 and <= 16;
 
     bool CanPreserveMotionActivityLifecycle(TableAnalysisSnapshot seed, MotionFeedScope scope)
     {
@@ -389,7 +516,8 @@ public sealed partial class ShellSession
             }
 
             var after = new SettledTableEvidence(Guid.NewGuid(), source, sourceTime,
-                observation.CapturedAt, counts, Settled: true, Clear: true);
+                observation.CapturedAt, counts, Settled: true, Clear: true)
+            { BoundedStillnessVerified = true };
             ActivitySettlementStep step;
             lock (motionActivityGate)
             {
@@ -404,7 +532,7 @@ public sealed partial class ShellSession
                     motionActivityCandidate = new(activityId, comparison.After.Source,
                         comparison.After.SourceTimeUs!.Value, comparison.After.CapturedAt,
                         comparison.Context.Before.Counts, comparison.After.Counts,
-                        comparison.Changes, summary);
+                        comparison.Changes, summary) { Recommendation = comparison.Recommendation };
                     motionActivityStatus = "Settled after-table is ready for review. Canonical game state has not changed.";
                     candidateReady = true;
                 }
@@ -481,7 +609,10 @@ public sealed partial class ShellSession
             : string.Join(", ", comparison.Changes.Select(change =>
                 change.Removed > 0 ? $"{change.Removed} {change.Colour.ToString().ToLowerInvariant()} removed"
                     : $"{change.Added} {change.Colour.ToString().ToLowerInvariant()} added"));
-        return $"A: {Inventory(before)} → B: {Inventory(after)}; {changes}. No pot, foul or turn is inferred.";
+        string interpretation = comparison.Recommendation.Kind == "likely-group-pot"
+            ? $"{comparison.Recommendation.Summary} Foul, turn and pocket remain undecided."
+            : $"{comparison.Recommendation.Summary} No pot, foul or turn is inferred.";
+        return $"A: {Inventory(before)} → B: {Inventory(after)}; {changes}. {interpretation}";
     }
 
     void HandleUnverifiedActivity(Guid activityId, SkyEye.Core.Application.TableObservation observation)
