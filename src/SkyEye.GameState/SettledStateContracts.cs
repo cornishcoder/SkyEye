@@ -76,6 +76,9 @@ public sealed record FrozenGameContext(string MatchId, string FrameId, long Game
         return Groups.All(group => frame.Colours.TryGetValue(group.Key, out var current) && SameFact(current, group.Value));
     }
 
+    /// <summary>Whether a live snapshot still describes the match context frozen at activity start.</summary>
+    public bool IsCompatibleWith(GameSnapshot snapshot) => Matches(snapshot);
+
     static bool SameFact<T>(Fact<T>? left, Fact<T>? right) => left is null ? right is null
         : right is not null && EqualityComparer<T>.Default.Equals(left.Value, right.Value)
             && left.Source == right.Source && left.Confidence == right.Confidence && left.EvidenceId == right.EvidenceId;

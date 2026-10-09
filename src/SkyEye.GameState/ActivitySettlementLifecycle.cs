@@ -19,7 +19,8 @@ public enum ActivitySettlementSignalKind
     ClearViewAvailable,
     MotionQuiet,
     VerifiedSettled,
-    SourceDiscontinuity
+    SourceDiscontinuity,
+    ContextDiscontinuity
 }
 
 public sealed record ActivitySettlementSignal(ActivitySettlementSignalKind Kind, EvidenceSource Source,
@@ -56,6 +57,8 @@ public sealed record ActivitySettlementLifecycle(ActivityWindowContext Context,
 
         if (signal.Kind == ActivitySettlementSignalKind.SourceDiscontinuity)
             return MakeUncertain("The camera source, timeline, generation, connection or calibration changed.");
+        if (signal.Kind == ActivitySettlementSignalKind.ContextDiscontinuity)
+            return MakeUncertain("The match, frame, player, visit, groups or rules changed while the activity window was open.");
         if (signal.Source is null || signal.Source != Context.Before.Source)
             return MakeUncertain("The activity signal does not belong to the frozen before-table source.");
         if (signal.SourceTimeUs < 0 || signal.SourceTimeUs <= LastSourceTimeUs)

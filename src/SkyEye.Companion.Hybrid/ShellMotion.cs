@@ -1,13 +1,20 @@
+using System.Collections.Immutable;
 using SkyEye.Core.Analysis;
 using SkyEye.Core;
+using SkyEye.Core.Application;
 using SkyEye.Companion;
 using SkyEye.GameState;
 using SkyEye.Vision.Android;
 
 namespace SkyEye.Companion.Hybrid;
 
+public sealed record SettledTableCandidateDisplay(Guid ActivityWindowId, EvidenceSource Source,
+    long SourceTimeUs, DateTimeOffset CapturedAt, SettledTableCounts Before, SettledTableCounts After,
+    ImmutableArray<BallCountChange> Changes, string Summary);
+
 public sealed record MotionActivityDisplay(string Phase, string Status, long? ActivityStartSourceTimeUs,
-    long? BeforeSourceTimeUs);
+    long? BeforeSourceTimeUs, bool VerificationPending, bool VerificationAttempted,
+    SettledTableCandidateDisplay? Candidate);
 
 public sealed partial class ShellSession
 {
@@ -22,19 +29,27 @@ public sealed partial class ShellSession
     ActivitySettlementLifecycle? motionActivityLifecycle;
     string motionActivityStatus = "Motion remains diagnostic-only until a trusted match baseline is available.";
     long? motionActivityLastSourceTimeUs;
+    bool motionActivityVerificationPending, motionActivityVerificationAttempted;
+    SettledTableCandidateDisplay? motionActivityCandidate;
 
     public MotionActivityDisplay MotionActivityMetrics
     {
         get
         {
             var snapshot = motion?.Snapshot ?? lastMotion;
+            Guid? verify = null;
+            MotionActivityDisplay display;
             lock (motionActivityGate)
             {
-                AdvanceMotionActivity(snapshot);
+                verify = AdvanceMotionActivity(snapshot);
                 var lifecycle = motionActivityLifecycle;
-                return new(lifecycle?.Phase.ToString() ?? "Unavailable", motionActivityStatus,
-                    lifecycle?.Context.ActivityStartSourceTimeUs, lifecycle?.Context.Before.SourceTimeUs);
+                display = new(lifecycle?.Phase.ToString() ?? "Unavailable", motionActivityStatus,
+                    lifecycle?.Context.ActivityStartSourceTimeUs, lifecycle?.Context.Before.SourceTimeUs,
+                    motionActivityVerificationPending, motionActivityVerificationAttempted, motionActivityCandidate);
             }
+            if (verify is { } activityId)
+                _ = MainThread.InvokeOnMainThreadAsync(() => VerifySettledActivityAsync(activityId));
+            return display;
         }
     }
 
@@ -50,7 +65,8 @@ public sealed partial class ShellSession
 
     // Explicit developer/diagnostic enablement. Normal startup never starts a feed.
     // O03/O04 will supply the product observation-session behavior and ROI recentering.
-    public Task SetMotionFeedAsync(bool enabled, int hz = 30, bool allowUnconfirmedDiagnosticSeed = false) => MainThread.InvokeOnMainThreadAsync(async () =>
+    public Task SetMotionFeedAsync(bool enabled, int hz = 30, bool allowUnconfirmedDiagnosticSeed = false,
+        bool preserveActivityLifecycle = false) => MainThread.InvokeOnMainThreadAsync(async () =>
     {
         await motionGate.WaitAsync();
         try
@@ -61,7 +77,7 @@ public sealed partial class ShellSession
             if (owner is not null) MediaGeneration();
             if (!active || owner is null || EditingTable || !CanAnalyzeTable || seed.Source is null || seed.Calibration is null)
                 throw new InvalidOperationException("Open the active calibrated live table before observing motion.");
-            if (seed.Table is not { Occluded: false } layout || layout.Balls.Length is < 1 or > 16)
+            if (seed.Table is not { } layout || layout.Occluded && !preserveActivityLifecycle || layout.Balls.Length is < 1 or > 16)
                 throw new InvalidOperationException("A clear live ball candidate is required before observing motion.");
             bool confirmedSeed = layout is { Confirmed: true, Settled: true };
             if (!confirmedSeed && !allowUnconfirmedDiagnosticSeed)
@@ -69,9 +85,9 @@ public sealed partial class ShellSession
             Ball[] roiBalls = layout.Balls;
             var layoutAgeMs = (DateTimeOffset.UtcNow - layout.CapturedAt).TotalMilliseconds;
             long? seedFrameId = seed.Observation?.DecodedReceipt?.FrameId;
-            string seedSource = confirmedSeed ? "confirmed-table-layout" : "fresh-unconfirmed-clear-diagnostic-candidate";
+            string seedSource = preserveActivityLifecycle ? "held-settled-baseline" : confirmedSeed ? "confirmed-table-layout" : "fresh-unconfirmed-clear-diagnostic-candidate";
             VisionDiagnosticSample? diagnosticSeed = null;
-            if (!confirmedSeed && (!double.IsFinite(layoutAgeMs) || layoutAgeMs is < -200 or > 2000))
+            if (!confirmedSeed && !preserveActivityLifecycle && (!double.IsFinite(layoutAgeMs) || layoutAgeMs is < -200 or > 2000))
                 throw new InvalidOperationException("The diagnostic seed must come from a fresh clear detector view.");
             if (confirmedSeed && (!double.IsFinite(layoutAgeMs) || layoutAgeMs is < -200 or > ObservationPolicy.ReviewFreshnessSeconds * 1000))
             {
@@ -129,6 +145,9 @@ public sealed partial class ShellSession
                     };
                 }).ToArray();
                 var scope = new MotionFeedScope(seed.Source, receipt.MediaGeneration, seed.CalibrationId, pixels.Timeline);
+                bool preserveLifecycle = preserveActivityLifecycle && CanPreserveMotionActivityLifecycle(seed, scope);
+                if (preserveActivityLifecycle && !preserveLifecycle)
+                    throw new InvalidOperationException("The held activity baseline no longer matches this live camera source.");
                 var processor = new RoiMotionProcessor(rois, sourcePixelsPerImagePixelX, sourcePixelsPerImagePixelY);
                 bool Current()
                 {
@@ -142,7 +161,7 @@ public sealed partial class ShellSession
                 motionSeedFrameId = seedFrameId;
                 motionSeedFrameAgeMs = layoutAgeMs;
                 motion = new(frames, processor, scope, Current, new(hz), physicallyObstructed: () => table.PhysicallyObstructed);
-                StartMotionActivityLifecycle(seed, scope);
+                if (!preserveLifecycle) StartMotionActivityLifecycle(seed, scope);
             }
             // Startup's seed lease is gone before producer/worker ownership begins.
             motion.Start(); _ = ReleaseWhenEnded(motion);
@@ -170,6 +189,9 @@ public sealed partial class ShellSession
         {
             motionActivityLifecycle = null;
             motionActivityLastSourceTimeUs = null;
+            motionActivityVerificationPending = false;
+            motionActivityVerificationAttempted = false;
+            motionActivityCandidate = null;
             motionActivityStatus = "Motion remains diagnostic-only until a trusted match baseline is available.";
 
             var game = app.CaptureGameSession().State;
@@ -214,10 +236,21 @@ public sealed partial class ShellSession
         }
     }
 
-    void AdvanceMotionActivity(MotionFeedSnapshot? snapshot)
+    bool CanPreserveMotionActivityLifecycle(TableAnalysisSnapshot seed, MotionFeedScope scope)
+    {
+        lock (motionActivityGate)
+        {
+            var source = seed.CameraIdentity is null ? null : new EvidenceSource(seed.CameraIdentity,
+                scope.Timeline, seed.Generation + 1, scope.CalibrationId, scope.Source.ConnectionId.ToString("N"));
+            return motionActivityLifecycle is { Phase: not (ActivitySettlementPhase.Uncertain or ActivitySettlementPhase.SettledCandidate) } lifecycle
+                && source == lifecycle.Context.Before.Source;
+        }
+    }
+
+    Guid? AdvanceMotionActivity(MotionFeedSnapshot? snapshot)
     {
         if (motionActivityLifecycle is not { } lifecycle || snapshot?.Latest is not { } latest
-            || motionActivityLastSourceTimeUs == latest.SourceTimeUs) return;
+            || motionActivityLastSourceTimeUs == latest.SourceTimeUs) return null;
 
         var kind = snapshot.Analysis.Phase switch
         {
@@ -229,12 +262,294 @@ public sealed partial class ShellSession
             MotionAnalysisPhase.Settling or MotionAnalysisPhase.Settled => ActivitySettlementSignalKind.MotionQuiet,
             _ => (ActivitySettlementSignalKind?)null
         };
-        if (kind is null) return;
+        if (kind is null) return null;
 
         var step = lifecycle.Observe(new(kind.Value, lifecycle.Context.Before.Source, latest.SourceTimeUs));
         motionActivityLifecycle = step.Lifecycle;
         motionActivityLastSourceTimeUs = latest.SourceTimeUs;
         motionActivityStatus = step.Reason;
+        if (kind == ActivitySettlementSignalKind.ActivityDetected && !motionActivityVerificationPending)
+            motionActivityVerificationAttempted = false;
+
+        if (step.Lifecycle.Phase == ActivitySettlementPhase.Settling
+            && snapshot.Analysis.Phase == MotionAnalysisPhase.Settled
+            && !motionActivityVerificationPending && !motionActivityVerificationAttempted)
+        {
+            motionActivityVerificationPending = true;
+            motionActivityVerificationAttempted = true;
+            motionActivityStatus = "Motion is quiet; starting bounded clear-table and stillness verification.";
+            return step.Lifecycle.Context.Id;
+        }
+        return null;
+    }
+
+    async Task VerifySettledActivityAsync(Guid activityId)
+    {
+        bool resumeMotion = false, resumeDiagnostics = false, candidateReady = false;
+        int motionHz = 30;
+        long media = 0;
+        TableAnalysisSnapshot admitted = table.State;
+        CancellationToken cancellation = CancellationToken.None;
+        try
+        {
+            if (!active || foreground is null || !CanAnalyzeTable || EditingTable)
+                throw new InvalidOperationException("The calibrated live table closed before verification could start.");
+
+            lock (motionActivityGate)
+            {
+                if (motionActivityLifecycle is not { } lifecycle || lifecycle.Context.Id != activityId
+                    || lifecycle.Phase != ActivitySettlementPhase.Settling || !motionActivityVerificationPending)
+                    return;
+            }
+
+            cancellation = foreground.Token;
+            media = MediaGeneration();
+            admitted = table.State;
+            resumeMotion = motion?.Snapshot is { StopReason: null };
+            var priorMotion = MotionMetrics;
+            motionHz = priorMotion?.RequestedHz is 15 or 30 or 60 ? priorMotion.RequestedHz : 30;
+            bool dashboardActive = VisionDashboardActive;
+            if (dashboardActive) visionDashboardSamplingPaused = true;
+            resumeDiagnostics = dashboardActive && VisionDiagnosticsActive;
+
+            if (VisionDiagnosticsActive) await table.StopVisionDiagnosticsAsync();
+            if (resumeMotion) await SetMotionFeedAsync(false);
+            cancellation.ThrowIfCancellationRequested();
+
+            if (!IsCurrentVerificationSource(admitted, media))
+            {
+                MarkActivityUncertain(activityId, ActivitySettlementSignalKind.SourceDiscontinuity,
+                    "The camera source or calibration changed before O08 verification began.");
+                return;
+            }
+
+            Guid operationId = Guid.NewGuid();
+            await table.VerifyAsync(operationId, media, cancellation).WaitAsync(cancellation);
+            cancellation.ThrowIfCancellationRequested();
+
+            var verified = table.State;
+            if (!IsCurrentVerificationSource(admitted, media) || verified.Generation != admitted.Generation
+                || verified.Source != admitted.Source || verified.CalibrationId != admitted.CalibrationId)
+            {
+                MarkActivityUncertain(activityId, ActivitySettlementSignalKind.SourceDiscontinuity,
+                    "The camera source or calibration changed during O08 verification.");
+                return;
+            }
+
+            var observation = verified.Observation;
+            var layout = verified.Table;
+            if (observation is null || layout is null || verified.CameraIdentity is null
+                || observation.SourceTimeUs is not { } sourceTime)
+            {
+                SetActivityVerificationStatus(activityId, "O08 did not return a complete after-table. The original baseline is retained.");
+                return;
+            }
+
+            ActivityWindowContext? context;
+            lock (motionActivityGate) context = motionActivityLifecycle?.Context.Id == activityId ? motionActivityLifecycle.Context : null;
+            if (context is null) return;
+            if (!context.Game.IsCompatibleWith(app.CaptureGameSession().State))
+            {
+                MarkActivityUncertain(activityId, ActivitySettlementSignalKind.ContextDiscontinuity,
+                    "The match context changed during verification. Review the game state before another comparison.");
+                return;
+            }
+
+            var source = new EvidenceSource(verified.CameraIdentity, observation.Timeline,
+                verified.Generation + 1, verified.CalibrationId, observation.Source.ConnectionId.ToString("N"));
+            if (source != context.Before.Source)
+            {
+                MarkActivityUncertain(activityId, ActivitySettlementSignalKind.SourceDiscontinuity,
+                    "The verified after-table belongs to a different camera evidence source.");
+                return;
+            }
+
+            if (!Enum.TryParse<AdviceTargetGroup>(layout.Group, true, out var group) || !Enum.IsDefined(group)
+                || observation.Outcome != ObservationOutcome.Ready || !layout.Confirmed || !layout.Settled || layout.Occluded
+                || !AppCoordinator.HasVerificationProof(observation, operationId, group))
+            {
+                HandleUnverifiedActivity(activityId, observation);
+                return;
+            }
+
+            if (layout.CapturedAt != observation.CapturedAt || layout.Version != observation.TableVersion
+                || observation.Source != admitted.Source || observation.AnalysisGeneration != admitted.Generation
+                || observation.MediaGeneration != media)
+            {
+                MarkActivityUncertain(activityId, ActivitySettlementSignalKind.SourceDiscontinuity,
+                    "The verified table does not match the admitted live observation.");
+                return;
+            }
+
+            var counts = CountRecognizedBalls(layout.Balls);
+            if (counts is null)
+            {
+                SetActivityVerificationStatus(activityId, "O08 was clear and still, but some ball labels were unresolved. The original baseline is retained.");
+                return;
+            }
+
+            var after = new SettledTableEvidence(Guid.NewGuid(), source, sourceTime,
+                observation.CapturedAt, counts, Settled: true, Clear: true);
+            ActivitySettlementStep step;
+            lock (motionActivityGate)
+            {
+                if (motionActivityLifecycle is not { } lifecycle || lifecycle.Context.Id != activityId) return;
+                step = lifecycle.Observe(new(ActivitySettlementSignalKind.VerifiedSettled, source, sourceTime, after));
+                motionActivityLifecycle = step.Lifecycle;
+                motionActivityLastSourceTimeUs = Math.Max(motionActivityLastSourceTimeUs ?? -1, sourceTime);
+                motionActivityStatus = step.Reason;
+                if (step.Outcome == ActivitySettlementOutcome.SettledCandidate && step.Comparison?.Comparison is { } comparison)
+                {
+                    string summary = SummarizeComparison(comparison);
+                    motionActivityCandidate = new(activityId, comparison.After.Source,
+                        comparison.After.SourceTimeUs!.Value, comparison.After.CapturedAt,
+                        comparison.Context.Before.Counts, comparison.After.Counts,
+                        comparison.Changes, summary);
+                    motionActivityStatus = "Settled after-table is ready for review. Canonical game state has not changed.";
+                    candidateReady = true;
+                }
+            }
+        }
+        catch (OperationCanceledException)
+        {
+            SetActivityVerificationStatus(activityId, "O08 verification was interrupted. The original settled baseline is retained.");
+        }
+        catch (Exception error)
+        {
+            SetActivityVerificationStatus(activityId, $"O08 verification could not complete: {error.Message} The original settled baseline is retained.");
+        }
+        finally
+        {
+            if (!candidateReady && resumeMotion && active && CanAnalyzeTable && !disposed)
+            {
+                try { await SetMotionFeedAsync(true, motionHz, allowUnconfirmedDiagnosticSeed: true, preserveActivityLifecycle: true); }
+                catch (Exception) { SetActivityVerificationStatus(activityId, "O08 did not produce a reviewable candidate; motion sampling could not resume. The original baseline is retained."); }
+            }
+
+            if (VisionDashboardActive)
+            {
+                visionDashboardSamplingPaused = false;
+                string? restartMessage = null;
+                if (resumeDiagnostics && CanStartVisionDiagnostics)
+                {
+                    if (table.StartVisionDiagnostics(out var message))
+                    {
+                        visionDashboardStartedDiagnostics = true;
+                        VisionDashboardStatus = "Dashboard sampling resumed after settled-table verification.";
+                    }
+                    else restartMessage = message;
+                }
+                else if (resumeDiagnostics) restartMessage = "The live table is not ready for sequential sampling.";
+                if (restartMessage is not null) VisionDashboardStatus = "Dashboard sampling is waiting to resume. " + restartMessage;
+            }
+            lock (motionActivityGate) motionActivityVerificationPending = false;
+            Changed?.Invoke();
+        }
+    }
+
+    bool IsCurrentVerificationSource(TableAnalysisSnapshot admitted, long media) => active
+        && CanAnalyzeTable && !EditingTable && player is not null
+        && MediaGeneration() == media && table.State.Source == admitted.Source
+        && table.State.CalibrationId == admitted.CalibrationId
+        && table.State.Generation == admitted.Generation;
+
+    static SettledTableCounts? CountRecognizedBalls(Ball[] balls)
+    {
+        int reds = 0, yellows = 0, cues = 0, blacks = 0;
+        foreach (var ball in balls)
+        {
+            switch (ball.Kind.Trim().ToLowerInvariant())
+            {
+                case "red": reds++; break;
+                case "yellow": yellows++; break;
+                case "cue":
+                case "cue ball":
+                case "cue-ball": cues++; break;
+                case "black": blacks++; break;
+                default: return null;
+            }
+        }
+        return new(reds, yellows, cues, blacks);
+    }
+
+    static string SummarizeComparison(SettledInventoryComparison comparison)
+    {
+        var before = comparison.Context.Before.Counts;
+        var after = comparison.After.Counts;
+        string Inventory(SettledTableCounts counts) => $"{counts.Reds} red · {counts.Yellows} yellow · cue {(counts.CueBalls == 1 ? "present" : "absent")} · black {(counts.BlackBalls == 1 ? "present" : "absent")}";
+        string changes = comparison.Changes.IsEmpty ? "no net count change"
+            : string.Join(", ", comparison.Changes.Select(change =>
+                change.Removed > 0 ? $"{change.Removed} {change.Colour.ToString().ToLowerInvariant()} removed"
+                    : $"{change.Added} {change.Colour.ToString().ToLowerInvariant()} added"));
+        return $"A: {Inventory(before)} → B: {Inventory(after)}; {changes}. No pot, foul or turn is inferred.";
+    }
+
+    void HandleUnverifiedActivity(Guid activityId, SkyEye.Core.Application.TableObservation observation)
+    {
+        if (observation.Reason == ObservationReason.Obstructed && observation.SourceTimeUs is { } obstructedAt)
+        {
+            lock (motionActivityGate)
+            {
+                if (motionActivityLifecycle is { } lifecycle && lifecycle.Context.Id == activityId)
+                {
+                    var step = lifecycle.Observe(new(ActivitySettlementSignalKind.Obstructed,
+                        lifecycle.Context.Before.Source, obstructedAt));
+                    motionActivityLifecycle = step.Lifecycle;
+                    motionActivityLastSourceTimeUs = obstructedAt;
+                    if (step.Outcome == ActivitySettlementOutcome.Applied) motionActivityVerificationAttempted = false;
+                    motionActivityStatus = step.Outcome == ActivitySettlementOutcome.Uncertain ? step.Reason
+                        : "The verification view is obstructed. The original before-table remains held.";
+                }
+            }
+            return;
+        }
+        if (observation.Reason == ObservationReason.Moving && observation.SourceTimeUs is { } movingAt)
+        {
+            lock (motionActivityGate)
+            {
+                if (motionActivityLifecycle is { } lifecycle && lifecycle.Context.Id == activityId)
+                {
+                    var step = lifecycle.Observe(new(ActivitySettlementSignalKind.ActivityDetected,
+                        lifecycle.Context.Before.Source, movingAt));
+                    motionActivityLifecycle = step.Lifecycle;
+                    motionActivityLastSourceTimeUs = movingAt;
+                    if (step.Outcome == ActivitySettlementOutcome.Applied) motionActivityVerificationAttempted = false;
+                    motionActivityStatus = step.Outcome == ActivitySettlementOutcome.Uncertain ? step.Reason
+                        : "Movement continued during verification; keep the before-table and wait for the table to settle again.";
+                }
+            }
+            return;
+        }
+        if (observation.Reason is ObservationReason.SourceChanged or ObservationReason.CalibrationChanged)
+        {
+            MarkActivityUncertain(activityId, ActivitySettlementSignalKind.SourceDiscontinuity,
+                "The source or calibration changed during verification; a fresh trusted baseline is required.");
+            return;
+        }
+        string reason = AppCoordinator.VerificationMessage(observation.Reason);
+        SetActivityVerificationStatus(activityId, $"{reason} The original before-table remains held; no game state changed.");
+    }
+
+    void MarkActivityUncertain(Guid activityId, ActivitySettlementSignalKind kind, string status)
+    {
+        lock (motionActivityGate)
+        {
+            if (motionActivityLifecycle is not { } lifecycle || lifecycle.Context.Id != activityId) return;
+            var sourceTime = Math.Max(lifecycle.LastSourceTimeUs + 1, 0);
+            var step = lifecycle.Observe(new(kind, lifecycle.Context.Before.Source, sourceTime));
+            motionActivityLifecycle = step.Lifecycle;
+            motionActivityLastSourceTimeUs = sourceTime;
+            motionActivityStatus = status;
+            motionActivityCandidate = null;
+        }
+    }
+
+    void SetActivityVerificationStatus(Guid activityId, string status)
+    {
+        lock (motionActivityGate)
+        {
+            if (motionActivityLifecycle?.Context.Id == activityId) motionActivityStatus = status;
+        }
     }
 
     void ReleaseMotion()
