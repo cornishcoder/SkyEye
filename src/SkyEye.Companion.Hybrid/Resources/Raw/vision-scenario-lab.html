@@ -181,8 +181,8 @@
     $('player-select').value=playerOptions.some(p=>p.id===selectedPlayer)?selectedPlayer:(m.currentPlayer||playerOptions[0]?.id||'p1');
     const shotText=shot?`${shot.ended?'Ended':'Active'} · ${shot.resolved?'resolved':'unresolved'} · ${Object.keys(shot.approaches||{}).length} approaches`:'None';
     const tableStatus=t.uncertain?'Uncertain':t.lastSettled?'Settled':'Not settled';
-    const inventory=t.groupCounts||{},ballsByColour=colour=>Object.values(t.balls||{}).filter(ball=>ball.colour===colour);
-    const countFor=colour=>{const fact=inventory[String(colour)];if(Number.isInteger(fact?.value))return fact.value;const members=ballsByColour(colour);return members.some(ball=>[0,2].includes(ball.presence?.value))?'check':members.filter(ball=>ball.presence?.value===1).length};
+    const inventory=t.groupCounts||{},countNames={0:'Cue',1:'Red',2:'Yellow',3:'Black'},ballsByColour=colour=>Object.values(t.balls||{}).filter(ball=>ball.colour===colour);
+    const countFor=colour=>{const fact=inventory[countNames[colour]]||inventory[String(colour)];if(Number.isInteger(fact?.value))return fact.value;const members=ballsByColour(colour);return members.some(ball=>[0,2].includes(ball.presence?.value))?'check':members.filter(ball=>ball.presence?.value===1).length};
     const countText=`Red ${countFor(1)} · Yellow ${countFor(2)} · Cue ball ${countFor(0)} · Black ${countFor(3)}`;
     setRows('table-state',[["Motion",enumLabel(t.motion,['Unknown','Moving','Settled'])],['Table',tableStatus],['On-table counts',countText],['Ball identities',Object.keys(t.balls||{}).length],['Shot',shotText],['Visit',f.visit??'—'],['Foul',f.foul?.value==null?'—':String(f.foul.value)]]);
     const balls=Object.values(t.balls||{}).sort((a,b)=>String(a.id).localeCompare(String(b.id)));

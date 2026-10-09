@@ -168,12 +168,17 @@ public sealed class DashboardScenarioWorkspace
             var onTable = live.State.Table.Balls.Values.Where(ball => ball.Presence.Value == BallPresence.OnTable
                 && ball.Position is not null).ToImmutableArray();
             var detected = ToObserved(sample.Detection);
-            if (onTable.Length == 0 || !CanAssignBaselineInventory(onTable, detected))
-                return new(false, "The camera shows an unsupported colour or more balls of a colour than the copied match inventory. Correct the test inventory before reviewing camera changes.", Current());
+            bool positionedInventory = onTable.Length == detected.Length
+                && CanAssignBaselineInventory(onTable, detected);
+            bool hasTrustedCountBaseline = TryGetTrustedCounts(live.State.Table, source, out var baselineCounts);
+            if (!positionedInventory && !hasTrustedCountBaseline)
+                return new(false, "The copied match has neither a complete positioned inventory nor a trusted settled count baseline for this camera source.", Current());
 
-            bool baselinePending = live.State.Table.Motion != SkyEye.GameState.TableMotion.Settled
-                || live.State.Table.Uncertain || live.State.Table.LastSettled is null
-                || !SameScenarioLayout(onTable, detected);
+            bool sameBaseline = positionedInventory
+                ? SameScenarioLayout(onTable, detected)
+                : hasTrustedCountBaseline && CountBalls(detected) == baselineCounts;
+            bool baselinePending = !hasTrustedCountBaseline && (live.State.Table.Motion != SkyEye.GameState.TableMotion.Settled
+                || live.State.Table.Uncertain || live.State.Table.LastSettled is null || !sameBaseline);
 
             try
             {
@@ -198,7 +203,7 @@ public sealed class DashboardScenarioWorkspace
                     : "Live match copied into the isolated scenario. Waiting for a stable changed table layout.";
                 cameraStableSamples.Clear();
                 cameraStableSamples.Add(new(sample, detected));
-                cameraLastScenarioMatch = baselinePending ? null : new(sample, detected);
+                cameraLastScenarioMatch = baselinePending || !sameBaseline ? null : new(sample, detected);
                 cameraFirstChangedSample = null;
                 cameraLastChangingSample = null;
                 pendingCameraStableSample = null;
@@ -312,7 +317,14 @@ public sealed class DashboardScenarioWorkspace
                 }
                 var currentTable = session.State.Table.Balls.Values.Where(ball => ball.Presence.Value == BallPresence.OnTable
                     && ball.Position is not null).ToImmutableArray();
-                bool matchesScenario = !cameraBaselinePending && SameScenarioLayout(currentTable, balls);
+                bool matchesKnownIdentities = SameScenarioLayout(currentTable, balls);
+                bool matchesAggregateCounts = sample.Source is { } sampleSource
+                    && TryGetTrustedCounts(session.State.Table, sampleSource, out var currentCounts)
+                    && CountBalls(balls) == currentCounts;
+                bool matchesLastAcceptedLayout = cameraLastScenarioMatch is null
+                    || SameCameraLayout(cameraLastScenarioMatch.Balls, balls, .025);
+                bool matchesScenario = !cameraBaselinePending
+                    && (matchesKnownIdentities || matchesAggregateCounts && matchesLastAcceptedLayout);
                 var previous = cameraStableSamples.Count > 0 ? cameraStableSamples[^1] : cameraLastScenarioMatch;
                 if (previous is not null)
                 {
@@ -377,9 +389,7 @@ public sealed class DashboardScenarioWorkspace
                     StageCameraBaselineProposal(cameraStableSamples[0], settled);
                     return new(true, "Stable camera baseline ready for review.", Current());
                 }
-                var onTable = session.State.Table.Balls.Values.Where(ball => ball.Presence.Value == BallPresence.OnTable
-                    && ball.Position is not null).ToImmutableArray();
-                if (SameScenarioLayout(onTable, settled.Balls))
+                if (matchesScenario)
                 {
                     if (cameraStableSamples.Any(item => item.Sample.Detection.Uncertain))
                     {
@@ -1211,6 +1221,17 @@ public sealed class DashboardScenarioWorkspace
         balls.Count(ball => ball.Colour == BallColour.Yellow),
         balls.Count(ball => ball.Colour == BallColour.Cue),
         balls.Count(ball => ball.Colour == BallColour.Black));
+
+    static bool TryGetTrustedCounts(SkyEye.GameState.TableState table, EvidenceSource source, out SettledTableCounts counts)
+    {
+        counts = new(table.Remaining(BallColour.Red), table.Remaining(BallColour.Yellow),
+            table.Remaining(BallColour.Cue), table.Remaining(BallColour.Black));
+        return table.Motion == SkyEye.GameState.TableMotion.Settled && !table.Uncertain
+            && table.Source == source && table.LastSettled is { SourceTimeUs: >= 0 } settled
+            && settled.Source == source && counts.IsComplete
+            && counts.Reds is >= 0 and <= 16 && counts.Yellows is >= 0 and <= 16
+            && counts.CueBalls is >= 0 and <= 1 && counts.BlackBalls is >= 0 and <= 1;
+    }
 
     static DashboardScenarioInventoryReview ToInventoryReview(SettledComparisonResult result)
     {
