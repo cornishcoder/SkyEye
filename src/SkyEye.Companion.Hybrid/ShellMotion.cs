@@ -53,6 +53,12 @@ public sealed partial class ShellSession
     bool motionActivityLayoutProbeIsBaseline;
     ActivityWindowContext? motionActivityCandidateContext;
     SettledTableEvidence? motionActivityCandidateAfter;
+    readonly StableTableChangeTracker stableTableChangeTracker = new();
+
+    public StableTableChangeSnapshot StableTableChangeMetrics
+    {
+        get { lock (motionActivityGate) return stableTableChangeTracker.Snapshot; }
+    }
 
     public MotionActivityDisplay MotionActivityMetrics
     {
@@ -281,6 +287,8 @@ public sealed partial class ShellSession
             bool consecutive = motionActivityLastDiagnosticSequence == 0
                 || sample.Sequence == motionActivityLastDiagnosticSequence + 1;
             motionActivityLastDiagnosticSequence = sample.Sequence;
+
+            ObserveStableTableChangeSample(sample);
 
             if (motionActivityVerificationPending || motionActivityCandidate is not null
                 || motionActivityLifecycle?.Phase is ActivitySettlementPhase.SettledCandidate or ActivitySettlementPhase.Uncertain)
@@ -569,6 +577,23 @@ public sealed partial class ShellSession
             return motionActivityLifecycle is { Phase: not (ActivitySettlementPhase.Uncertain or ActivitySettlementPhase.SettledCandidate) } lifecycle
                 && source == lifecycle.Context.Before.Source;
         }
+    }
+
+    void ObserveStableTableChangeSample(VisionDiagnosticSample sample)
+    {
+        var detection = sample.Detection;
+        var ageMs = (DateTimeOffset.UtcNow - sample.CapturedAt).TotalMilliseconds;
+        bool freshClear = !detection.Uncertain && !detection.Obstructed
+            && double.IsFinite(ageMs) && ageMs is >= -200 and <= ObservationPolicy.ReviewFreshnessSeconds * 1000;
+        var counts = freshClear ? CountRecognizedBalls(detection.Balls) : null;
+        var layout = counts is not null && ValidRecognizedCounts(counts)
+            ? CaptureSettledLayout(detection.Balls) : [];
+        bool usable = counts is not null && ValidRecognizedCounts(counts)
+            && !layout.IsDefaultOrEmpty && sample.Source is not null && sample.SourceTimeUs >= 0;
+
+        stableTableChangeTracker.Observe(new(sample.Source, sample.SourceTimeUs, sample.CapturedAt,
+            usable ? counts! : new SettledTableCounts(0, 0, 0, 0),
+            usable ? layout : [], usable));
     }
 
     Guid? AdvanceMotionActivity(MotionFeedSnapshot? snapshot)

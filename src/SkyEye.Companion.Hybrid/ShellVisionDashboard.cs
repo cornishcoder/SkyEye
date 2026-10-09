@@ -38,7 +38,7 @@ public sealed partial class ShellSession
 {
     const string VisionDashboardAsset = "vision-diagnostics-dashboard.html";
     const string VisionScenarioAsset = "vision-scenario-lab.html";
-    const int VisionDashboardAssetVersion = 21;
+    const int VisionDashboardAssetVersion = 22;
     const int VisionScenarioAssetVersion = 9;
     const int VisionDashboardPort = 8770;
     readonly DashboardScenarioWorkspace dashboardScenario;
@@ -389,6 +389,7 @@ public sealed partial class ShellSession
                         balls = detectedBalls, candidates
                     },
                     samples,
+                    tableChanges = StableTableChangeMetrics,
                     camera = new { reachability = camera.Reachability.ToString(), capture = camera.Capture.ToString(), camera.CanControl },
                     calibration = new { table.State.CalibrationId, corners = calibration?.Corners },
                     trackedTable = tracked,

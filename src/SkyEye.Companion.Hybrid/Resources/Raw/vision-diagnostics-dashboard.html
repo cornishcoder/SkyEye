@@ -23,6 +23,7 @@
     .match-summary{border-top:1px solid var(--line);margin-top:13px;padding-top:12px}.match-title{display:flex;align-items:center;gap:8px}.match-title h3,.match-summary h4{margin:0;font-size:12px;letter-spacing:.04em}.match-target{margin-left:auto;color:var(--muted);font-size:11px}.match-score{font-size:20px;font-weight:700;margin:6px 0 1px;font-variant-numeric:tabular-nums}.match-status{color:var(--mint);margin-bottom:9px}.match-players{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.match-player{border:1px solid var(--line);border-radius:7px;padding:7px;min-width:0}.match-player strong,.match-player span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.match-player span{font-size:11px;color:var(--muted)}.match-summary h4{margin:12px 0 6px;color:var(--muted);text-transform:uppercase}.frame-ledger,.canonical-balls{display:grid;gap:5px}.frame-row,.canonical-ball{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:7px;align-items:center;border-bottom:1px solid #202e35;padding:5px 0;font-size:12px}.frame-row small,.canonical-ball small{color:var(--muted)}.canonical-ball{grid-template-columns:minmax(50px,.7fr) minmax(48px,.65fr) minmax(70px,1fr) minmax(78px,1fr);font-size:11px}.canonical-ball span{overflow-wrap:anywhere}.match-empty{color:var(--muted);font-size:12px}
     .outcome-review{border:1px solid #80622f;background:#211c13;border-radius:8px;padding:10px;margin-top:10px}.outcome-review[hidden]{display:none}.outcome-review h4{margin:0 0 5px;color:#ffd08c}.outcome-counts{font-size:12px;line-height:1.6;margin:5px 0 9px}.review-actions{display:flex;flex-wrap:wrap;gap:6px}.review-actions button{border:1px solid var(--line);border-radius:6px;background:#17252b;color:#e8f0f1;padding:7px 9px;cursor:pointer}.review-actions button.primary{background:#295347;border-color:#447d6b}.review-actions button.reject{background:#342020;border-color:#654040}.review-counts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:8px 0}.review-counts label{font-size:10px;color:var(--muted)}.review-counts input{display:block;width:100%;margin-top:3px;background:#0b1115;border:1px solid var(--line);border-radius:5px;color:#e8f0f1;padding:6px}.review-result{font-size:12px;margin:6px 0 0;color:var(--mint)}
     .rules-advice{border-top:1px solid #4c402a;margin:8px 0;padding-top:7px;font-size:11px}.rules-advice[hidden]{display:none}.rules-advice>strong{color:#ffd08c}.rules-advice p{margin:4px 0;color:var(--muted)}.rules-branch{margin:5px 0;padding:5px 7px;border-left:2px solid #887044;background:#1b1914}.rules-branch strong,.rules-branch span{display:block}.rules-branch span{color:var(--muted);margin-top:2px}.rules-questions{margin:5px 0 0;padding-left:17px;color:var(--muted)}
+    .table-watcher{border:1px solid var(--line);border-radius:8px;padding:9px;margin-top:10px}.table-watcher h4{margin:0 0 4px!important;color:var(--mint)!important}.table-watch-status,.table-watch-baseline{font-size:11px;margin:3px 0;color:var(--muted)}.table-change-list{display:grid;gap:5px;margin-top:7px}.table-change{border-top:1px solid #202e35;padding-top:5px;font-size:11px}.table-change time{display:block;color:var(--muted);font-size:10px}
     @media(max-width:900px){.image-panel{height:62vh;min-height:360px}aside{grid-template-columns:1fr;grid-template-rows:auto auto}aside>.scroll{height:300px}}
   </style>
 </head>
@@ -57,6 +58,12 @@
           <dl id="motion-analysis" class="kv" style="margin-top:9px"><dt>Analyser</dt><dd>Not running</dd></dl>
           <p class="muted">Movement gate: one region ≥2.5 px/frame, two regions ≥0.9 px/frame, or one region above 0.55 px/frame in the same direction for 3 frames.</p>
           <details><summary>Seed-region measurements</summary><div id="motion-regions" class="muted">No motion samples.</div></details>
+          <section class="table-watcher" aria-label="Stable table change watcher">
+            <h4>Stable table watcher</h4>
+            <p id="table-watch-status" class="table-watch-status">Waiting for a clear table view.</p>
+            <p id="table-watch-baseline" class="table-watch-baseline">Baseline not established</p>
+            <div id="table-change-list" class="table-change-list"><span class="muted">No stable changes recorded.</span></div>
+          </section>
         </section>
         <section class="match-summary" aria-label="Canonical match and table state">
           <div class="match-title"><h3>Canonical match</h3><span id="match-target" class="match-target">Waiting for state</span></div>
@@ -172,6 +179,15 @@
     const regions=motion.regions||[];
     $('motion-regions').innerHTML=regions.length?`<table><thead><tr><th>Seed region</th><th>Track</th><th>Shift · px/frame</th><th>Residual</th><th>Local change</th></tr></thead><tbody>${regions.map(r=>`<tr><td>${esc(r.id)}</td><td>${esc(r.templateStatus)}</td><td>${r.templateDxPixels==null||r.templateDyPixels==null?'—':`${fmt(r.templateDxPixels,2)}, ${fmt(r.templateDyPixels,2)}`}</td><td>${fmt(r.templateResidual,3)}</td><td>${r.illuminationNormalizedChangedPixelFraction==null?'—':fmt(r.illuminationNormalizedChangedPixelFraction,4)}</td></tr>`).join('')}</tbody></table>`:'No motion regions in the latest sample.';
   }
+  function renderTableChanges(watcher){
+    const counts=watcher?.baselineCounts;
+    $('table-watch-status').textContent=watcher?.status||'Waiting for clear table samples.';
+    $('table-watch-baseline').textContent=watcher?.baselineEstablished&&counts
+      ?`Current baseline · ${counts.reds} red · ${counts.yellows} yellow · cue ${counts.cueBalls} · black ${counts.blackBalls}`
+      :`Establishing baseline · ${watcher?.stableSamples||0}/3 matching clear views`;
+    const events=(watcher?.recentEvents||[]).slice().reverse();
+    $('table-change-list').innerHTML=events.length?events.map(event=>`<div class="table-change"><time>${new Date(event.capturedAt).toLocaleTimeString()}</time><strong>${esc(event.summary)}</strong></div>`).join(''):'<span class="muted">No stable changes recorded.</span>';
+  }
   function renderGame(s){
     const g=s?.game||{},t=g.table||{},f=g.frame||{},match=s?.match||{},tracked=s?.trackedTable;
     const ballColour=value=>enumText(value,['Cue ball','Red','Yellow','Black','Unknown']);
@@ -273,7 +289,7 @@
       $('m-balls').textContent=det?`${det.balls.length} / ${det.circleCount}${det.unclassifiedCount?` · ${det.unclassifiedCount} unknown`:''}${det.uncertain?' · check':''}`:'—';$('m-time').textContent=det?`${fmt(det.elapsedMs,1)} ms`:'—';
       $('frame-info').textContent=fr?`${fr.width}×${fr.height} · ${fr.frameSource} · source ${fr.sourceTimeUs} µs · ${new Date(fr.capturedAt).toLocaleTimeString()}`:'Waiting for fresh pixels';
       $('empty').hidden=!!currentImage;
-      renderBalls(det);renderVision(det);renderMotion(next.motion,next.activityLifecycle);renderGame(next);renderOutcomeReview(next.activityLifecycle);renderSamples(next.samples);
+      renderBalls(det);renderVision(det);renderMotion(next.motion,next.activityLifecycle);renderTableChanges(next.tableChanges);renderGame(next);renderOutcomeReview(next.activityLifecycle);renderSamples(next.samples);
       const requestedFrameKey=frameKey(next);
       if(fr&&requestedFrameKey!==drawnFrameKey){
         const imageResponse=await fetch(`/api/frame?sequence=${fr.sequence}&sessionId=${encodeURIComponent(next.sessionId)}`,{cache:'no-store'});
