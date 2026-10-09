@@ -69,7 +69,10 @@ public sealed partial class ShellSession
     {
         table = new(new PlayerTableFrameSource(() => player, () => app.State.Camera,
             () => active && sessionMode == TableSessionMode.Live && selection.Kind == ViewingSource.Live,
-            token => MainThread.InvokeOnMainThreadAsync(() => RefreshAsync(token))), new VisionAnalyzer(),
+            token => MainThread.InvokeOnMainThreadAsync(() => RefreshAsync(token))),
+            // At 800x1600 a standard ball still spans about 43 pixels, while
+            // reducing the per-frame pixel work by more than a third.
+            new VisionAnalyzer(new VisionSettings(Width: 800)),
             new CameraCalibrationStore(Android.App.Application.Context, () => client.Address, GeometryKey));
         table.VisionDiagnosticsChanged += OnVisionDiagnosticsChanged;
     }
