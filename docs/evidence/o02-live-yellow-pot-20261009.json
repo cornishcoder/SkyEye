@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "label": {
+    "event": "User-reported yellow pot",
+    "reportedTimingSecondsAfterCaptureStart": "10-15",
+    "captureStartLocal": "2026-10-09T10:02:23.552+01:00"
+  },
+  "capture": {
+    "completed": true,
+    "durationSeconds": 30,
+    "requestedHz": 30,
+    "sampleIntervalSeconds": 1,
+    "metricSamples": 29,
+    "sourceResolution": "1920x1080",
+    "analysisResolution": "960x540",
+    "seed": "fresh-unconfirmed-clear-diagnostic-candidate",
+    "seedAgeMs": 902.3,
+    "decoderGenerationStart": 8,
+    "decoderGenerationEnd": 8,
+    "playerEndedCountStart": 4,
+    "playerEndedCountEnd": 4
+  },
+  "summary": {
+    "processedFrames": 809,
+    "approximateProcessedHz": 27.9,
+    "decoderFrameCallbacks": 870,
+    "textureUpdates": 817,
+    "sourceGapResets": 0,
+    "staleSamples": 0,
+    "acquisitionFailures": 0,
+    "scopeRejections": 0,
+    "workerFailures": 0,
+    "regionsPerSample": 16,
+    "supportedRegionsDuringReportedShotWindow": 10,
+    "peakSupportedRegionSpeedPxPerSecondDuringReportedShotWindow": 3.71,
+    "peakSupportedRegionDisplacementPxDuringReportedShotWindow": 0.247,
+    "peakIlluminationNormalizedChangedPixelFractionDuringReportedShotWindow": 0.000732,
+    "peakIlluminationNormalizedChangedPixelFractionAcrossCapture": 0.000732,
+    "appWideChangedDuringCopyCounterDelta": 19
+  },
+  "limitations": [
+    "No camera images were saved.",
+    "Fixed ROI identifiers do not establish which physical ball moved.",
+    "The local-change peak matched the earlier still-control maximum; the optical-flow response was modest.",
+    "The feed does not detect pots, track ball identity, or decide game events.",
+    "The app-wide copy counter is cumulative and cannot be assigned to individual motion acquisitions."
+  ]
+}
