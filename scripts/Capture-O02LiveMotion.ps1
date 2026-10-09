@@ -4,6 +4,7 @@ param(
     [ValidateRange(5, 3600)][int]$DurationSeconds = 60,
     [ValidateSet(15, 30, 60)][int]$Hz = 30,
     [ValidateRange(1, 5)][int]$SampleIntervalSeconds = 1,
+    [switch]$AllowUnconfirmedDiagnosticSeed,
     [string]$AdbPath = 'C:\Program Files (x86)\Android\android-sdk\platform-tools\adb.exe'
 )
 $ErrorActionPreference = 'Stop'
@@ -36,7 +37,16 @@ try {
     if (-not $taskPing.diagnostic -or $taskPing.package -ne 'uk.co.skyeye.companion.lab') {
         throw 'The connected Lab app is not running its opt-in performance diagnostics build.'
     }
-    $null = Invoke-RestMethod -Method Post -Uri "$taskAddress/motion-feed?enabled=1&hz=$Hz" -TimeoutSec 10
+    if ($AllowUnconfirmedDiagnosticSeed) {
+        $taskCandidate = Invoke-RestMethod -Method Post -Uri "$taskAddress/observe?choices=0" -TimeoutSec 30
+        if (-not $taskCandidate.succeeded) { throw "Could not refresh a diagnostic candidate: $($taskCandidate.message)" }
+        $taskCandidateMetrics = Invoke-RestMethod -Method Get -Uri "$taskAddress/metrics" -TimeoutSec 5
+        if ($taskCandidateMetrics.table.occluded -or $taskCandidateMetrics.table.balls.Count -lt 1 -or $taskCandidateMetrics.table.balls.Count -gt 16) {
+            throw 'The fresh diagnostic candidate is not a clear 1–16-ball table; no motion capture was started.'
+        }
+    }
+    $taskSeedQuery = if ($AllowUnconfirmedDiagnosticSeed) { '&seed=fresh-clear-candidate' } else { '' }
+    $null = Invoke-RestMethod -Method Post -Uri "$taskAddress/motion-feed?enabled=1&hz=$Hz$taskSeedQuery" -TimeoutSec 10
     $taskFeedStarted = $true
     $taskStartupDeadline = [DateTimeOffset]::UtcNow.AddSeconds(20)
     do {
@@ -52,6 +62,7 @@ try {
         throw 'No processed camera sample arrived within 20 seconds; no measurement was saved.'
     }
     $taskStartedAt = [DateTimeOffset]::UtcNow
+    Write-Host "Motion capture is active for $DurationSeconds seconds; take one shot now."
     $taskDeadline = [DateTimeOffset]::UtcNow.AddSeconds($DurationSeconds)
     while ([DateTimeOffset]::UtcNow -lt $taskDeadline) {
         $taskMetrics = Invoke-RestMethod -Method Get -Uri "$taskAddress/metrics" -TimeoutSec 5
@@ -268,7 +279,7 @@ $taskReport = [pscustomobject]@{
         PeakSupportedRegionSpeedPixelsPerSecond = if ($taskRows.Count -gt 0) { ($taskRows | Measure-Object -Property MaxSupportedRegionSpeedPixelsPerSecond -Maximum).Maximum } else { $null }
         PeakSupportedRegionDisplacementPixels = if ($taskRows.Count -gt 0) { ($taskRows | Measure-Object -Property MaxSupportedRegionDisplacementPixels -Maximum).Maximum } else { $null }
     }
-    Scope = 'Opt-in candidate availability, main-thread probe/read queue timing, TextureView update counts and age, native bitmap-copy duration, source PTS, per-gap acquisition/worker telemetry, decoder-release/texture and copy-failure counters, player restart/error state and dimensions. Per-region optical flow and illumination-normalized pixel-change evidence are indexed to the confirmed seed ROIs; they are not detector tracking, persistent ball identity, or shot adjudication.'
+    Scope = 'Opt-in candidate availability, main-thread probe/read queue timing, TextureView update counts and age, native bitmap-copy duration, source PTS, per-gap acquisition/worker telemetry, decoder-release/texture and copy-failure counters, player restart/error state and dimensions. Per-region optical flow and illumination-normalized pixel-change evidence are indexed to the seed ROIs; they are not detector tracking, persistent ball identity, or shot adjudication. An unconfirmed seed is accepted only by the explicit development-only fresh-clear-candidate option.'
 }
 $taskOutputDirectory = Split-Path -Parent $taskOutputPath
 if ($taskOutputDirectory -and -not (Test-Path -LiteralPath $taskOutputDirectory -PathType Container)) {

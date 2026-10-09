@@ -68,7 +68,11 @@ public sealed partial class ShellSession
                 try
                 {
                     bool enabled = r.Query.GetValueOrDefault("enabled") == "1";
-                    await SetMotionFeedAsync(enabled, int.Parse(r.Query.GetValueOrDefault("hz", "30")));
+                    var seedMode = r.Query.GetValueOrDefault("seed", "confirmed");
+                    if (seedMode is not ("confirmed" or "fresh-clear-candidate"))
+                        return HttpResponse.Json(new { error = "Unsupported motion diagnostic seed mode." }, 400);
+                    await SetMotionFeedAsync(enabled, int.Parse(r.Query.GetValueOrDefault("hz", "30")),
+                        allowUnconfirmedDiagnosticSeed: seedMode == "fresh-clear-candidate");
                     if (MotionMetrics is { } metrics) return HttpResponse.Json(metrics);
                     return HttpResponse.Json(new { active = enabled ? 1 : 0, pending = 0, status = enabled ? "Starting" : "Stopped; no samples collected" });
                 }

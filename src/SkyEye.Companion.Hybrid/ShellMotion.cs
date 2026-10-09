@@ -26,7 +26,7 @@ public sealed partial class ShellSession
 
     // Explicit developer/diagnostic enablement. Normal startup never starts a feed.
     // O03/O04 will supply the product observation-session behavior and ROI recentering.
-    public Task SetMotionFeedAsync(bool enabled, int hz = 30) => MainThread.InvokeOnMainThreadAsync(async () =>
+    public Task SetMotionFeedAsync(bool enabled, int hz = 30, bool allowUnconfirmedDiagnosticSeed = false) => MainThread.InvokeOnMainThreadAsync(async () =>
     {
         await motionGate.WaitAsync();
         try
@@ -37,14 +37,19 @@ public sealed partial class ShellSession
             if (owner is not null) MediaGeneration();
             if (!active || owner is null || EditingTable || !CanAnalyzeTable || seed.Source is null || seed.Calibration is null)
                 throw new InvalidOperationException("Open the active calibrated live table before observing motion.");
-            if (seed.Table is not { Confirmed: true, Settled: true, Occluded: false } layout || layout.Balls.Length is < 1 or > 16)
+            if (seed.Table is not { Occluded: false } layout || layout.Balls.Length is < 1 or > 16)
+                throw new InvalidOperationException("A clear live ball candidate is required before observing motion.");
+            bool confirmedSeed = layout is { Confirmed: true, Settled: true };
+            if (!confirmedSeed && !allowUnconfirmedDiagnosticSeed)
                 throw new InvalidOperationException("Confirm a clear, settled live layout before observing motion.");
             Ball[] roiBalls = layout.Balls;
             var layoutAgeMs = (DateTimeOffset.UtcNow - layout.CapturedAt).TotalMilliseconds;
             long? seedFrameId = seed.Observation?.DecodedReceipt?.FrameId;
-            string seedSource = "confirmed-table-layout";
+            string seedSource = confirmedSeed ? "confirmed-table-layout" : "fresh-unconfirmed-clear-diagnostic-candidate";
             VisionDiagnosticSample? diagnosticSeed = null;
-            if (!double.IsFinite(layoutAgeMs) || layoutAgeMs is < -200 or > ObservationPolicy.ReviewFreshnessSeconds * 1000)
+            if (!confirmedSeed && (!double.IsFinite(layoutAgeMs) || layoutAgeMs is < -200 or > 2000))
+                throw new InvalidOperationException("The diagnostic seed must come from a fresh clear detector view.");
+            if (confirmedSeed && (!double.IsFinite(layoutAgeMs) || layoutAgeMs is < -200 or > ObservationPolicy.ReviewFreshnessSeconds * 1000))
             {
                 var diagnostic = table.VisionDiagnostics;
                 diagnosticSeed = diagnostic.Active ? diagnostic.LiveFrame?.Sample : null;

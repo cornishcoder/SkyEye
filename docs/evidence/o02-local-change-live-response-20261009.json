@@ -1,0 +1,79 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-09",
+  "source": {
+    "kind": "mounted live table camera",
+    "sourceDimensions": "1920x1080",
+    "analysisDimensions": "960x540",
+    "fixedSeedRegions": 16,
+    "requestedAcquisitionHz": 60,
+    "imagesSaved": false
+  },
+  "metric": {
+    "name": "illumination-normalized changed-pixel fraction",
+    "method": "Subtract the median grayscale brightness offset per region, then count pixels with residual change of at least 12 gray levels.",
+    "interpretation": "Local change evidence only; it does not identify a ball or adjudicate a shot."
+  },
+  "runs": [
+    {
+      "label": "still-control-a",
+      "userReportedBallMovement": false,
+      "complete": true,
+      "durationSeconds": 29.29,
+      "samples": 29,
+      "processedFramesDuringWindow": 788,
+      "regionFractionP50": 0.0,
+      "regionFractionP95": 0.0,
+      "regionFractionMax": 0.000732421875,
+      "perSamplePeakFractionP95": 0.000244140625,
+      "perSamplePeakFractionMax": 0.000732421875,
+      "peakFlowPixelsPerSecond": 4.7474355973,
+      "gapResets": 0,
+      "acquisitionFailures": 0,
+      "workerFailures": 0
+    },
+    {
+      "label": "still-control-b",
+      "userReportedBallMovement": false,
+      "complete": true,
+      "durationSeconds": 28.96,
+      "samples": 29,
+      "processedFramesDuringWindow": 811,
+      "regionFractionP50": 0.0,
+      "regionFractionP95": 0.0,
+      "regionFractionMax": 0.00048828125,
+      "perSamplePeakFractionP95": 0.00048828125,
+      "perSamplePeakFractionMax": 0.00048828125,
+      "peakFlowPixelsPerSecond": 6.6445191715,
+      "gapResets": 0,
+      "acquisitionFailures": 0,
+      "workerFailures": 0
+    },
+    {
+      "label": "user-reported-red-pot",
+      "userReportedBallMovement": true,
+      "reportedEvent": "User potted one red near the end of the capture while leaning over the table with the cue.",
+      "complete": false,
+      "durationSecondsBeforeStop": 19.73,
+      "stableSourceSamples": 18,
+      "stableSourceDurationSeconds": 17.69,
+      "processedFramesBeforeRestart": 482,
+      "stableSourceGeneration": 4,
+      "regionFractionP50": 0.0,
+      "regionFractionP95": 0.000244140625,
+      "regionFractionMaxBeforeRestart": 0.00244140625,
+      "perSamplePeakFractionP95BeforeRestart": 0.00244140625,
+      "peakStableSourceFlowPixelsPerSecond": 10.8084706143,
+      "stableSourcePeakTimeSeconds": 16.7,
+      "localChangeAtRestartFraction": 0.00537109375,
+      "restartTimeSeconds": 18.7,
+      "decoderGeneration": "4 to 5",
+      "playerEndedCount": "0 to 1",
+      "stopReason": "Source, calibration or enablement changed",
+      "gapResets": 0,
+      "acquisitionFailures": 0,
+      "workerFailures": 0
+    }
+  ],
+  "assessment": "The maximum stable-source local-change fraction before the user-reported pot was about 3.3 times the largest still-control value. This is a promising activity response, not ball-specific proof. The larger sample at the decoder-generation transition is excluded because it may be a stream restart artifact. The motion feed correctly stopped on the source change, so the shot run did not complete its planned 30 seconds. Repeat with a stable source and a labelled shot before treating the signal as reliable."
+}
