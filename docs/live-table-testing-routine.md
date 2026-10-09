@@ -2,14 +2,18 @@
 
 Updated 9 October 2026. This routine makes Pixel/Lab checks repeatable without treating a successful command, camera connection or rendered dashboard as proof that the detector or game-state result is correct. It records two ways to operate the same workflow: the development command API and the app UI. Every meaningful scenario is exercised through both paths, and state written through one path is read back through the other.
 
+### This room's camera setup
+
+The ceiling-mounted Pixel 10 runs SkyEye Camera and stays armed, powered from power banks. The Pixel 11 is the SkyEye companion/Lab and host. For normal test runs, leave the camera phone and its capture service alone; do not re-arm or restart it just because the companion or dashboard needs attention. A foreground Lab screen or an old dashboard tab does not prove capture is active. Check the camera and fresh-frame status first. If the Lab command API is missing, repair/reinstall the Lab in place and then recheck camera capture; the camera app is a separate package.
+
 ## Before each run
 
 See the [command API reference](lab-command-api.md) for the full command catalog, required arguments and endpoint details.
 
 For a game-tracking change, run `dotnet run --project tests/SkyEye.Checks -- --game-tracking` first. This selects the journal, observation-to-game, match, rules and bounded-verification regressions without unrelated rendering/transport checks. Run the full harness separately and report any remaining failure; neither command proves physical detection accuracy.
 
-1. Confirm the Pixel 11 is authorized over ADB and the camera is reachable on the room network. Read the camera address from SkyEye Settings; do not copy host credentials into commands, logs or evidence.
-2. Confirm the camera address and calibration. The command API can start, pause, resume and stop capture, so check the requested command before running it. Treat `session.end` and `camera.capture.stop` as recording controls.
+1. Confirm the mounted Pixel 10 is still reachable on the room network and the Pixel 11 companion is available. Read the camera address from SkyEye Settings; do not copy host credentials into commands, logs or evidence.
+2. Confirm camera capture and calibration before touching session controls. The command API can start, pause, resume and stop capture, so check the requested command before running it. Treat `session.end` and `camera.capture.stop` as recording controls; routine diagnostics should not restart the mounted camera.
 3. Keep the table, camera mount and lighting steady for a stationary baseline. Record any sunlight/blind pattern, table-light state, obstruction or camera restart as a separate test condition.
 4. Keep the laptop dashboard page open at the exact URL shown by SkyEye. The app displays the dashboard asset version in that URL; do not hard-code an old `?dashboard=` value.
 
@@ -54,10 +58,10 @@ Commands that open an Android permission prompt, Cast picker, key-entry dialog o
 
 ## Path B — app UI
 
-1. In SkyEye Settings, check the saved camera address and tap **Connect camera** if the camera is not reachable.
+1. In SkyEye Settings, check the saved camera address and tap **Connect camera** if the mounted camera is not reachable. Verify the status reports capture active and calibrated.
 2. If host control is not held, tap **Become host** while the camera is active.
-3. Return to the home panel and choose **Start live session**. The UI may start camera capture when it is inactive; confirm that behavior from the camera status before a measurement run.
-4. Open **Live vision dashboard** from Settings, or use the displayed address on the laptop.
+3. Start a new live session on the companion when required. Verify the session mode and fresh frames; do not restart the camera app as part of normal test setup.
+4. Open **Live vision dashboard** from Settings, or use the displayed address on the laptop. Start diagnostics if sampling is not already active.
 
 The Pixel display is part of the verification: confirm the live table is actually visible and the app reports the intended live session. A dashboard API response alone does not prove that the phone's viewer or the rendered page is usable.
 
@@ -68,10 +72,16 @@ The Pixel display is part of the verification: confirm the live table is actuall
 3. **UI pass:** use the corresponding on-screen control for the same kind of action, using a disposable test match or undo/reset when the action changes state. Then read `/control/status` and the dashboard again. Confirm the UI action produced the expected API and dashboard state. This checks command-to-screen and screen-to-state behavior.
 4. On the laptop, verify the dashboard renders the current camera frame and labelled table. Read `GET /api/snapshot`: `active` must be true, `totalSamples` must increase over time, the latest frame sequence/ID and source time must advance, and camera/calibration identifiers must remain stable during a still test. Check uncertainty/warnings and ball count; do not infer accuracy from the count alone.
 5. Check `GET /api/live-match` for the canonical table/match projection. Record whether the projected table is current and whether game-state errors or pending review are present. The scenario page is a separate, disposable test workspace and is not evidence that the live match updated.
-   For the starting-baseline slice, leave the calibrated live table to check itself. Startup allows three batches of three bounded checks, two seconds apart within a batch and at least fifteen seconds between batches; a new active frame also requests its starting check. A matching trusted A disables bootstrap retries. Confirm canonical `groupCounts`, clear/settled state and `lastSettled` have the current source/calibration, with no change to player/visit/pots/score. Dashboard v14 renders aggregate counts; Sky's `get_match_state` returns the same counts in `table.inventory`. Later changed counts must hold A for review. Do not call `vision.verify` to claim that automatic startup passed; record any explicit retry separately.
+   For the starting-baseline slice, leave the calibrated live table to check itself. Startup allows three batches of three bounded checks, two seconds apart within a batch and at least fifteen seconds between batches; a new active frame also requests its starting check. A matching trusted A disables bootstrap retries. Confirm canonical `groupCounts`, clear/settled state and `lastSettled` have the current source/calibration, with no change to player/visit/pots/score. Dashboard and Sky should report the same aggregate inventory. For a changed layout, require the implemented clear/still verification and inspect the resulting live match; do not treat one detector frame as a pot. Do not call `vision.verify` to claim that automatic startup passed; record any explicit retry separately.
 6. Capture a stationary baseline for 30–60 seconds with nobody leaning over the cloth. Preserve the summary and failures. A sample gap, source-generation change, camera restart, movement or lighting change ends that baseline; start a new labelled run rather than stitching the intervals together.
 7. For a movement run, save a unique artifact with `scripts/Capture-O02LiveMotion.ps1`. Use a 30–60 second bounded capture, take one clearly timed shot, and write down the actual result (balls moved/potted and approximate time). Do not leave the run active while changing lighting unless lighting change is the explicit condition. The script stops only its diagnostic motion feed; it does not stop camera recording.
-8. Inspect the dashboard again after the shot: confirm a fresh frame and ball layout, check whether a game event/proposal appeared, and compare the canonical live match with the physical result. A frame-count change or one disappearing ball is not by itself a confirmed pot.
+8. Inspect the dashboard again after the shot: confirm fresh, clear settled samples, compare the canonical live match with the physical result, and record any proposed or applied event. A stable red/yellow count decrease can support a pot inference under the current policy, but one physical run does not establish general reliability or identify a pocket. With unchanged counts, do not invent a turn change: verify that the cue ball and layout are clearly classified and that a settled before/after comparison exists.
+
+## Physical test notes — 9 October 2026
+
+- **Yellow pot:** The clear settled baseline had 7 reds, 7 yellows, 1 cue ball and 1 black (16 total). After the user-reported yellow pot, clear samples settled at 7 reds, 6 yellows, 1 cue ball and 1 black (15 total). The live match updated Bob to yellows and kept his turn; frame score stayed 0–0. This is one successful physical case, not a reliability estimate.
+- **Same-count follow-up:** The user reported a likely missed yellow attempt. Recent samples stayed at 15 total; cue-ball reference classification intermittently became unavailable, then recovered in later clear samples. The canonical state remained Bob's turn on yellows, with no turn-change event. The current comparison did not provide a changed count or a reliable before/after ball layout, so it cannot establish whether the cue ball physically moved. Same-count no-pot turn changes remain an unverified rule path.
+- **Evidence boundary:** These observations came from live camera/dashboard frames. Room audio, including the ball return, was not available to the diagnostic agent.
 
 Example bounded motion run after the API reports a live, calibrated session:
 
