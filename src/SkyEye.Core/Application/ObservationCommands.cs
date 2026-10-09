@@ -147,7 +147,7 @@ public sealed partial class AppCoordinator
                     if (published is not null) next = published;
                 }
                 if (game.State.Match?.Id == admittedMatch && game.State.Frame?.Id == admittedFrame && (request.Mode == ObservationMode.Single || result.Outcome == ObservationOutcome.Ready))
-                    next = AcceptGameObservation(next, result, envelope.OperationId);
+                    next = AcceptGameObservation(next, result, envelope.OperationId, request.Mode == ObservationMode.VerifyForAdvice);
                 Volatile.Write(ref state, next with { Observation = result, Version = checked(state.Version + 1) });
                 Notify(state);
                 receipt = Receipt(envelope, CommandOutcome.Applied, result.Outcome switch

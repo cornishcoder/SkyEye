@@ -36,6 +36,7 @@ static class VerificationChecks
         var id = Guid.NewGuid(); var verification = session.VerifyAsync(id, 1, reviewFrame: true);
         Check(ReferenceEquals(verification, session.VerifyAsync(id, 1, reviewFrame: true)), "Compatible in-flight verification shares one owner");
         await verification;
+        await Until(() => !session.HasPendingWork);
         Check(session.State.Observation is { Outcome: ObservationOutcome.Ready, Motion: TableMotion.Still, Verification.IndependentFrames: 5 }, "Five independent source samples establish still/clear readiness");
         Check(frames.Reads == 5 && frames.Disposals == 5 && analyzer.Detections == 3 && analyzer.Disposals == 1, "Bounded anchors, exact bitmap/worker disposal");
         Check(session.State.Jpeg is { Length: 1 } && frames.Encodings == 3, "Explicit burst review retains only the latest anchor's owned image");

@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using SkyEye.Core.Analysis;
 using SkyEye.GameState;
 
 namespace SkyEye.Core.Application;
@@ -7,6 +8,22 @@ public sealed record GameObservationEvidence(EvidenceSource Source, ImmutableArr
 
 public static class GameObservationAdapter
 {
+    public static GameInputEnvelope EstablishBaseline(GameSnapshot state, TableObservation observation, Guid evidenceId)
+    {
+        var observed = observation.GameEvidence ?? throw new ArgumentException("Observation has no matching game evidence.");
+        var counts = new SettledTableCounts(Count(BallColour.Red), Count(BallColour.Yellow), Count(BallColour.Cue), Count(BallColour.Black));
+        var evidence = new SettledTableEvidence(evidenceId, observed.Source, observation.SourceTimeUs,
+            observation.CapturedAt, counts, observation.Outcome == ObservationOutcome.Ready,
+            observation.Quality == LayoutQuality.Clear && observed.Balls.All(b => b.Colour != BallColour.Unknown))
+        {
+            BoundedStillnessVerified = observation.Verification is not null,
+            StableClearSampleCount = observation.Verification?.Samples.Count(s => s.Measurement.Vision is { Uncertain: false, Obstructed: false }) ?? 0
+        };
+        return new(evidenceId, state.Match!.Id, state.Frame!.Id, observation.CapturedAt,
+            new EstablishSettledBaseline(1, evidence), observed.Source, observation.SourceTimeUs);
+        int Count(BallColour colour) => observed.Balls.Count(b => b.Colour == colour);
+    }
+
     public static GameInputEnvelope Translate(GameSnapshot state, TableObservation observation, Guid evidenceId)
     {
         var evidence = observation.GameEvidence ?? throw new ArgumentException("Observation has no matching game evidence.");

@@ -27,6 +27,8 @@ public sealed record PossibleCollision(string ShotId, string FirstBall, string S
 public sealed record PossibleCushionContact(string ShotId, string BallId) : GameInput;
 public sealed record AcceptSettledInventory(int ContractVersion, ActivityWindowContext Context,
     SettledTableEvidence After) : GameInput;
+// Establishes current physical inventory after a source reset; it is not a shot outcome.
+public sealed record EstablishSettledBaseline(int ContractVersion, SettledTableEvidence Evidence) : GameInput;
 // Typed correction payloads can be supplied by touch, a player or a future Sky adapter.
 [JsonPolymorphic(TypeDiscriminatorPropertyName = "kind")]
 [JsonDerivedType(typeof(AssignColour), "colour")]

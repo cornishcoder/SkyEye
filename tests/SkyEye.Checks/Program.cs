@@ -8,6 +8,7 @@ if (args.SequenceEqual(["--game-tracking"]))
 {
     GameJournalChecks.Run();
     await GameIntegrationChecks.Run();
+    await SettledBaselineChecks.Run();
     await ManualMatchAppChecks.Run();
     InternationalRulesChecks.Run();
     await RulesApplicationChecks.Run();
@@ -17,6 +18,7 @@ if (args.SequenceEqual(["--game-tracking"]))
 
 GameJournalChecks.Run();
 await GameIntegrationChecks.Run();
+await SettledBaselineChecks.Run();
 await ManualMatchAppChecks.Run();
 InternationalRulesChecks.Run();
 await RulesApplicationChecks.Run();

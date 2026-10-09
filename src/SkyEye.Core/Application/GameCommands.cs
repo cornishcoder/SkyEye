@@ -14,6 +14,8 @@ public sealed partial class AppCoordinator
     CommandReceipt GameCommand(CommandEnvelope envelope, SubmitGameInput command)
     {
         if (gameUnavailable) return Receipt(envelope, CommandOutcome.Failed, state.GameError!);
+        if (command.Input?.Input is EstablishSettledBaseline && envelope.Origin != CommandOrigin.System)
+            return Receipt(envelope, CommandOutcome.Rejected, "Starting inventory is established by the verified observation path.");
         bool declared = command.Input?.Input is StartMatch or StartFrame or FinishMatch or DeclareColours or UndoDecision or PlayerCorrection or AcceptSettledInventory;
         bool trustedRuling = command.Input?.Input is ApplyShotRuling && envelope.Origin == CommandOrigin.System;
         if (command.Input?.Input is ApplyShotRuling && !trustedRuling) return Receipt(envelope, CommandOutcome.Rejected, "Submit declared facts through the rules command.");
@@ -47,7 +49,7 @@ public sealed partial class AppCoordinator
         return Receipt(envelope, CommandOutcome.Applied, proposal.Message);
     }
 
-    SkyEyeState AcceptGameObservation(SkyEyeState next, TableObservation observation, Guid operationId)
+    SkyEyeState AcceptGameObservation(SkyEyeState next, TableObservation observation, Guid operationId, bool verified)
     {
         if (gameUnavailable || game.State.Frame is null || game.State.Frame.Winner is not null || observation.GameEvidence is null) return next;
         var source = observation.GameEvidence.Source;
@@ -59,7 +61,15 @@ public sealed partial class AppCoordinator
             if (!selected.Accepted) return next with { GameTableCurrent = false, GameError = selected.Message };
             proposed = selected.Session;
         }
-        var input = GameObservationAdapter.Translate(proposed.State, observation, operationId);
+        GameInputEnvelope input;
+        if (proposed.State.Table.LastSettled is null && proposed.State.Shot is null
+            && observation.Outcome == ObservationOutcome.Ready && verified)
+            input = GameObservationAdapter.EstablishBaseline(proposed.State, observation, operationId);
+        else if (proposed.State.Table.GroupCounts.Count > 0 && proposed.State.Table.Source == source)
+            // Retain A until a reviewed A/B outcome is admitted. Fresh detector IDs
+            // cannot replace aggregate inventory or silently reset a shot.
+            return next with { GameTableCurrent = false };
+        else input = GameObservationAdapter.Translate(proposed.State, observation, operationId);
         var accepted = proposed.Accept(input);
         if (!accepted.Accepted) return next with { GameTableCurrent = false, GameError = accepted.Message };
         try { gameJournal?.Save(game, accepted.Session); }

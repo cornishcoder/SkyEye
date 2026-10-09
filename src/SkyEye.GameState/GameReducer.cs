@@ -77,6 +77,14 @@ public static class GameReducer
                     || !SettledStateReconciler.Compare(inventory.Context, inventory.After).Ready)
                     throw new ArgumentException("Settled inventory event has stale context or invalid evidence.");
                 return s with { Table = ApplyInventory(s.Table, inventory.After.Counts, e, inventory.After) };
+            case SettledBaselineEstablishedEvent baseline:
+                if (baseline.ContractVersion != 1 || baseline.Evidence is not { IsComplete: true, BoundedStillnessVerified: true }
+                    || s.Match is not { Finished: false } || s.Frame is not { Winner: null }
+                    || s.Match.Id != e.MatchId || s.Frame.Id != e.FrameId
+                    || s.Table.LastSettled is not null || s.Shot is not null
+                    || s.Table.Source is { } baselineSource && baselineSource != baseline.Evidence.Source)
+                    throw new ArgumentException("Starting inventory has invalid evidence or replaces an existing baseline.");
+                return s with { Table = ApplyInventory(s.Table, baseline.Evidence.Counts, e, baseline.Evidence) };
             case SettledInventoryCorrectedEvent correction:
                 if (correction.ContractVersion != 1) throw new ArgumentException("Unsupported settled inventory correction version.");
                 return s with { Table = ApplyInventory(s.Table, correction.Counts, e, null) };

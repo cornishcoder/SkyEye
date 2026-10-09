@@ -25,6 +25,7 @@ public sealed class GameSession
                 || e.InputFingerprint is not { Length: 64 } || !e.InputFingerprint.All(Uri.IsHexDigit) || !Text(e.MatchId)
                 || !Enum.IsDefined(e.Provenance) || !Confidence(e.Confidence) || e.SourceTimeUs is < 0 || e.Source is { } source && !ValidSource(source))
             || history.Any(e => e.Event is SettledInventoryAcceptedEvent inventory && !ValidAcceptedInventory(e, inventory)
+                || e.Event is SettledBaselineEstablishedEvent baseline && !ValidBaseline(e, baseline)
                 || e.Event is SettledInventoryCorrectedEvent correction && (e.Provenance != Provenance.PlayerCorrected
                     || correction.ContractVersion != 1 || correction.Counts is null || !correction.Counts.IsValid))
             || history.GroupBy(e => e.InputId).Any(g => g.Select(e => e.InputFingerprint).Distinct().Count() != 1)
@@ -156,6 +157,17 @@ public sealed class GameSession
         var last = History.LastOrDefault(e => e.FrameId == input.FrameId && e.Source == input.Source);
         if (last is not null && (input.At < last.At || input.SourceTimeUs is { } pts && last.SourceTimeUs is { } previousPts && pts < previousPts))
             return Refuse(InputOutcome.Stale, "Evidence is older than the accepted source watermark.");
+        if (input.Input is EstablishSettledBaseline baselineInput)
+        {
+            if (State.Table.LastSettled is not null || State.Shot is not null)
+                return Refuse(InputOutcome.Rejected, "Keep the trusted before-table; review changes as an outcome instead.");
+            var baselineEvent = new SettledBaselineEstablishedEvent(baselineInput.ContractVersion, baselineInput.Evidence);
+            if (!ValidBaseline(input.Provenance, input.Source, input.SourceTimeUs, input.At, baselineEvent))
+                return Refuse(InputOutcome.Rejected, "A starting inventory requires complete bounded clear/still evidence matching its source.");
+            if (last is { Event: not SourceSelectedEvent, SourceTimeUs: { } watermark } && baselineInput.Evidence.SourceTimeUs <= watermark)
+                return Refuse(InputOutcome.Stale, "The starting table must be newer than the source watermark.");
+            return Commit(input, fingerprint, [baselineEvent]);
+        }
         if (input.Input is AcceptSettledInventory inventoryInput)
         {
             if (input.Provenance != Provenance.PlayerConfirmed)
@@ -222,6 +234,13 @@ public sealed class GameSession
             || envelope.At < inventory.After.CapturedAt) return false;
         return SettledStateReconciler.Compare(inventory.Context, inventory.After).Ready;
     }
+    static bool ValidBaseline(EventEnvelope envelope, SettledBaselineEstablishedEvent baseline)
+        => ValidBaseline(envelope.Provenance, envelope.Source, envelope.SourceTimeUs, envelope.At, baseline);
+    static bool ValidBaseline(Provenance provenance, EvidenceSource? source, long? sourceTimeUs,
+        DateTimeOffset at, SettledBaselineEstablishedEvent baseline)
+        => baseline.ContractVersion == 1 && baseline.Evidence is { IsComplete: true, BoundedStillnessVerified: true } evidence
+            && provenance == Provenance.Observed && source == evidence.Source && sourceTimeUs == evidence.SourceTimeUs
+            && at >= evidence.CapturedAt && evidence.Counts.Reds <= 7 && evidence.Counts.Yellows <= 7;
     static bool ValidPosition(TablePosition? p) => p is null || double.IsFinite(p.X) && double.IsFinite(p.Y) && p.X is >= 0 and <= 1 && p.Y is >= 0 and <= 1;
     static bool ValidBall(ObservedBall b) => b is not null && Text(b.Id) && Enum.IsDefined(b.Colour) && Confidence(b.Confidence) && ValidPosition(b.Position);
     static bool Confidence(double? value) => value is null || double.IsFinite(value.Value) && value is >= 0 and <= 1;
