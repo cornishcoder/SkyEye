@@ -2,6 +2,8 @@
 
 7 October 2026. Baseline `5453d0b`. **Runtime foundation implemented; O08 reliability/release acceptance is incomplete.** Do not mark the mission complete or describe automatic advice as dependable. [Small evidence summary](evidence/o08-runtime-smoke.json); large media, raw receipts and retained APKs are under `work/o08`.
 
+For repeatable Pixel 11 checks, use the [live table testing routine](live-table-testing-routine.md). It documents both the app UI and the loopback-only Lab command API, with a shared end-to-end dashboard/GameState confirmation.
+
 ## Delivered runtime
 
 - Explicit `ObserveTable.Mode`: old commands/default `IncludeChoices` remain single-frame; the Hybrid **Show candidate shots** button requests bounded verification. One owner in `TableAnalysisSession`; no second tracker, game ledger or renderer.

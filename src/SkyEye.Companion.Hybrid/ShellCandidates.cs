@@ -60,7 +60,7 @@ public sealed partial class ShellSession
         await SetShotDisplayAsync(app.State.Version, target, ShotDisplayMode.Cycling);
     });
     public SkyEyeState CommandState => app.State;
-    public Task ShowCuePathAsync(long expectedVersion, long tableVersion, string id) => ExecuteApplicationCommandAsync(
+    public Task<CommandReceipt> ShowCuePathAsync(long expectedVersion, long tableVersion, string id) => ExecuteApplicationCommandAsync(
         new(Guid.NewGuid(), CommandOrigin.Touch, expectedVersion, new ShowAnnotation(SceneTarget.Phone, tableVersion, id, ShotAnnotations.CueBallPath)));
     public Task ShowHudAsync(long expectedVersion, SceneTarget target, long tableVersion, string id, ShotAnnotations elements) =>
         ExecuteApplicationCommandAsync(new(Guid.NewGuid(), CommandOrigin.Touch, expectedVersion, new ShowAnnotation(target, tableVersion, id, elements)));

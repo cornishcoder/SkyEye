@@ -177,7 +177,7 @@
     Screen screen = Screen.Home;
     string address = "", lastSavedAddress = "", error = "";
     bool busy, disposed;
-    protected override void OnInitialized() { address = lastSavedAddress = Session.SavedAddress; Session.Changed += Changed; }
+    protected override void OnInitialized() { address = lastSavedAddress = Session.SavedAddress; Session.Changed += Changed; Session.NavigationRequested += NavigateFromControl; Session.SetUiScreen("home"); }
     string ScreenTitle => screen switch { Screen.Settings => "Settings", Screen.Clips => "Clips", Screen.Match => "Match", _ => "Home" };
     string HomeStatus => Session.SessionMode switch
     {
@@ -190,8 +190,13 @@
     void Navigate(Screen target)
     {
         screen = target;
+        Session.SetUiScreen(target.ToString().ToLowerInvariant());
         error = "";
         Session.SetSheet(target != Screen.Home);
+    }
+    void NavigateFromControl(string target)
+    {
+        if (Enum.TryParse<Screen>(target, true, out var parsed) && Enum.IsDefined(parsed)) Navigate(parsed);
     }
     async Task Connect() => await Run(() => Session.ConnectAsync(address));
     async Task SceneCheck() => await Run(Session.ToggleSceneCheckAsync);
@@ -237,5 +242,5 @@
         catch (Exception) { error = "The request could not finish. Check the connection and try again."; Session.ShowError(error); }
         finally { busy = false; }
     }
-    public void Dispose() { disposed = true; Session.Changed -= Changed; }
+    public void Dispose() { disposed = true; Session.Changed -= Changed; Session.NavigationRequested -= NavigateFromControl; }
 }

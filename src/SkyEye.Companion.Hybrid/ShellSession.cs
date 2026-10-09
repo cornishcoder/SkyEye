@@ -39,6 +39,7 @@ public sealed partial class ShellSession : IDisposable
     public bool SheetOpen { get; private set; }
     public TableSessionMode SessionMode => sessionMode;
     public bool SessionActive => sessionMode != TableSessionMode.None;
+    public string UiScreen { get; private set; } = "home";
     public bool PhysicsAvailable => CanAnalyzeTable && HasTableCalibration;
     public string PhysicsStatus => sessionMode == TableSessionMode.Dark ? "Unavailable · dark session has no image analysis"
         : !CanAnalyzeTable ? sessionMode == TableSessionMode.Live
@@ -56,6 +57,21 @@ public sealed partial class ShellSession : IDisposable
     public bool Playing { get; private set; }
     public bool HasSource => selection.Source is not null;
     public event Action? Changed;
+    public event Action<string>? NavigationRequested;
+
+    public Task<bool> NavigateFromControlAsync(string screen) => MainThread.InvokeOnMainThreadAsync(() =>
+    {
+        var normalized = (screen ?? "").Trim().ToLowerInvariant();
+        if (normalized is not ("home" or "settings" or "clips" or "match")) throw new ArgumentException("Choose home, settings, clips, or match.");
+        if (NavigationRequested is null) return false;
+        NavigationRequested.Invoke(normalized);
+        return true;
+    });
+
+    public void SetUiScreen(string screen)
+    {
+        if (screen is "home" or "settings" or "clips" or "match") UiScreen = screen;
+    }
 
     public ShellSession()
     {
