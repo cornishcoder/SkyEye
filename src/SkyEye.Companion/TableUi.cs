@@ -26,12 +26,15 @@ public sealed partial class MainActivity
     Spinner groupSelector = null!;
     string selectedShotId = "";
     TableView tableView = null!;
+    Button calibrateButton = null!;
+    Guid? autoCalibrationAttemptedConnection;
     void RestoreCalibration()
     {
         try
         {
             if (!tableAnalysis.RestoreCalibration()) return;
             tableView.Calibration = calibration;
+            if (calibrateButton is not null) calibrateButton.Text = "Recalibrate table";
             tableLabel.Text = "Saved calibration loaded. Recalibrate if the mount moved; readiness is automatic after a clear, still check.";
         }
         catch { Say("Saved calibration could not be loaded. Calibrate this table again."); }
@@ -41,12 +44,13 @@ public sealed partial class MainActivity
         root.AddView(Label("Table awareness", 22));
         tableLabel = Label("Calibrate once. A clear, still layout becomes ready automatically; correct detections if needed.", 13); root.AddView(tableLabel);
         tableView = new TableView(this); root.AddView(tableView, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MatchParent, (int)(220 * Resources!.DisplayMetrics!.Density)));
-        var row = Row(root); Add(row, "Calibrate", () => _ = ActionAsync(CalibrateAsync)); Add(row, "Correct layout", CorrectLayout);
+        var row = Row(root); calibrateButton = Add(row, "Calibrate table", () => _ = ActionAsync(CalibrateAsync)); Add(row, "Correct layout", CorrectLayout);
         groupSelector = new Spinner(this); groupSelector.Adapter = new ArrayAdapter<string>(this, Android.Resource.Layout.SimpleSpinnerDropDownItem, ["Open table", "I'm reds", "I'm yellows", "I'm on the black"]);
         groupSelector.ItemSelected += (sender, e) => { _ = DispatchAppAsync(new SetTargetGroup((AdviceTargetGroup)e.Position)); }; root.AddView(groupSelector);
     }
     async Task CalibrateAsync()
     {
+        autoCalibrationAttemptedConnection = tableAnalysis.State.Source?.ConnectionId;
         InvalidateTable("Selecting a new table calibration.");
         var draft = await tableAnalysis.PrepareCalibrationAsync(lifetime.Token);
         if (lifetime.IsCancellationRequested || tableAnalysis.State.Generation != draft.Generation) return;
@@ -70,6 +74,65 @@ public sealed partial class MainActivity
             .SetPositiveButton("Use corners", (_, _) => Accept(draft.Proposed))!
             .SetNegativeButton("Select manually", (_, _) => { tableView.Picks.Clear(); tableView.Invalidate(); })!
             .SetOnCancelListener(new CornerDialogCancel(tableView))!.Show();
+    }
+    async Task TryAutoCalibrateConnectedCameraAsync(Guid connectionId)
+    {
+        if (autoCalibrationAttemptedConnection == connectionId) return;
+        autoCalibrationAttemptedConnection = connectionId;
+        try
+        {
+            // Let the live decoder produce a frame after ownership/capture starts.
+            await Task.Delay(350, lifetime.Token);
+            if (lifetime.IsCancellationRequested || app.State.Camera.ConnectionId != connectionId || !app.State.Camera.CanControl
+                || app.State.Camera.Capture != CaptureState.Active || offline) return;
+            if (calibration is null) RestoreCalibration();
+            bool hadSavedCalibration = calibration is not null;
+            if (hadSavedCalibration) calibrateButton.Text = "Recalibrate table";
+
+            var draft = await tableAnalysis.PrepareCalibrationAsync(lifetime.Token);
+            if (lifetime.IsCancellationRequested || tableAnalysis.State.Generation != draft.Generation
+                || tableAnalysis.State.Source?.ConnectionId != connectionId) return;
+            if (draft.Proposed is null)
+            {
+                if (!hadSavedCalibration)
+                {
+                    SetTableImage(draft.Jpeg); tableView.Picking = false; tableView.Calibration = null;
+                    tableView.Balls = []; tableView.Shots = []; tableView.Invalidate();
+                    Say("Couldn’t detect the table corners automatically. Tap Calibrate table to set them."); return;
+                }
+                tableAnalysis.Invalidate(); tableView.Calibration = calibration;
+                Say("No fresh corners were found; keeping the saved calibration and checking the table.");
+                await UpdateTableAsync(ObservationMode.VerifyForAdvice); return;
+            }
+            try { _ = new TableCalibration(draft.Proposed); }
+            catch (ArgumentException)
+            {
+                if (!hadSavedCalibration) throw;
+                tableAnalysis.Invalidate(); tableView.Calibration = calibration;
+                Say("Fresh corners were invalid; keeping the saved calibration and checking the table.");
+                await UpdateTableAsync(ObservationMode.VerifyForAdvice); return;
+            }
+            tableAnalysis.ApplyCalibration(draft.Generation, draft.Proposed);
+            tableView.Calibration = calibration; tableView.Picking = false; tableView.Calibrated = null;
+            calibrateButton.Text = "Recalibrate table"; SetTableImage(draft.Jpeg);
+            ClearCandidatePresentation("Corners detected and accepted. Checking the initial table layout…");
+            await UpdateTableAsync(ObservationMode.VerifyForAdvice);
+        }
+        catch (OperationCanceledException) when (lifetime.IsCancellationRequested) { }
+        catch (ArgumentException)
+        {
+            Say("Automatic corner detection was invalid. Tap Calibrate table to set the corners.");
+        }
+        catch
+        {
+            if (calibration is not null)
+            {
+                tableAnalysis.Invalidate(); tableView.Calibration = calibration;
+                Say("Couldn’t refresh corners; keeping the saved calibration and checking the table.");
+                await UpdateTableAsync(ObservationMode.VerifyForAdvice);
+            }
+            else Say("Automatic calibration couldn’t finish. Tap Calibrate table to set the corners.");
+        }
     }
     void InvalidateTable(string reason)
     {
@@ -102,6 +165,7 @@ public sealed partial class MainActivity
     {
         var snapshot = tableAnalysis.State; var state = snapshot.Table; var vision = snapshot.Vision;
         if (state is null) return;
+        if (calibrateButton is not null) calibrateButton.Text = calibration is null ? "Calibrate table" : "Recalibrate table";
         tableView.Calibration = snapshot.Calibration; tableView.Balls = state.Balls; RefreshCandidates(); tableView.Invalidate();
         var balls = state.Balls;
         double age = (DateTimeOffset.UtcNow - state.CapturedAt).TotalSeconds;

@@ -102,6 +102,8 @@ public sealed partial class MainActivity
                 player.SetMuted(true); player.Play(PhoneStream);
             }
         }
+        if (next.CanControl && next.Capture == CaptureState.Active && !offline)
+            _ = TryAutoCalibrateConnectedCameraAsync(next.ConnectionId);
     }
 
     static string OwnershipText(CameraConnection camera) => camera.Ownership switch

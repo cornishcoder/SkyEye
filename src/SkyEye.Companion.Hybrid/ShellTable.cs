@@ -12,6 +12,7 @@ public sealed partial class ShellSession
     TableAnalysisSession table = null!;
     readonly TableEditDraft edit = new();
     string? restoredCamera;
+    Guid? autoCalibrationAttemptedConnection;
     byte[]? frozenFrame;
     double editorLimit = double.PositiveInfinity;
     public TableEditDraft TableEdit => edit;
@@ -129,6 +130,12 @@ public sealed partial class ShellSession
             catch { ShowError("Saved calibration could not load. Calibrate the table again."); }
             snapshot = table.State;
         }
+        if (snapshot.Source is { } source && CanAnalyzeTable && active && player is not null
+            && !EditingTable && autoCalibrationAttemptedConnection != source.ConnectionId)
+        {
+            autoCalibrationAttemptedConnection = source.ConnectionId;
+            _ = TryAutoCalibrateConnectedCameraAsync(source.ConnectionId);
+        }
         var state = snapshot.Table;
         TableStatus = snapshot.Source is null ? "Watch an active camera as host to check the table."
             : snapshot.VerificationProgress is { } progress ? $"Checking table · {progress.IndependentFrames} fresh views."
@@ -138,6 +145,78 @@ public sealed partial class ShellSession
                 + ((DateTimeOffset.UtcNow - state.CapturedAt).TotalSeconds is > 6 or < -2 ? "Frame out of date."
                 : state.Occluded ? "Uncertain or obstructed. Check the detections."
                 : !state.Settled ? "Wait for a fresh, clear still view." : state.Confirmed ? "Ready." : "Run a clear, still table check.");
+    }
+    async Task TryAutoCalibrateConnectedCameraAsync(Guid connectionId)
+    {
+        await MainThread.InvokeOnMainThreadAsync(async () =>
+        {
+            var current = table.State;
+            if (disposed || !CanAnalyzeTable || current.Source?.ConnectionId != connectionId || EditingTable)
+                return;
+            var token = foreground?.Token ?? CancellationToken.None;
+            bool hadSavedCalibration = current.Calibration is not null;
+            try
+            {
+                Message = hadSavedCalibration ? "Checking the saved calibration and finding fresh corners…" : "Finding the table corners automatically…";
+                Publish();
+                var draft = await table.PrepareCalibrationAsync(token);
+                if (token.IsCancellationRequested || disposed || draft.Generation != table.State.Generation || table.State.Source?.ConnectionId != connectionId)
+                    return;
+                if (draft.Proposed is null)
+                {
+                    if (!hadSavedCalibration)
+                    {
+                        Message = "SkyEye couldn’t find the corners automatically. Tap Calibrate table to set them.";
+                        Publish(); return;
+                    }
+                    table.Invalidate();
+                    Message = "No fresh corners were found; keeping the saved calibration and checking the table.";
+                    Publish();
+                    await VerifyTableWithDiagnosticsPausedAsync(token);
+                    return;
+                }
+                try { _ = new TableCalibration(draft.Proposed); }
+                catch (ArgumentException)
+                {
+                    if (!hadSavedCalibration) throw;
+                    table.Invalidate();
+                    Message = "Fresh corners were invalid; keeping the saved calibration and checking the table.";
+                    Publish();
+                    await VerifyTableWithDiagnosticsPausedAsync(token);
+                    return;
+                }
+                table.ApplyCalibration(draft.Generation, draft.Proposed);
+                Message = "Table corners detected and accepted. Checking the initial table layout…";
+                Publish();
+                await VerifyTableWithDiagnosticsPausedAsync(token);
+                if (token.IsCancellationRequested || disposed) return;
+                Message = table.State.Table is { Confirmed: true, Settled: true, Occluded: false }
+                    ? "Table calibrated and ready."
+                    : "Corners were accepted. SkyEye will finish checking as the table stays still.";
+                Publish();
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested) { }
+            catch (ArgumentException) when (hadSavedCalibration)
+            {
+                table.Invalidate();
+                Message = "Couldn’t refresh the corners; keeping the saved calibration and checking the table.";
+                Publish(); await VerifyTableWithDiagnosticsPausedAsync(token);
+            }
+            catch (ArgumentException)
+            {
+                Message = "Automatic corner detection was invalid. Tap Calibrate table to set the corners."; Publish();
+            }
+            catch (Exception) when (hadSavedCalibration)
+            {
+                table.Invalidate();
+                Message = "Couldn’t refresh the corners; keeping the saved calibration and checking the table.";
+                Publish(); await VerifyTableWithDiagnosticsPausedAsync(token);
+            }
+            catch (Exception)
+            {
+                Message = "Automatic calibration couldn’t finish. Tap Calibrate table to set the corners."; Publish();
+            }
+        });
     }
     async Task UpdateTableAsync(CancellationToken token, bool reviewFrame = false, bool includeChoices = false,
         ObservationMode mode = ObservationMode.Single, Guid? operationId = null, CommandOrigin origin = CommandOrigin.Touch)
@@ -205,6 +284,7 @@ public sealed partial class ShellSession
         var token = linked.Token; DismissNotice(); suppressShotLoop = true; StopShotScenes(closeRelay:false); ClearSceneCheck();
         try
         {
+            autoCalibrationAttemptedConnection = table.State.Source?.ConnectionId;
             table.InvalidateCalibration(forgetStored: true);
             await ClearShotCatalogAsync(token); player?.SetOverlay("{}");
             var draft = await table.PrepareCalibrationAsync(token);
