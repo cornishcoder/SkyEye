@@ -71,10 +71,10 @@ public sealed record ActivitySettlementLifecycle(ActivityWindowContext Context,
                     "Activity detected; retain the frozen before-table and game context.");
 
             case ActivitySettlementSignalKind.Obstructed:
-                if (Phase == ActivitySettlementPhase.Settled)
-                    return new(next, ActivitySettlementOutcome.Ignored, "No activity window is open; keep the settled baseline.");
                 return new(next with { Phase = ActivitySettlementPhase.WaitingForClearTable }, ActivitySettlementOutcome.Applied,
-                    "Table obstructed; retain the original before-table until a clear view returns. Obstruction duration does not expire it.");
+                    Phase == ActivitySettlementPhase.Settled
+                        ? "Table obstructed before activity was observed; retain the settled before-table until a clear view returns. Obstruction duration does not expire it."
+                        : "Table obstructed; retain the original before-table until a clear view returns. Obstruction duration does not expire it.");
 
             case ActivitySettlementSignalKind.ClearViewAvailable:
                 if (Phase != ActivitySettlementPhase.WaitingForClearTable)
