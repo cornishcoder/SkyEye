@@ -23,7 +23,11 @@ public sealed record DashboardScenarioProposal(Guid Id, string Kind, string Titl
     ImmutableArray<DashboardScenarioChoice> Choices, RulePosition? RulePosition = null)
 {
     public DashboardScenarioCameraEvidence? CameraEvidence { get; init; }
+    public DashboardScenarioInventoryReview? InventoryComparison { get; init; }
 }
+public sealed record DashboardScenarioInventoryChange(string Colour, int Before, int After, int Removed, int Added);
+public sealed record DashboardScenarioInventoryReview(string Status, bool Ready,
+    ImmutableArray<DashboardScenarioInventoryChange> Changes);
 public sealed record DashboardScenarioCameraBall(string Id, string Colour, double X, double Y, double Confidence)
 {
     public double? PreviousX { get; init; }
@@ -557,9 +561,17 @@ public sealed class DashboardScenarioWorkspace
         bool detectorCertain = cameraStableSamples.All(item => !item.Sample.Detection.Uncertain);
         ImmutableArray<ObservedBall> associated = [];
         bool resolved = detectorCertain && TryAssociate(prior, settled.Balls, movementGate, out associated);
+        var source = settled.Sample.Source!;
+        var countEvidence = new SettledTableEvidence(Guid.NewGuid(), source, settled.Sample.SourceTimeUs,
+            settled.Sample.CapturedAt, CountBalls(settled.Balls), Settled: true, Clear: detectorCertain);
+        var countResult = ActivityWindowContext.TryBegin(Guid.NewGuid(), session.State,
+                firstChanged?.Sample.SourceTimeUs, out var activityContext)
+            ? SettledStateReconciler.Compare(activityContext, countEvidence)
+            : new SettledComparisonResult(SettledComparisonStatus.InvalidContext,
+                "The scenario has no complete trusted settled before-table or frozen game context.");
+        bool inventoryAccepted = !resolved && countResult.Ready;
         var observationBalls = resolved ? associated : settled.Balls.Select((ball, index) => ball with
             { Id = $"camera-unresolved-{settled.Sample.Sequence}-{index}" }).ToImmutableArray();
-        var source = settled.Sample.Source!;
         var matchId = session.State.Match!.Id;
         var frameId = session.State.Frame!.Id;
         var shotId = $"camera-{settled.Sample.SourceTimeUs:x}-{first.Sample.Sequence}";
@@ -584,16 +596,33 @@ public sealed class DashboardScenarioWorkspace
         inputs.Add(new(Guid.NewGuid(), matchId, frameId, settled.Sample.CapturedAt,
             new SkyEye.GameState.TableObservation(observationBalls, Settled: true, Uncertain: !resolved, IdentitiesResolved: resolved),
             source, settled.Sample.SourceTimeUs, Provenance.Inferred, inferredConfidence));
-        foreach (var input in inputs)
+        if (inventoryAccepted)
         {
-            var result = candidate.Accept(input);
-            if (result.Outcome != InputOutcome.Applied)
+            var input = new GameInputEnvelope(Guid.NewGuid(), matchId, frameId, settled.Sample.CapturedAt,
+                new AcceptSettledInventory(1, activityContext, countEvidence), source, settled.Sample.SourceTimeUs,
+                Provenance.PlayerConfirmed);
+            var accepted = candidate.Accept(input);
+            if (accepted.Outcome != InputOutcome.Applied)
             {
-                cameraReviewStatus = "Camera evidence could not be staged: " + result.Message;
+                cameraReviewStatus = "Settled count proposal could not be staged: " + accepted.Message;
                 cameraStableSamples.Clear();
                 return;
             }
-            candidate = result.Session;
+            candidate = accepted.Session;
+        }
+        else
+        {
+            foreach (var input in inputs)
+            {
+                var result = candidate.Accept(input);
+                if (result.Outcome != InputOutcome.Applied)
+                {
+                    cameraReviewStatus = "Camera evidence could not be staged: " + result.Message;
+                    cameraStableSamples.Clear();
+                    return;
+                }
+                candidate = result.Session;
+            }
         }
 
         var added = candidate.History.Skip(session.History.Length).ToArray();
@@ -609,13 +638,15 @@ public sealed class DashboardScenarioWorkspace
             };
         }).ToImmutableArray();
         var choices = ImmutableArray.CreateBuilder<DashboardScenarioChoice>();
-        choices.Add(new("accept", "Accept camera proposal", resolved
+        choices.Add(new("accept", inventoryAccepted ? "Accept inventory counts" : "Accept camera proposal", resolved
             ? layoutIndicatesShot
                 ? shotTimingBounded
                     ? "Record the inferred shot and this settled layout in the isolated scenario."
                     : "Record a shot inferred from the before/after layout and this settled state. Exact motion timing is unavailable."
                 : "Record this settled layout in the isolated scenario."
-            : "Record the detector result as uncertain without changing ball identities or inventory.", true));
+            : inventoryAccepted
+                ? "Update the reviewed red, yellow, cue ball and black counts. Same-colour identities stay unresolved; no pot, pocket, or turn is inferred."
+                : "Record the detector result as uncertain without changing ball identities or inventory.", true));
         if (resolved)
             choices.Add(new("keep-uncertain", "Keep the layout uncertain", "Record the missing or moved evidence, but do not resolve the shot for rules review.", false));
         choices.Add(new("reject", "Reject this layout", "Discard the camera proposal and keep the current scenario state.", false));
@@ -628,6 +659,8 @@ public sealed class DashboardScenarioWorkspace
                 : $"Three clear frames agree on a changed layout: {moved.Length} moved; {missingSummary}. No shot boundary or pot is inferred."
             : !detectorCertain
                 ? "Three stable frames show a changed layout, but the detector marked at least one frame uncertain. Accepting records an uncertain observation only; identities and inventory stay unchanged."
+                : inventoryAccepted
+                    ? $"Three clear frames agree on this inventory change: {DescribeCountChanges(countResult.Comparison!)}. The table shows updated group counts without assigning the missing or moved reds/yellows to physical IDs. No pot, pocket or turn is inferred."
                 : "Three clear frames agreed on a changed layout, but ball identities could not be uniquely associated with the scenario inventory. Accepting records an uncertain observation only.";
         var proposal = new DashboardScenarioProposal(Guid.NewGuid(), "camera", "Camera event awaiting your choice",
             summary, resolved
@@ -636,10 +669,13 @@ public sealed class DashboardScenarioWorkspace
                         ? "Review the layout and timing windows. Accept records the inferred shot in this scenario. Any absent ball remains Missing until you confirm a pot."
                         : "Review the before/after layout. Accept records a shot inferred from the changed settled table; exact movement timing is unavailable. Any absent ball remains Missing until you confirm a pot."
                     : "Review the settled layout before it enters the scenario."
-                : "Keep the existing ball identities. The uncertain observation will not change inventory, score or turn.",
+                : inventoryAccepted
+                    ? "Review the group counts. Accept records the settled counts in this scenario; exact red/yellow identities, pot cause, pocket, legality and turn remain undecided."
+                    : "Keep the existing ball identities. The uncertain observation will not change inventory, score or turn.",
             added.Select(ToScenarioEvent).ToImmutableArray(), match.Score,
             match.CurrentPlayer is null ? "—" : match.Name(match.CurrentPlayer), choices.ToImmutable())
         {
+            InventoryComparison = ToInventoryReview(countResult),
             CameraEvidence = new(cameraReviewSessionId!.Value,
                 first.Sample.Sequence, settled.Sample.Sequence, first.Sample.SourceTimeUs, settled.Sample.SourceTimeUs,
                 source.Camera, source.Timeline, source.Generation, source.Calibration,
@@ -967,6 +1003,9 @@ public sealed class DashboardScenarioWorkspace
                 : cameraProposal
                 ? request.ChoiceId switch
                 {
+                    "accept" when pendingProposal.InventoryComparison is { Ready: true }
+                        && pendingProposal.CameraEvidence is { IdentitiesResolved: false }
+                        => "Settled inventory counts accepted into the isolated scenario. Same-colour identities remain unresolved; no pot, pocket, legality or turn was inferred.",
                     "accept" => "Camera proposal accepted into the isolated scenario. A missing ball remains Missing; no pot was inferred.",
                     "keep-uncertain" => "Camera evidence was recorded with the table uncertain. No pot was inferred.",
                     _ => "Camera proposal rejected; the scenario state is unchanged."
@@ -1149,6 +1188,23 @@ public sealed class DashboardScenarioWorkspace
         pendingProposal, GetRulePrompt(), error)
         { CameraReview = new(cameraReviewActive, cameraReviewStatus, cameraReviewSessionId, cameraReviewLastSequence) };
 
+    static SettledTableCounts CountBalls(ImmutableArray<ObservedBall> balls) => new(
+        balls.Count(ball => ball.Colour == BallColour.Red),
+        balls.Count(ball => ball.Colour == BallColour.Yellow),
+        balls.Count(ball => ball.Colour == BallColour.Cue),
+        balls.Count(ball => ball.Colour == BallColour.Black));
+
+    static DashboardScenarioInventoryReview ToInventoryReview(SettledComparisonResult result)
+        => new(result.Reason, result.Ready, result.Comparison?.Changes.Select(change =>
+            new DashboardScenarioInventoryChange(change.Colour.ToString(), change.Before, change.After,
+                change.Removed, change.Added)).ToImmutableArray() ?? []);
+
+    static string DescribeCountChanges(SettledInventoryComparison comparison)
+        => comparison.Changes.Length == 0 ? "no net red, yellow, cue ball or black count change"
+            : string.Join(" · ", comparison.Changes.Select(change =>
+                $"{(change.Colour == BallColour.Cue ? "cue ball" : change.Colour.ToString().ToLowerInvariant())} {change.Before}→{change.After}"
+                + (change.Removed > 0 ? $" ({change.Removed} removed from table)" : change.Added > 0 ? $" ({change.Added} added to table)" : "")));
+
     static ImmutableArray<ObservedBall> ToObserved(VisionResult detection)
         => detection.Balls.Where(ball => TryColour(ball.Kind, out _)).Select(ball =>
         {
@@ -1271,7 +1327,12 @@ public sealed class DashboardScenarioWorkspace
     }
 
     static DashboardScenarioEvent ToScenarioEvent(EventEnvelope item)
-        => new(item.Sequence, item.InputId, item.FrameId, item.At, item.Provenance.ToString(), item.Event.GetType().Name, true);
+        => new(item.Sequence, item.InputId, item.FrameId, item.At, item.Provenance.ToString(), item.Event switch
+        {
+            SettledInventoryAcceptedEvent => "settled-inventory-accepted",
+            SettledInventoryCorrectedEvent => "settled-inventory-corrected",
+            _ => item.Event.GetType().Name
+        }, true);
 
     static bool ParseOptionalColour(string? value, out BallColour? colour)
     {
