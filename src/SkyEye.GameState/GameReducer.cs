@@ -135,6 +135,9 @@ public static class GameReducer
             case RulesShotRecordedEvent recorded:
                 var ruling = recorded.Ruling;
                 var position = ruling.Position with { LastInputId = e.InputId };
+                bool settledEvidenceIsCurrent = e.Source is not null && e.Source == s.Table.Source
+                    && e.SourceTimeUs == s.Table.LastSettled?.SourceTimeUs
+                    && s.Table.Motion == TableMotion.Settled && !s.Table.Uncertain;
                 var groups = s.Frame!.Colours;
                 if (groups.Count == 0 && ruling.Position.PlayerGroup is { } assignedGroup)
                     foreach (var player in s.Match!.Players)
@@ -144,7 +147,8 @@ public static class GameReducer
                     CurrentPlayer = new(position.Player, Provenance.Inferred, null, e.InputId),
                     Visit = s.Frame.Visit + (position.Player == s.Frame.CurrentPlayer.Value ? 0 : 1),
                     Foul = position.Foul is null ? null : new(position.Foul, Provenance.Inferred, null, e.InputId) },
-                    Table = s.Table with { Motion = TableMotion.Unknown, Uncertain = true }, Shot = null };
+                    Table = settledEvidenceIsCurrent ? s.Table
+                        : s.Table with { Motion = TableMotion.Unknown, Uncertain = true }, Shot = null };
                 return position.Winner is null ? next : Apply(next, e with { Event = new FrameWonEvent(position.Winner), Provenance = Provenance.Inferred });
             case TurnChangedEvent t:
                 if (s.Frame!.CurrentPlayer.Source > e.Provenance) return s;

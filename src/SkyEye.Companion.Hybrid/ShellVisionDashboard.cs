@@ -37,8 +37,8 @@ public sealed partial class ShellSession
 {
     const string VisionDashboardAsset = "vision-diagnostics-dashboard.html";
     const string VisionScenarioAsset = "vision-scenario-lab.html";
-    const int VisionDashboardAssetVersion = 18;
-    const int VisionScenarioAssetVersion = 6;
+    const int VisionDashboardAssetVersion = 19;
+    const int VisionScenarioAssetVersion = 7;
     const int VisionDashboardPort = 8770;
     readonly DashboardScenarioWorkspace dashboardScenario;
     LocalHttpServer? visionDashboardServer;
@@ -490,8 +490,20 @@ public sealed partial class ShellSession
             switch (request.Action?.Trim().ToLowerInvariant())
             {
                 case "accept":
-                    input = new AcceptSettledInventory(1, context, after);
-                    confirmation = "Observed table counts accepted. No pocket, foul or turn was inferred.";
+                    var comparison = SettledStateReconciler.Compare(context, after);
+                    if (comparison.Comparison is { } settled
+                        && SettledOutcomeRuleInference.TryInfer(canonical.State, settled, out var ruling))
+                    {
+                        input = new AcceptSettledOutcome(1, context, after, ruling);
+                        var outcome = after.Counts.CueBalls < context.Before.Counts.CueBalls
+                            ? "cue-ball scratch" : "pot";
+                        confirmation = $"Assumed the settled count decrease was a {outcome}. {ruling.Position.Reason} The pocket remains unknown.";
+                    }
+                    else
+                    {
+                        input = new AcceptSettledInventory(1, context, after);
+                        confirmation = "Observed settled counts accepted; rules need review before turn or score changes.";
+                    }
                     break;
                 case "correct":
                     if (!ValidLiveInventoryCounts(request.Reds, request.Yellows, request.CueBalls, request.BlackBalls))
@@ -530,7 +542,7 @@ public sealed partial class ShellSession
                     motionActivityVerificationPending = false;
                     motionActivityVerificationAttempted = false;
                     motionActivityLastSourceTimeUs = null;
-                    motionActivityStatus = input is AcceptSettledInventory or CorrectSettledInventory
+                    motionActivityStatus = input is AcceptSettledInventory or AcceptSettledOutcome or CorrectSettledInventory
                         ? "Reviewed table counts are current; watching for the next settled change."
                         : "Proposal rejected; the current match inventory stays in place.";
                     ResetSettledDifferenceCandidate();

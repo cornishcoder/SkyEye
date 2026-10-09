@@ -27,6 +27,9 @@ public sealed record PossibleCollision(string ShotId, string FirstBall, string S
 public sealed record PossibleCushionContact(string ShotId, string BallId) : GameInput;
 public sealed record AcceptSettledInventory(int ContractVersion, ActivityWindowContext Context,
     SettledTableEvidence After) : GameInput;
+/// <summary>Admit a settled count change as pots/scratches and record its rules result atomically.</summary>
+public sealed record AcceptSettledOutcome(int ContractVersion, ActivityWindowContext Context,
+    SettledTableEvidence After, RuleRuling Ruling) : GameInput;
 public sealed record CorrectSettledInventory(int ContractVersion, ActivityWindowContext Context,
     SettledTableEvidence Observed, SettledTableCounts CorrectedCounts) : GameInput;
 public sealed record RejectSettledInventory(int ContractVersion, ActivityWindowContext Context,

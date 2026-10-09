@@ -17,7 +17,7 @@ public sealed partial class AppCoordinator
         if (command.Input?.Input is EstablishSettledBaseline && envelope.Origin != CommandOrigin.System)
             return Receipt(envelope, CommandOutcome.Rejected, "Starting inventory is established by the verified observation path.");
         bool declared = command.Input?.Input is StartMatch or StartFrame or FinishMatch or DeclareColours or UndoDecision
-            or PlayerCorrection or AcceptSettledInventory or CorrectSettledInventory or RejectSettledInventory;
+            or PlayerCorrection or AcceptSettledInventory or AcceptSettledOutcome or CorrectSettledInventory or RejectSettledInventory;
         bool trustedRuling = command.Input?.Input is ApplyShotRuling && envelope.Origin == CommandOrigin.System;
         if (command.Input?.Input is ApplyShotRuling && !trustedRuling) return Receipt(envelope, CommandOutcome.Rejected, "Submit declared facts through the rules command.");
         bool local = command.Input?.Source is null && state.Camera.ConnectionId == Guid.Empty
@@ -43,7 +43,7 @@ public sealed partial class AppCoordinator
             && frame.Colours.TryGetValue(frame.CurrentPlayer.Value, out var assigned)
                 ? assigned.Value == BallColour.Red ? AdviceTargetGroup.Red : assigned.Value == BallColour.Yellow ? AdviceTargetGroup.Yellow : AdviceTargetGroup.Open
                 : AdviceTargetGroup.Open;
-        bool reviewedTablePublished = command.Input.Input is AcceptSettledInventory or CorrectSettledInventory;
+        bool reviewedTablePublished = command.Input.Input is AcceptSettledInventory or AcceptSettledOutcome or CorrectSettledInventory;
         var updated = ClearShotCatalog(state) with { Version = checked(state.Version + 1), Game = game.State, Match = MatchView.From(game), Advice = new(group),
             GameTableCurrent = reviewedTablePublished
                 ? !game.State.Table.Uncertain && game.State.Table.Motion == TableMotion.Settled

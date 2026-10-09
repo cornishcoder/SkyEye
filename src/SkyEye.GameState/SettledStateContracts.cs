@@ -143,7 +143,7 @@ public sealed record BallCountChange(BallColour Colour, int Before, int After)
 public sealed record SettledOutcomeRecommendation(string Kind, string Strength, string Summary,
     bool AutoApprovalEligible, ImmutableArray<string> Alternatives);
 
-/// <summary>A count-only comparison. It makes no claim about identity, cause, pocket or legality.</summary>
+/// <summary>A settled count comparison. Physical removals may be treated as pots by policy, without inventing identity or pocket facts.</summary>
 public sealed record SettledInventoryComparison(ActivityWindowContext Context, SettledTableEvidence After,
     ImmutableArray<BallCountChange> Changes)
 {
@@ -158,28 +158,31 @@ public sealed record SettledInventoryComparison(ActivityWindowContext Context, S
             var after = After.Counts;
             bool cueChanged = before.CueBalls != after.CueBalls;
             bool blackChanged = before.BlackBalls != after.BlackBalls;
-            int groupRemoved = Changes.Where(change => change.Colour is BallColour.Red or BallColour.Yellow).Sum(change => change.Removed);
-            int groupAdded = Changes.Where(change => change.Colour is BallColour.Red or BallColour.Yellow).Sum(change => change.Added);
             bool repeatedClearEvidence = After.BoundedStillnessVerified || After.StableClearSampleCount >= 3;
 
-            if (groupRemoved > 0 && groupAdded == 0 && !cueChanged && !blackChanged)
+            if (RemovedFromTable > 0 && AddedToTable == 0)
             {
                 string detail = string.Join(" and ", Changes.Where(change => change.Removed > 0)
-                    .Select(change => $"{change.Removed} {change.Colour.ToString().ToLowerInvariant()}"));
-                return new("likely-group-pot", repeatedClearEvidence ? "strong" : "suggested",
-                    $"Likely pot: {detail} removed from a clear settled table.", After.BoundedStillnessVerified,
-                    ["Correct the observed counts", "Treat the ball as removed for another reason", "Reject this observation"]);
+                    .Select(change => change.Colour switch
+                    {
+                        BallColour.Cue => "cue-ball scratch",
+                        BallColour.Black => "black-ball pot",
+                        _ => $"{change.Removed} {change.Colour.ToString().ToLowerInvariant()} pot{(change.Removed == 1 ? "" : "s")}"
+                    }));
+                return new("settled-pot-outcome", repeatedClearEvidence ? "strong" : "suggested",
+                    $"{(After.BoundedStillnessVerified ? "Assume" : "Likely")} {detail} from the clear settled count decrease.", After.BoundedStillnessVerified,
+                    ["Correct the observed counts", "Record a non-pot removal", "Reject this observation"]);
             }
 
             if (Changes.IsEmpty)
                 return new("no-net-count-change", "informational", "No net ball-count change; a layout change may still need review.", false,
                     ["Review the changed layout", "Reject this observation"]);
 
-            if (cueChanged && !blackChanged && groupRemoved == 0 && groupAdded == 0 && after.CueBalls < before.CueBalls)
+            if (cueChanged && !blackChanged && after.CueBalls < before.CueBalls)
                 return new("cue-ball-removed", "review", "Cue ball missing from the settled table; check for a scratch or other removal.", false,
                     ["Review a possible scratch", "Treat the cue ball as lifted or missing", "Correct the observed counts"]);
 
-            if (blackChanged && !cueChanged && groupRemoved == 0 && groupAdded == 0 && after.BlackBalls < before.BlackBalls)
+            if (blackChanged && !cueChanged && after.BlackBalls < before.BlackBalls)
                 return new("black-ball-removed", "review", "Black ball missing; frame result and legality need review.", false,
                     ["Review frame result and legality", "Treat the black as removed for another reason", "Correct the observed counts"]);
 

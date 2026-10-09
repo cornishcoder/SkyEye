@@ -439,7 +439,7 @@ public sealed partial class ShellSession
 
     async Task VerifySettledActivityAsync(Guid activityId)
     {
-        bool resumeMotion = false, resumeDiagnostics = false, candidateReady = false;
+        bool resumeMotion = false, resumeDiagnostics = false, candidateReady = false, outcomeAccepted = false;
         int motionHz = 30;
         long media = 0;
         TableAnalysisSnapshot admitted = table.State;
@@ -562,8 +562,58 @@ public sealed partial class ShellSession
                         comparison.Changes, summary) { Recommendation = comparison.Recommendation };
                     motionActivityCandidateContext = comparison.Context;
                     motionActivityCandidateAfter = comparison.After;
-                    motionActivityStatus = "Settled after-table is ready for review. Canonical game state has not changed.";
+                    motionActivityStatus = "Settled after-table is ready for automatic pot inference or review.";
                     candidateReady = true;
+                }
+            }
+
+            var canonical = app.CaptureGameSession();
+            if (step.Outcome == ActivitySettlementOutcome.SettledCandidate
+                && step.Comparison?.Comparison is { } settledComparison
+                && SettledOutcomeRuleInference.TryInfer(canonical.State, settledComparison, out var ruling))
+            {
+                if (!settledComparison.Context.Game.IsCompatibleWith(canonical.State))
+                {
+                    SetActivityVerificationStatus(activityId, "The match changed before the settled pot could be recorded. The proposal remains available for review.");
+                }
+                else
+                {
+                    var inputId = Guid.NewGuid();
+                    var at = DateTimeOffset.UtcNow < settledComparison.After.CapturedAt
+                        ? settledComparison.After.CapturedAt : DateTimeOffset.UtcNow;
+                    var input = new GameInputEnvelope(inputId, settledComparison.Context.Game.MatchId,
+                        settledComparison.Context.Game.FrameId, at,
+                        new AcceptSettledOutcome(1, settledComparison.Context, settledComparison.After, ruling),
+                        settledComparison.After.Source, settledComparison.After.SourceTimeUs,
+                        Provenance.Inferred, .9);
+                    var receipt = await app.DispatchAsync(new(inputId, CommandOrigin.System, app.State.Version,
+                        new SubmitGameInput(input, canonical.State.Version)), cancellation);
+                    if (receipt.Succeeded)
+                    {
+                        outcomeAccepted = true;
+                        candidateReady = false;
+                        string outcome = settledComparison.After.Counts.CueBalls < settledComparison.Context.Before.Counts.CueBalls
+                            ? "cue-ball scratch" : "pot";
+                        lock (motionActivityGate)
+                        {
+                            if (motionActivityLifecycle?.Context.Id == activityId)
+                            {
+                                motionActivityCandidate = null;
+                                motionActivityCandidateContext = null;
+                                motionActivityCandidateAfter = null;
+                                motionActivityLifecycle = null;
+                                motionActivityVerificationAttempted = false;
+                                motionActivityLastSourceTimeUs = null;
+                                motionActivityStatus = $"Assumed the settled ball-count decrease was a {outcome}; rules updated. {ruling.Position.Reason} The pocket remains unknown.";
+                                ResetSettledDifferenceCandidate();
+                            }
+                        }
+                    }
+                    else
+                    {
+                        lock (motionActivityGate)
+                            motionActivityStatus = "Settled outcome could not be admitted automatically; it remains available for review. " + receipt.Message;
+                    }
                 }
             }
         }
@@ -579,7 +629,8 @@ public sealed partial class ShellSession
         {
             if (!candidateReady && resumeMotion && active && CanAnalyzeTable && !disposed)
             {
-                try { await SetMotionFeedAsync(true, motionHz, allowUnconfirmedDiagnosticSeed: true, preserveActivityLifecycle: true); }
+                try { await SetMotionFeedAsync(true, motionHz, allowUnconfirmedDiagnosticSeed: true,
+                    preserveActivityLifecycle: !outcomeAccepted); }
                 catch (Exception) { SetActivityVerificationStatus(activityId, "O08 did not produce a reviewable candidate; motion sampling could not resume. The original baseline is retained."); }
             }
 
@@ -638,9 +689,9 @@ public sealed partial class ShellSession
             : string.Join(", ", comparison.Changes.Select(change =>
                 change.Removed > 0 ? $"{change.Removed} {change.Colour.ToString().ToLowerInvariant()} removed"
                     : $"{change.Added} {change.Colour.ToString().ToLowerInvariant()} added"));
-        string interpretation = comparison.Recommendation.Kind == "likely-group-pot"
-            ? $"{comparison.Recommendation.Summary} Foul, turn and pocket remain undecided."
-            : $"{comparison.Recommendation.Summary} No pot, foul or turn is inferred.";
+        string interpretation = comparison.Recommendation.Kind == "settled-pot-outcome"
+            ? $"{comparison.Recommendation.Summary} Rules apply to inferred pots/scratch; pocket and exact identity remain unknown."
+            : $"{comparison.Recommendation.Summary} No pot is inferred from this count pattern.";
         return $"A: {Inventory(before)} → B: {Inventory(after)}; {changes}. {interpretation}";
     }
 

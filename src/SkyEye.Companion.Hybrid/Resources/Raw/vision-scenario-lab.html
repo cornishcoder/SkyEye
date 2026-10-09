@@ -31,7 +31,7 @@
       <div class="live-card"><span>Turn</span><strong id="live-turn">—</strong></div>
       <div class="live-card"><span>Frame</span><strong id="live-frame">—</strong></div>
       <div class="live-card"><span>Vision</span><strong id="live-detected-count">—</strong></div>
-      <div class="live-card"><span>On table / known</span><strong id="live-game-count">—</strong></div>
+      <div class="live-card" title="This counts located identity records, not the detector’s physical ball count."><span>Identified on table</span><strong id="live-game-count">—</strong></div>
     </div>
     <p id="live-status" class="live-status" role="status">Waiting for live state…</p>
   </section>
@@ -266,7 +266,7 @@
     $('live-turn').textContent=m.currentPlayer?(m.players||[]).find(player=>player.id===m.currentPlayer)?.name||m.currentPlayer:'—';
     $('live-frame').textContent=m.frameId?((m.frames||[]).find(item=>item.current)?.number??m.frameId):'—';
     $('live-detected-count').textContent=det?`${(det.balls||[]).length}${det.uncertain?' · check':''}`:'Waiting';
-    $('live-game-count').textContent=balls.length?`${current.length} / ${balls.length}`:'—';
+    $('live-game-count').textContent=balls.length?`${current.length} of ${balls.length} IDs`:'—';
     const frame=data.frame?`Frame ${data.frame.sequence} · ${Math.round(data.frame.frameAgeMs)} ms`:'No camera frame';
     const gameStatus=data.gameTableCurrent?'Current':'Needs review';
     const reason=det?.uncertain?' · detector uncertain':data.gameError?' · vision error':'';

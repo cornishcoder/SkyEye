@@ -583,7 +583,13 @@ public sealed class DashboardScenarioWorkspace
             ? SettledStateReconciler.Compare(activityContext, countEvidence)
             : new SettledComparisonResult(SettledComparisonStatus.InvalidContext,
                 "The scenario has no complete trusted settled before-table or frozen game context.");
-        bool inventoryAccepted = !resolved && countResult.Ready;
+        var settledCounts = countResult.Comparison;
+        bool countDecrease = settledCounts is { AddedToTable: 0, RemovedFromTable: > 0 };
+        RuleRuling? inferredRuling = countDecrease
+            && SettledOutcomeRuleInference.TryInfer(session.State, settledCounts, out var inferred)
+                ? inferred : null;
+        bool inventoryAccepted = countResult.Ready && (countDecrease
+            ? inferredRuling is not null : !resolved);
         var observationBalls = resolved ? associated : settled.Balls.Select((ball, index) => ball with
             { Id = $"camera-unresolved-{settled.Sample.Sequence}-{index}" }).ToImmutableArray();
         var matchId = session.State.Match!.Id;
@@ -613,7 +619,10 @@ public sealed class DashboardScenarioWorkspace
         if (inventoryAccepted)
         {
             var input = new GameInputEnvelope(Guid.NewGuid(), matchId, frameId, settled.Sample.CapturedAt,
-                new AcceptSettledInventory(1, activityContext, countEvidence), source, settled.Sample.SourceTimeUs,
+                inferredRuling is null
+                    ? new AcceptSettledInventory(1, activityContext, countEvidence)
+                    : new AcceptSettledOutcome(1, activityContext, countEvidence, inferredRuling),
+                source, settled.Sample.SourceTimeUs,
                 Provenance.PlayerConfirmed);
             var accepted = candidate.Accept(input);
             if (accepted.Outcome != InputOutcome.Applied)
@@ -653,25 +662,31 @@ public sealed class DashboardScenarioWorkspace
         }).ToImmutableArray();
         var choices = ImmutableArray.CreateBuilder<DashboardScenarioChoice>();
         var recommendation = countResult.Comparison?.Recommendation;
-        var acceptLabel = inventoryAccepted && recommendation?.Kind == "likely-group-pot"
+        var acceptLabel = inferredRuling is not null
+            ? "Accept disappearance as pot · apply rules"
+            : inventoryAccepted && recommendation?.Kind == "settled-pot-outcome"
             ? "Accept count change · likely pot"
             : inventoryAccepted ? "Accept inventory counts" : "Accept camera proposal";
-        choices.Add(new("accept", acceptLabel, resolved
-            ? layoutIndicatesShot
+        string acceptDescription = inferredRuling is not null
+            ? $"Treat the settled count decrease as a pot or scratch. {inferredRuling.Position.Reason} The pocket remains unknown."
+            : inventoryAccepted ? recommendation?.Summary ?? "Accept these counts in the isolated scenario."
+            : resolved
+                ? layoutIndicatesShot
                 ? shotTimingBounded
                     ? "Record the inferred shot and this settled layout in the isolated scenario."
                     : "Record a shot inferred from the before/after layout and this settled state. Exact motion timing is unavailable."
                 : "Record this settled layout in the isolated scenario."
-            : inventoryAccepted
-                ? $"Update the reviewed group counts. {recommendation!.Summary} This accepts counts only; it does not record a pot, turn, foul or pocket."
-                : "Record the detector result as uncertain without changing ball identities or inventory.", true));
+                : "Record the detector result as uncertain without changing ball identities or inventory.";
+        choices.Add(new("accept", acceptLabel, acceptDescription, true));
         if (inventoryAccepted)
             choices.Add(new("edit-counts", "Correct counts first", "Set this proposal aside, then edit the isolated scenario inventory before reviewing again.", false));
         if (resolved)
             choices.Add(new("keep-uncertain", "Keep the layout uncertain", "Record the missing or moved evidence, but do not resolve the shot for rules review.", false));
         choices.Add(new("reject", "Reject this layout", "Discard the camera proposal and keep the current scenario state.", false));
         var match = MatchView.From(candidate);
-        var summary = resolved
+        var summary = inferredRuling is not null
+            ? $"Three clear frames agree on this inventory change: {DescribeCountChanges(countResult.Comparison!)}. The disappeared ball count is treated as pots/scratch. {inferredRuling.Position.Reason} Exact ball identity and pocket remain unknown."
+            : resolved
             ? layoutIndicatesShot
                 ? shotTimingBounded
                     ? $"Three clear frames agree on a changed layout: {moved.Length} moved; {missingSummary}. Shot timing is bounded by adjacent samples ({WindowMilliseconds(motionStartWindow!)} ms / {WindowMilliseconds(motionEndWindow!)} ms). See the settled count recommendation below; pocket, foul and turn remain undecided."
@@ -680,10 +695,11 @@ public sealed class DashboardScenarioWorkspace
             : !detectorCertain
                 ? "Three stable frames show a changed layout, but the detector marked at least one frame uncertain. Accepting records an uncertain observation only; identities and inventory stay unchanged."
                 : inventoryAccepted
-                    ? $"Three clear frames agree on this inventory change: {DescribeCountChanges(countResult.Comparison!)}. {countResult.Comparison!.Recommendation.Summary} Accept updates group counts only; no turn, foul or pocket is inferred."
+                    ? $"Three clear frames agree on this inventory change: {DescribeCountChanges(countResult.Comparison!)}. {countResult.Comparison!.Recommendation.Summary}"
                 : "Three clear frames agreed on a changed layout, but ball identities could not be uniquely associated with the scenario inventory. Accepting records an uncertain observation only.";
-        var proposal = new DashboardScenarioProposal(Guid.NewGuid(), "camera", "Camera event awaiting your choice",
-            summary, resolved
+        string proposalRecommendation = inferredRuling is not null
+            ? $"Treat the disappearance as a pot/scratch. {inferredRuling.Position.Reason} Pocket and exact ball identity remain unknown."
+            : resolved
                 ? layoutIndicatesShot
                     ? shotTimingBounded
                         ? "Review the layout, timing windows and settled count recommendation. Accept records the camera observation in this isolated scenario; turn, foul and pocket remain for rules review."
@@ -691,7 +707,9 @@ public sealed class DashboardScenarioWorkspace
                     : "Review the settled layout and count recommendation before it enters the scenario."
                 : inventoryAccepted
                     ? $"Review the group counts. {countResult.Comparison!.Recommendation.Summary} Accept records the settled counts in this isolated scenario; turn, foul and pocket remain undecided."
-                    : "Keep the existing ball identities. The uncertain observation will not change inventory, score or turn.",
+                    : "Keep the existing ball identities. The uncertain observation will not change inventory, score or turn.";
+        var proposal = new DashboardScenarioProposal(Guid.NewGuid(), "camera", "Camera event awaiting your choice",
+            summary, proposalRecommendation,
             added.Select(ToScenarioEvent).ToImmutableArray(), match.Score,
             match.CurrentPlayer is null ? "—" : match.Name(match.CurrentPlayer), choices.ToImmutable())
         {
@@ -704,7 +722,8 @@ public sealed class DashboardScenarioWorkspace
             {
                 MotionStartWindow = shotTimingBounded ? motionStartWindow : null,
                 MotionEndWindow = shotTimingBounded ? motionEndWindow : null
-            }
+            },
+            RulePosition = inferredRuling?.Position
         };
         pendingSession = candidate;
         pendingProposal = proposal;
@@ -1032,8 +1051,11 @@ public sealed class DashboardScenarioWorkspace
                 ? request.ChoiceId switch
                 {
                     "accept" when pendingProposal.InventoryComparison is { Ready: true }
+                        && pendingProposal.RulePosition is { } position
+                        => $"Settled disappearance accepted as a pot/scratch in the isolated scenario. {position.Reason} Pocket and exact ball identity remain unknown; the live match is unchanged.",
+                    "accept" when pendingProposal.InventoryComparison is { Ready: true }
                         && pendingProposal.CameraEvidence is { IdentitiesResolved: false }
-                        => "Settled inventory counts accepted into the isolated scenario. Same-colour identities remain unresolved; no pot, pocket, legality or turn was inferred.",
+                        => "Settled counts accepted into the isolated scenario. Ball identities remain unresolved; the live match is unchanged.",
                     "accept" => "Camera proposal accepted into the isolated scenario. A missing ball remains Missing; no pot was inferred.",
                     "keep-uncertain" => "Camera evidence was recorded with the table uncertain. No pot was inferred.",
                     _ => "Camera proposal rejected; the scenario state is unchanged."

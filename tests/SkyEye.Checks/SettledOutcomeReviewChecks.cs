@@ -24,8 +24,13 @@ static class SettledOutcomeReviewChecks
         var after = new G.SettledTableEvidence(Guid.NewGuid(), source, 300, beforeAt.AddSeconds(1),
             new(1, 0, 1, 1), Settled: true, Clear: true)
         { StableClearSampleCount = 3, BoundedStillnessVerified = true };
-        Check(G.SettledStateReconciler.Compare(context, after).Comparison?.Recommendation.AutoApprovalEligible == true,
-            "The fixture is a strongly supported likely-pot recommendation, not a canonical pot.");
+        var comparison = G.SettledStateReconciler.Compare(context, after).Comparison;
+        Check(comparison?.Recommendation is { Kind: "settled-pot-outcome", AutoApprovalEligible: true },
+            "A bounded clear decrease is eligible for the settled pot/scratch policy.");
+        Check(SkyEye.Core.Rules.SettledOutcomeRuleInference.TryInfer(game.State, comparison, out var yellowRuling)
+            && yellowRuling.Facts is { YellowsPotted: 1, FirstContact: G.BallColour.Yellow, CallRequired: false }
+            && yellowRuling.Position is { Pending: false, Player: "rich", PlayerGroup: G.BallColour.Yellow, Target: G.LegalTarget.Black },
+            "An open-table single-group decrease is interpreted through the rules engine and assigns the group.");
 
         var openTableAdvice = SkyEye.Core.Rules.SettledOutcomeRulesAdvisor.Evaluate(game.State,
             G.SettledStateReconciler.Compare(context, after).Comparison);
@@ -60,6 +65,59 @@ static class SettledOutcomeReviewChecks
         Check(G.SettledTableEvidence.TryCapture(acceptedReload.State, out var acceptedBaseline)
             && acceptedBaseline.EvidenceId == after.EvidenceId && acceptedBaseline.Counts == after.Counts,
             "Accepted B becomes the durable next baseline after reload.");
+
+        var potInput = Input(game, new G.AcceptSettledOutcome(1, context, after, yellowRuling), 5, source, 300,
+            G.Provenance.PlayerConfirmed);
+        var potResult = game.Accept(potInput);
+        Check(potResult.Accepted && potResult.Session.State.Table.Remaining(G.BallColour.Yellow) == 0
+            && potResult.Session.State.Frame!.Colours["rich"].Value == G.BallColour.Yellow
+            && potResult.Session.State.Frame.Rules is { Pending: false, Player: "rich" }
+            && potResult.Session.State.Table is { Motion: G.TableMotion.Settled, Uncertain: false }
+            && potResult.Session.History.Count(item => item.InputId == potInput.Id) == 2,
+            "Pot assumption atomically updates counts, inferred group/rules state and keeps the verified settled table current.");
+        var potReload = Reload(potResult.Session);
+        var potUndone = Apply(potReload, Input(potReload, new G.UndoDecision(potInput.Id), 6,
+            provenance: G.Provenance.PlayerCorrected));
+        Check(potUndone.State.Table.Remaining(G.BallColour.Yellow) == 1
+            && potUndone.State.Frame!.OpenTable && potUndone.State.Frame.Rules is null
+            && potUndone.State.Table.LastSettled?.EvidenceId == before.EvidenceId,
+            "One undo restores the pre-pot inventory, open table and baseline after reload.");
+
+        var blackGame = BaselineGame(source, new(0, 1, 1, 1), beforeAt);
+        blackGame = Apply(blackGame, Input(blackGame, new G.DeclareColours("rich", G.BallColour.Red), 5,
+            provenance: G.Provenance.PlayerConfirmed));
+        Check(G.ActivityWindowContext.TryBegin(Guid.NewGuid(), blackGame.State, 250, out var blackContext),
+            "Freeze the cleared-group match before a black-ball change.");
+        var blackAfter = after with { EvidenceId = Guid.NewGuid(), SourceTimeUs = 300,
+            CapturedAt = beforeAt.AddSeconds(2), Counts = new(0, 1, 1, 0) };
+        var blackComparison = G.SettledStateReconciler.Compare(blackContext, blackAfter).Comparison;
+        Check(SkyEye.Core.Rules.SettledOutcomeRuleInference.TryInfer(blackGame.State, blackComparison, out var blackRuling)
+            && blackRuling.Facts.BlackPotted && blackRuling.Position is { Pending: false, Winner: "rich" },
+            "A settled black-ball disappearance on the cleared group wins the frame through the rules engine.");
+        var blackInput = Input(blackGame, new G.AcceptSettledOutcome(1, blackContext, blackAfter, blackRuling), 6,
+            source, 300, G.Provenance.Inferred) with { Confidence = .9 };
+        var blackResult = blackGame.Accept(blackInput);
+        var blackReload = blackResult.Accepted ? Reload(blackResult.Session) : blackGame;
+        Check(blackResult.Accepted && blackReload.State.Match!.Score("rich") == 1
+            && blackReload.State.Frame!.Winner!.Value == "rich"
+            && blackReload.State.Table.Remaining(G.BallColour.Black) == 0
+            && blackReload.History.Any(item => item.InputId == blackInput.Id && item.Event is G.RulesShotRecordedEvent)
+            && G.GameSession.CanUndo(blackReload.History.Single(item => item.InputId == blackInput.Id
+                && item.Event is G.RulesShotRecordedEvent)),
+            "An inferred black pot updates the frame/match score, survives reload and is undoable.");
+
+        var scratchGame = BaselineGame(source, new(1, 1, 1, 1), beforeAt);
+        scratchGame = Apply(scratchGame, Input(scratchGame, new G.DeclareColours("rich", G.BallColour.Red), 5,
+            provenance: G.Provenance.PlayerConfirmed));
+        Check(G.ActivityWindowContext.TryBegin(Guid.NewGuid(), scratchGame.State, 250, out var scratchContext),
+            "Freeze the grouped table before a cue-ball disappearance.");
+        var scratchAfter = after with { EvidenceId = Guid.NewGuid(), SourceTimeUs = 300,
+            CapturedAt = beforeAt.AddSeconds(2), Counts = new(1, 1, 0, 1) };
+        var scratchComparison = G.SettledStateReconciler.Compare(scratchContext, scratchAfter).Comparison;
+        Check(SkyEye.Core.Rules.SettledOutcomeRuleInference.TryInfer(scratchGame.State, scratchComparison, out var scratchRuling)
+            && scratchRuling.Facts.CueBallPotted
+            && scratchRuling.Position is { Pending: false, Player: "guest", Foul: true, CueBall: G.CueBallEntitlement.Anywhere },
+            "A missing cue ball is inferred as a scratch and the rules engine awards cue-in-hand to the opponent.");
 
         var correctionInput = Input(game, new G.CorrectSettledInventory(1, context, after,
             new(1, 1, 1, 1)), 5, source, 300, G.Provenance.PlayerConfirmed);
@@ -104,6 +162,18 @@ static class SettledOutcomeReviewChecks
         G.EvidenceSource? source = null, long? pts = null, G.Provenance provenance = G.Provenance.Observed)
         => new(Guid.NewGuid(), game.State.Match?.Id ?? "match", game.State.Frame?.Id ?? "frame",
             DateTimeOffset.UnixEpoch.AddMinutes(1).AddSeconds(second), input, source, pts, provenance);
+
+    static G.GameSession BaselineGame(G.EvidenceSource source, G.SettledTableCounts counts, DateTimeOffset capturedAt)
+    {
+        var game = G.GameSession.Empty;
+        game = Apply(game, Input(game, new G.StartMatch([new("rich", "Rich"), new("guest", "Guest")], 3), 1,
+            provenance: G.Provenance.PlayerConfirmed));
+        game = Apply(game, Input(game, new G.StartFrame("rich"), 2, provenance: G.Provenance.PlayerConfirmed));
+        game = Apply(game, Input(game, new G.SelectSource(), 3, source, 100));
+        var evidence = new G.SettledTableEvidence(Guid.NewGuid(), source, 200, capturedAt, counts,
+            Settled: true, Clear: true) { BoundedStillnessVerified = true, StableClearSampleCount = 3 };
+        return Apply(game, Input(game, new G.EstablishSettledBaseline(1, evidence), 4, source, 200));
+    }
 
     static G.GameSession Apply(G.GameSession game, G.GameInputEnvelope input)
     {

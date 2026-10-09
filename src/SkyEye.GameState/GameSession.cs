@@ -24,13 +24,19 @@ public sealed class GameSession
         if (history.Length > 10000 || history.Any(e => e is null || e.Event is null || e.EventId == Guid.Empty || e.InputId == Guid.Empty
                 || e.InputFingerprint is not { Length: 64 } || !e.InputFingerprint.All(Uri.IsHexDigit) || !Text(e.MatchId)
                 || !Enum.IsDefined(e.Provenance) || !Confidence(e.Confidence) || e.SourceTimeUs is < 0 || e.Source is { } source && !ValidSource(source))
-            || history.Any(e => e.Event is SettledInventoryAcceptedEvent inventory && !ValidAcceptedInventory(e, inventory)
+            || history.Any(e => e.Event is SettledInventoryAcceptedEvent inventory && (!ValidAcceptedInventory(e, inventory)
+                    || e.Provenance == Provenance.Inferred && !history.Any(rule => rule.InputId == e.InputId
+                        && rule.Provenance == Provenance.Inferred && rule.Event is RulesShotRecordedEvent))
                 || e.Event is SettledBaselineEstablishedEvent baseline && !ValidBaseline(e, baseline)
                 || e.Event is SettledInventoryCorrectedEvent correction && (e.Provenance != Provenance.PlayerCorrected
                     || correction.ContractVersion != 1 || correction.Counts is null || !correction.Counts.IsValid
                     || (correction.Context is null) != (correction.Observed is null)
                     || correction.Context is not null && !ValidCorrectedInventory(e, correction))
                 || e.Event is SettledInventoryRejectedEvent rejected && !ValidRejectedInventory(e, rejected))
+            || history.Any(e => e.Provenance == Provenance.Inferred && e.Event is RulesShotRecordedEvent
+                && !history.Any(inventory => inventory.InputId == e.InputId
+                    && inventory.Provenance == Provenance.Inferred
+                    && inventory.Event is SettledInventoryAcceptedEvent { After.BoundedStillnessVerified: true }))
             || history.GroupBy(e => e.InputId).Any(g => g.Select(e => e.InputFingerprint).Distinct().Count() != 1)
             || history.Select(e => e.EventId).Distinct().Count() != history.Length) throw new ArgumentException("Invalid event identities.");
         foreach (var correction in history.Where(e => e.Event is StateCorrectedEvent { CorrectedPot: not null }))
@@ -193,6 +199,32 @@ public sealed class GameSession
             if (State.Shot is { Resolved: false }) inventoryEvents.Add(new ShotResolvedEvent());
             return Commit(input, fingerprint, inventoryEvents);
         }
+        if (input.Input is AcceptSettledOutcome outcomeInput)
+        {
+            if (input.Provenance is not (Provenance.Inferred or Provenance.PlayerConfirmed))
+                return Refuse(InputOutcome.Rejected, "Settled pot outcomes require verified automatic inference or explicit player review.");
+            if (outcomeInput.ContractVersion != 1 || outcomeInput.Context is null || outcomeInput.After is null
+                || outcomeInput.Ruling is null || input.Source != outcomeInput.After.Source
+                || input.SourceTimeUs != outcomeInput.After.SourceTimeUs || input.At < outcomeInput.After.CapturedAt
+                || input.Provenance == Provenance.Inferred && !outcomeInput.After.BoundedStillnessVerified)
+                return Refuse(InputOutcome.Rejected, "Settled outcome evidence does not match its source envelope or verification level.");
+            if (!CurrentReviewContext(outcomeInput.Context))
+                return Refuse(InputOutcome.Stale, "The player, frame, rules, source or before-table changed; review this proposal again.");
+            if (last?.SourceTimeUs is { } lastPts && outcomeInput.After.SourceTimeUs <= lastPts)
+                return Refuse(InputOutcome.Stale, "This settled table sample is not newer than the accepted source watermark.");
+            var comparison = SettledStateReconciler.Compare(outcomeInput.Context, outcomeInput.After);
+            if (!comparison.Ready || comparison.Comparison is not { } settled
+                || settled.AddedToTable != 0 || settled.RemovedFromTable == 0
+                || !ValidSettledOutcomeRuling(input, outcomeInput, settled))
+                return Refuse(InputOutcome.Rejected, "The settled count decrease or rules result does not match the verified table change.");
+
+            var outcomeEvents = new List<GameEvent>();
+            if (State.Shot is { Ended: false } activeShot) outcomeEvents.Add(new ShotEndedEvent(activeShot.Id));
+            outcomeEvents.Add(new SettledInventoryAcceptedEvent(1, outcomeInput.Context, outcomeInput.After));
+            if (State.Shot is { Resolved: false }) outcomeEvents.Add(new ShotResolvedEvent());
+            outcomeEvents.Add(new RulesShotRecordedEvent(outcomeInput.Ruling));
+            return Commit(input, fingerprint, outcomeEvents);
+        }
         if (input.Input is CorrectSettledInventory correctionInput)
         {
             if (input.Provenance != Provenance.PlayerConfirmed)
@@ -254,10 +286,12 @@ public sealed class GameSession
         return change is null ? Refuse(InputOutcome.Rejected, "Unsupported, invalid or phase-incompatible evidence.") : Commit(input, fingerprint, [change]);
     }
     bool PlayerExists(string id) => State.Match!.Players.Any(p => p.Id == id);
-    public static bool CanUndo(EventEnvelope e) => e.Provenance >= Provenance.PlayerConfirmed
-        && e.Event is ColourAssignedEvent or ColoursDeclaredEvent or TurnChangedEvent or FoulRecordedEvent or FrameWonEvent
-            or StateCorrectedEvent or RulesShotRecordedEvent or SettledInventoryAcceptedEvent or SettledInventoryCorrectedEvent
-            or SettledInventoryRejectedEvent;
+    public static bool CanUndo(EventEnvelope e) => (e.Event is ColourAssignedEvent or ColoursDeclaredEvent or TurnChangedEvent
+        or FoulRecordedEvent or FrameWonEvent or StateCorrectedEvent or RulesShotRecordedEvent or SettledInventoryAcceptedEvent
+        or SettledInventoryCorrectedEvent or SettledInventoryRejectedEvent)
+        && (e.Provenance >= Provenance.PlayerConfirmed
+            || e.Provenance == Provenance.Inferred
+                && (e.Event is RulesShotRecordedEvent or SettledInventoryAcceptedEvent { After.BoundedStillnessVerified: true }));
     bool CanStartShot(string id) => State.Table.Motion == TableMotion.Settled && !State.Table.Uncertain
         && (State.Shot is null || State.Shot.Ended) && !History.Any(e => e.FrameId == State.Frame!.Id && e.Event is ShotStartedEvent s && s.ShotId == id);
     static bool ValidObservation(TableObservation o) => !o.Balls.IsDefault && o.Balls.Length <= 64
@@ -266,11 +300,57 @@ public sealed class GameSession
     static bool ValidAcceptedInventory(EventEnvelope envelope, SettledInventoryAcceptedEvent inventory)
     {
         if (inventory.ContractVersion != 1 || inventory.Context is null || inventory.After is null
-            || envelope.Provenance != Provenance.PlayerConfirmed || envelope.Source != inventory.After.Source
+            || envelope.Provenance != Provenance.PlayerConfirmed
+                && !(envelope.Provenance == Provenance.Inferred && inventory.After.BoundedStillnessVerified)
+            || envelope.Source != inventory.After.Source
             || envelope.SourceTimeUs != inventory.After.SourceTimeUs
             || envelope.MatchId != inventory.Context.Game.MatchId || envelope.FrameId != inventory.Context.Game.FrameId
             || envelope.At < inventory.After.CapturedAt) return false;
         return SettledStateReconciler.Compare(inventory.Context, inventory.After).Ready;
+    }
+    bool ValidSettledOutcomeRuling(GameInputEnvelope input, AcceptSettledOutcome outcome,
+        SettledInventoryComparison comparison)
+    {
+        if (outcome.Ruling is null || outcome.Ruling.Facts is not { } facts
+            || outcome.Ruling.Position is not { } position || position.Clauses.IsDefault) return false;
+        var before = outcome.Context.Before.Counts;
+        var after = outcome.After.Counts;
+        int reds = comparison.Changes.Where(change => change.Colour == BallColour.Red).Sum(change => change.Removed);
+        int yellows = comparison.Changes.Where(change => change.Colour == BallColour.Yellow).Sum(change => change.Removed);
+        bool black = before.BlackBalls > after.BlackBalls;
+        bool cue = before.CueBalls > after.CueBalls;
+        BallColour? group = outcome.Context.Game.Groups.TryGetValue(outcome.Context.Game.CurrentPlayer, out var assigned)
+            ? assigned.Value : outcome.Context.Game.Rules?.PlayerGroup;
+        int? ownBefore = group switch
+        {
+            BallColour.Red => before.Reds,
+            BallColour.Yellow => before.Yellows,
+            _ => null
+        };
+        bool earlyBlack = black && (group is BallColour.Red or BallColour.Yellow) && ownBefore is > 0;
+        BallColour? firstContact = black && (group is BallColour.Red or BallColour.Yellow) && ownBefore == 0
+            ? BallColour.Black
+            : (reds > 0) != (yellows > 0)
+                ? outcome.Context.Game.OpenTable
+                    ? reds > 0 ? BallColour.Red : BallColour.Yellow
+                    : group ?? (reds > 0 ? BallColour.Red : BallColour.Yellow)
+                : null;
+        return input.MatchId == outcome.Context.Game.MatchId && input.FrameId == outcome.Context.Game.FrameId
+            && outcome.Ruling.ReplacesInputId is null
+            && outcome.Ruling.Shooter == outcome.Context.Game.CurrentPlayer
+            && PlayerExists(outcome.Ruling.Shooter) && PlayerExists(position.Player)
+            && (position.Winner is null || PlayerExists(position.Winner))
+            && facts is { Break: false, CueBallOffTable: false }
+            && facts.Legality == (earlyBlack ? DeclaredLegality.LossOfFrame : DeclaredLegality.Legal)
+            && facts.RedsPotted == reds && facts.YellowsPotted == yellows
+            && facts.BlackPotted == black && facts.CueBallPotted == cue
+            && facts.RedsBefore == before.Reds && facts.YellowsBefore == before.Yellows
+            && facts.FirstContact == firstContact
+            && facts.CallRequired is null or false && facts.CalledGroup is null && facts.LegalBreak is null
+            && Text(position.Profile) && Text(position.Player)
+            && position.Reason is { Length: > 0 and <= 500 }
+            && Enum.IsDefined(position.CueBall) && Enum.IsDefined(position.Target)
+            && position.Reds == after.Reds && position.Yellows == after.Yellows && position.BreakComplete;
     }
     static bool ValidCorrectedInventory(EventEnvelope envelope, SettledInventoryCorrectedEvent correction)
     {
