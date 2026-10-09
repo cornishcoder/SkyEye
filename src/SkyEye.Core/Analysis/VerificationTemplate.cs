@@ -48,4 +48,51 @@ public static class VerificationTemplate
         return new(bx + Offset(scores[ix - 1, iy], best, scores[ix + 1, iy]),
             by + Offset(scores[ix, iy - 1], best, scores[ix, iy + 1]), best);
     }
+
+    /// <summary>Grayscale ball-body matching for high-rate motion analysis.</summary>
+    public static TemplateDisplacement? CompareGray(byte[] before, byte[] after, int width, int height,
+        int cx, int cy, int radius)
+    {
+        if (width <= 0 || height <= 0 || before.Length != checked(width * height)
+            || after.Length != before.Length || radius is < 4 or > 60)
+            throw new ArgumentException("Invalid grayscale motion patch.");
+        const int reach = 12;
+        if (cx - radius - reach < 0 || cy - radius - reach < 0
+            || cx + radius + reach >= width || cy + radius + reach >= height) return null;
+
+        var scores = new double[reach * 2 + 1, reach * 2 + 1];
+        double best = double.PositiveInfinity;
+        int bestX = 0, bestY = 0;
+        for (int dy = -reach; dy <= reach; dy++)
+        for (int dx = -reach; dx <= reach; dx++)
+        {
+            double sumA = 0, sumB = 0, squareA = 0, squareB = 0, cross = 0;
+            int count = 0;
+            for (int y = -radius; y <= radius; y += 2)
+            for (int x = -radius; x <= radius; x += 2)
+            {
+                if (x * x + y * y > radius * radius) continue;
+                int a = before[(cy + y) * width + cx + x];
+                int b = after[(cy + y + dy) * width + cx + x + dx];
+                sumA += a; sumB += b; squareA += a * a; squareB += b * b; cross += a * b; count++;
+            }
+            double variance = squareA + squareB - (sumA * sumA + sumB * sumB) / count;
+            if (variance / (2 * count) < 4) return null;
+            double error = variance - 2 * (cross - sumA * sumB / count);
+            double score = Math.Max(0, error) / variance;
+            scores[dx + reach, dy + reach] = score;
+            if (score < best) { best = score; bestX = dx; bestY = dy; }
+        }
+        if (best > .08 || Math.Abs(bestX) == reach || Math.Abs(bestY) == reach) return null;
+        double Offset(double left, double centre, double right)
+        {
+            double denominator = left - 2 * centre + right;
+            return denominator > .00001 ? Math.Clamp(.5 * (left - right) / denominator, -.5, .5) : 0;
+        }
+        int ix = bestX + reach, iy = bestY + reach;
+        if (scores[ix - 1, iy] + scores[ix + 1, iy] - 2 * best < .0001
+            || scores[ix, iy - 1] + scores[ix, iy + 1] - 2 * best < .0001) return null;
+        return new(bestX + Offset(scores[ix - 1, iy], best, scores[ix + 1, iy]),
+            bestY + Offset(scores[ix, iy - 1], best, scores[ix, iy + 1]), best);
+    }
 }

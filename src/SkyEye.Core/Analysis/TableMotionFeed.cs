@@ -55,11 +55,24 @@ public sealed record RoiMotion(string Id, int Features, int Supported, double? D
     public double? IlluminationNormalizedChangedPixelFraction { get; init; }
     public double? MedianBrightnessOffsetGray { get; init; }
     public int? ChangeThresholdGray { get; init; }
+    public double? TemplateDxPixels { get; init; }
+    public double? TemplateDyPixels { get; init; }
+    public double? TemplateResidual { get; init; }
+    public string TemplateStatus { get; init; } = "unavailable";
 }
 public sealed record MotionMeasurement(long SourceTimeUs, IReadOnlyList<RoiMotion> Regions, double ConversionMs, double FlowMs)
 {
     public int AnalysisImageWidth { get; init; }
     public int AnalysisImageHeight { get; init; }
+}
+public enum MotionAnalysisPhase { Unknown, Settling, Settled, Moving }
+public sealed record MotionAnalysisSnapshot(MotionAnalysisPhase Phase, long? StateSinceSourceTimeUs,
+    long? LastMotionSourceTimeUs, double? QuietForMs, int ObservedRegions, int TotalRegions,
+    int MovingRegions, double? PeakDisplacementPixels, double? WindowPeakDisplacementPixels,
+    int WindowMovingRegionPeak, int WindowSampleCount, string Evidence)
+{
+    public static MotionAnalysisSnapshot Unknown { get; } = new(MotionAnalysisPhase.Unknown, null, null,
+        null, 0, 0, 0, null, null, 0, 0, "No motion samples");
 }
 public interface ITableMotionProcessor
 {
@@ -101,6 +114,7 @@ public sealed record MotionFeedSnapshot(long Acquired, long Processed, long Repl
     long AcquisitionFailures, long ScopeRejected, long WorkerFailures, long GapResets, int Active, int Pending,
     string? StopReason, MotionMeasurement? Latest, double LastAcquisitionMs, double LastWorkerMs, double LastResultAgeMs)
 {
+    public MotionAnalysisSnapshot Analysis { get; init; } = MotionAnalysisSnapshot.Unknown;
     public int RequestedHz { get; init; }
     public int FrameWidth { get; init; }
     public int FrameHeight { get; init; }
@@ -161,6 +175,7 @@ public sealed class TableMotionFeed : IAsyncDisposable
     readonly Queue<MotionGapDiagnostic> recentGaps = new();
     readonly Queue<long> recentProcessedSourceTimes = new();
     readonly Queue<long> recentProcessedDeltasUs = new();
+    readonly TableMotionStateMachine stateMachine = new();
     TableFrame? pending;
     MotionFrameCandidateProbe? pendingProbe;
     Task? run;
@@ -182,6 +197,7 @@ public sealed class TableMotionFeed : IAsyncDisposable
     int active, width, height, lastAcquisitionAttempts = 1, pendingAcquisitionAttempts = 1;
     string? stopReason;
     MotionMeasurement? latest;
+    MotionAnalysisSnapshot analysis = MotionAnalysisSnapshot.Unknown;
     double acquisitionMs, pendingAcquisitionMs, workerMs, resultAgeMs;
 
     public TableMotionFeed(ITableFrameSource source, ITableMotionProcessor processor, MotionFeedScope scope,
@@ -209,6 +225,7 @@ public sealed class TableMotionFeed : IAsyncDisposable
                 return new(acquired, processed, replaced, duplicate, stale, acquisitionFailures, scopeRejected,
                     workerFailures, gaps, active, pending is null ? 0 : 1, stopReason, latest, acquisitionMs, workerMs, resultAgeMs)
                 {
+                    Analysis = analysis,
                     RequestedHz = options.FramesPerSecond,
                     FrameWidth = width,
                     FrameHeight = height,
@@ -508,7 +525,8 @@ public sealed class TableMotionFeed : IAsyncDisposable
                         if (!Current()) continue;
                         if (!Fresh(frame)) { stale++; lastProcessedUs = -1; continue; }
                         if (result.SourceTimeUs != context!.SourceTimeUs) throw new InvalidDataException("Worker result lost source time.");
-                        if (context.Reset) recentProcessedSourceTimes.Clear();
+                        if (context.Reset) { recentProcessedSourceTimes.Clear(); analysis = stateMachine.Reset(); }
+                        analysis = stateMachine.Observe(result);
                         processed++; lastProcessedId = context.FrameId; lastProcessedUs = context.SourceTimeUs; latest = result;
                         if (frame.TextureUpdateCount is { } updateCount) lastProcessedTextureUpdateCount = updateCount;
                         lastProcessedTextureUpdateDelta = context.TextureUpdateDelta;

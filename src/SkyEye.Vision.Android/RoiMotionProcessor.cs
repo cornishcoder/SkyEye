@@ -7,7 +7,12 @@ using Org.Opencv.Video;
 
 namespace SkyEye.Vision.Android;
 
-public sealed record PixelRoi(string Id, int X, int Y, int Width, int Height);
+public sealed record PixelRoi(string Id, int X, int Y, int Width, int Height)
+{
+    public int? TargetX { get; init; }
+    public int? TargetY { get; init; }
+    public int TemplateRadius { get; init; } = 10;
+}
 
 /// <summary>Bounded fixed-image ROIs and feature flow, not ball identity or shot adjudication.</summary>
 public sealed class RoiMotionProcessor : ITableMotionProcessor, IDisposable
@@ -16,6 +21,8 @@ public sealed class RoiMotionProcessor : ITableMotionProcessor, IDisposable
     readonly PixelRoi[] regions;
     readonly double sourcePixelsPerAnalysisPixelX, sourcePixelsPerAnalysisPixelY;
     Mat[] previous = [];
+    readonly double[] trackedX, trackedY;
+    readonly byte[][] firstTemplatePixels, nextTemplatePixels;
     bool disposed;
     public RoiMotionProcessor(IEnumerable<PixelRoi> regions, double sourcePixelsPerAnalysisPixelX = 1, double sourcePixelsPerAnalysisPixelY = 1)
     {
@@ -27,7 +34,15 @@ public sealed class RoiMotionProcessor : ITableMotionProcessor, IDisposable
         this.sourcePixelsPerAnalysisPixelY = sourcePixelsPerAnalysisPixelY;
         if (this.regions.Length is < 1 or > 16 || this.regions.Select(r => r.Id).Distinct().Count() != this.regions.Length
             || this.regions.Any(r => string.IsNullOrWhiteSpace(r.Id) || r.Id.Length > 80 || r.X < 0 || r.Y < 0
-                || r.Width is < 32 or > 256 || r.Height is < 32 or > 256)) throw new ArgumentException("Invalid bounded ROI plan.");
+                || r.Width is < 32 or > 256 || r.Height is < 32 or > 256
+                || (r.TargetX.HasValue != r.TargetY.HasValue)
+                || (r.TargetX is { } targetX && (targetX < 0 || targetX >= r.Width))
+                || (r.TargetY is { } targetY && (targetY < 0 || targetY >= r.Height))
+                || r.TemplateRadius is < 4 or > 60)) throw new ArgumentException("Invalid bounded ROI plan.");
+        trackedX = this.regions.Select(region => (double)(region.TargetX ?? region.Width / 2)).ToArray();
+        trackedY = this.regions.Select(region => (double)(region.TargetY ?? region.Height / 2)).ToArray();
+        firstTemplatePixels = this.regions.Select(region => new byte[checked(region.Width * region.Height)]).ToArray();
+        nextTemplatePixels = this.regions.Select(region => new byte[checked(region.Width * region.Height)]).ToArray();
     }
     public Task<MotionMeasurement> MeasureAsync(TableFrame frame, MotionFrameContext context, CancellationToken cancellation)
     {
@@ -39,15 +54,16 @@ public sealed class RoiMotionProcessor : ITableMotionProcessor, IDisposable
         if (regions.Any(r => (long)r.X + r.Width > image.Bitmap.Width || (long)r.Y + r.Height > image.Bitmap.Height))
             throw new InvalidDataException("ROI exceeds the decoded image.");
         VisionAnalyzer.EnsureNativeLoaded();
-        if (context.Reset) ClearPrevious();
+        if (context.Reset) ClearPrevious(resetTrackCentres: true);
         if (previous.Length != 0 && (!context.DeltaSeconds.HasValue || context.DeltaSeconds.Value <= 0 || context.DeltaSeconds.Value > 1))
             throw new InvalidDataException("Flow delta must come from consecutive source time.");
         var current = new List<Mat>(); var results = new List<RoiMotion>();
         double conversionMs = 0, flowMs = 0;
         try
         {
-            foreach (var roi in regions)
+            for (int regionIndex = 0; regionIndex < regions.Length; regionIndex++)
             {
+                var roi = regions[regionIndex];
                 cancellation.ThrowIfCancellationRequested(); var clock = Stopwatch.StartNew();
                 // Crop BEFORE OpenCV conversion: no full-frame Mat or JPEG.
                 var crop = global::Android.Graphics.Bitmap.CreateBitmap(image.Bitmap, roi.X, roi.Y, roi.Width, roi.Height)!;
@@ -57,8 +73,10 @@ public sealed class RoiMotionProcessor : ITableMotionProcessor, IDisposable
                 finally { if (!ReferenceEquals(crop, image.Bitmap)) { crop.Recycle(); crop.Dispose(); } }
                 current.Add(gray); clock.Stop(); conversionMs += clock.Elapsed.TotalMilliseconds;
                 clock.Restart();
-                results.Add(previous.Length == 0 ? Seed(roi.Id, gray) : Measure(roi.Id, previous[current.Count - 1], gray,
-                    context.DeltaSeconds!.Value, sourcePixelsPerAnalysisPixelX, sourcePixelsPerAnalysisPixelY));
+                results.Add(previous.Length == 0 ? Seed(roi, gray) : Measure(roi, previous[regionIndex], gray,
+                    context.DeltaSeconds!.Value, sourcePixelsPerAnalysisPixelX, sourcePixelsPerAnalysisPixelY,
+                    firstTemplatePixels[regionIndex], nextTemplatePixels[regionIndex],
+                    ref trackedX[regionIndex], ref trackedY[regionIndex]));
                 clock.Stop(); flowMs += clock.Elapsed.TotalMilliseconds;
             }
             cancellation.ThrowIfCancellationRequested(); ClearPrevious(); previous = current.ToArray(); current.Clear();
@@ -67,22 +85,43 @@ public sealed class RoiMotionProcessor : ITableMotionProcessor, IDisposable
         }
         finally { foreach (var mat in current) Release(mat); }
     }
-    static RoiMotion Seed(string id, Mat gray)
+    static RoiMotion Seed(PixelRoi roi, Mat gray)
     {
         using var points = new NativeMat(new MatOfPoint()); Imgproc.GoodFeaturesToTrack(gray, (MatOfPoint)points.Value, 32, .05, 4);
-        return new(id, (int)points.Value.Total(), 0, null, null, null, null, "seed");
+        return new(roi.Id, (int)points.Value.Total(), 0, null, null, null, null, "seed")
+        { TemplateStatus = roi.TargetX.HasValue ? "seed" : "unconfigured" };
     }
-    static RoiMotion Measure(string id, Mat before, Mat after, double delta, double sourceScaleX, double sourceScaleY)
+    static RoiMotion Measure(PixelRoi roi, Mat before, Mat after, double delta, double sourceScaleX, double sourceScaleY,
+        byte[] firstPixels, byte[] nextPixels, ref double trackedX, ref double trackedY)
     {
         var change = MeasureIlluminationNormalizedChange(before, after);
+        TemplateDisplacement? template = null;
+        string templateStatus = "unconfigured";
+        if (roi.TargetX.HasValue)
+        {
+            before.Get(0, 0, firstPixels); after.Get(0, 0, nextPixels);
+            int centreX = (int)Math.Round(trackedX), centreY = (int)Math.Round(trackedY);
+            template = VerificationTemplate.CompareGray(firstPixels, nextPixels, before.Cols(), before.Rows(),
+                centreX, centreY, roi.TemplateRadius);
+            templateStatus = template is null ? "unresolved" : "matched";
+            if (template is { } displacement)
+            {
+                trackedX += displacement.Dx;
+                trackedY += displacement.Dy;
+            }
+        }
         using var corners = new NativeMat(new MatOfPoint()); Imgproc.GoodFeaturesToTrack(before, (MatOfPoint)corners.Value, 32, .05, 4);
         int cornersCount = (int)corners.Value.Total();
         RoiMotion Result(int supported, double? dx, double? dy, double? velocityX, double? velocityY, string status) =>
-            new(id, cornersCount, supported, dx, dy, velocityX, velocityY, status)
+            new(roi.Id, cornersCount, supported, dx, dy, velocityX, velocityY, status)
             {
                 IlluminationNormalizedChangedPixelFraction = change.Fraction,
                 MedianBrightnessOffsetGray = change.MedianOffsetGray,
-                ChangeThresholdGray = ChangeThresholdGray
+                ChangeThresholdGray = ChangeThresholdGray,
+                TemplateDxPixels = template is { } match ? match.Dx * sourceScaleX : null,
+                TemplateDyPixels = template is { } matchY ? matchY.Dy * sourceScaleY : null,
+                TemplateResidual = template?.Residual,
+                TemplateStatus = templateStatus
             };
         if (cornersCount < 4) return Result(0, null, null, null, null, "insufficient-texture");
         using var first = new NativeMat(new MatOfPoint2f()); using var next = new NativeMat(new MatOfPoint2f());
@@ -141,7 +180,17 @@ public sealed class RoiMotionProcessor : ITableMotionProcessor, IDisposable
         throw new InvalidDataException("Brightness-offset histogram did not contain the requested rank.");
     }
     static double Median(List<double> values) { var sorted = values.Order().ToArray(); return (sorted[(sorted.Length - 1) / 2] + sorted[sorted.Length / 2]) / 2; }
-    void ClearPrevious() { foreach (var mat in previous) Release(mat); previous = []; }
+    void ClearPrevious(bool resetTrackCentres = false)
+    {
+        foreach (var mat in previous) Release(mat);
+        previous = [];
+        if (!resetTrackCentres) return;
+        for (int i = 0; i < regions.Length; i++)
+        {
+            trackedX[i] = regions[i].TargetX ?? regions[i].Width / 2;
+            trackedY[i] = regions[i].TargetY ?? regions[i].Height / 2;
+        }
+    }
     static void Release(Mat mat) { mat.Release(); mat.Dispose(); }
     public void Dispose() { if (disposed) return; disposed = true; ClearPrevious(); }
     sealed class NativeMat(Mat value) : IDisposable { public Mat Value { get; } = value; public void Dispose() => Release(Value); }

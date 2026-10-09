@@ -31,7 +31,7 @@ public sealed partial class ShellSession
 {
     const string VisionDashboardAsset = "vision-diagnostics-dashboard.html";
     const string VisionScenarioAsset = "vision-scenario-lab.html";
-    const int VisionDashboardAssetVersion = 6;
+    const int VisionDashboardAssetVersion = 7;
     const int VisionScenarioAssetVersion = 3;
     const int VisionDashboardPort = 8770;
     readonly DashboardScenarioWorkspace dashboardScenario;
@@ -356,6 +356,20 @@ public sealed partial class ShellSession
                     camera = new { reachability = camera.Reachability.ToString(), capture = camera.Capture.ToString(), camera.CanControl },
                     calibration = new { table.State.CalibrationId, corners = calibration?.Corners },
                     trackedTable = tracked,
+                    motion = MotionMetrics is { } motion ? new
+                    {
+                        active = motion.Active > 0,
+                        motion.Processed,
+                        motion.RequestedHz,
+                        sourceTimeUs = motion.Latest?.SourceTimeUs,
+                        analysis = motion.Analysis,
+                        regions = motion.Latest?.Regions.Select(region => new
+                        {
+                            region.Id, region.TemplateStatus, region.TemplateDxPixels, region.TemplateDyPixels,
+                            region.TemplateResidual, region.Features, region.Supported,
+                            region.IlluminationNormalizedChangedPixelFraction
+                        }).ToArray()
+                    } : null,
                     observation = current.Observation,
                     gameTableCurrent = current.GameTableCurrent,
                     gameError = current.GameError,

@@ -85,6 +85,10 @@ try {
                     IlluminationNormalizedChangedPixelFraction = $_.illuminationNormalizedChangedPixelFraction
                     MedianBrightnessOffsetGray = $_.medianBrightnessOffsetGray
                     ChangeThresholdGray = $_.changeThresholdGray
+                    TemplateDxPixels = $_.templateDxPixels
+                    TemplateDyPixels = $_.templateDyPixels
+                    TemplateResidual = $_.templateResidual
+                    TemplateStatus = $_.templateStatus
                     Status = $_.status
                 }
             })
@@ -231,6 +235,7 @@ try {
             MaxSupportedRegionSpeedPixelsPerSecond = $taskPeakSupportedSpeed
             MaxSupportedRegionDisplacementPixels = $taskPeakSupportedDisplacement
             MotionRegions = $taskMotionRegions
+            MotionAnalysis = $taskMotion.analysis
             StopReason = $taskMotion.stopReason
         })
         $taskPreviousSample = [pscustomobject]@{
@@ -262,7 +267,7 @@ finally {
 
 if ($taskRows.Count -eq 0) { throw 'No motion-feed samples were collected.' }
 $taskReport = [pscustomobject]@{
-    SchemaVersion = 9
+    SchemaVersion = 10
     DeviceSerial = $CompanionSerial
     Package = $taskPing.package
     StartedAtUtc = $taskStartedAt.ToString('O')
@@ -278,8 +283,11 @@ $taskReport = [pscustomobject]@{
         SamplesWithSupportedRegions = @($taskRows | Where-Object SupportedRegionCount -gt 0).Count
         PeakSupportedRegionSpeedPixelsPerSecond = if ($taskRows.Count -gt 0) { ($taskRows | Measure-Object -Property MaxSupportedRegionSpeedPixelsPerSecond -Maximum).Maximum } else { $null }
         PeakSupportedRegionDisplacementPixels = if ($taskRows.Count -gt 0) { ($taskRows | Measure-Object -Property MaxSupportedRegionDisplacementPixels -Maximum).Maximum } else { $null }
+        SamplesMoving = @($taskRows | Where-Object { $_.MotionAnalysis.phase -eq 3 }).Count
+        SamplesSettling = @($taskRows | Where-Object { $_.MotionAnalysis.phase -eq 1 }).Count
+        PeakBallTemplateDisplacementPixelsPerFrame = if ($taskRows.Count -gt 0) { ($taskRows | ForEach-Object { $_.MotionAnalysis.windowPeakDisplacementPixels } | Measure-Object -Maximum).Maximum } else { $null }
     }
-    Scope = 'Opt-in candidate availability, main-thread probe/read queue timing, TextureView update counts and age, native bitmap-copy duration, source PTS, per-gap acquisition/worker telemetry, decoder-release/texture and copy-failure counters, player restart/error state and dimensions. Per-region optical flow and illumination-normalized pixel-change evidence are indexed to the seed ROIs; they are not detector tracking, persistent ball identity, or shot adjudication. An unconfirmed seed is accepted only by the explicit development-only fresh-clear-candidate option.'
+    Scope = 'Opt-in candidate availability, main-thread probe/read queue timing, TextureView update counts and age, native bitmap-copy duration, source PTS, per-gap acquisition/worker telemetry, decoder-release/texture and copy-failure counters, player restart/error state and dimensions. Per-region ball-centred template displacement feeds a diagnostic motion phase machine with a bounded two-second peak window. It does not identify durable balls, adjudicate pots, or mutate canonical game state. Thresholds remain provisional until labelled moving and still table evidence separates reliably. An unconfirmed seed is accepted only by the explicit development-only fresh-clear-candidate option.'
 }
 $taskOutputDirectory = Split-Path -Parent $taskOutputPath
 if ($taskOutputDirectory -and -not (Test-Path -LiteralPath $taskOutputDirectory -PathType Container)) {

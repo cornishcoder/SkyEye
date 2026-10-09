@@ -87,12 +87,22 @@ public sealed partial class ShellSession
                 var rois = roiBalls.Select((ball, index) =>
                 {
                     var point = seed.Calibration.Unmap(ball.Position);
-                    int sourceSize = Math.Min(128, Math.Min(receipt.Width, receipt.Height));
+                    var radiusXPoint = seed.Calibration.Unmap(ball.Position + new SkyEye.Core.Point(PoolGeometry.Radius, 0));
+                    var radiusYPoint = seed.Calibration.Unmap(ball.Position + new SkyEye.Core.Point(0, PoolGeometry.Radius));
+                    int sourceSize = Math.Min(192, Math.Min(receipt.Width, receipt.Height));
                     int width = Math.Clamp((int)Math.Round(sourceSize / sourcePixelsPerImagePixelX), 32, 256);
                     int height = Math.Clamp((int)Math.Round(sourceSize / sourcePixelsPerImagePixelY), 32, 256);
-                    return new PixelRoi("region-" + index,
-                        Math.Clamp((int)Math.Round(point.X * imageWidth) - width / 2, 0, imageWidth - width),
-                        Math.Clamp((int)Math.Round(point.Y * imageHeight) - height / 2, 0, imageHeight - height), width, height);
+                    int roiX = Math.Clamp((int)Math.Round(point.X * imageWidth) - width / 2, 0, imageWidth - width);
+                    int roiY = Math.Clamp((int)Math.Round(point.Y * imageHeight) - height / 2, 0, imageHeight - height);
+                    int radiusPixelsX = (int)Math.Round(Math.Abs(radiusXPoint.X - point.X) * imageWidth);
+                    int radiusPixelsY = (int)Math.Round(Math.Abs(radiusYPoint.Y - point.Y) * imageHeight);
+                    int templateRadius = Math.Clamp((int)Math.Round((radiusPixelsX + radiusPixelsY) / 2d), 4, 60);
+                    return new PixelRoi("region-" + index, roiX, roiY, width, height)
+                    {
+                        TargetX = (int)Math.Round(point.X * imageWidth) - roiX,
+                        TargetY = (int)Math.Round(point.Y * imageHeight) - roiY,
+                        TemplateRadius = templateRadius
+                    };
                 }).ToArray();
                 var scope = new MotionFeedScope(seed.Source, receipt.MediaGeneration, seed.CalibrationId, pixels.Timeline);
                 var processor = new RoiMotionProcessor(rois, sourcePixelsPerImagePixelX, sourcePixelsPerImagePixelY);
