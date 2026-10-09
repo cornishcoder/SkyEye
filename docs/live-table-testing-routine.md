@@ -6,6 +6,8 @@ Updated 9 October 2026. This routine makes Pixel/Lab checks repeatable without t
 
 See the [command API reference](lab-command-api.md) for the full command catalog, required arguments and endpoint details.
 
+For a game-tracking change, run `dotnet run --project tests/SkyEye.Checks -- --game-tracking` first. This selects the journal, observation-to-game, match, rules and bounded-verification regressions without unrelated rendering/transport checks. Run the full harness separately and report any remaining failure; neither command proves physical detection accuracy.
+
 1. Confirm the Pixel 11 is authorized over ADB and the camera is reachable on the room network. Read the camera address from SkyEye Settings; do not copy host credentials into commands, logs or evidence.
 2. Confirm the camera address and calibration. The command API can start, pause, resume and stop capture, so check the requested command before running it. Treat `session.end` and `camera.capture.stop` as recording controls.
 3. Keep the table, camera mount and lighting steady for a stationary baseline. Record any sunlight/blind pattern, table-light state, obstruction or camera restart as a separate test condition.

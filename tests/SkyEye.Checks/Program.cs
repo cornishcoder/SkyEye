@@ -4,6 +4,17 @@ using System.Text;
 using System.Text.Json;
 using SkyEye.Core;
 
+if (args.SequenceEqual(["--game-tracking"]))
+{
+    GameJournalChecks.Run();
+    await GameIntegrationChecks.Run();
+    await ManualMatchAppChecks.Run();
+    InternationalRulesChecks.Run();
+    await RulesApplicationChecks.Run();
+    await VerificationChecks.Run();
+    return;
+}
+
 GameJournalChecks.Run();
 await GameIntegrationChecks.Run();
 await ManualMatchAppChecks.Run();

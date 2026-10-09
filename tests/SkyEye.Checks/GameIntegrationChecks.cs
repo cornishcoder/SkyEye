@@ -41,6 +41,8 @@ static class GameIntegrationChecks
                 "Untracked movement stays ambiguous rather than inventing ball identity or pot");
             vision.Unknown = true; clock.Advance(3); await Observe();
             Check(app.State.Observation!.GameEvidence!.Balls.Any(b => b.Colour == G.BallColour.Unknown), "Unknown CV colours do not fail the observation effect");
+            Check(app.State.Observation.CapturedAt > table.State.Table!.CapturedAt && app.State.Game.Table.Uncertain,
+                "Fresh unclear evidence retains the previous layout timestamp without claiming a current clear table");
             vision.Unknown = false; vision.Shift = false; clock.Advance(3); await Observe(); clock.Advance(3); await Observe();
             // The future tracker supplies stable shot/pocket identities through this typed seam.
             // This sequence is declared evidence, not a claim that today's CV detects pots.

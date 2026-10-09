@@ -47,11 +47,17 @@ public sealed class TableObservationEffect(Func<TableAnalysisSession> session, F
         cancellation.ThrowIfCancellationRequested();
         var snapshot = session().State;
         if (!IsCurrent(request) || snapshot.Observation is not { } observed || snapshot.Table is not { } layout
-            || layout.Version != observed.TableVersion || layout.CapturedAt != observed.CapturedAt
+            || layout.Version != observed.TableVersion || layout.CapturedAt > observed.CapturedAt
+            || observed.Outcome != ObservationOutcome.Unclear && layout.CapturedAt != observed.CapturedAt
             || observed.DecodedReceipt is { } decoded && decoded.MediaGeneration != request.MediaGeneration)
             throw new InvalidOperationException("The source changed. Request a fresh observation.");
+        // An unclear view retains the last clear layout for recovery. Its old
+        // positions are not fresh sightings; publish the current detector evidence.
+        var observedBalls = observed.Outcome == ObservationOutcome.Unclear
+            ? snapshot.Vision?.Balls ?? throw new InvalidOperationException("The unclear frame has no detector evidence.")
+            : layout.Balls;
         observed = observed with { GameEvidence = new(new(snapshot.CameraIdentity!, observed.Timeline, request.AnalysisGeneration + 1, snapshot.CalibrationId, request.Source.ConnectionId.ToString("N")),
-            layout.Balls.Select(b => new SkyEye.GameState.ObservedBall(b.Id, Enum.TryParse<SkyEye.GameState.BallColour>(b.Kind, true, out var colour) ? colour : SkyEye.GameState.BallColour.Unknown,
+            observedBalls.Select(b => new SkyEye.GameState.ObservedBall(b.Id, Enum.TryParse<SkyEye.GameState.BallColour>(b.Kind, true, out var colour) ? colour : SkyEye.GameState.BallColour.Unknown,
                 new(b.Position.X / 2, b.Position.Y), b.Confidence)).ToImmutableArray()) };
         if (request.IncludeChoices)
         {
