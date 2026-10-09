@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Text.Json.Serialization;
 
 namespace SkyEye.GameState;
 
@@ -28,6 +29,10 @@ public sealed record SettledTableEvidence(Guid EvidenceId, EvidenceSource Source
 
     /// <summary>Number of consecutive matching clear samples supporting this settled layout.</summary>
     public int StableClearSampleCount { get; init; }
+
+    /// <summary>True when bounded stillness verification or three matching clear samples prove a stable layout.</summary>
+    [JsonIgnore]
+    public bool HasBoundedClearStillnessProof => BoundedStillnessVerified || StableClearSampleCount >= 3;
 
     public static bool TryCapture(GameSnapshot snapshot, out SettledTableEvidence evidence)
     {
@@ -158,7 +163,7 @@ public sealed record SettledInventoryComparison(ActivityWindowContext Context, S
             var after = After.Counts;
             bool cueChanged = before.CueBalls != after.CueBalls;
             bool blackChanged = before.BlackBalls != after.BlackBalls;
-            bool repeatedClearEvidence = After.BoundedStillnessVerified || After.StableClearSampleCount >= 3;
+            bool repeatedClearEvidence = After.HasBoundedClearStillnessProof;
 
             if (RemovedFromTable > 0 && AddedToTable == 0)
             {
@@ -170,7 +175,7 @@ public sealed record SettledInventoryComparison(ActivityWindowContext Context, S
                         _ => $"{change.Removed} {change.Colour.ToString().ToLowerInvariant()} pot{(change.Removed == 1 ? "" : "s")}"
                     }));
                 return new("settled-pot-outcome", repeatedClearEvidence ? "strong" : "suggested",
-                    $"{(After.BoundedStillnessVerified ? "Assume" : "Likely")} {detail} from the clear settled count decrease.", After.BoundedStillnessVerified,
+                    $"{(repeatedClearEvidence ? "Assume" : "Likely")} {detail} from the clear settled count decrease.", repeatedClearEvidence,
                     ["Correct the observed counts", "Record a non-pot removal", "Reject this observation"]);
             }
 

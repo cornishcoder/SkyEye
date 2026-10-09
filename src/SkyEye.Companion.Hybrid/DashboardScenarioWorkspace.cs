@@ -421,7 +421,7 @@ public sealed class DashboardScenarioWorkspace
                 var startWindow = BuildSourceTimeWindow(cameraLastScenarioMatch, cameraFirstChangedSample);
                 var endWindow = BuildSourceTimeWindow(cameraLastChangingSample, firstStable);
                 StageCameraProposal(firstStable, settled, cameraFirstChangedSample, startWindow, endWindow);
-                return new(true, "Stable camera event proposal ready for review.", Current());
+                return new(true, cameraReviewStatus, Current());
             }
             return new(true, cameraReviewStatus, Current());
         }
@@ -623,7 +623,8 @@ public sealed class DashboardScenarioWorkspace
                     ? new AcceptSettledInventory(1, activityContext, countEvidence)
                     : new AcceptSettledOutcome(1, activityContext, countEvidence, inferredRuling),
                 source, settled.Sample.SourceTimeUs,
-                Provenance.PlayerConfirmed);
+                inferredRuling is null ? Provenance.PlayerConfirmed : Provenance.Inferred,
+                inferredRuling is null ? null : .9);
             var accepted = candidate.Accept(input);
             if (accepted.Outcome != InputOutcome.Applied)
             {
@@ -646,6 +647,33 @@ public sealed class DashboardScenarioWorkspace
                 }
                 candidate = result.Session;
             }
+        }
+
+        if (inferredRuling is not null)
+        {
+            try { journal.Save(session, candidate); }
+            catch (Exception e) when (e is IOException or ArgumentException or InvalidOperationException or UnauthorizedAccessException)
+            {
+                cameraReviewStatus = "The assumed pot could not be saved; the scenario is unchanged.";
+                cameraStableSamples.Clear();
+                return;
+            }
+
+            session = candidate;
+            preset = "custom";
+            SavePresetLabel();
+            cameraLastScenarioMatch = settled;
+            cameraFirstChangedSample = null;
+            cameraLastChangingSample = null;
+            cameraStableSamples.Clear();
+            rejectedCameraLayout = [];
+            pendingProposal = null;
+            pendingSession = null;
+            pendingChoices.Clear();
+            pendingCameraStableSample = null;
+            pendingCameraLayout = [];
+            cameraReviewStatus = $"Settled disappearance assumed to be a pot or scratch and rules applied. {inferredRuling.Position.Reason} Identity and pocket remain unknown; use Undo last applied decision if needed.";
+            return;
         }
 
         var added = candidate.History.Skip(session.History.Length).ToArray();

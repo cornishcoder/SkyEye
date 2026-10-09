@@ -36,7 +36,8 @@ public sealed class GameSession
             || history.Any(e => e.Provenance == Provenance.Inferred && e.Event is RulesShotRecordedEvent
                 && !history.Any(inventory => inventory.InputId == e.InputId
                     && inventory.Provenance == Provenance.Inferred
-                    && inventory.Event is SettledInventoryAcceptedEvent { After.BoundedStillnessVerified: true }))
+                    && inventory.Event is SettledInventoryAcceptedEvent accepted
+                    && accepted.After.HasBoundedClearStillnessProof))
             || history.GroupBy(e => e.InputId).Any(g => g.Select(e => e.InputFingerprint).Distinct().Count() != 1)
             || history.Select(e => e.EventId).Distinct().Count() != history.Length) throw new ArgumentException("Invalid event identities.");
         foreach (var correction in history.Where(e => e.Event is StateCorrectedEvent { CorrectedPot: not null }))
@@ -206,7 +207,7 @@ public sealed class GameSession
             if (outcomeInput.ContractVersion != 1 || outcomeInput.Context is null || outcomeInput.After is null
                 || outcomeInput.Ruling is null || input.Source != outcomeInput.After.Source
                 || input.SourceTimeUs != outcomeInput.After.SourceTimeUs || input.At < outcomeInput.After.CapturedAt
-                || input.Provenance == Provenance.Inferred && !outcomeInput.After.BoundedStillnessVerified)
+                || input.Provenance == Provenance.Inferred && !outcomeInput.After.HasBoundedClearStillnessProof)
                 return Refuse(InputOutcome.Rejected, "Settled outcome evidence does not match its source envelope or verification level.");
             if (!CurrentReviewContext(outcomeInput.Context))
                 return Refuse(InputOutcome.Stale, "The player, frame, rules, source or before-table changed; review this proposal again.");
@@ -291,7 +292,8 @@ public sealed class GameSession
         or SettledInventoryCorrectedEvent or SettledInventoryRejectedEvent)
         && (e.Provenance >= Provenance.PlayerConfirmed
             || e.Provenance == Provenance.Inferred
-                && (e.Event is RulesShotRecordedEvent or SettledInventoryAcceptedEvent { After.BoundedStillnessVerified: true }));
+                && (e.Event is RulesShotRecordedEvent
+                    || e.Event is SettledInventoryAcceptedEvent accepted && accepted.After.HasBoundedClearStillnessProof));
     bool CanStartShot(string id) => State.Table.Motion == TableMotion.Settled && !State.Table.Uncertain
         && (State.Shot is null || State.Shot.Ended) && !History.Any(e => e.FrameId == State.Frame!.Id && e.Event is ShotStartedEvent s && s.ShotId == id);
     static bool ValidObservation(TableObservation o) => !o.Balls.IsDefault && o.Balls.Length <= 64
@@ -301,7 +303,7 @@ public sealed class GameSession
     {
         if (inventory.ContractVersion != 1 || inventory.Context is null || inventory.After is null
             || envelope.Provenance != Provenance.PlayerConfirmed
-                && !(envelope.Provenance == Provenance.Inferred && inventory.After.BoundedStillnessVerified)
+                && !(envelope.Provenance == Provenance.Inferred && inventory.After.HasBoundedClearStillnessProof)
             || envelope.Source != inventory.After.Source
             || envelope.SourceTimeUs != inventory.After.SourceTimeUs
             || envelope.MatchId != inventory.Context.Game.MatchId || envelope.FrameId != inventory.Context.Game.FrameId

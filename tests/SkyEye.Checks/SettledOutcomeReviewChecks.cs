@@ -83,6 +83,36 @@ static class SettledOutcomeReviewChecks
             && potUndone.State.Table.LastSettled?.EvidenceId == before.EvidenceId,
             "One undo restores the pre-pot inventory, open table and baseline after reload.");
 
+        var labAfter = after with
+        {
+            EvidenceId = Guid.NewGuid(),
+            SourceTimeUs = 350,
+            CapturedAt = after.CapturedAt.AddSeconds(1),
+            BoundedStillnessVerified = false,
+            StableClearSampleCount = 3
+        };
+        var labContext = G.ActivityWindowContext.TryBegin(Guid.NewGuid(), game.State, 250, out var frozenLabContext)
+            ? frozenLabContext : throw new Exception("Freeze the isolated three-sample camera result.");
+        var labComparison = G.SettledStateReconciler.Compare(labContext, labAfter).Comparison
+            ?? throw new Exception("The isolated clear-sample count change should reconcile.");
+        bool labRulingInferred = SkyEye.Core.Rules.SettledOutcomeRuleInference.TryInfer(game.State, labComparison, out var labRuling);
+        Check(labComparison.Recommendation.AutoApprovalEligible && labRulingInferred,
+            "Three fresh matching clear samples make an isolated settled decrease eligible for automatic pot handling.");
+        var labPotInput = Input(game, new G.AcceptSettledOutcome(1, labContext, labAfter, labRuling), 6,
+            source, 350, G.Provenance.Inferred) with { Confidence = .9 };
+        var labPotResult = game.Accept(labPotInput);
+        var labReload = labPotResult.Accepted ? Reload(labPotResult.Session) : game;
+        Check(labPotResult.Accepted && labReload.State.Table.Remaining(G.BallColour.Yellow) == 0
+            && labReload.State.Frame!.Colours["rich"].Value == G.BallColour.Yellow
+            && labReload.History.Any(item => item.InputId == labPotInput.Id
+                && item.Event is G.SettledInventoryAcceptedEvent)
+            && G.GameSession.CanUndo(labReload.History.Single(item => item.InputId == labPotInput.Id
+                && item.Event is G.RulesShotRecordedEvent)),
+            "An isolated three-clear-sample decrease applies its pot and rules outcome automatically, and is undoable after reload.");
+        Check(!System.Text.Encoding.UTF8.GetString(G.GameJson.WriteHistory(labReload.History))
+                .Contains("HasBoundedClearStillnessProof", StringComparison.OrdinalIgnoreCase),
+            "The derived stillness helper stays out of journal serialization and preserves stored checksums.");
+
         var blackGame = BaselineGame(source, new(0, 1, 1, 1), beforeAt);
         blackGame = Apply(blackGame, Input(blackGame, new G.DeclareColours("rich", G.BallColour.Red), 5,
             provenance: G.Provenance.PlayerConfirmed));
