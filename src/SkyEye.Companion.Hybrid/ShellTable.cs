@@ -85,8 +85,8 @@ public sealed partial class ShellSession
             var snapshot = table.VisionDiagnostics;
             SyncVisionDiagnosticLabelState(snapshot);
             VisionDiagnosticsStatus = snapshot.Status;
-            if (ObserveSettledDifferenceSamples(snapshot) is { } activityId)
-                _ = VerifySettledActivityAsync(activityId);
+            if (ObserveSettledDifferenceSamples(snapshot))
+                _ = DrainStableTableChangeQueueAsync();
             if (!snapshot.Active && VisionDashboardActive)
             {
                 VisionDashboardStatus = "Dashboard is available; sampling paused. " + snapshot.Status;

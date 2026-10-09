@@ -54,6 +54,9 @@ public sealed partial class ShellSession
     ActivityWindowContext? motionActivityCandidateContext;
     SettledTableEvidence? motionActivityCandidateAfter;
     readonly StableTableChangeTracker stableTableChangeTracker = new();
+    readonly Queue<StableTableChangeEvent> stableTableChangeQueue = new();
+    Guid? motionActivityLastStableChangeEventId;
+    bool stableTableChangeDrainRunning;
 
     public StableTableChangeSnapshot StableTableChangeMetrics
     {
@@ -269,7 +272,134 @@ public sealed partial class ShellSession
         }
     }
 
-    Guid? ObserveSettledDifferenceSamples(VisionDiagnosticsSnapshot diagnostics)
+    bool ObserveSettledDifferenceSamples(VisionDiagnosticsSnapshot diagnostics)
+    {
+        var sample = diagnostics.LiveFrame?.Sample;
+        if (sample is null) return false;
+
+        lock (motionActivityGate)
+        {
+            if (motionActivityDiagnosticSessionId != diagnostics.SessionId)
+            {
+                motionActivityDiagnosticSessionId = diagnostics.SessionId;
+                motionActivityLastDiagnosticSequence = 0;
+                motionActivityLastStableChangeEventId = stableTableChangeTracker.Snapshot.RecentEvents.LastOrDefault()?.Id;
+                ResetSpatialLayoutTracking(clearBaseline: true);
+                ResetSettledDifferenceCandidate();
+            }
+            if (sample.Sequence <= motionActivityLastDiagnosticSequence) return false;
+            motionActivityLastDiagnosticSequence = sample.Sequence;
+
+            if (ObserveStableTableChangeSample(sample) is not { } change) return false;
+            stableTableChangeQueue.Enqueue(change);
+            motionActivityStatus = "A stable table change is queued for game-state reconciliation.";
+            if (stableTableChangeDrainRunning) return false;
+            stableTableChangeDrainRunning = true;
+            return true;
+        }
+    }
+
+    async Task DrainStableTableChangeQueueAsync()
+    {
+        while (true)
+        {
+            StableTableChangeEvent change;
+            lock (motionActivityGate)
+            {
+                if (stableTableChangeQueue.Count == 0)
+                {
+                    stableTableChangeDrainRunning = false;
+                    return;
+                }
+                change = stableTableChangeQueue.Peek();
+            }
+
+            try
+            {
+                await MainThread.InvokeOnMainThreadAsync(() => ApplyStableTableChangeAsync(change));
+            }
+            catch (Exception error)
+            {
+                lock (motionActivityGate)
+                    motionActivityStatus = $"A stable table change could not update the match: {error.Message}";
+            }
+
+            lock (motionActivityGate)
+            {
+                if (stableTableChangeQueue.TryPeek(out var queued) && queued.Id == change.Id)
+                    stableTableChangeQueue.Dequeue();
+            }
+            Changed?.Invoke();
+        }
+    }
+
+    async Task ApplyStableTableChangeAsync(StableTableChangeEvent change)
+    {
+        if (disposed) return;
+        var canonical = app.CaptureGameSession();
+        if (canonical.State.Match is not { Finished: false } || canonical.State.Frame is not { Winner: null })
+        {
+            SetStableChangeStatus("The table changed, but there is no active match to update. The table watcher has advanced its baseline.");
+            return;
+        }
+
+        if (!StableTableChangeOutcomeInference.TryCreate(canonical.State, change, out var outcome))
+        {
+            string reason = !SettledTableEvidence.TryCapture(canonical.State, out var before)
+                ? "The match has no trusted settled table baseline."
+                : before.Source != change.Source ? "The table change belongs to another camera or calibration."
+                : before.Counts != change.Before ? "The table-change sequence no longer matches the canonical ball counts."
+                : change.After.Reds > change.Before.Reds || change.After.Yellows > change.Before.Yellows
+                    || change.After.CueBalls > change.Before.CueBalls || change.After.BlackBalls > change.Before.BlackBalls
+                    ? "A stable ball-count increase needs review before it can change the match."
+                : change.AfterSourceTimeUs <= before.SourceTimeUs
+                    ? "The table-change evidence is older than the current match baseline."
+                : "The stable change does not contain enough evidence for a rules outcome.";
+            SetStableChangeStatus(reason + " No game state was changed.");
+            return;
+        }
+
+        var id = Guid.NewGuid();
+        var at = DateTimeOffset.UtcNow < outcome.After.CapturedAt ? outcome.After.CapturedAt : DateTimeOffset.UtcNow;
+        var input = new GameInputEnvelope(id, outcome.Context.Game.MatchId, outcome.Context.Game.FrameId,
+            at, new AcceptSettledOutcome(1, outcome.Context, outcome.After, outcome.Ruling),
+            outcome.After.Source, outcome.After.SourceTimeUs, Provenance.Inferred, .9);
+        var receipt = await app.DispatchAsync(new(id, CommandOrigin.System, app.State.Version,
+            new SubmitGameInput(input, canonical.State.Version)), CancellationToken.None);
+        if (!receipt.Succeeded)
+        {
+            SetStableChangeStatus("The stable change was not accepted by the game rules: " + receipt.Message);
+            return;
+        }
+
+        var comparison = outcome.Comparison;
+        string result = comparison.RemovedFromTable == 0 && comparison.AddedToTable == 0
+            ? $"legal no-pot shot; {outcome.Ruling.Position.Reason}"
+            : comparison.Recommendation.Kind == "settled-pot-outcome"
+                ? $"pot outcome; {outcome.Ruling.Position.Reason}"
+                : "settled table outcome";
+        lock (motionActivityGate)
+        {
+            if (!outcome.After.Layout.IsDefaultOrEmpty && outcome.After.LayoutSourceTimeUs is { } layoutTime)
+                SetSpatialLayoutBaseline(outcome.After.Layout, outcome.After.Source, layoutTime);
+            motionActivityCandidate = null;
+            motionActivityCandidateContext = null;
+            motionActivityCandidateAfter = null;
+            motionActivityLifecycle = null;
+            motionActivityVerificationPending = false;
+            motionActivityVerificationAttempted = false;
+            motionActivityLastSourceTimeUs = outcome.After.SourceTimeUs;
+            motionActivityStatus = $"Applied stable {result} automatically. The next settled table change is now being watched.";
+            ResetSettledDifferenceCandidate();
+        }
+    }
+
+    void SetStableChangeStatus(string status)
+    {
+        lock (motionActivityGate) motionActivityStatus = status;
+    }
+
+    Guid? ObserveLegacySettledDifferenceSamples(VisionDiagnosticsSnapshot diagnostics)
     {
         var sample = diagnostics.LiveFrame?.Sample;
         if (sample is null) return null;
@@ -579,7 +709,7 @@ public sealed partial class ShellSession
         }
     }
 
-    void ObserveStableTableChangeSample(VisionDiagnosticSample sample)
+    StableTableChangeEvent? ObserveStableTableChangeSample(VisionDiagnosticSample sample)
     {
         var detection = sample.Detection;
         var ageMs = (DateTimeOffset.UtcNow - sample.CapturedAt).TotalMilliseconds;
@@ -591,10 +721,43 @@ public sealed partial class ShellSession
         bool usable = counts is not null && ValidRecognizedCounts(counts)
             && !layout.IsDefaultOrEmpty && sample.Source is not null && sample.SourceTimeUs >= 0;
 
-        stableTableChangeTracker.Observe(new(sample.Source, sample.SourceTimeUs, sample.CapturedAt,
+        var previous = stableTableChangeTracker.Snapshot;
+        var observed = stableTableChangeTracker.Observe(new(sample.Source, sample.SourceTimeUs, sample.CapturedAt,
             usable ? counts! : new SettledTableCounts(0, 0, 0, 0),
             usable ? layout : [], usable));
+        if (!previous.BaselineEstablished && observed.BaselineEstablished
+            && usable && observed.BaselineCounts is { } baselineCounts
+            && SettledTableEvidence.TryCapture(app.CaptureGameSession().State, out var canonicalBefore)
+            && canonicalBefore.Source == sample.Source && canonicalBefore.Counts != baselineCounts
+            && HasOnlyCountDecreases(canonicalBefore.Counts, baselineCounts)
+            && sample.SourceTimeUs > canonicalBefore.SourceTimeUs)
+        {
+            // A new in-memory watcher has no A layout to compare after process recovery.
+            // A clear 3-sample baseline can still reconcile unambiguous count decreases;
+            // it deliberately cannot invent a missed-shot/no-pot event.
+            string summary = $"Recovery baseline: {canonicalBefore.Counts} → {baselineCounts}.";
+            return new StableTableChangeEvent(Guid.NewGuid(), sample.Source!, canonicalBefore.SourceTimeUs!.Value,
+                sample.SourceTimeUs, sample.CapturedAt, canonicalBefore.Counts, baselineCounts,
+                null, null, summary)
+            {
+                AfterLayout = layout,
+                AfterLayoutSourceTimeUs = observed.BaselineSourceTimeUs,
+                StableClearSampleCount = StableTableChangeTracker.RequiredStableSamples
+            };
+        }
+
+        var latest = observed.RecentEvents.LastOrDefault();
+        if (latest is null || latest.Id == motionActivityLastStableChangeEventId) return null;
+        motionActivityLastStableChangeEventId = latest.Id;
+        return latest;
     }
+
+    static bool HasOnlyCountDecreases(SettledTableCounts before, SettledTableCounts after)
+        => before.IsComplete && after.IsComplete
+            && after.Reds <= before.Reds && after.Yellows <= before.Yellows
+            && after.CueBalls <= before.CueBalls && after.BlackBalls <= before.BlackBalls
+            && (after.Reds < before.Reds || after.Yellows < before.Yellows
+                || after.CueBalls < before.CueBalls || after.BlackBalls < before.BlackBalls);
 
     Guid? AdvanceMotionActivity(MotionFeedSnapshot? snapshot)
     {
