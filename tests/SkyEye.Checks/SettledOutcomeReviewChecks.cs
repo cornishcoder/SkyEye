@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Text.Json;
+using SkyEye.Core.Analysis;
 using G = SkyEye.GameState;
 
 static class SettledOutcomeReviewChecks
@@ -105,6 +106,70 @@ static class SettledOutcomeReviewChecks
             && inferredNoPotResult.Session.State.Frame.Foul is { Value: false }
             && inferredNoPotResult.Session.State.Table.LastSettled?.EvidenceId == noPotAfter.EvidenceId,
             "The verified legal no-pot default updates the turn and settled baseline without per-shot confirmation.");
+
+        var sequenceBaseline = ImmutableArray.Create(
+            new G.SettledBallPosition(G.BallColour.Red, .20, .20),
+            new G.SettledBallPosition(G.BallColour.Yellow, .70, .20),
+            new G.SettledBallPosition(G.BallColour.Yellow, .75, .28),
+            new G.SettledBallPosition(G.BallColour.Cue, .30, .70),
+            new G.SettledBallPosition(G.BallColour.Black, .80, .70));
+        var sequenceGame = BaselineGame(source, new(1, 2, 1, 1), beforeAt, sequenceBaseline);
+        sequenceGame = Apply(sequenceGame, Input(sequenceGame,
+            new G.DeclareColours("rich", G.BallColour.Yellow), 5, provenance: G.Provenance.PlayerConfirmed));
+        var afterFirstPotLayout = ImmutableArray.Create(
+            new G.SettledBallPosition(G.BallColour.Red, .20, .20),
+            new G.SettledBallPosition(G.BallColour.Yellow, .74, .28),
+            new G.SettledBallPosition(G.BallColour.Cue, .30, .70),
+            new G.SettledBallPosition(G.BallColour.Black, .80, .70));
+        var firstPotEvent = Change(source, 200, 300, 250, beforeAt.AddSeconds(6),
+            new(1, 2, 1, 1), new(1, 1, 1, 1), sequenceBaseline, afterFirstPotLayout);
+        var baselineRecoveryEvent = firstPotEvent with { BeforeLayout = [], BeforeLayoutSourceTimeUs = null };
+        Check(SkyEye.Core.Rules.StableTableChangeOutcomeInference.TryCreate(sequenceGame.State,
+                baselineRecoveryEvent, out var recoveryOutcome)
+            && recoveryOutcome.Ruling.Facts.YellowsPotted == 1,
+            "A fresh stable count baseline can recover missed pots without pretending it retained the old positions.");
+        Check(SkyEye.Core.Rules.StableTableChangeOutcomeInference.TryCreate(sequenceGame.State,
+                firstPotEvent, out var firstPotOutcome)
+            && firstPotOutcome.Ruling.Facts.YellowsPotted == 1,
+            "A stable change event carries enough evidence to infer a pot without launching a second camera verification.");
+        sequenceGame = ApplyStableOutcome(sequenceGame, firstPotOutcome);
+        Check(sequenceGame.State.Frame!.CurrentPlayer.Value == "rich"
+            && sequenceGame.State.Table.Remaining(G.BallColour.Yellow) == 1,
+            "The first detected pot updates canonical inventory and keeps the player's visit.");
+
+        var afterSecondPotLayout = ImmutableArray.Create(
+            new G.SettledBallPosition(G.BallColour.Red, .20, .20),
+            new G.SettledBallPosition(G.BallColour.Cue, .34, .66),
+            new G.SettledBallPosition(G.BallColour.Black, .80, .70));
+        var secondPotEvent = Change(source, 250, 400, 350, beforeAt.AddSeconds(8),
+            new(1, 1, 1, 1), new(1, 0, 1, 1), afterFirstPotLayout, afterSecondPotLayout);
+        Check(SkyEye.Core.Rules.StableTableChangeOutcomeInference.TryCreate(sequenceGame.State,
+                secondPotEvent, out var secondPotOutcome)
+            && secondPotOutcome.Ruling.Facts.YellowsPotted == 1,
+            "A second stable pot event can follow immediately after the first accepted event.");
+        sequenceGame = ApplyStableOutcome(sequenceGame, secondPotOutcome);
+        Check(sequenceGame.State.Frame!.CurrentPlayer.Value == "rich"
+            && sequenceGame.State.Table.Remaining(G.BallColour.Yellow) == 0,
+            "Two quick pot events apply in order without losing the current turn.");
+
+        var afterMissLayout = ImmutableArray.Create(
+            new G.SettledBallPosition(G.BallColour.Red, .23, .24),
+            new G.SettledBallPosition(G.BallColour.Cue, .39, .61),
+            new G.SettledBallPosition(G.BallColour.Black, .80, .70));
+        var missedShotEvent = Change(source, 350, 500, 450, beforeAt.AddSeconds(10),
+            new(1, 0, 1, 1), new(1, 0, 1, 1), afterSecondPotLayout, afterMissLayout);
+        Check(!SkyEye.Core.Rules.StableTableChangeOutcomeInference.TryCreate(sequenceGame.State,
+                missedShotEvent with { StableClearSampleCount = 2 }, out _),
+            "A same-count turn change cannot be inferred before all three stable clear samples arrive.");
+        Check(SkyEye.Core.Rules.StableTableChangeOutcomeInference.TryCreate(sequenceGame.State,
+                missedShotEvent, out var missedShotOutcome)
+            && missedShotOutcome.Ruling.Facts.Legality == G.DeclaredLegality.Legal
+            && missedShotOutcome.Ruling.Position.Player == "guest",
+            "A subsequent same-count moved layout defaults to a legal miss and changes the turn.");
+        sequenceGame = ApplyStableOutcome(sequenceGame, missedShotOutcome);
+        Check(sequenceGame.State.Frame!.CurrentPlayer.Value == "guest",
+            "Ordered pot, pot, miss reconciliation preserves the final turn change.");
+
         Check(SkyEye.Core.Application.MatchView.From(inferredNoPotResult.Session).CorrectableShotInputId == inferredNoPotInput.Id,
             "The auto-applied settled outcome remains exposed as the latest correctable shot for Sky.");
         var foulFacts = new G.DeclaredShot(Break: false, Legality: G.DeclaredLegality.StandardFoul,
@@ -276,6 +341,33 @@ static class SettledOutcomeReviewChecks
             LayoutSourceTimeUs = layout.IsDefaultOrEmpty ? null : 200
         };
         return Apply(game, Input(game, new G.EstablishSettledBaseline(1, evidence), 4, source, 200));
+    }
+
+    static StableTableChangeEvent Change(G.EvidenceSource source, long beforeSourceTimeUs,
+        long afterSourceTimeUs, long afterLayoutSourceTimeUs, DateTimeOffset capturedAt,
+        G.SettledTableCounts before, G.SettledTableCounts after,
+        ImmutableArray<G.SettledBallPosition> beforeLayout, ImmutableArray<G.SettledBallPosition> afterLayout)
+        => new(Guid.NewGuid(), source, beforeSourceTimeUs, afterSourceTimeUs, capturedAt,
+            before, after, null, null, "stable test change")
+        {
+            BeforeLayout = beforeLayout,
+            BeforeLayoutSourceTimeUs = beforeSourceTimeUs,
+            AfterLayout = afterLayout,
+            AfterLayoutSourceTimeUs = afterLayoutSourceTimeUs,
+            StableClearSampleCount = 3
+        };
+
+    static G.GameSession ApplyStableOutcome(G.GameSession game,
+        SkyEye.Core.Rules.StableTableChangeOutcome outcome)
+    {
+        var id = Guid.NewGuid();
+        var input = new G.GameInputEnvelope(id, outcome.Context.Game.MatchId, outcome.Context.Game.FrameId,
+            outcome.After.CapturedAt.AddMilliseconds(1),
+            new G.AcceptSettledOutcome(1, outcome.Context, outcome.After, outcome.Ruling),
+            outcome.After.Source, outcome.After.SourceTimeUs, G.Provenance.Inferred, .9);
+        var result = game.Accept(input);
+        Check(result.Accepted, result.Message);
+        return result.Session;
     }
 
     static G.GameSession Apply(G.GameSession game, G.GameInputEnvelope input)

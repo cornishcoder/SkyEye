@@ -34,8 +34,12 @@ static class StableTableChangeTrackerChecks
         var changedLayout = ObserveAt(tracker, source, counts, moved, farFuture.AddSeconds(4), farSourceTime + 4);
         Check(changedLayout.RecentEvents.Length == 1
             && changedLayout.RecentEvents[0].MovedBallCount == 1
-            && changedLayout.BaselineSourceTimeUs == farSourceTime + 2,
-            "Three matching clear views raise one position-change event and advance the baseline");
+            && changedLayout.BaselineSourceTimeUs == farSourceTime + 2
+            && changedLayout.RecentEvents[0].StableClearSampleCount == 3
+            && changedLayout.RecentEvents[0].BeforeLayout.Length == original.Length
+            && changedLayout.RecentEvents[0].AfterLayout.Length == moved.Length
+            && changedLayout.RecentEvents[0].AfterLayoutSourceTimeUs == farSourceTime + 2,
+            "Three matching clear views raise one position-change event with its full A/B layouts and advance the baseline");
         var unchanged = ObserveAt(tracker, source, counts, moved, farFuture.AddSeconds(5), farSourceTime + 5);
         Check(unchanged.RecentEvents.Length == 1,
             "The promoted layout does not repeatedly raise the same event");

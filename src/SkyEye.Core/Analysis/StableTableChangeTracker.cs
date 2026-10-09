@@ -12,7 +12,14 @@ public sealed record StableTableLayoutSample(EvidenceSource? Source, long Source
 public sealed record StableTableChangeEvent(Guid Id, EvidenceSource Source,
     long BeforeSourceTimeUs, long AfterSourceTimeUs, DateTimeOffset CapturedAt,
     SettledTableCounts Before, SettledTableCounts After,
-    int? MovedBallCount, double? LargestMovement, string Summary);
+    int? MovedBallCount, double? LargestMovement, string Summary)
+{
+    public ImmutableArray<SettledBallPosition> BeforeLayout { get; init; } = [];
+    public long? BeforeLayoutSourceTimeUs { get; init; }
+    public ImmutableArray<SettledBallPosition> AfterLayout { get; init; } = [];
+    public long? AfterLayoutSourceTimeUs { get; init; }
+    public int StableClearSampleCount { get; init; }
+}
 
 /// <summary>Runtime-only status for the rolling table-layout watcher.</summary>
 public sealed record StableTableChangeSnapshot(bool BaselineEstablished, string Status,
@@ -114,7 +121,14 @@ public sealed class StableTableChangeTracker
         var change = new StableTableChangeEvent(Guid.NewGuid(), sample.Source!, beforeTime,
             sample.SourceTimeUs, sample.CapturedAt, beforeCounts!, probeCounts!,
             moved.Comparable ? moved.MovedBallCount : null,
-            moved.Comparable ? moved.LargestMovement : null, summary);
+            moved.Comparable ? moved.LargestMovement : null, summary)
+        {
+            BeforeLayout = baselineLayout,
+            BeforeLayoutSourceTimeUs = baselineSourceTimeUs,
+            AfterLayout = probeLayout,
+            AfterLayoutSourceTimeUs = probeFirstSourceTimeUs,
+            StableClearSampleCount = probeStableSamples
+        };
         recentEvents.Enqueue(change);
         while (recentEvents.Count > MaximumRecentEvents) recentEvents.Dequeue();
 
