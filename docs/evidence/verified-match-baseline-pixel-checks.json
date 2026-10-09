@@ -1,0 +1,316 @@
+{
+  "schemaVersion": 1,
+  "measuredAt": "2026-10-09T14:43:35.8082245+01:00",
+  "package": "uk.co.skyeye.companion.lab",
+  "uid": 10646,
+  "policy": "o08-provisional-v16",
+  "dashboard": 14,
+  "automaticRun": {
+    "observation": {
+      "outcome": 0,
+      "motion": 1,
+      "quality": 1,
+      "reason": 0,
+      "capturedAt": "2026-10-09T14:41:58.9485583+01:00",
+      "sourceTimeUs": 194794428833,
+      "frameAgeMs": 785.0161
+    },
+    "baselineGameVersion": 154,
+    "baseline": {
+      "evidenceId": "794eb787-71d1-41ec-a797-8b6ed7b8459f",
+      "at": "2026-10-09T14:41:58.9485583+01:00",
+      "sourceTimeUs": 194794428833,
+      "source": {
+        "camera": "75414D11B9B6DA8E09C0844A519004AFC0747324422D4803FECF67D8285656DD",
+        "timeline": "ddc5bf62ca874077b88a3f6edfeeedc1",
+        "generation": 7,
+        "calibration": "a9e5e6ea6a41435da8917f8c41c3f593",
+        "connection": "570942c524cc474ca51cd2c801d324cd"
+      }
+    },
+    "gameTableCurrent": true,
+    "commands": [
+      "camera.connect",
+      "camera.claim-host",
+      "session.start-live"
+    ],
+    "activity": {
+      "phase": "Unavailable",
+      "status": "Watching the trusted settled layout for a repeated count change.",
+      "activityStartSourceTimeUs": null,
+      "beforeSourceTimeUs": null,
+      "verificationPending": false,
+      "verificationAttempted": false,
+      "candidate": null
+    },
+    "outcome": "Ready/Still/Clear",
+    "gameError": null,
+    "verification": {
+      "configuration": "o08-provisional-v16",
+      "mediaGeneration": 4,
+      "independentFrames": 6,
+      "startSourceUs": 194791895278,
+      "endSourceUs": 194794428833,
+      "maximumGapMs": 566.722,
+      "finalClockSampleAgeMs": 591.9998
+    },
+    "explicitVerificationCommands": 0,
+    "independentSamples": [
+      {
+        "frameId": 3,
+        "sourceTimeUs": 194791895278,
+        "motion": 0,
+        "reason": 2,
+        "coverageValid": true,
+        "supportedBodies": 0,
+        "maximumBodyDisplacement": null,
+        "maximumDetectedBodyDisplacement": null,
+        "fullDetection": true,
+        "detectedBalls": 16,
+        "uncertain": false
+      },
+      {
+        "frameId": 20,
+        "sourceTimeUs": 194792461989,
+        "motion": 1,
+        "reason": 0,
+        "coverageValid": true,
+        "supportedBodies": 16,
+        "maximumBodyDisplacement": 0.2714305216265427,
+        "maximumDetectedBodyDisplacement": null,
+        "fullDetection": false,
+        "detectedBalls": null,
+        "uncertain": null
+      },
+      {
+        "frameId": 30,
+        "sourceTimeUs": 194792795355,
+        "motion": 1,
+        "reason": 0,
+        "coverageValid": true,
+        "supportedBodies": 16,
+        "maximumBodyDisplacement": 0.28035646344440435,
+        "maximumDetectedBodyDisplacement": 1.3609312409953422,
+        "fullDetection": true,
+        "detectedBalls": 16,
+        "uncertain": false
+      },
+      {
+        "frameId": 45,
+        "sourceTimeUs": 194793295400,
+        "motion": 1,
+        "reason": 0,
+        "coverageValid": true,
+        "supportedBodies": 16,
+        "maximumBodyDisplacement": 0.2638149312849945,
+        "maximumDetectedBodyDisplacement": null,
+        "fullDetection": false,
+        "detectedBalls": null,
+        "uncertain": null
+      },
+      {
+        "frameId": 62,
+        "sourceTimeUs": 194793862111,
+        "motion": 1,
+        "reason": 0,
+        "coverageValid": true,
+        "supportedBodies": 16,
+        "maximumBodyDisplacement": 0.2787925608332733,
+        "maximumDetectedBodyDisplacement": 2.299721300635181,
+        "fullDetection": true,
+        "detectedBalls": 16,
+        "uncertain": false
+      },
+      {
+        "frameId": 79,
+        "sourceTimeUs": 194794428833,
+        "motion": 1,
+        "reason": 0,
+        "coverageValid": true,
+        "supportedBodies": 16,
+        "maximumBodyDisplacement": 0.26996232015555743,
+        "maximumDetectedBodyDisplacement": 1.9602783260719858,
+        "fullDetection": true,
+        "detectedBalls": 16,
+        "uncertain": false
+      }
+    ],
+    "groupCounts": {
+      "Cue": {
+        "value": 1,
+        "source": 0,
+        "confidence": null,
+        "evidenceId": "794eb787-71d1-41ec-a797-8b6ed7b8459f"
+      },
+      "Red": {
+        "value": 7,
+        "source": 0,
+        "confidence": null,
+        "evidenceId": "794eb787-71d1-41ec-a797-8b6ed7b8459f"
+      },
+      "Yellow": {
+        "value": 7,
+        "source": 0,
+        "confidence": null,
+        "evidenceId": "794eb787-71d1-41ec-a797-8b6ed7b8459f"
+      },
+      "Black": {
+        "value": 1,
+        "source": 0,
+        "confidence": null,
+        "evidenceId": "794eb787-71d1-41ec-a797-8b6ed7b8459f"
+      }
+    },
+    "stabilitySamples": [
+      {
+        "at": "2026-10-09T14:42:07.4449611+01:00",
+        "sequence": 6,
+        "current": true,
+        "gameVersion": 154,
+        "uncertain": false,
+        "reason": 0,
+        "outcome": 0,
+        "gameError": null
+      },
+      {
+        "at": "2026-10-09T14:42:11.5268009+01:00",
+        "sequence": 9,
+        "current": true,
+        "gameVersion": 154,
+        "uncertain": false,
+        "reason": 0,
+        "outcome": 0,
+        "gameError": null
+      },
+      {
+        "at": "2026-10-09T14:42:15.6062384+01:00",
+        "sequence": 13,
+        "current": true,
+        "gameVersion": 154,
+        "uncertain": false,
+        "reason": 0,
+        "outcome": 0,
+        "gameError": null
+      },
+      {
+        "at": "2026-10-09T14:42:19.6749232+01:00",
+        "sequence": 16,
+        "current": true,
+        "gameVersion": 154,
+        "uncertain": false,
+        "reason": 0,
+        "outcome": 0,
+        "gameError": null
+      },
+      {
+        "at": "2026-10-09T14:42:23.7534054+01:00",
+        "sequence": 19,
+        "current": true,
+        "gameVersion": 154,
+        "uncertain": false,
+        "reason": 0,
+        "outcome": 0,
+        "gameError": null
+      },
+      {
+        "at": "2026-10-09T14:42:27.8096928+01:00",
+        "sequence": 22,
+        "current": true,
+        "gameVersion": 154,
+        "uncertain": false,
+        "reason": 0,
+        "outcome": 0,
+        "gameError": null
+      },
+      {
+        "at": "2026-10-09T14:42:31.8827259+01:00",
+        "sequence": 25,
+        "current": true,
+        "gameVersion": 154,
+        "uncertain": false,
+        "reason": 0,
+        "outcome": 0,
+        "gameError": null
+      },
+      {
+        "at": "2026-10-09T14:42:35.9567604+01:00",
+        "sequence": 28,
+        "current": true,
+        "gameVersion": 154,
+        "uncertain": false,
+        "reason": 0,
+        "outcome": 0,
+        "gameError": null
+      },
+      {
+        "at": "2026-10-09T14:42:40.004917+01:00",
+        "sequence": 31,
+        "current": true,
+        "gameVersion": 154,
+        "uncertain": false,
+        "reason": 0,
+        "outcome": 0,
+        "gameError": null
+      },
+      {
+        "at": "2026-10-09T14:42:44.0845461+01:00",
+        "sequence": 34,
+        "current": true,
+        "gameVersion": 154,
+        "uncertain": false,
+        "reason": 0,
+        "outcome": 0,
+        "gameError": null
+      },
+      {
+        "at": "2026-10-09T14:42:48.1424788+01:00",
+        "sequence": 37,
+        "current": true,
+        "gameVersion": 154,
+        "uncertain": false,
+        "reason": 0,
+        "outcome": 0,
+        "gameError": null
+      },
+      {
+        "at": "2026-10-09T14:42:52.2162246+01:00",
+        "sequence": 40,
+        "current": true,
+        "gameVersion": 154,
+        "uncertain": false,
+        "reason": 0,
+        "outcome": 0,
+        "gameError": null
+      }
+    ]
+  },
+  "preservedMatch": {
+    "afterPlayer": "f9ab7623dbad42d6a612ce860a2f6851",
+    "beforePots": 0,
+    "afterVisit": 2,
+    "beforePlayer": "f9ab7623dbad42d6a612ce860a2f6851",
+    "afterScore": "Alice 0–0 Bob",
+    "afterPots": 0,
+    "beforeScore": "Alice 0–0 Bob",
+    "beforeVisit": 2
+  },
+  "checks": {
+    "gameTracking": "pass",
+    "buildErrors": 0,
+    "buildWarnings": 9,
+    "fullHarness": "Stops at PortChecks.CheckTracking correction-readiness assertion",
+    "agentUi": "pass",
+    "pureGameState": "pass"
+  },
+  "visualConfirmation": {
+    "pixel": "Live corrected table visible in a read-only screenshot; reviewed 7 red, 7 yellow, 1 cue ball, 1 black",
+    "sky": "Aggregate table.inventory read adapter checked with fixture; spoken proposal review not exercised",
+    "dashboard": "Current; canonical four group rows; watching trusted settled layout; Bob turn; Alice 0-0 Bob"
+  },
+  "limitations": [
+    "One automatic startup run; held-out lighting/movement reliability remains open",
+    "Spaced second and third retry batches and new-frame startup not physically exercised in the passing run",
+    "Monitoring still depends on diagnostics",
+    "Live outcome admission, equal-count layout changes and spoken Sky proposal review remain open"
+  ]
+}

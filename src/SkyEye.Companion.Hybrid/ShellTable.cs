@@ -15,6 +15,8 @@ public sealed partial class ShellSession
     Guid? autoCalibrationAttemptedConnection;
     bool automaticTableCheckPending;
     string? automaticBaselineAttemptedFrame;
+    int automaticBaselineCheckBatches;
+    DateTimeOffset automaticBaselineRetryAfter;
     byte[]? frozenFrame;
     double editorLimit = double.PositiveInfinity;
     public TableEditDraft TableEdit => edit;
@@ -139,15 +141,22 @@ public sealed partial class ShellSession
         {
             autoCalibrationAttemptedConnection = source.ConnectionId;
             automaticBaselineAttemptedFrame = app.State.Game.Frame?.Id;
+            automaticBaselineCheckBatches = 1;
             automaticTableCheckPending = true;
             _ = TryAutoCalibrateConnectedCameraAsync(source.ConnectionId);
         }
         else if (snapshot.Source is not null && CanAnalyzeTable && active && player is not null
             && snapshot.Calibration is not null && !EditingTable && !automaticTableCheckPending
             && app.State.Game.Match is { Finished: false } && app.State.Game.Frame is { Winner: null } frame
-            && app.State.Game.Table.LastSettled is null && automaticBaselineAttemptedFrame != frame.Id)
+            && (app.State.Game.Table.LastSettled is null || app.State.Game.Table.Source is not { } gameSource
+                || gameSource.Connection != snapshot.Source.ConnectionId.ToString("N")
+                || gameSource.Calibration != snapshot.CalibrationId || gameSource.Generation != snapshot.Generation + 1)
+            && (automaticBaselineAttemptedFrame != frame.Id
+                || automaticBaselineCheckBatches < 3 && DateTimeOffset.UtcNow >= automaticBaselineRetryAfter))
         {
+            if (automaticBaselineAttemptedFrame != frame.Id) automaticBaselineCheckBatches = 0;
             automaticBaselineAttemptedFrame = frame.Id;
+            automaticBaselineCheckBatches++;
             automaticTableCheckPending = true;
             _ = TryEstablishFrameBaselineAsync();
         }
@@ -231,7 +240,7 @@ public sealed partial class ShellSession
             {
                 Message = "Automatic calibration couldn’t finish. Tap Calibrate table to set the corners."; Publish();
             }
-            finally { automaticTableCheckPending = false; Publish(); }
+            finally { automaticTableCheckPending = false; automaticBaselineRetryAfter = DateTimeOffset.UtcNow.AddSeconds(15); Publish(); }
         });
     }
     async Task TryEstablishFrameBaselineAsync()
@@ -239,7 +248,7 @@ public sealed partial class ShellSession
         try { await CheckInitialTableAsync(foreground?.Token ?? CancellationToken.None); }
         catch (OperationCanceledException) { }
         catch (Exception) { Message = "The starting table is not ready yet."; }
-        finally { automaticTableCheckPending = false; Publish(); }
+        finally { automaticTableCheckPending = false; automaticBaselineRetryAfter = DateTimeOffset.UtcNow.AddSeconds(15); Publish(); }
     }
     async Task CheckInitialTableAsync(CancellationToken token)
     {
