@@ -31,11 +31,12 @@ public sealed partial class ShellSession
 {
     const string VisionDashboardAsset = "vision-diagnostics-dashboard.html";
     const string VisionScenarioAsset = "vision-scenario-lab.html";
-    const int VisionDashboardAssetVersion = 10;
+    const int VisionDashboardAssetVersion = 11;
     const int VisionScenarioAssetVersion = 4;
     const int VisionDashboardPort = 8770;
     readonly DashboardScenarioWorkspace dashboardScenario;
     LocalHttpServer? visionDashboardServer;
+    int visionDashboardStarting;
     bool visionDashboardStartedDiagnostics;
     bool visionDashboardSamplingPaused;
     CancellationTokenSource? visionDashboardMaintenance;
@@ -45,14 +46,27 @@ public sealed partial class ShellSession
     public string VisionScenarioUrl { get; private set; } = "";
     public string VisionDashboardStatus { get; private set; } = "Laptop dashboard is off.";
 
-    public Task StartVisionDashboardAsync() => MainThread.InvokeOnMainThreadAsync(StartVisionDashboardCoreAsync);
+    public Task StartVisionDashboardAsync() => MainThread.InvokeOnMainThreadAsync(async () =>
+    {
+        if (VisionDashboardActive || Interlocked.CompareExchange(ref visionDashboardStarting, 1, 0) != 0) return;
+        try { await StartVisionDashboardCoreAsync(); }
+        finally { Interlocked.Exchange(ref visionDashboardStarting, 0); }
+    });
 
     async Task StartVisionDashboardCoreAsync()
     {
         if (VisionDashboardActive) return;
-        if (!CanAnalyzeTable || !HasTableCalibration || EditingTable)
+        bool canServeDashboard = CanAnalyzeTable && HasTableCalibration && !EditingTable;
+#if !SKYEYE_HYBRID_PRODUCTION
+        canServeDashboard = active && !disposed;
+#endif
+        if (!canServeDashboard)
         {
+#if !SKYEYE_HYBRID_PRODUCTION
+            VisionDashboardStatus = "Open SkyEye's Lab app to start its development dashboard.";
+#else
             VisionDashboardStatus = "Open the active calibrated live table first.";
+#endif
             Changed?.Invoke();
             return;
         }
@@ -85,7 +99,7 @@ public sealed partial class ShellSession
         }
 
         bool startedHere = false;
-        if (!VisionDiagnosticsActive)
+        if (!VisionDiagnosticsActive && CanStartVisionDiagnostics)
         {
             if (!table.StartVisionDiagnostics(out var startMessage))
             {
@@ -107,7 +121,9 @@ public sealed partial class ShellSession
             visionDashboardSamplingPaused = false;
             VisionDashboardUrl = $"http://{address}:{server.Port}/?dashboard={VisionDashboardAssetVersion}";
             VisionScenarioUrl = $"http://{address}:{server.Port}/scenario?view={VisionScenarioAssetVersion}";
-            VisionDashboardStatus = "Dashboard is live on your local Wi-Fi. Any device on this network can access it while SkyEye is open.";
+            VisionDashboardStatus = VisionDiagnosticsActive
+                ? "Dashboard and live sampling are running on your local Wi-Fi."
+                : "Dashboard is live; start a calibrated live table to begin sampling.";
             visionDashboardMaintenance = new();
             visionDashboardMaintenanceTask = MaintainVisionDashboardSamplingAsync(visionDashboardMaintenance.Token);
         }
@@ -364,6 +380,7 @@ public sealed partial class ShellSession
                         motion.RequestedHz,
                         sourceTimeUs = motion.Latest?.SourceTimeUs,
                         analysis = motion.Analysis,
+                        activityLifecycle = MotionActivityMetrics,
                         regions = motion.Latest?.Regions.Select(region => new
                         {
                             region.Id, region.TemplateStatus, region.TemplateDxPixels, region.TemplateDyPixels,

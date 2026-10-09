@@ -1,9 +1,13 @@
 using SkyEye.Core.Analysis;
 using SkyEye.Core;
 using SkyEye.Companion;
+using SkyEye.GameState;
 using SkyEye.Vision.Android;
 
 namespace SkyEye.Companion.Hybrid;
+
+public sealed record MotionActivityDisplay(string Phase, string Status, long? ActivityStartSourceTimeUs,
+    long? BeforeSourceTimeUs);
 
 public sealed partial class ShellSession
 {
@@ -14,6 +18,26 @@ public sealed partial class ShellSession
     long? motionSeedFrameId;
     double? motionSeedFrameAgeMs;
     readonly SemaphoreSlim motionGate = new(1, 1);
+    readonly object motionActivityGate = new();
+    ActivitySettlementLifecycle? motionActivityLifecycle;
+    string motionActivityStatus = "Motion remains diagnostic-only until a trusted match baseline is available.";
+    long? motionActivityLastSourceTimeUs;
+
+    public MotionActivityDisplay MotionActivityMetrics
+    {
+        get
+        {
+            var snapshot = motion?.Snapshot ?? lastMotion;
+            lock (motionActivityGate)
+            {
+                AdvanceMotionActivity(snapshot);
+                var lifecycle = motionActivityLifecycle;
+                return new(lifecycle?.Phase.ToString() ?? "Unavailable", motionActivityStatus,
+                    lifecycle?.Context.ActivityStartSourceTimeUs, lifecycle?.Context.Before.SourceTimeUs);
+            }
+        }
+    }
+
     public MotionFeedSnapshot? MotionMetrics
     {
         get
@@ -118,6 +142,7 @@ public sealed partial class ShellSession
                 motionSeedFrameId = seedFrameId;
                 motionSeedFrameAgeMs = layoutAgeMs;
                 motion = new(frames, processor, scope, Current, new(hz), physicallyObstructed: () => table.PhysicallyObstructed);
+                StartMotionActivityLifecycle(seed, scope);
             }
             // Startup's seed lease is gone before producer/worker ownership begins.
             motion.Start(); _ = ReleaseWhenEnded(motion);
@@ -138,6 +163,80 @@ public sealed partial class ShellSession
         if (previous is not null) { await previous.DisposeAsync(); lastMotion = previous.Snapshot; }
         processor?.Dispose();
     }
+
+    void StartMotionActivityLifecycle(TableAnalysisSnapshot seed, MotionFeedScope scope)
+    {
+        lock (motionActivityGate)
+        {
+            motionActivityLifecycle = null;
+            motionActivityLastSourceTimeUs = null;
+            motionActivityStatus = "Motion remains diagnostic-only until a trusted match baseline is available.";
+
+            var game = app.CaptureGameSession().State;
+            if (game.Match is null)
+            {
+                motionActivityStatus = "No active match; motion remains diagnostic-only.";
+                return;
+            }
+            if (!SettledTableEvidence.TryCapture(game, out var before))
+            {
+                motionActivityStatus = "No trusted settled match table; motion remains diagnostic-only.";
+                return;
+            }
+            if (!FrozenGameContext.TryCapture(game, out var frozenGame))
+            {
+                motionActivityStatus = "Match context is incomplete; motion remains diagnostic-only.";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(seed.CameraIdentity))
+            {
+                motionActivityStatus = "Camera identity is unavailable; motion remains diagnostic-only.";
+                return;
+            }
+
+            var expectedSource = new EvidenceSource(seed.CameraIdentity, scope.Timeline, seed.Generation + 1,
+                scope.CalibrationId, scope.Source.ConnectionId.ToString("N"));
+            if (before.Source != expectedSource)
+            {
+                motionActivityStatus = "The settled match table belongs to a different camera observation; motion remains diagnostic-only.";
+                return;
+            }
+
+            var context = new ActivityWindowContext(Guid.NewGuid(), frozenGame, before, null);
+            if (!ActivitySettlementLifecycle.TryStart(context, out var lifecycle))
+            {
+                motionActivityStatus = "The settled match baseline could not start an activity window.";
+                return;
+            }
+            motionActivityLifecycle = lifecycle;
+            motionActivityLastSourceTimeUs = before.SourceTimeUs;
+            motionActivityStatus = "Watching for movement or obstruction; settled baseline is held.";
+        }
+    }
+
+    void AdvanceMotionActivity(MotionFeedSnapshot? snapshot)
+    {
+        if (motionActivityLifecycle is not { } lifecycle || snapshot?.Latest is not { } latest
+            || motionActivityLastSourceTimeUs == latest.SourceTimeUs) return;
+
+        var kind = snapshot.Analysis.Phase switch
+        {
+            MotionAnalysisPhase.Moving => ActivitySettlementSignalKind.ActivityDetected,
+            MotionAnalysisPhase.Obstructed => ActivitySettlementSignalKind.Obstructed,
+            MotionAnalysisPhase.Settling or MotionAnalysisPhase.Settled
+                when lifecycle.Phase == ActivitySettlementPhase.WaitingForClearTable
+                    => ActivitySettlementSignalKind.ClearViewAvailable,
+            MotionAnalysisPhase.Settling or MotionAnalysisPhase.Settled => ActivitySettlementSignalKind.MotionQuiet,
+            _ => (ActivitySettlementSignalKind?)null
+        };
+        if (kind is null) return;
+
+        var step = lifecycle.Observe(new(kind.Value, lifecycle.Context.Before.Source, latest.SourceTimeUs));
+        motionActivityLifecycle = step.Lifecycle;
+        motionActivityLastSourceTimeUs = latest.SourceTimeUs;
+        motionActivityStatus = step.Reason;
+    }
+
     void ReleaseMotion()
     {
         StopMotion();
