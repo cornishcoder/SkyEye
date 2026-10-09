@@ -22,6 +22,7 @@
     .history>.hint{margin:6px 12px;color:var(--muted);font-size:12px}
     .match-summary{border-top:1px solid var(--line);margin-top:13px;padding-top:12px}.match-title{display:flex;align-items:center;gap:8px}.match-title h3,.match-summary h4{margin:0;font-size:12px;letter-spacing:.04em}.match-target{margin-left:auto;color:var(--muted);font-size:11px}.match-score{font-size:20px;font-weight:700;margin:6px 0 1px;font-variant-numeric:tabular-nums}.match-status{color:var(--mint);margin-bottom:9px}.match-players{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.match-player{border:1px solid var(--line);border-radius:7px;padding:7px;min-width:0}.match-player strong,.match-player span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.match-player span{font-size:11px;color:var(--muted)}.match-summary h4{margin:12px 0 6px;color:var(--muted);text-transform:uppercase}.frame-ledger,.canonical-balls{display:grid;gap:5px}.frame-row,.canonical-ball{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:7px;align-items:center;border-bottom:1px solid #202e35;padding:5px 0;font-size:12px}.frame-row small,.canonical-ball small{color:var(--muted)}.canonical-ball{grid-template-columns:minmax(50px,.7fr) minmax(48px,.65fr) minmax(70px,1fr) minmax(78px,1fr);font-size:11px}.canonical-ball span{overflow-wrap:anywhere}.match-empty{color:var(--muted);font-size:12px}
     .outcome-review{border:1px solid #80622f;background:#211c13;border-radius:8px;padding:10px;margin-top:10px}.outcome-review[hidden]{display:none}.outcome-review h4{margin:0 0 5px;color:#ffd08c}.outcome-counts{font-size:12px;line-height:1.6;margin:5px 0 9px}.review-actions{display:flex;flex-wrap:wrap;gap:6px}.review-actions button{border:1px solid var(--line);border-radius:6px;background:#17252b;color:#e8f0f1;padding:7px 9px;cursor:pointer}.review-actions button.primary{background:#295347;border-color:#447d6b}.review-actions button.reject{background:#342020;border-color:#654040}.review-counts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:8px 0}.review-counts label{font-size:10px;color:var(--muted)}.review-counts input{display:block;width:100%;margin-top:3px;background:#0b1115;border:1px solid var(--line);border-radius:5px;color:#e8f0f1;padding:6px}.review-result{font-size:12px;margin:6px 0 0;color:var(--mint)}
+    .rules-advice{border-top:1px solid #4c402a;margin:8px 0;padding-top:7px;font-size:11px}.rules-advice[hidden]{display:none}.rules-advice>strong{color:#ffd08c}.rules-advice p{margin:4px 0;color:var(--muted)}.rules-branch{margin:5px 0;padding:5px 7px;border-left:2px solid #887044;background:#1b1914}.rules-branch strong,.rules-branch span{display:block}.rules-branch span{color:var(--muted);margin-top:2px}.rules-questions{margin:5px 0 0;padding-left:17px;color:var(--muted)}
     @media(max-width:900px){.image-panel{height:62vh;min-height:360px}aside{grid-template-columns:1fr;grid-template-rows:auto auto}aside>.scroll{height:300px}}
   </style>
 </head>
@@ -66,6 +67,7 @@
             <h4>Settled table change</h4>
             <div id="outcome-summary" class="muted"></div>
             <div id="outcome-counts" class="outcome-counts"></div>
+            <div id="rules-advice" class="rules-advice" hidden></div>
             <div class="review-actions"><button id="accept-outcome" class="primary">Accept observed counts</button><button id="reject-outcome" class="reject">Reject proposal</button></div>
             <div class="review-counts">
               <label>Red<input id="correct-reds" type="number" min="0" max="7" step="1"></label>
@@ -216,6 +218,12 @@
     const presence=v=>v===1?'present':v===0?'absent':'—';
     const label=c=>`${c?.reds??'—'} red · ${c?.yellows??'—'} yellow · cue ${presence(c?.cueBalls)} · black ${presence(c?.blackBalls)}`;
     $('outcome-counts').innerHTML=`<strong>A before:</strong> ${esc(label(candidate.before))}<br><strong>B observed:</strong> ${esc(label(candidate.after))}`;
+    const advice=candidate.rulesAdvice,adviceBox=$('rules-advice');
+    if(!advice){adviceBox.hidden=true;adviceBox.innerHTML='';return;}
+    const branches=(advice.branches||[]).map(branch=>`<div class="rules-branch"><strong>${esc(branch.label)}</strong><span>${esc(branch.condition)}</span><span>${esc(branch.consequence)}</span></div>`).join('');
+    const questions=(advice.factsToConfirm||[]).map(fact=>`<li>${esc(fact)}</li>`).join('');
+    adviceBox.hidden=false;
+    adviceBox.innerHTML=`<strong>Rules engine · conditional only</strong><p>${esc(advice.summary)}</p>${branches}<ul class="rules-questions">${questions}</ul>`;
   }
   async function submitOutcome(action){
     if(reviewBusy||!activeReviewId)return;

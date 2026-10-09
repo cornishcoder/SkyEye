@@ -10,7 +10,9 @@ public sealed class SkyVoiceGameTools(
     Func<SkyEyeState> current,
     Func<CommandEnvelope, CancellationToken, Task<CommandReceipt>> dispatch,
     Func<string, string, Guid> operationId,
-    Func<(bool Available, string Status)>? physicsAvailability = null)
+    Func<(bool Available, string Status)>? physicsAvailability = null,
+    Func<SettledTableCandidateDisplay?>? liveOutcomeProposal = null,
+    Func<Guid, string, int?, int?, int?, int?, CancellationToken, Task<VisionDashboardOutcomeReviewResponse>>? reviewLiveOutcome = null)
 {
     public object Read(CancellationToken cancellation)
     {
@@ -20,6 +22,7 @@ public sealed class SkyVoiceGameTools(
         var game = state.Game;
         var frame = game.Frame;
         var physics = physicsAvailability?.Invoke();
+        var outcomeProposal = liveOutcomeProposal?.Invoke();
         return new
         {
             available = match.Id is not null,
@@ -75,8 +78,36 @@ public sealed class SkyVoiceGameTools(
                     ball.Position
                 }).ToArray()
             },
+            pendingTableChange = outcomeProposal is null ? null : new
+            {
+                candidateId = outcomeProposal.ActivityWindowId,
+                status = "awaiting explicit inventory review",
+                outcomeProposal.Recommendation,
+                before = outcomeProposal.Before,
+                observed = outcomeProposal.After,
+                outcomeProposal.RulesAdvice,
+                choices = new[] { "accept observed counts", "correct counts", "reject proposal" },
+                limitation = "Counts and rule branches are conditional evidence. They do not by themselves establish a pot, foul, pocket, turn or score."
+            },
             limitation = "This is the declared and observed match record. Image observations do not establish a pot, foul, winner or player declaration."
         };
+    }
+
+    public async Task<object> ReviewSettledTableChangeAsync(Guid candidateId, string action,
+        int? reds, int? yellows, int? cueBalls, int? blackBalls, CancellationToken cancellation)
+    {
+        var state = current();
+        if (!state.CanManageMatch) return Error("This phone must be the camera host to review the table change.", state.Game.Version);
+        if (candidateId == Guid.Empty) return Error("Read the current match state and use its live candidate ID.", state.Game.Version);
+        var normalizedAction = action?.Trim().ToLowerInvariant() ?? "";
+        if (normalizedAction is not ("accept" or "correct" or "reject"))
+            return Error("Choose accept, correct or reject.", state.Game.Version);
+        if (normalizedAction == "correct"
+            && (reds is < 0 or > 7 || yellows is < 0 or > 7 || cueBalls is < 0 or > 1 || blackBalls is < 0 or > 1))
+            return Error("Count correction needs 0–7 reds/yellows and 0 or 1 cue ball/black.", state.Game.Version);
+        if (reviewLiveOutcome is null) return Error("Live table review is unavailable.", state.Game.Version);
+        var result = await reviewLiveOutcome(candidateId, normalizedAction, reds, yellows, cueBalls, blackBalls, cancellation);
+        return new { succeeded = result.Accepted, gameVersion = current().Game.Version, message = result.Message };
     }
 
     public async Task<object> StartMatchAsync(string callId, long expectedGameVersion, string firstName, string secondName, int target, CancellationToken cancellation)

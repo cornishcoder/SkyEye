@@ -2,6 +2,7 @@ using System.Collections.Immutable;
 using SkyEye.Core.Analysis;
 using SkyEye.Core;
 using SkyEye.Core.Application;
+using SkyEye.Core.Rules;
 using SkyEye.Companion;
 using SkyEye.GameState;
 using SkyEye.Vision.Android;
@@ -13,6 +14,7 @@ public sealed record SettledTableCandidateDisplay(Guid ActivityWindowId, Evidenc
     ImmutableArray<BallCountChange> Changes, string Summary)
 {
     public SettledOutcomeRecommendation? Recommendation { get; init; }
+    public SettledOutcomeRulesAdvice? RulesAdvice { get; init; }
 }
 
 public sealed record MotionActivityDisplay(string Phase, string Status, long? ActivityStartSourceTimeUs,

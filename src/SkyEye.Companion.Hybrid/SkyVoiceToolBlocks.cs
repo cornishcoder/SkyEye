@@ -138,6 +138,18 @@ public sealed partial class SkyMatchStateBlock : FunctionInvocationContentBlock
     [ToolResult] public string? ResultText { get; set; }
 }
 
+[ToolBlock("review_settled_table_change")]
+public sealed partial class SkyReviewSettledTableChangeBlock : FunctionInvocationContentBlock
+{
+    [ToolParameter(Name = "candidate_id")] public string? CandidateId { get; set; }
+    [ToolParameter(Name = "action")] public string? Action { get; set; }
+    [ToolParameter(Name = "reds")] public int? Reds { get; set; }
+    [ToolParameter(Name = "yellows")] public int? Yellows { get; set; }
+    [ToolParameter(Name = "cue_balls")] public int? CueBalls { get; set; }
+    [ToolParameter(Name = "black_balls")] public int? BlackBalls { get; set; }
+    [ToolResult] public string? ResultText { get; set; }
+}
+
 [ToolBlock("start_match")]
 public sealed partial class SkyStartMatchBlock : FunctionInvocationContentBlock
 {

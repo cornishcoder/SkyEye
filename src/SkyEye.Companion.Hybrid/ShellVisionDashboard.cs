@@ -5,6 +5,7 @@ using SkyEye.Companion.Hybrid.Probes;
 using SkyEye.Core;
 using SkyEye.Core.Analysis;
 using SkyEye.Core.Application;
+using SkyEye.Core.Rules;
 using SkyEye.GameState;
 using Point = SkyEye.Core.Point;
 
@@ -29,14 +30,14 @@ sealed record VisionDashboardSample(int Sequence, DateTimeOffset CapturedAt, dou
 }
 sealed record VisionDashboardOutcomeReviewRequest(Guid CandidateId, string Action,
     int? Reds = null, int? Yellows = null, int? CueBalls = null, int? BlackBalls = null);
-sealed record VisionDashboardOutcomeReviewResponse(bool Accepted, string Message);
+public sealed record VisionDashboardOutcomeReviewResponse(bool Accepted, string Message, long? GameVersion = null);
 
 /// <summary>Opt-in laptop view for sequential vision evidence and explicit settled-count review.</summary>
 public sealed partial class ShellSession
 {
     const string VisionDashboardAsset = "vision-diagnostics-dashboard.html";
     const string VisionScenarioAsset = "vision-scenario-lab.html";
-    const int VisionDashboardAssetVersion = 15;
+    const int VisionDashboardAssetVersion = 16;
     const int VisionScenarioAssetVersion = 5;
     const int VisionDashboardPort = 8770;
     readonly DashboardScenarioWorkspace dashboardScenario;
@@ -363,6 +364,7 @@ public sealed partial class ShellSession
                 var tracked = table.State.Table;
                 var camera = app.State.Camera;
                 var current = app.State;
+                var activityLifecycle = WithSettledOutcomeRulesAdvice(MotionActivityMetrics, current.Game);
                 return HttpResponse.Json(new
                 {
                     active = diagnostic.Active,
@@ -389,7 +391,7 @@ public sealed partial class ShellSession
                     camera = new { reachability = camera.Reachability.ToString(), capture = camera.Capture.ToString(), camera.CanControl },
                     calibration = new { table.State.CalibrationId, corners = calibration?.Corners },
                     trackedTable = tracked,
-                    activityLifecycle = MotionActivityMetrics,
+                    activityLifecycle,
                     motion = MotionMetrics is { } motion ? new
                     {
                         active = motion.StopReason is null && motion.Processed > 0,
@@ -398,7 +400,7 @@ public sealed partial class ShellSession
                         motion.RequestedHz,
                         sourceTimeUs = motion.Latest?.SourceTimeUs,
                         analysis = motion.Analysis,
-                        activityLifecycle = MotionActivityMetrics,
+                        activityLifecycle,
                         regions = motion.Latest?.Regions.Select(region => new
                         {
                             region.Id, region.TemplateStatus, region.TemplateDxPixels, region.TemplateDyPixels,
@@ -417,8 +419,31 @@ public sealed partial class ShellSession
         return HttpResponse.Json(new { error = "Not found" }, 404);
     }
 
+    public SettledTableCandidateDisplay? LiveOutcomeProposalForVoice()
+    {
+        var state = app.State;
+        return WithSettledOutcomeRulesAdvice(MotionActivityMetrics, state.Game).Candidate;
+    }
+
+    MotionActivityDisplay WithSettledOutcomeRulesAdvice(MotionActivityDisplay activity, GameSnapshot state)
+    {
+        if (activity.Candidate is not { } candidate) return activity;
+        ActivityWindowContext? context;
+        SettledTableEvidence? after;
+        lock (motionActivityGate)
+        {
+            context = motionActivityCandidateContext;
+            after = motionActivityCandidateAfter;
+        }
+        if (context is null || after is null) return activity;
+        var comparison = SettledStateReconciler.Compare(context, after);
+        var advice = SettledOutcomeRulesAdvisor.Evaluate(state, comparison.Comparison);
+        return activity with { Candidate = candidate with { RulesAdvice = advice } };
+    }
+
     async Task<VisionDashboardOutcomeReviewResponse> ReviewLiveOutcomeAsync(
-        VisionDashboardOutcomeReviewRequest request, CancellationToken cancellation)
+        VisionDashboardOutcomeReviewRequest request, CancellationToken cancellation,
+        CommandOrigin origin = CommandOrigin.Touch)
     {
         return await MainThread.InvokeOnMainThreadAsync(async () =>
         {
@@ -489,7 +514,7 @@ public sealed partial class ShellSession
             var at = DateTimeOffset.UtcNow < after.CapturedAt ? after.CapturedAt : DateTimeOffset.UtcNow;
             var envelope = new GameInputEnvelope(id, context.Game.MatchId, context.Game.FrameId, at,
                 input, after.Source, after.SourceTimeUs, Provenance.PlayerConfirmed);
-            var receipt = await app.DispatchAsync(new(id, CommandOrigin.Touch, current.Version,
+            var receipt = await app.DispatchAsync(new(id, origin, current.Version,
                 new SubmitGameInput(envelope, canonical.State.Version)), cancellation);
             if (!receipt.Succeeded)
                 return new VisionDashboardOutcomeReviewResponse(false, receipt.Message);
@@ -512,9 +537,13 @@ public sealed partial class ShellSession
                 }
             }
             Changed?.Invoke();
-            return new VisionDashboardOutcomeReviewResponse(true, confirmation);
+            return new VisionDashboardOutcomeReviewResponse(true, confirmation, app.State.Game.Version);
         }).ConfigureAwait(false);
     }
+
+    Task<VisionDashboardOutcomeReviewResponse> ReviewLiveOutcomeFromSkyAsync(Guid candidateId, string action,
+        int? reds, int? yellows, int? cueBalls, int? blackBalls, CancellationToken cancellation)
+        => ReviewLiveOutcomeAsync(new(candidateId, action, reds, yellows, cueBalls, blackBalls), cancellation, CommandOrigin.Sky);
 
     void ExpireLiveOutcomeCandidate(Guid candidateId)
     {

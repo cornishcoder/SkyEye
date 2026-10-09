@@ -218,6 +218,7 @@ public sealed partial class ShellSession
         "select_shot_by_number" or "select_shot_by_id" => "shot selection",
         "clear_shots" => "shot paths",
         "get_match_state" => "match state",
+        "review_settled_table_change" => "settled table review",
         "start_match" or "start_frame" or "finish_match" => "match setup",
         "declare_match_colours" => "player group declaration",
         "correct_match_state" => "match correction",
@@ -259,6 +260,7 @@ public sealed partial class ShellSession
         "select_shot_by_id" => SelectVoiceShotByIdAsync(callId, arguments, cancellation),
         "clear_shots" => ClearVoiceShotsAsync(callId, cancellation),
         "get_match_state" => Task.FromResult(GameVoiceTools().Read(cancellation)),
+        "review_settled_table_change" => ReviewSettledTableChangeFromVoiceAsync(arguments, cancellation),
         "start_match" => StartMatchFromVoiceAsync(callId, arguments, cancellation),
         "start_frame" => StartFrameFromVoiceAsync(callId, arguments, cancellation),
         "finish_match" => FinishMatchFromVoiceAsync(callId, arguments, cancellation),
@@ -383,7 +385,17 @@ public sealed partial class ShellSession
 
     SkyVoiceGameTools GameVoiceTools() => new(() => app.State,
         (envelope, token) => app.DispatchAsync(envelope, token), VoiceOperationId,
-        () => (PhysicsAvailable, PhysicsStatus));
+        () => (PhysicsAvailable, PhysicsStatus), LiveOutcomeProposalForVoice, ReviewLiveOutcomeFromSkyAsync);
+
+    Task<object> ReviewSettledTableChangeFromVoiceAsync(JsonElement args, CancellationToken cancellation)
+    {
+        if (!Guid.TryParse(StringArg(args, "candidate_id"), out var candidateId))
+            return Task.FromResult<object>(new { succeeded = false, gameVersion = app.State.Game.Version,
+                message = "Read the current match state and use its live candidate ID." });
+        return GameVoiceTools().ReviewSettledTableChangeAsync(candidateId,
+            StringArg(args, "action") ?? "", NullableIntArg(args, "reds"), NullableIntArg(args, "yellows"),
+            NullableIntArg(args, "cue_balls"), NullableIntArg(args, "black_balls"), cancellation);
+    }
 
     Task<object> StartMatchFromVoiceAsync(string callId, JsonElement args, CancellationToken cancellation)
         => GameVoiceTools().StartMatchAsync(callId, GameVersion(args), StringArg(args, "first_player") ?? "",

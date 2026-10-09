@@ -27,6 +27,29 @@ static class SettledOutcomeReviewChecks
         Check(G.SettledStateReconciler.Compare(context, after).Comparison?.Recommendation.AutoApprovalEligible == true,
             "The fixture is a strongly supported likely-pot recommendation, not a canonical pot.");
 
+        var openTableAdvice = SkyEye.Core.Rules.SettledOutcomeRulesAdvisor.Evaluate(game.State,
+            G.SettledStateReconciler.Compare(context, after).Comparison);
+        Check(openTableAdvice.Status == "conditional" && openTableAdvice.Branches.Length == 3
+            && openTableAdvice.Branches.Single(branch => branch.Id == "legal").Pending
+            && openTableAdvice.FactsToConfirm.Any(fact => fact.Contains("group call", StringComparison.OrdinalIgnoreCase)),
+            "Open-table rule previews keep turn assignment pending until call and contact facts are declared.");
+
+        var groupedGame = Apply(game, Input(game, new G.DeclareColours("rich", G.BallColour.Red), 5,
+            provenance: G.Provenance.PlayerConfirmed));
+        Check(G.ActivityWindowContext.TryBegin(Guid.NewGuid(), groupedGame.State, 250, out var groupedContext),
+            "Freeze a known group context for conditional rule previews.");
+        var groupedAfter = after with { EvidenceId = Guid.NewGuid(), SourceTimeUs = 350,
+            CapturedAt = after.CapturedAt.AddSeconds(1), Counts = new(0, 1, 1, 1) };
+        var groupedComparison = G.SettledStateReconciler.Compare(groupedContext, groupedAfter).Comparison;
+        var groupedVersionBeforeAdvice = groupedGame.State.Version;
+        var groupedAdvice = SkyEye.Core.Rules.SettledOutcomeRulesAdvisor.Evaluate(groupedGame.State, groupedComparison);
+        Check(groupedAdvice.Branches.Single(branch => branch.Id == "legal") is { Pending: false, NextPlayer: "Rich", Target: G.LegalTarget.Black }
+            && groupedAdvice.Branches.Single(branch => branch.Id == "foul") is { Pending: false, NextPlayer: "Guest", CueBall: G.CueBallEntitlement.Anywhere }
+            && groupedAdvice.Branches.Single(branch => branch.Id == "loss-of-turn") is { Pending: false, NextPlayer: "Guest", CueBall: G.CueBallEntitlement.None }
+            && groupedAdvice.FactsToConfirm.Any(fact => fact.Contains("legality", StringComparison.OrdinalIgnoreCase))
+            && groupedGame.State.Version == groupedVersionBeforeAdvice,
+            "Grouped-shot previews use conditional rules branches without mutating canonical state.");
+
         var acceptedInput = Input(game, new G.AcceptSettledInventory(1, context, after), 5, source, 300,
             G.Provenance.PlayerConfirmed);
         var acceptedResult = game.Accept(acceptedInput);
