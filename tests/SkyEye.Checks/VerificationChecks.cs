@@ -107,6 +107,22 @@ static class VerificationChecks
         var subtle = gray.ToArray(); for (int y = 40; y < 44; y++) subtle[y * w + 40] = 200;
         var uncertainMotion = new VerificationPixels(w, h); uncertainMotion.Measure(gray, true, null);
         Check(uncertainMotion.Measure(subtle, true, null).Motion == TableMotion.Unknown, "Small unsupported changes cannot imply stillness");
+        var supportedPixelNoise = new VerificationMeasurement(TableMotion.Unknown, ObservationReason.InsufficientEvidence,
+            true, .19, .006, .9, Vision()) { SensitiveTileChange = .23, PhotometricResidualTileChange = .017 };
+        Check(VerificationStillnessPolicy.CanResolveAsStill(supportedPixelNoise, allDetectedBodiesSupported: true),
+            "Complete stable ball-template support absorbs weak local pixel noise within measured stationary limits");
+        Check(!VerificationStillnessPolicy.CanResolveAsStill(supportedPixelNoise, allDetectedBodiesSupported: false),
+            "Weak pixel changes cannot establish stillness when any detected body lacks template support");
+        Check(!VerificationStillnessPolicy.CanResolveAsStill(supportedPixelNoise with { PhotometricResidualTileChange = .031 }, true),
+            "Stronger photometric residual remains unresolved above the supported-noise limit");
+        Check(!VerificationStillnessPolicy.CanResolveAsStill(supportedPixelNoise with { SensitiveTileChange = .301 }, true),
+            "Stronger weak-edge change remains unresolved above the supported-noise limit");
+        Check(!VerificationStillnessPolicy.CanResolveAsStill(supportedPixelNoise with { PerimeterChange = .021 }, true),
+            "Perimeter or pose change remains unresolved above the supported-noise limit");
+        Check(!VerificationStillnessPolicy.CanResolveAsStill(supportedPixelNoise with { Vision = Vision() with { Obstructed = true } }, true),
+            "Pixel-noise tolerance never accepts an obstructed frame");
+        Check(!VerificationStillnessPolicy.CanResolveAsStill(supportedPixelNoise with { Reason = ObservationReason.Moving, Motion = TableMotion.Moving }, true),
+            "Pixel-noise tolerance never overrides positive motion evidence");
         Check(new VerificationPixels(w, h).Measure(new byte[w * h], true, null).Motion == TableMotion.Unknown, "Textureless coverage never implies stillness");
         Check(new VerificationPixels(w, h).Measure(gray, true, Vision() with { Obstructed = true }).Reason == ObservationReason.Obstructed,
             "A physically obstructed bootstrap frame is refused immediately without waiting for a settled layout");

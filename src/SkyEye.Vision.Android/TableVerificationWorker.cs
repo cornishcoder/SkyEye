@@ -19,6 +19,7 @@ public sealed partial class VisionAnalyzer
         byte[]? anchorColour, previousColour;
         CircleObservation[] bodies = [];
         CircleObservation[]? anchorDetections;
+        VisionResult? anchorVision;
         bool? geometryValid;
         bool disposed;
         public VerificationMeasurement Measure(TableFrame frame, bool detect, CancellationToken cancellation)
@@ -42,7 +43,7 @@ public sealed partial class VisionAnalyzer
             double? detectedDisplacement = null;
             if (detect && vision is not null)
             {
-                if (anchorDetections is null) anchorDetections = vision.Circles;
+                if (anchorDetections is null) { anchorDetections = vision.Circles; anchorVision = vision; }
                 else detectedDisplacement = VerificationObjectMotion.MaximumSupportedDisplacement(anchorDetections, vision.Circles);
             }
             using var gray = new MatLease(new Mat());
@@ -94,6 +95,10 @@ public sealed partial class VisionAnalyzer
                             measured = measured with { Motion = TableMotion.Moving, Reason = ObservationReason.Moving };
                         else if (regionCount == 0 || supported != regionCount)
                             measured = measured with { Motion = TableMotion.Unknown, Reason = ObservationReason.InsufficientEvidence, CoverageValid = false };
+                        else if (VerificationStillnessPolicy.CanResolveAsStill(measured with { Vision = vision ?? anchorVision },
+                            double.IsFinite(maximum) && maximum <= ObservationPolicy.MinimumTemplateBallMotionPixels
+                                && regionCount == (vision ?? anchorVision)?.Balls.Length))
+                            measured = measured with { Motion = TableMotion.Still, Reason = ObservationReason.None };
                     }
                 }
                 else { anchorColour = colour; bodies = vision?.Circles ?? []; }
@@ -107,6 +112,6 @@ public sealed partial class VisionAnalyzer
             }
             finally { foreach (var p in points.Concat(target)) p.Dispose(); }
         }
-        public void Dispose() { disposed = true; anchorColour = previousColour = null; bodies = []; }
+        public void Dispose() { disposed = true; anchorColour = previousColour = null; bodies = []; anchorVision = null; }
     }
 }

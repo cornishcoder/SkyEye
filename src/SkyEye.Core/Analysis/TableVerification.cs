@@ -17,6 +17,31 @@ public sealed record VerificationMeasurement(TableMotion Motion, ObservationReas
     public Point? SensitiveTileOrigin { get; init; }
     public Point? PhotometricResidualTileOrigin { get; init; }
 }
+
+/// <summary>Lets complete, stable ball-template evidence absorb weak surface-pixel noise.
+/// Strong motion, obstruction, lighting and calibration signals remain independent blockers.</summary>
+public static class VerificationStillnessPolicy
+{
+    public const double MaximumSupportedWeakEdgeChange = .30;
+    public const double MaximumSupportedPhotometricResidual = .03;
+    public const double MaximumSupportedPerimeterChange = .02;
+
+    public static bool CanResolveAsStill(VerificationMeasurement measurement, bool allDetectedBodiesSupported)
+    {
+        var vision = measurement.Vision;
+        if (!allDetectedBodiesSupported || !measurement.CoverageValid
+            || measurement.Motion != TableMotion.Unknown || measurement.Reason != ObservationReason.InsufficientEvidence
+            || vision is null || vision.Uncertain || vision.Obstructed
+            || vision.Balls.Length is < 1 or > 16)
+            return false;
+
+        return measurement.SensitiveTileChange <= MaximumSupportedWeakEdgeChange
+            && measurement.PhotometricResidualTileChange <= MaximumSupportedPhotometricResidual
+            && measurement.PerimeterChange <= MaximumSupportedPerimeterChange
+            && measurement.IlluminationChange <= 8;
+    }
+}
+
 public interface ITableVerificationAnalyzer
 {
     ITableVerificationWorker CreateVerification(TableCalibration calibration);
