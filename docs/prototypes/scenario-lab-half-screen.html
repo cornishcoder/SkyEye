@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>SkyEye Scenario Lab · compact prototype</title>
+  <style>
+    :root{font:15px/1.5 system-ui,sans-serif;color:#e8f0f1;background:#0b1115;color-scheme:dark;--muted:#a9b7bc;--line:#293a42;--panel:#121d22;--panel2:#0f181d;--mint:#75e0ca;--amber:#ffd08c;--red:#ff827b}
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;padding:14px;max-width:760px;margin-inline:auto}
+    header{display:flex;align-items:center;gap:14px;margin-bottom:11px}.brand{color:var(--mint);font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}h1{font-size:26px;line-height:1.2;margin:3px 0}.badge{margin-left:auto;border:1px solid #347d71;color:var(--mint);border-radius:999px;padding:5px 8px;white-space:nowrap;font-size:10px;font-weight:650;letter-spacing:.04em}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;min-width:0;padding:12px;margin:8px 0}.match{display:flex;align-items:center;justify-content:space-between;gap:12px}.score{font-size:24px;font-weight:750;line-height:1.15;font-variant-numeric:tabular-nums}.match small,.muted{color:var(--muted)}.turn{text-align:right}.turn strong{display:block;font-size:18px;color:var(--mint)}.turn small{font-size:12px}
+    .count-head{display:flex;align-items:baseline;gap:8px}.count-head strong{font-size:25px}.count-head span{color:var(--muted);font-size:13px}.balls{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:8px}.ball{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:7px 5px;text-align:center}.ball span{display:block;color:var(--muted);font-size:11px}.ball strong{display:block;font-size:20px;font-variant-numeric:tabular-nums}.red-dot{color:#ff827b!important}.yellow-dot{color:#ffd447!important}.cue-dot{color:#e8f0f1!important}.black-dot{color:#a9b7bc!important}
+    .pending{border-color:#856c3c;background:linear-gradient(145deg,#241f14,#151d20 68%)}.pending-title{display:flex;align-items:center;gap:8px}.pending-title h2{font-size:15px;margin:0}.pending .badge{border-color:#816b3d;color:var(--amber);padding:2px 7px}.pending p{font-size:13px;margin:5px 0;color:#d7e0df}.choices{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px}.choices button{font:inherit;font-size:12px;line-height:1.25;min-height:44px;padding:6px 8px;border-radius:8px;border:1px solid #40545d;background:#263a41;color:#e8f0f1;cursor:pointer}.choices button:hover,.choices button:focus-visible{border-color:var(--mint);outline:2px solid #75e0ca44}.choices button small{display:block;color:var(--muted);margin-top:3px;font-size:10px}.choices button.cancel{background:#342020;border-color:#654040}
+    h2.section{font-size:14px;margin:0 0 4px}.events{list-style:none;margin:0;padding:0}.events li{display:grid;grid-template-columns:18px 1fr auto;gap:8px;align-items:start;border-top:1px solid #27363d;padding:7px 0}.events li:first-child{border-top:0}.event-mark{width:9px;height:9px;border-radius:50%;background:var(--mint);margin:5px 0 0 3px}.event-mark.pending-mark{background:var(--amber)}.event-copy strong{display:block;font-size:13px}.event-copy small{display:block;color:var(--muted);font-size:11px;margin-top:1px}.event-time{font-size:10px;color:var(--muted);white-space:nowrap;padding-top:2px}
+    details.controls{padding:0}details.controls summary{padding:10px 12px;cursor:pointer;font-weight:650;font-size:13px}details.controls .inside{border-top:1px solid var(--line);padding:9px 12px;color:var(--muted);font-size:12px}.inside button{font:inherit;border:1px solid #40545d;border-radius:8px;background:#263a41;color:#e8f0f1;padding:6px 9px;margin:3px 5px 2px 0;cursor:pointer}
+    @media(max-width:520px){body{padding:10px}.card{padding:10px}.score{font-size:21px}.turn strong{font-size:16px}.balls{gap:5px}.ball{padding:7px 4px}.choices{grid-template-columns:1fr}.choices button{min-height:40px;text-align:left}.badge{white-space:normal;text-align:center;max-width:110px}}
+  </style>
+</head>
+<body>
+  <header>
+    <div><div class="brand">SkyEye · Match</div><h1>Table state</h1></div>
+    <span class="sample">STATIC PREVIEW</span>
+  </header>
+
+  <section class="card match" aria-label="Match score and turn">
+    <div><div class="score" id="score">0–0</div><small>Race to 3 frames</small></div>
+    <div class="turn"><small>At the table</small><strong id="turn">Bob</strong><small id="group">Yellows · in play</small></div>
+  </section>
+
+  <section class="card" aria-labelledby="ball-title">
+    <div class="count-head"><strong id="total">15</strong><span id="ball-title">balls on table</span></div>
+    <div class="balls" aria-label="Ball counts by colour">
+      <div class="ball"><span class="red-dot">Reds</span><strong id="reds">7</strong></div>
+      <div class="ball"><span class="yellow-dot">Yellows</span><strong id="yellows">6</strong></div>
+      <div class="ball"><span class="cue-dot">Cue ball</span><strong id="cue">1</strong></div>
+      <div class="ball"><span class="black-dot">Black</span><strong id="black">1</strong></div>
+    </div>
+  </section>
+
+  <section class="card pending" aria-labelledby="proposal-title">
+    <div class="pending-title"><h2 id="proposal-title">Shot likely · no pot seen</h2><span class="badge">YOUR CHOICE</span></div>
+    <p id="proposal-copy">The balls moved and the count stayed at 15. Choose what happened to update the turn and rules.</p>
+    <div class="choices" id="choices">
+      <button data-choice="legal">Legal miss<small>Next player · reds in play</small></button>
+      <button data-choice="foul">Foul<small>Next player · cue ball in hand</small></button>
+      <button class="cancel" data-choice="unchanged">Not a shot<small>Keep Bob · yellows in play</small></button>
+    </div>
+  </section>
+
+  <section class="card" aria-labelledby="events-title">
+    <h2 class="section" id="events-title">Recent events</h2>
+    <ul class="events" id="events">
+      <li><span class="event-mark pending-mark"></span><div class="event-copy"><strong>Shot likely · no pot seen</strong><small>Settled ball positions changed; total stayed at 15.</small></div><time class="event-time">Now</time></li>
+      <li><span class="event-mark"></span><div class="event-copy"><strong>Yellow potted</strong><small>Yellow count 7 → 6 · Bob continued at the table.</small></div><time class="event-time">Earlier</time></li>
+    </ul>
+  </section>
+
+  <details class="card controls">
+    <summary>Scenario controls</summary>
+    <div class="inside">Kept out of the way while you watch the match. Open to reset or edit a test state.
+      <div><button type="button">Copy live match</button><button type="button">Edit table state</button><button type="button">Reset test</button></div>
+    </div>
+  </details>
+
+  <script>
+    const choices=document.getElementById('choices');
+    choices.addEventListener('click',event=>{
+      const action=event.target.closest('button')?.dataset.choice;if(!action)return;
+      const turn=document.getElementById('turn'),group=document.getElementById('group'),copy=document.getElementById('proposal-copy');
+      const eventList=document.getElementById('events');
+      if(action==='legal'){turn.textContent='Alice';group.textContent='Reds · in play';copy.textContent='Legal no-pot shot recorded. Alice is next, with reds in play.';}
+      else if(action==='foul'){turn.textContent='Alice';group.textContent='Reds · cue ball in hand';copy.textContent='Foul recorded. Alice is next with cue ball in hand and reds in play.';}
+      else {turn.textContent='Bob';group.textContent='Yellows · in play';copy.textContent='No shot recorded. Bob stays at the table; match state is unchanged.';}
+      eventList.firstElementChild.innerHTML=`<span class="event-mark"></span><div class="event-copy"><strong>${action==='legal'?'Legal no-pot shot':action==='foul'?'Foul · no pot':'No shot recorded'}</strong><small>${copy.textContent}</small></div><time class="event-time">Just now</time>`;
+      choices.innerHTML='<span class="muted" style="grid-column:1/-1;font-size:12px">Preview only · this does not change the app or live match.</span>';
+      document.querySelector('.badge').textContent='PREVIEW ONLY';
+    });
+  </script>
+</body>
+</html>

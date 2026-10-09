@@ -17,6 +17,20 @@
     .review-panel{padding:18px;border-color:#856c3c;background:linear-gradient(145deg,#241f14,#151d20 68%)}.review-panel h2{font-size:19px;margin:0 0 5px}.review-panel p{margin:6px 0;color:#d7e0df}.review-kicker{color:var(--amber)!important;font-size:11px;font-weight:750;letter-spacing:.1em;text-transform:uppercase}.review-summary{color:var(--muted)!important}.review-camera{border:1px solid #554a30;border-radius:8px;padding:10px;margin:12px 0}.review-camera summary{cursor:pointer;font-weight:650}.review-camera p{font-size:12px;color:var(--muted)}.review-camera .pill{margin:3px}.review-events{display:flex;flex-wrap:wrap;gap:7px;margin:12px 0}.review-events .pill{border-color:#816b3d;color:#ffe0a9}.review-result{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}.review-result div{border:1px solid #554a30;border-radius:8px;padding:9px}.review-result span{display:block;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.07em}.review-result strong{display:block;margin-top:2px}.review-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;margin-top:14px}.review-actions button{margin:0;height:100%;text-align:left}.review-actions button small{display:block;font-size:11px;font-weight:500;opacity:.85;margin-top:3px}.review-facts{border-top:1px solid #554a30;margin-top:15px;padding-top:12px}.review-facts h3{font-size:14px;margin:0}.review-facts p{color:var(--muted);font-size:12px}.rule-profile{font-size:11px!important;color:var(--muted)!important}.review-empty[hidden]{display:none}
     @media(max-width:850px){.live-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.live-card:last-child{grid-column:1/-1}}
     @media(max-width:520px){.review-panel{padding:14px}.review-result{grid-template-columns:1fr}.review-actions{grid-template-columns:1fr}}
+    /* Compact match-first layout for a half-screen dashboard view. */
+    body{max-width:880px;padding:12px}
+    header{margin-bottom:9px;gap:10px}h1{font-size:22px}
+    .live-panel{padding:10px 12px;margin-bottom:9px}.live-cards{grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:7px}.live-card{padding:6px 8px}.live-card strong{font-size:13px}.live-status{margin-top:5px}
+    .layout{display:flex;flex-direction:column;gap:9px}.controls{position:static;padding:10px 12px;width:100%}.controls h2{margin:0 0 6px}
+    .control-launch{display:grid;grid-template-columns:minmax(160px,1fr) minmax(150px,auto) auto;gap:7px;align-items:center}.control-launch select,.control-launch button{margin:0;min-height:38px}.controls label{margin:7px 0 4px}.control-status{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px}.control-status .hint,.control-status .status{margin:0;min-height:0}.control-status .status{margin-left:auto}
+    .control-group{margin-top:7px;padding-top:6px}.control-group summary{font-size:13px;padding:2px 0}.control-body{padding-top:4px}
+    main{width:100%;gap:9px}.scoreboard,.content{padding:11px 12px}.scoreboard h2,.content h2{margin-bottom:7px}.scoreline{font-size:25px;margin-bottom:1px}.subline{font-size:12px}.cards{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:8px}.metric{padding:6px 8px}.metric strong{font-size:13px}.metric span{font-size:9px}
+    .scenario-matchline{display:flex;align-items:center;justify-content:space-between;gap:12px}.scenario-turn{text-align:right}.scenario-turn span,.scenario-turn small{display:block;color:var(--muted);font-size:11px}.scenario-turn strong{display:block;color:var(--mint);font-size:17px;line-height:1.2}.scoreline{font-size:24px}.subline{margin:3px 0 0;font-size:11px}
+    .count-head{display:flex;align-items:baseline;gap:6px;margin-top:9px}.count-head strong{font-size:17px}.count-head span{font-size:12px;color:var(--muted)}.colour-counts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin-top:5px}.colour-count{border:1px solid var(--line);border-radius:8px;background:var(--panel2);padding:5px 7px;text-align:center}.colour-count span{display:block;color:var(--muted);font-size:10px}.colour-count strong{display:block;font-size:16px;font-variant-numeric:tabular-nums}.colour-red{color:#ff827b!important}.colour-yellow{color:#ffd447!important}.colour-cue{color:#e8f0f1!important}.colour-black{color:#a9b7bc!important}
+    .events-list{list-style:none;padding:0;margin:0}.events-list li{display:grid;grid-template-columns:10px minmax(0,1fr) auto;gap:8px;align-items:start;border-top:1px solid #27363d;padding:6px 0}.events-list li:first-child{border-top:0}.event-dot{width:7px;height:7px;margin:5px 0 0 1px;border-radius:50%;background:var(--mint)}.event-copy strong{display:block;font-size:12px}.event-copy small{display:block;font-size:10px;color:var(--muted)}.event-time{font-size:10px;color:var(--muted);white-space:nowrap}
+    .detail-section{padding:0 11px}.detail-section>summary{padding:8px 0;cursor:pointer;font-weight:650;font-size:12px}.detail-section[open]{padding-bottom:8px}.detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.detail-grid .content{padding:8px 0}.detail-grid .scroll{max-height:240px}.detail-grid .two-col{gap:8px}
+    @media(max-width:850px){body{padding:10px}.cards{grid-template-columns:repeat(2,minmax(0,1fr))}.layout{grid-template-columns:1fr}.control-launch{grid-template-columns:minmax(0,1fr) auto}.control-launch select{grid-column:1/-1}.detail-grid{grid-template-columns:1fr}}
+    @media(max-width:520px){.live-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.live-card:last-child{grid-column:1/-1}.control-launch{grid-template-columns:1fr}.control-launch select{grid-column:auto}.control-status .status{margin-left:0}.colour-counts{gap:4px}.colour-count{padding:5px 3px}.colour-count span{font-size:9px}.colour-count strong{font-size:14px}.detail-grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -29,28 +43,27 @@
     <div class="live-cards">
       <div class="live-card"><span>Score</span><strong id="live-score">—</strong></div>
       <div class="live-card"><span>Turn</span><strong id="live-turn">—</strong></div>
-      <div class="live-card"><span>Frame</span><strong id="live-frame">—</strong></div>
-      <div class="live-card"><span>Vision</span><strong id="live-detected-count">—</strong></div>
-      <div class="live-card" title="This counts located identity records, not the detector’s physical ball count."><span>Identified on table</span><strong id="live-game-count">—</strong></div>
+      <div class="live-card"><span>On-table counts</span><strong id="live-game-count">—</strong></div>
     </div>
     <p id="live-status" class="live-status" role="status">Waiting for live state…</p>
   </section>
   <div class="layout">
     <section class="panel controls" aria-labelledby="scenario-controls-title">
-      <h2 id="scenario-controls-title">Scenario controls</h2>
-      <label for="preset">New test starts from</label>
-      <select id="preset">
-        <option value="live-match-copy" selected>Current live match</option>
-        <option value="empty">Blank</option>
-        <option value="clean-rack">Clean rack · 16 balls</option>
-        <option value="mid-match">Mid-match · 1–0</option>
-      </select>
-      <button id="reset" type="button">Copy live &amp; review camera</button>
-      <button id="stop-camera-review" class="secondary" type="button" hidden>Stop review</button>
-      <p id="camera-review-status" class="hint" role="status">Review off</p>
-      <p class="hint">Baseline review needs 3 steady frames.</p>
-      <div id="message" class="status" role="status" aria-live="polite">Connecting to the Pixel…</div>
-      <details class="control-group" open>
+      <div class="control-launch">
+        <select id="preset" aria-label="Scenario starting state">
+          <option value="live-match-copy" selected>Current live match</option>
+          <option value="empty">Blank</option>
+          <option value="clean-rack">Clean rack · 16 balls</option>
+          <option value="mid-match">Mid-match · 1–0</option>
+        </select>
+        <button id="reset" type="button">Copy live match</button>
+        <button id="stop-camera-review" class="secondary" type="button" hidden>Stop review</button>
+      </div>
+      <div class="control-status"><span id="camera-review-status" class="hint" role="status">Review off</span><span id="message" class="status" role="status" aria-live="polite">Connecting…</span></div>
+      <details class="control-group">
+        <summary id="scenario-controls-title">More scenario controls</summary>
+        <div class="control-body">
+      <details class="control-group">
         <summary>Match setup</summary>
         <div class="control-body">
           <div class="field-grid">
@@ -111,6 +124,8 @@
           <button type="button" data-command="shot-end">End shot</button>
         </div>
       </details>
+        </div>
+      </details>
     </section>
 
     <main>
@@ -118,42 +133,24 @@
         <div id="review-content"></div>
       </section>
       <section class="panel scoreboard" aria-labelledby="match-title">
-        <h2 id="match-title">Scenario match</h2>
-        <p class="scoreline" id="score">No match started</p>
-        <p class="subline" id="match-status">Start from a preset to load a scenario.</p>
-        <div class="cards">
-          <div class="metric"><span>Target</span><strong id="target">—</strong></div>
-          <div class="metric"><span>Current player</span><strong id="turn">—</strong></div>
-          <div class="metric"><span>Frame</span><strong id="frame">—</strong></div>
-          <div class="metric"><span>Game state</span><strong id="phase">—</strong></div>
-        </div>
+        <h2 id="match-title">Scenario state</h2>
+        <div class="scenario-matchline"><div><p class="scoreline" id="score">No match</p><p class="subline" id="match-status">Choose a starting state.</p></div><div class="scenario-turn"><span>At the table</span><strong id="turn">—</strong><small id="active-group">—</small><small>Frame <b id="frame">—</b></small></div></div>
+        <div class="count-head"><strong id="scenario-total-balls">—</strong><span>balls on table</span></div>
+        <div id="scenario-ball-counts" class="colour-counts" aria-label="Scenario ball counts by colour"></div>
       </section>
-
-      <div class="two-col">
-        <section class="panel content" aria-labelledby="players-title">
-          <h2 id="players-title">Players and score</h2>
-          <div id="players" class="players"><div class="empty">No players in this scenario.</div></div>
-        </section>
-        <section class="panel content" aria-labelledby="table-title">
-          <h2 id="table-title">Table and shot state</h2>
-          <div id="table-state" class="rows"><div class="empty">No table state yet.</div></div>
-        </section>
-      </div>
-
-      <section class="panel content" aria-labelledby="balls-title">
-        <h2 id="balls-title">Ball inventory</h2>
-        <div class="scroll"><table class="ball-table"><thead><tr><th>Ball</th><th>Colour</th><th>Presence</th><th>Position</th><th>Evidence</th><th>Actions</th></tr></thead><tbody id="balls"><tr><td colspan="6" class="empty">No balls in this scenario.</td></tr></tbody></table></div>
-      </section>
-
-      <section class="panel content" aria-labelledby="frames-title">
-        <h2 id="frames-title">Frame ledger</h2>
-        <div class="scroll"><table class="event-table"><thead><tr><th>Frame</th><th>Result</th><th>Current</th></tr></thead><tbody id="frames"><tr><td colspan="3" class="empty">No frames yet.</td></tr></tbody></table></div>
-      </section>
-
       <section class="panel content" aria-labelledby="events-title">
-        <h2 id="events-title">Scenario history <span class="pill">TEST · <span id="event-count">0</span></span></h2>
-        <div class="scroll"><table class="event-table"><thead><tr><th>#</th><th>Time</th><th>Frame</th><th>Input</th><th>Origin</th></tr></thead><tbody id="events"><tr><td colspan="5" class="empty">No scenario events yet.</td></tr></tbody></table></div>
+        <h2 id="events-title">Recent events <span class="pill"><span id="event-count">0</span></span></h2>
+        <ul class="events-list" id="events"><li class="empty">No scenario events yet.</li></ul>
       </section>
+      <details class="panel detail-section">
+        <summary>More state details</summary>
+        <div class="detail-grid">
+          <section class="content" aria-labelledby="players-title"><h2 id="players-title">Players</h2><div id="players" class="players"><div class="empty">No players in this scenario.</div></div></section>
+          <section class="content" aria-labelledby="table-title"><h2 id="table-title">Table and shot</h2><div id="table-state" class="rows"><div class="empty">No table state yet.</div></div></section>
+          <section class="content" aria-labelledby="balls-title"><h2 id="balls-title">Ball details</h2><div class="scroll"><table class="ball-table"><thead><tr><th>Ball</th><th>Colour</th><th>Presence</th><th>Position</th><th>Evidence</th><th>Actions</th></tr></thead><tbody id="balls"><tr><td colspan="6" class="empty">No balls in this scenario.</td></tr></tbody></table></div></section>
+          <section class="content" aria-labelledby="frames-title"><h2 id="frames-title">Frames</h2><div class="scroll"><table class="event-table"><thead><tr><th>Frame</th><th>Result</th><th>Current</th></tr></thead><tbody id="frames"><tr><td colspan="3" class="empty">No frames yet.</td></tr></tbody></table></div></section>
+        </div>
+      </details>
     </main>
   </div>
 <script>
@@ -164,6 +161,24 @@
   const enumLabel=(value,values)=>typeof value==='number'?(values[value]||`Value ${value}`):label(value);
   const person=id=>(snapshot?.match?.players||[]).find(p=>p.id===id)?.name||id||'—';
   const setRows=(id,rows)=>$(id).innerHTML=rows.map(([name,value])=>`<div class="row"><span>${esc(name)}</span><span>${esc(value)}</span></div>`).join('');
+  const colourKinds=[{name:'Reds',key:'Red',colour:1,className:'colour-red'},{name:'Yellows',key:'Yellow',colour:2,className:'colour-yellow'},{name:'Cue ball',key:'Cue',colour:0,className:'colour-cue'},{name:'Black',key:'Black',colour:3,className:'colour-black'}];
+  function tableCounts(table){
+    const counts=table?.groupCounts||{},balls=Object.values(table?.balls||{});
+    if(!Object.keys(counts).length&&!balls.length)return null;
+    return colourKinds.map(kind=>{
+      const fact=counts[kind.key]||counts[String(kind.colour)];
+      if(Number.isInteger(fact?.value))return {...kind,value:fact.value};
+      const members=balls.filter(ball=>ball.colour===kind.colour);
+      return {...kind,value:members.some(ball=>[0,2].includes(ball.presence?.value))?'check':members.filter(ball=>ball.presence?.value===1).length};
+    });
+  }
+  function renderCounts(targetId,totalId,table){
+    const counts=tableCounts(table);
+    if(!counts){$(targetId).innerHTML='';$(totalId).textContent='—';return;}
+    const total=counts.every(item=>Number.isInteger(item.value))?counts.reduce((sum,item)=>sum+item.value,0):null;
+    $(totalId).textContent=total??'Check';
+    $(targetId).innerHTML=counts.map(item=>`<div class="colour-count"><span class="${item.className}">${esc(item.name)}</span><strong>${Number.isInteger(item.value)?item.value:'?'}</strong></div>`).join('');
+  }
   function render(data){
     snapshot=data;const m=data.match||{},g=data.game||{},f=g.frame||{},t=g.table||{},shot=g.shot;
     $('event-count').textContent=data.eventCount??0;
@@ -171,27 +186,30 @@
     $('camera-review-status').textContent=compactCameraStatus(cameraReview.status,cameraReview.active);
     $('camera-review-status').title=cameraReview.status||'';
     $('stop-camera-review').hidden=!cameraReview.active;
-    $('score').textContent=m.score||'No match';$('match-status').textContent=m.status||data.error||'Choose a starting state.';
-    $('target').textContent=m.id?m.target:'—';$('turn').textContent=m.currentPlayer?person(m.currentPlayer):'—';
+    $('score').textContent=m.score||'No match';
+    $('turn').textContent=m.currentPlayer?person(m.currentPlayer):'—';
+    const currentPlayer=(m.players||[]).find(p=>p.id===m.currentPlayer),activeGroup=currentPlayer?.group;
+    $('active-group').textContent=activeGroup?label(activeGroup):'Open table';
     $('frame').textContent=m.frameId?(m.frames||[]).find(x=>x.current)?.number??m.frameId:'—';
-    $('phase').textContent=m.finished?'Finished':m.playingFrame?'In progress':m.id?'Between frames':'No match';
+    const phase=m.finished?'Match finished':m.playingFrame?'Frame in progress':m.id?'Between frames':'Choose a starting state';
+    $('match-status').textContent=data.error||phase;
+    renderCounts('scenario-ball-counts','scenario-total-balls',t);
     $('players').innerHTML=(m.players||[]).length?m.players.map(p=>`<div class="player"><strong>${esc(p.name)} <span class="pill">${esc(p.group||'open table')}</span></strong><span>${p.score} frame${p.score===1?'':'s'} won</span></div>`).join(''):'<div class="empty">No players in this scenario.</div>';
     const selectedPlayer=$('player-select').value,playerOptions=m.players||[];
     $('player-select').innerHTML=playerOptions.map(p=>`<option value="${esc(p.id)}">${esc(p.name)}</option>`).join('')||'<option value="p1">Player one</option><option value="p2">Player two</option>';
     $('player-select').value=playerOptions.some(p=>p.id===selectedPlayer)?selectedPlayer:(m.currentPlayer||playerOptions[0]?.id||'p1');
     const shotText=shot?`${shot.ended?'Ended':'Active'} · ${shot.resolved?'resolved':'unresolved'} · ${Object.keys(shot.approaches||{}).length} approaches`:'None';
     const tableStatus=t.uncertain?'Uncertain':t.lastSettled?'Settled':'Not settled';
-    const inventory=t.groupCounts||{},countNames={0:'Cue',1:'Red',2:'Yellow',3:'Black'},ballsByColour=colour=>Object.values(t.balls||{}).filter(ball=>ball.colour===colour);
-    const countFor=colour=>{const fact=inventory[countNames[colour]]||inventory[String(colour)];if(Number.isInteger(fact?.value))return fact.value;const members=ballsByColour(colour);return members.some(ball=>[0,2].includes(ball.presence?.value))?'check':members.filter(ball=>ball.presence?.value===1).length};
-    const countText=`Red ${countFor(1)} · Yellow ${countFor(2)} · Cue ball ${countFor(0)} · Black ${countFor(3)}`;
-    setRows('table-state',[["Motion",enumLabel(t.motion,['Unknown','Moving','Settled'])],['Table',tableStatus],['On-table counts',countText],['Ball identities',Object.keys(t.balls||{}).length],['Shot',shotText],['Visit',f.visit??'—'],['Foul',f.foul?.value==null?'—':String(f.foul.value)]]);
+    const counts=tableCounts(t),countText=counts?counts.map(item=>`${item.name} ${Number.isInteger(item.value)?item.value:'?'}`).join(' · '):'—';
+    setRows('table-state',[["Motion",enumLabel(t.motion,['Unknown','Moving','Settled'])],['Table',tableStatus],['On-table counts',countText],['Shot',shotText],['Visit',f.visit??'—'],['Foul',f.foul?.value==null?'—':String(f.foul.value)]]);
     const balls=Object.values(t.balls||{}).sort((a,b)=>String(a.id).localeCompare(String(b.id)));
     $('balls').innerHTML=balls.length?balls.map(b=>{const p=b.position?`${Number(b.position.x).toFixed(3)}, ${Number(b.position.y).toFixed(3)}`:'—';const fact=b.presence||{};return `<tr><td>${esc(b.id)}</td><td>${esc(enumLabel(b.colour,['Cue ball','Red','Yellow','Black','Unknown']))}</td><td>${esc(enumLabel(fact.value,['Unknown','On table','Missing','Potted']))}</td><td>${p}</td><td><span class="pill">${esc(enumLabel(fact.source,['Observed','Inferred','Player confirmed','Player corrected']))}</span>${fact.confidence==null?'':` ${Math.round(fact.confidence*100)}%`}</td><td><button class="secondary row-action" type="button" data-edit-ball="${esc(b.id)}">Edit</button>${fact.value===1?`<button class="secondary row-action" type="button" data-command="ball-missing" data-ball-id="${esc(b.id)}">Mark missing</button>`:''}</td></tr>`}).join(''):'<tr><td colspan="6" class="empty">No balls in this scenario.</td></tr>';
     const previousBall=$('approach-ball').value,approachBalls=Object.values(shot?.before||t.balls||{});
     $('approach-ball').innerHTML=approachBalls.map(b=>`<option value="${esc(b.id)}">${esc(b.id)}</option>`).join('')||'<option value="">No balls yet</option>';
     if(approachBalls.some(b=>b.id===previousBall))$('approach-ball').value=previousBall;
     $('frames').innerHTML=(m.frames||[]).length?m.frames.map(frame=>`<tr><td>${frame.number}</td><td>${esc(frame.result)}</td><td>${frame.current?'Yes':'No'}</td></tr>`).join(''):'<tr><td colspan="3" class="empty">No frames yet.</td></tr>';
-    $('events').innerHTML=(data.events||[]).length?data.events.map(e=>`<tr><td>${e.sequence}</td><td>${new Date(e.at).toLocaleTimeString()}</td><td>${esc(e.frameId)}</td><td>${esc(label(e.event))}</td><td><span class="pill">SCENARIO</span> ${esc(label(e.provenance))}</td></tr>`).join(''):'<tr><td colspan="5" class="empty">No scenario events yet.</td></tr>';
+    const recentEvents=(data.events||[]).slice(0,8);
+    $('events').innerHTML=recentEvents.length?recentEvents.map(e=>{const at=new Date(e.at),time=Number.isNaN(at.valueOf())?'':at.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});return `<li><span class="event-dot"></span><div class="event-copy"><strong>${esc(label(e.event))}</strong><small>${esc(label(e.provenance))}</small></div><time class="event-time">${esc(time)}</time></li>`}).join(''):'<li class="empty">No scenario events yet.</li>';
     renderReview(data);updateControls();
   }
   function updateControls(){
@@ -215,7 +233,7 @@
     }
     for(const button of document.querySelectorAll('[data-review-choice],[data-review-evaluate]'))button.disabled=busy;
     const copyLive=$('preset').value==='live-match-copy';
-    $('reset').textContent=copyLive?'Copy live & review camera':'Reset test';
+    $('reset').textContent=copyLive?'Copy live match':'Start scenario';
     $('reset').disabled=busy||!snapshot||(copyLive&&(!liveSnapshot?.frame||!liveSnapshot?.match?.playingFrame||!!snapshot?.pendingProposal));
     $('stop-camera-review').disabled=busy;
   }
@@ -260,17 +278,16 @@
   }
   function renderLive(data){
     liveSnapshot=data;
-    const m=data.match||{},g=data.game||{},t=g.table||{},det=data.detection,balls=Object.values(t.balls||{});
-    const current=balls.filter(ball=>ball.presence?.value===1);
+    const m=data.match||{},g=data.game||{},t=g.table||{},det=data.detection;
     $('live-score').textContent=m.score||'No match';
     $('live-turn').textContent=m.currentPlayer?(m.players||[]).find(player=>player.id===m.currentPlayer)?.name||m.currentPlayer:'—';
-    $('live-frame').textContent=m.frameId?((m.frames||[]).find(item=>item.current)?.number??m.frameId):'—';
-    $('live-detected-count').textContent=det?`${(det.balls||[]).length}${det.uncertain?' · check':''}`:'Waiting';
-    $('live-game-count').textContent=balls.length?`${current.length} of ${balls.length} IDs`:'—';
-    const frame=data.frame?`Frame ${data.frame.sequence} · ${Math.round(data.frame.frameAgeMs)} ms`:'No camera frame';
+    const liveCounts=tableCounts(t);
+    $('live-game-count').textContent=liveCounts?liveCounts.map(item=>`${item.name==='Cue ball'?'Cue':item.name==='Yellows'?'Y':item.name==='Reds'?'R':item.name} ${Number.isInteger(item.value)?item.value:'?'}`).join(' · '):'—';
+    const detected=det?`${(det.balls||[]).length} detected${det.uncertain?' · check':''}`:'No detection';
+    const frame=data.frame?`Frame ${data.frame.sequence}`:'No camera frame';
     const gameStatus=data.gameTableCurrent?'Current':'Needs review';
     const reason=det?.uncertain?' · detector uncertain':data.gameError?' · vision error':'';
-    $('live-status').textContent=`${gameStatus}${reason} · ${frame}`;
+    $('live-status').textContent=`${gameStatus} · ${detected} · ${frame}${reason}`;
     $('live-status').title=data.gameError||'';
     $('live-status').classList.toggle('alert',!!det?.uncertain||!data.gameTableCurrent);
     updateControls();

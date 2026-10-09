@@ -31,10 +31,8 @@ public sealed partial class ShellSession : IDisposable
     readonly ControlChrome chrome;
     bool active, disposed;
     TableSessionMode sessionMode;
-#if !SKYEYE_HYBRID_PRODUCTION
-    Guid? developmentDashboardAttemptedConnection;
-    int developmentDashboardStartPending;
-#endif
+    Guid? dashboardAttemptedConnection;
+    int dashboardStartPending;
     public UIAgent<ShellViewState> Agent { get; }
     public bool SheetOpen { get; private set; }
     public TableSessionMode SessionMode => sessionMode;
@@ -252,9 +250,7 @@ public sealed partial class ShellSession : IDisposable
     {
         if (active || disposed) return;
         active = true; foreground = new();
-#if !SKYEYE_HYBRID_PRODUCTION
         _ = StartVisionDashboardAsync();
-#endif
         chrome.Reveal();
         if (selection.Kind is ViewingSource.Preview or ViewingSource.LocalClip) PlayCurrent();
         RefreshLocalClips(); RefreshKeyStatus();
@@ -326,9 +322,7 @@ public sealed partial class ShellSession : IDisposable
         if (tvLive.Request is not null && tvLive.Connection != state.ConnectionId) { tvLive.Clear(); cast?.Configure("", true); }
         InvalidateClipCatalog(state.ConnectionId);
         ObserveTable();
-#if !SKYEYE_HYBRID_PRODUCTION
-        TryStartDevelopmentDashboard();
-#endif
+        TryStartDashboardWhenReady();
         EnsurePocketLoop();
         EnsureShotLoop();
         RenderShotScenes();
@@ -344,24 +338,22 @@ public sealed partial class ShellSession : IDisposable
         Agent.State.Value = new(app.State.Version, camera, Playing) { Connection = state }; Changed?.Invoke();
     }
 
-#if !SKYEYE_HYBRID_PRODUCTION
-    void TryStartDevelopmentDashboard()
+    void TryStartDashboardWhenReady()
     {
         var connectionId = app.State.Camera.ConnectionId;
-        if (connectionId == Guid.Empty || developmentDashboardAttemptedConnection == connectionId
+        if (connectionId == Guid.Empty || dashboardAttemptedConnection == connectionId
             || !CanOpenVisionDashboard || VisionDashboardActive
-            || Interlocked.CompareExchange(ref developmentDashboardStartPending, 1, 0) != 0) return;
+            || Interlocked.CompareExchange(ref dashboardStartPending, 1, 0) != 0) return;
 
-        developmentDashboardAttemptedConnection = connectionId;
+        dashboardAttemptedConnection = connectionId;
         _ = StartAsync();
 
         async Task StartAsync()
         {
             try { await StartVisionDashboardAsync(); }
-            finally { Interlocked.Exchange(ref developmentDashboardStartPending, 0); }
+            finally { Interlocked.Exchange(ref dashboardStartPending, 0); }
         }
     }
-#endif
 
     public void Dispose()
     {
