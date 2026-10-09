@@ -1,6 +1,6 @@
 # Game-style shot HUD and cue-ball outcome roadmap
 
-6 October 2026; priority cross-reference updated 7 October. Planning addition to the [glow-up roadmap](glow-up-plan.md), with status in [progress](glow-up-progress.md). V01-V04 remain separately scoped HUD missions; this documentation update claims no implementation or new device acceptance. [Sky voice A02-A05](sky-voice-priority-plan.md) is now next, followed by remaining O-series evidence work. The [history/practice/replay plan](analytics-practice-replay-plan.md) reuses V04 comparison and the same historical scene; no HUD work is started here.
+Updated 9 October 2026. The [settled-state architecture](temporal-tracking-design.md) supersedes earlier tracking dependencies. V01/V02 retain their recorded delivery; V03/V04 and the dependency changes here remain planned. O03-O05 maintain core game outcomes, and O10 supplies optional post-shot trajectories for rich replay/coaching. This documentation update adds no runtime or device acceptance.
 
 ## Product intent
 
@@ -14,12 +14,12 @@ The cue route before impact, projected route after impact and estimated resting 
 |---|---|---|
 | V01 — Game-Style Shot HUD | Existing T01/T02 scene and commands, T13/T14 independent presentation/rendering, valid current shot candidates; T11/T12 history/export integration | Geometry-only presentation and semantic contract extension. No new tracking or physics; no dependency on completion of O01-O05 |
 | V02 — Simple Cue-Ball Projection | V01 contract plus trustworthy calibrated collision geometry | Explicitly assumed post-contact stun/tangent direction. No realistic pace/spin/friction prediction; finish distance/region only when defensible inputs exist |
-| V03 — Physics-Backed Cue-Ball Outcome | V02 contract and validated PH01 capabilities; PH01 retains its O04/O05 evidence dependencies | Adapter/presentation for SkyEye.Physics results. No second physics engine; capability-specific validation before pace/spin/cushion/finish claims |
-| V04 — Predicted vs Actual | V02 or V03 frozen pre-shot prediction plus trustworthy O04/O05 trajectories, shot identity and timing | Comparison presentation and evidence-grounded C02 explanations. O-series owns tracking; PH02 owns fitting, PH03 owns counterfactuals/reconstructed replay |
+| V03 — Physics-Backed Cue-Ball Outcome | V02 contract and validated PH01 capabilities; PH01 retains measured-model/capability gates; O10 informs later fitting | Adapter/presentation for SkyEye.Physics results. No second physics engine; capability-specific validation before pace/spin/cushion/finish claims |
+| V04 — Predicted vs Actual | V02 or V03 frozen pre-shot prediction plus a trustworthy O10 post-shot replay model, accepted shot identity and source alignment | Comparison presentation and evidence-grounded C02 explanations. O10 owns asynchronous reconstruction; PH02 owns fitting, PH03 owns counterfactuals/reconstructed replay |
 
 R01's Match & Table State core is delivered and remains authoritative for frame/turn/ball identity and corrections. Where available, selections use its current legal-target/state versions; the geometry-only branch adds no gate to basic R01/manual match delivery. Predictions never become observed game events or rules decisions.
 
-V01/V02 may be scheduled alongside appropriate presentation work because current candidate geometry already exists. They do not displace O01-O05, close T13/T14's outstanding physical acceptance, or require every TV/endurance gate before offline design/fixtures. Live HUD acceptance must verify the relevant source, projection, clear/expiry and media-resource gates. Accurate observed comparison requires the O-series evidence; accurate prediction remains PH-owned.
+V01/V02 may be scheduled alongside appropriate presentation work because current candidate geometry already exists. They do not displace O01-O05, close T13/T14's outstanding physical acceptance, or require every TV/endurance gate before offline design/fixtures. Live HUD acceptance must verify the relevant source, projection, clear/expiry and media-resource gates. Accurate observed comparison requires O10 evidence; accurate prediction remains PH-owned.
 
 ## Extend one semantic scene
 
@@ -42,7 +42,7 @@ Planned vocabulary, independently selectable where useful:
 
 Do not require every element in the first implementation. Unsupported/unavailable elements are absent, and command receipts/Sky context explain why. No fabricated pace, spin, cushion bounce, confidence percentage or finish zone to fill an otherwise empty HUD.
 
-The planned prediction payload carries shot/candidate identity, frame/table/source/calibration versions, source timestamp/clock, prediction creation time, model/version, input assumptions, supported capabilities, path roles and uncertainty/unsupported reasons. Distinguish **Geometric**, **Physics-predicted** and **Observed** visibly; retain PH02's additional **Inferred/Simulated** labels for fits and counterfactuals. Confidence metadata states whether it is a heuristic, measurement bound or calibrated probability. A cosmetic fade must not imply calibrated statistical accuracy.
+The planned prediction payload carries shot/candidate identity, frame/table/source/calibration versions, source timestamp/clock, prediction creation time, model/version, input assumptions, supported capabilities, path roles and uncertainty/unsupported reasons. Distinguish **Geometric**, **Physics-predicted** and **Observed** visibly; retain PH02/O10's additional **Inferred/Reconstructed/Simulated** enrichment labels (not assumed to be existing GameState enum values) for fits and counterfactuals. Confidence metadata states whether it is a heuristic, measurement bound or calibrated probability. A cosmetic fade must not imply calibrated statistical accuracy.
 
 Store semantic geometry with declared coordinate space/units and calibration version. Current `TableScene` uses normalized original-image points: project table-space candidate/physics geometry into that existing render contract with the historical/current transform as appropriate. Do not put SI-unit physics positions directly into normalized image fields. Corridors, paths, markers and ellipse boundaries follow the same perspective correction, while text stays upright. Keep scene size, lifetime and resource bounds.
 
@@ -74,9 +74,9 @@ Show input pace/spin as declared, assumed or fitted, and disclose table/model ca
 
 ### V04 — Predicted vs Actual
 
-Freeze the selected prediction, inputs, model/version, source/time and pre-shot scene before the shot. Compare against source-aligned O04/O05 observed cue trajectory, contact/cushion evidence and finish region after trustworthy settled reconciliation. Do not recompute today's prediction and present it as what SkyEye predicted then. Preserve both versions across review/correction; gaps, identity ambiguity and clock uncertainty remain visible.
+Freeze the selected prediction, inputs, model/version, source/time and pre-shot scene before the shot. Compare against source-aligned O10 observed/reconstructed cue trajectory, contact/cushion evidence and finish region after trustworthy settled reconciliation. Do not recompute today's prediction and present it as what SkyEye predicted then. Preserve both versions across review/correction; gaps, identity ambiguity and clock uncertainty remain visible.
 
-Use distinct predicted/observed styles and compare only supported quantities. C02 may explain thinner contact or extra travel only when measured evidence supports it; do not produce a “20 cm further” claim without calibrated units and adequate coverage. PH02 supplies fitted explanations with residuals; PH03 supplies later what-if scenarios. A supported geometric prediction can be compared before full physics fitting exists, with its assumptions still shown. No observed-versus-predicted implementation precedes trustworthy temporal tracking.
+Use distinct predicted/observed styles and compare only supported quantities. C02 may explain thinner contact or extra travel only when measured evidence supports it; do not produce a “20 cm further” claim without calibrated units and adequate coverage. PH02 supplies fitted explanations with residuals; PH03 supplies later what-if scenarios. A supported geometric prediction can be compared before full physics fitting exists, with its assumptions still shown. Trajectory comparison depends on measured O10 reconstruction quality. Missing/partial reconstruction leaves comparison and C02 coaching partial or unavailable; it never blocks accepted match state or rules review. Two settled layouts alone do not establish contact order or a path.
 
 ## Phone, TV and Sky interactions
 

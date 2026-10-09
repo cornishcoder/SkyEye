@@ -1,5 +1,7 @@
 # SkyEye — Match & Table State Epic
 
+**9 October architectural cross-reference:** preserve this delivered R01 brief/plan and its original pocket-approach example as historical scope. Future O03/O04/O05 work uses [settled-state reconciliation](temporal-tracking-design.md), with a planned additive typed group/count outcome seam where existing per-ball/pocket inputs are insufficient. R01 remains canonical; no replacement, arbitrary physical identity assignment or fabricated pocket evidence. Trajectories move to optional O10 enrichment. This note changes no delivered acceptance claim.
+
 Create a new **Match & Table State** epic and move the existing **R01** out of the Replay epic into this new epic as its first mission.
 
 Do not treat this as replay functionality. Replay, coaching, scoring, rules, shot reconstruction and future 3D simulation should all become downstream consumers of the state/event model established here.

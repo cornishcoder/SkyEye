@@ -1,5 +1,7 @@
 # R01 — Establish the Match & Table State Core
 
+**9 October architectural cross-reference:** preserve this delivered R01 brief/plan and its original pocket-approach example as historical scope. Future O03/O04/O05 work uses [settled-state reconciliation](temporal-tracking-design.md), with a planned additive typed group/count outcome seam where existing per-ball/pocket inputs are insufficient. R01 remains canonical; no replacement, arbitrary physical identity assignment or fabricated pocket evidence. Trajectories move to optional O10 enrichment. This note changes no delivered acceptance claim.
+
 6 October 2026 · Match & Table State epic · R01.01-R01.07 implemented and verified. See the [completion report](r01-match-table-state-report.md) for actual APIs, device evidence and intentional limits.
 
 The [user brief](r01-match-table-state-brief.md) is canonical. This plan makes it deliverable in small checked chunks. R01 establishes an authoritative understanding of a game unfolding over time. Replay, rules, scoring, coaching, shot reconstruction and future 3D simulation are consumers of that model.
@@ -57,7 +59,7 @@ Use the existing executable-check style or a small dedicated pure .NET test proj
 
 **Persistence and reduction:** admission/interpretation produces events; a pure reducer produces immutable canonical state. Persist accepted events before publishing an acknowledged durable transition. Recover by reducing the same history; report invalid storage rather than inventing a score. Revalidate live table freshness at the application boundary after restart. No domain clock, disk or networking dependency is needed.
 
-## Required vertical story
+## Original delivered vertical story
 
 1. Start a two-player frame with Rich current and an open table.
 2. Establish a timestamped settled layout with known yellow Y3 and pocket coordinates.
@@ -71,7 +73,7 @@ Also demonstrate an uncertain machine group fact (for example Yellow/Inferred/0.
 
 ## Downstream work and completion
 
-G01-G05 extend match management, scoring, durable history and user-facing undo using this model. O01-O05 supply validated motion/tracking/contact evidence. R04 retains the previous R01 rules-outcome intent; R02 retains black/frame checks and history corrections, and R03 retains quiet-mode hints. Rules use the same correction/reduction path. T-series replay/media retains its IDs and scope; future shot reconstruction/3D replay consumes events plus source-referenced evidence. C-series coaching/statistics consumes corrected history.
+G01-G05 extend match management, scoring, durable history and user-facing undo using this model. O01-O05 now plan activity/settlement and reviewed count/presence physical outcomes; O10 separately supplies optional trajectory/contact enrichment. R04 retains the previous R01 rules-outcome intent; R02 retains black/frame checks and history corrections, and R03 retains quiet-mode hints. Rules use the same correction/reduction path. T-series replay/media retains its IDs and scope; future shot reconstruction/3D replay consumes events plus source-referenced evidence. C-series coaching/statistics consumes corrected history.
 
 R01 needs no API key. A02-A05 remain deferred. The new priority does not close outstanding T13/T14 acceptance or introduce timer-driven perception. Full rules, first-contact adjudication, exhaustive detectors, conversational correction parsing, score HUD/statistics, replay/3D and physics remain deferred.
 

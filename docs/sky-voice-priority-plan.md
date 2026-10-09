@@ -1,5 +1,7 @@
 # Sky voice assistant — bounded delivery plan
 
+**Current dependency update — 9 October:** core automatic game understanding follows O03 activity/settlement → O04 settled-state group/count proposals → O05 reviewed canonical admission → R04/R02 supported rules. Sky uses the same typed review questions and correction commands as G06, with unavailable first-contact/legality facts left unresolved. O10 trajectories are optional for replay/coaching and do not gate these game conversations. Earlier voice delivery and acceptance records remain at their documented scope. [Current roadmap](glow-up-plan.md).
+
 8 October 2026. Delivery and acceptance plan linked from the [roadmap](glow-up-plan.md) and [progress](glow-up-progress.md). The user reported completing API-key setup and requested Sky voice on 7 October, superseding the 4 October voice deferral. The current P0 is O08/O09 detector reliability; voice controls and declared-match tools can proceed independently, while dependable spoken shot-advice parity resumes after the held-out and safety gates.
 
 ## Current implementation status — 8 October 2026
@@ -40,4 +42,4 @@ Keep a compact authoritative state/freshness snapshot and typed tool results. Re
 
 After their consumers exist, [history missions](analytics-practice-replay-plan.md) extend this catalogue with C03 statistics, SR01/SR02 search/playlists, PR drill setup/attempts, C04 practice planning and PH04 Shot Lab loading. Sky translates natural language to deterministic structured queries/actions; it does not infer performance from conversation memory or analyse whole videos itself. Unavailable evidence/tools return an explicit limitation.
 
-After the first usable voice slice, return to O02.05 real-source acceptance with O01 timed-shot corpus/holdout work, followed by O03-O05. AN01/C03/SR01 declared-data slices can proceed without perfect tracking or physics. Existing T13/T14 physical acceptance remains open and is addressed when required by the selected voice/media slice.
+The current observation priority is O01 core-match corpus and relevant O02.05/O08 evidence, followed by O03-O05 settled-state reconciliation and review; post-shot trajectory quality belongs separately to O10. AN01/C03/SR01 declared-data slices can proceed without perfect tracking or physics. Existing T13/T14 physical acceptance remains open and is addressed when required by the selected voice/media slice.

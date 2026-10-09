@@ -1,5 +1,14 @@
 # O01 observation corpus and offline workbench
 
+**9 October evaluation split (planned):** preserve existing workbench commands, reviewed-label rules and frozen session splits. Evaluate the core match path independently from optional O10 replay trajectories; current association commands are not yet an aggregate reconciliation evaluator. [Architecture and acceptance](temporal-tracking-design.md#first-authoritative-vertical-slice-and-acceptance).
+
+| Evaluation category | Labels and metrics required |
+|---|---|
+| Core match: O01/O03/O04/O05 | Trustworthy settled A/B, full-table visibility, activity/obstruction intervals, source and frozen game context, red/yellow counts, cue/black presence, handling/removal/pot distinctions and separately known/unknown rules facts. Measure correct differences, false/missed removal proposals, cue/black accuracy, wrong canonical changes, uncertainty and settlement latency. Physical red/yellow identity is optional when the supported fact is aggregate. |
+| Replay: O10 | Retained shot media, visible positions, supported physical identities, contact/cushion/pocket intervals and uncertain order. Measure path coverage, centre error, ID switches, event accuracy, recovery and processing time independently. |
+
+Core challenge cases include changing sunlight, intermediate dropout, minute-long player/cue obstruction, same-colour crossing with valid counts, scratch/black removal, replacement/rerack, no-removal activity, missed/multiple shots and source or game-version discontinuity. Freeze split/thresholds before tuning, report numerator/denominator and abstention by case, and require zero confident wrong canonical mutations from weak visual evidence in the evaluated set. Replay failures do not block a supported core-match release. No new collection or evaluator implementation is claimed here.
+
 6 October 2026; updated 8 October 2026. The workbench validates and replays indexed frame receipts, freezes corpus versions, scores stored detector outputs, provides an offline O04 association/movement-threshold evaluator, and can create a standalone sequential O04 diagnostic viewer. It does not decode MP4s, run native CV or submit GameState events. The checked-in seed has one previously tuned real still and one synthetic contract sequence; it has zero real timed shots and zero held-out shots, so O04 cannot yet produce real tracking-accuracy evidence.
 
 ## Run the checked-in seed
@@ -59,6 +68,8 @@ Collect at least 60 real mounted-setup sequences with at least 20 held out by se
 ## Interpret reports
 
 ### Tune association and movement offline (O04)
+
+Historical O04.01 tools retain their names and IDs. Their identity/trajectory metrics support optional positional evidence and O10 experiments; they are not prerequisites for planned O04.02 group/count outcomes.
 
 `association` replays one candidate detection file over reviewed, real `Shot` sequences from one explicitly selected frozen split. Every candidate record must correspond to a labelled indexed frame. O04 requires `table-2x1` coordinates and increasing source PTS within each source scope; image-normalized positions do not preserve table movement distance under perspective.
 

@@ -1,5 +1,7 @@
 # O02 bounded motion feed and ROI measurements
 
+**9 October roadmap cross-reference:** this report preserves its dated delivery and measurements. Earlier forward-looking O04 persistent-association / O04-O05 trajectory dependencies are superseded by the [settled-state design](temporal-tracking-design.md): O03 activity/settlement → O04 count/presence reconciliation → O05 reviewed admission; O10 owns optional post-shot trajectories for replay/coaching/physics. No recorded result or open reliability/resource gate is changed by this documentation decision.
+
 7 October 2026. This slice adds an explicitly enabled source-scoped motion feed and bounded native fixed-region measurements. It is a foundation for O03/O04, with no canonical ball identity, shot boundaries or automatic GameState mutation. The normal release includes the implementation but starts no motion feed. Its developer enablement endpoint is present only in opt-in performance builds.
 
 ## Delivered behavior

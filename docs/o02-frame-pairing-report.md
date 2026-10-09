@@ -1,5 +1,7 @@
 # O02 atomic decoded-frame pairing
 
+**9 October roadmap cross-reference:** this report preserves its dated delivery and measurements. Earlier forward-looking O04 persistent-association / O04-O05 trajectory dependencies are superseded by the [settled-state design](temporal-tracking-design.md): O03 activity/settlement → O04 count/presence reconciliation → O05 reviewed admission; O10 owns optional post-shot trajectories for replay/coaching/physics. No recorded result or open reliability/resource gate is changed by this documentation decision.
+
 6 October 2026. The first O02 slice replaces the separate requested-analysis texture copy and heuristic timestamp read with one owned pixel/receipt acquisition. Controlled Pixel 11 proofs cover local H.264 MP4, the live TS transport, restart and the production C# frame adapter. O02's enabled active/latest tracking feed, ROI motion and real-source performance gates remain open.
 
 ## Result and ownership

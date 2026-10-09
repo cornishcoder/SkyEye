@@ -1,5 +1,7 @@
 # O02 decoded-frame pairing and feed
 
+**9 October architecture decision (documentation only):** retain delivered exact pixel/source-PTS receipts, bounded latest-frame ownership and ROI/flow/template primitives. Core acceptance now serves O03 activity/settlement gating, source continuity and reliable media boundaries. O04 group/count reconciliation does not wait for a production-quality persistent tracker. O02.05 source/resource/recovery gates remain open; optional high-rate trajectory/identity metrics belong to O10. [Current design](temporal-tracking-design.md).
+
 6 October 2026. Continue from [O01's offline workbench](o01-workbench-report.md). First prove that requested observation pixels and source time name the same decoded frame. Then build the enabled tracking feed and ROI measurements around that ownership contract.
 
 | Chunk | Deliverable and gate |
@@ -11,7 +13,7 @@
 | O02.05 | Actual mounted 1080p source acquisition and 15/30/60 Hz tradeoffs: processed cadence, source gaps/age, acquisition/worker p50/p95, CPU/GPU/thermal/battery/resource and interruption evidence |
 | O02.06 | Ball-centred template motion and diagnostic phase machine implemented; verify moving/still separation, white cue-ball response, variable-light false positives, cadence and recovery on labelled live shots |
 
-O02.01-O02.03 are the first delivery slice. O02.04 foundations now have controlled device proof; O02.05 performance and O02.06 movement acceptance remain open. A request-driven full analysis is not repurposed as a tracking loop. Expensive perception stays requested or phase-triggered. High-resolution master recording is preserved. O03 shot boundaries and O04/O05 association/review depend on the enabled feed and real O01 footage.
+O02.01-O02.03 are the first delivery slice. O02.04 foundations now have controlled device proof; O02.05 performance and O02.06 movement acceptance remain open. A request-driven full analysis is not repurposed as a tracking loop. Expensive perception stays requested or phase-triggered. High-resolution master recording is preserved. O03 uses the relevant bounded activity/source capabilities; O04/O05 use trustworthy settled A/B, frozen context and reviewed O01 match evidence. Offline contracts can proceed while O02 resource/continuity acceptance is measured. Detailed trajectory quality is an independent O10 gate.
 
 ## Receipt contract
 
@@ -37,6 +39,10 @@ This follows [MediaCodec's surface timestamp contract](https://developer.android
 The generator refuses overwrite and records MP4/TS checksums, dimensions, cadence, barcode definition and actual TS origin. It encodes 240 frames at 640×360/30 Hz with H.264 B frames. The test installs only `uk.co.skyeye.visionchecks`, serves its own TS on loopback, runs the production shared player/adapter code, and restores the production companion activity afterward. It has no camera capture/control or Cast operation. The test bitmap loop runs only in the test activity. Reports include APK/fixture provenance and reject stale run IDs. The synthetic setup proves the tested pairing/handoff cases; it does not establish real table accuracy, 1080p acquisition latency, ROI throughput or sustained tracking cadence.
 
 Read the [delivery report](o02-frame-pairing-report.md) for measured results and remaining gates. Existing T13/T14 annotation/TV/endurance acceptance, real-shot holdout collection and downstream tracking/physics scope remain separate.
+
+## Preserved diagnostic experiments
+
+The dated captures and candidate movement targets below retain their measured scope. They do not establish acceptance of the planned settled-state model, and their ball-tracking goals no longer gate group/count reconciliation.
 
 ## Moving-object response follow-up — 9 October 2026
 

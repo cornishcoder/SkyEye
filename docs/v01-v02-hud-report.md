@@ -1,5 +1,7 @@
 # V01/V02 shot HUD delivery
 
+**9 October roadmap cross-reference:** this report preserves its dated delivery and measurements. Earlier forward-looking O04 persistent-association / O04-O05 trajectory dependencies are superseded by the [settled-state design](temporal-tracking-design.md): O03 activity/settlement → O04 count/presence reconciliation → O05 reviewed admission; O10 owns optional post-shot trajectories for replay/coaching/physics. No recorded result or open reliability/resource gate is changed by this documentation decision.
+
 7 October 2026. The bounded V01/V02 implementation is committed and installed in the normal companion. Core, UI, native Pixel renderer and recorded-export checks pass. The latest live run verifies a real direct-shot HUD, independent phone/TV presets, clear and expiry while source time advances. The user confirms the TV markers are **aligned and readable**. [Live acceptance evidence](evidence/v01-hud-live-acceptance.json) records the actual checks and final normal Release; broader detector, physical bank/kick and T13/T14 acceptance remain open.
 
 ## Delivered behavior
