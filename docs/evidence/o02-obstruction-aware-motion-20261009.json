@@ -1,0 +1,34 @@
+{
+  "date": "2026-10-09",
+  "capture": {
+    "durationSeconds": 60,
+    "sampleIntervalSeconds": 1,
+    "sampleCount": 59,
+    "sourceResolution": "1920x1080",
+    "decoderGeneration": 4,
+    "acquiredFrameDeltaTotal": 1609,
+    "processedFrameDeltaTotal": 1591,
+    "sourceGapResetCount": 0,
+    "staleSampleCount": 0,
+    "acquisitionFailureCount": 0,
+    "scopeRejectCount": 0,
+    "workerFailureCount": 0,
+    "motionPhaseSampleCounts": {
+      "settled": 48,
+      "settling": 11,
+      "moving": 0
+    },
+    "maximumTwoSecondTemplatePeakPixelsPerFrame": 20.984736,
+    "imagesSaved": false
+  },
+  "userLabel": {
+    "event": "yellow ball potted",
+    "timeWithinCapture": "unknown"
+  },
+  "interpretation": [
+    "Capture continuity was stable for this 60-second interval.",
+    "No one-second snapshot sampled the Moving phase.",
+    "The isolated maximum template peak is not a verified ball speed, trajectory, identity, or pot detection.",
+    "This capture did not validate an obstruction lasting up to one minute or recovery after obstruction."
+  ]
+}

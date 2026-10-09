@@ -26,10 +26,19 @@ public sealed class TableMotionStateMachine
         return MotionAnalysisSnapshot.Unknown with { Evidence = "Source gap or scope reset; waiting for fresh paired frames" };
     }
 
-    public MotionAnalysisSnapshot Observe(MotionMeasurement measurement)
+    public MotionAnalysisSnapshot Observe(MotionMeasurement measurement, bool obstructed = false)
     {
         ArgumentNullException.ThrowIfNull(measurement);
         long now = measurement.SourceTimeUs;
+        if (obstructed)
+        {
+            streaks.Clear();
+            window.Clear();
+            lastMotionUs = quietSinceUs = null;
+            SetPhase(MotionAnalysisPhase.Obstructed, now);
+            return new(phase, stateSinceUs, null, null, 0, measurement.Regions.Count, 0,
+                null, null, 0, 0, "Vision reports a physical obstruction; ball motion is paused");
+        }
         var templates = measurement.Regions.Where(region => region.TemplateStatus == "matched"
             && region.TemplateDxPixels is { } dx && double.IsFinite(dx)
             && region.TemplateDyPixels is { } dy && double.IsFinite(dy)).ToArray();
@@ -98,7 +107,9 @@ public sealed class TableMotionStateMachine
                 SetPhase(MotionAnalysisPhase.Settled, now);
             evidence = phase == MotionAnalysisPhase.Settled
                 ? "Ball-patch positions quiet for at least 700 ms"
-                : "No supported ball-patch movement above threshold";
+                : lastMotionUs is not null
+                    ? "Motion observed; verifying 700 ms of quiet"
+                    : "No supported ball-patch movement above threshold";
         }
 
         return new(phase, stateSinceUs, lastMotionUs,

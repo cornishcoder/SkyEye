@@ -80,6 +80,7 @@ public sealed partial class TableAnalysisSession(ITableFrameSource frames, ITabl
     string? lastTimeline;
     bool disposed;
     public TableAnalysisSnapshot State { get { lock (gate) return state; } }
+    public bool PhysicallyObstructed { get { lock (gate) return tracker.PhysicallyObstructed; } }
     public bool HasPendingWork { get { lock (gate) return active is not null; } }
 
     // Called from the coordinator subscription, before its UI observers. No IO.

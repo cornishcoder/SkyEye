@@ -117,7 +117,7 @@ public sealed partial class ShellSession
                 motionSeedSource = seedSource;
                 motionSeedFrameId = seedFrameId;
                 motionSeedFrameAgeMs = layoutAgeMs;
-                motion = new(frames, processor, scope, Current, new(hz));
+                motion = new(frames, processor, scope, Current, new(hz), physicallyObstructed: () => table.PhysicallyObstructed);
             }
             // Startup's seed lease is gone before producer/worker ownership begins.
             motion.Start(); _ = ReleaseWhenEnded(motion);

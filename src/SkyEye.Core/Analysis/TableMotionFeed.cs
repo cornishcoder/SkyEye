@@ -14,6 +14,7 @@ public sealed record MotionFeedOptions(int FramesPerSecond = 30, long MaximumGap
 }
 public sealed record MotionFrameContext(MotionFeedScope Scope, long FrameId, long SourceTimeUs, bool Reset, double? DeltaSeconds)
 {
+    public bool SceneObstructed { get; init; }
     public double AcquisitionMs { get; init; }
     public int AcquisitionAttempts { get; init; } = 1;
     public long? SourceDeltaUs { get; init; }
@@ -65,7 +66,7 @@ public sealed record MotionMeasurement(long SourceTimeUs, IReadOnlyList<RoiMotio
     public int AnalysisImageWidth { get; init; }
     public int AnalysisImageHeight { get; init; }
 }
-public enum MotionAnalysisPhase { Unknown, Settling, Settled, Moving }
+public enum MotionAnalysisPhase { Unknown, Settling, Settled, Moving, Obstructed }
 public sealed record MotionAnalysisSnapshot(MotionAnalysisPhase Phase, long? StateSinceSourceTimeUs,
     long? LastMotionSourceTimeUs, double? QuietForMs, int ObservedRegions, int TotalRegions,
     int MovingRegions, double? PeakDisplacementPixels, double? WindowPeakDisplacementPixels,
@@ -169,6 +170,7 @@ public sealed class TableMotionFeed : IAsyncDisposable
     readonly MotionFeedScope scope;
     readonly MotionFeedOptions options;
     readonly Func<bool> current;
+    readonly Func<bool>? physicallyObstructed;
     readonly TimeProvider time;
     readonly CancellationTokenSource stopped = new();
     readonly SemaphoreSlim wake = new(0, 1);
@@ -196,14 +198,16 @@ public sealed class TableMotionFeed : IAsyncDisposable
     long largestGapUs;
     int active, width, height, lastAcquisitionAttempts = 1, pendingAcquisitionAttempts = 1;
     string? stopReason;
+    bool? lastObstructionState;
     MotionMeasurement? latest;
     MotionAnalysisSnapshot analysis = MotionAnalysisSnapshot.Unknown;
     double acquisitionMs, pendingAcquisitionMs, workerMs, resultAgeMs;
 
     public TableMotionFeed(ITableFrameSource source, ITableMotionProcessor processor, MotionFeedScope scope,
-        Func<bool> current, MotionFeedOptions? options = null, TimeProvider? time = null)
+        Func<bool> current, MotionFeedOptions? options = null, TimeProvider? time = null, Func<bool>? physicallyObstructed = null)
     {
         this.source = source; this.processor = processor; this.scope = scope; this.current = current;
+        this.physicallyObstructed = physicallyObstructed;
         this.options = options ?? new(); this.options.Validate(); this.time = time ?? TimeProvider.System;
         if (scope.Source is null || scope.MediaGeneration <= 0 || string.IsNullOrWhiteSpace(scope.CalibrationId)
             || string.IsNullOrWhiteSpace(scope.Timeline)) throw new ArgumentException("Motion requires a frozen source/calibration scope.");
@@ -517,6 +521,20 @@ public sealed class TableMotionFeed : IAsyncDisposable
                 {
                     if (!Current()) { Stop("Source, calibration or enablement changed"); break; }
                     if (!Fresh(frame)) { lock (gate) stale++; continue; }
+                    bool sceneObstructed = false;
+                    try { sceneObstructed = physicallyObstructed?.Invoke() == true; }
+                    catch { sceneObstructed = true; }
+                    lock (gate)
+                    {
+                        bool obstructionTransition = lastObstructionState is { } previousObstruction
+                            && previousObstruction != sceneObstructed;
+                        lastObstructionState = sceneObstructed;
+                        context = context! with
+                        {
+                            Reset = context!.Reset || sceneObstructed || obstructionTransition,
+                            SceneObstructed = sceneObstructed
+                        };
+                    }
                     var clock = Stopwatch.StartNew();
                     var result = await processor.MeasureAsync(frame, context!, stopped.Token).ConfigureAwait(false);
                     clock.Stop();
@@ -526,7 +544,7 @@ public sealed class TableMotionFeed : IAsyncDisposable
                         if (!Fresh(frame)) { stale++; lastProcessedUs = -1; continue; }
                         if (result.SourceTimeUs != context!.SourceTimeUs) throw new InvalidDataException("Worker result lost source time.");
                         if (context.Reset) { recentProcessedSourceTimes.Clear(); analysis = stateMachine.Reset(); }
-                        analysis = stateMachine.Observe(result);
+                        analysis = stateMachine.Observe(result, context.SceneObstructed);
                         processed++; lastProcessedId = context.FrameId; lastProcessedUs = context.SourceTimeUs; latest = result;
                         if (frame.TextureUpdateCount is { } updateCount) lastProcessedTextureUpdateCount = updateCount;
                         lastProcessedTextureUpdateDelta = context.TextureUpdateDelta;

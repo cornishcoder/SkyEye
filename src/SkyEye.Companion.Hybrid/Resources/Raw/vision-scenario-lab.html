@@ -236,8 +236,9 @@
       $('review-content').innerHTML=`<p class="review-kicker">${isBaseline?'Camera baseline':isRules?'Rules engine':camera?'Live camera':'GameState event'}</p><h2 id="review-title">${esc(proposal.title)}</h2><p>${esc(proposal.summary)}</p><p class="review-summary">${esc(proposal.recommendation)}</p>${cameraLayout}<div class="review-events">${events||'<span class="pill">No new event</span>'}</div>${rules}<div class="review-actions">${choices}</div>`;
       return;
     }
-    const movement=prompt.noPotAfterMovement?`${prompt.movedBallCount} moved · no pot`:`${prompt.movedBallCount} moved · ${prompt.potCount} potted`;
-    $('review-content').innerHTML=`<p class="review-kicker">Shot review · ${esc(prompt.rulesProfile)}</p><h2 id="review-title">${esc(prompt.shooterName)}’s shot</h2><p>${esc(movement)}</p><form id="rule-facts" class="review-facts">
+    const movement=prompt.noPotAfterMovement?`${prompt.movedBallCount} moved · no pot confirmed`:`${prompt.movedBallCount} moved · ${prompt.potCount} potted`;
+    const missing=prompt.missingSummary?` · ${prompt.missingSummary} (confirm pot count below)`:'';
+    $('review-content').innerHTML=`<p class="review-kicker">Shot review · ${esc(prompt.rulesProfile)}</p><h2 id="review-title">${esc(prompt.shooterName)}’s shot</h2><p>${esc(movement+missing)}</p><form id="rule-facts" class="review-facts">
       <div class="field-grid"><div><label for="rule-legality">Shot legality</label><select id="rule-legality"><option value="Legal" selected>Legal</option><option value="Unknown">Not known</option><option value="StandardFoul">Standard foul</option><option value="LossOfTurn">Loss of turn</option><option value="LossOfFrame">Loss of frame</option></select></div>
       <div><label for="rule-first-contact">First contact</label><select id="rule-first-contact"><option value="">Not declared</option><option>Red</option><option>Yellow</option><option>Black</option></select></div>
       <div><label for="rule-reds-potted">Reds potted</label><input id="rule-reds-potted" type="number" min="0" max="7" value="0"></div><div><label for="rule-yellows-potted">Yellows potted</label><input id="rule-yellows-potted" type="number" min="0" max="7" value="0"></div>
