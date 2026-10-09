@@ -42,6 +42,15 @@ public sealed partial class ShellSession
     SettledTableCounts? motionActivityPendingCounts;
     int motionActivityPendingStableSamples;
     long? motionActivityPendingFirstChangedSourceTimeUs;
+    ImmutableArray<SettledBallPosition> motionActivityLayoutBaseline = [];
+    EvidenceSource? motionActivityLayoutBaselineSource;
+    long? motionActivityLayoutBaselineSourceTimeUs;
+    ImmutableArray<SettledBallPosition> motionActivityLayoutProbe = [];
+    EvidenceSource? motionActivityLayoutProbeSource;
+    long? motionActivityLayoutProbeFirstSourceTimeUs;
+    long? motionActivityLayoutProbeLastSourceTimeUs;
+    int motionActivityLayoutProbeStableSamples;
+    bool motionActivityLayoutProbeIsBaseline;
     ActivityWindowContext? motionActivityCandidateContext;
     SettledTableEvidence? motionActivityCandidateAfter;
 
@@ -265,6 +274,7 @@ public sealed partial class ShellSession
             {
                 motionActivityDiagnosticSessionId = diagnostics.SessionId;
                 motionActivityLastDiagnosticSequence = 0;
+                ResetSpatialLayoutTracking(clearBaseline: true);
                 ResetSettledDifferenceCandidate();
             }
             if (sample.Sequence <= motionActivityLastDiagnosticSequence) return null;
@@ -281,10 +291,12 @@ public sealed partial class ShellSession
             var counts = !detection.Uncertain && !detection.Obstructed
                 && double.IsFinite(ageMs) && ageMs is >= -200 and <= ObservationPolicy.ReviewFreshnessSeconds * 1000
                 ? CountRecognizedBalls(detection.Balls) : null;
-            if (counts is null || !ValidRecognizedCounts(counts))
+            ImmutableArray<SettledBallPosition> layout = counts is null ? [] : CaptureSettledLayout(detection.Balls);
+            if (counts is null || !ValidRecognizedCounts(counts) || layout.IsDefaultOrEmpty)
             {
+                ResetLayoutProbe();
                 ResetSettledDifferenceCandidate();
-                motionActivityStatus = "Waiting for fresh, clear, fully classified samples before comparing the table.";
+                motionActivityStatus = "Waiting for fresh, clear, fully classified positions before comparing the table.";
                 return null;
             }
 
@@ -293,22 +305,88 @@ public sealed partial class ShellSession
             if (!SettledTableEvidence.TryCapture(game, out var before)
                 || !FrozenGameContext.TryCapture(game, out _))
             {
+                ResetLayoutProbe();
                 ResetSettledDifferenceCandidate();
                 motionActivityStatus = "Waiting for a trusted settled match baseline before comparing table counts.";
                 return null;
             }
             if (sample.Source != before.Source || sample.SourceTimeUs <= before.SourceTimeUs)
             {
+                ResetSpatialLayoutTracking(clearBaseline: true);
                 ResetSettledDifferenceCandidate();
                 motionActivityStatus = "The settled baseline belongs to another camera/calibration view. A fresh trusted baseline is required.";
                 return null;
             }
+            ResetLayoutProbeIfCountChanged(counts, before.Counts);
             if (counts == before.Counts)
             {
                 ResetSettledDifferenceCandidate();
-                if (motionActivityLifecycle is null or { Phase: ActivitySettlementPhase.Settled })
-                    motionActivityStatus = "Watching the trusted settled layout for a repeated count change.";
-                return null;
+                if (motionActivityLayoutBaseline.IsDefaultOrEmpty
+                    || motionActivityLayoutBaselineSource != sample.Source
+                    || motionActivityLayoutBaselineSourceTimeUs is null)
+                {
+                    if (ObserveLayoutProbe(layout, sample.Source, sample.SourceTimeUs, consecutive, baseline: true))
+                    {
+                        SetSpatialLayoutBaseline(motionActivityLayoutProbe, sample.Source!, sample.SourceTimeUs);
+                        ResetLayoutProbe();
+                        StartSpatialBaselineLifecycle(game, sample.Source!, sample.SourceTimeUs);
+                        motionActivityStatus = "Clear settled positions established; watching for a moved layout.";
+                    }
+                    else motionActivityStatus = $"Building a clear settled position baseline ({motionActivityLayoutProbeStableSamples}/3 matching samples).";
+                    return null;
+                }
+
+                var difference = SettledLayoutReconciler.Compare(motionActivityLayoutBaseline, layout);
+                if (!difference.Comparable || !difference.Changed)
+                {
+                    ResetLayoutProbe();
+                    motionActivityStatus = difference.Comparable
+                        ? "Watching the settled ball positions; no meaningful layout change detected."
+                        : "The detector layout does not match the baseline counts; waiting for a clear matching view.";
+                    return null;
+                }
+
+                if (!ObserveLayoutProbe(layout, sample.Source, sample.SourceTimeUs, consecutive, baseline: false))
+                {
+                    motionActivityStatus = $"Same-count layout change detected; confirming the moved positions ({motionActivityLayoutProbeStableSamples}/3 samples).";
+                    return null;
+                }
+
+                long? activityStartSourceTimeUs = motionActivityLayoutProbeFirstSourceTimeUs;
+                long? baselineSourceTimeUs = motionActivityLayoutBaselineSourceTimeUs;
+                var baselineLayout = motionActivityLayoutBaseline;
+                if (activityStartSourceTimeUs is not { } spatialActivityStart || baselineSourceTimeUs is not { } baselineTime
+                    || !ActivityWindowContext.TryBegin(Guid.NewGuid(), game, spatialActivityStart, out var spatialContext)
+                    || spatialContext.Before.Source != sample.Source)
+                {
+                    ResetLayoutProbe();
+                    motionActivityStatus = "The layout moved, but its match or source baseline changed before a shot proposal could be made.";
+                    return null;
+                }
+                spatialContext = spatialContext with
+                { Before = spatialContext.Before with { Layout = baselineLayout, LayoutSourceTimeUs = baselineTime } };
+                if (!ActivitySettlementLifecycle.TryStart(spatialContext, out var spatialLifecycle))
+                {
+                    ResetLayoutProbe();
+                    motionActivityStatus = "The layout moved, but a valid settled activity window could not be started.";
+                    return null;
+                }
+                var spatialStep = spatialLifecycle.Observe(new(ActivitySettlementSignalKind.SettledDifferenceObserved,
+                    sample.Source!, sample.SourceTimeUs));
+                if (spatialStep.Lifecycle.Phase != ActivitySettlementPhase.Settling)
+                {
+                    ResetLayoutProbe();
+                    motionActivityStatus = spatialStep.Reason;
+                    return null;
+                }
+
+                motionActivityLifecycle = spatialStep.Lifecycle;
+                motionActivityLastSourceTimeUs = sample.SourceTimeUs;
+                motionActivityVerificationPending = true;
+                motionActivityVerificationAttempted = true;
+                motionActivityStatus = "Three clear samples confirm a same-count layout change; checking stillness before proposing a no-pot shot.";
+                ResetSettledDifferenceCandidate();
+                return spatialContext.Id;
             }
 
             var suppressed = GameRevisions.Suppressed(canonical.History);
@@ -383,6 +461,98 @@ public sealed partial class ShellSession
         motionActivityPendingCounts = null;
         motionActivityPendingStableSamples = 0;
         motionActivityPendingFirstChangedSourceTimeUs = null;
+    }
+
+    void ResetLayoutProbeIfCountChanged(SettledTableCounts observed, SettledTableCounts baseline)
+    {
+        if (observed != baseline) ResetLayoutProbe();
+    }
+
+    bool ObserveLayoutProbe(ImmutableArray<SettledBallPosition> layout, EvidenceSource? source,
+        long sourceTimeUs, bool consecutive, bool baseline)
+    {
+        bool sameRun = consecutive && source is not null && source == motionActivityLayoutProbeSource
+            && motionActivityLayoutProbeIsBaseline == baseline
+            && !motionActivityLayoutProbe.IsDefaultOrEmpty
+            && motionActivityLayoutProbeLastSourceTimeUs is { } last && sourceTimeUs > last
+            && SettledLayoutReconciler.SameLayout(motionActivityLayoutProbe, layout);
+        if (!sameRun)
+        {
+            motionActivityLayoutProbe = layout;
+            motionActivityLayoutProbeSource = source;
+            motionActivityLayoutProbeFirstSourceTimeUs = sourceTimeUs;
+            motionActivityLayoutProbeLastSourceTimeUs = sourceTimeUs;
+            motionActivityLayoutProbeStableSamples = 1;
+            motionActivityLayoutProbeIsBaseline = baseline;
+        }
+        else
+        {
+            motionActivityLayoutProbeLastSourceTimeUs = sourceTimeUs;
+            motionActivityLayoutProbeStableSamples++;
+        }
+        return motionActivityLayoutProbeStableSamples >= 3;
+    }
+
+    void ResetLayoutProbe()
+    {
+        motionActivityLayoutProbe = [];
+        motionActivityLayoutProbeSource = null;
+        motionActivityLayoutProbeFirstSourceTimeUs = null;
+        motionActivityLayoutProbeLastSourceTimeUs = null;
+        motionActivityLayoutProbeStableSamples = 0;
+        motionActivityLayoutProbeIsBaseline = false;
+    }
+
+    void ResetSpatialLayoutTracking(bool clearBaseline)
+    {
+        ResetLayoutProbe();
+        if (!clearBaseline) return;
+        motionActivityLayoutBaseline = [];
+        motionActivityLayoutBaselineSource = null;
+        motionActivityLayoutBaselineSourceTimeUs = null;
+    }
+
+    void SetSpatialLayoutBaseline(ImmutableArray<SettledBallPosition> layout, EvidenceSource source, long sourceTimeUs)
+    {
+        motionActivityLayoutBaseline = layout;
+        motionActivityLayoutBaselineSource = source;
+        motionActivityLayoutBaselineSourceTimeUs = sourceTimeUs;
+    }
+
+    void StartSpatialBaselineLifecycle(GameSnapshot game, EvidenceSource source, long sourceTimeUs)
+    {
+        if (!ActivityWindowContext.TryBegin(Guid.NewGuid(), game, null, out var context)
+            || context.Before.Source != source) return;
+        context = context with { Before = context.Before with
+        {
+            Layout = motionActivityLayoutBaseline,
+            LayoutSourceTimeUs = sourceTimeUs
+        } };
+        if (!ActivitySettlementLifecycle.TryStart(context, out var lifecycle)) return;
+        motionActivityLifecycle = lifecycle;
+        motionActivityLastSourceTimeUs = sourceTimeUs;
+    }
+
+    static ImmutableArray<SettledBallPosition> CaptureSettledLayout(Ball[] balls)
+    {
+        if (balls is null || balls.Length is < 1 or > 16) return [];
+        var result = ImmutableArray.CreateBuilder<SettledBallPosition>(balls.Length);
+        foreach (var ball in balls)
+        {
+            BallColour colour = ball.Kind.Trim().ToLowerInvariant() switch
+            {
+                "red" => BallColour.Red,
+                "yellow" => BallColour.Yellow,
+                "cue" or "cue ball" or "cue-ball" => BallColour.Cue,
+                "black" => BallColour.Black,
+                _ => BallColour.Unknown
+            };
+            double x = ball.Position.X / 2d, y = ball.Position.Y;
+            if (colour == BallColour.Unknown || !double.IsFinite(x) || !double.IsFinite(y)
+                || x is < 0 or > 1 || y is < 0 or > 1) return [];
+            result.Add(new(colour, x, y));
+        }
+        return result.ToImmutable();
     }
 
     static bool ValidRecognizedCounts(SettledTableCounts counts)
@@ -542,9 +712,14 @@ public sealed partial class ShellSession
                 return;
             }
 
+            var afterLayout = CaptureSettledLayout(layout.Balls);
             var after = new SettledTableEvidence(Guid.NewGuid(), source, sourceTime,
                 observation.CapturedAt, counts, Settled: true, Clear: true)
-            { BoundedStillnessVerified = true };
+            {
+                BoundedStillnessVerified = true,
+                Layout = afterLayout,
+                LayoutSourceTimeUs = afterLayout.IsDefaultOrEmpty ? null : sourceTime
+            };
             ActivitySettlementStep step;
             lock (motionActivityGate)
             {
@@ -598,6 +773,10 @@ public sealed partial class ShellSession
                         {
                             if (motionActivityLifecycle?.Context.Id == activityId)
                             {
+                                if (!settledComparison.After.Layout.IsDefaultOrEmpty
+                                    && settledComparison.After.LayoutSourceTimeUs is { } acceptedLayoutTime)
+                                    SetSpatialLayoutBaseline(settledComparison.After.Layout,
+                                        settledComparison.After.Source, acceptedLayoutTime);
                                 motionActivityCandidate = null;
                                 motionActivityCandidateContext = null;
                                 motionActivityCandidateAfter = null;
@@ -691,7 +870,9 @@ public sealed partial class ShellSession
                     : $"{change.Added} {change.Colour.ToString().ToLowerInvariant()} added"));
         string interpretation = comparison.Recommendation.Kind == "settled-pot-outcome"
             ? $"{comparison.Recommendation.Summary} Rules apply to inferred pots/scratch; pocket and exact identity remain unknown."
-            : $"{comparison.Recommendation.Summary} No pot is inferred from this count pattern.";
+            : comparison.Recommendation.Kind == "settled-no-pot-shot"
+                ? $"{comparison.Recommendation.Summary} The shot result and legality still need the player's choice."
+                : $"{comparison.Recommendation.Summary} No pot is inferred from this count pattern.";
         return $"A: {Inventory(before)} → B: {Inventory(after)}; {changes}. {interpretation}";
     }
 

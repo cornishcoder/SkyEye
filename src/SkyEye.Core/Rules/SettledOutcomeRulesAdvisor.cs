@@ -32,14 +32,36 @@ public static class SettledOutcomeRulesAdvisor
         bool cueChanged = changes.Any(change => change.Colour == BallColour.Cue);
         bool blackChanged = changes.Any(change => change.Colour == BallColour.Black);
 
-        if (redsPotted + yellowsPotted == 0 || groupAdded || cueChanged || blackChanged)
-            return NotReady("These table changes do not isolate a group-ball pot, so SkyEye will not suggest a turn or foul result.",
-                "Confirm what physically happened, then correct or review the changed counts.");
+        if (groupAdded || cueChanged || blackChanged
+            || redsPotted + yellowsPotted == 0 && !comparison.LayoutChanged)
+            return NotReady("These table changes do not establish a pot or a changed settled layout, so SkyEye will not suggest a turn or foul result.",
+                "Confirm what physically happened, then correct or review the table.");
 
         string shooter = frame.CurrentPlayer.Value;
         string shooterName = match.Players.FirstOrDefault(player => player.Id == shooter)?.Name ?? "Current player";
         bool needsBreakCheck = frame.Rules?.BreakComplete != true;
         var questions = ImmutableArray.CreateBuilder<string>();
+        var branches = ImmutableArray.CreateBuilder<SettledRuleBranch>(3);
+        if (redsPotted + yellowsPotted == 0)
+        {
+            questions.Add("Confirm this was a shot and that no ball was potted; the camera only shows the changed settled layout.");
+            questions.Add("Choose legal no-pot, standard foul, or loss of turn. First contact and legality are not visible to the camera.");
+            if (needsBreakCheck) questions.Add("Confirm whether this was the break; these previews assume an ordinary shot.");
+
+            var noPotFacts = new DeclaredShot(Break: false, Legality: DeclaredLegality.Unknown,
+                RedsBefore: comparison.Context.Before.Counts.Reds,
+                YellowsBefore: comparison.Context.Before.Counts.Yellows);
+            AddBranch("legal-no-pot", "If legal with no pot", "ordinary shot; no ball potted; legal first contact and required cushion",
+                noPotFacts with { Legality = DeclaredLegality.Legal });
+            AddBranch("standard-foul-no-pot", "If it was a standard foul", "ordinary shot; no ball potted; standard foul",
+                noPotFacts with { Legality = DeclaredLegality.StandardFoul });
+            AddBranch("loss-of-turn-no-pot", "If it was a loss of turn", "ordinary shot; no ball potted; non-foul loss of turn",
+                noPotFacts with { Legality = DeclaredLegality.LossOfTurn });
+
+            return new("conditional", $"Possible no-pot shot consequences for {shooterName}; choose the branch that matches what happened.",
+                questions.ToImmutable(), branches.ToImmutable());
+        }
+
         questions.Add("Confirm the removed red/yellow ball(s) were potted; the camera only proves the settled count changed.");
         if (needsBreakCheck) questions.Add("Confirm whether this was the break; these previews assume an ordinary shot.");
         questions.Add("Confirm legality and first contact before recording the shot outcome.");
@@ -51,7 +73,6 @@ public static class SettledOutcomeRulesAdvisor
             RedsPotted: redsPotted, YellowsPotted: yellowsPotted,
             RedsBefore: before.Reds, YellowsBefore: before.Yellows);
 
-        var branches = ImmutableArray.CreateBuilder<SettledRuleBranch>(3);
         AddBranch("legal", "If the shot was legal", "ordinary shot; removed group balls were potted; legal shot",
             candidateFacts with { Legality = DeclaredLegality.Legal });
         AddBranch("foul", "If it was a standard foul", "ordinary shot; removed group balls were potted; standard foul",

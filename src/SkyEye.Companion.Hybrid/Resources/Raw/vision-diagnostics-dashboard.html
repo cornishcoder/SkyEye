@@ -69,6 +69,11 @@
             <div id="outcome-counts" class="outcome-counts"></div>
             <div id="rules-advice" class="rules-advice" hidden></div>
             <div class="review-actions"><button id="accept-outcome" class="primary">Accept observed counts</button><button id="reject-outcome" class="reject">Reject proposal</button></div>
+            <div id="no-pot-actions" class="review-actions" hidden>
+              <button type="button" data-shot-review="legal-no-pot" class="primary">Record legal no-pot shot</button>
+              <button type="button" data-shot-review="standard-foul-no-pot">Record standard foul</button>
+              <button type="button" data-shot-review="loss-of-turn-no-pot">Record loss of turn</button>
+            </div>
             <div class="review-counts">
               <label>Red<input id="correct-reds" type="number" min="0" max="7" step="1"></label>
               <label>Yellow<input id="correct-yellows" type="number" min="0" max="7" step="1"></label>
@@ -208,6 +213,11 @@
   }
   function renderOutcomeReview(activity){
     const candidate=activity?.candidate,box=$('outcome-review');box.hidden=!candidate;if(!candidate)return;
+    const noPot=candidate.recommendation?.kind==='settled-no-pot-shot';
+    $('accept-outcome').hidden=noPot;
+    $('correct-reds').closest('.review-counts').hidden=noPot;
+    $('no-pot-actions').hidden=!noPot;
+    box.querySelector('h4').textContent=noPot?'Shot likely · no pot observed':'Settled table change';
     if(activeReviewId!==candidate.activityWindowId){
       activeReviewId=candidate.activityWindowId;
       $('correct-reds').value=candidate.after?.reds??0;$('correct-yellows').value=candidate.after?.yellows??0;
@@ -227,7 +237,7 @@
   }
   async function submitOutcome(action){
     if(reviewBusy||!activeReviewId)return;
-    reviewBusy=true;const buttons=['accept-outcome','reject-outcome','correct-outcome'];buttons.forEach(id=>$(id).disabled=true);
+    reviewBusy=true;const buttons=[...$('outcome-review').querySelectorAll('button')];buttons.forEach(button=>button.disabled=true);
     $('outcome-result').textContent='Saving review…';
     const request={candidateId:activeReviewId,action};
     if(action==='correct'){
@@ -240,11 +250,12 @@
       $('outcome-result').className=`review-result ${response.ok?'good':'warn'}`;
       if(response.ok){activeReviewId=null;setTimeout(refresh,50);}
     }catch(e){$('outcome-result').textContent=e.message||'Could not reach the match review service.';$('outcome-result').className='review-result warn';}
-    finally{reviewBusy=false;buttons.forEach(id=>$(id).disabled=false);}
+    finally{reviewBusy=false;buttons.forEach(button=>button.disabled=false);}
   }
   $('accept-outcome').addEventListener('click',()=>submitOutcome('accept'));
   $('reject-outcome').addEventListener('click',()=>submitOutcome('reject'));
   $('correct-outcome').addEventListener('click',()=>submitOutcome('correct'));
+  document.querySelectorAll('[data-shot-review]').forEach(button=>button.addEventListener('click',()=>submitOutcome(button.dataset.shotReview)));
   function renderSamples(samples){
     $('samples').innerHTML=(samples||[]).slice().reverse().map(s=>`<tr><td>${s.sequence}</td><td>${new Date(s.capturedAt).toLocaleTimeString()}</td><td>${s.frameId}</td><td class="${s.uncertain?'warn':'good'}">${s.classifiedBallCount} / ${s.circleCandidateCount}${s.unclassifiedCandidateCount?` · ${s.unclassifiedCandidateCount} unclassified`:''}${s.uncertain?' · check':''}</td><td>${cueStages(s.cueBallRecovery)}</td><td>${esc(s.cueBallRecovery?.reason?.replaceAll('-',' ')||'—')}</td><td>${fmt(s.elapsedMs,1)} ms</td><td>${fmt(s.referenceBrightness,1)}</td><td>${s.minimumGain==null?'—':fmt(s.minimumGain)}–${fmt(s.maximumGain)}</td><td>${s.uncertain?'Uncertain':'Clear'}</td><td>${esc((s.warnings||[]).join(' · '))}</td></tr>`).join('');
   }

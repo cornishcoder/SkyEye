@@ -20,10 +20,24 @@ public sealed record SettledTableCounts(int? Reds, int? Yellows, int? CueBalls, 
     }
 }
 
+/// <summary>A detector-observed position normalized to the playable rectangle, without a durable ball identity.</summary>
+public sealed record SettledBallPosition(BallColour Colour, double X, double Y);
+
+public sealed record SettledLayoutDifference(bool Comparable, int MovedBallCount, double LargestMovement)
+{
+    public bool Changed => Comparable && MovedBallCount > 0;
+}
+
 /// <summary>One source-referenced table observation. Clear and settled are separate eligibility facts.</summary>
 public sealed record SettledTableEvidence(Guid EvidenceId, EvidenceSource Source, long? SourceTimeUs,
     DateTimeOffset CapturedAt, SettledTableCounts Counts, bool Settled, bool Clear)
 {
+    /// <summary>Optional identity-free spatial evidence; X and Y are normalized to 0..1.</summary>
+    public ImmutableArray<SettledBallPosition> Layout { get; init; } = [];
+
+    /// <summary>The source timestamp for Layout, which can be newer than the canonical count baseline.</summary>
+    public long? LayoutSourceTimeUs { get; init; }
+
     /// <summary>True only when the bounded O08 verifier supplied the clear/still proof.</summary>
     public bool BoundedStillnessVerified { get; init; }
 
@@ -48,8 +62,22 @@ public sealed record SettledTableEvidence(Guid EvidenceId, EvidenceSource Source
     }
 
     internal bool IsValid => EvidenceId != Guid.Empty && Source is not null && ValidSource(Source)
-        && SourceTimeUs is >= 0 && Counts is not null && StableClearSampleCount is >= 0 and <= 120;
+        && SourceTimeUs is >= 0 && Counts is not null && StableClearSampleCount is >= 0 and <= 120
+        && ValidLayout(Layout, LayoutSourceTimeUs, Counts);
     internal bool IsComplete => IsValid && Settled && Clear && Counts.IsValid;
+
+    static bool ValidLayout(ImmutableArray<SettledBallPosition> layout, long? sourceTimeUs, SettledTableCounts counts)
+    {
+        if (layout.IsDefaultOrEmpty) return sourceTimeUs is null;
+        if (sourceTimeUs is not >= 0 || layout.Length is < 1 or > 16
+            || layout.Any(ball => ball is null || ball.Colour is not (BallColour.Red or BallColour.Yellow or BallColour.Cue or BallColour.Black)
+                || !double.IsFinite(ball.X) || !double.IsFinite(ball.Y) || ball.X is < 0 or > 1 || ball.Y is < 0 or > 1))
+            return false;
+        return layout.Count(ball => ball.Colour == BallColour.Red) == counts.Reds
+            && layout.Count(ball => ball.Colour == BallColour.Yellow) == counts.Yellows
+            && layout.Count(ball => ball.Colour == BallColour.Cue) == counts.CueBalls
+            && layout.Count(ball => ball.Colour == BallColour.Black) == counts.BlackBalls;
+    }
 
     static bool ValidSource(EvidenceSource source) => Text(source.Camera) && Text(source.Timeline)
         && Text(source.Calibration) && source.Generation > 0 && (source.Connection is null || Text(source.Connection));
@@ -116,7 +144,8 @@ public sealed record ActivityWindowContext(Guid Id, FrozenGameContext Game, Sett
         if (id == Guid.Empty || !FrozenGameContext.TryCapture(snapshot, out var game)
             || !SettledTableEvidence.TryCapture(snapshot, out var before)
             || activityStartSourceTimeUs is < 0
-            || activityStartSourceTimeUs is { } start && start <= before.SourceTimeUs)
+            || activityStartSourceTimeUs is { } start
+                && start <= Math.Max(before.SourceTimeUs ?? -1, before.LayoutSourceTimeUs ?? -1))
             return false;
 
         context = new(id, game, before, activityStartSourceTimeUs);
@@ -125,7 +154,8 @@ public sealed record ActivityWindowContext(Guid Id, FrozenGameContext Game, Sett
 
     internal bool IsValid => Id != Guid.Empty && Game is not null && Game.IsValid
         && Before is not null && Before.IsComplete
-        && (ActivityStartSourceTimeUs is null || ActivityStartSourceTimeUs > Before.SourceTimeUs);
+        && (ActivityStartSourceTimeUs is null || ActivityStartSourceTimeUs > Before.SourceTimeUs)
+        && (Before.LayoutSourceTimeUs is null || ActivityStartSourceTimeUs is { } start && start > Before.LayoutSourceTimeUs);
 }
 
 public enum SettledComparisonStatus
@@ -148,12 +178,79 @@ public sealed record BallCountChange(BallColour Colour, int Before, int After)
 public sealed record SettledOutcomeRecommendation(string Kind, string Strength, string Summary,
     bool AutoApprovalEligible, ImmutableArray<string> Alternatives);
 
+/// <summary>Compares same-colour positions without assigning identities to indistinguishable balls.</summary>
+public static class SettledLayoutReconciler
+{
+    public const double MovementThreshold = .018;
+    public const double StableLayoutTolerance = .010;
+
+    public static SettledLayoutDifference Compare(ImmutableArray<SettledBallPosition> before,
+        ImmutableArray<SettledBallPosition> after, double threshold = MovementThreshold)
+    {
+        if (before.IsDefaultOrEmpty || after.IsDefaultOrEmpty || !double.IsFinite(threshold) || threshold < 0)
+            return new(false, 0, 0);
+
+        int moved = 0;
+        double largest = 0;
+        foreach (var colour in new[] { BallColour.Red, BallColour.Yellow, BallColour.Cue, BallColour.Black })
+        {
+            var oldBalls = before.Where(ball => ball.Colour == colour).ToArray();
+            var newBalls = after.Where(ball => ball.Colour == colour).ToArray();
+            if (oldBalls.Length != newBalls.Length) return new(false, 0, 0);
+            if (oldBalls.Length == 0) continue;
+
+            int bestMoved = int.MaxValue;
+            double bestDistance = double.PositiveInfinity;
+            double bestLargest = 0;
+            var used = new bool[newBalls.Length];
+            Search(0, 0, 0, 0);
+            moved += bestMoved;
+            largest = Math.Max(largest, bestLargest);
+
+            void Search(int index, int movedCount, double distance, double pairLargest)
+            {
+                if (index == oldBalls.Length)
+                {
+                    if (movedCount < bestMoved || movedCount == bestMoved && distance < bestDistance)
+                    {
+                        bestMoved = movedCount;
+                        bestDistance = distance;
+                        bestLargest = pairLargest;
+                    }
+                    return;
+                }
+                for (int candidate = 0; candidate < newBalls.Length; candidate++)
+                {
+                    if (used[candidate]) continue;
+                    double dx = oldBalls[index].X - newBalls[candidate].X;
+                    double dy = oldBalls[index].Y - newBalls[candidate].Y;
+                    double displacement = Math.Sqrt(dx * dx + dy * dy);
+                    used[candidate] = true;
+                    Search(index + 1, movedCount + (displacement > threshold ? 1 : 0),
+                        distance + displacement * displacement, Math.Max(pairLargest, displacement));
+                    used[candidate] = false;
+                }
+            }
+        }
+        return new(true, moved, largest);
+    }
+
+    public static bool SameLayout(ImmutableArray<SettledBallPosition> first,
+        ImmutableArray<SettledBallPosition> second, double tolerance = StableLayoutTolerance)
+    {
+        var difference = Compare(first, second, tolerance);
+        return difference.Comparable && !difference.Changed;
+    }
+}
+
 /// <summary>A settled count comparison. Physical removals may be treated as pots by policy, without inventing identity or pocket facts.</summary>
 public sealed record SettledInventoryComparison(ActivityWindowContext Context, SettledTableEvidence After,
     ImmutableArray<BallCountChange> Changes)
 {
+    public SettledLayoutDifference LayoutDifference { get; init; } = new(false, 0, 0);
     public int RemovedFromTable => Changes.Sum(change => change.Removed);
     public int AddedToTable => Changes.Sum(change => change.Added);
+    public bool LayoutChanged => LayoutDifference.Changed;
 
     public SettledOutcomeRecommendation Recommendation
     {
@@ -180,8 +277,11 @@ public sealed record SettledInventoryComparison(ActivityWindowContext Context, S
             }
 
             if (Changes.IsEmpty)
-                return new("no-net-count-change", "informational", "No net ball-count change; a layout change may still need review.", false,
-                    ["Review the changed layout", "Reject this observation"]);
+                return LayoutChanged
+                    ? new("settled-no-pot-shot", "review", $"The settled layout changed ({LayoutDifference.MovedBallCount} ball(s) moved) with no count change. This is likely a no-pot shot; confirm the result with the rules choices.", false,
+                        ["Record a legal no-pot shot", "Record a standard foul", "Record loss of turn", "Keep the current turn"])
+                    : new("no-net-count-change", "informational", "No net ball-count or settled-layout change was detected.", false,
+                        ["Review the table", "Reject this observation"]);
 
             if (cueChanged && !blackChanged && after.CueBalls < before.CueBalls)
                 return new("cue-ball-removed", "review", "Cue ball missing from the settled table; check for a scratch or other removal.", false,
@@ -223,6 +323,7 @@ public static class SettledStateReconciler
         if (!after.Counts.IsValid)
             return new(SettledComparisonStatus.IncompleteEvidence, "The clear after-table does not have valid complete ball counts.");
         if (after.SourceTimeUs <= context.Before.SourceTimeUs
+            || context.Before.LayoutSourceTimeUs is { } layoutTime && after.SourceTimeUs <= layoutTime
             || context.ActivityStartSourceTimeUs is { } start && after.SourceTimeUs <= start)
             return new(SettledComparisonStatus.NonMonotonicSourceTime, "The after-table source time must follow the before-table and activity start.");
 
@@ -233,8 +334,9 @@ public static class SettledStateReconciler
         Add(BallColour.Yellow, beforeCounts.Yellows!.Value, afterCounts.Yellows!.Value);
         Add(BallColour.Cue, beforeCounts.CueBalls!.Value, afterCounts.CueBalls!.Value);
         Add(BallColour.Black, beforeCounts.BlackBalls!.Value, afterCounts.BlackBalls!.Value);
-        return new(SettledComparisonStatus.Ready, "Settled inventory counts are comparable; review the outcome recommendation and alternatives.",
-            new(context, after, changes.ToImmutable()));
+        var layoutDifference = SettledLayoutReconciler.Compare(context.Before.Layout, after.Layout);
+        return new(SettledComparisonStatus.Ready, "Settled inventory and available layout evidence are comparable; review the outcome recommendation and alternatives.",
+            new(context, after, changes.ToImmutable()) { LayoutDifference = layoutDifference });
 
         void Add(BallColour colour, int before, int current)
         {

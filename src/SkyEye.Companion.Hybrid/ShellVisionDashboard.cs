@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Text.Json;
@@ -37,8 +38,8 @@ public sealed partial class ShellSession
 {
     const string VisionDashboardAsset = "vision-diagnostics-dashboard.html";
     const string VisionScenarioAsset = "vision-scenario-lab.html";
-    const int VisionDashboardAssetVersion = 20;
-    const int VisionScenarioAssetVersion = 8;
+    const int VisionDashboardAssetVersion = 21;
+    const int VisionScenarioAssetVersion = 9;
     const int VisionDashboardPort = 8770;
     readonly DashboardScenarioWorkspace dashboardScenario;
     LocalHttpServer? visionDashboardServer;
@@ -465,10 +466,14 @@ public sealed partial class ShellSession
                 : (DateTimeOffset.UtcNow - currentSample.CapturedAt).TotalMilliseconds;
             var currentCounts = currentSample is { Detection.Uncertain: false, Detection.Obstructed: false }
                 ? CountRecognizedBalls(currentSample.Detection.Balls) : null;
+            ImmutableArray<SettledBallPosition> currentLayout = currentCounts is null
+                ? [] : CaptureSettledLayout(currentSample!.Detection.Balls);
             bool latestMatchesProposal = currentSample is not null && after.SourceTimeUs is { } afterSourceTime
                 && currentSample.Source == after.Source && currentSample.SourceTimeUs >= afterSourceTime
                 && double.IsFinite(sampleAgeMs) && sampleAgeMs is >= -200 and <= 2500
-                && currentCounts == after.Counts;
+                && currentCounts == after.Counts
+                && (after.Layout.IsDefaultOrEmpty || !currentLayout.IsDefaultOrEmpty
+                    && SettledLayoutReconciler.SameLayout(after.Layout, currentLayout, SettledLayoutReconciler.MovementThreshold));
             if (!latestMatchesProposal)
             {
                 ExpireLiveOutcomeCandidate(request.CandidateId);
@@ -487,10 +492,15 @@ public sealed partial class ShellSession
 
             GameInput input;
             string confirmation;
-            switch (request.Action?.Trim().ToLowerInvariant())
+            var action = request.Action?.Trim().ToLowerInvariant();
+            switch (action)
             {
                 case "accept":
                     var comparison = SettledStateReconciler.Compare(context, after);
+                    if (comparison.Comparison is { } noPotComparison && noPotComparison.LayoutChanged
+                        && noPotComparison.RemovedFromTable == 0)
+                        return new VisionDashboardOutcomeReviewResponse(false,
+                            "The ball count did not change. Choose legal no-pot, foul, loss of turn, or reject the proposal.");
                     if (comparison.Comparison is { } settled
                         && SettledOutcomeRuleInference.TryInfer(canonical.State, settled, out var ruling))
                     {
@@ -504,6 +514,29 @@ public sealed partial class ShellSession
                         input = new AcceptSettledInventory(1, context, after);
                         confirmation = "Observed settled counts accepted; rules need review before turn or score changes.";
                     }
+                    break;
+                case "legal-no-pot":
+                case "standard-foul-no-pot":
+                case "loss-of-turn-no-pot":
+                    var noPotResult = SettledStateReconciler.Compare(context, after);
+                    if (noPotResult.Comparison is not { } noPot
+                        || !noPot.LayoutChanged || noPot.RemovedFromTable != 0 || noPot.AddedToTable != 0
+                        || !TryCreateNoPotRuling(canonical.State, noPot,
+                            action == "legal-no-pot" ? DeclaredLegality.Legal
+                                : action == "standard-foul-no-pot" ? DeclaredLegality.StandardFoul
+                                : DeclaredLegality.LossOfTurn, out var noPotRuling))
+                        return new VisionDashboardOutcomeReviewResponse(false,
+                            "This is no longer a same-count moved-layout proposal. Wait for a fresh settled result.");
+                    input = new AcceptSettledOutcome(1, context, after, noPotRuling);
+                    confirmation = noPotRuling.Position.Reason + " "
+                        + (noPotRuling.Position.Target switch
+                        {
+                            LegalTarget.Red => "Reds are in play.",
+                            LegalTarget.Yellow => "Yellows are in play.",
+                            LegalTarget.Black => "The black is the next target.",
+                            LegalTarget.OpenColours => "The table remains open.",
+                            _ => "The next target needs review."
+                        });
                     break;
                 case "correct":
                     if (!ValidLiveInventoryCounts(request.Reds, request.Yellows, request.CueBalls, request.BlackBalls))
@@ -535,6 +568,13 @@ public sealed partial class ShellSession
             {
                 if (motionActivityCandidate?.ActivityWindowId == request.CandidateId)
                 {
+                    bool acceptedPhysicalBaseline = input is AcceptSettledInventory or AcceptSettledOutcome
+                        || input is CorrectSettledInventory corrected && corrected.CorrectedCounts == after.Counts
+                        || input is RejectSettledInventory && after.Counts == context.Before.Counts;
+                    if (acceptedPhysicalBaseline && after.Layout is { IsDefaultOrEmpty: false }
+                        && after.LayoutSourceTimeUs is { } acceptedLayoutTime)
+                        SetSpatialLayoutBaseline(after.Layout, after.Source, acceptedLayoutTime);
+                    ResetLayoutProbe();
                     motionActivityCandidate = null;
                     motionActivityCandidateContext = null;
                     motionActivityCandidateAfter = null;
@@ -542,8 +582,10 @@ public sealed partial class ShellSession
                     motionActivityVerificationPending = false;
                     motionActivityVerificationAttempted = false;
                     motionActivityLastSourceTimeUs = null;
-                    motionActivityStatus = input is AcceptSettledInventory or AcceptSettledOutcome or CorrectSettledInventory
-                        ? "Reviewed table counts are current; watching for the next settled change."
+                    motionActivityStatus = input is AcceptSettledOutcome
+                        ? "The reviewed shot result is recorded; watching for the next settled change."
+                        : input is AcceptSettledInventory or CorrectSettledInventory
+                            ? "Reviewed table counts are current; watching for the next settled change."
                         : "Proposal rejected; the current match inventory stays in place.";
                     ResetSettledDifferenceCandidate();
                 }
@@ -556,6 +598,26 @@ public sealed partial class ShellSession
     Task<VisionDashboardOutcomeReviewResponse> ReviewLiveOutcomeFromSkyAsync(Guid candidateId, string action,
         int? reds, int? yellows, int? cueBalls, int? blackBalls, CancellationToken cancellation)
         => ReviewLiveOutcomeAsync(new(candidateId, action, reds, yellows, cueBalls, blackBalls), cancellation, CommandOrigin.Sky);
+
+    static bool TryCreateNoPotRuling(GameSnapshot state, SettledInventoryComparison comparison,
+        DeclaredLegality legality, out RuleRuling ruling)
+    {
+        ruling = null!;
+        if (!comparison.LayoutChanged || comparison.RemovedFromTable != 0 || comparison.AddedToTable != 0
+            || legality is not (DeclaredLegality.Legal or DeclaredLegality.StandardFoul or DeclaredLegality.LossOfTurn))
+            return false;
+        var facts = new DeclaredShot(Break: false, Legality: legality,
+            RedsBefore: comparison.Context.Before.Counts.Reds,
+            YellowsBefore: comparison.Context.Before.Counts.Yellows);
+        try
+        {
+            var position = InternationalEightball.Evaluate(state, facts);
+            if (position.Pending) return false;
+            ruling = new(comparison.Context.Game.CurrentPlayer, facts, position);
+            return true;
+        }
+        catch (ArgumentException) { return false; }
+    }
 
     void ExpireLiveOutcomeCandidate(Guid candidateId)
     {

@@ -81,13 +81,17 @@ public sealed class SkyVoiceGameTools(
             pendingTableChange = outcomeProposal is null ? null : new
             {
                 candidateId = outcomeProposal.ActivityWindowId,
-                status = "awaiting explicit inventory review",
+                status = outcomeProposal.Recommendation?.Kind == "settled-no-pot-shot"
+                    ? "shot likely from a same-count settled layout change; awaiting the player's result declaration"
+                    : "awaiting explicit settled inventory review",
                 outcomeProposal.Recommendation,
                 before = outcomeProposal.Before,
                 observed = outcomeProposal.After,
                 outcomeProposal.RulesAdvice,
-                choices = new[] { "accept observed counts", "correct counts", "reject proposal" },
-                limitation = "Counts and rule branches are conditional evidence. They do not by themselves establish a pot, foul, pocket, turn or score."
+                choices = outcomeProposal.Recommendation?.Kind == "settled-no-pot-shot"
+                    ? new[] { "legal-no-pot", "standard-foul-no-pot", "loss-of-turn-no-pot", "reject" }
+                    : new[] { "accept", "correct", "reject" },
+                limitation = "Vision supplies settled count and position evidence. A player must confirm shot legality; pocket identity is not observed."
             },
             limitation = "This is the declared and observed match record. Image observations do not establish a pot, foul, winner or player declaration."
         };
@@ -100,8 +104,9 @@ public sealed class SkyVoiceGameTools(
         if (!state.CanManageMatch) return Error("This phone must be the camera host to review the table change.", state.Game.Version);
         if (candidateId == Guid.Empty) return Error("Read the current match state and use its live candidate ID.", state.Game.Version);
         var normalizedAction = action?.Trim().ToLowerInvariant() ?? "";
-        if (normalizedAction is not ("accept" or "correct" or "reject"))
-            return Error("Choose accept, correct or reject.", state.Game.Version);
+        if (normalizedAction is not ("accept" or "correct" or "reject" or "legal-no-pot"
+            or "standard-foul-no-pot" or "loss-of-turn-no-pot"))
+            return Error("Choose accept, correct, reject, legal-no-pot, standard-foul-no-pot or loss-of-turn-no-pot.", state.Game.Version);
         if (normalizedAction == "correct"
             && (reds is < 0 or > 7 || yellows is < 0 or > 7 || cueBalls is < 0 or > 1 || blackBalls is < 0 or > 1))
             return Error("Count correction needs 0–7 reds/yellows and 0 or 1 cue ball/black.", state.Game.Version);

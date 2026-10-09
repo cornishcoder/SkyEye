@@ -215,9 +215,10 @@ public sealed class GameSession
                 return Refuse(InputOutcome.Stale, "This settled table sample is not newer than the accepted source watermark.");
             var comparison = SettledStateReconciler.Compare(outcomeInput.Context, outcomeInput.After);
             if (!comparison.Ready || comparison.Comparison is not { } settled
-                || settled.AddedToTable != 0 || settled.RemovedFromTable == 0
+                || settled.AddedToTable != 0
+                || settled.RemovedFromTable == 0 && !settled.LayoutChanged
                 || !ValidSettledOutcomeRuling(input, outcomeInput, settled))
-                return Refuse(InputOutcome.Rejected, "The settled count decrease or rules result does not match the verified table change.");
+                return Refuse(InputOutcome.Rejected, "The settled table change or declared rules result does not match the verified evidence.");
 
             var outcomeEvents = new List<GameEvent>();
             if (State.Shot is { Ended: false } activeShot) outcomeEvents.Add(new ShotEndedEvent(activeShot.Id));
@@ -317,6 +318,10 @@ public sealed class GameSession
             || outcome.Ruling.Position is not { } position || position.Clauses.IsDefault) return false;
         var before = outcome.Context.Before.Counts;
         var after = outcome.After.Counts;
+        bool noNetInventoryChange = comparison.Changes.All(change => change.Removed == 0 && change.Added == 0);
+        if (noNetInventoryChange)
+            return ValidSettledNoPotRuling(input, outcome, comparison, facts, position);
+
         int reds = comparison.Changes.Where(change => change.Colour == BallColour.Red).Sum(change => change.Removed);
         int yellows = comparison.Changes.Where(change => change.Colour == BallColour.Yellow).Sum(change => change.Removed);
         bool black = before.BlackBalls > after.BlackBalls;
@@ -353,6 +358,50 @@ public sealed class GameSession
             && position.Reason is { Length: > 0 and <= 500 }
             && Enum.IsDefined(position.CueBall) && Enum.IsDefined(position.Target)
             && position.Reds == after.Reds && position.Yellows == after.Yellows && position.BreakComplete;
+    }
+
+    bool ValidSettledNoPotRuling(GameInputEnvelope input, AcceptSettledOutcome outcome,
+        SettledInventoryComparison comparison, DeclaredShot facts, RulePosition position)
+    {
+        if (!comparison.LayoutChanged || input.MatchId != outcome.Context.Game.MatchId
+            || input.FrameId != outcome.Context.Game.FrameId || outcome.Ruling.ReplacesInputId is not null
+            || outcome.Ruling.Shooter != outcome.Context.Game.CurrentPlayer
+            || !PlayerExists(outcome.Ruling.Shooter) || !PlayerExists(position.Player)
+            || facts is not { Break: false, Legality: DeclaredLegality.Legal or DeclaredLegality.StandardFoul or DeclaredLegality.LossOfTurn,
+                RedsPotted: 0, YellowsPotted: 0, BlackPotted: false, CueBallPotted: false, CueBallOffTable: false,
+                LegalBreak: null, FirstContact: null, CallRequired: null, CalledGroup: null }
+            || facts.RedsBefore != outcome.Context.Before.Counts.Reds
+            || facts.YellowsBefore != outcome.Context.Before.Counts.Yellows
+            || !Text(position.Profile) || !Text(position.Player)
+            || position.Reason is not { Length: > 0 and <= 500 }
+            || !Enum.IsDefined(position.CueBall) || !Enum.IsDefined(position.Target)
+            || position.Reds != outcome.After.Counts.Reds || position.Yellows != outcome.After.Counts.Yellows
+            || !position.BreakComplete || position.Pending || position.Winner is not null)
+            return false;
+
+        string shooter = outcome.Context.Game.CurrentPlayer;
+        string? opponent = State.Match?.Players.FirstOrDefault(player => player.Id != shooter)?.Id;
+        if (opponent is null || position.Player != opponent) return false;
+        bool standardFoul = facts.Legality == DeclaredLegality.StandardFoul;
+        if (position.Foul != standardFoul
+            || position.CueBall != (standardFoul ? CueBallEntitlement.Anywhere : CueBallEntitlement.None))
+            return false;
+
+        BallColour? shooterGroup = outcome.Context.Game.Groups.TryGetValue(shooter, out var assigned)
+            ? assigned.Value : outcome.Context.Game.Rules?.PlayerGroup;
+        BallColour? incomingGroup = shooterGroup switch
+        {
+            BallColour.Red => BallColour.Yellow,
+            BallColour.Yellow => BallColour.Red,
+            _ => null
+        };
+        LegalTarget expectedTarget = incomingGroup switch
+        {
+            BallColour.Red => outcome.After.Counts.Reds == 0 ? LegalTarget.Black : LegalTarget.Red,
+            BallColour.Yellow => outcome.After.Counts.Yellows == 0 ? LegalTarget.Black : LegalTarget.Yellow,
+            _ => LegalTarget.OpenColours
+        };
+        return position.PlayerGroup == shooterGroup && position.Target == expectedTarget;
     }
     static bool ValidCorrectedInventory(EventEnvelope envelope, SettledInventoryCorrectedEvent correction)
     {
