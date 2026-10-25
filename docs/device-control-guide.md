@@ -4,7 +4,7 @@ Use this guide to operate the Hybrid Production companion on the Pixel 11 and in
 
 ## Identify the installed app
 
-- Production is `uk.co.skyeye.companion`. On 2026-10-25 it was updated in place on the Pixel 11 Pro XL to version `0.6` / code `6`. Its package, signing identity, UID, private app storage and eight existing clips were retained. The previous signed APK is at `work/production/backups/20261025-193333/before.apk`; the camera package was not updated. See [the v0.6 device check](device-acceptance.md#production-v06-delivery-and-bounded-verification-attempt-25-october-2026).
+- Production is `uk.co.skyeye.companion`. On 2026-10-25 it was updated in place on the Pixel 11 Pro XL to version `0.7` / code `7`. Its package, signing identity, UID `10644`, private app storage and eight existing clips were retained. The previous signed APK is at `work/production/backups/20261025-200700/before.apk`; the camera package was not updated. See [the v0.7 device check](device-acceptance.md#production-v07-delivery-and-bounded-check-attempt-25-october-2026).
 - `uk.co.skyeye.companion.lab` is a separate Hybrid Lab app with its own private storage. The separate `uk.co.skyeye.companion.commands.lab` package is not Production either. Do not use either Lab package to judge the Production session.
 - During the 2026-10-25 run, Hybrid Lab failed while validating its own game journal. No Lab data was cleared. Do not clear or uninstall it to diagnose Production.
 
@@ -31,12 +31,13 @@ Restart capture only when the authorized work again needs live frames, using the
 
 Those labels show session readiness, not detector accuracy or a fresh settled table. Use the diagnostic snapshot below to check the frame and current detection.
 
-The live video header's small **`CAM N%`** gauge reports the mounted camera's battery when a fresh camera status is available. Unknown status appears as **`CAM —`** and is exposed to accessibility as an unknown level; it is never shown as 0%. The camera API does not expose charging state. At the latest stop check (25 October, revision 37), the camera reported 100% battery, eight clips, zero viewers and `Stopped`; the companion Home showed `Start live session`. `armed: true` did not mean it was recording.
+The live video header's small **`CAM N%`** gauge reports the mounted camera's battery when a fresh camera status is available. Unknown status appears as **`CAM —`** and is exposed to accessibility as an unknown level; it is never shown as 0%. The camera API does not expose charging state. At the latest stop check (25 October, revision 41), the camera reported 100% battery, eight clips, zero viewers and `Stopped`; the companion Home showed `Start live session`. `armed: true` did not mean it was recording.
 
 ## Navigation and menus
 
 - When a screen panel is open, use its visible in-app left chevron, accessibility label **`Back to home`**, to return to the home screen. Android Back collapsed the Settings panel during the 2026-10-25 run; it did not reliably navigate to Home.
 - Settings content is a scrolling panel over the video. Read the current screen after each navigation action. Do not reuse saved pixel coordinates after a scroll, overlay change, or window resize.
+- In the 2026-10-25 v0.7 check, **`Show candidate shots`** appeared in the accessibility tree as enabled but remained at zero-height bounds after four scroll attempts. Do not tap its stale/clipped bounds or substitute a different control; bring the named button fully into view first. If it remains clipped, ask the user to press that visible action once.
 - If a tap opens an unexpected menu or screen, stop after that one mismatch. Inspect the current visible screen and accessibility labels; if the target is ambiguous, ask the user for one clearly named on-device action. Do not try a series of guessed coordinates.
 - In Settings, **`Open table` / `I'm reds` / `I'm yellows` / `I'm on the black`** is the **My group** selector in the Table awareness section, not the home `Open match controls` action and not camera setup. It changes the shot-advice target group. Leave its current `Open table` value unchanged for a detector-only inspection. In the 2026-10-25 run this native option list opened accidentally; no option was selected.
 

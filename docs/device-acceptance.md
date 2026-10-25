@@ -78,16 +78,24 @@ A later read-only dashboard sample at about `19:47:33Z` was diagnostic-only: seq
 
 The six-frame v0.6 black-seed replay remains a separate offline detector result: frames `2644`, `2662`, `2694` and `2714` recovered 16 clear balls at both widths; frames `2678` and `2731` remain 15-ball/uncertain at unchanged `0.6875` boundary support. The earlier replay evidence that classified the stationary rack as `Still` at both widths is separate from this run and does not establish a complete supported layout or `Ready` state.
 
-The installed v0.6 verifier treated the first obstructed measurement as terminal. The local source now resets its worker anchors after obstruction and continues only within the original six-frame/four-second budget; a new candidate span still needs five fresh clear frames spanning at least two seconds, complete coverage, stillness and consensus. The focused verification checks pass, and the Release Production Android target compiles. This source change has **not** been installed on the Pixel; physical acceptance of the retry behavior remains open.
+The installed v0.6 verifier treated the first obstructed measurement as terminal. The local source was changed to reset its worker anchors after obstruction and continue only within the original six-frame/four-second budget; a new candidate span still needs five fresh clear frames spanning at least two seconds, complete coverage, stillness and consensus. The focused verification checks passed and the Release Production Android target compiled. Delivery and the later bounded-check attempt are recorded below.
 
 The broad device fixture sweep also stopped at `synthetic-dark`. The exact pre-fix analyzer and current analyzer were rebuilt and run on that fixture; both returned 16 balls (7 red, 7 yellow, 1 black, 1 cue), `PackedCluster=false`, and no packed-black candidate audits. This baseline comparison shows the open fixture expectation predates the ROI change and does not exercise its modified search path.
 
 Remaining work, ranked by this evidence:
 
 1. Investigate why the black-ball boundary evidence reaches only 22/32 sectors on frames `2678` and `2731`; keep the 0.70 support and readiness gates unchanged.
-2. After the local obstruction-retry change is delivered through the guarded Production workflow, repeat one ordinary no-export bounded-verifier run. Record source freshness, `Still`/`Moving`, complete supported layout/count and readiness separately; the current installed v0.6 result was one fresh-enough obstructed frame, while the later clear dashboard samples were diagnostic-only.
+2. Complete one ordinary no-export bounded-verifier run on v0.7 and record source freshness, `Still`/`Moving`, complete supported layout/count and readiness separately. The v0.7 capture was stopped safely before the verifier could be submitted because the Settings button remained clipped; no verifier result exists from that capture.
 3. Resolve packed-rack shot-spacing ineligibility with evidence-backed geometry; do not widen planner tolerances to admit overlapping centres.
 4. Repeat on independent held-out physical racks, including unsafe negatives and changed lighting/mount conditions, before calling O08 acceptance complete.
+
+### Production v0.7 delivery and bounded-check attempt (25 October 2026)
+
+The obstruction-retry source change was built as Production `uk.co.skyeye.companion` version `0.7` / code `7` and installed in place on the Pixel 11 Pro XL with `Install-ProductionCompanion.ps1`. The installer verified the matching signer and preserved UID `10644` and private storage; all eight existing clips remained. The previous APK is backed up at `work/production/backups/20261025-200700/before.apk`. Build and install logs are `work/production/o08-obstruction-retry-v07-build.log` and `work/production/o08-obstruction-retry-v07-install.log`. The mounted camera package was not changed.
+
+Before the check, `/status` reported the mounted camera `Stopped` at revision 37, battery 100%, eight clips and zero viewers. Home showed `Start live session`. The standard action started capture at revision 40 with one phone viewer. Settings showed the current camera as stopped before that action, then exposed the bounded control while live. The accessibility tree reported **Show candidate shots** as enabled, but its bounds remained zero-height (`[144,2884][1200,2884]`). Four bounded Settings scroll attempts did not reveal a tappable area, so no verifier action was submitted and no verifier frames were exported. This v0.7 live attempt has no `VerifyForAdvice` outcome, sample count, stillness result, layout result or readiness result. No match was started and Cast stayed disconnected.
+
+At the first safe boundary, Home **End recording session** stopped capture. Final `/status` at `2026-10-25T20:12:33.288Z` was revision 41, `Stopped`, battery 100%, eight clips and zero viewers. Home showed `Start live session`; Cast remained `Disconnected`. The installed-code and no-result readback is `work/production/evidence/o08-v07-rollout-no-verification.json`. A user-driven follow-up is still needed: start the live session, open Settings and press the visible **Show candidate shots** control once. Do not use the disabled `Capture verifier frames` control or any match action.
 
 ## Lifecycle gate
 
