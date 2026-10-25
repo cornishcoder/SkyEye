@@ -59,17 +59,6 @@ public sealed class TableObservationEffect(Func<TableAnalysisSession> session, F
         observed = observed with { GameEvidence = new(new(snapshot.CameraIdentity!, observed.Timeline, request.AnalysisGeneration + 1, snapshot.CalibrationId, request.Source.ConnectionId.ToString("N")),
             observedBalls.Select(b => new SkyEye.GameState.ObservedBall(b.Id, Enum.TryParse<SkyEye.GameState.BallColour>(b.Kind, true, out var colour) ? colour : SkyEye.GameState.BallColour.Unknown,
                 new(b.Position.X / 2, b.Position.Y), b.Confidence)).ToImmutableArray()) };
-        if (request.IncludeChoices)
-        {
-            var timer = System.Diagnostics.Stopwatch.StartNew();
-            var shots = observed.Outcome == ObservationOutcome.Ready ? session().ComputeChoices(request.AnalysisGeneration, observed.TableVersion) : [];
-            var table = session().State.Table!;
-            var group = Enum.Parse<AdviceTargetGroup>(table.Group, ignoreCase: true);
-            observed = observed with { Choices = new(request.Source, table.Version, group, table.CapturedAt, table.CapturedAt.AddSeconds(ObservationPolicy.CatalogueLifetimeSeconds),
-                shots.Select(s => new ShotChoice(s.Id, s.Type, s.Pocket)).ToImmutableArray()), DurationMs = observed.DurationMs + timer.Elapsed.TotalMilliseconds,
-                FrameAgeMs = observed.FrameAgeMs + timer.Elapsed.TotalMilliseconds };
-            if (observed.DetectionEvidence is { } support) observed = observed with { DetectionEvidence = support with { AgeMs = support.AgeMs + timer.Elapsed.TotalMilliseconds } };
-        }
         return observed with { MediaGeneration = request.MediaGeneration };
     }
 }
@@ -180,7 +169,7 @@ public sealed partial class AppCoordinator
     }
     public static string VerificationMessage(ObservationReason reason) => reason switch
     {
-        ObservationReason.None => "Table verified. Current candidate shots are ready.",
+        ObservationReason.None => "Clear, still table verified. Shot choices are checked separately against safe geometry.",
         ObservationReason.Moving => "Balls moving. Let the table settle, then retry.",
         ObservationReason.Obstructed => "Table obstructed. Clear the camera view, then retry.",
         ObservationReason.DetectionAmbiguous => "Table still; detection unclear. Review the balls or retry.",

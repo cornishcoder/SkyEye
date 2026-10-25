@@ -911,6 +911,8 @@ public sealed partial class ShellSession
                 limitation = "No current calibrated table layout is available. Calibrate, then request a fresh observation." };
 
         double age = (DateTimeOffset.UtcNow - layout.CapturedAt).TotalSeconds;
+        var now = DateTimeOffset.UtcNow;
+        var shotCandidates = ShotPlanner.Suggest(layout, now);
         var observation = snapshot.Observation;
         return new
         {
@@ -930,6 +932,8 @@ public sealed partial class ShellSession
             motion = observation?.Motion.ToString() ?? "unknown",
             quality = observation?.Quality.ToString() ?? "unknown",
             reason = observation?.Reason.ToString() ?? "unknown",
+            shotAdviceAvailable = shotCandidates.Length > 0,
+            shotAdviceLimitation = shotCandidates.Length == 0 ? NoShotCandidatesMessage(layout, now) : null,
             balls = layout.Balls.Select(ball => new { ball.Id, ball.Kind, x = ball.Position.X, y = ball.Position.Y, ball.Confidence }),
             warnings = snapshot.Vision?.Warnings ?? [],
             rules = PoolGeometry.RulesVersion,

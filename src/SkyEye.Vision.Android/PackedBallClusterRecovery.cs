@@ -102,11 +102,13 @@ public sealed partial class VisionAnalyzer
             var seed = darkSeeds[i];
             if (seed.Centre.X < bounds.Left || seed.Centre.X > bounds.Right || seed.Centre.Y < bounds.Top || seed.Centre.Y > bounds.Bottom)
             { Audit("rejected-outside-cluster-window"); continue; }
+            double expectedRadius = PoolGeometry.Radius * coordinates.Width;
             var fit = BallBoundaryRefiner.Refine(rawBgrPixels, coordinates.Width, coordinates.Height,
-                seed.Centre, PoolGeometry.Radius * coordinates.Width, .7);
+                seed.Centre, expectedRadius, .7);
             if (fit is null)
             { Audit("rejected-no-boundary-fit"); continue; }
-            if (fit.SupportedSectors < .7)
+            if (fit.SupportedSectors < .7
+                && !HasOcclusionExplainedBlackBoundary(fit, seed.Centre, expectedRadius, rawBgrPixels, cluster))
             { Audit("rejected-insufficient-boundary-support", fit, fit.SupportedSectors); continue; }
             var body = new Circle(fit.Centre.X, fit.Centre.Y, fit.Radius);
             var classification = Classify(body, rawPixels, inspectRim: true);
@@ -125,6 +127,17 @@ public sealed partial class VisionAnalyzer
                     boundary?.Centre, boundary?.Radius, support, label, decision));
         }
         return new(true, cluster.Count(p => p.Kind == "red"), cluster.Count(p => p.Kind == "yellow"), blackObserved);
+    }
+
+    bool HasOcclusionExplainedBlackBoundary(BallBoundary fit, Point proposal, double expectedRadius,
+        byte[] rawBgr, ClusterBall[] packedColourBalls)
+    {
+        var sectors = BallBoundaryRefiner.Inspect(rawBgr, coordinates.Width, coordinates.Height,
+            proposal, expectedRadius, fit.Centre, fit.Radius);
+        var neighbours = packedColourBalls.Where(ball => ball.Kind is "red" or "yellow")
+            .Select(ball => ball.PeakCentre).ToArray();
+        return BallBoundaryRefiner.HasConservativeOcclusionCoverage(sectors, fit.Centre,
+            expectedRadius, neighbours, .7);
     }
 
     ClusterBall[] FindColourPeakBodies(Mat colourMask, string kind, byte[] rawHsv, byte[] rawBgr, double scale,

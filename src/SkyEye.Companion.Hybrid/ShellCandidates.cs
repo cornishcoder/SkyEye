@@ -36,6 +36,73 @@ public sealed partial class ShellSession
         : ShotChoices.Count == 0 ? shotMessage : $"{ShotChoices.Count} choices · cycle every 2 seconds · expires after 15 seconds";
     public bool CanShowChoices => active && CanAnalyzeTable && CanCastLive && !EditingTable;
 
+    static string NoShotCandidatesMessage(TableState layout, DateTimeOffset now)
+    {
+        if (!ShotPlanner.Eligible(layout, now))
+            return !ShotPlanner.HasSafeBallSpacing(layout)
+                ? "Shot advice unavailable: some detected ball centres are inside the minimum spacing check. No candidates were returned."
+                : "Shot advice unavailable: this layout does not pass all shot safety checks. No candidates were returned.";
+        return "No supported shot path was found for this layout and group.";
+    }
+
+    async Task<ShotChoiceCatalog?> ComputeAndPublishShotCatalogAsync(ObserveTable request, TableObservation observation,
+        CancellationToken cancellation)
+    {
+        if (observation.Outcome != ObservationOutcome.Ready) return null;
+        try
+        {
+            var appSnapshot = app.State;
+            var tableSnapshot = table.State;
+            if (appSnapshot.Observation is not { Outcome: ObservationOutcome.Ready } current
+                || current.Source != request.Source || current.AnalysisGeneration != request.AnalysisGeneration
+                || current.MediaGeneration != request.MediaGeneration || current.TableVersion != observation.TableVersion
+                || !appSnapshot.Camera.CanControl || appSnapshot.Camera.Capture != CaptureState.Active || appSnapshot.Camera.Scope != request.Source
+                || tableSnapshot.Source != request.Source || tableSnapshot.Generation != request.AnalysisGeneration
+                || tableSnapshot.Table is not { } layout || layout.Version != observation.TableVersion
+                || !Enum.TryParse<AdviceTargetGroup>(layout.Group, true, out var group)
+                || appSnapshot.Advice.TargetGroup != group)
+                return null;
+
+            // Publish clear/still observation first. Planning runs afterwards on a
+            // worker, so it cannot hold up readiness or the canonical count baseline.
+            var shots = await Task.Run(() => table.ComputeChoices(request.AnalysisGeneration, observation.TableVersion), cancellation)
+                .ConfigureAwait(false);
+            cancellation.ThrowIfCancellationRequested();
+            var completedTable = table.State;
+            var completedApp = app.State;
+            if (completedTable.Source != request.Source || completedTable.Generation != request.AnalysisGeneration
+                || completedTable.Table?.Version != observation.TableVersion
+                || completedApp.Observation is not { Outcome: ObservationOutcome.Ready } completedObservation
+                || completedObservation.Source != request.Source || completedObservation.AnalysisGeneration != request.AnalysisGeneration
+                || completedObservation.MediaGeneration != request.MediaGeneration || completedObservation.TableVersion != observation.TableVersion
+                || completedApp.Advice.TargetGroup != group || completedApp.Camera.Scope != request.Source || !completedApp.Camera.CanControl
+                || completedApp.Camera.Capture != CaptureState.Active)
+                return null;
+
+            layout = completedTable.Table!;
+            var catalog = new ShotChoiceCatalog(request.Source, layout.Version, group, layout.CapturedAt,
+                layout.CapturedAt.AddSeconds(ObservationPolicy.CatalogueLifetimeSeconds),
+                shots.Select(shot => new ShotChoice(shot.Id, shot.Type, shot.Pocket)).ToImmutableArray());
+            var published = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.System, app.State.Version,
+                new PublishShotCatalog(catalog)), cancellation).ConfigureAwait(false);
+            if (!published.Succeeded) return null;
+
+            if (catalog.Choices.IsEmpty)
+            {
+                shotMessage = lastVerificationStatus = NoShotCandidatesMessage(layout, DateTimeOffset.UtcNow);
+            }
+            else lastVerificationStatus = null;
+            return catalog;
+        }
+        catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { return null; }
+        catch (Exception)
+        {
+            if (app.State.Observation is { Outcome: ObservationOutcome.Ready } && table.State.Table is { } layout)
+                shotMessage = lastVerificationStatus = "Shot advice could not be computed; the clear, still table remains current.";
+            return null;
+        }
+    }
+
     public Task SetShotDisplayAsync(long expectedVersion, SceneTarget target, ShotDisplayMode mode) => MainThread.InvokeOnMainThreadAsync(async () =>
     {
         if (!active || foreground is null || EditingTable) return;
@@ -75,6 +142,13 @@ public sealed partial class ShellSession
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellation, foreground?.Token ?? CancellationToken.None);
         var receipt = await app.DispatchAsync(request, linked.Token);
         if (request.Command is ObserveTable { Mode: ObservationMode.VerifyForAdvice }) lastVerificationStatus = receipt.Message;
+        if (receipt.Succeeded && request.Command is ObserveTable { IncludeChoices: true } observedRequest
+            && receipt.Observation is { Outcome: ObservationOutcome.Ready } observedResult)
+        {
+            var catalog = await ComputeAndPublishShotCatalogAsync(observedRequest, observedResult, linked.Token);
+            if (catalog is not null && app.State.Observation is { } updatedObservation)
+                receipt = receipt with { Observation = updatedObservation };
+        }
         if (receipt.Succeeded)
         {
             if (request.Command is ObserveTable { IncludeChoices: true } && table.State.Table is { } observed)
@@ -163,7 +237,7 @@ public sealed partial class ShellSession
                 await ClearShotCatalogAsync(token); return;
             }
             shotCarousel.Use(snapshot.Choices, layout.CapturedAt);
-            shotMessage = shotCarousel.Candidates.Length == 0 ? "No clear candidate for this layout and group." : "";
+            shotMessage = shotCarousel.Candidates.Length == 0 ? NoShotCandidatesMessage(layout, DateTimeOffset.UtcNow) : "";
             lastVerificationStatus = shotCarousel.Candidates.Length == 0 ? shotMessage : null;
         }
         catch (OperationCanceledException) { lastVerificationStatus = shotMessage = "Table check cancelled."; }

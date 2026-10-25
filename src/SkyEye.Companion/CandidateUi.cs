@@ -104,8 +104,16 @@ public sealed partial class MainActivity
             ClearCandidatePresentation(tableState?.Occluded == true ? "Table unclear or obstructed. Request again when clear." : "Settlement is not established. Request again when the balls are still."); return;
         }
         carousel.Update(state, DateTimeOffset.UtcNow);
-        overlayMessage = carousel.Candidates.Length == 0 ? "No clear candidate for this layout and group." : "";
+        overlayMessage = carousel.Candidates.Length == 0 ? NoShotCandidatesMessage(state, DateTimeOffset.UtcNow) : "";
         PublishCandidatePresentation(); ShowTable();
+    }
+    static string NoShotCandidatesMessage(TableState state, DateTimeOffset now)
+    {
+        if (!ShotPlanner.Eligible(state, now))
+            return !ShotPlanner.HasSafeBallSpacing(state)
+                ? "Shot advice unavailable: some detected ball centres are inside the minimum spacing check. No candidates were returned."
+                : "Shot advice unavailable: this layout does not pass all shot safety checks. No candidates were returned.";
+        return "No supported shot path was found for this layout and group.";
     }
     void ClearCandidatePresentation(string message)
     {

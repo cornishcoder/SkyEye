@@ -122,7 +122,19 @@ public static class ShotPlanner
         if (balls.Length > 16 || balls.Select(b => b.Id).Distinct().Count() != balls.Length || balls.Any(b => string.IsNullOrWhiteSpace(b.Id) || b.Kind is not ("cue" or "red" or "yellow" or "black") ||
             !double.IsFinite(b.Confidence) || b.Confidence is < .7 or > 1 || !ShotMath.Finite(b.Position) || b.Position.X is < 0 or > 2 || b.Position.Y is < 0 or > 1)) return false;
         if (balls.Count(b => b.Kind == "cue") != 1 || balls.Count(b => b.Kind == "black") > 1 || balls.Count(b => b.Kind == "red") > 7 || balls.Count(b => b.Kind == "yellow") > 7) return false;
-        for (int i = 0; i < balls.Length; i++) for (int j = i + 1; j < balls.Length; j++) if ((balls[i].Position - balls[j].Position).Length < 2 * PoolGeometry.Radius - .002) return false;
+        if (!HasSafeBallSpacing(balls)) return false;
         return state.Group is "open" or "red" or "yellow" or "black";
+    }
+
+    /// <summary>Reports the planner's existing minimum centre spacing independently
+    /// of whether an observed table is otherwise clear and settled.</summary>
+    public static bool HasSafeBallSpacing(TableState state) => HasSafeBallSpacing(state.Balls);
+
+    static bool HasSafeBallSpacing(Ball[] balls)
+    {
+        for (int i = 0; i < balls.Length; i++)
+            for (int j = i + 1; j < balls.Length; j++)
+                if ((balls[i].Position - balls[j].Position).Length < 2 * PoolGeometry.Radius - .002) return false;
+        return true;
     }
 }

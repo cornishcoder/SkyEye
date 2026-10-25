@@ -45,6 +45,63 @@ static class VerificationChecks
         var observation = session.State.Observation!;
         var choices = session.ComputeChoices(session.State.Generation, observation.TableVersion);
         Check(ReferenceEquals(choices, session.ComputeChoices(session.State.Generation, observation.TableVersion)) && analyzer.Detections == 3, "Choices computed once without new perception");
+
+        var packedFrames = new Frames(); var packedAnalyzer = new Analyzer { DetectedBalls = PackedRackFixture.Balls };
+        using var packedSession = new TableAnalysisSession(packedFrames, packedAnalyzer, new Calibration());
+        packedSession.Bind(camera, "open"); packedSession.RestoreCalibration();
+        await packedSession.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !packedSession.HasPendingWork);
+        var packedObservation = packedSession.State.Observation!; var packedTable = packedSession.State.Table!;
+        Check(packedObservation is { Outcome: ObservationOutcome.Ready, Motion: TableMotion.Still, Quality: LayoutQuality.Clear,
+                Reason: ObservationReason.None, Verification.IndependentFrames: 5, Verification.CandidateSpanIndependentFrames: 5,
+                Verification.ConsensusConflict: null }
+            && packedTable is { Settled: true, Occluded: false, Confirmed: true } && !packedSession.PhysicallyObstructed
+            && packedTable.Balls.Length == 16 && packedTable.Balls.Count(b => b.Kind == "red") == 7
+            && packedTable.Balls.Count(b => b.Kind == "yellow") == 7 && packedTable.Balls.Count(b => b.Kind == "cue") == 1
+            && packedTable.Balls.Count(b => b.Kind == "black") == 1,
+            "The saved clear/still sixteen-ball receipt establishes ready inventory without planner spacing");
+        Check(!ShotPlanner.HasSafeBallSpacing(packedTable) && !ShotPlanner.Eligible(packedTable, DateTimeOffset.UtcNow)
+            && ShotPlanner.Suggest(packedTable, DateTimeOffset.UtcNow).Length == 0,
+            "The unchanged planner spacing gate rejects advice for the packed receipt and returns no candidates");
+        var packedEffect = new TableObservationEffect(() => packedSession, () => 1, () => true);
+        var packedRequest = new ObserveTable(camera.Scope!, packedSession.State.Generation, 1, IncludeChoices: true,
+            Mode: ObservationMode.VerifyForAdvice);
+        var effectResult = await packedEffect.ExecuteAsync(packedRequest, Guid.NewGuid(), CancellationToken.None);
+        Check(effectResult.Outcome == ObservationOutcome.Ready && effectResult.Choices is null
+            && !packedSession.State.ChoicesComputed && packedSession.State.Table is { Confirmed: true, Occluded: false },
+            "IncludeChoices does not run planning inside the observation effect or delay its ready result");
+        packedObservation = effectResult;
+        packedTable = packedSession.State.Table!;
+        var packedChoices = packedSession.ComputeChoices(packedSession.State.Generation, packedObservation.TableVersion);
+        Check(packedChoices.Length == 0 && packedSession.State.Observation?.Outcome == ObservationOutcome.Ready
+            && packedSession.State.Table is { Settled: true, Occluded: false, Confirmed: true, Version: var packedVersion }
+            && packedVersion == packedTable.Version,
+            "An unavailable planner result cannot demote or revise the verified table state");
+        bool correctionRejected = false;
+        try
+        {
+            var correction = string.Join('\n', PackedRackFixture.Balls.Select(b => $"{b.Kind} {b.Position.X:R} {b.Position.Y:R}"));
+            packedSession.Correct(packedTable.Version, correction);
+        }
+        catch (ArgumentException) { correctionRejected = true; }
+        Check(correctionRejected && packedSession.State.Observation?.Outcome == ObservationOutcome.Ready
+            && packedSession.State.Table?.Version == packedTable.Version,
+            "A rejected overlapping manual correction leaves the independently verified inventory ready");
+
+        packedSession.Invalidate(); packedFrames.Reads = 0; packedAnalyzer.MeasurementCalls = 0; packedAnalyzer.Detections = 0;
+        packedAnalyzer.MovingAtCall = 3;
+        await packedSession.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !packedSession.HasPendingWork);
+        Check(packedSession.State.Observation is { Outcome: ObservationOutcome.Unsettled, Motion: TableMotion.Moving, Reason: ObservationReason.Moving }
+            && packedSession.State.Table is { Settled: false, Confirmed: false }
+            && ShotPlanner.Suggest(packedSession.State.Table, DateTimeOffset.UtcNow).Length == 0,
+            "Positive movement still blocks readiness and advice for the same full inventory");
+        packedAnalyzer.MovingAtCall = 0; packedAnalyzer.DropLastDetectedBall = true;
+        packedSession.Invalidate(); packedFrames.Reads = 0; packedAnalyzer.MeasurementCalls = 0; packedAnalyzer.Detections = 0;
+        await packedSession.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !packedSession.HasPendingWork);
+        Check(packedSession.State.Observation is { Outcome: ObservationOutcome.Unclear, Quality: LayoutQuality.Ambiguous,
+                Reason: ObservationReason.DetectionAmbiguous, Verification.ConsensusConflict: not null }
+            && packedSession.State.Table is { Confirmed: false },
+            $"A persistent incomplete final detection remains unclear and cannot establish confirmed inventory ({packedSession.State.Observation?.Outcome}/{packedSession.State.Observation?.Quality}/{packedSession.State.Observation?.Reason}; conflict={packedSession.State.Observation?.Verification?.ConsensusConflict}; balls={packedSession.State.Table?.Balls.Length}; confirmed={packedSession.State.Table?.Confirmed}; calls={packedAnalyzer.MeasurementCalls}/{packedAnalyzer.Detections})");
+
         session.Invalidate(); frames.Reads = 0; analyzer.CreatedWorkers = 0; analyzer.ObstructionIssued = false;
         analyzer.ObstructFirstDetectedFrame = true;
         await session.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !session.HasPendingWork);
@@ -67,7 +124,8 @@ static class VerificationChecks
         analyzer.ObstructEveryDetectedFrame = true;
         await session.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !session.HasPendingWork);
         Check(session.State.Observation is { Outcome: ObservationOutcome.Unclear, Motion: TableMotion.Unknown, Quality: LayoutQuality.Obstructed,
-            Reason: ObservationReason.Obstructed, Verification.IndependentFrames: 6, Verification.CandidateSpanIndependentFrames: 0 },
+            Reason: ObservationReason.Obstructed, Verification.IndependentFrames: 6, Verification.CandidateSpanIndependentFrames: 0 }
+            && session.State.Table is { Occluded: true, Confirmed: false },
             "Persistent obstruction consumes the bounded burst but never becomes still, clear or ready");
         Check(frames.Reads == 6, "Persistent obstruction retries only within the six-frame bound");
         analyzer.ObstructEveryDetectedFrame = false;
@@ -124,7 +182,8 @@ static class VerificationChecks
         int lateDisposals = frames.Disposals; frames.Hold.SetResult(); await Until(() => frames.Disposals == lateDisposals + 1 && !session.HasPendingWork); frames.Hold = null;
         session.Invalidate(); frames.AgeMs = 1450; analyzer.DelayMs = 100;
         await session.VerifyAsync(Guid.NewGuid(), 1);
-        Check(session.State.Observation?.Reason == ObservationReason.FrameTooOld, "Freshness fails when processing pushes the final sample over the publication budget"); frames.AgeMs = 0; analyzer.DelayMs = 0;
+        Check(session.State.Observation?.Reason == ObservationReason.FrameTooOld && session.State.Observation.Outcome != ObservationOutcome.Ready
+            && session.State.Table is { Confirmed: false }, "Freshness fails when processing pushes the final sample over the publication budget"); frames.AgeMs = 0; analyzer.DelayMs = 0;
         session.Invalidate(); frames.FinalCurrent = false;
         await session.VerifyAsync(Guid.NewGuid(), 1);
         Check(session.State.Observation?.Reason == ObservationReason.SourceChanged && session.State.Choices.Length == 0, "Decoder/timeline change after final CV blocks publication");
@@ -230,6 +289,42 @@ static class VerificationChecks
         Check(maskedFit?.ProposalFit is { SupportedSectors: >= ObservationPolicy.MinimumSupportedBoundaryFraction }
             && maskedFit.SupportedSectors >= ObservationPolicy.MinimumSupportedBoundaryFraction,
             "A supported exact seed remains eligible when a neighboring edge masks part of the boundary");
+        var partialEvidence = Enumerable.Range(0, 32).Select(index =>
+        {
+            double angle = index * Math.PI / 16;
+            var inner = new Point(8 * Math.Cos(angle), 8 * Math.Sin(angle));
+            var outer = new Point(12 * Math.Cos(angle), 12 * Math.Sin(angle));
+            bool supported = index < 22;
+            return new BoundarySectorEvidence(index, inner, outer, inner, outer,
+                supported ? 20 : 3, supported ? 20 : 60, supported ? 18 : 2,
+                ExteriorRejected: !supported, Supported: supported);
+        }).ToArray();
+        var adjacentBallCentres = Enumerable.Range(22, 10).Select(index =>
+        {
+            double angle = index * Math.PI / 16;
+            return new Point(20 * Math.Cos(angle), 20 * Math.Sin(angle));
+        }).ToArray();
+        Check(BallBoundaryRefiner.HasConservativeOcclusionCoverage(partialEvidence, new(0, 0), 10, adjacentBallCentres),
+            "One-sector-short visible support passes only when every rejected arc is covered by a measured neighbor");
+        Check(!BallBoundaryRefiner.HasConservativeOcclusionCoverage(partialEvidence, new(0, 0), 10, []),
+            "A dark candidate without measured neighboring balls cannot use the occlusion exception");
+        var uncoveredArc = partialEvidence.Select(sector => sector.Index == 31
+            ? sector with { OuterPoint = new(1000, 1000) } : sector).ToArray();
+        Check(!BallBoundaryRefiner.HasConservativeOcclusionCoverage(uncoveredArc, new(0, 0), 10, adjacentBallCentres),
+            "One unsupported neighboring arc prevents packed-ball acceptance");
+        var incompleteOcclusion = partialEvidence.Select(sector => sector.Index == 31
+            ? sector with { ExteriorRejected = false } : sector).ToArray();
+        Check(!BallBoundaryRefiner.HasConservativeOcclusionCoverage(incompleteOcclusion, new(0, 0), 10, adjacentBallCentres),
+            "A weak edge sector is not excused as a neighboring-ball occlusion");
+        var fewerVisible = partialEvidence.Select(sector => sector.Index == 21
+            ? sector with { Supported = false, ExteriorRejected = true } : sector).ToArray();
+        Check(!BallBoundaryRefiner.HasConservativeOcclusionCoverage(fewerVisible, new(0, 0), 10, adjacentBallCentres),
+            "More than one sector below the visible boundary gate remains unknown");
+        var obstructedEvidence = partialEvidence.Select(sector => sector.Index < 18
+            ? sector with { Supported = true, ExteriorRejected = false }
+            : sector with { Supported = false, ExteriorRejected = true }).ToArray();
+        Check(!BallBoundaryRefiner.HasConservativeOcclusionCoverage(obstructedEvidence, new(0, 0), 10, []),
+            "A true obstruction with fewer than 70% visible sectors stays rejected");
         var strictFit = BallBoundaryRefiner.Refine(image, width, height, new(84, 77), 27, .75);
         Check(strictFit is not null && strictFit.SupportedSectors >= .75 && (strictFit.Centre - new Point(80, 80)).Length < 2,
             "Stronger proposal support still fits the full body rather than the cream patch");
@@ -281,7 +376,9 @@ static class VerificationChecks
     sealed class Analyzer : ITableAnalyzer, ITableVerificationAnalyzer
     {
         public int Detections, Disposals, DelayMs, CreatedWorkers, ObstructionResets, MeasurementCalls, ObstructAtCall;
-        public bool LayoutUncertain, ObstructFirstDetectedFrame, ObstructEveryDetectedFrame, ObstructionIssued;
+        public bool LayoutUncertain, ObstructFirstDetectedFrame, ObstructEveryDetectedFrame, ObstructionIssued, DropLastDetectedBall;
+        public int MovingAtCall;
+        public Ball[]? DetectedBalls;
         public TaskCompletionSource? Hold, Entered; public Exception? Failure;
         public VisionResult Analyze(byte[] jpeg, TableCalibration calibration, CancellationToken cancellation = default) => Vision(uncertain: LayoutUncertain);
         public Point[]? FindCorners(byte[] jpeg) => null;
@@ -301,8 +398,18 @@ static class VerificationChecks
                     owner.ObstructionIssued = true;
                     return new(TableMotion.Unknown, ObservationReason.Obstructed, false, 0, 0, 0, Vision() with { Obstructed = true });
                 }
-                if (detect) Interlocked.Increment(ref owner.Detections);
-                return new(count++ == 0 ? TableMotion.Unknown : TableMotion.Still, count == 1 ? ObservationReason.InsufficientEvidence : ObservationReason.None, true, 0, 0, 0, detect ? Vision(uncertain: owner.LayoutUncertain) : null);
+                int sample = count++;
+                VisionResult? detected = null;
+                if (detect)
+                {
+                    int detection = Interlocked.Increment(ref owner.Detections);
+                    detected = owner.DetectedBalls is { } balls ? Vision(balls, owner.LayoutUncertain) : Vision(uncertain: owner.LayoutUncertain);
+                    if (owner.DropLastDetectedBall && detection >= 3) detected = detected with { Balls = detected.Balls[..^1] };
+                }
+                if (call == owner.MovingAtCall)
+                    return new(TableMotion.Moving, ObservationReason.Moving, true, 0, 0, 0, detected);
+                return new(sample == 0 ? TableMotion.Unknown : TableMotion.Still,
+                    sample == 0 ? ObservationReason.InsufficientEvidence : ObservationReason.None, true, 0, 0, 0, detected);
             }
             public void ResetAfterObstruction() { count = 0; Interlocked.Increment(ref owner.ObstructionResets); }
             public void Dispose() => Interlocked.Increment(ref owner.Disposals);

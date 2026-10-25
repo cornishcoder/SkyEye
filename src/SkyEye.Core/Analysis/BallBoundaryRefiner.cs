@@ -17,6 +17,92 @@ public static class BallBoundaryRefiner
     static readonly (double X, double Y)[] directions = Enumerable.Range(0, 32)
         .Select(i => (Math.Cos(i * Math.PI / 16), Math.Sin(i * Math.PI / 16))).ToArray();
 
+    /// <summary>Measure the same 32 radial boundary sectors at one selected
+    /// fit. This is useful for explaining a rejected fit without retaining
+    /// per-candidate evidence throughout the bounded search.</summary>
+    public static BoundarySectorEvidence[] Inspect(byte[] bgr, int width, int height, Point proposal,
+        double expectedRadius, Point centre, double radius)
+    {
+        if (width <= 0 || height <= 0 || bgr.Length != checked(width * height * 3)
+            || !double.IsFinite(expectedRadius) || expectedRadius < 5 || expectedRadius > 100
+            || !double.IsFinite(radius) || radius < 5 || radius > 125
+            || !double.IsFinite(proposal.X) || !double.IsFinite(proposal.Y)
+            || !double.IsFinite(centre.X) || !double.IsFinite(centre.Y))
+            throw new ArgumentException("Invalid boundary image or fit.");
+        var background = new double[3];
+        for (int channel = 0; channel < 3; channel++)
+        {
+            var surrounding = directions.Select(d => (X: (int)Math.Round(proposal.X + d.X * expectedRadius * 1.7), Y: (int)Math.Round(proposal.Y + d.Y * expectedRadius * 1.7)))
+                .Where(p => p.X >= 0 && p.X < width && p.Y >= 0 && p.Y < height)
+                .Select(p => bgr[(p.Y * width + p.X) * 3 + channel]).Order().ToArray();
+            if (surrounding.Length < 24) return [];
+            background[channel] = surrounding[surrounding.Length / 2];
+        }
+
+        double offset = Math.Max(2, expectedRadius * .12);
+        if (centre.X - radius - offset < 0 || centre.Y - radius - offset < 0
+            || centre.X + radius + offset >= width || centre.Y + radius + offset >= height)
+            return [];
+        var evidence = new BoundarySectorEvidence[directions.Length];
+        for (int i = 0; i < directions.Length; i++)
+        {
+            var d = directions[i];
+            var innerPoint = new Point(centre.X + d.X * (radius - offset), centre.Y + d.Y * (radius - offset));
+            var outerPoint = new Point(centre.X + d.X * (radius + offset), centre.Y + d.Y * (radius + offset));
+            var fineInnerPoint = new Point(centre.X + d.X * (radius - 1), centre.Y + d.Y * (radius - 1));
+            var fineOuterPoint = new Point(centre.X + d.X * (radius + 1), centre.Y + d.Y * (radius + 1));
+            int inside = ((int)Math.Round(innerPoint.Y) * width + (int)Math.Round(innerPoint.X)) * 3;
+            int outside = ((int)Math.Round(outerPoint.Y) * width + (int)Math.Round(outerPoint.X)) * 3;
+            int innerFine = ((int)Math.Round(fineInnerPoint.Y) * width + (int)Math.Round(fineInnerPoint.X)) * 3;
+            int outerFine = ((int)Math.Round(fineOuterPoint.Y) * width + (int)Math.Round(fineOuterPoint.X)) * 3;
+            double edge = 0, exterior = 0, fineEdge = 0;
+            for (int k = 0; k < 3; k++)
+            {
+                edge += Math.Abs(bgr[inside + k] - bgr[outside + k]);
+                exterior += Math.Abs(bgr[outside + k] - background[k]);
+                fineEdge += Math.Abs(bgr[innerFine + k] - bgr[outerFine + k]);
+            }
+            edge /= 3; exterior /= 3; fineEdge /= 3;
+            bool exteriorRejected = exterior > 40;
+            evidence[i] = new(i, innerPoint, outerPoint, fineInnerPoint, fineOuterPoint,
+                edge, exterior, fineEdge, exteriorRejected, !exteriorRejected && edge >= 16);
+        }
+        return evidence;
+    }
+
+    /// <summary>A sub-threshold visible fit may be used for a packed ball only
+    /// when every failed sector is a measured exterior occlusion by a distinct,
+    /// independently detected neighboring ball. The combined visible and
+    /// explained coverage must still meet the configured support fraction.</summary>
+    public static bool HasConservativeOcclusionCoverage(IReadOnlyList<BoundarySectorEvidence> sectors,
+        Point centre, double expectedRadius, IReadOnlyList<Point> neighboringBallCentres,
+        double minimumVisibleFraction = .7)
+    {
+        if (sectors.Count != 32 || !double.IsFinite(expectedRadius) || expectedRadius < 5 || expectedRadius > 100
+            || !double.IsFinite(centre.X) || !double.IsFinite(centre.Y)
+            || !double.IsFinite(minimumVisibleFraction) || minimumVisibleFraction is < .5 or > 1)
+            return false;
+        int visible = sectors.Count(sector => sector.Supported);
+        int minimumVisible = (int)Math.Floor(minimumVisibleFraction * sectors.Count);
+        int minimumCoverage = (int)Math.Ceiling(minimumVisibleFraction * sectors.Count);
+        if (visible < minimumVisible) return false;
+
+        double occlusionRadius = expectedRadius * 1.15;
+        double distinctBallDistance = expectedRadius * 1.1;
+        int explained = 0;
+        foreach (var sector in sectors)
+        {
+            if (sector.Supported) continue;
+            if (!sector.ExteriorRejected || !neighboringBallCentres.Any(neighbour =>
+                    double.IsFinite(neighbour.X) && double.IsFinite(neighbour.Y)
+                    && (neighbour - centre).Length >= distinctBallDistance
+                    && (sector.OuterPoint - neighbour).Length <= occlusionRadius))
+                return false;
+            explained++;
+        }
+        return visible + explained >= minimumCoverage;
+    }
+
     public static BallBoundary? Refine(byte[] bgr, int width, int height, Point proposal, double expectedRadius,
         double minimumSupportedFraction = ObservationPolicy.MinimumSupportedBoundaryFraction,
         bool collectSectorEvidence = false)

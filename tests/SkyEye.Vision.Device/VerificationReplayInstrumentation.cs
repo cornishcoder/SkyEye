@@ -53,9 +53,11 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 {
                     frameId = receipt.GetProperty("frameId").GetInt64(), pixelSha256 = sha, sourceTimeUs = frame.SourceTimeUs,
                     width800 = new { blackSeedRecovered = blackSeedRecovered800, analysis = Summarize(baseline800, 800), verification = Summarize(verification800, 800),
-                        darkMaskTrace = traceDarkMask ? PackedBlackMaskTrace.Capture(bytes, calibration, 800, baseline800, Path.Combine(root, "o08-black-trace-" + run), receipt.GetProperty("frameId").GetInt64().ToString()) : null },
+                        darkMaskTrace = traceDarkMask ? PackedBlackMaskTrace.Capture(bytes, calibration, 800, baseline800, Path.Combine(root, "o08-black-trace-" + run), receipt.GetProperty("frameId").GetInt64().ToString()) : null,
+                        packedBlackBoundaryTrace = boundaryAudit ? AuditPackedBlackBoundaries(bytes, calibration, 800, baseline800) : null },
                     width1000 = new { blackSeedRecovered = blackSeedRecovered1000, analysis = Summarize(baseline1000, 1000), verification = Summarize(verification1000, 1000),
-                        darkMaskTrace = traceDarkMask ? PackedBlackMaskTrace.Capture(bytes, calibration, 1000, baseline1000, Path.Combine(root, "o08-black-trace-" + run), receipt.GetProperty("frameId").GetInt64().ToString()) : null },
+                        darkMaskTrace = traceDarkMask ? PackedBlackMaskTrace.Capture(bytes, calibration, 1000, baseline1000, Path.Combine(root, "o08-black-trace-" + run), receipt.GetProperty("frameId").GetInt64().ToString()) : null,
+                        packedBlackBoundaryTrace = boundaryAudit ? AuditPackedBlackBoundaries(bytes, calibration, 1000, baseline1000) : null },
                     analysisWidthComparison = Compare(baseline800, baseline1000),
                     widthComparison = Compare(verification800.Vision!, verification1000.Vision!),
                     processingMs = timer.Elapsed.TotalMilliseconds
@@ -96,7 +98,10 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
     static object Summarize(VerificationMeasurement measurement, int width) => new
     {
         measurement.Motion, measurement.Reason, measurement.CoverageValid, measurement.MaximumBodyDisplacement,
-        measurement.MaximumDetectedBodyDisplacement, measurement.SupportedBodies,
+        measurement.MaximumDetectedBodyDisplacement, measurement.MinimumTemplateMotionPixels, measurement.SupportedBodies,
+        measurement.MaximumTileChange, measurement.SensitiveTileChange, measurement.PhotometricResidualTileChange,
+        measurement.PerimeterChange, measurement.IlluminationChange, measurement.MaximumTileOrigin,
+        measurement.SensitiveTileOrigin, measurement.PhotometricResidualTileOrigin,
         vision = measurement.Vision is null ? null : Summarize(measurement.Vision, width)
     };
     static object SummarizeMotion(VerificationMeasurement measurement) => new
@@ -104,6 +109,72 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         measurement.Motion, measurement.Reason, measurement.CoverageValid, measurement.MaximumBodyDisplacement,
         measurement.MaximumDetectedBodyDisplacement, measurement.SupportedBodies
     };
+    static object[] AuditPackedBlackBoundaries(byte[] encodedImage, TableCalibration calibration, int width, VisionResult vision)
+    {
+        var seeds = vision.CandidateAudits.Where(a => a.Pass == "initial" && a.Stage == "packed-black").ToArray();
+        if (seeds.Length == 0) return [];
+        var pixels = WarpRawPixels(encodedImage, calibration, width);
+        var hsvPixels = WarpRawPixels(encodedImage, calibration, width, toHsv: true);
+        return seeds.Select(seed =>
+        {
+            var fit = BallBoundaryRefiner.Refine(pixels, width, width * 2, seed.ProposalCentre,
+                PoolGeometry.Radius * width, .7, collectSectorEvidence: true);
+            return (object)new
+            {
+                seed.Index,
+                seed.ProposalCentre,
+                seed.ProposalRadius,
+                seed.Decision,
+                recordedSupport = seed.BoundarySupport,
+                fit = fit is null ? null : new
+                {
+                    fit.Centre,
+                    fit.Radius,
+                    fit.SupportedSectors,
+                    fit.Score,
+                    proposalSupport = fit.ProposalFit?.SupportedSectors,
+                    sectors = fit.SectorEvidence.Select(sector =>
+                    {
+                        int x = Math.Clamp((int)Math.Round(sector.OuterPoint.X), 0, width - 1);
+                        int y = Math.Clamp((int)Math.Round(sector.OuterPoint.Y), 0, width * 2 - 1);
+                        int offset = (y * width + x) * 3;
+                        int hue = hsvPixels[offset], saturation = hsvPixels[offset + 1], value = hsvPixels[offset + 2];
+                        bool red = (hue <= 10 || hue >= 170) && saturation >= 100 && value >= 30;
+                        bool yellow = hue >= 10 && hue <= 40 && saturation >= 100 && value >= 30;
+                        return new { sector.Index, sector.Supported, sector.ExteriorRejected, sector.EdgeContrast,
+                            sector.ExteriorContrast, sector.OuterPoint, hue, saturation, value, red, yellow };
+                    })
+                }
+            };
+        }).ToArray();
+    }
+    static byte[] WarpRawPixels(byte[] encodedImage, TableCalibration calibration, int width, bool toHsv = false)
+    {
+        using var encoded = new Org.Opencv.Core.MatOfByte(encodedImage);
+        using var source = Org.Opencv.Imgcodecs.Imgcodecs.Imdecode(encoded, Org.Opencv.Imgcodecs.Imgcodecs.ImreadColor);
+        var original = calibration.Corners.Select(p => new Org.Opencv.Core.Point(p.X * source.Cols(), p.Y * source.Rows())).ToArray();
+        Org.Opencv.Core.Point[] target = [new(width, 0), new(width, width * 2), new(0, width * 2), new(0, 0)];
+        try
+        {
+            using var from = new Org.Opencv.Core.MatOfPoint2f(original);
+            using var to = new Org.Opencv.Core.MatOfPoint2f(target);
+            using var transform = Org.Opencv.Imgproc.Imgproc.GetPerspectiveTransform(from, to);
+            using var warped = new Org.Opencv.Core.Mat();
+            Org.Opencv.Imgproc.Imgproc.WarpPerspective(source, warped, transform, new Org.Opencv.Core.Size(width, width * 2));
+            if (toHsv)
+            {
+                using var hsv = new Org.Opencv.Core.Mat();
+                Org.Opencv.Imgproc.Imgproc.CvtColor(warped, hsv, Org.Opencv.Imgproc.Imgproc.ColorBgr2hsv);
+                var hsvPixels = new byte[width * width * 2 * 3];
+                hsv.Get(0, 0, hsvPixels);
+                return hsvPixels;
+            }
+            var pixels = new byte[width * width * 2 * 3];
+            warped.Get(0, 0, pixels);
+            return pixels;
+        }
+        finally { foreach (var point in original.Concat(target)) point.Dispose(); }
+    }
     static object Compare(VisionResult low, VisionResult high)
     {
         const int leftWidth = 800, rightWidth = 1000;

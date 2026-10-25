@@ -280,6 +280,9 @@ public sealed partial class ShellSession
             var receipt = await app.DispatchAsync(new(operationId ?? Guid.NewGuid(), origin, app.State.Version,
                 new ObserveTable(source, table.State.Generation, MediaGeneration(), reviewFrame, includeChoices, mode)), token);
             if (mode == ObservationMode.VerifyForAdvice) lastVerificationStatus = shotMessage = receipt.Message;
+            if (receipt.Succeeded && includeChoices && receipt.Observation is { Outcome: ObservationOutcome.Ready } observed)
+                await ComputeAndPublishShotCatalogAsync(new(source, observed.AnalysisGeneration, observed.MediaGeneration,
+                    IncludeChoices: true, Mode: mode), observed, token);
             if (!receipt.Succeeded)
             {
                 shotMessage = receipt.Message;

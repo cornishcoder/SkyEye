@@ -215,9 +215,6 @@ public sealed partial class TableAnalysisSession
                         priorLayout!.Balls, admittedGroup, uncertain: true, obstructed: reason == ObservationReason.Obstructed)
                     : tracker.Verified(admitted.CalibrationId, timeline ?? "unavailable", lastDetection?.CapturedAt ?? capturedAt, balls, admittedGroup,
                         still && reason is ObservationReason.None or ObservationReason.DetectionAmbiguous, !ready);
-                var candidate = layout with { Confirmed = true };
-                if (ready && !ShotPlanner.Eligible(candidate, time.GetUtcNow()))
-                { ready = false; reason = ObservationReason.DetectionAmbiguous; quality = LayoutQuality.Ambiguous; layout = tracker.Verified(admitted.CalibrationId, timeline!, lastDetection?.CapturedAt ?? capturedAt, balls, admittedGroup, still, true); }
                 state = state with { Table = layout, Vision = allVisions.LastOrDefault(), Jpeg = finalReview, VerificationProgress = null,
                     Observation = new(admitted.Source!, admitted.Generation, mediaGeneration, timeline ?? "unavailable", layout.CapturedAt,
                         samples.LastOrDefault()?.SourceTimeUs, double.IsFinite(finalAge) ? Math.Max(0, finalAge) : 0, samples.Sum(s => s.AcquisitionMs), samples.Sum(s => s.ProcessingMs), time.GetElapsedTime(start).TotalMilliseconds,

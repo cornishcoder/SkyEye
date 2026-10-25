@@ -209,11 +209,18 @@ public sealed partial class MainActivity
     {
         var snapshot = tableAnalysis.State; var state = snapshot.Table; var vision = snapshot.Vision; var camera = app.State.Camera;
         if (state is null || !camera.CanControl || snapshot.Source != camera.Scope) return Task.FromResult<object>(new { error = "Table has not been calibrated and confirmed." });
-        var shots = ShotPlanner.Suggest(state, DateTimeOffset.UtcNow);
+        var now = DateTimeOffset.UtcNow; var shots = ShotPlanner.Suggest(state, now);
+        var adviceLimitation = shots.Length > 0 ? null : !ShotPlanner.Eligible(state, now)
+            ? !ShotPlanner.HasSafeBallSpacing(state)
+                ? "Shot advice unavailable: detected ball centres are inside the minimum spacing check. No candidates were returned."
+                : "Shot advice unavailable: the table does not pass all shot safety checks. No candidates were returned."
+            : "No supported shot path was found for this layout and group.";
         object output = name switch
         {
-            "get_table_state" => new { state, analysis = vision is null ? null : new { vision.Warnings, vision.ElapsedMs, vision.Normalized }, ageSeconds = (DateTimeOffset.UtcNow - state.CapturedAt).TotalSeconds, rules = PoolGeometry.RulesVersion, source = PoolGeometry.RulesUrl },
-            "suggest_shots" => new { shots, state.Version, rules = PoolGeometry.RulesVersion, source = PoolGeometry.RulesUrl, limitation = "Direct, bank and kick geometry with at most one rebound per ball. No spin, pace, positional prediction or complete refereeing. Scores rank difficulty; they are not pot probabilities. An empty list means uncertainty or no validated candidate." },
+            "get_table_state" => new { state, shotAdviceAvailable = shots.Length > 0, shotAdviceLimitation = adviceLimitation,
+                analysis = vision is null ? null : new { vision.Warnings, vision.ElapsedMs, vision.Normalized }, ageSeconds = (DateTimeOffset.UtcNow - state.CapturedAt).TotalSeconds, rules = PoolGeometry.RulesVersion, source = PoolGeometry.RulesUrl },
+            "suggest_shots" => new { shots, available = shots.Length > 0, unavailableReason = adviceLimitation, state.Version, rules = PoolGeometry.RulesVersion, source = PoolGeometry.RulesUrl,
+                limitation = "Direct, bank and kick geometry with at most one rebound per ball. No spin, pace, positional prediction or complete refereeing. Scores rank difficulty; they are not pot probabilities." },
             "explain_shot" => (object?)shots.FirstOrDefault(s => s.Id == arguments.GetProperty("shot_id").GetString()) ?? new { error = "That candidate belongs to an old layout or is unavailable." },
             _ => new { error = "Unknown pool tool" }
         };

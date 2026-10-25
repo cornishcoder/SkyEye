@@ -114,6 +114,7 @@ static class SettledBaselineChecks
             { Event = establishedEvent with { Evidence = establishedEvent.Evidence with { BoundedStillnessVerified = false } } });
             Throws(() => G.GameSession.Restore(invalid));
             Console.WriteLine("PASS settled baseline/review: source-reset counts, trusted-A hold, durable accept/correct with evidence, current-state publication and proof/origin fences");
+            await PackedRackBaselineCheck();
         }
         finally
         {
@@ -122,11 +123,40 @@ static class SettledBaselineChecks
             if (Directory.Exists(root)) Directory.Delete(root, true);
         }
     }
+    static async Task PackedRackBaselineCheck()
+    {
+        var effect = new Observation { PackedRack = true };
+        var app = new AppCoordinator(cameraControls: new Camera(), observations: effect);
+        await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, app.State.Version, new ConnectCamera("camera:8765")));
+        G.GameInputEnvelope Input(G.GameInput input) => new(Guid.NewGuid(), "packed-match", "packed-frame",
+            DateTimeOffset.UtcNow, input, Provenance: G.Provenance.PlayerConfirmed);
+        async Task<CommandReceipt> Send(G.GameInput input)
+        {
+            var envelope = Input(input);
+            return await app.DispatchAsync(new(envelope.Id, CommandOrigin.Touch, app.State.Version, new SubmitGameInput(envelope)));
+        }
+        Check((await Send(new G.StartMatch([new("rich", "Rich"), new("mike", "Mike")], 3))).Succeeded,
+            "Start a separate packed-rack baseline match");
+        Check((await Send(new G.StartFrame("rich"))).Succeeded, "Start the packed-rack baseline frame");
+        var receipt = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, app.State.Version,
+            new ObserveTable(app.State.Camera.Scope!, 1, 1, Mode: ObservationMode.VerifyForAdvice)));
+        Check(receipt.Succeeded && receipt.Observation is { Outcome: ObservationOutcome.Ready, Quality: LayoutQuality.Clear }
+            && app.State.GameTableCurrent && G.SettledTableEvidence.TryCapture(app.State.Game, out var baseline)
+            && baseline.Counts == new G.SettledTableCounts(7, 7, 1, 1),
+            $"A verified packed-rack receipt publishes the observed complete aggregate baseline as current ({receipt.Outcome}: {receipt.Message}; observation {receipt.Observation?.Outcome}/{receipt.Observation?.Reason}; current {app.State.GameTableCurrent}; game error {app.State.GameError}; baseline {G.SettledTableEvidence.TryCapture(app.State.Game, out var debugBaseline)} {debugBaseline?.Counts})");
+        Check(app.State.Game.Table.Balls.Count == 0 && app.State.Game.Shot is null
+            && app.State.Game.Frame is { Pots.Count: 0 }
+            && app.State.Game.Table.GroupCounts[G.BallColour.Red].Value == 7
+            && app.State.Game.Table.GroupCounts[G.BallColour.Yellow].Value == 7,
+            "The canonical baseline retains counts only; it creates no detector identities, pot, shot, or legal ruling");
+        Console.WriteLine("PASS packed-rack baseline: clear/still inventory is canonical while planner geometry remains unavailable");
+    }
     static void Check(bool condition, string message) { if (!condition) throw new Exception(message); }
     static void Throws(Action action) { try { action(); } catch (ArgumentException) { return; } throw new Exception("Expected invalid baseline refusal"); }
     sealed class Observation : ITableObservationEffect
     {
         public bool YellowPresent = true;
+        public bool PackedRack { get; init; }
         int sequence;
         public bool IsCurrent(ObserveTable request) => true;
         public Task<TableObservation> ExecuteAsync(ObserveTable request, CancellationToken cancellation) => ExecuteAsync(request, Guid.NewGuid(), cancellation);
@@ -134,8 +164,9 @@ static class SettledBaselineChecks
         {
             var pts = ++sequence * 10_000_000L;
             var now = DateTimeOffset.UtcNow;
-            var balls = new List<Ball> { new("detected-cue", "cue", new(1.4, .7), .9) };
-            if (YellowPresent) balls.Add(new("detected-yellow", "yellow", new(1.2, .8), .9));
+            var balls = PackedRack ? PackedRackFixture.Balls.ToList()
+                : new List<Ball> { new("detected-cue", "cue", new(1.4, .7), .9) };
+            if (!PackedRack && YellowPresent) balls.Add(new("detected-yellow", "yellow", new(1.2, .8), .9));
             var vision = new VisionResult(balls.ToArray(), false, [], 1, balls.Count, true, "fixture", [], 1, false, []);
             var samples = Enumerable.Range(0, 5).Select(i => new VerificationSample(sequence * 10 + i, pts + i * 500000,
                 1, 1, 1, 1, 1, new(TableMotion.Still, ObservationReason.None, true, 0, 0, 0, vision)) { CapturedAt = now }).ToArray();
@@ -148,7 +179,7 @@ static class SettledBaselineChecks
                 DecodedReceipt = new(1, samples[^1].FrameId, samples[^1].SourceTimeUs, sequence, 640, 360),
                 DetectionEvidence = new(samples[^1].FrameId, samples[^1].SourceTimeUs, 1),
                 GameEvidence = new(new(request.Source.CameraIdentity!, "fixture", 2, "new-calibration", request.Source.ConnectionId.ToString("N")),
-                    balls.Select(b => new G.ObservedBall(b.Id, b.Kind == "cue" ? G.BallColour.Cue : G.BallColour.Yellow,
+                    balls.Select(b => new G.ObservedBall(b.Id, Enum.TryParse<G.BallColour>(b.Kind, true, out var colour) ? colour : G.BallColour.Unknown,
                         new(b.Position.X / 2, b.Position.Y), b.Confidence)).ToImmutableArray())
             });
         }

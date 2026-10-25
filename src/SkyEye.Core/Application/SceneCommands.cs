@@ -75,7 +75,13 @@ public sealed partial class AppCoordinator
                 var next = publish.Catalog;
                 SurfacePresentation Retain(SurfacePresentation surface) => surface.Mode != ShotDisplayMode.Pinned ||
                     surface.TableVersion == next.TableVersion && next.Choices.Any(c => c.Id == surface.ShotId) ? surface : SurfacePresentation.Live;
-                return state with { ShotChoices = next, Presentation = WithSurfaces(presentation, Retain(presentation.Phone), Retain(presentation.Tv)) };
+                var observation = publish.Catalog == ShotChoiceCatalog.Empty && state.Observation is { } existing
+                    ? existing with { Choices = null }
+                    : state.Observation is { Outcome: ObservationOutcome.Ready } current
+                        && current.Source == next.Source && current.TableVersion == next.TableVersion
+                        ? current with { Choices = next } : state.Observation;
+                return state with { ShotChoices = next, Observation = observation,
+                    Presentation = WithSurfaces(presentation, Retain(presentation.Phone), Retain(presentation.Tv)) };
             default: return null;
         }
     }
@@ -102,7 +108,8 @@ public sealed partial class AppCoordinator
     static SkyEyeState ClearShotCatalog(SkyEyeState value)
     {
         var p = value.Presentation;
-        return value with { ShotChoices = ShotChoiceCatalog.Empty, Presentation = WithSurfaces(p,
+        var observation = value.Observation is { } current ? current with { Choices = null } : null;
+        return value with { ShotChoices = ShotChoiceCatalog.Empty, Observation = observation, Presentation = WithSurfaces(p,
             p.Phone.Mode == ShotDisplayMode.Pinned ? SurfacePresentation.Live : p.Phone,
             p.Tv.Mode == ShotDisplayMode.Pinned ? SurfacePresentation.Live : p.Tv) };
     }
