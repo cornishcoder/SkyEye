@@ -45,6 +45,32 @@ static class VerificationChecks
         var observation = session.State.Observation!;
         var choices = session.ComputeChoices(session.State.Generation, observation.TableVersion);
         Check(ReferenceEquals(choices, session.ComputeChoices(session.State.Generation, observation.TableVersion)) && analyzer.Detections == 3, "Choices computed once without new perception");
+        session.Invalidate(); frames.Reads = 0; analyzer.CreatedWorkers = 0; analyzer.ObstructionIssued = false;
+        analyzer.ObstructFirstDetectedFrame = true;
+        await session.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !session.HasPendingWork);
+        Check(session.State.Observation is { Outcome: ObservationOutcome.Ready, Motion: TableMotion.Still, Reason: ObservationReason.None,
+            Verification.IndependentFrames: 6, Verification.CandidateSpanStartSampleIndex: 1, Verification.CandidateSpanIndependentFrames: 5 },
+            "A transient obstructed bootstrap restarts the stillness anchor and can recover only with five later clear frames");
+        Check(frames.Reads == 6 && analyzer.CreatedWorkers == 1 && analyzer.ObstructionResets == 1,
+            "Obstruction recovery stays inside the original six-frame budget and resets the unsafe anchor");
+        analyzer.ObstructFirstDetectedFrame = false;
+        session.Invalidate(); frames.Reads = 0; analyzer.CreatedWorkers = 0; analyzer.MeasurementCalls = 0; analyzer.ObstructionResets = 0; analyzer.ObstructionIssued = false;
+        analyzer.ObstructAtCall = 3;
+        await session.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !session.HasPendingWork);
+        Check(session.State.Observation is { Outcome: ObservationOutcome.Unsettled, Motion: TableMotion.Unknown,
+            Reason: ObservationReason.InsufficientEvidence, Verification.IndependentFrames: 6,
+            Verification.CandidateSpanStartSampleIndex: 3, Verification.CandidateSpanIndependentFrames: 3 },
+            "An obstruction after an initial clear span prevents combining old samples with a too-short recovery span");
+        Check(frames.Reads == 6 && analyzer.ObstructionResets == 1, "Late obstruction recovery remains within the same bounded burst");
+        analyzer.ObstructAtCall = 0;
+        session.Invalidate(); frames.Reads = 0; analyzer.CreatedWorkers = 0; analyzer.ObstructionIssued = false;
+        analyzer.ObstructEveryDetectedFrame = true;
+        await session.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !session.HasPendingWork);
+        Check(session.State.Observation is { Outcome: ObservationOutcome.Unclear, Motion: TableMotion.Unknown, Quality: LayoutQuality.Obstructed,
+            Reason: ObservationReason.Obstructed, Verification.IndependentFrames: 6, Verification.CandidateSpanIndependentFrames: 0 },
+            "Persistent obstruction consumes the bounded burst but never becomes still, clear or ready");
+        Check(frames.Reads == 6, "Persistent obstruction retries only within the six-frame bound");
+        analyzer.ObstructEveryDetectedFrame = false;
         session.Invalidate(); analyzer.LayoutUncertain = true;
         await session.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !session.HasPendingWork);
         Check(session.State.Observation is { Outcome: ObservationOutcome.Unclear, Motion: TableMotion.Still,
@@ -254,21 +280,31 @@ static class VerificationChecks
     sealed class Image(Frames frames) : ITableFrameImage { public byte[] EncodeForReview() { Interlocked.Increment(ref frames.Encodings); return [1]; } public void Dispose() => Interlocked.Increment(ref frames.Disposals); }
     sealed class Analyzer : ITableAnalyzer, ITableVerificationAnalyzer
     {
-        public int Detections, Disposals, DelayMs; public bool LayoutUncertain; public TaskCompletionSource? Hold, Entered; public Exception? Failure;
+        public int Detections, Disposals, DelayMs, CreatedWorkers, ObstructionResets, MeasurementCalls, ObstructAtCall;
+        public bool LayoutUncertain, ObstructFirstDetectedFrame, ObstructEveryDetectedFrame, ObstructionIssued;
+        public TaskCompletionSource? Hold, Entered; public Exception? Failure;
         public VisionResult Analyze(byte[] jpeg, TableCalibration calibration, CancellationToken cancellation = default) => Vision(uncertain: LayoutUncertain);
         public Point[]? FindCorners(byte[] jpeg) => null;
-        public ITableVerificationWorker CreateVerification(TableCalibration calibration) => new Worker(this);
+        public ITableVerificationWorker CreateVerification(TableCalibration calibration) { CreatedWorkers++; return new Worker(this); }
         sealed class Worker(Analyzer owner) : ITableVerificationWorker
         {
             int count;
             public VerificationMeasurement Measure(TableFrame frame, bool detect, CancellationToken cancellation)
             {
+                int call = Interlocked.Increment(ref owner.MeasurementCalls);
                 if (owner.Failure is { } failure) throw failure;
                 if (owner.Hold is { } hold) { owner.Entered!.TrySetResult(); hold.Task.GetAwaiter().GetResult(); }
                 if (owner.DelayMs > 0) Thread.Sleep(owner.DelayMs);
+                if (detect && (owner.ObstructEveryDetectedFrame || call == owner.ObstructAtCall
+                    || owner.ObstructFirstDetectedFrame && !owner.ObstructionIssued))
+                {
+                    owner.ObstructionIssued = true;
+                    return new(TableMotion.Unknown, ObservationReason.Obstructed, false, 0, 0, 0, Vision() with { Obstructed = true });
+                }
                 if (detect) Interlocked.Increment(ref owner.Detections);
                 return new(count++ == 0 ? TableMotion.Unknown : TableMotion.Still, count == 1 ? ObservationReason.InsufficientEvidence : ObservationReason.None, true, 0, 0, 0, detect ? Vision(uncertain: owner.LayoutUncertain) : null);
             }
+            public void ResetAfterObstruction() { count = 0; Interlocked.Increment(ref owner.ObstructionResets); }
             public void Dispose() => Interlocked.Increment(ref owner.Disposals);
         }
     }

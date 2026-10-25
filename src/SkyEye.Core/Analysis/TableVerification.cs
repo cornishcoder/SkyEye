@@ -59,6 +59,7 @@ public interface ITableVerificationFrameSource : ITableFrameSource
 public interface ITableVerificationWorker : IDisposable
 {
     VerificationMeasurement Measure(TableFrame frame, bool detect, CancellationToken cancellation);
+    void ResetAfterObstruction();
 }
 public sealed record VerificationSample(long FrameId, long SourceTimeUs, double AgeMs, double ClockSampleAgeMs, double ClockUncertaintyMs,
     double AcquisitionMs, double ProcessingMs, VerificationMeasurement Measurement)
@@ -70,6 +71,8 @@ public sealed record VerificationEvidence(Guid OperationId, string Configuration
     long MediaGeneration, long? StartSourceUs, long? EndSourceUs, int IndependentFrames, double MaximumGapMs,
     double FinalClockSampleAgeMs, VerificationSample[] Samples)
 {
+    public int CandidateSpanStartSampleIndex { get; init; }
+    public int CandidateSpanIndependentFrames { get; init; }
     public VerificationRejection? RejectedSample { get; init; }
     public VerificationFailure? Failure { get; init; }
     public ConsensusConflict? ConsensusConflict { get; init; }

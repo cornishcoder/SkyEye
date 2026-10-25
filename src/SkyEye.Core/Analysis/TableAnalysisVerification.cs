@@ -49,6 +49,7 @@ public sealed partial class TableAnalysisSession
         ObservationReason reason = ObservationReason.InsufficientEvidence;
         VerificationRejection? rejected = null;
         VerificationFailure? failure = null;
+        int candidateSpanStartSampleIndex = 0;
         string stage = "admission";
         try
         {
@@ -123,9 +124,22 @@ public sealed partial class TableAnalysisSession
                     state = state with { VerificationProgress = new(samples.Count, measured.Reason) };
                 }
                 reason = measured.Reason;
+                if (reason == ObservationReason.Obstructed)
+                {
+                    // An obstructed decoded view invalidates the current stillness
+                    // anchor, but may be a single transient hand/edge. Keep the
+                    // attempt within the same six-frame/four-second budget, and
+                    // require a new complete clear span before advice can be ready.
+                    candidateSpanStartSampleIndex = samples.Count;
+                    worker.ResetAfterObstruction();
+                    continue;
+                }
                 if (reason is not (ObservationReason.None or ObservationReason.InsufficientEvidence)) break;
-                if (samples.Count >= ObservationPolicy.MinimumVerificationSamples && pts.Value - samples[0].SourceTimeUs >= ObservationPolicy.MinimumStillSeconds * 1000000
-                    && VerificationConsensus.Resolve(samples.Where(s => s.Measurement.Vision is not null).Select(s => s.Measurement.Vision!).ToArray()) is not null) break;
+                var candidateSamples = samples.Skip(candidateSpanStartSampleIndex).ToArray();
+                if (candidateSamples.Length >= ObservationPolicy.MinimumVerificationSamples
+                    && pts.Value - candidateSamples[0].SourceTimeUs >= ObservationPolicy.MinimumStillSeconds * 1000000
+                    && VerificationConsensus.Resolve(candidateSamples.Where(s => s.Measurement.Vision is not null)
+                        .Select(s => s.Measurement.Vision!).ToArray()) is not null) break;
             }
             if (timeline is not null && frames is ITableVerificationFrameSource finalSource
                 && !await finalSource.IsVerificationSourceCurrentAsync(admitted.Source!, mediaGeneration, timeline, linked.Token).WaitAsync(linked.Token).ConfigureAwait(false))
@@ -170,11 +184,16 @@ public sealed partial class TableAnalysisSession
             {
                 if (activeOperation.IsCancellationRequested || disposed || state.Generation != admitted.Generation || state.Source != admitted.Source || group != admittedGroup || state.Calibration != admitted.Calibration)
                     return false;
-                var visions = samples.Where(s => s.Measurement.Vision is not null).Select(s => s.Measurement.Vision!).ToArray();
-                var lastDetection = samples.LastOrDefault(s => s.Measurement.Vision is not null);
+                var candidateSamples = samples.Skip(candidateSpanStartSampleIndex).ToArray();
+                var visions = candidateSamples.Where(s => s.Measurement.Vision is not null).Select(s => s.Measurement.Vision!).ToArray();
+                var allVisions = samples.Where(s => s.Measurement.Vision is not null).Select(s => s.Measurement.Vision!).ToArray();
+                var lastDetection = candidateSamples.LastOrDefault(s => s.Measurement.Vision is not null)
+                    ?? samples.LastOrDefault(s => s.Measurement.Vision is not null);
                 var consensus = VerificationConsensus.Resolve(visions, out var conflict);
-                bool still = samples.Count >= ObservationPolicy.MinimumVerificationSamples && samples[^1].SourceTimeUs - samples[0].SourceTimeUs >= ObservationPolicy.MinimumStillSeconds * 1000000
-                    && samples.All(s => s.Measurement.CoverageValid) && samples.Skip(1).All(s => s.Measurement.Motion == TableMotion.Still);
+                bool still = candidateSamples.Length >= ObservationPolicy.MinimumVerificationSamples
+                    && candidateSamples[^1].SourceTimeUs - candidateSamples[0].SourceTimeUs >= ObservationPolicy.MinimumStillSeconds * 1000000
+                    && candidateSamples.All(s => s.Measurement.CoverageValid)
+                    && candidateSamples.Skip(1).All(s => s.Measurement.Motion == TableMotion.Still);
                 var sinceReceiptMs = time.GetElapsedTime(finalReceiptAt).TotalMilliseconds;
                 var finalAge = samples.Count == 0 ? 0 : samples[^1].AgeMs + samples[^1].ClockUncertaintyMs + sinceReceiptMs;
                 var finalClockAge = samples.Count == 0 ? double.PositiveInfinity : samples[^1].ClockSampleAgeMs + sinceReceiptMs;
@@ -182,7 +201,7 @@ public sealed partial class TableAnalysisSession
                 if (reason == ObservationReason.None && finalClockAge > ObservationPolicy.MaximumClockSampleAgeMs) reason = ObservationReason.ClockUntrusted;
                 if (reason is ObservationReason.None or ObservationReason.InsufficientEvidence) reason = !still ? ObservationReason.InsufficientEvidence : consensus is null ? ObservationReason.DetectionAmbiguous : ObservationReason.None;
                 bool ready = reason == ObservationReason.None && still && consensus is not null;
-                var balls = ready ? consensus! : visions.LastOrDefault()?.Balls ?? [];
+                var balls = ready ? consensus! : allVisions.LastOrDefault()?.Balls ?? [];
                 var quality = reason switch { ObservationReason.Obstructed => LayoutQuality.Obstructed,
                     ObservationReason.DetectionAmbiguous => LayoutQuality.Ambiguous, ObservationReason.None when ready => LayoutQuality.Clear,
                     _ => LayoutQuality.Unknown };
@@ -199,17 +218,19 @@ public sealed partial class TableAnalysisSession
                 var candidate = layout with { Confirmed = true };
                 if (ready && !ShotPlanner.Eligible(candidate, time.GetUtcNow()))
                 { ready = false; reason = ObservationReason.DetectionAmbiguous; quality = LayoutQuality.Ambiguous; layout = tracker.Verified(admitted.CalibrationId, timeline!, lastDetection?.CapturedAt ?? capturedAt, balls, admittedGroup, still, true); }
-                state = state with { Table = layout, Vision = visions.LastOrDefault(), Jpeg = finalReview, VerificationProgress = null,
+                state = state with { Table = layout, Vision = allVisions.LastOrDefault(), Jpeg = finalReview, VerificationProgress = null,
                     Observation = new(admitted.Source!, admitted.Generation, mediaGeneration, timeline ?? "unavailable", layout.CapturedAt,
                         samples.LastOrDefault()?.SourceTimeUs, double.IsFinite(finalAge) ? Math.Max(0, finalAge) : 0, samples.Sum(s => s.AcquisitionMs), samples.Sum(s => s.ProcessingMs), time.GetElapsedTime(start).TotalMilliseconds,
                         layout.Version, ready ? ObservationOutcome.Ready : (unclearDetection || still) ? ObservationOutcome.Unclear : ObservationOutcome.Unsettled, "decoded-live-verification")
                     { Motion = reason == ObservationReason.Moving ? TableMotion.Moving : still ? TableMotion.Still : TableMotion.Unknown, Quality = quality, Reason = reason, DecodedReceipt = lastReceipt,
-                        Recognition = visions.LastOrDefault()?.Recognition,
+                        Recognition = lastDetection?.Measurement.Vision?.Recognition,
                         DetectionEvidence = lastDetection is null ? null : new(lastDetection.FrameId, lastDetection.SourceTimeUs,
                             finalAge + (samples[^1].SourceTimeUs - lastDetection.SourceTimeUs) / 1000d),
                         Verification = new(operationId, ObservationPolicy.VerificationConfiguration, admitted.CalibrationId, admittedGroup, mediaGeneration,
                             samples.FirstOrDefault()?.SourceTimeUs, samples.LastOrDefault()?.SourceTimeUs, samples.Count, maxGapMs, double.IsFinite(finalClockAge) ? finalClockAge : -1, samples.ToArray())
-                            { RejectedSample = rejected, Failure = failure, ConsensusConflict = conflict } } };
+                            { CandidateSpanStartSampleIndex = candidateSpanStartSampleIndex,
+                                CandidateSpanIndependentFrames = candidateSamples.Length,
+                                RejectedSample = rejected, Failure = failure, ConsensusConflict = conflict } } };
                 lastTimeline = timeline;
                 return true;
             }

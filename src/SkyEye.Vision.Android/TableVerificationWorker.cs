@@ -15,13 +15,21 @@ public sealed partial class VisionAnalyzer
     {
         readonly BurstAppearance appearance = new();
         const int motionWidth = 400, motionHeight = 800;
-        readonly VerificationPixels motion = new(motionWidth, motionHeight);
+        VerificationPixels motion = new(motionWidth, motionHeight);
         byte[]? anchorColour, previousColour;
         CircleObservation[] bodies = [];
         CircleObservation[]? anchorDetections;
         VisionResult? anchorVision;
         bool? geometryValid;
         bool disposed;
+        public void ResetAfterObstruction()
+        {
+            anchorColour = previousColour = null;
+            bodies = []; anchorDetections = null; anchorVision = null;
+            geometryValid = null;
+            appearance.Frozen = false; appearance.ReferenceValid = false; appearance.Gains = [1, 1, 1];
+            motion = new(motionWidth, motionHeight);
+        }
         public VerificationMeasurement Measure(TableFrame frame, bool detect, CancellationToken cancellation)
         {
             ObjectDisposedException.ThrowIf(disposed, this); cancellation.ThrowIfCancellationRequested(); Load();
