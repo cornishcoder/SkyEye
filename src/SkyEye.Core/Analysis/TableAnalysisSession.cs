@@ -12,6 +12,9 @@ public sealed record CircleObservation(string BallId, Point Centre, double Radiu
     public double? BoundarySupport { get; init; }
     public double? CandidateBoundarySupport { get; init; }
 }
+public sealed record CircleBoundaryAudit(string BallId, Point ProposalCentre, double ProposalRadius,
+    double ExpectedRadius, double SearchCentreExtent, double SearchStep, double MinimumCandidateRadius,
+    double MaximumCandidateRadius, double MinimumSupportedFraction, BallBoundary Candidate);
 public sealed record VisionResult(Ball[] Balls, bool Uncertain, string[] Warnings, double ElapsedMs, int CircleCount, bool Normalized, string Runtime, double[] ColourGains, int ClothHue, bool Obstructed, CircleObservation[] Circles)
 {
     public RecognitionTelemetry? Recognition { get; init; }
@@ -19,6 +22,7 @@ public sealed record VisionResult(Ball[] Balls, bool Uncertain, string[] Warning
     public IlluminationTelemetry? Illumination { get; init; }
     public PackedClusterTelemetry? PackedCluster { get; init; }
     public PackedClusterFallbackTelemetry? PackedClusterFallback { get; init; }
+    public CircleBoundaryAudit[] BoundaryAudits { get; init; } = [];
 }
 public sealed record IlluminationTelemetry(bool Applied, double ReferenceBrightness, double MinimumGain, double MaximumGain, double AdjustedPixelPercent);
 public sealed record PackedClusterTelemetry(bool Detected, bool Complete, int RedCentres, int YellowCentres, bool BlackCentre);

@@ -18,10 +18,12 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     static readonly object loadGate = new(); static bool loaded;
     readonly AnalysisCoordinates coordinates;
     readonly VisionSettings settings;
+    readonly bool boundaryDiagnostics;
     readonly record struct Circle(double X, double Y, double Radius);
     readonly record struct PackedClusterEvidence(bool Detected, int RedCentres, int YellowCentres, bool BlackCentre);
     public VisionAnalyzer(int width = 1000) : this(new VisionSettings(Width: width)) { }
-    public VisionAnalyzer(VisionSettings settings) { settings.Validate(); this.settings = settings; coordinates = new(settings.Width); }
+    public VisionAnalyzer(VisionSettings settings, bool includeBoundaryDiagnostics = false)
+    { settings.Validate(); this.settings = settings; boundaryDiagnostics = includeBoundaryDiagnostics; coordinates = new(settings.Width); }
     public string ConfigurationIdentity => System.Text.Json.JsonSerializer.Serialize(new
     { Algorithm = "body-priority-packed-colour-peaks-v1", Settings = settings });
     static void Load()
@@ -138,7 +140,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             for (int i = 0; i < circles.Length; i++)
             {
                 var fit = recoveredBoundaries.GetValueOrDefault(circles[i])
-                    ?? BallBoundaryRefiner.Refine(raw, coordinates.Width, coordinates.Height, new(circles[i].X, circles[i].Y), PoolGeometry.Radius * coordinates.Width);
+                    ?? BallBoundaryRefiner.Refine(raw, coordinates.Width, coordinates.Height, new(circles[i].X, circles[i].Y),
+                        PoolGeometry.Radius * coordinates.Width, collectSectorEvidence: boundaryDiagnostics);
                 if (fit is null) { boundaryUncertain = true; continue; }
                 candidateBoundaries[circles[i]] = fit;
                 // Support is sampled at 32 fixed angles. The 18-sector minimum
@@ -222,6 +225,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         }
         if (!normalized) warnings.Add("No unique cue ball reference; colours were analyzed without normalization.");
         cancellation.ThrowIfCancellationRequested(); var balls = new List<Ball>(); var observations = new List<CircleObservation>();
+        var boundaryAudits = new List<CircleBoundaryAudit>();
         var ordered = circles.OrderBy(c => c.Y).ThenBy(c => c.X).ToArray();
         var rawLabels = ordered.Select(c => classificationCache.TryGetValue(c, out var cached)
             ? cached : Classify(c, pixels, inspectRim)).ToArray();
@@ -238,6 +242,19 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 ProposalRadius = appearance is null ? null : proposals[Array.IndexOf(circles, circle)].Radius,
                 BoundarySupport = boundaries.GetValueOrDefault(circle)?.SupportedSectors,
                 CandidateBoundarySupport = candidateBoundaries.GetValueOrDefault(circle)?.SupportedSectors });
+            int proposalIndex = Array.IndexOf(circles, circle);
+            if (boundaryDiagnostics && proposalIndex >= 0 && proposalIndex < proposals.Length
+                && candidateBoundaries.GetValueOrDefault(circle) is { } candidate
+                && candidate.SectorEvidence.Length > 0)
+            {
+                var proposal = proposals[proposalIndex]; double expectedRadius = PoolGeometry.Radius * coordinates.Width;
+                bool fitDrifted = (candidate.Centre - new Point(proposal.X, proposal.Y)).Length > expectedRadius * .25
+                    || Math.Abs(candidate.Radius - expectedRadius) > expectedRadius * .15;
+                if (candidate.SupportedSectors < ObservationPolicy.MinimumSupportedBoundaryFraction || fitDrifted)
+                    boundaryAudits.Add(new(balls[^1].Id, new(proposal.X, proposal.Y), proposal.Radius, expectedRadius,
+                        expectedRadius * .4, Math.Max(1.5, expectedRadius / 9), expectedRadius * .75,
+                        expectedRadius * 1.25, ObservationPolicy.MinimumSupportedBoundaryFraction, candidate));
+            }
         }
         bool uncertain = balls.Any(b => b.Kind == "unknown") || balls.Count > 16 || balls.Count(b => b.Kind == "cue") != 1 || balls.Count(b => b.Kind == "black") != 1 || balls.Count(b => b.Kind == "red") > 7 || balls.Count(b => b.Kind == "yellow") > 7;
         bool packedClusterUnresolved = packedCluster.Detected &&
@@ -261,7 +278,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 { RejectedInitialCueBodies = rejectedCueBodies, RejectedNormalizedCueBodies = rejectedNormalizedCueBodies } },
             VerificationReason = referenceConflict ? ObservationReason.LightingChanged : null, Illumination = illumination,
             PackedCluster = new(packedCluster.Detected, packedCluster.Detected && !packedClusterUnresolved,
-                packedCluster.RedCentres, packedCluster.YellowCentres, packedCluster.BlackCentre) };
+                packedCluster.RedCentres, packedCluster.YellowCentres, packedCluster.BlackCentre),
+            BoundaryAudits = boundaryAudits.ToArray() };
     }
     IlluminationTelemetry NormalizeIllumination(Mat image, CancellationToken cancellation)
     {
@@ -395,7 +413,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             {
                 rawBoundaryPixels ??= Read(rawImage);
                 var fit = BallBoundaryRefiner.Refine(rawBoundaryPixels, coordinates.Width, coordinates.Height,
-                    new(c.X, c.Y), PoolGeometry.Radius * coordinates.Width, settings.MinimumHoughBoundarySupport);
+                    new(c.X, c.Y), PoolGeometry.Radius * coordinates.Width, settings.MinimumHoughBoundarySupport,
+                    boundaryDiagnostics);
                 if (fit is null || fit.SupportedSectors < settings.MinimumHoughBoundarySupport) continue;
                 c = new(fit.Centre.X, fit.Centre.Y, fit.Radius);
                 if (result.Any(p => (new Point(p.X, p.Y) - new Point(c.X, c.Y)).Length < settings.Separation * scale)) continue;

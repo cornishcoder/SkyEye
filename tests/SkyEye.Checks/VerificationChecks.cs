@@ -182,6 +182,28 @@ static class VerificationChecks
         var fit = BallBoundaryRefiner.Refine(image, width, height, new(84, 77), 27);
         Check(fit is not null && (fit.Centre - new Point(80, 80)).Length < 2 && Math.Abs(fit.Radius - 27) < 2,
             "Current outer boundary recovers a displaced proposal without fitting the cream patch");
+        var auditedFit = BallBoundaryRefiner.Refine(image, width, height, new(84, 77), 27,
+            collectSectorEvidence: true);
+        Check(auditedFit is not null && auditedFit.SectorEvidence.Length == 32
+            && fit is not null && auditedFit.Centre == fit.Centre && auditedFit.Radius == fit.Radius
+            && auditedFit.Score == fit.Score && auditedFit.SupportedSectors == fit.SupportedSectors
+            && auditedFit.ProposalFit is { Centre.X: 84, Centre.Y: 77, Radius: 27 }
+            && auditedFit.SectorEvidence.Select(s => s.Supported).Count(s => s) == (int)(auditedFit.SupportedSectors * 32),
+            "Replay-only sector diagnostics preserve the fit and expose all 32 support decisions");
+        var maskedNeighbour = new byte[width * height * 3];
+        for (int y = 0; y < height; y++) for (int x = 0; x < width; x++)
+        {
+            int dx = x - 80, dy = y - 80; double radius = Math.Sqrt(dx * dx + dy * dy);
+            bool body = radius <= 27; double angle = Math.Atan2(dy, dx);
+            int sector = ((int)Math.Floor((angle + Math.PI) * 16 / Math.PI)) & 31;
+            byte value = body ? (byte)20 : (byte)110;
+            if (sector < 13 && radius is >= 22 and <= 38) value = 230;
+            int at = (y * width + x) * 3; maskedNeighbour[at] = maskedNeighbour[at + 1] = maskedNeighbour[at + 2] = value;
+        }
+        var maskedFit = BallBoundaryRefiner.Refine(maskedNeighbour, width, height, new(80, 80), 27, collectSectorEvidence: true);
+        Check(maskedFit?.ProposalFit is { SupportedSectors: >= ObservationPolicy.MinimumSupportedBoundaryFraction }
+            && maskedFit.SupportedSectors >= ObservationPolicy.MinimumSupportedBoundaryFraction,
+            "A supported exact seed remains eligible when a neighboring edge masks part of the boundary");
         var strictFit = BallBoundaryRefiner.Refine(image, width, height, new(84, 77), 27, .75);
         Check(strictFit is not null && strictFit.SupportedSectors >= .75 && (strictFit.Centre - new Point(80, 80)).Length < 2,
             "Stronger proposal support still fits the full body rather than the cream patch");

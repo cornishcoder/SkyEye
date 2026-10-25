@@ -11,8 +11,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
 {
     public VerificationReplayInstrumentation() { }
     public VerificationReplayInstrumentation(IntPtr handle, global::Android.Runtime.JniHandleOwnership ownership) : base(handle, ownership) { }
-    bool refinement, dump; string run = "";
-    public override void OnCreate(global::Android.OS.Bundle? args) { refinement = args?.GetString("refine") == "1"; dump = args?.GetString("dump") == "1"; run = args?.GetString("run") ?? ""; if (run.Length > 32 || run.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not '-' and not '_')) throw new ArgumentException("Invalid replay run name."); base.OnCreate(args); Start(); }
+    bool refinement, dump, boundaryAudit; string run = "";
+    public override void OnCreate(global::Android.OS.Bundle? args) { refinement = args?.GetString("refine") == "1"; dump = args?.GetString("dump") == "1"; boundaryAudit = args?.GetString("audit") == "1"; run = args?.GetString("run") ?? ""; if (run.Length > 32 || run.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not '-' and not '_')) throw new ArgumentException("Invalid replay run name."); base.OnCreate(args); Start(); }
     public override void OnStart()
     {
         base.OnStart(); object report;
@@ -24,8 +24,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             using var first = JsonDocument.Parse(File.ReadAllBytes(paths[0]));
             var corners = first.RootElement.GetProperty("calibrationCorners").EnumerateArray().Select(p => new Point(p.GetProperty("x").GetDouble(), p.GetProperty("y").GetDouble())).ToArray();
             var calibration = new TableCalibration(corners);
-            var analyzer800 = new VisionAnalyzer(new VisionSettings(Width: 800) { VerificationBodyRefinement = refinement });
-            var analyzer1000 = new VisionAnalyzer(new VisionSettings(Width: 1000) { VerificationBodyRefinement = refinement });
+            var analyzer800 = new VisionAnalyzer(new VisionSettings(Width: 800) { VerificationBodyRefinement = refinement }, boundaryAudit);
+            var analyzer1000 = new VisionAnalyzer(new VisionSettings(Width: 1000) { VerificationBodyRefinement = refinement }, boundaryAudit);
             using var worker800 = analyzer800.CreateVerification(calibration);
             using var worker1000 = analyzer1000.CreateVerification(calibration);
             var samples = new List<object>();
@@ -61,7 +61,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             var consensus1000 = VerificationConsensus.Resolve(measurements1000.Select(m => m.Vision!).ToArray(), out var conflict1000);
             var analysisConsensus800 = VerificationConsensus.Resolve(analyses800, out var analysisConflict800);
             var analysisConsensus1000 = VerificationConsensus.Resolve(analyses1000, out var analysisConflict1000);
-            report = new { completed = true, configuration = ObservationPolicy.VerificationConfiguration, bodyRefinement = refinement,
+            report = new { completed = true, configuration = ObservationPolicy.VerificationConfiguration, bodyRefinement = refinement, boundaryAudit,
                 fullAnalysis800 = new { consensus = analysisConsensus800, conflict = analysisConflict800, observations = analyses800.Select(v => Summarize(v, 800)) },
                 fullAnalysis1000 = new { consensus = analysisConsensus1000, conflict = analysisConflict1000, observations = analyses1000.Select(v => Summarize(v, 1000)) },
                 width800 = new { consensus = consensus800, conflict = conflict800, allMotionSamplesStill = measurements800.Skip(1).All(m => m.Motion == TableMotion.Still && m.CoverageValid), measurements = measurements800.Select(SummarizeMotion) },
@@ -79,6 +79,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         vision.Uncertain, vision.Obstructed, vision.CircleCount,
         counts = vision.Balls.GroupBy(b => b.Kind).OrderBy(g => g.Key).ToDictionary(g => g.Key, g => g.Count()),
         vision.PackedCluster, vision.PackedClusterFallback,
+        boundaryAudits = vision.BoundaryAudits,
         circles = vision.Circles.Select(c => new
         {
             c.BallId, kind = Kind(c.BallId), x = c.Centre.Y / width, y = 1 - c.Centre.X / width,
