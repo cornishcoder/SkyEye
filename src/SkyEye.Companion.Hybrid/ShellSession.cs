@@ -49,6 +49,19 @@ public sealed partial class ShellSession : IDisposable
     public bool ControlsVisible => chrome.Visible;
     public bool NeedsAttention => chrome.Attention;
     public double FontScale { get; private set; } = 1;
+    public int? CameraBatteryPercent
+    {
+        get
+        {
+            var state = app.State.Camera; var view = effects.Latest;
+            if (state.Reachability != CameraReachability.Reachable || view?.Connection != state
+                || view.StatusReceiptTimestamp == 0 || System.Diagnostics.Stopwatch.GetElapsedTime(view.StatusReceiptTimestamp) > TimeSpan.FromSeconds(15)
+                || view.Status.ValueKind != System.Text.Json.JsonValueKind.Object
+                || !view.Status.TryGetProperty("battery", out var battery) || battery.ValueKind != System.Text.Json.JsonValueKind.Number
+                || !battery.TryGetInt32(out var percent) || percent is < 0 or > 100) return null;
+            return percent;
+        }
+    }
     public double DockHeight => (ControlsVisible ? NeedsAttention ? 360 : 320 : 80) * FontScale;
     public string Message { get; private set; } = "Your table. Every shot.";
     public string Playback { get; private set; } = "Waiting for your table";

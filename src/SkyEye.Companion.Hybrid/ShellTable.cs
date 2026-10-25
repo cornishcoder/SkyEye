@@ -292,7 +292,7 @@ public sealed partial class ShellSession
         if (!token.IsCancellationRequested && !disposed) await MainThread.InvokeOnMainThreadAsync(async () => { await ReconcileShotCatalogAsync(token); Publish(); });
     }
     async Task VerifyTableWithDiagnosticsPausedAsync(CancellationToken token, Guid? operationId = null,
-        CommandOrigin origin = CommandOrigin.Touch)
+        CommandOrigin origin = CommandOrigin.Touch, bool includeChoices = true)
     {
         var diagnostics = table.VisionDiagnostics;
         bool resumeDiagnostics = diagnostics.Active;
@@ -304,7 +304,7 @@ public sealed partial class ShellSession
             // The verifier and sequential sampler share native vision resources.
             // Pause sampling only; keep the laptop dashboard server available.
             if (resumeDiagnostics) await table.StopVisionDiagnosticsAsync();
-            await UpdateTableAsync(token, includeChoices: true, mode: ObservationMode.VerifyForAdvice,
+            await UpdateTableAsync(token, includeChoices: includeChoices, mode: ObservationMode.VerifyForAdvice,
                 operationId: operationId, origin: origin);
         }
         finally

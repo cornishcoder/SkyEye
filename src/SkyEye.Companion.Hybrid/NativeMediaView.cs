@@ -19,6 +19,9 @@ public sealed class NativeMediaHandler : ViewHandler<NativeMediaView, FrameLayou
     ShellSession? session;
     Android.Widget.TextView? placeholder;
     Android.Widget.TextView? title;
+    Android.Widget.TextView? cameraBatteryText;
+    Android.Widget.ProgressBar? cameraBatteryGauge;
+    Android.Widget.LinearLayout? cameraBatteryBadge;
     FrameLayout? container;
     FrozenTableSurface? frozen;
     float density;
@@ -48,6 +51,20 @@ public sealed class NativeMediaHandler : ViewHandler<NativeMediaView, FrameLayou
         container.AddView(title, new FrameLayout.LayoutParams(-2, (int)(56 * density), GravityFlags.Top | GravityFlags.Left));
         cast.Configure("", true);
         int touchSize = (int)(56 * activity.Resources!.DisplayMetrics!.Density);
+        cameraBatteryBadge = new(activity) { Orientation = Orientation.Vertical,
+            Focusable = true, ImportantForAccessibility = ImportantForAccessibility.Yes };
+        cameraBatteryBadge.SetGravity(GravityFlags.Center);
+        cameraBatteryText = new(activity) { Text = "CAM —", TextSize = 11, Gravity = GravityFlags.Center,
+            ImportantForAccessibility = ImportantForAccessibility.No };
+        cameraBatteryText.SetTextColor(Android.Graphics.Color.Rgb(172, 192, 196));
+        cameraBatteryGauge = new(activity, null, Android.Resource.Attribute.ProgressBarStyleHorizontal)
+        { Max = 100, Progress = 0, ImportantForAccessibility = ImportantForAccessibility.No };
+        cameraBatteryGauge.ProgressTintList = Android.Content.Res.ColorStateList.ValueOf(Android.Graphics.Color.Rgb(136, 224, 205));
+        cameraBatteryBadge.AddView(cameraBatteryText, new LinearLayout.LayoutParams(-2, -2));
+        cameraBatteryBadge.AddView(cameraBatteryGauge, new LinearLayout.LayoutParams((int)(46 * density), (int)(4 * density))
+        { TopMargin = (int)(2 * density) });
+        container.AddView(cameraBatteryBadge, new FrameLayout.LayoutParams((int)(84 * density), touchSize,
+            GravityFlags.Top | GravityFlags.Right) { RightMargin = touchSize + (int)(6 * density) });
         container.AddView(cast.Button, new FrameLayout.LayoutParams(touchSize, touchSize, GravityFlags.Top | GravityFlags.Right));
         probe.Attach(player, cast);
         touchListener = new(session, density);
@@ -68,7 +85,8 @@ public sealed class NativeMediaHandler : ViewHandler<NativeMediaView, FrameLayou
         if (player is not null) { player.View!.Click -= Reveal; player.View.LayoutChange -= SceneLayoutChanged; player.View.SetOnTouchListener(null); }
         probe?.Detach(); player?.Release(); cast?.Release();
         placeholder = null;
-        title = null; container = null; touchListener?.Dispose(); touchListener = null;
+        title = cameraBatteryText = null; cameraBatteryGauge = null; cameraBatteryBadge = null;
+        container = null; touchListener?.Dispose(); touchListener = null;
         frozen?.Dispose(); frozen = null;
         player?.Dispose(); cast?.Dispose(); playerListener?.Dispose(); castListener?.Dispose();
         base.DisconnectHandler(platformView);
@@ -86,6 +104,19 @@ public sealed class NativeMediaHandler : ViewHandler<NativeMediaView, FrameLayou
                 layout.TopMargin = top; layout.BottomMargin = bottom; player.View.LayoutParameters = layout;
             }
             if (title is not null) title.Visibility = session.ControlsVisible ? ViewStates.Visible : ViewStates.Gone;
+            if (cameraBatteryBadge is not null)
+            {
+                int? level = session.CameraBatteryPercent;
+                cameraBatteryBadge.Visibility = session.ControlsVisible ? ViewStates.Visible : ViewStates.Gone;
+                cameraBatteryBadge.ContentDescription = level is { } percent
+                    ? $"Mounted camera battery level {percent} percent" : "Mounted camera battery level unknown";
+                if (cameraBatteryText is not null) cameraBatteryText.Text = level is { } known ? $"CAM {known}%" : "CAM —";
+                if (cameraBatteryGauge is not null)
+                {
+                    cameraBatteryGauge.Visibility = level.HasValue ? ViewStates.Visible : ViewStates.Gone;
+                    if (level is { } progress) cameraBatteryGauge.Progress = progress;
+                }
+            }
             if (frozen is not null)
             {
                 var frozenLayout = (FrameLayout.LayoutParams)frozen.LayoutParameters!;

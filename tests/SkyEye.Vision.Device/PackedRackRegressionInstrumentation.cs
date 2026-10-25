@@ -243,7 +243,7 @@ public sealed class PackedRackRegressionInstrumentation : global::Android.App.In
                 ("moderate-spacing-34", new VisionSettings(MinimumRadius: 16, Separation: 34, InitialVotes: 12, NormalizedVotes: 11)),
                 ("tight-spacing-28", new VisionSettings(MinimumRadius: 14, MaximumRadius: 33, Separation: 28, InitialVotes: 10, NormalizedVotes: 9))
             };
-            bool controlsPassed = true, packedRecovered = true, productionFallbackRecovered = false;
+            bool controlsPassed = true, packedRecovered = true, productionResolutionPassed = false;
             foreach (var configuration in configurations)
             {
                 var analyzer = new VisionAnalyzer(configuration.Settings);
@@ -265,10 +265,13 @@ public sealed class PackedRackRegressionInstrumentation : global::Android.App.In
                 bool fallbackRecovered = packedResult.PackedClusterFallback is
                     { Attempted: true, PrimaryAnalysisWidth: 800, FallbackAnalysisWidth: 1000,
                         PrimaryClusterDetected: true, PrimaryClusterComplete: false, Recovered: true };
+                bool primaryComplete = packedResult.PackedCluster is { Detected: true, Complete: true }
+                    && packedResult.PackedClusterFallback is null;
                 bool retryGate = RetryWasClusterGated(packedResult);
-                if (configuration.Name == "production-width-800") productionFallbackRecovered = recovered && fallbackRecovered && retryGate;
+                if (configuration.Name == "production-width-800")
+                    productionResolutionPassed = recovered && (primaryComplete || fallbackRecovered) && retryGate;
                 rows.Add(new { configuration = configuration.Name, role = "packed-rack-sweep", packed = packedComparison,
-                    packedEligible, safeFallback, fallbackRecovered, peakWorkingSetDeltaBytes,
+                    packedEligible, safeFallback, primaryComplete, fallbackRecovered, peakWorkingSetDeltaBytes,
                     retryGate,
                     peakWorkingSetSampleIntervalMs = 10, analysisPixelAreas = new
                     {
@@ -309,7 +312,7 @@ public sealed class PackedRackRegressionInstrumentation : global::Android.App.In
                     dimRetryGate, dimResult.PackedCluster, dimResult.PackedClusterFallback,
                     dimResult.Uncertain, dimResult.Obstructed, ballCount = dimResult.Balls.Length, dimResult.Warnings, dimResult.ElapsedMs });
             }
-            passed = controlsPassed && packedRecovered && productionFallbackRecovered;
+            passed = controlsPassed && packedRecovered && productionResolutionPassed;
         }
         catch (Exception failure) { error = failure.ToString(); }
         var report = new { passed, error, measuredAt = DateTimeOffset.UtcNow,

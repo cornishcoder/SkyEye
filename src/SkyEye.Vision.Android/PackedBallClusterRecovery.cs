@@ -9,7 +9,8 @@ namespace SkyEye.Vision.Android;
 
 public sealed partial class VisionAnalyzer
 {
-    readonly record struct ClusterBall(string Kind, Circle Body, double ColourRadius, BallClassification Classification);
+    readonly record struct ClusterBall(string Kind, Circle Body, Point PeakCentre, double ColourRadius,
+        BallClassification Classification);
 
     /// <summary>
     /// Split a compact touching group using separate red/yellow pixel masks.
@@ -17,7 +18,8 @@ public sealed partial class VisionAnalyzer
     /// raw-image boundary fit; table shape and declared inventory never add one.
     /// </summary>
     PackedClusterEvidence AddPackedClusterBodies(Mat rawBgr, List<Circle> circles, double scale,
-        Dictionary<Circle, BallClassification>? packedClassifications)
+        Dictionary<Circle, BallClassification>? packedClassifications,
+        List<VisionCandidateAudit>? candidateAudits = null, string pass = "initial")
     {
         using var rawHsv = new MatLease(new Mat());
         Imgproc.CvtColor(rawBgr, rawHsv.Value, Imgproc.ColorBgr2hsv);
@@ -33,17 +35,48 @@ public sealed partial class VisionAnalyzer
         Cv.InRange(rawHsv.Value, yellowLow, yellowHigh, yellow.Value);
 
         double minimumPeakRadius = 12 * scale;
-        var proposals = FindColourPeakBodies(red.Value, "red", rawPixels, rawBgrPixels, scale, minimumPeakRadius)
-            .Concat(FindColourPeakBodies(yellow.Value, "yellow", rawPixels, rawBgrPixels, scale, minimumPeakRadius)).ToArray();
+        var proposals = FindColourPeakBodies(red.Value, "red", rawPixels, rawBgrPixels, scale, minimumPeakRadius,
+                candidateAudits, pass)
+            .Concat(FindColourPeakBodies(yellow.Value, "yellow", rawPixels, rawBgrPixels, scale, minimumPeakRadius,
+                candidateAudits, pass)).ToArray();
         var cluster = FindDenseColourCluster(proposals, scale);
+        if (candidateAudits is not null)
+            for (int i = 0; i < proposals.Length; i++)
+            {
+                var proposal = proposals[i];
+                bool selected = cluster.Any(member => member.Kind == proposal.Kind && member.Body == proposal.Body);
+                candidateAudits.Add(new(pass, "packed-window", proposal.Kind, i,
+                    new(proposal.Body.X, proposal.Body.Y), proposal.Body.Radius,
+                    new(proposal.Body.X, proposal.Body.Y), proposal.Body.Radius, null,
+                    proposal.Classification.Kind, selected ? "selected" : "outside-selected-window"));
+            }
         if (cluster.Length < 12) return default;
 
-        foreach (var proposal in cluster)
-            if (!circles.Any(c => Distance(c, proposal.Body) < settings.Separation * scale))
+        var existingCentres = circles.Select(c => new Point(c.X, c.Y)).ToArray();
+        var admittedSeeds = new List<Point>();
+        for (int clusterIndex = 0; clusterIndex < cluster.Length; clusterIndex++)
+        {
+            var proposal = cluster[clusterIndex];
+            // Compare independent colour-mask peaks, not their separately
+            // refined body centres. Adjacent touching balls can have fitted
+            // centres pulled inward while their raw peaks remain distinct.
+            bool duplicate = existingCentres.Any(c => (c - proposal.PeakCentre).Length < settings.Separation * scale)
+                || admittedSeeds.Any(c => (c - proposal.PeakCentre).Length < settings.Separation * scale);
+            if (!duplicate)
             {
                 circles.Add(proposal.Body);
+                admittedSeeds.Add(proposal.PeakCentre);
                 if (packedClassifications is not null) packedClassifications[proposal.Body] = proposal.Classification;
+                candidateAudits?.Add(new(pass, "packed-add", proposal.Kind, clusterIndex,
+                    new(proposal.Body.X, proposal.Body.Y), proposal.Body.Radius,
+                    new(proposal.Body.X, proposal.Body.Y), proposal.Body.Radius, null,
+                    proposal.Classification.Kind, "added-to-proposal-set"));
             }
+            else candidateAudits?.Add(new(pass, "packed-add", proposal.Kind, clusterIndex,
+                new(proposal.Body.X, proposal.Body.Y), proposal.Body.Radius,
+                new(proposal.Body.X, proposal.Body.Y), proposal.Body.Radius, null,
+                proposal.Classification.Kind, "rejected-duplicate-existing-proposal"));
+        }
 
         // The black ball's centre lies near its number patch, so a dark-mask
         // interior peak is only a seed. It still has to fit a visible outer edge
@@ -62,25 +95,44 @@ public sealed partial class VisionAnalyzer
             Bottom = cluster.Max(p => p.Body.Y) + 55 * scale
         };
         bool blackObserved = false;
-        foreach (var seed in FindPeakSeeds(dark.Value, scale, 8 * scale))
+        var darkSeeds = FindPeakSeeds(dark.Value, scale, 8 * scale).ToArray();
+        var inClusterSeeds = darkSeeds.Where(seed => seed.Centre.X >= bounds.Left && seed.Centre.X <= bounds.Right
+            && seed.Centre.Y >= bounds.Top && seed.Centre.Y <= bounds.Bottom).ToArray();
+        candidateAudits?.Add(new(pass, "packed-black-search", "black", darkSeeds.Length,
+            new((bounds.Left + bounds.Right) / 2, (bounds.Top + bounds.Bottom) / 2), 0, null, null, null, null,
+            $"dark-peaks={darkSeeds.Length};cluster-peaks={inClusterSeeds.Length}"));
+        for (int i = 0; i < darkSeeds.Length; i++)
         {
-            if (seed.X < bounds.Left || seed.X > bounds.Right || seed.Y < bounds.Top || seed.Y > bounds.Bottom) continue;
+            var seed = darkSeeds[i];
+            if (seed.Centre.X < bounds.Left || seed.Centre.X > bounds.Right || seed.Centre.Y < bounds.Top || seed.Centre.Y > bounds.Bottom)
+            { Audit("rejected-outside-cluster-window"); continue; }
             var fit = BallBoundaryRefiner.Refine(rawBgrPixels, coordinates.Width, coordinates.Height,
-                new(seed.X, seed.Y), PoolGeometry.Radius * coordinates.Width, .7);
-            if (fit is null || fit.SupportedSectors < .7) continue;
+                seed.Centre, PoolGeometry.Radius * coordinates.Width, .7);
+            if (fit is null)
+            { Audit("rejected-no-boundary-fit"); continue; }
+            if (fit.SupportedSectors < .7)
+            { Audit("rejected-insufficient-boundary-support", fit, fit.SupportedSectors); continue; }
             var body = new Circle(fit.Centre.X, fit.Centre.Y, fit.Radius);
             var classification = Classify(body, rawPixels, inspectRim: true);
-            if (classification.Kind != "black"
-                || circles.Any(c => Distance(c, body) < settings.Separation * scale)) continue;
+            if (classification.Kind != "black")
+            { Audit("rejected-classification", fit, fit.SupportedSectors, classification.Kind); continue; }
+            if (circles.Any(c => Distance(c, body) < settings.Separation * scale))
+            { Audit("rejected-duplicate-existing-proposal", fit, fit.SupportedSectors, classification.Kind); continue; }
             circles.Add(body);
             if (packedClassifications is not null) packedClassifications[body] = classification;
             blackObserved = true;
+            Audit("added-black-body", fit, fit.SupportedSectors, classification.Kind);
             break;
+
+            void Audit(string decision, BallBoundary? boundary = null, double? support = null, string? label = null)
+                => candidateAudits?.Add(new(pass, "packed-black", "black", i, seed.Centre, seed.Radius,
+                    boundary?.Centre, boundary?.Radius, support, label, decision));
         }
         return new(true, cluster.Count(p => p.Kind == "red"), cluster.Count(p => p.Kind == "yellow"), blackObserved);
     }
 
-    ClusterBall[] FindColourPeakBodies(Mat colourMask, string kind, byte[] rawHsv, byte[] rawBgr, double scale, double minimumPeakRadius)
+    ClusterBall[] FindColourPeakBodies(Mat colourMask, string kind, byte[] rawHsv, byte[] rawBgr, double scale,
+        double minimumPeakRadius, List<VisionCandidateAudit>? candidateAudits, string pass)
     {
         var candidates = new List<ClusterBall>();
         using var distance = new MatLease(new Mat());
@@ -100,18 +152,35 @@ public sealed partial class VisionAnalyzer
         for (int i = 1; i < count && candidates.Count < 32; i++)
         {
             double x = centres.Value.Get(i, 0)![0], y = centres.Value.Get(i, 1)![0];
-            if (x < margin || y < margin || x >= coordinates.Width - margin || y >= coordinates.Height - margin
-                || PocketCentres().Any(p => (new Point(x, y) - p).Length < settings.PocketExclusionRadius * scale)) continue;
+            var seed = new Circle(x, y, 0);
+            if (x < margin || y < margin || x >= coordinates.Width - margin || y >= coordinates.Height - margin)
+            { Audit("rejected-margin"); continue; }
+            if (PocketCentres().Any(p => (new Point(x, y) - p).Length < settings.PocketExclusionRadius * scale))
+            { Audit("rejected-pocket-exclusion"); continue; }
             double interiorRadius = distance.Value.Get((int)Math.Round(y), (int)Math.Round(x))![0];
-            if (interiorRadius < minimumPeakRadius || interiorRadius > settings.MaximumRadius * scale) continue;
+            seed = new Circle(x, y, interiorRadius);
+            if (interiorRadius < minimumPeakRadius || interiorRadius > settings.MaximumRadius * scale)
+            { Audit("rejected-peak-radius"); continue; }
             var fit = BallBoundaryRefiner.Refine(rawBgr, coordinates.Width, coordinates.Height,
                 new(x, y), PoolGeometry.Radius * coordinates.Width, .5);
-            if (fit is null || fit.SupportedSectors < .4) continue;
+            if (fit is null || fit.SupportedSectors < .4)
+            { Audit(fit is null ? "rejected-no-boundary-fit" : "rejected-insufficient-boundary-support", fit, fit?.SupportedSectors); continue; }
             var body = new Circle(fit.Centre.X, fit.Centre.Y, fit.Radius);
             var classification = Classify(body, rawHsv, inspectRim: true);
-            if (classification.Kind != kind
-                || candidates.Any(c => Distance(c.Body, body) < settings.Separation * scale)) continue;
-            candidates.Add(new(kind, body, interiorRadius, classification));
+            if (classification.Kind != kind)
+            { Audit("rejected-classification", fit, fit.SupportedSectors, classification.Kind); continue; }
+            // The fitted centres are allowed to move independently by several
+            // pixels. Comparing those fits can collapse two touching balls when
+            // both move inward by one grid step. Deduplicate colour peaks by the
+            // original mask seeds; keep the refined bodies as separate geometry.
+            if (candidates.Any(c => (c.PeakCentre - new Point(x, y)).Length < settings.Separation * scale))
+            { Audit("rejected-duplicate-colour-peak", fit, fit.SupportedSectors, classification.Kind); continue; }
+            candidates.Add(new(kind, body, new(x, y), interiorRadius, classification));
+            Audit("accepted-colour-peak", fit, fit.SupportedSectors, classification.Kind);
+
+            void Audit(string decision, BallBoundary? boundary = null, double? support = null, string? label = null)
+                => candidateAudits?.Add(new(pass, "packed-" + kind, kind, i, new(seed.X, seed.Y), seed.Radius,
+                    boundary is null ? null : boundary.Centre, boundary?.Radius, support, label, decision));
         }
         return candidates.ToArray();
     }
@@ -135,7 +204,7 @@ public sealed partial class VisionAnalyzer
         return best;
     }
 
-    IEnumerable<Point> FindPeakSeeds(Mat mask, double scale, double minimumPeakRadius)
+    IEnumerable<(Point Centre, double Radius)> FindPeakSeeds(Mat mask, double scale, double minimumPeakRadius)
     {
         using var distance = new MatLease(new Mat()); Imgproc.DistanceTransform(mask, distance.Value, Imgproc.DistL2, 3);
         using var dilated = new MatLease(new Mat());
@@ -152,7 +221,8 @@ public sealed partial class VisionAnalyzer
         {
             double x = centres.Value.Get(i, 0)![0], y = centres.Value.Get(i, 1)![0];
             if (x < 65 * scale || y < 65 * scale || x >= coordinates.Width - 65 * scale || y >= coordinates.Height - 65 * scale) continue;
-            if (distance.Value.Get((int)Math.Round(y), (int)Math.Round(x))![0] >= minimumPeakRadius) yield return new(x, y);
+            double radius = distance.Value.Get((int)Math.Round(y), (int)Math.Round(x))![0];
+            if (radius >= minimumPeakRadius) yield return (new(x, y), radius);
         }
     }
 }

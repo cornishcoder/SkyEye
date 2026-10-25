@@ -19,11 +19,12 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     readonly AnalysisCoordinates coordinates;
     readonly VisionSettings settings;
     readonly bool boundaryDiagnostics;
+    readonly bool candidateDiagnostics;
     readonly record struct Circle(double X, double Y, double Radius);
     readonly record struct PackedClusterEvidence(bool Detected, int RedCentres, int YellowCentres, bool BlackCentre);
     public VisionAnalyzer(int width = 1000) : this(new VisionSettings(Width: width)) { }
-    public VisionAnalyzer(VisionSettings settings, bool includeBoundaryDiagnostics = false)
-    { settings.Validate(); this.settings = settings; boundaryDiagnostics = includeBoundaryDiagnostics; coordinates = new(settings.Width); }
+    public VisionAnalyzer(VisionSettings settings, bool includeBoundaryDiagnostics = false, bool includeCandidateDiagnostics = false)
+    { settings.Validate(); this.settings = settings; boundaryDiagnostics = includeBoundaryDiagnostics; candidateDiagnostics = includeCandidateDiagnostics; coordinates = new(settings.Width); }
     public string ConfigurationIdentity => System.Text.Json.JsonSerializer.Serialize(new
     { Algorithm = "body-priority-packed-colour-peaks-v1", Settings = settings });
     static void Load()
@@ -57,7 +58,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             primary.PackedCluster is not { Detected: true, Complete: false }) return primary;
 
         cancellation.ThrowIfCancellationRequested();
-        var fallbackAnalyzer = new VisionAnalyzer(settings with { Width = 1000 });
+        var fallbackAnalyzer = new VisionAnalyzer(settings with { Width = 1000 }, boundaryDiagnostics, candidateDiagnostics);
         var fallback = fallbackAnalyzer.AnalyzePixelsCore(source, calibration, cancellation);
         bool fallbackComplete = fallback.PackedCluster?.Complete == true;
         bool useFallback = fallbackComplete || fallback.CircleCount > primary.CircleCount;
@@ -112,9 +113,11 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         else illumination = new(false, 0, 1, 1, 0);
         using var hsv = new MatLease(new Mat()); Imgproc.CvtColor(warped.Value, hsv.Value, Imgproc.ColorBgr2hsv);
         byte[] pixels = Read(hsv.Value); var packedClassifications = new Dictionary<Circle, BallClassification>();
+        var candidateAudits = candidateDiagnostics ? new List<VisionCandidateAudit>() : null;
         var circles = Detect(hsv.Value, pixels, settings.InitialVotes, out var packedCluster,
             appearance is not null && settings.VerificationBodyRefinement,
-            settings.FreshCueBallRecovery && settings.BodyProposalPriority ? rawWarped.Value : null, packedClassifications);
+            settings.FreshCueBallRecovery && settings.BodyProposalPriority ? rawWarped.Value : null, packedClassifications,
+            candidateAudits, "initial");
         bool inspectRim = appearance is not null || settings.FreshCueBallRecovery;
         var initialLabels = circles.Select(c => Classify(c, pixels, inspectRim)).ToArray();
         int initialCueCount = initialLabels.Count(l => l.Kind == "cue");
@@ -197,7 +200,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 if (appearance is null)
                 {
                     if (!settings.FreshCueBallRecovery) circles = Detect(hsv.Value, pixels, settings.NormalizedVotes, out _,
-                        packedClassifications: packedClassifications);
+                        packedClassifications: packedClassifications, candidateAudits: candidateAudits, pass: "normalized");
                     var normalizedLabels = circles.Select(c => Classify(c, pixels, inspectRim)).ToArray();
                     normalizedCueCount = normalizedLabels.Count(l => l.Kind == "cue");
                     if (settings.FreshCueBallRecovery)
@@ -279,7 +282,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             VerificationReason = referenceConflict ? ObservationReason.LightingChanged : null, Illumination = illumination,
             PackedCluster = new(packedCluster.Detected, packedCluster.Detected && !packedClusterUnresolved,
                 packedCluster.RedCentres, packedCluster.YellowCentres, packedCluster.BlackCentre),
-            BoundaryAudits = boundaryAudits.ToArray() };
+            BoundaryAudits = boundaryAudits.ToArray(), CandidateAudits = candidateAudits?.ToArray() ?? [] };
     }
     IlluminationTelemetry NormalizeIllumination(Mat image, CancellationToken cancellation)
     {
@@ -370,7 +373,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     }
     Circle[] Detect(Mat hsv, byte[] pixels, double votes, out PackedClusterEvidence packedCluster,
         bool refineGeometry = false, Mat? rawImage = null,
-        Dictionary<Circle, BallClassification>? packedClassifications = null)
+        Dictionary<Circle, BallClassification>? packedClassifications = null,
+        List<VisionCandidateAudit>? candidateAudits = null, string pass = "initial")
     {
         using var timing = PipelineDiagnostics.Measure("circleDetectionMs");
         packedCluster = default;
@@ -382,7 +386,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         // binary-mask texture can fill the Hough list with cloth holes.
         bool prioritizeBodies = settings.FreshCueBallRecovery && settings.BodyProposalPriority;
         byte[]? rawBoundaryPixels = null;
-        if (prioritizeBodies && rawImage is not null) packedCluster = AddPackedClusterBodies(rawImage, result, scale, packedClassifications);
+        if (prioritizeBodies && rawImage is not null)
+            packedCluster = AddPackedClusterBodies(rawImage, result, scale, packedClassifications, candidateAudits, pass);
         if (prioritizeBodies) AddColourBodies(hsv, pixels, result, scale);
         if (prioritizeBodies && rawImage is not null) AddDarkBodies(rawImage, result, scale);
         for (int i = 0; i < count && result.Count <= 32; i++)
@@ -390,10 +395,13 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             var value = circles.Value.Get(circles.Value.Rows() == 1 ? 0 : i, circles.Value.Rows() == 1 ? i : 0);
             if (value is null || value.Length < 3) continue;
             var c = new Circle(value[0], value[1], value[2]); double margin = 23 * scale;
-            if (c.X < margin || c.Y < margin || c.X > coordinates.Width - margin || c.Y > coordinates.Height - margin) continue;
+            if (c.X < margin || c.Y < margin || c.X > coordinates.Width - margin || c.Y > coordinates.Height - margin)
+            { Audit("hough", "unknown", i, c, "rejected-margin"); continue; }
             // An opening is not a ball; ball-adjacent uncertain cases remain visible through review.
-            if (PocketCentres().Any(p => (new Point(c.X, c.Y) - p).Length < settings.PocketExclusionRadius * scale)) continue;
-            if (prioritizeBodies && result.Any(p => (new Point(p.X, p.Y) - new Point(c.X, c.Y)).Length < settings.Separation * scale)) continue;
+            if (PocketCentres().Any(p => (new Point(c.X, c.Y) - p).Length < settings.PocketExclusionRadius * scale))
+            { Audit("hough", "unknown", i, c, "rejected-pocket-exclusion"); continue; }
+            if (prioritizeBodies && result.Any(p => (new Point(p.X, p.Y) - new Point(c.X, c.Y)).Length < settings.Separation * scale))
+            { Audit("hough", "unknown", i, c, "rejected-duplicate-before-fit"); continue; }
             // Cloth shadows can produce circle edges anywhere. Keep the sampled
             // cloth rejection bounded, while rescuing a low-light neutral circle
             // only when its body contrasts with the immediately surrounding cloth.
@@ -407,7 +415,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                         pixels[offset + 2] > 20 && (prioritizeBodies || pixels[offset + 2] < NeutralClothValueCeiling(clothRange.ValueFloor))) cloth++;
                 });
                 if (sampled > 0 && cloth / (double)sampled > .9
-                    && !(prioritizeBodies ? HasLocalBodyValueContrast(c, pixels) : HasLowLightNeutralBallContrast(c, pixels))) continue;
+                    && !(prioritizeBodies ? HasLocalBodyValueContrast(c, pixels) : HasLowLightNeutralBallContrast(c, pixels)))
+                { Audit("hough", "unknown", i, c, "rejected-as-cloth"); continue; }
             }
             if (prioritizeBodies && rawImage is not null)
             {
@@ -415,18 +424,29 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 var fit = BallBoundaryRefiner.Refine(rawBoundaryPixels, coordinates.Width, coordinates.Height,
                     new(c.X, c.Y), PoolGeometry.Radius * coordinates.Width, settings.MinimumHoughBoundarySupport,
                     boundaryDiagnostics);
-                if (fit is null || fit.SupportedSectors < settings.MinimumHoughBoundarySupport) continue;
+                if (fit is null || fit.SupportedSectors < settings.MinimumHoughBoundarySupport)
+                { Audit("hough", "unknown", i, c, fit is null ? "rejected-no-boundary-fit" : "rejected-insufficient-boundary-support", fit?.Centre, fit?.Radius, fit?.SupportedSectors); continue; }
                 c = new(fit.Centre.X, fit.Centre.Y, fit.Radius);
-                if (result.Any(p => (new Point(p.X, p.Y) - new Point(c.X, c.Y)).Length < settings.Separation * scale)) continue;
+                if (result.Any(p => (new Point(p.X, p.Y) - new Point(c.X, c.Y)).Length < settings.Separation * scale))
+                { Audit("hough", "unknown", i, c, "rejected-duplicate-after-fit", new(c.X, c.Y), c.Radius, fit.SupportedSectors); continue; }
                 // A fit near a neighbouring edge can move off the initial
                 // contrast patch. Its centre must still belong to a body.
-                if (IsClothBody(c, pixels, clothRange) && !HasLocalBodyValueContrast(c, pixels)) continue;
+                if (IsClothBody(c, pixels, clothRange) && !HasLocalBodyValueContrast(c, pixels))
+                { Audit("hough", "unknown", i, c, "rejected-fitted-cloth-body", new(c.X, c.Y), c.Radius, fit.SupportedSectors); continue; }
             }
             result.Add(c);
+            Audit("hough", "unknown", i, c, "accepted", new(c.X, c.Y), c.Radius);
         }
         if (!prioritizeBodies) AddColourBodies(hsv, pixels, result, scale);
         if (refineGeometry) RefineBodyGeometry(mask.Value, result, scale);
         return result.ToArray();
+
+        void Audit(string stage, string kind, int index, Circle proposal, string decision,
+            Point? fitCentre = null, double? fitRadius = null, double? support = null)
+        {
+            candidateAudits?.Add(new(pass, stage, kind, index, new(proposal.X, proposal.Y), proposal.Radius,
+                fitCentre, fitRadius, support, null, decision));
+        }
     }
     void RefineBodyGeometry(Mat cloth, List<Circle> circles, double scale)
     {

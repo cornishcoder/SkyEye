@@ -24,8 +24,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             using var first = JsonDocument.Parse(File.ReadAllBytes(paths[0]));
             var corners = first.RootElement.GetProperty("calibrationCorners").EnumerateArray().Select(p => new Point(p.GetProperty("x").GetDouble(), p.GetProperty("y").GetDouble())).ToArray();
             var calibration = new TableCalibration(corners);
-            var analyzer800 = new VisionAnalyzer(new VisionSettings(Width: 800) { VerificationBodyRefinement = refinement }, boundaryAudit);
-            var analyzer1000 = new VisionAnalyzer(new VisionSettings(Width: 1000) { VerificationBodyRefinement = refinement }, boundaryAudit);
+            var analyzer800 = new VisionAnalyzer(new VisionSettings(Width: 800) { VerificationBodyRefinement = refinement }, boundaryAudit, boundaryAudit);
+            var analyzer1000 = new VisionAnalyzer(new VisionSettings(Width: 1000) { VerificationBodyRefinement = refinement }, boundaryAudit, boundaryAudit);
             using var worker800 = analyzer800.CreateVerification(calibration);
             using var worker1000 = analyzer1000.CreateVerification(calibration);
             var samples = new List<object>();
@@ -78,8 +78,10 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         configuredWidth = width, geometryWidth = width,
         vision.Uncertain, vision.Obstructed, vision.CircleCount,
         counts = vision.Balls.GroupBy(b => b.Kind).OrderBy(g => g.Key).ToDictionary(g => g.Key, g => g.Count()),
+        vision.Recognition,
         vision.PackedCluster, vision.PackedClusterFallback,
         boundaryAudits = vision.BoundaryAudits,
+        candidateAudits = vision.CandidateAudits,
         circles = vision.Circles.Select(c => new
         {
             c.BallId, kind = Kind(c.BallId), x = c.Centre.Y / width, y = 1 - c.Centre.X / width,
