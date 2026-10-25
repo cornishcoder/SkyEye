@@ -18,6 +18,14 @@ public sealed record CircleBoundaryAudit(string BallId, Point ProposalCentre, do
 public sealed record VisionCandidateAudit(string Pass, string Stage, string Kind, int Index,
     Point ProposalCentre, double ProposalRadius, Point? FittedCentre, double? FittedRadius,
     double? BoundarySupport, string? ClassifiedKind, string Decision);
+public sealed record ObstructionComponentAudit(int Label, int Left, int Top, int Width, int Height, int Area,
+    int BallCentres, bool WholeTableSegmentation, bool PackedClusterSizeEligible,
+    bool PackedClusterExempted, bool TriggersObstruction);
+public sealed record ObstructionAuditTelemetry(int AnalysisWidth, int AnalysisHeight, int BorderPixels,
+    double MinimumComponentWidth, double MinimumComponentHeight, double MinimumComponentArea,
+    double PackedClusterMaximumWidth, double PackedClusterMaximumHeight, int PackedClusterMinimumBallCentres,
+    int ConnectedComponents, int QualifyingComponents, int ReportedComponents, int OmittedComponents,
+    int TriggeringComponents, int OmittedTriggeringComponents, ObstructionComponentAudit[] Components);
 public sealed record VisionResult(Ball[] Balls, bool Uncertain, string[] Warnings, double ElapsedMs, int CircleCount, bool Normalized, string Runtime, double[] ColourGains, int ClothHue, bool Obstructed, CircleObservation[] Circles)
 {
     public RecognitionTelemetry? Recognition { get; init; }
@@ -25,6 +33,7 @@ public sealed record VisionResult(Ball[] Balls, bool Uncertain, string[] Warning
     public IlluminationTelemetry? Illumination { get; init; }
     public PackedClusterTelemetry? PackedCluster { get; init; }
     public PackedClusterFallbackTelemetry? PackedClusterFallback { get; init; }
+    public ObstructionAuditTelemetry? ObstructionAudit { get; init; }
     public CircleBoundaryAudit[] BoundaryAudits { get; init; } = [];
     public VisionCandidateAudit[] CandidateAudits { get; init; } = [];
 }

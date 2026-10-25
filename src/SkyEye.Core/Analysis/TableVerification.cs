@@ -109,6 +109,7 @@ public static class VerificationConsensus
         conflict = new("final-quality-or-count", observations.Count - 1, null);
         if (final.Uncertain || first.Length != final.Balls.Length || first.Length == 0) return null;
         var histories = first.OrderBy(b => b.Position.X).ThenBy(b => b.Position.Y).Select(b => new List<Ball> { b }).ToArray();
+        var toleratedPartialRadiusOutliers = new HashSet<string>(StringComparer.Ordinal);
         for (int sample = 1; sample < observations.Count; sample++)
         {
             var observation = observations[sample];
@@ -129,9 +130,23 @@ public static class VerificationConsensus
                     // re-observed. It consumes no geometry/colour vote. Start/end
                     // and three independently supported appearances remain required.
                     if (currentCircle.ProposalRadius is not null && currentCircle.BoundarySupport is null && !ReferenceEquals(observation, final)) continue;
-                    conflict = new("radius-inconsistent", sample, history[0].Id);
-                    if (anchorCircle.Radius <= 0 || currentCircle.Radius <= 0
-                        || Math.Max(anchorCircle.Radius, currentCircle.Radius) / Math.Min(anchorCircle.Radius, currentCircle.Radius) > 1.25) return null;
+                    // Partial boundary arcs are enough to support a ball centre
+                    // in a touching rack, but one isolated fit can move as the
+                    // visible arc changes. Keep the 25% radius gate unless two
+                    // adjacent, clear, supported fits corroborate the anchor.
+                    double radiusRatio = anchorCircle.Radius > 0 && currentCircle.Radius > 0
+                        ? Math.Max(anchorCircle.Radius, currentCircle.Radius) / Math.Min(anchorCircle.Radius, currentCircle.Radius)
+                        : double.PositiveInfinity;
+                    bool partialMiddleOutlier = !ReferenceEquals(observation, final)
+                        && currentCircle.BoundarySupport is >= ObservationPolicy.MinimumSupportedBoundaryFraction and < 1
+                        && sample > 0 && sample < observations.Count - 1
+                        && HasCompatibleRadiusNeighbours(observations, sample, history[0], anchorCircle.Radius);
+                    if (radiusRatio > 1.25
+                        && (!partialMiddleOutlier || !toleratedPartialRadiusOutliers.Add(history[0].Id)))
+                    {
+                        conflict = new("radius-inconsistent", sample, history[0].Id);
+                        return null;
+                    }
                 }
                 history.Add(candidates[0].Ball);
             }
@@ -151,4 +166,28 @@ public static class VerificationConsensus
         }
         conflict = null; return result.ToArray();
     }
+
+    static bool HasCompatibleRadiusNeighbours(IReadOnlyList<VisionResult> observations, int sample,
+        Ball anchor, double anchorRadius)
+    {
+        var before = observations[sample - 1]; var after = observations[sample + 1];
+        if (before.Obstructed || after.Obstructed) return false;
+        var beforeCircle = FindCircleAt(before, anchor);
+        var afterCircle = FindCircleAt(after, anchor);
+        return beforeCircle is { BoundarySupport: >= ObservationPolicy.MinimumSupportedBoundaryFraction } beforeFit
+            && afterCircle is { BoundarySupport: >= ObservationPolicy.MinimumSupportedBoundaryFraction } afterFit
+            && RadiusCompatible(anchorRadius, beforeFit.Radius)
+            && RadiusCompatible(anchorRadius, afterFit.Radius)
+            && RadiusCompatible(beforeFit.Radius, afterFit.Radius);
+    }
+
+    static CircleObservation? FindCircleAt(VisionResult observation, Ball anchor)
+    {
+        var matches = observation.Balls.Where(ball => (ball.Position - anchor.Position).Length <= .015).Take(2).ToArray();
+        if (matches.Length != 1 || matches[0].Kind != anchor.Kind || matches[0].Confidence < .7) return null;
+        return observation.Circles.SingleOrDefault(circle => circle.BallId == matches[0].Id);
+    }
+
+    static bool RadiusCompatible(double first, double second) => first > 0 && second > 0
+        && Math.Max(first, second) / Math.Min(first, second) <= 1.25;
 }

@@ -270,7 +270,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         { uncertain = true; warnings.Add(referenceConflict ? "Current cue ball reference conflicts with the frozen burst gains." : "No validated burst colour reference. Review the table."); }
         if (uncertain) warnings.Add("Check uncertain colours or ball counts before using advice.");
         if (PocketColourNeedsReview(pixels)) { uncertain = true; warnings.Add("Check a coloured ball at a pocket opening; the pocket mask may hide part of it."); }
-        bool obstructed = LargeObstruction(rawHsv.Value, rawHsvPixels, circles, packedCluster.Detected);
+        bool obstructed = LargeObstruction(rawHsv.Value, rawHsvPixels, circles, packedCluster.Detected, out var obstructionAudit);
         if (obstructed) { uncertain = true; warnings.Add("A large object covers part of the playable surface."); }
         for (int i = 0; i < balls.Count; i++) for (int j = i + 1; j < balls.Count; j++) if ((balls[i].Position - balls[j].Position).Length < .040) { uncertain = true; warnings.Add("Overlapping circle candidates need checking."); }
         return new(balls.ToArray(), uncertain, warnings.Distinct().ToArray(), watch.Elapsed.TotalMilliseconds, circles.Length, normalized, Cv.Version, colourGains, ClothHue(pixels), obstructed, observations.ToArray())
@@ -282,6 +282,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             VerificationReason = referenceConflict ? ObservationReason.LightingChanged : null, Illumination = illumination,
             PackedCluster = new(packedCluster.Detected, packedCluster.Detected && !packedClusterUnresolved,
                 packedCluster.RedCentres, packedCluster.YellowCentres, packedCluster.BlackCentre),
+            ObstructionAudit = obstructionAudit,
             BoundaryAudits = boundaryAudits.ToArray(), CandidateAudits = candidateAudits?.ToArray() ?? [] };
     }
     IlluminationTelemetry NormalizeIllumination(Mat image, CancellationToken cancellation)
@@ -548,7 +549,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         }
         catch { mask.Dispose(); throw; }
     }
-    bool LargeObstruction(Mat hsv, byte[] pixels, IReadOnlyCollection<Circle> balls, bool packedClusterDetected)
+    bool LargeObstruction(Mat hsv, byte[] pixels, IReadOnlyCollection<Circle> balls, bool packedClusterDetected,
+        out ObstructionAuditTelemetry audit)
     {
         // Obstruction checks retain the broad cloth range: local saturation and
         // value shifts are not themselves evidence of a large object. The
@@ -578,28 +580,46 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         using var labels = new MatLease(new Mat()); using var stats = new MatLease(new Mat()); using var centres = new MatLease(new Mat());
         int count = Imgproc.ConnectedComponentsWithStats(mask.Value, labels.Value, stats.Value, centres.Value);
         double scale = coordinates.Width / 1000.0;
+        double minimumWidth = 120 * scale, minimumHeight = 120 * scale, minimumArea = 5000 * scale * scale;
+        double packedMaximumWidth = 400 * scale, packedMaximumHeight = 400 * scale;
+        const int packedClusterMinimumBallCentres = 12;
+        var candidates = new List<ObstructionComponentAudit>();
+        int triggeringComponents = 0;
         for (int i = 1; i < count; i++)
         {
             double x = stats.Value.Get(i, Imgproc.CcStatLeft)![0], y = stats.Value.Get(i, Imgproc.CcStatTop)![0];
             double width = stats.Value.Get(i, Imgproc.CcStatWidth)![0], height = stats.Value.Get(i, Imgproc.CcStatHeight)![0], area = stats.Value.Get(i, Imgproc.CcStatArea)![0];
-            if (width <= 120 * scale || height <= 120 * scale || area <= 5000 * scale * scale) continue;
+            if (width <= minimumWidth || height <= minimumHeight || area <= minimumArea) continue;
             // A component that occupies nearly the whole table is a failed cloth
             // segmentation, not evidence of a localized object covering it.
-            if (width >= coordinates.Width * .75 && height >= coordinates.Height * .75 &&
-                area >= coordinates.Width * coordinates.Height * .55) continue;
-            if (packedClusterDetected && width <= 400 * scale && height <= 400 * scale)
+            bool wholeTableSegmentation = width >= coordinates.Width * .75 && height >= coordinates.Height * .75 &&
+                area >= coordinates.Width * coordinates.Height * .55;
+            bool packedClusterSizeEligible = width <= packedMaximumWidth && height <= packedMaximumHeight;
+            int ballCentres = 0;
+            foreach (var ball in balls)
             {
-                int clusteredBalls = balls.Count(ball =>
-                {
-                    int bx = Math.Clamp((int)Math.Round(ball.X), 0, coordinates.Width - 1);
-                    int by = Math.Clamp((int)Math.Round(ball.Y), 0, coordinates.Height - 1);
-                    return (int)labels.Value.Get(by, bx)![0] == i;
-                });
-                if (clusteredBalls >= 12) continue;
+                int bx = Math.Clamp((int)Math.Round(ball.X), 0, coordinates.Width - 1);
+                int by = Math.Clamp((int)Math.Round(ball.Y), 0, coordinates.Height - 1);
+                if ((int)labels.Value.Get(by, bx)![0] == i) ballCentres++;
             }
-            return true;
+            bool packedClusterExempted = packedClusterDetected && packedClusterSizeEligible && ballCentres >= packedClusterMinimumBallCentres;
+            bool triggersObstruction = !wholeTableSegmentation && !packedClusterExempted;
+            if (triggersObstruction) triggeringComponents++;
+            candidates.Add(new(i, (int)x, (int)y, (int)width, (int)height, (int)area, ballCentres,
+                wholeTableSegmentation, packedClusterSizeEligible, packedClusterExempted, triggersObstruction));
         }
-        return false;
+        const int maximumReportedComponents = 64;
+        var reported = candidates.Where(component => component.TriggersObstruction).OrderByDescending(component => component.Area)
+            .Take(maximumReportedComponents / 2)
+            .Concat(candidates.Where(component => !component.TriggersObstruction).OrderByDescending(component => component.Area)
+                .Take(maximumReportedComponents / 2))
+            .OrderByDescending(component => component.Area).ThenBy(component => component.Label).ToArray();
+        int omittedComponents = Math.Max(0, candidates.Count - reported.Length);
+        int reportedTriggering = reported.Count(component => component.TriggersObstruction);
+        audit = new(coordinates.Width, coordinates.Height, border, minimumWidth, minimumHeight, minimumArea,
+            packedMaximumWidth, packedMaximumHeight, packedClusterMinimumBallCentres, count - 1, candidates.Count, reported.Length,
+            omittedComponents, triggeringComponents, Math.Max(0, triggeringComponents - reportedTriggering), reported);
+        return triggeringComponents > 0;
     }
     Point[] PocketCentres() => [new(0, 0), new(coordinates.Width, 0), new(0, coordinates.Width), new(coordinates.Width, coordinates.Width), new(0, coordinates.Height), new(coordinates.Width, coordinates.Height)];
     bool PocketColourNeedsReview(byte[] pixels)

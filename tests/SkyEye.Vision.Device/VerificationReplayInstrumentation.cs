@@ -76,7 +76,9 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         }
         catch (Exception error) { report = new { completed = false, error = error.ToString() }; }
         var json = JsonSerializer.Serialize(report, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });
-        var reportName = traceDarkMask && run.Length > 0 ? $"o08-replay-proof-{run}-blacktrace.json" : "o08-replay-proof.json";
+        var reportName = run.Length > 0
+            ? $"o08-replay-proof-{run}{(traceDarkMask ? "-blacktrace" : "")}.json"
+            : "o08-replay-proof.json";
         File.WriteAllText(Path.Combine(TargetContext!.GetExternalFilesDir(null)!.AbsolutePath, reportName), json);
         using var bundle = new global::Android.OS.Bundle(); bundle.PutString("result", "O08 development replay written"); Finish(global::Android.App.Result.Ok, bundle);
     }
@@ -87,6 +89,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         counts = vision.Balls.GroupBy(b => b.Kind).OrderBy(g => g.Key).ToDictionary(g => g.Key, g => g.Count()),
         vision.Recognition,
         vision.PackedCluster, vision.PackedClusterFallback,
+        vision.ObstructionAudit,
         boundaryAudits = vision.BoundaryAudits,
         candidateAudits = vision.CandidateAudits,
         circles = vision.Circles.Select(c => new

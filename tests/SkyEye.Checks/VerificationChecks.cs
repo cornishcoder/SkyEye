@@ -353,6 +353,47 @@ static class VerificationChecks
         Check(VerificationConsensus.Resolve([supported, bad, supported]) is null, "Unsupported middle geometry contributes no vote");
         Check(VerificationConsensus.Resolve([supported, supported, bad], out var conflict) is null && conflict is not null,
             "Final unsupported geometry remains refused with a specific consensus conflict");
+        VisionResult RadiusVision(double radius, double? support)
+        {
+            var body = new Ball("red-0", "red", new(1, .5), .9);
+            return Vision([body]) with { Circles = [new CircleObservation(body.Id, new(500, 400), radius, "solid", [])
+                { ProposalRadius = support is null ? radius : null, BoundarySupport = support, CandidateBoundarySupport = support }] };
+        }
+        var partialRadiusStart = RadiusVision(17, 27 / 32d);
+        var partialRadiusNear = RadiusVision(18, 29 / 32d);
+        var partialRadiusOutlier = RadiusVision(22, 23 / 32d);
+        Check(VerificationConsensus.Resolve([partialRadiusStart, partialRadiusNear, partialRadiusOutlier,
+                partialRadiusNear, partialRadiusStart])?.Length == 1,
+            "One isolated partial-radius outlier is ignored only when adjacent clear fits corroborate stable geometry");
+        Check(VerificationConsensus.Resolve([partialRadiusStart, partialRadiusNear, partialRadiusOutlier,
+                partialRadiusNear with { Uncertain = true }, partialRadiusStart])?.Length == 1,
+            "An unrelated uncertain ball does not erase this body's uniquely matched supported radius evidence");
+        Check(VerificationConsensus.Resolve([partialRadiusStart, partialRadiusNear, partialRadiusOutlier,
+                partialRadiusOutlier, partialRadiusStart], out var persistentRadiusConflict) is null
+            && persistentRadiusConflict?.Code == "radius-inconsistent",
+            "A persistent partial-boundary radius shift remains unresolved");
+        Check(VerificationConsensus.Resolve([partialRadiusStart, partialRadiusNear, partialRadiusOutlier,
+                partialRadiusNear, partialRadiusOutlier, partialRadiusNear, partialRadiusStart], out var repeatedRadiusConflict) is null
+            && repeatedRadiusConflict?.Code == "radius-inconsistent",
+            "Repeated isolated partial-radius outliers cannot accumulate into consensus");
+        Check(VerificationConsensus.Resolve([partialRadiusStart, partialRadiusNear, partialRadiusNear,
+                partialRadiusOutlier], out var finalRadiusConflict) is null
+            && finalRadiusConflict?.Code == "radius-inconsistent",
+            "A final partial-boundary radius outlier remains unresolved");
+        var unsupportedRadius = RadiusVision(22, null);
+        Check(VerificationConsensus.Resolve([partialRadiusStart, partialRadiusNear, partialRadiusOutlier,
+                unsupportedRadius, partialRadiusStart], out var missingNeighbourSupportConflict) is null
+            && missingNeighbourSupportConflict?.Code == "radius-inconsistent",
+            "A bracket without unique supported radius evidence on both sides remains unresolved");
+        Check(VerificationConsensus.Resolve([partialRadiusStart, partialRadiusNear, partialRadiusNear,
+                unsupportedRadius], out var missingFinalSupportConflict) is null
+            && missingFinalSupportConflict?.Code == "radius-inconsistent",
+            "A final unsupported radius proposal remains unresolved");
+        var completeRadiusStart = RadiusVision(17, 1);
+        var completeRadiusOutlier = RadiusVision(22, 1);
+        Check(VerificationConsensus.Resolve([completeRadiusStart, completeRadiusOutlier, completeRadiusStart], out var radiusConflict) is null
+            && radiusConflict?.Code == "radius-inconsistent",
+            "Fully supported circumference disagreement remains unresolved");
     }
     static async Task Cancelled(Task task) { try { await task; } catch (OperationCanceledException) { return; } throw new Exception("Expected cancellation"); }
     static async Task Until(Func<bool> condition) { for (int i = 0; i < 100 && !condition(); i++) await Task.Delay(10); Check(condition(), "Late resource cleanup completes"); }

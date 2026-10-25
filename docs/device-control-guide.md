@@ -4,7 +4,7 @@ Use this guide to operate the Hybrid Production companion on the Pixel 11 and in
 
 ## Identify the installed app
 
-- Production is `uk.co.skyeye.companion`. On 2026-10-25 it was updated in place on the Pixel 11 Pro XL to version `0.8.3` / code `11`. The guarded installer verified its signing identity and retained UID `10644` and private storage; the previous signed APK is at `work/production/backups/20261025-220439/before.apk`. The camera package was not updated. See [the v0.8.3 pinnable Home panel check](device-acceptance.md#production-v083-pinnable-home-panel-25-october-2026).
+- Production is `uk.co.skyeye.companion`. On 2026-10-25 it was updated in place on the Pixel 11 Pro XL to version `0.8.5` / code `13`. The guarded installer verified its signing identity and retained the existing UID and private storage; the previous signed APK is at `work/production/backups/20261025-231036/before.apk`. The camera package was not updated. See [the v0.8.5 radius-consensus follow-up](device-acceptance.md#production-v085-radius-consensus-follow-up-25-october-2026).
 - `uk.co.skyeye.companion.lab` is a separate Hybrid Lab app with its own private storage. The separate `uk.co.skyeye.companion.commands.lab` package is not Production either. Do not use either Lab package to judge the Production session.
 - During the 2026-10-25 run, Hybrid Lab failed while validating its own game journal. No Lab data was cleared. Do not clear or uninstall it to diagnose Production.
 
