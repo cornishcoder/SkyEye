@@ -87,25 +87,35 @@ public sealed partial class VisionAnalyzer
                 var measured = motion.Measure(Read(gray.Value), geometryValid == true, vision, colour, mask)
                     with { MaximumBodyDisplacement = anchorColour is null ? null : maximum, MaximumDetectedBodyDisplacement = detectedDisplacement,
                         MinimumTemplateMotionPixels = ObservationPolicy.MinimumTemplateBallMotionPixels, SupportedBodies = supported };
+                bool templatesShowNoMotion = false;
                 if (anchorColour is not null)
                 {
-                    if (measured.Reason is ObservationReason.None or ObservationReason.InsufficientEvidence or ObservationReason.Moving)
+                    if ((measured.Reason is ObservationReason.None or ObservationReason.InsufficientEvidence)
+                        && (measured.Motion is TableMotion.Unknown or TableMotion.Still))
                     {
                         if (maximum > ObservationPolicy.MinimumTemplateBallMotionPixels)
                             measured = measured with { Motion = TableMotion.Moving, Reason = ObservationReason.Moving };
                         else if (regionCount == 0 || supported != regionCount)
                             measured = measured with { Motion = TableMotion.Unknown, Reason = ObservationReason.InsufficientEvidence, CoverageValid = false };
-                        else if (VerificationStillnessPolicy.CanResolveAsStill(measured with { Vision = vision ?? anchorVision },
-                            double.IsFinite(maximum) && maximum <= ObservationPolicy.MinimumTemplateBallMotionPixels
-                                && regionCount == (vision ?? anchorVision)?.Balls.Length))
-                            measured = measured with { Motion = TableMotion.Still, Reason = ObservationReason.None };
+                        else
+                        {
+                            // Complete, unchanged local templates refute detector-centre
+                            // jitter. Recognition uncertainty can still block layout
+                            // readiness without turning that jitter into ball motion.
+                            templatesShowNoMotion = true;
+                            if (VerificationStillnessPolicy.CanResolveAsStill(measured with
+                                { Motion = TableMotion.Unknown, Reason = ObservationReason.InsufficientEvidence, Vision = vision ?? anchorVision },
+                                allTrackedBodiesSupported: true))
+                                measured = measured with { Motion = TableMotion.Still, Reason = ObservationReason.None };
+                        }
                     }
                 }
                 else { anchorColour = colour; bodies = vision?.Circles ?? []; }
                 // Positive movement from repeated supported detections outranks
                 // missing template coverage; an untranslated/ambiguous ROI must
                 // not erase a ball displacement already measured in this burst.
-                if (detectedDisplacement >= Math.Max(5, owner.coordinates.Width * ObservationPolicy.MinimumDetectedBallMotionFraction))
+                if (!templatesShowNoMotion
+                    && detectedDisplacement >= Math.Max(5, owner.coordinates.Width * ObservationPolicy.MinimumDetectedBallMotionFraction))
                     measured = measured with { Motion = TableMotion.Moving, Reason = ObservationReason.Moving };
                 previousColour = colour;
                 return vision?.VerificationReason is { } reason ? measured with { Reason = reason } : measured;

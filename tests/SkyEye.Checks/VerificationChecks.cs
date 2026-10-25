@@ -17,6 +17,8 @@ static class VerificationChecks
         Check(VerificationConsensus.Resolve([good, missing, good, good])?.Length == 3, "A recovered dropout has current support, no stale carry-forward");
         Check(VerificationConsensus.Resolve([good, good, missing]) is null, "Persistent missing body cannot silently remove a ball");
         Check(VerificationConsensus.Resolve([good, good with { Balls = [.. good.Balls, new("extra", "red", new(.7, .3), 1)] }, good]) is null, "Unexplained extra bodies remain unresolved");
+        Check(VerificationConsensus.Resolve([good, good, good with { Uncertain = true }]) is null,
+            "Stable motion evidence never makes an uncertain final layout ready");
         var drift = good with { Balls = good.Balls.Select(b => b with { Position = b.Position + new Point(.02, 0) }).ToArray() };
         Check(VerificationConsensus.Resolve([good, good, drift]) is null, "Fixed anchor prevents cumulative centre drift");
         PixelChecks();
@@ -43,6 +45,12 @@ static class VerificationChecks
         var observation = session.State.Observation!;
         var choices = session.ComputeChoices(session.State.Generation, observation.TableVersion);
         Check(ReferenceEquals(choices, session.ComputeChoices(session.State.Generation, observation.TableVersion)) && analyzer.Detections == 3, "Choices computed once without new perception");
+        session.Invalidate(); analyzer.LayoutUncertain = true;
+        await session.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !session.HasPendingWork);
+        Check(session.State.Observation is { Outcome: ObservationOutcome.Unclear, Motion: TableMotion.Still,
+            Quality: LayoutQuality.Ambiguous, Reason: ObservationReason.DetectionAmbiguous },
+            "A settled but ambiguous layout reports stillness while remaining ineligible for advice");
+        analyzer.LayoutUncertain = false;
         session.Invalidate(); analyzer.Failure = new InvalidDataException("fixture");
         await session.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !session.HasPendingWork);
         Check(session.State.Observation is { Reason: ObservationReason.AnalysisFailed, Verification.Failure.Stage: "analysis" },
@@ -110,10 +118,16 @@ static class VerificationChecks
         Check(uncertainMotion.Measure(subtle, true, null).Motion == TableMotion.Unknown, "Small unsupported changes cannot imply stillness");
         var supportedPixelNoise = new VerificationMeasurement(TableMotion.Unknown, ObservationReason.InsufficientEvidence,
             true, .19, .006, .9, Vision()) { SensitiveTileChange = .23, PhotometricResidualTileChange = .017 };
-        Check(VerificationStillnessPolicy.CanResolveAsStill(supportedPixelNoise, allDetectedBodiesSupported: true),
+        Check(VerificationStillnessPolicy.CanResolveAsStill(supportedPixelNoise, allTrackedBodiesSupported: true),
             "Complete stable ball-template support absorbs weak local pixel noise within measured stationary limits");
-        Check(!VerificationStillnessPolicy.CanResolveAsStill(supportedPixelNoise, allDetectedBodiesSupported: false),
+        Check(!VerificationStillnessPolicy.CanResolveAsStill(supportedPixelNoise, allTrackedBodiesSupported: false),
             "Weak pixel changes cannot establish stillness when any detected body lacks template support");
+        Check(VerificationStillnessPolicy.CanResolveAsStill(supportedPixelNoise with
+            { Vision = Vision(uncertain: true), MaximumDetectedBodyDisplacement = 10.4 }, allTrackedBodiesSupported: true),
+            "Complete unchanged body templates establish stillness despite ambiguous detector geometry");
+        Check(!VerificationStillnessPolicy.CanResolveAsStill(supportedPixelNoise with
+            { Vision = Vision(uncertain: true) }, allTrackedBodiesSupported: false),
+            "A missing tracked-body template remains unknown even when the detector is uncertain");
         Check(!VerificationStillnessPolicy.CanResolveAsStill(supportedPixelNoise with { PhotometricResidualTileChange = .031 }, true),
             "Stronger photometric residual remains unresolved above the supported-noise limit");
         Check(!VerificationStillnessPolicy.CanResolveAsStill(supportedPixelNoise with { SensitiveTileChange = .301 }, true),
@@ -218,8 +232,8 @@ static class VerificationChecks
     sealed class Image(Frames frames) : ITableFrameImage { public byte[] EncodeForReview() { Interlocked.Increment(ref frames.Encodings); return [1]; } public void Dispose() => Interlocked.Increment(ref frames.Disposals); }
     sealed class Analyzer : ITableAnalyzer, ITableVerificationAnalyzer
     {
-        public int Detections, Disposals, DelayMs; public TaskCompletionSource? Hold, Entered; public Exception? Failure;
-        public VisionResult Analyze(byte[] jpeg, TableCalibration calibration, CancellationToken cancellation = default) => Vision();
+        public int Detections, Disposals, DelayMs; public bool LayoutUncertain; public TaskCompletionSource? Hold, Entered; public Exception? Failure;
+        public VisionResult Analyze(byte[] jpeg, TableCalibration calibration, CancellationToken cancellation = default) => Vision(uncertain: LayoutUncertain);
         public Point[]? FindCorners(byte[] jpeg) => null;
         public ITableVerificationWorker CreateVerification(TableCalibration calibration) => new Worker(this);
         sealed class Worker(Analyzer owner) : ITableVerificationWorker
@@ -231,7 +245,7 @@ static class VerificationChecks
                 if (owner.Hold is { } hold) { owner.Entered!.TrySetResult(); hold.Task.GetAwaiter().GetResult(); }
                 if (owner.DelayMs > 0) Thread.Sleep(owner.DelayMs);
                 if (detect) Interlocked.Increment(ref owner.Detections);
-                return new(count++ == 0 ? TableMotion.Unknown : TableMotion.Still, count == 1 ? ObservationReason.InsufficientEvidence : ObservationReason.None, true, 0, 0, 0, detect ? Vision() : null);
+                return new(count++ == 0 ? TableMotion.Unknown : TableMotion.Still, count == 1 ? ObservationReason.InsufficientEvidence : ObservationReason.None, true, 0, 0, 0, detect ? Vision(uncertain: owner.LayoutUncertain) : null);
             }
             public void Dispose() => Interlocked.Increment(ref owner.Disposals);
         }

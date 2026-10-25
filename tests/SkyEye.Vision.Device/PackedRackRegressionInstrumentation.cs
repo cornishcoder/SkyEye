@@ -250,8 +250,7 @@ public sealed class PackedRackRegressionInstrumentation : global::Android.App.In
                 using var workingSet = new WorkingSetProbe();
                 var packedResult = analyzer.Analyze(packed.Image, packed.Calibration);
                 long peakWorkingSetDeltaBytes = workingSet.StopAndReadPeakDeltaBytes();
-                int resultWidth = packedResult.PackedClusterFallback?.FallbackAnalysisWidth ?? configuration.Settings.Width;
-                var packedComparison = AnalyzeExpected(packed, packedResult, analysisWidth: resultWidth);
+                var packedComparison = AnalyzeExpected(packed, packedResult, analysisWidth: configuration.Settings.Width);
                 bool recovered = JsonSerializer.SerializeToElement(packedComparison).GetProperty("exact").GetBoolean()
                     && packedResult.Balls.Length == 16 && !packedResult.Uncertain && !packedResult.Obstructed &&
                     packedResult.Balls.Count(b => b.Kind == "cue") == 1 && packedResult.Balls.Count(b => b.Kind == "red") == 7 &&

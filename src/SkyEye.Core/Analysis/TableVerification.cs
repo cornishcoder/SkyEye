@@ -19,19 +19,20 @@ public sealed record VerificationMeasurement(TableMotion Motion, ObservationReas
 }
 
 /// <summary>Lets complete, stable ball-template evidence absorb weak surface-pixel noise.
-/// Strong motion, obstruction, lighting and calibration signals remain independent blockers.</summary>
+/// Recognition uncertainty remains a layout concern; obstruction, strong motion,
+/// lighting and calibration signals still block a stillness result.</summary>
 public static class VerificationStillnessPolicy
 {
     public const double MaximumSupportedWeakEdgeChange = .30;
     public const double MaximumSupportedPhotometricResidual = .03;
     public const double MaximumSupportedPerimeterChange = .02;
 
-    public static bool CanResolveAsStill(VerificationMeasurement measurement, bool allDetectedBodiesSupported)
+    public static bool CanResolveAsStill(VerificationMeasurement measurement, bool allTrackedBodiesSupported)
     {
         var vision = measurement.Vision;
-        if (!allDetectedBodiesSupported || !measurement.CoverageValid
+        if (!allTrackedBodiesSupported || !measurement.CoverageValid
             || measurement.Motion != TableMotion.Unknown || measurement.Reason != ObservationReason.InsufficientEvidence
-            || vision is null || vision.Uncertain || vision.Obstructed
+            || vision is null || vision.Obstructed
             || vision.Balls.Length is < 1 or > 16)
             return false;
 

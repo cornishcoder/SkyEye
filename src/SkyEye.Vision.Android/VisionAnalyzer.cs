@@ -67,6 +67,13 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         return chosen with
         {
             ElapsedMs = primary.ElapsedMs + fallback.ElapsedMs,
+            // The fallback detector works at 1000px, but its observations are
+            // published alongside results from the configured analysis grid.
+            // Keep CircleObservation geometry in one coordinate space so later
+            // motion/consensus checks do not compare mixed-width radii.
+            Circles = useFallback && settings.Width != 1000
+                ? RescaleCircleObservations(chosen.Circles, settings.Width / 1000d)
+                : chosen.Circles,
             Uncertain = chosen.Uncertain || remainsUnresolved,
             Obstructed = chosen.Obstructed || (remainsUnresolved && primary.Obstructed),
             Warnings = warnings,
@@ -77,6 +84,15 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 primary.Balls.Length, fallback.Balls.Length, chosen.PackedCluster?.Complete == true)
         };
     }
+
+    static CircleObservation[] RescaleCircleObservations(CircleObservation[] observations, double scale)
+        => observations.Select(circle => circle with
+        {
+            Centre = circle.Centre * scale,
+            Radius = circle.Radius * scale,
+            ProposalCentre = circle.ProposalCentre is { } proposal ? proposal * scale : null,
+            ProposalRadius = circle.ProposalRadius * scale
+        }).ToArray();
 
     VisionResult AnalyzePixelsCore(Mat source, TableCalibration calibration, CancellationToken cancellation, BurstAppearance? appearance = null)
     {
