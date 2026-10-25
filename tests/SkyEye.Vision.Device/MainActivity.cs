@@ -109,7 +109,7 @@ public sealed class MainActivity : Activity
                     using var input = Assets.Open(name + ".jpg"); using var buffer = new MemoryStream(); input.CopyTo(buffer);
                     var variant = analyzer.Analyze(buffer.ToArray(), calibration);
                     if (name is "synthetic-dim" or "pixel-later-light" or "pixel-cushion-shadow" && (variant.Uncertain || variant.Balls.Length != 16 || variant.Balls.Count(b => b.Kind == "red") != 7 || variant.Balls.Count(b => b.Kind == "yellow") != 7)) throw new Exception("Clear-frame regression: " + JsonSerializer.Serialize(variant));
-                    if (name is not ("synthetic-dim" or "pixel-later-light" or "pixel-cushion-shadow") && !variant.Uncertain) throw new Exception("Negative frame was accepted: " + name);
+                    if (name is not ("synthetic-dim" or "pixel-later-light" or "pixel-cushion-shadow") && !variant.Uncertain) throw new Exception("Negative frame was accepted: " + name + ": " + JsonSerializer.Serialize(variant));
                     if (name.Contains("obstruction") && !variant.Obstructed) throw new Exception("Obstruction not flagged: " + name);
                     if (name == "synthetic-empty" && analyzer.FindCorners(buffer.ToArray()) is not null) throw new Exception("Invented automatic corners on empty cloth");
                     negativeResults.Add(new { name, count = variant.Balls.Length, variant.Uncertain, variant.Obstructed, variant.Warnings, variant.ElapsedMs });

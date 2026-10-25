@@ -87,20 +87,16 @@ public sealed partial class VisionAnalyzer
         using var cleanupSize = new Size(3, 3);
         using var cleanupKernel = new MatLease(Imgproc.GetStructuringElement(Imgproc.MorphEllipse, cleanupSize));
         Imgproc.MorphologyEx(dark.Value, dark.Value, Imgproc.MorphOpen, cleanupKernel.Value);
-        var bounds = new
-        {
-            Left = cluster.Min(p => p.Body.X) - 55 * scale,
-            Right = cluster.Max(p => p.Body.X) + 55 * scale,
-            Top = cluster.Min(p => p.Body.Y) - 55 * scale,
-            Bottom = cluster.Max(p => p.Body.Y) + 55 * scale
-        };
+        var bounds = (
+            Left: cluster.Min(p => p.Body.X) - 55 * scale,
+            Right: cluster.Max(p => p.Body.X) + 55 * scale,
+            Top: cluster.Min(p => p.Body.Y) - 55 * scale,
+            Bottom: cluster.Max(p => p.Body.Y) + 55 * scale);
         bool blackObserved = false;
-        var darkSeeds = FindPeakSeeds(dark.Value, scale, 8 * scale).ToArray();
-        var inClusterSeeds = darkSeeds.Where(seed => seed.Centre.X >= bounds.Left && seed.Centre.X <= bounds.Right
-            && seed.Centre.Y >= bounds.Top && seed.Centre.Y <= bounds.Bottom).ToArray();
+        var darkSeeds = FindPeakSeeds(dark.Value, scale, 8 * scale, bounds).ToArray();
         candidateAudits?.Add(new(pass, "packed-black-search", "black", darkSeeds.Length,
             new((bounds.Left + bounds.Right) / 2, (bounds.Top + bounds.Bottom) / 2), 0, null, null, null, null,
-            $"dark-peaks={darkSeeds.Length};cluster-peaks={inClusterSeeds.Length}"));
+            $"cluster-window-seeds={darkSeeds.Length};component-cap=64-after-window-filter"));
         for (int i = 0; i < darkSeeds.Length; i++)
         {
             var seed = darkSeeds[i];
@@ -204,7 +200,8 @@ public sealed partial class VisionAnalyzer
         return best;
     }
 
-    IEnumerable<(Point Centre, double Radius)> FindPeakSeeds(Mat mask, double scale, double minimumPeakRadius)
+    IEnumerable<(Point Centre, double Radius)> FindPeakSeeds(Mat mask, double scale, double minimumPeakRadius,
+        (double Left, double Right, double Top, double Bottom) bounds)
     {
         using var distance = new MatLease(new Mat()); Imgproc.DistanceTransform(mask, distance.Value, Imgproc.DistL2, 3);
         using var dilated = new MatLease(new Mat());
@@ -215,11 +212,20 @@ public sealed partial class VisionAnalyzer
         using var peaks = new MatLease(new Mat()); Cv.Compare(distance.Value, dilated.Value, peaks.Value, Cv.CmpEq);
         using var minimum = new Scalar(minimumPeakRadius); using var aboveMinimum = new MatLease(new Mat());
         Cv.Compare(distance.Value, minimum, aboveMinimum.Value, Cv.CmpGt); Cv.Bitwise_and(peaks.Value, aboveMinimum.Value, peaks.Value);
+        // Connected-component labels are assigned from the top of the full image.
+        // A global label cap lets unrelated cushion/pocket peaks consume the
+        // budget before the packed rack is reached. Restrict to the observed
+        // colour-cluster window first, then apply the same 64-seed work bound.
+        int left = Math.Clamp((int)Math.Floor(bounds.Left), 0, coordinates.Width - 1);
+        int right = Math.Clamp((int)Math.Ceiling(bounds.Right), left, coordinates.Width - 1);
+        int top = Math.Clamp((int)Math.Floor(bounds.Top), 0, coordinates.Height - 1);
+        int bottom = Math.Clamp((int)Math.Ceiling(bounds.Bottom), top, coordinates.Height - 1);
+        using var searchWindow = new MatLease(peaks.Value.Submat(new Rect(left, top, right - left + 1, bottom - top + 1)));
         using var labels = new MatLease(new Mat()); using var stats = new MatLease(new Mat()); using var centres = new MatLease(new Mat());
-        int count = Imgproc.ConnectedComponentsWithStats(peaks.Value, labels.Value, stats.Value, centres.Value);
+        int count = Imgproc.ConnectedComponentsWithStats(searchWindow.Value, labels.Value, stats.Value, centres.Value);
         for (int i = 1; i < count && i <= 64; i++)
         {
-            double x = centres.Value.Get(i, 0)![0], y = centres.Value.Get(i, 1)![0];
+            double x = centres.Value.Get(i, 0)![0] + left, y = centres.Value.Get(i, 1)![0] + top;
             if (x < 65 * scale || y < 65 * scale || x >= coordinates.Width - 65 * scale || y >= coordinates.Height - 65 * scale) continue;
             double radius = distance.Value.Get((int)Math.Round(y), (int)Math.Round(x))![0];
             if (radius >= minimumPeakRadius) yield return (new(x, y), radius);

@@ -11,8 +11,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
 {
     public VerificationReplayInstrumentation() { }
     public VerificationReplayInstrumentation(IntPtr handle, global::Android.Runtime.JniHandleOwnership ownership) : base(handle, ownership) { }
-    bool refinement, dump, boundaryAudit; string run = "";
-    public override void OnCreate(global::Android.OS.Bundle? args) { refinement = args?.GetString("refine") == "1"; dump = args?.GetString("dump") == "1"; boundaryAudit = args?.GetString("audit") == "1"; run = args?.GetString("run") ?? ""; if (run.Length > 32 || run.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not '-' and not '_')) throw new ArgumentException("Invalid replay run name."); base.OnCreate(args); Start(); }
+    bool refinement, dump, boundaryAudit, traceDarkMask; string run = "";
+    public override void OnCreate(global::Android.OS.Bundle? args) { refinement = args?.GetString("refine") == "1"; dump = args?.GetString("dump") == "1"; boundaryAudit = args?.GetString("audit") == "1"; traceDarkMask = args?.GetString("trace") == "1"; run = args?.GetString("run") ?? ""; if (run.Length > 32 || run.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not '-' and not '_')) throw new ArgumentException("Invalid replay run name."); base.OnCreate(args); Start(); }
     public override void OnStart()
     {
         base.OnStart(); object report;
@@ -42,6 +42,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 var baseline800 = analyzer800.Analyze(bytes, calibration);
                 var baseline1000 = analyzer1000.Analyze(bytes, calibration);
                 analyses800.Add(baseline800); analyses1000.Add(baseline1000);
+                bool blackSeedRecovered800 = baseline800.CandidateAudits.Any(a => a.Pass == "initial" && a.Stage == "packed-black" && a.Decision == "added-black-body");
+                bool blackSeedRecovered1000 = baseline1000.CandidateAudits.Any(a => a.Pass == "initial" && a.Stage == "packed-black" && a.Decision == "added-black-body");
                 if (dump) DumpPixels(bytes, calibration, root, Path.GetFileNameWithoutExtension(path));
                 using var frame = new TableFrame(bytes, DateTimeOffset.UtcNow, receipt.GetProperty("scope").GetProperty("timeline").GetString()!) { SourceTimeUs = receipt.GetProperty("sourceTimeUs").GetInt64() };
                 var timer = System.Diagnostics.Stopwatch.StartNew();
@@ -50,8 +52,10 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 samples.Add(new
                 {
                     frameId = receipt.GetProperty("frameId").GetInt64(), pixelSha256 = sha, sourceTimeUs = frame.SourceTimeUs,
-                    width800 = new { analysis = Summarize(baseline800, 800), verification = Summarize(verification800, 800) },
-                    width1000 = new { analysis = Summarize(baseline1000, 1000), verification = Summarize(verification1000, 1000) },
+                    width800 = new { blackSeedRecovered = blackSeedRecovered800, analysis = Summarize(baseline800, 800), verification = Summarize(verification800, 800),
+                        darkMaskTrace = traceDarkMask ? PackedBlackMaskTrace.Capture(bytes, calibration, 800, baseline800, Path.Combine(root, "o08-black-trace-" + run), receipt.GetProperty("frameId").GetInt64().ToString()) : null },
+                    width1000 = new { blackSeedRecovered = blackSeedRecovered1000, analysis = Summarize(baseline1000, 1000), verification = Summarize(verification1000, 1000),
+                        darkMaskTrace = traceDarkMask ? PackedBlackMaskTrace.Capture(bytes, calibration, 1000, baseline1000, Path.Combine(root, "o08-black-trace-" + run), receipt.GetProperty("frameId").GetInt64().ToString()) : null },
                     analysisWidthComparison = Compare(baseline800, baseline1000),
                     widthComparison = Compare(verification800.Vision!, verification1000.Vision!),
                     processingMs = timer.Elapsed.TotalMilliseconds
@@ -70,7 +74,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         }
         catch (Exception error) { report = new { completed = false, error = error.ToString() }; }
         var json = JsonSerializer.Serialize(report, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });
-        File.WriteAllText(Path.Combine(TargetContext!.GetExternalFilesDir(null)!.AbsolutePath, "o08-replay-proof.json"), json);
+        var reportName = traceDarkMask && run.Length > 0 ? $"o08-replay-proof-{run}-blacktrace.json" : "o08-replay-proof.json";
+        File.WriteAllText(Path.Combine(TargetContext!.GetExternalFilesDir(null)!.AbsolutePath, reportName), json);
         using var bundle = new global::Android.OS.Bundle(); bundle.PutString("result", "O08 development replay written"); Finish(global::Android.App.Result.Ok, bundle);
     }
     static object Summarize(VisionResult vision, int width) => new
