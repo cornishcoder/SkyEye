@@ -17,8 +17,14 @@ public sealed record VisionResult(Ball[] Balls, bool Uncertain, string[] Warning
     public RecognitionTelemetry? Recognition { get; init; }
     public ObservationReason? VerificationReason { get; init; }
     public IlluminationTelemetry? Illumination { get; init; }
+    public PackedClusterTelemetry? PackedCluster { get; init; }
+    public PackedClusterFallbackTelemetry? PackedClusterFallback { get; init; }
 }
 public sealed record IlluminationTelemetry(bool Applied, double ReferenceBrightness, double MinimumGain, double MaximumGain, double AdjustedPixelPercent);
+public sealed record PackedClusterTelemetry(bool Detected, bool Complete, int RedCentres, int YellowCentres, bool BlackCentre);
+public sealed record PackedClusterFallbackTelemetry(bool Attempted, int PrimaryAnalysisWidth, int FallbackAnalysisWidth,
+    bool PrimaryClusterDetected, bool PrimaryClusterComplete, double PrimaryElapsedMs, double FallbackElapsedMs,
+    int PrimaryBallCount, int FallbackBallCount, bool Recovered);
 public interface ITableAnalyzer
 {
     VisionResult Analyze(byte[] jpeg, TableCalibration calibration, CancellationToken cancellation = default);

@@ -1,0 +1,59 @@
+{
+  "description": "Bright live Production frame of a new touching 15-ball rack with the cue ball separate.",
+  "capturedAt": "2026-10-25T12:01:26.3649242+00:00",
+  "timestampMeaning": "Exact decoded-live-texture frame paired with the Production GET /api/snapshot response.",
+  "source": "Pixel 11 Production live vision dashboard; JPEG returned by GET /api/frame without overlays.",
+  "width": 1920,
+  "height": 1080,
+  "lighting": "Pool table lights on; current mounted-camera view.",
+  "pixelFile": "pixel-packed-rack-2026-10-25.jpg",
+  "pixelSha256": "006d4c3fd568d529aef8f03d06e355c3a7b3be2110bbf8725507c66c9d5231ab",
+  "frame": {
+    "sequence": 123,
+    "mediaGeneration": 10,
+    "frameId": 4762,
+    "sourceTimeUs": 8686855311,
+    "frameSource": "decoded-live-texture"
+  },
+  "groundTruth": {
+    "cue": 1,
+    "red": 7,
+    "yellow": 7,
+    "black": 1,
+    "racked": true
+  },
+  "groundTruthMeaning": "Ball categories and approximate visible centres were manually reviewed from this exact saved image; the user confirmed 15 touching object balls and the separate cue. Entry order is fixture-only and does not claim durable ball identities.",
+  "calibrationMeaning": "Active camera calibration copied from the matching diagnostic snapshot for offline replay only; it is not a proposed device calibration.",
+  "calibration": [
+    { "x": 0.06489583253860473, "y": 0.14907407407407408 },
+    { "x": 0.9048958460489909, "y": 0.08166666384096499 },
+    { "x": 0.8990624745686849, "y": 0.9138888888888889 },
+    { "x": 0.07218749523162842, "y": 0.862037037037037 }
+  ],
+  "expectedBehaviour": "Recover all 16 individually visible balls from image evidence, or explicitly mark the packed cluster unsupported/unknown and withhold a current table. Do not infer missing balls from rack shape or declared inventory.",
+  "expected": [
+    { "kind": "cue", "image": { "x": 0.2266, "y": 0.5000 } },
+    { "kind": "red", "image": { "x": 0.6875, "y": 0.4287 } },
+    { "kind": "red", "image": { "x": 0.7094, "y": 0.4509 } },
+    { "kind": "red", "image": { "x": 0.6438, "y": 0.4741 } },
+    { "kind": "red", "image": { "x": 0.6234, "y": 0.4963 } },
+    { "kind": "red", "image": { "x": 0.6859, "y": 0.5148 } },
+    { "kind": "red", "image": { "x": 0.6635, "y": 0.5407 } },
+    { "kind": "red", "image": { "x": 0.7073, "y": 0.5815 } },
+    { "kind": "yellow", "image": { "x": 0.7083, "y": 0.4093 } },
+    { "kind": "yellow", "image": { "x": 0.6656, "y": 0.4519 } },
+    { "kind": "yellow", "image": { "x": 0.6865, "y": 0.4815 } },
+    { "kind": "yellow", "image": { "x": 0.7083, "y": 0.4954 } },
+    { "kind": "yellow", "image": { "x": 0.6401, "y": 0.5167 } },
+    { "kind": "yellow", "image": { "x": 0.7083, "y": 0.5370 } },
+    { "kind": "yellow", "image": { "x": 0.6870, "y": 0.5593 } },
+    { "kind": "black", "image": { "x": 0.6688, "y": 0.4954 } }
+  ],
+  "baselineDetection": {
+    "calibrationId": "a05515a899d240c6baaea35b7d58a297",
+    "circleCount": 3,
+    "detectedKinds": [ "cue", "red", "yellow" ],
+    "uncertain": true,
+    "obstructed": true
+  }
+}

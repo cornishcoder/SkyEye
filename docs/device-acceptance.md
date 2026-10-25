@@ -2,6 +2,24 @@
 
 Record phone models, OS/builds, app revision, network and capture settings for each run. Keep automated/emulator evidence separate from these results.
 
+For the current Production companion's home controls, live-session flow, package identity, and read-only detector diagnostics, see [Pixel companion control guide](device-control-guide.md).
+
+## Detector replay evidence (not physical acceptance)
+
+On 25 October 2026, the dedicated `uk.co.skyeye.visionchecks` Release package replayed the manually reviewed [bright packed-rack frame](../tests/fixtures/poolgame/pixel-packed-rack-2026-10-25.jpg) and [labels/receipt](../tests/fixtures/poolgame/pixel-packed-rack-2026-10-25.json) on a Pixel 11 Pro XL (Android 17, build `CD1A.261005.003`). This was an offline OpenCV replay of the saved 1920×1080 frame, not a live-camera run. The replay itself did not modify Production; a later guarded Production update is recorded below.
+
+At the production 800px analysis width, the first pass found 15 balls and detected an incomplete compact cluster. It retried the same source frame once at 1000px, then returned 16 balls with the reviewed 1 cue, 7 red, 7 yellow and 1 black. Maximum centre error was 0.006857 in normalized image coordinates; the result was not uncertain or obstructed. Shot advice remained ineligible for the touching rack. Analyzer time was 1199ms for the primary pass, 1319ms for the retry, and 2518ms total; this excludes JPEG decode and camera-to-screen delay. The retry used 1.28 million primary analysis pixels plus 2.00 million fallback pixels, or 2.56 times the pixel area of one 800px pass. A direct 1000px run took 1288ms and did not retry.
+
+The replay sampled process working-set change every 10ms: the 800px-plus-retry run peaked 124,735,488 bytes (119.0 MiB) above its pre-run baseline; direct 1000px peaked 81,199,104 bytes (77.4 MiB). This coarse process-wide measurement includes runtime and native allocations, can miss short peaks, and is not a precise per-pass memory attribution.
+
+Clear-frame positives, empty-table, synthetic obstruction and dim touching-rack controls passed across all four tested settings. Empty and obstruction controls did not trigger a retry. The dim rack triggered one retry at 800px but stayed uncertain and obstructed, with advice ineligible. This is single-frame tuning evidence, not held-out accuracy or live physical acceptance.
+
+## Production package delivery and current live state
+
+At 15:45:58 local device time, the guarded Release installer updated Production in place. The installed artifact is `uk.co.skyeye.companion`, version code 2 / version `0.2`, SHA-256 `2D210F3FC5CCDE946E9557A5315792A1B37A9AB57D743F3135D7E1C76DD68918`, signer certificate SHA-256 `54a26d27fa0a0bfe68f0c96f9640229e4d9a9b2fa0ad1861bc9ce874ce65a7c1`. The installed APK hash matched the signed Release artifact. The installer verified the same UID (`10644`) and private-storage inodes (`ceDataInode=639806`, `deDataInode=617901`) before and after the in-place update. It retained the prior APK at `work/production/backups/20261025-154547/before.apk`; no uninstall, data clear or camera-package update was used.
+
+At the first post-update inspection, the phone was at Android's lock screen and CameraService reported no active camera client. The new app activity was behind the lock screen. No fresh Production live-session or detector evidence has been recorded yet; the phone must be unlocked before the accessible home action can be checked and the session restored. Match declarations were not changed. Chromecast and Sky were left untouched.
+
 ## Lifecycle gate
 
 Open/arm the camera while visible; turn its display off. From the companion, start, pause, resume and stop three times without touching the mounted phone. Verify actual frames and audio, not just state text. Repeat after 30 minutes of armed idle. Check stopped/paused history does not grow. Confirm the notification disappears and camera/microphone resources release when the service ends.

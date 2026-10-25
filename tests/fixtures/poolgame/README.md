@@ -13,3 +13,7 @@ Colour quality is a heuristic feature score. Native runtime version, cue gains, 
 
 `pixel-racked-dim.jpg` is an unannotated camera frame captured on 4 October 2026. The user confirmed the balls were racked for the start of a game; the image shows the separate cue ball and touching 15-ball triangle. Its JSON records human ground truth and approximate cloth corners solely for a negative regression. It does not claim automatic rack recognition, reliable dim-light classification or exact image capture timing. The device check requires shot advice to remain ineligible for this unresolved cluster, even if a caller attempts to confirm the detected layout.
 
+# Fresh touching rack with lights on
+
+`pixel-packed-rack-2026-10-25.jpg` is the exact bright live frame captured by Production's read-only dashboard on 25 October. Its JSON stores the matching frame receipt/calibration and manually reviewed visible ball centres/categories, with fixture-local entries rather than persistent identities. It is an initial-rack inventory regression, not a held-out accuracy set. At the production 800px setting, an incomplete detected compact cluster gets one same-frame 1000px retry; an unresolved result remains uncertain and cannot enable shot advice. Replay records each pass's time, analysis pixel area and sampled process working-set change.
+

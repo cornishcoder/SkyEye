@@ -28,6 +28,8 @@ sealed record VisionDashboardSample(int Sequence, DateTimeOffset CapturedAt, dou
     // Keep the v1 field for already-open dashboard tabs during an app update.
     public int BallCount => ClassifiedBallCount;
     public CueBallRecoveryTelemetry? CueBallRecovery { get; init; }
+    public PackedClusterTelemetry? PackedCluster { get; init; }
+    public PackedClusterFallbackTelemetry? PackedClusterFallback { get; init; }
 }
 sealed record VisionDashboardOutcomeReviewRequest(Guid CandidateId, string Action,
     int? Reds = null, int? Yellows = null, int? CueBalls = null, int? BlackBalls = null);
@@ -361,7 +363,9 @@ public sealed partial class ShellSession
                     item.Detection.Illumination?.ReferenceBrightness,
                     item.Detection.Illumination?.MinimumGain, item.Detection.Illumination?.MaximumGain,
                     item.Detection.Warnings)
-                    { CueBallRecovery = item.Detection.Recognition?.CueBallRecovery }).ToArray();
+                    { CueBallRecovery = item.Detection.Recognition?.CueBallRecovery,
+                        PackedCluster = item.Detection.PackedCluster,
+                        PackedClusterFallback = item.Detection.PackedClusterFallback }).ToArray();
                 var tracked = table.State.Table;
                 var camera = app.State.Camera;
                 var current = app.State;
@@ -385,7 +389,7 @@ public sealed partial class ShellSession
                         unclassifiedCount = detection.Balls.Count(ball => ball.Kind == "unknown"),
                         detection.Normalized, detection.Runtime, detection.ColourGains, detection.ClothHue,
                         detection.Obstructed, detection.Recognition, detection.VerificationReason,
-                        detection.Illumination, detection.Circles,
+                        detection.Illumination, detection.PackedCluster, detection.PackedClusterFallback, detection.Circles,
                         balls = detectedBalls, candidates
                     },
                     samples,

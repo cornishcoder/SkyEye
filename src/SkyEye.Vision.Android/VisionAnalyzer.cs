@@ -19,10 +19,11 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     readonly AnalysisCoordinates coordinates;
     readonly VisionSettings settings;
     readonly record struct Circle(double X, double Y, double Radius);
+    readonly record struct PackedClusterEvidence(bool Detected, int RedCentres, int YellowCentres, bool BlackCentre);
     public VisionAnalyzer(int width = 1000) : this(new VisionSettings(Width: width)) { }
     public VisionAnalyzer(VisionSettings settings) { settings.Validate(); this.settings = settings; coordinates = new(settings.Width); }
     public string ConfigurationIdentity => System.Text.Json.JsonSerializer.Serialize(new
-    { Algorithm = "body-priority-local-contrast-v3", Settings = settings });
+    { Algorithm = "body-priority-packed-colour-peaks-v1", Settings = settings });
     static void Load()
     {
         lock (loadGate)
@@ -49,8 +50,40 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     }
     VisionResult AnalyzePixels(Mat source, TableCalibration calibration, CancellationToken cancellation, BurstAppearance? appearance = null)
     {
+        var primary = AnalyzePixelsCore(source, calibration, cancellation, appearance);
+        if (appearance is not null || settings.Width >= 1000 ||
+            primary.PackedCluster is not { Detected: true, Complete: false }) return primary;
+
+        cancellation.ThrowIfCancellationRequested();
+        var fallbackAnalyzer = new VisionAnalyzer(settings with { Width = 1000 });
+        var fallback = fallbackAnalyzer.AnalyzePixelsCore(source, calibration, cancellation);
+        bool fallbackComplete = fallback.PackedCluster?.Complete == true;
+        bool useFallback = fallbackComplete || fallback.CircleCount > primary.CircleCount;
+        var chosen = useFallback ? fallback : primary;
+        bool remainsUnresolved = !fallbackComplete && primary.PackedCluster is { Detected: true, Complete: false };
+        string[] warnings = remainsUnresolved
+            ? primary.Warnings.Concat(fallback.Warnings).Append("Packed colour cluster still has unresolved visible balls; review it before using advice.").Distinct().ToArray()
+            : chosen.Warnings;
+        return chosen with
+        {
+            ElapsedMs = primary.ElapsedMs + fallback.ElapsedMs,
+            Uncertain = chosen.Uncertain || remainsUnresolved,
+            Obstructed = chosen.Obstructed || (remainsUnresolved && primary.Obstructed),
+            Warnings = warnings,
+            PackedCluster = remainsUnresolved ? primary.PackedCluster : chosen.PackedCluster,
+            PackedClusterFallback = new(true, settings.Width, 1000,
+                primary.PackedCluster?.Detected == true, primary.PackedCluster?.Complete == true,
+                primary.ElapsedMs, fallback.ElapsedMs,
+                primary.Balls.Length, fallback.Balls.Length, chosen.PackedCluster?.Complete == true)
+        };
+    }
+
+    VisionResult AnalyzePixelsCore(Mat source, TableCalibration calibration, CancellationToken cancellation, BurstAppearance? appearance = null)
+    {
         cancellation.ThrowIfCancellationRequested(); var watch = Stopwatch.StartNew(); var warnings = new List<string>();
         using var rawWarped = Warp(source, calibration);
+        using var rawHsv = new MatLease(new Mat()); Imgproc.CvtColor(rawWarped.Value, rawHsv.Value, Imgproc.ColorBgr2hsv);
+        byte[] rawHsvPixels = Read(rawHsv.Value);
         using var warped = new MatLease(new Mat()); rawWarped.Value.CopyTo(warped.Value);
         IlluminationTelemetry illumination;
         if (settings.LocalIlluminationNormalization)
@@ -60,9 +93,10 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         }
         else illumination = new(false, 0, 1, 1, 0);
         using var hsv = new MatLease(new Mat()); Imgproc.CvtColor(warped.Value, hsv.Value, Imgproc.ColorBgr2hsv);
-        byte[] pixels = Read(hsv.Value); var circles = Detect(hsv.Value, pixels, settings.InitialVotes,
+        byte[] pixels = Read(hsv.Value); var packedClassifications = new Dictionary<Circle, BallClassification>();
+        var circles = Detect(hsv.Value, pixels, settings.InitialVotes, out var packedCluster,
             appearance is not null && settings.VerificationBodyRefinement,
-            settings.FreshCueBallRecovery && settings.BodyProposalPriority ? rawWarped.Value : null);
+            settings.FreshCueBallRecovery && settings.BodyProposalPriority ? rawWarped.Value : null, packedClassifications);
         bool inspectRim = appearance is not null || settings.FreshCueBallRecovery;
         var initialLabels = circles.Select(c => Classify(c, pixels, inspectRim)).ToArray();
         int initialCueCount = initialLabels.Count(l => l.Kind == "cue");
@@ -143,7 +177,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 // clipped-cloth circles. Preserve the original branch for ablation.
                 if (appearance is null)
                 {
-                    if (!settings.FreshCueBallRecovery) circles = Detect(hsv.Value, pixels, settings.NormalizedVotes);
+                    if (!settings.FreshCueBallRecovery) circles = Detect(hsv.Value, pixels, settings.NormalizedVotes, out _,
+                        packedClassifications: packedClassifications);
                     var normalizedLabels = circles.Select(c => Classify(c, pixels, inspectRim)).ToArray();
                     normalizedCueCount = normalizedLabels.Count(l => l.Kind == "cue");
                     if (settings.FreshCueBallRecovery)
@@ -152,7 +187,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                             recoveredClassifications, cancellation, out rejectedNormalizedCueBodies);
                         foreach (var pair in recoveredBoundaries) boundaries[pair.Key] = pair.Value;
                     }
-                    for (int i = 0; i < circles.Length; i++) classificationCache[circles[i]] = normalizedLabels[i];
+                    for (int i = 0; i < circles.Length; i++) classificationCache[circles[i]] =
+                        packedClassifications.TryGetValue(circles[i], out var packedLabel) ? packedLabel : normalizedLabels[i];
                     if (settings.FreshCueBallRecovery && referenceCue is { } currentCue)
                     {
                         cueRecoveryReason = "preserved-current-frame-geometry";
@@ -188,12 +224,17 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 CandidateBoundarySupport = candidateBoundaries.GetValueOrDefault(circle)?.SupportedSectors });
         }
         bool uncertain = balls.Any(b => b.Kind == "unknown") || balls.Count > 16 || balls.Count(b => b.Kind == "cue") != 1 || balls.Count(b => b.Kind == "black") != 1 || balls.Count(b => b.Kind == "red") > 7 || balls.Count(b => b.Kind == "yellow") > 7;
+        bool packedClusterUnresolved = packedCluster.Detected &&
+            (balls.Any(b => b.Kind == "unknown") || balls.Count(b => b.Kind == "cue") != 1 || balls.Count(b => b.Kind == "black") != 1 ||
+                balls.Count(b => b.Kind == "red") != 7 || balls.Count(b => b.Kind == "yellow") != 7);
+        if (packedClusterUnresolved)
+        { uncertain = true; warnings.Add("Packed colour cluster still has unresolved visible balls; review it before using advice."); }
         if (boundaryUncertain) { uncertain = true; warnings.Add("Current ball boundary lacks sufficient edge support."); }
         if (appearance is not null && (!referenceValid || referenceConflict))
         { uncertain = true; warnings.Add(referenceConflict ? "Current cue ball reference conflicts with the frozen burst gains." : "No validated burst colour reference. Review the table."); }
         if (uncertain) warnings.Add("Check uncertain colours or ball counts before using advice.");
         if (PocketColourNeedsReview(pixels)) { uncertain = true; warnings.Add("Check a coloured ball at a pocket opening; the pocket mask may hide part of it."); }
-        bool obstructed = LargeObstruction(hsv.Value, pixels);
+        bool obstructed = LargeObstruction(rawHsv.Value, rawHsvPixels, circles, packedCluster.Detected);
         if (obstructed) { uncertain = true; warnings.Add("A large object covers part of the playable surface."); }
         for (int i = 0; i < balls.Count; i++) for (int j = i + 1; j < balls.Count; j++) if ((balls[i].Position - balls[j].Position).Length < .040) { uncertain = true; warnings.Add("Overlapping circle candidates need checking."); }
         return new(balls.ToArray(), uncertain, warnings.Distinct().ToArray(), watch.Elapsed.TotalMilliseconds, circles.Length, normalized, Cv.Version, colourGains, ClothHue(pixels), obstructed, observations.ToArray())
@@ -202,7 +243,9 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 labels.Count(l => l.Kind == "cue"), neutralCandidates, neutralRecovered,
                 cueGeometryRetained, cueRecoveryReason, retainedBoundarySupport)
                 { RejectedInitialCueBodies = rejectedCueBodies, RejectedNormalizedCueBodies = rejectedNormalizedCueBodies } },
-            VerificationReason = referenceConflict ? ObservationReason.LightingChanged : null, Illumination = illumination };
+            VerificationReason = referenceConflict ? ObservationReason.LightingChanged : null, Illumination = illumination,
+            PackedCluster = new(packedCluster.Detected, packedCluster.Detected && !packedClusterUnresolved,
+                packedCluster.RedCentres, packedCluster.YellowCentres, packedCluster.BlackCentre) };
     }
     IlluminationTelemetry NormalizeIllumination(Mat image, CancellationToken cancellation)
     {
@@ -291,9 +334,12 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         }
         finally { foreach (var point in original.Concat(portrait)) point.Dispose(); }
     }
-    Circle[] Detect(Mat hsv, byte[] pixels, double votes, bool refineGeometry = false, Mat? rawImage = null)
+    Circle[] Detect(Mat hsv, byte[] pixels, double votes, out PackedClusterEvidence packedCluster,
+        bool refineGeometry = false, Mat? rawImage = null,
+        Dictionary<Circle, BallClassification>? packedClassifications = null)
     {
         using var timing = PipelineDiagnostics.Measure("circleDetectionMs");
+        packedCluster = default;
         using var mask = ClothMask(hsv, pixels); using var circles = new MatLease(new Mat());
         double scale = coordinates.Width / 1000.0;
         Imgproc.HoughCircles(mask.Value, circles.Value, Imgproc.HoughGradient, settings.HoughDp, settings.Separation * scale, settings.EdgeThreshold, votes * scale, (int)(settings.MinimumRadius * scale), (int)(settings.MaximumRadius * scale));
@@ -302,6 +348,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         // binary-mask texture can fill the Hough list with cloth holes.
         bool prioritizeBodies = settings.FreshCueBallRecovery && settings.BodyProposalPriority;
         byte[]? rawBoundaryPixels = null;
+        if (prioritizeBodies && rawImage is not null) packedCluster = AddPackedClusterBodies(rawImage, result, scale, packedClassifications);
         if (prioritizeBodies) AddColourBodies(hsv, pixels, result, scale);
         if (prioritizeBodies && rawImage is not null) AddDarkBodies(rawImage, result, scale);
         for (int i = 0; i < count && result.Count <= 32; i++)
@@ -446,7 +493,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         }
         catch { mask.Dispose(); throw; }
     }
-    bool LargeObstruction(Mat hsv, byte[] pixels)
+    bool LargeObstruction(Mat hsv, byte[] pixels, IReadOnlyCollection<Circle> balls, bool packedClusterDetected)
     {
         // Obstruction checks retain the broad cloth range: local saturation and
         // value shifts are not themselves evidence of a large object. The
@@ -480,7 +527,22 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         {
             double x = stats.Value.Get(i, Imgproc.CcStatLeft)![0], y = stats.Value.Get(i, Imgproc.CcStatTop)![0];
             double width = stats.Value.Get(i, Imgproc.CcStatWidth)![0], height = stats.Value.Get(i, Imgproc.CcStatHeight)![0], area = stats.Value.Get(i, Imgproc.CcStatArea)![0];
-            if (width > 120 * scale && height > 120 * scale && area > 5000 * scale * scale) return true;
+            if (width <= 120 * scale || height <= 120 * scale || area <= 5000 * scale * scale) continue;
+            // A component that occupies nearly the whole table is a failed cloth
+            // segmentation, not evidence of a localized object covering it.
+            if (width >= coordinates.Width * .75 && height >= coordinates.Height * .75 &&
+                area >= coordinates.Width * coordinates.Height * .55) continue;
+            if (packedClusterDetected && width <= 400 * scale && height <= 400 * scale)
+            {
+                int clusteredBalls = balls.Count(ball =>
+                {
+                    int bx = Math.Clamp((int)Math.Round(ball.X), 0, coordinates.Width - 1);
+                    int by = Math.Clamp((int)Math.Round(ball.Y), 0, coordinates.Height - 1);
+                    return (int)labels.Value.Get(by, bx)![0] == i;
+                });
+                if (clusteredBalls >= 12) continue;
+            }
+            return true;
         }
         return false;
     }
