@@ -6,8 +6,8 @@
              x:Class="SkyEye.Companion.Hybrid.MainPage" BackgroundColor="Black">
 
     <Grid>
-    <local:NativeMediaView x:Name="mediaView" />
-    <BlazorWebView x:Name="blazorWebView" VerticalOptions="End" HeightRequest="160" HostPage="wwwroot/index.html" BackgroundColor="Transparent" BlazorWebViewInitialized="WebViewInitialized">
+    <local:NativeMediaView x:Name="mediaView" ZIndex="0" />
+    <BlazorWebView x:Name="blazorWebView" ZIndex="1" VerticalOptions="End" HeightRequest="160" HostPage="wwwroot/index.html" BackgroundColor="Transparent" BlazorWebViewInitialized="WebViewInitialized">
         <BlazorWebView.RootComponents>
             <RootComponent Selector="#app" ComponentType="{x:Type components:Routes}" />
         </BlazorWebView.RootComponents>

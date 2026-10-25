@@ -397,12 +397,19 @@ Console.WriteLine("PASS offline clip selection: camera-independent playback, obs
 
 var elapsed = TimeSpan.Zero;
 var chrome = new SkyEye.Companion.Hybrid.ControlChrome(() => elapsed);
+Check(chrome.Pinned, "menu starts pinned by default");
 elapsed = TimeSpan.FromSeconds(30); chrome.Tick();
 Check(chrome.Visible, "empty or buffering table keeps connect controls visible");
-chrome.CanFade = true; chrome.Reveal(); elapsed += TimeSpan.FromSeconds(4.9); chrome.Tick();
+chrome.SetPinned(false); chrome.CanFade = true; chrome.Reveal(); elapsed += TimeSpan.FromSeconds(4.9); chrome.Tick();
 Check(chrome.Visible, "short inactivity threshold keeps controls available");
 elapsed += TimeSpan.FromSeconds(.1); chrome.Tick();
 Check(!chrome.Visible, "playing table rests after five seconds");
+chrome.SetPinned(true); elapsed += TimeSpan.FromSeconds(30); chrome.Tick();
+Check(chrome.Visible, "pinned menu remains visible during playback");
+chrome.SetPinned(false); elapsed += TimeSpan.FromSeconds(4.9); chrome.Tick();
+Check(chrome.Visible, "unpinning gives a fresh interaction window");
+elapsed += TimeSpan.FromSeconds(.1); chrome.Tick();
+Check(!chrome.Visible, "deliberately unpinned menu rests after five seconds");
 chrome.SetEditing(true); elapsed += TimeSpan.FromMinutes(2); chrome.Tick();
 Check(chrome.Visible, "sheet editing pins controls beyond inactivity timeout");
 chrome.SetEditing(false); elapsed += TimeSpan.FromSeconds(4); chrome.Tick();

@@ -38,25 +38,63 @@ static class ObservationCommandChecks
         await effect.Entered.Task; effect.Release.TrySetResult();
         Check((await noProof).Outcome == CommandOutcome.Failed && app.State.Observation is null,
             "A legacy ready flag without independent verification evidence cannot publish as verified advice");
+        effect.Reset(); effect.Ready = true; effect.IncludeProof = true;
+        var verifiedEnvelope = new CommandEnvelope(Guid.NewGuid(), CommandOrigin.Touch, app.State.Version,
+            new ObserveTable(app.State.Camera.Scope!, 1, 1, Mode: ObservationMode.VerifyForAdvice));
+        var verifiedPending = app.DispatchAsync(verifiedEnvelope); await effect.Entered.Task; effect.Release.TrySetResult();
+        var verifiedReceipt = await verifiedPending;
+        var report = app.LatestVerificationReport;
+        Check(verifiedReceipt.Succeeded && report is { Historical: true, IsCurrent: false, PublishedAsCurrent: true,
+                Outcome: ObservationOutcome.Ready, Motion: TableMotion.Still, Quality: LayoutQuality.Clear,
+                Reason: ObservationReason.None, IndependentFrames: 5, CandidateSpanIndependentFrames: 5,
+                StartSourceTimeUs: 1_000_000, EndSourceTimeUs: 3_000_000, Samples.Length: 5,
+                FinalDetection: { Total: 3, CueBalls: 1, Reds: 1, BlackBalls: 1 } },
+            "The bounded verifier report keeps its exact five-frame proof and compact detection counts");
+        var stop = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, app.State.Version,
+            new ChangeCapture(app.State.Camera.Scope!, CaptureAction.Stop)));
+        Check(stop.Succeeded && app.State.Camera.Capture == CaptureState.Stopped && app.State.Observation is null
+            && ReferenceEquals(app.LatestVerificationReport, report) && report is { Historical: true, IsCurrent: false },
+            "Stopping clears current observation state but preserves one explicitly historical metadata report");
         Console.WriteLine("PASS scoped observation commands: bounded admission, touch/Sky, duplicate, receipt timing, source/media changes and cancellation");
     }
     sealed class Observation : ITableObservationEffect
     {
-        public bool Current = true, Ready; public int Calls;
+        public bool Current = true, Ready, IncludeProof; public int Calls;
         public TaskCompletionSource Entered = new(TaskCreationOptions.RunContinuationsAsynchronously), Release = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public void Reset() { Current = true; Entered = new(TaskCreationOptions.RunContinuationsAsynchronously); Release = new(TaskCreationOptions.RunContinuationsAsynchronously); }
         public bool IsCurrent(ObserveTable request) => Current;
-        public Task<TableObservation> ExecuteAsync(ObserveTable request, Guid operationId, CancellationToken cancellation) => ExecuteAsync(request, cancellation);
+        public Task<TableObservation> ExecuteAsync(ObserveTable request, Guid operationId, CancellationToken cancellation) => Execute(request, operationId, cancellation);
         public async Task<TableObservation> ExecuteAsync(ObserveTable request, CancellationToken cancellation)
+            => await Execute(request, Guid.NewGuid(), cancellation);
+        async Task<TableObservation> Execute(ObserveTable request, Guid operationId, CancellationToken cancellation)
         {
             Calls++; Entered.TrySetResult(); await Release.Task; // deliberately ignore cancellation
-            return new(request.Source, request.AnalysisGeneration, request.MediaGeneration, "fixture", DateTimeOffset.UtcNow, 100, 1, 1, 1, 2, 1, Ready ? ObservationOutcome.Ready : ObservationOutcome.Unsettled, "fixture");
+            var now = DateTimeOffset.UtcNow;
+            var result = new TableObservation(request.Source, request.AnalysisGeneration, request.MediaGeneration,
+                "fixture", now, 3_000_000, 1, 1, 1, 2, 1,
+                Ready ? ObservationOutcome.Ready : ObservationOutcome.Unsettled, "decoded-live-verification");
+            if (!IncludeProof || request.Mode != ObservationMode.VerifyForAdvice) return result;
+            var vision = new VisionResult([new("cue", "cue", new(1.8, .5), 1), new("red", "red", new(1, .5), 1),
+                new("black", "black", new(.2, .8), 1)], false, [], 1, 3, true, "fixture", [1, 1, 1], 100, false, []);
+            var samples = Enumerable.Range(0, 5).Select(index => new VerificationSample(200 + index,
+                1_000_000 + index * 500_000, 1, 1, 1, 1, 1,
+                new(TableMotion.Still, ObservationReason.None, true, 0, .005, 0, vision)) { CapturedAt = now }).ToArray();
+            return result with
+            {
+                Motion = TableMotion.Still, Quality = LayoutQuality.Clear, Reason = ObservationReason.None,
+                DecodedReceipt = new(1, samples[^1].FrameId, samples[^1].SourceTimeUs, 3_000_000_000, 1920, 1080),
+                DetectionEvidence = new(samples[^1].FrameId, samples[^1].SourceTimeUs, 1),
+                Verification = new(operationId, ObservationPolicy.VerificationConfiguration, "calibration", "open", 1,
+                    samples[0].SourceTimeUs, samples[^1].SourceTimeUs, samples.Length, 500, 1, samples)
+                { CandidateSpanStartSampleIndex = 0, CandidateSpanIndependentFrames = samples.Length }
+            };
         }
     }
     sealed class Camera : ICameraControlEffect
     {
         public Task<CameraControlResult> ExecuteAsync(Guid id, CameraCommand command, CameraConnection admitted, CancellationToken cancellation)
-            => Task.FromResult(new CameraControlResult(admitted with { Reachability = CameraReachability.Reachable, Armed = true, Capture = CaptureState.Active,
+            => Task.FromResult(new CameraControlResult(admitted with { Reachability = CameraReachability.Reachable, Armed = true,
+                Capture = command is ChangeCapture { Action: CaptureAction.Stop } ? CaptureState.Stopped : CaptureState.Active,
                 Ownership = CameraOwnership.Owned, HostOwner = "fixture", HostGeneration = 1, SessionId = Guid.NewGuid().ToString("N"), CaptureRevision = 1 }, CommandOutcome.Applied, "Fixture observed."));
     }
 }

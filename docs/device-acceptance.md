@@ -123,6 +123,41 @@ The six-frame verifier replay still did not establish Ready. Frame 2678 had all 
 
 One bounded Production UI attempt was initiated after code9 delivery, but the native video surface and Home accessibility bounds disagreed. After the user confirmed the stop, Home showed **Start live session** and Cast **Disconnected**; read-only `/status` was revision 49, `Stopped` (`armed: true` is not recording). No full verifier receipt was captured, so this device attempt is not counted as a physical pass or fail. No match or Cast action was used. The detector fix is offline-verified; physical Ready acceptance remains open.
 
+### Production v0.8.2 Home verification shortcut (25 October 2026)
+
+Production v0.8.2 / code 10 was installed in place as `uk.co.skyeye.companion`. The guarded update kept the signer, UID and private storage; the code9 APK is at `work/production/backups/20261025-215122/before.apk`. The camera app was not updated. The user confirmed the packed rack remained stationary. The code9 Settings screenshot had only the on-screen message “Balls moving. Let the table settle, then retry” and a stale count; the exact code9 verifier receipt was unavailable after Stop, so those displayed values are not treated as a current observation.
+
+The new **Show candidate shots** Home shortcut was tapped once during a bounded code10 live session. The screen displayed **“Shot advice unavailable: some detected ball centres are inside the minimum spacing check. No candidates were returned.”** The metadata-only receipt at `work/production/evidence/o08-code10-shortcut-result-20261025.json` records operation `5add884b-dd41-4672-8c24-b821c2f4f18e`, configuration `o08-provisional-v16`, target group `open`, table version 3, calibration `1cea91bf6f654eb6b7838f692f5105ed`, and timeline `6924bf57150044719fdb628f166e0018`. Its final verifier state was **Ready / Still / Clear / None** (`publishedAsCurrent=true` at completion), with six independent frames across 2.516711 seconds, a 504.422 ms maximum gap, 2,997.378 ms total duration, 1,046.191 ms final-frame age and 1,121.894 ms final clock-sample age. All six coverage checks passed; there was no obstruction or consensus conflict. Five post-bootstrap samples were `Still`; two motion-only samples had no detector result. Four samples returned 16-ball counts (7 red, 7 yellow, 1 cue, 1 black, 0 unknown); one of those four was flagged uncertain, while the final frame was clear. The final supported-body displacement metric was 0.201068 and the final detected-body displacement metric was 3.666667; the minimum template-motion measurement was 1 pixel. The largest recorded perimeter change in this run was 0.000472901. These are reported values, not new thresholds.
+
+The complete bounded sample sequence is:
+
+| Sample | Frame | Captured (UTC) | Frame age at sample | Verification motion/reason | Detection |
+| --- | ---: | --- | ---: | --- | --- |
+| 0 | 259 | 21:54:20.036 | 671.877 ms | Unknown / InsufficientEvidence | 16, clear |
+| 1 | 274 | 21:54:20.537 | 682.701 ms | Still / None | Motion-only; no count |
+| 2 | 289 | 21:54:21.037 | 683.707 ms | Still / None | 16, clear |
+| 3 | 304 | 21:54:21.541 | 678.170 ms | Still / None | Motion-only; no count |
+| 4 | 319 | 21:54:22.048 | 671.920 ms | Still / None | 16, uncertain |
+| 5 | 334 | 21:54:22.552 | 670.490 ms | Still / None | 16, clear |
+
+Each counted frame found 7 red, 7 yellow, 1 cue, 1 black and 0 unknown; all six coverage flags were valid and all six were unobstructed. Exact per-sample change, illumination and displacement values remain in the JSON receipt.
+
+The Ready observation and shot geometry are separate checks: the verifier accepted the table as clear/still, but the planner rejected the detected centres under its minimum-spacing safety check and returned no choices. This does not change the separate replay finding that frame 2678 at width 1000 measured 0.0203 against the existing 0.02 perimeter guard. No thresholds or match state were changed. The live Home result screenshot is `work/production/evidence/o08-code10-shortcut-result-20261025.png`.
+
+After the check, Home **End recording session** stopped capture. Read-only `/status` at `2026-10-25T21:59:10Z` was revision 55, `Stopped`, battery 100%, eight clips and zero viewers; its sanitized record is `work/production/evidence/o08-code10-stop-readback.json`. Cast was `Disconnected`. The post-stop dashboard showed `active=false`, `camera.capture=Stopped`, no frame and no current observation, while retaining the receipt as `historical=true` / `isCurrent=false`. Home showed **Start live session** and labeled the summary **Last check (historical)**; this does not mean Ready remains current. The final code10 Home screenshot is `work/production/evidence/o08-code10-final-home-20261025.png`.
+
+### Production v0.8.3 pinnable Home panel (25 October 2026)
+
+The Release Production build succeeded with zero errors and 13 warnings. Agent UI checks, the full `tests/SkyEye.Checks` run and `git diff --check` passed. Version `0.8.3` / code `11` was installed in place as `uk.co.skyeye.companion` on the Pixel 11 Pro XL. The guarded installer verified the signing identity and retained UID `10644` and private storage; the prior code10 APK is backed up at `work/production/backups/20261025-220439/before.apk`. The mounted-camera package was not updated.
+
+The new Home menu control was initially **Pinned**. The accessibility tree showed `Unpin menu panel`; after starting a live session, the panel remained visible with its pinned state after seven seconds of playback. `/status` was Active at revision 58, with one viewer and eight clips. The pinned-live screenshot and hierarchy are `work/production/evidence/o08-code11-pinned-live-20261025.png` and `work/production/evidence/o08-code11-pinned-live-20261025.xml`.
+
+The panel was then deliberately unpinned once while the player was active. When playback began, the five-second fade let the video expand to the table view (`o08-code11-unpinned-after-playing-20261025.png`). One tap on the advertised video surface did not visually restore the controls, although their accessibility labels returned (`o08-code11-unpinned-revealed-20261025.png`). One swipe-up restored the Home panel and valid control bounds (`o08-code11-after-swipe-reveal-20261025.png`). No repeated reveal attempts were made. This records a device limitation: after unpin and video resize, tap-to-reveal was not visually reliable; swipe-up worked once.
+
+Using the restored visible Home control, **End recording session** was tapped once. Read-only `/status` then reported revision 59, `Stopped`, battery 100%, eight clips and zero viewers. The phone was left at Home with **Start live session**, **Pinned** (accessible name `Unpin menu panel`) and Cast **Disconnected**; final screenshot and hierarchy are `work/production/evidence/o08-code11-final-home-pinned-20261025.png` and `work/production/evidence/o08-code11-final-home-pinned-20261025.xml`. The saved preference across an app restart was not tested. No match or Cast action was used.
+
+The earlier code10 Home shortcut receipt and its no-candidate result are recorded above. This code11 run exercised the pin/unpin lifecycle; it does not establish a Settings result or a new detector acceptance result.
+
 ## Lifecycle gate
 
 Open/arm the camera while visible; turn its display off. From the companion, start, pause, resume and stop three times without touching the mounted phone. Verify actual frames and audio, not just state text. Repeat after 30 minutes of armed idle. Check stopped/paused history does not grow. Confirm the notification disappears and camera/microphone resources release when the service ends.

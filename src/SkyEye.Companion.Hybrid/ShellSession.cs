@@ -38,6 +38,7 @@ public sealed partial class ShellSession : IDisposable
     public TableSessionMode SessionMode => sessionMode;
     public bool SessionActive => sessionMode != TableSessionMode.None;
     public string UiScreen { get; private set; } = "home";
+    public bool MenuPanelPinned => chrome.Pinned;
     public bool PhysicsAvailable => CanAnalyzeTable && HasTableCalibration;
     public string PhysicsStatus => sessionMode == TableSessionMode.Dark ? "Unavailable · dark session has no image analysis"
         : !CanAnalyzeTable ? sessionMode == TableSessionMode.Live
@@ -88,6 +89,7 @@ public sealed partial class ShellSession : IDisposable
     {
         chrome = new(() => clock.Elapsed);
         var settings = Android.App.Application.Context.GetSharedPreferences("skyeye", Android.Content.FileCreationMode.Private)!;
+        chrome.SetPinned(settings.GetBoolean("menu-panel-pinned", true));
         try
         {
             var savedCamera = settings.GetString("camera", "");
@@ -121,6 +123,13 @@ public sealed partial class ShellSession : IDisposable
         });
     }
     public void SetSheet(bool open) { SheetOpen = open; chrome.SetEditing(open); Changed?.Invoke(); }
+    public void ToggleMenuPanelPinned()
+    {
+        chrome.SetPinned(!chrome.Pinned);
+        Android.App.Application.Context.GetSharedPreferences("skyeye", Android.Content.FileCreationMode.Private)!
+            .Edit()!.PutBoolean("menu-panel-pinned", chrome.Pinned)!.Apply();
+        Changed?.Invoke();
+    }
     public void RevealControls() { chrome.Reveal(); Changed?.Invoke(); }
     public void DismissNotice() { chrome.SetAttention(false); chrome.Reveal(); Changed?.Invoke(); }
     public void ShowError(string message) { Message = message; chrome.SetAttention(true); Publish(); }

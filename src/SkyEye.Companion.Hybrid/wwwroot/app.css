@@ -102,7 +102,12 @@ summary { min-height: 48px; font-size: 13px; color: #a6babc; cursor: pointer; }
 .home-panel, .screen-panel { width: min(100%, 720px); max-height: min(88dvh, 900px); align-self: center; overflow-y: auto; overscroll-behavior: contain; padding: 18px; border: 1px solid #263a3b; border-radius: 26px; background: #0d191bf5; box-shadow: 0 12px 44px #0008; }
 .home-panel { max-height: none; overflow: visible; display: flex; flex-direction: column; gap: 9px; padding: 14px; }
 .home-heading, .screen-heading { display: flex; align-items: center; gap: 12px; }
-.home-heading { justify-content: flex-start; min-height: 36px; }
+.home-heading { justify-content: space-between; min-height: 36px; }
+.home-heading > div { min-width: 0; flex: 1 1 auto; }
+.home-menu-pin { flex: 0 0 auto; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 6px 9px; border: 1px solid #293e40; border-radius: 14px; background: #152527; color: #b5c8ca; font-size: 10px; line-height: 1; }
+.home-menu-pin svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
+.home-menu-pin.is-pinned { border-color: #467d70; background: #15312c; color: #9de8d1; }
+.home-menu-pin span { white-space: nowrap; }
 .eyebrow { color: #88e0cd; font-size: 10px; font-weight: 800; letter-spacing: .18em; }
 .home-status { margin: 3px 0 0; color: #a6babc; font-size: 13px; }
 .icon-button { width: 48px; min-width: 48px; min-height: 48px; height: 48px; display: inline-grid; place-items: center; padding: 11px; border: 1px solid #35494b; border-radius: 15px; background: #152527; color: #d9e8e8; }
@@ -112,10 +117,14 @@ summary { min-height: 48px; font-size: 13px; color: #a6babc; cursor: pointer; }
 .screen-heading { position: sticky; top: -18px; z-index: 2; margin: -18px -18px 4px; padding: 12px 18px; border-bottom: 1px solid #263a3b; background: #0d191b; }
 .screen-heading h1 { margin-top: 1px; }
 .settings-physics { margin-left: auto; max-width: 42%; color: #a6babc; font-size: 11px; line-height: 1.4; text-align: right; }
-.home-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.home-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
 .home-icon-button { width: 100%; min-width: 0; min-height: 76px; max-height: 104px; aspect-ratio: 1.15; display: grid; place-items: center; padding: 10px; border: 1px solid #293e40; border-radius: 20px; background: #152527; color: #91e4d1; }
 .home-icon-button svg { width: 36px; height: 36px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
 .home-icon-button:active { background: #203536; transform: scale(.97); }
+.home-action-label { color: currentColor; font-size: 11px; line-height: 1; font-weight: 700; white-space: nowrap; }
+.candidate-shortcut { grid-template-rows: 30px auto; row-gap: 4px; color: #88e0cd; }
+.candidate-shortcut svg { width: 28px; height: 28px; }
+.home-candidate-status { margin: 0; color: #a6babc; font-size: 12px; line-height: 1.35; }
 .settings-home-button { color: #c9d7d8; }
 .settings-home-button svg { fill: currentColor; stroke-width: 0; }
 .sky-button.selected { border-color: #75dfb9; background: #17312d; color: #a8f2d2; box-shadow: inset 0 0 0 1px #75dfb955; }

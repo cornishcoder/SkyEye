@@ -25,6 +25,20 @@ public sealed partial class ShellSession
     public PresentationPreferences ShotPresentation => app.State.Presentation;
     public IReadOnlyList<ShotChoice> ShotChoices => CurrentShotCatalog ? app.State.ShotChoices.Choices : [];
     public long ChoiceTableVersion => app.State.ShotChoices.TableVersion;
+    public bool CandidateShortcutShown => CanAnalyzeTable && (app.State.Presentation.Phone.Mode is ShotDisplayMode.Cycling or ShotDisplayMode.Pinned
+        || app.State.Presentation.Tv.Mode is ShotDisplayMode.Cycling or ShotDisplayMode.Pinned);
+    public string CandidateShortcutLabel => CheckingTable ? "Checking candidate shots"
+        : CandidateShortcutShown ? "Hide candidate shots" : "Show candidate shots";
+    public bool CanUseCandidateShortcut => CanShowChoices && HasTableCalibration && !CheckingTable;
+    public bool CandidateShortcutFeedbackVisible => CheckingTable
+        || CanAnalyzeTable && (lastVerificationStatus is not null || ShotChoices.Count > 0)
+        || app.State.Observation is null && app.LatestVerificationReport is not null;
+    public string CandidateShortcutStatus => CheckingTable ? CandidateStatus
+        : app.State.Observation is null && app.LatestVerificationReport is { } report
+            ? report.PublishedAsCurrent
+                ? $"Last check (historical) · {AppCoordinator.VerificationMessage(report.Reason)}"
+                : "Last check (historical) · the result was not accepted as current."
+            : CandidateStatus;
     bool CurrentShotCatalog => app.State.ShotChoices.Matches(app.State.Camera, app.State.Advice.TargetGroup, DateTimeOffset.UtcNow)
         && table.State.Table?.Version == app.State.ShotChoices.TableVersion && !EditingTable && CanAnalyzeTable;
     public string CandidateStatus => CheckingTable ? "Checking table… Keep the view clear and the balls still."
@@ -125,6 +139,14 @@ public sealed partial class ShellSession
         await RefreshShotChoicesAsync(foreground.Token);
         if (!active || foreground.IsCancellationRequested || !CurrentShotCatalog || ShotChoices.Count == 0) return;
         await SetShotDisplayAsync(app.State.Version, target, ShotDisplayMode.Cycling);
+    });
+    public Task ToggleCandidateShortcutAsync(long expectedVersion) => MainThread.InvokeOnMainThreadAsync(async () =>
+    {
+        if (!active || foreground is null || EditingTable || expectedVersion != app.State.Version) return;
+        if (CandidateShortcutShown)
+            await SetShotDisplayAsync(expectedVersion, SceneTarget.Both, ShotDisplayMode.Live);
+        else
+            await ShowRequestedChoicesAsync(expectedVersion, SceneTarget.Both);
     });
     public SkyEyeState CommandState => app.State;
     public Task<CommandReceipt> ShowCuePathAsync(long expectedVersion, long tableVersion, string id) => ExecuteApplicationCommandAsync(

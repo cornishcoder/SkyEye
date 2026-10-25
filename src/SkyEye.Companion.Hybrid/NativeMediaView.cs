@@ -97,7 +97,8 @@ public sealed class NativeMediaHandler : ViewHandler<NativeMediaView, FrameLayou
         if (session is not null && container is not null && player is not null)
         {
             int top = session.ControlsVisible ? (int)(64 * density) : 0;
-            int bottom = (int)((session.EditingTable ? session.EditorHeight : session.DockHeight) * density);
+            // Leave a small input-safe seam above the independently layered WebView dock.
+            int bottom = (int)(((session.EditingTable ? session.EditorHeight : session.DockHeight) + 2) * density);
             var layout = (FrameLayout.LayoutParams)player.View!.LayoutParameters!;
             if (layout.TopMargin != top || layout.BottomMargin != bottom)
             {

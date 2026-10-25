@@ -66,6 +66,10 @@ public sealed class TableObservationEffect(Func<TableAnalysisSession> session, F
 public sealed partial class AppCoordinator
 {
     readonly ITableObservationEffect? observations;
+    HistoricalVerificationReport? latestVerificationReport;
+    /// <summary>The most recent verifier result as historical diagnostics. It is deliberately
+    /// separate from SkyEyeState.Observation and cannot make a stopped table current.</summary>
+    public HistoricalVerificationReport? LatestVerificationReport => Volatile.Read(ref latestVerificationReport);
     bool ObservationCurrent(ObserveTable request)
     { try { return observations?.IsCurrent(request) == true; } catch (Exception) { return false; } }
     Task<CommandReceipt> BeginObservation(CommandEnvelope envelope, CancellationToken cancellation)
@@ -143,6 +147,9 @@ public sealed partial class AppCoordinator
                 { ObservationOutcome.Ready => "Table observed.", ObservationOutcome.Unclear => "Table unclear. Review the frame before requesting advice.", _ => "Table observed; settlement is not established. Request another observation when the balls are still." }) with { Observation = result };
                 if (request.Mode == ObservationMode.VerifyForAdvice) receipt = receipt with { Message = VerificationMessage(result.Reason) };
             }
+            if (request.Mode == ObservationMode.VerifyForAdvice && result is not null)
+                Volatile.Write(ref latestVerificationReport, HistoricalVerificationReport.From(result,
+                    sceneClock.GetUtcNow(), receipt.Observation is not null, receipt.Outcome));
             effectPending.Remove(envelope.OperationId); Remember(envelope, receipt); completion.TrySetResult(receipt);
         }
         finally { serial.Release(); }

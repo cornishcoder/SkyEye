@@ -396,6 +396,7 @@ public sealed partial class ShellSession
                     tableChanges = StableTableChangeMetrics,
                     camera = new { reachability = camera.Reachability.ToString(), capture = camera.Capture.ToString(), camera.CanControl },
                     calibration = new { table.State.CalibrationId, corners = calibration?.Corners },
+                    latestVerification = app.LatestVerificationReport,
                     trackedTable = tracked,
                     activityLifecycle,
                     motion = MotionMetrics is { } motion ? new

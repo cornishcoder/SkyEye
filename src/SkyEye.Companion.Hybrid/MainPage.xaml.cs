@@ -7,6 +7,9 @@ public partial class MainPage : ContentPage
 	{
 		args.WebView.SetBackgroundColor(Android.Graphics.Color.Transparent);
 		args.WebView.Settings!.TextZoom = (int)(session.FontScale * 100);
+		// Keep controls above the TextureView-backed video, including the live Home dock.
+		args.WebView.Elevation = 12 * (Platform.CurrentActivity?.Resources?.DisplayMetrics?.Density ?? 1);
+		args.WebView.BringToFront();
 	}
 	public MainPage()
 	{

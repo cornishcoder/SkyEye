@@ -8,14 +8,21 @@ public sealed class ControlChrome(Func<TimeSpan> elapsed)
     public bool Editing { get; private set; }
     public bool Attention { get; private set; }
     public bool Accessible { get; private set; }
+    public bool Pinned { get; private set; } = true;
     public bool CanFade { get; set; }
     public void Reveal() { Visible = true; interaction = elapsed(); }
+    public void SetPinned(bool value)
+    {
+        if (Pinned == value) return;
+        Pinned = value;
+        Reveal();
+    }
     public void SetEditing(bool value) { Editing = value; Reveal(); }
     public void SetAttention(bool value) { if (Attention == value) return; Attention = value; Reveal(); }
     public void SetAccessibility(bool value) { if (Accessible == value) return; Accessible = value; Reveal(); }
     public bool Tick()
     {
-        bool next = !CanFade || Editing || Attention || Accessible || elapsed() - interaction < TimeSpan.FromSeconds(5);
+        bool next = Pinned || !CanFade || Editing || Attention || Accessible || elapsed() - interaction < TimeSpan.FromSeconds(5);
         if (next == Visible) return false;
         Visible = next; return true;
     }
