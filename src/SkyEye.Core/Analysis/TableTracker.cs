@@ -24,7 +24,7 @@ public sealed class TableTracker(double maximumObservationGapSeconds = 6)
         if (sameSource && old is not null && retainLastClearLayout)
         {
             if (!old.Occluded || old.Settled || old.Group != group)
-                State = old with { Version = ++version, Group = group, Settled = false, Occluded = true };
+                State = old with { Version = ++version, Group = group, Settled = false, Occluded = true, Confirmed = obstructed ? false : old.Confirmed };
             PhysicallyObstructed = obstructed;
             return State!;
         }

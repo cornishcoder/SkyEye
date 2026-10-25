@@ -135,19 +135,25 @@ static class PortChecks
         var fresh = Observe(4); Require(fresh.Confirmed && fresh.Version == confirmed.Version, "Stable layout keeps its candidate IDs");
         var interrupted = Observe(6, timeline: "b"); Require(!interrupted.Settled && !interrupted.Confirmed && interrupted.Version != fresh.Version, "Capture timeline change discards confirmation");
         Observe(8, timeline: "b"); tracker.Confirm(now.AddSeconds(8));
-        Require(!Observe(10, timeline: "b", calibration: "two").Confirmed, "Calibration change discards confirmation");
+        var recalibrated = Observe(10, timeline: "b", calibration: "two");
+        Require(!recalibrated.Confirmed && !recalibrated.Settled, "Calibration change discards confirmation and restarts settlement");
         Observe(12, timeline: "b", calibration: "two", uncertain: true);
-        var corrected = tracker.Correct(balls, now.AddSeconds(12));
-        Require(corrected.Confirmed && !corrected.Occluded, "Manual review can resolve colour uncertainty");
-        Require(Observe(14, timeline: "b", calibration: "two", uncertain: true).Confirmed, "Corrections persist only on unchanged automatic observations");
-        var obscured = Observe(16, timeline: "b", calibration: "two", obstruction: true);
+        bool uncertainCorrectionRejected = false;
+        try { tracker.Correct(balls, now.AddSeconds(12)); } catch (InvalidOperationException) { uncertainCorrectionRejected = true; }
+        Require(uncertainCorrectionRejected, "Uncertain frames cannot bypass fresh, settled review evidence");
+        var recalibratedStill = Observe(14, timeline: "b", calibration: "two");
+        Require(recalibratedStill.Settled && !recalibratedStill.Confirmed, "A clear same-calibration return re-establishes settlement");
+        var corrected = tracker.Correct(balls, now.AddSeconds(14));
+        Require(corrected.Confirmed && !corrected.Occluded, "Manual review confirms a fresh, settled layout");
+        Require(Observe(16, timeline: "b", calibration: "two", uncertain: true).Confirmed, "Corrections persist only on unchanged automatic observations");
+        var obscured = Observe(18, timeline: "b", calibration: "two", obstruction: true);
         Require(!obscured.Confirmed && obscured.Occluded, "Physical obstruction invalidates corrections");
-        bool rejected = false; try { tracker.Correct(balls, now.AddSeconds(16)); } catch (InvalidOperationException) { rejected = true; }
+        bool rejected = false; try { tracker.Correct(balls, now.AddSeconds(18)); } catch (InvalidOperationException) { rejected = true; }
         Require(rejected, "Correction cannot bypass physical obstruction");
-        Observe(18, timeline: "b", calibration: "two"); tracker.Confirm(now.AddSeconds(18));
-        Require(!Observe(25, timeline: "b", calibration: "two").Confirmed, "Long frame gap resets settlement and confirmation");
-        Observe(27, timeline: "b", calibration: "two"); tracker.Confirm(now.AddSeconds(27));
-        Require(!Observe(29, timeline: "b", calibration: "two", detected: [balls[0], balls[1] with { Position = new(.9, .6) }]).Confirmed, "Movement invalidates confirmed positions");
+        Observe(20, timeline: "b", calibration: "two"); tracker.Confirm(now.AddSeconds(20));
+        Require(!Observe(27, timeline: "b", calibration: "two").Confirmed, "Long frame gap resets settlement and confirmation");
+        Observe(29, timeline: "b", calibration: "two"); tracker.Confirm(now.AddSeconds(29));
+        Require(!Observe(31, timeline: "b", calibration: "two", detected: [balls[0], balls[1] with { Position = new(.9, .6) }]).Confirmed, "Movement invalidates confirmed positions");
         tracker.Reset(); Require(tracker.State is null, "Lifecycle reset clears state");
         Observe(40); Observe(42, detected: [balls[0], balls[1] with { Position = new(.811, .6) }]); tracker.Confirm(now.AddSeconds(42));
         Require(!Observe(44, detected: [balls[0], balls[1] with { Position = new(.822, .6) }]).Confirmed, "Slow cumulative movement cannot drift away from the stable anchor");
