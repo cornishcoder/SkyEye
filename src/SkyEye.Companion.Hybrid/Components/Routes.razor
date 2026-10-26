@@ -64,6 +64,14 @@
                         <span class="home-action-label">@(Session.CheckingTable ? "Checking" : Session.CandidateShortcutShown ? "Hide shots" : "Show shots")</span>
                     </button>
 
+                    <button class="home-icon-button capture-verifier-shortcut" disabled="@(busy || !Session.CanCaptureVerificationFrames)"
+                        @onclick="() => Run(Session.CaptureVerificationFramesAsync)"
+                        aria-label="@Session.VerificationCaptureLabel" aria-busy="@Session.VerificationCaptureRunning"
+                        title="@Session.VerificationCaptureLabel">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7.5h4l1.6-2h4.8l1.6 2H20v11H4z" /><circle cx="12" cy="13" r="3.5" /></svg>
+                        <span class="home-action-label">@(Session.VerificationCaptureRunning ? "Capturing" : "Capture frames")</span>
+                    </button>
+
                     <button class="home-icon-button clips-button" @onclick="() => Navigate(Screen.Clips)" aria-label="Open clips" title="Open clips">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M7 5v4m5-4v4m5-4v4M7 15v4m5-4v4m5-4v4" /></svg>
                     </button>
@@ -73,8 +81,8 @@
                     </button>
                 </div>
 
-                @if (Session.CandidateShortcutFeedbackVisible)
-                { <p class="home-candidate-status" role="status" aria-live="polite">@Session.CandidateShortcutStatus</p> }
+                @if (Session.HomeVerificationFeedbackVisible)
+                { <p class="home-candidate-status" role="status" aria-live="polite">@Session.HomeVerificationStatus</p> }
                 <p class="physics-status" role="status"><span class="status-dot @(Session.PhysicsAvailable ? "ready" : "off")"></span>@HomePhysicsStatus</p>
                 @if (error.Length > 0) { <p class="notice" role="alert">@error</p> }
                 @if (Session.NeedsAttention)

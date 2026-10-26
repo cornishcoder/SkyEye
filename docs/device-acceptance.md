@@ -4,6 +4,18 @@ Record phone models, OS/builds, app revision, network and capture settings for e
 
 For the current Production companion's home controls, live-session flow, package identity, and read-only detector diagnostics, see [Pixel companion control guide](device-control-guide.md).
 
+## Production v0.8.9 Home verifier capture shortcut (26 October 2026)
+
+On 26 October, the guarded installer updated Production `uk.co.skyeye.companion` in place on the Pixel 11 Pro XL to version `0.8.9` / code `17`. It retained the signing identity, UID and private storage; the mounted-camera package was not changed. The Home grid now has a visible `Capture frames` action with the accessible name `Capture verifier frames`. It calls the existing bounded table verifier and saves lossless frame PNGs with matching metadata receipts. The Home status line shows the operation prefix and saved/expected receipt count. A 15 MiB preflight protects each six-frame run; the retained O08 evidence cap is 96 MiB.
+
+After the user confirmed the charging cable and Pixel 10 mount were stable and the rack was clear, a Home capture ran at 08:47 UTC under calibration `42cbd1b8a0a747d38a813627c397ee4f`, timeline `c820dc929c1c4c30ab5f4ae892254fef`, operation `7726ceff-11c3-4c8e-b353-272e04b56d23`. It saved six lossless PNGs for frames `167`, `186`, `199`, `218`, `233`, and `252`. All six JSON receipt hashes match their PNG files; all receipts share the same calibration, timeline and analyzer configuration. The user-labelled view was clear with no hand present.
+
+This is a physical clear-reference sequence, not a passing readiness baseline. The verifier result was `DetectionAmbiguous`: four frames requested detection and reported 16 circles, but three of those were uncertain; two intervening frames were motion-only samples. The obstruction audit recorded zero triggering components. The evidence and hash manifest are retained locally under `work/production/evidence/o08-hand-obstruction-pair-20261026/clear-attempt-7726ceff11c34c8eb353272e04b56d23/` and `clear-baseline-summary.json`. The Home showed `Saved 6 of 6 verifier frames. Table result: DetectionAmbiguous.`
+
+Earlier records remain separate and are not substituted for these pixels: `b7886945-d8f9-45a5-8d9c-f72fc7a3f6ec` is marked alignment-uncertain after the cable report; `01cdda01-541e-4f5b-ac0b-338de108d391` saved only one frame before the previous 40 MiB budget caused `CaptureFailed`; and `d10ebd72-e83d-49e2-bbf0-baf70a7852e9` is a six-sample historical shot-choice report without a matching pixel folder. No hand-covered frame has been captured yet, and no detector acceptance or fix is claimed.
+
+At completion of this capture, `/status` was revision `109`, `Stopped`, zero viewers, eight clips; Home showed `Start live session`, and the menu remained pinned. No match or Cast/TV action was used.
+
 ## Detector replay evidence (not physical acceptance)
 
 On 25 October 2026, the dedicated `uk.co.skyeye.visionchecks` Release package replayed the manually reviewed [bright packed-rack frame](../tests/fixtures/poolgame/pixel-packed-rack-2026-10-25.jpg) and [labels/receipt](../tests/fixtures/poolgame/pixel-packed-rack-2026-10-25.json) on a Pixel 11 Pro XL (Android 17, build `CD1A.261005.003`). This was an offline OpenCV replay of the saved 1920×1080 frame, not a live-camera run. The replay itself did not modify Production; a later guarded Production update is recorded below.

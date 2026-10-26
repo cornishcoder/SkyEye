@@ -38,6 +38,14 @@ public sealed partial class ShellSession
     public bool CandidateShortcutFeedbackVisible => candidateShortcutOperationId is not null || CheckingTable
         || CanAnalyzeTable && (lastVerificationStatus is not null || ShotChoices.Count > 0)
         || app.State.Observation is null && app.LatestVerificationReport is not null;
+    public DateTimeOffset? CandidateShortcutStatusAt => candidateShortcutCompletedAt ?? candidateShortcutStartedAt
+        ?? (app.State.Observation is null ? app.LatestVerificationReport?.RecordedAt : null);
+    public bool HomeVerificationFeedbackVisible => CandidateShortcutFeedbackVisible || VerificationCaptureFeedbackVisible;
+    public string HomeVerificationStatus => VerificationCaptureFeedbackVisible
+        && VerificationCaptureStatusAt is { } captureAt
+        && (!CandidateShortcutFeedbackVisible || CandidateShortcutStatusAt is not { } candidateAt || captureAt >= candidateAt)
+            ? VerificationCaptureStatus
+            : CandidateShortcutStatus;
     public string CandidateShortcutStatus => CheckingTable && candidateShortcutCompletedAt is null
         && candidateShortcutOperationId is { } runningId && candidateShortcutStartedAt is { } startedAt
             ? $"Checking table… Keep the view clear and the balls still. {UtcTime(startedAt)} · run {ShortId(runningId)}"
