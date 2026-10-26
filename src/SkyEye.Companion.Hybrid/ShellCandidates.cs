@@ -70,7 +70,7 @@ public sealed partial class ShellSession
             => "Table view is unclear. Review the view, then retry.",
         ObservationOutcome.Ready when !report.PublishedAsCurrent
             => "Verification completed but was not accepted as current.",
-        _ => AppCoordinator.VerificationMessage(report.Reason)
+        _ => AppCoordinator.VerificationMessage(report)
     };
     bool CurrentShotCatalog => app.State.ShotChoices.Matches(app.State.Camera, app.State.Advice.TargetGroup, DateTimeOffset.UtcNow)
         && table.State.Table?.Version == app.State.ShotChoices.TableVersion && !EditingTable && CanAnalyzeTable;

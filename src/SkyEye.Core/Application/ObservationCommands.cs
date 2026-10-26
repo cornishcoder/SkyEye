@@ -145,7 +145,7 @@ public sealed partial class AppCoordinator
                 Notify(state);
                 receipt = Receipt(envelope, CommandOutcome.Applied, result.Outcome switch
                 { ObservationOutcome.Ready => "Table observed.", ObservationOutcome.Unclear => "Table unclear. Review the frame before requesting advice.", _ => "Table observed; settlement is not established. Request another observation when the balls are still." }) with { Observation = result };
-                if (request.Mode == ObservationMode.VerifyForAdvice) receipt = receipt with { Message = VerificationMessage(result.Reason) };
+                if (request.Mode == ObservationMode.VerifyForAdvice) receipt = receipt with { Message = VerificationMessage(result) };
             }
             if (request.Mode == ObservationMode.VerifyForAdvice && result is not null)
                 Volatile.Write(ref latestVerificationReport, HistoricalVerificationReport.From(result,
@@ -179,7 +179,7 @@ public sealed partial class AppCoordinator
         ObservationReason.None => "Clear, still table verified. Shot choices are checked separately against safe geometry.",
         ObservationReason.Moving => "Balls moving. Let the table settle, then retry.",
         ObservationReason.Obstructed => "Table obstructed. Clear the camera view, then retry.",
-        ObservationReason.DetectionAmbiguous => "Table still; detection unclear. Review the balls or retry.",
+        ObservationReason.DetectionAmbiguous => "Table detection is unclear. Review the balls or retry.",
         ObservationReason.LightingChanged => "Lighting changed. Let exposure settle, then retry.",
         ObservationReason.CalibrationChanged => "Camera/calibration changed. Review the table calibration.",
         ObservationReason.FrameTooOld or ObservationReason.ClockUntrusted => "Live frame too old or its clock is uncertain. Resume live video and retry.",
@@ -190,4 +190,86 @@ public sealed partial class AppCoordinator
         ObservationReason.CaptureFailed => "Diagnostic capture failed. Disable capture and retry.",
         _ => "Stillness could not be verified. Check the live view or review the table."
     };
+
+    public static string VerificationMessage(TableObservation observation)
+    {
+        if (!HasFreshStillSamples(observation.Motion, observation.Outcome, observation.Quality, observation.Reason,
+                observation.FrameAgeMs, observation.Verification?.FinalClockSampleAgeMs ?? double.NaN,
+                observation.Verification?.IndependentFrames ?? 0,
+                observation.Verification?.StartSourceUs, observation.Verification?.EndSourceUs,
+                observation.Verification?.CandidateSpanStartSampleIndex ?? 0,
+                observation.Verification?.CandidateSpanIndependentFrames ?? 0,
+                observation.Verification?.Samples.Select(sample =>
+                    (sample.SourceTimeUs, sample.AgeMs, sample.ClockSampleAgeMs, sample.ClockUncertaintyMs,
+                        sample.Measurement.Motion, sample.Measurement.CoverageValid,
+                        sample.Measurement.Vision?.Obstructed == true)).ToArray() ?? []))
+            return VerificationMessage(observation.Reason);
+
+        return StillButDetectionFailedMessage(observation.Verification?.ConsensusConflict);
+    }
+
+    public static string VerificationMessage(HistoricalVerificationReport report)
+    {
+        if (!HasFreshStillSamples(report.Motion, report.Outcome, report.Quality, report.Reason,
+                report.FinalFrameAgeMs, report.FinalClockSampleAgeMs, report.IndependentFrames,
+                report.StartSourceTimeUs, report.EndSourceTimeUs,
+                report.CandidateSpanStartSampleIndex, report.CandidateSpanIndependentFrames,
+                report.Samples.Select(sample =>
+                    (sample.SourceTimeUs, sample.AgeMs, sample.ClockSampleAgeMs, sample.ClockUncertaintyMs,
+                        sample.Motion, sample.CoverageValid, sample.Obstructed == true)).ToArray()))
+            return VerificationMessage(report.Reason);
+
+        return StillButDetectionFailedMessage(report.ConsensusConflict);
+    }
+
+    static string StillButDetectionFailedMessage(ConsensusConflict? conflict)
+    {
+        string issue = conflict?.Code switch
+        {
+            "radius-inconsistent" => "ball boundary radius evidence disagreed",
+            "final-quality-or-count" => "the final ball detection was uncertain or its count differed",
+            "insufficient-current-support" => "a ball lacked enough current boundary support",
+            "unexplained-body" => "detected ball identities or counts did not agree",
+            _ => "ball detection did not produce a consistent layout"
+        };
+        return $"Motion stayed still in the valid samples, but {issue}. No shot choices were returned; review the detections or retry.";
+    }
+
+    static bool HasFreshStillSamples(TableMotion motion, ObservationOutcome outcome, LayoutQuality quality,
+        ObservationReason reason, double finalFrameAgeMs, double finalClockSampleAgeMs, int independentFrames,
+        long? startSourceUs, long? endSourceUs, int candidateStart, int candidateCount,
+        IReadOnlyList<(long SourceTimeUs, double AgeMs, double ClockSampleAgeMs, double ClockUncertaintyMs,
+            TableMotion Motion, bool CoverageValid, bool Obstructed)> samples)
+    {
+        if (motion != TableMotion.Still || outcome != ObservationOutcome.Unclear || quality != LayoutQuality.Ambiguous
+            || reason != ObservationReason.DetectionAmbiguous
+            || !double.IsFinite(finalFrameAgeMs) || finalFrameAgeMs is < -200 or > ObservationPolicy.MaximumFinalAgeMs
+            || !double.IsFinite(finalClockSampleAgeMs) || finalClockSampleAgeMs is < 0 or > ObservationPolicy.MaximumClockSampleAgeMs
+            || independentFrames is < ObservationPolicy.MinimumVerificationSamples or > ObservationPolicy.MaximumVerificationSamples
+            || samples.Count != independentFrames || candidateStart < 0 || candidateCount < ObservationPolicy.MinimumVerificationSamples
+            || candidateCount > ObservationPolicy.MaximumVerificationSamples || candidateStart + candidateCount != samples.Count
+            || startSourceUs is null || endSourceUs is null
+            || samples.Count == 0 || samples[0].SourceTimeUs != startSourceUs || samples[^1].SourceTimeUs != endSourceUs)
+            return false;
+
+        var span = samples.Skip(candidateStart).Take(candidateCount).ToArray();
+        if (span.Length != candidateCount || span[^1].SourceTimeUs - span[0].SourceTimeUs
+            < ObservationPolicy.MinimumStillSeconds * 1_000_000) return false;
+        for (int i = 0; i < span.Length; i++)
+        {
+            var sample = span[i];
+            bool motionValid = i == 0
+                ? sample.Motion is TableMotion.Unknown or TableMotion.Still
+                : sample.Motion == TableMotion.Still;
+            if (!sample.CoverageValid || !motionValid || sample.Obstructed
+                || !double.IsFinite(sample.AgeMs) || sample.AgeMs is < -200 or > ObservationPolicy.MaximumFinalAgeMs
+                || !double.IsFinite(sample.ClockSampleAgeMs) || sample.ClockSampleAgeMs is < 0 or > ObservationPolicy.MaximumClockSampleAgeMs
+                || !double.IsFinite(sample.ClockUncertaintyMs) || sample.ClockUncertaintyMs is < 0 or > 250)
+                return false;
+            if (i > 0 && (sample.SourceTimeUs <= span[i - 1].SourceTimeUs
+                || sample.SourceTimeUs - span[i - 1].SourceTimeUs > ObservationPolicy.MaximumVerificationGapSeconds * 1_000_000))
+                return false;
+        }
+        return true;
+    }
 }

@@ -134,6 +134,51 @@ static class VerificationChecks
         Check(session.State.Observation is { Outcome: ObservationOutcome.Unclear, Motion: TableMotion.Still,
             Quality: LayoutQuality.Ambiguous, Reason: ObservationReason.DetectionAmbiguous },
             "A settled but ambiguous layout reports stillness while remaining ineligible for advice");
+        var ambiguousObservation = session.State.Observation!;
+        var stillDetectionMessage = AppCoordinator.VerificationMessage(ambiguousObservation);
+        Check(ambiguousObservation.Outcome == ObservationOutcome.Unclear
+            && stillDetectionMessage.Contains("Motion stayed still in the valid samples", StringComparison.Ordinal)
+            && stillDetectionMessage.Contains("No shot choices were returned", StringComparison.Ordinal)
+            && !stillDetectionMessage.Contains("Stillness could not be verified", StringComparison.Ordinal),
+            "Valid still-motion samples are reported separately from unresolved detection without promoting readiness");
+        var historicalAmbiguous = HistoricalVerificationReport.From(ambiguousObservation, DateTimeOffset.UtcNow,
+            publishedAsCurrent: true, CommandOutcome.Applied);
+        Check(AppCoordinator.VerificationMessage(historicalAmbiguous).Contains("Motion stayed still in the valid samples", StringComparison.Ordinal),
+            "Historical Home feedback retains the same-run still-motion evidence");
+        var radiusObservation = ambiguousObservation with
+        {
+            Verification = ambiguousObservation.Verification! with
+            { ConsensusConflict = new("radius-inconsistent", 3, "red-0") }
+        };
+        Check(AppCoordinator.VerificationMessage(radiusObservation).Contains("boundary radius evidence disagreed", StringComparison.Ordinal),
+            "A same-run radius conflict is described from its recorded consensus reason");
+        Check(AppCoordinator.VerificationMessage(historicalAmbiguous with
+                { ConsensusConflict = new("radius-inconsistent", 3, "red-0") })
+                .Contains("boundary radius evidence disagreed", StringComparison.Ordinal),
+            "Historical Home feedback names a recorded radius conflict");
+        var unknownMotionMessage = AppCoordinator.VerificationMessage(ambiguousObservation with { Motion = TableMotion.Unknown });
+        var staleMotionMessage = AppCoordinator.VerificationMessage(ambiguousObservation with { FrameAgeMs = ObservationPolicy.MaximumFinalAgeMs + 1 });
+        var noEvidenceMessage = AppCoordinator.VerificationMessage(ambiguousObservation with { Verification = null });
+        var obstructedMessage = AppCoordinator.VerificationMessage(ambiguousObservation with
+            { Motion = TableMotion.Unknown, Quality = LayoutQuality.Obstructed, Reason = ObservationReason.Obstructed });
+        var invalidCoverage = ambiguousObservation.Verification! with
+        {
+            Samples = ambiguousObservation.Verification.Samples.Select((sample, index) => index == 1
+                ? sample with { Measurement = sample.Measurement with { CoverageValid = false } }
+                : sample).ToArray()
+        };
+        var invalidCoverageMessage = AppCoordinator.VerificationMessage(ambiguousObservation with { Verification = invalidCoverage });
+        var staleClock = ambiguousObservation.Verification! with
+        { FinalClockSampleAgeMs = ObservationPolicy.MaximumClockSampleAgeMs + 1 };
+        var staleClockMessage = AppCoordinator.VerificationMessage(ambiguousObservation with { Verification = staleClock });
+        Check(!unknownMotionMessage.Contains("still", StringComparison.OrdinalIgnoreCase)
+            && !staleMotionMessage.Contains("still", StringComparison.OrdinalIgnoreCase)
+            && !noEvidenceMessage.Contains("still", StringComparison.OrdinalIgnoreCase)
+            && !obstructedMessage.Contains("still", StringComparison.OrdinalIgnoreCase)
+            && !invalidCoverageMessage.Contains("still", StringComparison.OrdinalIgnoreCase)
+            && !staleClockMessage.Contains("still", StringComparison.OrdinalIgnoreCase)
+            && AppCoordinator.VerificationMessage(ObservationReason.DetectionAmbiguous) == "Table detection is unclear. Review the balls or retry.",
+            "Unknown, obstructed, stale, missing or uncovered motion evidence never receives a stillness claim");
         analyzer.LayoutUncertain = false;
         session.Invalidate(); analyzer.Failure = new InvalidDataException("fixture");
         await session.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !session.HasPendingWork);

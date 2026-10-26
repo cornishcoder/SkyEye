@@ -1108,7 +1108,7 @@ public sealed partial class ShellSession
                 "The source or calibration changed during verification; a fresh trusted baseline is required.");
             return;
         }
-        string reason = AppCoordinator.VerificationMessage(observation.Reason);
+        string reason = AppCoordinator.VerificationMessage(observation);
         SetActivityVerificationStatus(activityId, $"{reason} The original before-table remains held; no game state changed.");
     }
 
