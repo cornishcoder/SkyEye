@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Diagnostics;
 
 namespace SkyEye.Core.Application;
 
@@ -13,7 +14,50 @@ public sealed record ShotSampleReport(string OriginalWords, DateTimeOffset Trans
 public sealed record ShotSampleRecord(int Schema, Guid OperationId, string Status, string Provenance,
     ShotSampleReport Report, ClipSaveScope Scope, ShotSampleContext Context, DateTimeOffset RequestedAt,
     int RequestedSeconds, int DesiredSampleSeconds, int PostDeclarationSeconds, string TimingLimitation,
-    Clip? Clip = null, string? Message = null);
+    Clip? Clip = null, string? Message = null)
+{
+    public double? ActualClipSeconds => Clip?.Duration;
+    public bool? ClipShorterThanRequested => Clip is null ? null : Clip.Duration < RequestedSeconds;
+    public long? SourceStartUs => Clip?.RecordingOrigin?.StartUs;
+    public string? SourceTimeline => Clip?.RecordingOrigin?.Timeline;
+    public string ShotWindowCoverage => "unknown";
+}
+
+/// <summary>Associates a model's quoted words with the latest completed input
+/// transcript. It cannot establish the physical shot's source timestamp.</summary>
+public sealed class ShotSampleTranscriptGate
+{
+    readonly object gate = new();
+    string? transcript;
+    DateTimeOffset transcribedAt;
+    long tick, serial, claimed;
+
+    public void Remember(string words)
+    {
+        lock (gate) { transcript = words; transcribedAt = DateTimeOffset.UtcNow; tick = Stopwatch.GetTimestamp(); serial++; }
+    }
+    public void Clear() { lock (gate) transcript = null; }
+    public bool Contains(string quote)
+    { lock (gate) return transcript?.Contains(quote, StringComparison.OrdinalIgnoreCase) == true; }
+
+    public bool TryClaim(string quote, IReadOnlyList<ShotSampleField> fields, IReadOnlyList<string> notes,
+        out ShotSampleReport? report, out long timestamp, out string error)
+    {
+        lock (gate)
+        {
+            report = null; timestamp = 0;
+            if (string.IsNullOrWhiteSpace(quote) || transcript is null || !transcript.Contains(quote, StringComparison.OrdinalIgnoreCase)
+                || Stopwatch.GetElapsedTime(tick) > TimeSpan.FromSeconds(20))
+            { error = "The original player transcript was unavailable or did not match. Say the shot report again."; return false; }
+            if (claimed == serial)
+            { error = "This spoken report was already submitted; no second clip was requested."; return false; }
+            var candidate = new ShotSampleReport(transcript, transcribedAt, fields, notes);
+            if (!ShotSampleStore.Valid(candidate))
+            { error = "A proposed field or note did not appear in the player's words. No sample was saved."; return false; }
+            claimed = serial; report = candidate; timestamp = tick; error = ""; return true;
+        }
+    }
+}
 
 /// <summary>Private companion-side sample journal. A pending report is durable
 /// before the camera save; a successful camera receipt supplies the clip identity.</summary>

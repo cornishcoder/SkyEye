@@ -151,6 +151,10 @@ Check(voiceClient.PublishToolResult("call-match-correct", "{\"succeeded\":true}"
 Check(voiceClient.PublishToolCall("response-1", "call-shot", "record_declared_shot", "{\"legality\":\"Unknown\",\"expected_game_version\":3}"), "declared shot becomes a typed voice block");
 Check(voiceClient.PublishToolResult("call-shot", "{\"succeeded\":true}"), "declared shot result pairs with its call");
 Check(voiceClient.PublishToolCall("response-1", "call-save", "save_recent_clip", "{\"seconds\":30}"), "saved clip request becomes a typed voice block");
+Check(voiceClient.PublishToolCall("response-1", "call-sample-mode", "set_sample_collection", "{\"enabled\":true}"), "sample mode becomes a typed voice block");
+Check(voiceClient.PublishToolResult("call-sample-mode", "{\"enabled\":true}"), "sample mode result is correlated");
+Check(voiceClient.PublishToolCall("response-1", "call-sample", "save_shot_sample", "{\"reported_words\":\"potted a red\",\"fields\":[{\"kind\":\"ball\",\"text\":\"red\"}]}"), "shot sample becomes a typed voice block");
+Check(voiceClient.PublishToolResult("call-sample", "{\"pending\":true,\"saved\":false}"), "sample pending result remains distinct from saved");
 Check(voiceClient.PublishToolResult("call-save", "{\"saved\":true}"), "saved clip result pairs with its call");
 Check(voiceClient.PublishToolCall("response-1", "call-replay", "replay_recent", "{\"seconds\":30}"), "recent replay request becomes a typed voice block");
 Check(voiceClient.PublishToolResult("call-replay", "{\"playing\":true}"), "recent replay result pairs with its call");
@@ -179,6 +183,8 @@ Check(voiceBlocks.OfType<SkyCorrectMatchStateBlock>().Single() is { HasResult: t
 Check(voiceBlocks.OfType<SkyRecordDeclaredShotBlock>().Single() is { HasResult: true, Legality: "Unknown", ExpectedGameVersion: 3 }, "generated shot block retains explicit declaration fields");
 Check(voiceBlocks.OfType<SkySaveRecentClipBlock>().Single() is { HasResult: true, Seconds: 30 }
     && voiceBlocks.OfType<SkyReplayRecentBlock>().Single() is { HasResult: true, Seconds: 30 }, "generated media blocks show their bounded actions and results");
+Check(voiceBlocks.OfType<SkySetSampleCollectionBlock>().Single() is { HasResult: true, Enabled: true }
+    && voiceBlocks.OfType<SkySaveShotSampleBlock>().Single() is { HasResult: true, ReportedWords: "potted a red", ResultText: "{\"pending\":true,\"saved\":false}" }, "sample tool blocks retain their mode, quotation and pending result");
 Check(voiceBlocks.OfType<SkySavedClipsBlock>().Single().HasResult
     && voiceBlocks.OfType<SkyPlaySavedClipBlock>().Single() is { HasResult: true, ClipNumber: 2, Target: "tv" }, "generated saved-clip blocks retain current target selection");
 Check(voiceBlocks.OfType<SkyControlTvReplayBlock>().Single() is { HasResult: true, Action: "seek", Seconds: 42 }

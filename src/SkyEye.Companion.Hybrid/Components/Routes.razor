@@ -16,6 +16,11 @@
                         <span class="eyebrow">SKYEYE</span>
                         <p class="home-status" role="status">@HomeStatus</p>
                     </div>
+                    <button class="home-menu-pin @(Session.SampleCollectionEnabled ? "is-pinned" : "")"
+                        @onclick="Session.ToggleSampleCollection" aria-label="@Session.SampleCollectionLabel"
+                        aria-pressed="@Session.SampleCollectionEnabled" title="@Session.SampleCollectionLabel">
+                        <span>Samples @(Session.SampleCollectionEnabled ? "on" : "off")</span>
+                    </button>
                     <button class="home-menu-pin @(Session.MenuPanelPinned ? "is-pinned" : "")"
                         @onclick="Session.ToggleMenuPanelPinned"
                         aria-label="@(Session.MenuPanelPinned ? "Unpin menu panel" : "Pin menu panel")"
@@ -83,6 +88,8 @@
 
                 @if (Session.HomeVerificationFeedbackVisible)
                 { <p class="home-candidate-status" role="status" aria-live="polite">@Session.HomeVerificationStatus</p> }
+                @if (Session.SampleCollectionStatus.Length > 0)
+                { <p class="home-candidate-status" role="status" aria-live="polite">@Session.SampleCollectionStatus</p> }
                 <p class="physics-status" role="status"><span class="status-dot @(Session.PhysicsAvailable ? "ready" : "off")"></span>@HomePhysicsStatus</p>
                 @if (error.Length > 0) { <p class="notice" role="alert">@error</p> }
                 @if (Session.NeedsAttention)

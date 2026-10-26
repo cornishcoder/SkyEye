@@ -29,11 +29,22 @@ static class ShotSampleChecks
             Check(result.Status == "saved" && loaded?.Clip?.Id == result.Clip?.Id && loaded?.Clip?.Sha256 == result.Clip?.Sha256
                 && loaded?.Clip?.RecordingOrigin?.StartUs == 123_000 && loaded?.Report.OriginalWords == request.Report.OriginalWords
                 && loaded?.Provenance == "player-reported" && loaded?.RequestedSeconds == 30 && loaded?.DesiredSampleSeconds == 5
-                && loaded?.Context.CalibrationId == "calibration-1", "sample retains original report, scope, actual clip identity, origin and duration intent");
+                && loaded?.Context.CalibrationId == "calibration-1" && loaded?.ActualClipSeconds == 28.4
+                && loaded?.ClipShorterThanRequested == true && loaded?.SourceStartUs == 123_000 && loaded?.ShotWindowCoverage == "unknown",
+                "sample retains original report, scope, actual clip identity, origin, shorter duration and unknown shot coverage");
             Check(!ShotSampleStore.Valid(request.Report with { Fields = [new("ball", "yellow")] })
                 && !ShotSampleStore.Valid(request.Report with { Notes = ["a foul"] }), "invented metadata is rejected");
             var miss = request.Report with { OriginalWords = "missed that one", Fields = [new("outcome", "missed")], Notes = [] };
             Check(ShotSampleStore.Valid(miss), "a sparse miss needs no invented ball or ruling");
+            var gate = new ShotSampleTranscriptGate();
+            gate.Remember("Just potted a red, off the cushion");
+            Check(!gate.TryClaim("potted a red", [new("ball", "yellow")], [], out _, out _, out _), "unspoken extracted text is rejected before claiming the transcript");
+            Check(gate.TryClaim("potted a red", [new("ball", "red")], ["off the cushion"], out var spoken, out _, out _)
+                && spoken?.OriginalWords == "Just potted a red, off the cushion", "the original completed transcript supplies the report");
+            Check(!gate.TryClaim("potted a red", [], [], out _, out _, out _), "the same utterance cannot be claimed twice");
+            gate.Clear(); Check(!gate.TryClaim("potted a red", [], [], out _, out _, out _), "speech interruption clears the old utterance");
+            gate.Remember("missed that one");
+            Check(gate.TryClaim("missed", [new("outcome", "missed")], [], out _, out _, out _), "a later report can be collected without match facts");
 
             var pending = Request(); store.Write(pending);
             var receipt = await Save(pending.OperationId, pending.Scope, CancellationToken.None);

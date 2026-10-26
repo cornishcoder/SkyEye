@@ -232,6 +232,26 @@ public sealed partial class SkySaveRecentClipBlock : FunctionInvocationContentBl
     [ToolResult] public string? ResultText { get; set; }
 }
 
+[ToolBlock("set_sample_collection")]
+public sealed partial class SkySetSampleCollectionBlock : FunctionInvocationContentBlock
+{
+    [ToolParameter(Name = "enabled")] public bool Enabled { get; set; }
+    [ToolResult] public string? ResultText { get; set; }
+}
+
+[ToolBlock("get_sample_collection")]
+public sealed partial class SkyGetSampleCollectionBlock : FunctionInvocationContentBlock
+{
+    [ToolResult] public string? ResultText { get; set; }
+}
+
+[ToolBlock("save_shot_sample")]
+public sealed partial class SkySaveShotSampleBlock : FunctionInvocationContentBlock
+{
+    [ToolParameter(Name = "reported_words")] public string? ReportedWords { get; set; }
+    [ToolResult] public string? ResultText { get; set; }
+}
+
 [ToolBlock("get_saved_clips")]
 public sealed partial class SkySavedClipsBlock : FunctionInvocationContentBlock
 {

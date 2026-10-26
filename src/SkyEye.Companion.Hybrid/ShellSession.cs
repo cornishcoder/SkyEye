@@ -105,6 +105,7 @@ public sealed partial class ShellSession : IDisposable
         var savedPhoneCorrection = settings.GetBoolean("phone-corrected", true);
         var saveOperations = new ClipSaveExecutor(Path.Combine(FileSystem.AppDataDirectory, "save-operations"),
             new CameraClipSaveEffect(client, clip => { try { annotations.Preserve(clip); } catch (Exception) { } }));
+        InitializeShotSamples(saveOperations);
         app = new(clipSaves: saveOperations, cameraControls: effects,
             observations: new TableObservationEffect(() => table, () => player is null ? 0 : MediaGeneration(), () => active && sessionMode == TableSessionMode.Live && selection.Kind == ViewingSource.Live),
             gameJournal: new GameJournalStore(Path.Combine(FileSystem.AppDataDirectory, "game-state")), phoneCorrected: savedPhoneCorrection);

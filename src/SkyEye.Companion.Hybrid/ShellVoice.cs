@@ -75,6 +75,7 @@ public sealed partial class ShellSession
         // Install the owner before any asynchronous callbacks can arrive.
         sky = session;
         voiceOperationScope = Guid.NewGuid();
+        ClearSampleTranscript();
         voiceTranscript.BeginSession(); skyToolStatus = "";
         SetSkyStatus(SkyVoiceState.Connecting, "Connecting Sky…");
         bool serviceStarted = false;
@@ -132,6 +133,12 @@ public sealed partial class ShellSession
 
     void OnSkyUpdate(SkyVoiceSession? session, SkyVoiceUpdate update)
     {
+        if (session is not null && sky == session)
+        {
+            if (update.EventKind is "user_interrupted" or "session_interrupted") ClearSampleTranscript();
+            if (update.IsUserTranscript && update.TranscriptFinal && update.Transcript is { Length: > 0 } text)
+                RememberSampleTranscript(text);
+        }
         void Apply()
         {
             if (session is not null && sky != session) return;
@@ -154,6 +161,7 @@ public sealed partial class ShellSession
                 skyToolStatus = update.ToolOutcome switch
                 {
                     "requested" or "started" => $"Checking: {VoiceToolLabel(toolName)}…",
+                    "completed" when toolName == "save_shot_sample" => "Sample request processed; check sample status for the save result.",
                     "completed" => $"Done: {VoiceToolLabel(toolName)}.",
                     "cancelled" => $"Cancelled: {VoiceToolLabel(toolName)}.",
                     _ => $"Unavailable: {VoiceToolLabel(toolName)}."
@@ -225,6 +233,8 @@ public sealed partial class ShellSession
         "undo_match_decision" => "match undo",
         "record_declared_shot" => "declared shot outcome",
         "save_recent_clip" => "camera clip save",
+        "set_sample_collection" or "get_sample_collection" => "sample collection",
+        "save_shot_sample" => "shot sample",
         "get_saved_clips" => "saved clips",
         "play_saved_clip" => "saved clip playback",
         "replay_recent" => "recent TV replay",
@@ -269,6 +279,9 @@ public sealed partial class ShellSession
         "undo_match_decision" => UndoMatchFromVoiceAsync(callId, arguments, cancellation),
         "record_declared_shot" => RecordDeclaredShotFromVoiceAsync(callId, arguments, cancellation),
         "save_recent_clip" => SaveRecentClipFromVoiceAsync(callId, arguments, cancellation),
+        "set_sample_collection" => SetSampleCollectionFromVoiceAsync(arguments, cancellation),
+        "get_sample_collection" => Task.FromResult(ReadSampleCollection()),
+        "save_shot_sample" => CollectShotSampleFromVoiceAsync(callId, arguments, cancellation),
         "get_saved_clips" => GetSavedClipsFromVoiceAsync(cancellation),
         "play_saved_clip" => PlaySavedClipFromVoiceAsync(arguments, cancellation),
         "replay_recent" => ReplayRecentFromVoiceAsync(arguments, cancellation),

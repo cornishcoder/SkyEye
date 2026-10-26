@@ -8,6 +8,16 @@
     {
         <article class="clip" @key="@($"remote-{clip.Id}")">
             <p>@clip.Name <span class="hint">· @clip.Duration.ToString("0")s</span></p>
+            @if (Session.SampleForClip(clip.Id) is { } sample)
+            {
+                <details><summary>Player-reported sample</summary>
+                    <p>@sample.Report.OriginalWords</p>
+                    @foreach (var field in sample.Report.Fields) { <p class="hint">@field.Kind: @field.Text</p> }
+                    @foreach (var note in sample.Report.Notes) { <p class="hint">Note: @note</p> }
+                    <p class="hint">The five-second target is not trimmed or source-timed. The camera clip is @sample.Clip!.Duration.ToString("0.0") seconds.</p>
+                    <button class="secondary" @onclick="() => Session.ShareSampleMetadata(clip.Id)" aria-label="@($"Share sample metadata for {clip.Name}")">Share sample metadata</button>
+                </details>
+            }
             <button class="secondary" disabled="@(Busy || !Session.TvConnected || !Session.CanLoadClips)" @onclick="() => WatchTv.InvokeAsync(clip)" aria-label="@($"Watch {clip.Name} on TV")">Watch on TV</button>
             @if (clip.Available)
             {

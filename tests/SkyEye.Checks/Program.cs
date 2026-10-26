@@ -4,6 +4,12 @@ using System.Text;
 using System.Text.Json;
 using SkyEye.Core;
 
+if (args.SequenceEqual(["--shot-samples"]))
+{
+    await ShotSampleChecks.Run();
+    return;
+}
+
 if (args.SequenceEqual(["--game-tracking"]))
 {
     await VerificationCaptureChecks.Run();
