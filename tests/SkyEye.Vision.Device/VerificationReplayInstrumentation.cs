@@ -29,8 +29,15 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             var calibration = new TableCalibration(corners);
             var analyzer800 = new VisionAnalyzer(new VisionSettings(Width: 800) { VerificationBodyRefinement = refinement }, boundaryAudit, boundaryAudit);
             var analyzer1000 = new VisionAnalyzer(new VisionSettings(Width: 1000) { VerificationBodyRefinement = refinement }, boundaryAudit, boundaryAudit);
+            string replayConfiguration = analyzer800.ConfigurationIdentity;
             bool? configurationMatchesPrimary = recordedConfiguration is null
-                ? null : string.Equals(recordedConfiguration, analyzer800.ConfigurationIdentity, StringComparison.Ordinal);
+                ? null : string.Equals(recordedConfiguration, replayConfiguration, StringComparison.Ordinal);
+            bool? configurationSettingsMatchPrimary = recordedConfiguration is null
+                ? null : string.Equals(AnalyzerSettings(recordedConfiguration), AnalyzerSettings(replayConfiguration), StringComparison.Ordinal);
+            string? recordedAlgorithm = AnalyzerAlgorithm(recordedConfiguration);
+            string replayAlgorithm = AnalyzerAlgorithm(replayConfiguration)!;
+            bool? configurationAlgorithmChangedSinceCapture = recordedAlgorithm is null
+                ? null : !string.Equals(recordedAlgorithm, replayAlgorithm, StringComparison.Ordinal);
             using var worker800 = analyzer800.CreateVerification(calibration);
             using var worker1000 = analyzer1000.CreateVerification(calibration);
             var samples = new List<object>();
@@ -115,8 +122,16 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             var analysisConsensus1000 = VerificationConsensus.Resolve(analyses1000, out var analysisConflict1000);
             report = new { completed = true, configuration = ObservationPolicy.VerificationConfiguration, bodyRefinement = refinement, boundaryAudit,
                 recordedAnalyzerConfigurationIdentity = recordedConfiguration,
-                replayAnalyzerConfigurationIdentity = analyzer800.ConfigurationIdentity,
+                replayAnalyzerConfigurationIdentity = replayConfiguration,
                 configurationMatchesPrimaryWidth = configurationMatchesPrimary,
+                configurationSettingsMatchPrimaryWidth = configurationSettingsMatchPrimary,
+                recordedAlgorithmIdentity = recordedAlgorithm,
+                replayAlgorithmIdentity = replayAlgorithm,
+                configurationAlgorithmChangedSinceCapture,
+                configurationComparison = configurationMatchesPrimary == true ? "exact-match"
+                    : configurationSettingsMatchPrimary == true && configurationAlgorithmChangedSinceCapture == true
+                        ? "settings-match; algorithm-revision-changed"
+                        : recordedConfiguration is null ? "recorded-identity-unavailable" : "configuration-mismatch",
                 fullAnalysis800 = new { consensus = analysisConsensus800, conflict = analysisConflict800, observations = analyses800.Select(v => Summarize(v, 800)) },
                 fullAnalysis1000 = new { consensus = analysisConsensus1000, conflict = analysisConflict1000, observations = analyses1000.Select(v => Summarize(v, 1000)) },
                 width800 = new { consensus = consensus800, conflict = conflict800, allMotionSamplesStill = measurements800.Count > 1 && measurements800.Skip(1).All(m => m.Motion == TableMotion.Still && m.CoverageValid), measurements = measurements800.Select(SummarizeMotion) },
@@ -132,6 +147,17 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             : "o08-replay-proof.json";
         File.WriteAllText(Path.Combine(TargetContext!.GetExternalFilesDir(null)!.AbsolutePath, reportName), json);
         using var bundle = new global::Android.OS.Bundle(); bundle.PutString("result", "O08 development replay written"); Finish(global::Android.App.Result.Ok, bundle);
+    }
+    static string? AnalyzerAlgorithm(string? identity)
+    {
+        if (identity is null) return null;
+        using var document = JsonDocument.Parse(identity);
+        return document.RootElement.TryGetProperty("Algorithm", out var algorithm) ? algorithm.GetString() : null;
+    }
+    static string? AnalyzerSettings(string identity)
+    {
+        using var document = JsonDocument.Parse(identity);
+        return document.RootElement.TryGetProperty("Settings", out var settings) ? settings.GetRawText() : null;
     }
     static object Summarize(VisionResult vision, int width) => new
     {

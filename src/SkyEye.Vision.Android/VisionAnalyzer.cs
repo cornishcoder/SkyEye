@@ -26,7 +26,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     public VisionAnalyzer(VisionSettings settings, bool includeBoundaryDiagnostics = false, bool includeCandidateDiagnostics = false)
     { settings.Validate(); this.settings = settings; boundaryDiagnostics = includeBoundaryDiagnostics; candidateDiagnostics = includeCandidateDiagnostics; coordinates = new(settings.Width); }
     public string ConfigurationIdentity => System.Text.Json.JsonSerializer.Serialize(new
-    { Algorithm = "body-priority-packed-colour-peaks-v1", Settings = settings });
+    { Algorithm = "body-priority-packed-colour-peaks-v2-colour-edge", Settings = settings });
     static void Load()
     {
         lock (loadGate)
