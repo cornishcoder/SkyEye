@@ -54,19 +54,22 @@ public sealed partial class VisionAnalyzer
         if (cluster.Length < 12) return default;
 
         var existingCentres = circles.Select(c => new Point(c.X, c.Y)).ToArray();
-        var admittedSeeds = new List<Point>();
+        var admittedBodies = new List<Point>();
         for (int clusterIndex = 0; clusterIndex < cluster.Length; clusterIndex++)
         {
             var proposal = cluster[clusterIndex];
-            // Compare independent colour-mask peaks, not their separately
-            // refined body centres. Adjacent touching balls can have fitted
-            // centres pulled inward while their raw peaks remain distinct.
-            bool duplicate = existingCentres.Any(c => (c - proposal.PeakCentre).Length < settings.Separation * scale)
-                || admittedSeeds.Any(c => (c - proposal.PeakCentre).Length < settings.Separation * scale);
+            // A color-mask peak can shift toward a touching neighbor, especially
+            // under bright rack shadows. Each candidate already has an accepted,
+            // color-matched ball boundary; use those fitted body centres for the
+            // same separation gate so adjacent opposite-color balls are not
+            // discarded just because their interior peaks drifted together.
+            var bodyCentre = new Point(proposal.Body.X, proposal.Body.Y);
+            bool duplicate = existingCentres.Any(c => (c - bodyCentre).Length < settings.Separation * scale)
+                || admittedBodies.Any(c => (c - bodyCentre).Length < settings.Separation * scale);
             if (!duplicate)
             {
                 circles.Add(proposal.Body);
-                admittedSeeds.Add(proposal.PeakCentre);
+                admittedBodies.Add(bodyCentre);
                 if (packedClassifications is not null) packedClassifications[proposal.Body] = proposal.Classification;
                 candidateAudits?.Add(new(pass, "packed-add", proposal.Kind, clusterIndex,
                     new(proposal.Body.X, proposal.Body.Y), proposal.Body.Radius,
@@ -108,9 +111,11 @@ public sealed partial class VisionAnalyzer
                 seed.Centre, expectedRadius, .7);
             if (fit is null)
             { Audit("rejected-no-boundary-fit"); continue; }
-            if (fit.SupportedSectors < .7
-                && !HasOcclusionExplainedBlackBoundary(fit, seed.Centre, expectedRadius, rawBgrPixels, cluster))
-            { Audit("rejected-insufficient-boundary-support", fit, fit.SupportedSectors); continue; }
+            string? occlusionEvidence = null;
+            bool occlusionExplained = fit.SupportedSectors < .7
+                && HasOcclusionExplainedBlackBoundary(fit, seed.Centre, expectedRadius, rawBgrPixels, cluster, out occlusionEvidence);
+            if (fit.SupportedSectors < .7 && !occlusionExplained)
+            { Audit("rejected-insufficient-boundary-support", fit, fit.SupportedSectors, evidence: occlusionEvidence); continue; }
             var body = new Circle(fit.Centre.X, fit.Centre.Y, fit.Radius);
             var classification = Classify(body, rawPixels, inspectRim: true);
             if (classification.Kind != "black")
@@ -123,22 +128,40 @@ public sealed partial class VisionAnalyzer
             Audit("added-black-body", fit, fit.SupportedSectors, classification.Kind);
             break;
 
-            void Audit(string decision, BallBoundary? boundary = null, double? support = null, string? label = null)
+            void Audit(string decision, BallBoundary? boundary = null, double? support = null, string? label = null, string? evidence = null)
                 => candidateAudits?.Add(new(pass, "packed-black", "black", i, seed.Centre, seed.Radius,
-                    boundary?.Centre, boundary?.Radius, support, label, decision));
+                    boundary?.Centre, boundary?.Radius, support, label, decision) { Evidence = evidence });
         }
         return new(true, cluster.Count(p => p.Kind == "red"), cluster.Count(p => p.Kind == "yellow"), blackObserved);
     }
 
     bool HasOcclusionExplainedBlackBoundary(BallBoundary fit, Point proposal, double expectedRadius,
-        byte[] rawBgr, ClusterBall[] packedColourBalls)
+        byte[] rawBgr, ClusterBall[] packedColourBalls, out string evidence)
     {
         var sectors = BallBoundaryRefiner.Inspect(rawBgr, coordinates.Width, coordinates.Height,
             proposal, expectedRadius, fit.Centre, fit.Radius);
         var neighbours = packedColourBalls.Where(ball => ball.Kind is "red" or "yellow")
-            .Select(ball => ball.PeakCentre).ToArray();
-        return BallBoundaryRefiner.HasConservativeOcclusionCoverage(sectors, fit.Centre,
-            expectedRadius, neighbours, .7);
+            .Select(ball => new Point(ball.Body.X, ball.Body.Y)).ToArray();
+        int visible = sectors.Count(sector => sector.Supported);
+        int exteriorRejected = sectors.Count(sector => !sector.Supported && sector.ExteriorRejected);
+        int neighbourExplained = sectors.Count(sector => !sector.Supported && sector.ExteriorRejected
+            && neighbours.Any(neighbour => (neighbour - fit.Centre).Length >= expectedRadius * 1.1
+                && (sector.OuterPoint - neighbour).Length <= expectedRadius * 1.15));
+        bool accepted = BallBoundaryRefiner.HasConservativeOcclusionCoverage(sectors, fit.Centre,
+            expectedRadius, neighbours, 14d / 32);
+        var uncovered = sectors.Where(sector => !sector.Supported && (!sector.ExteriorRejected
+                || !neighbours.Any(neighbour => (neighbour - fit.Centre).Length >= expectedRadius * 1.1
+                    && (sector.OuterPoint - neighbour).Length <= expectedRadius * 1.15)))
+            .Select(sector =>
+            {
+                double nearestNeighbourRadius = neighbours
+                    .Where(neighbour => (neighbour - fit.Centre).Length >= expectedRadius * 1.1)
+                    .Select(neighbour => (sector.OuterPoint - neighbour).Length / expectedRadius)
+                    .DefaultIfEmpty(double.PositiveInfinity).Min();
+                return $"{sector.Index}(edge={sector.EdgeContrast:0.#};outside={sector.ExteriorContrast:0.#};external={sector.ExteriorRejected};nearestNeighbourR={nearestNeighbourRadius:0.00})";
+            });
+        evidence = $"visible={visible}/32;exteriorRejected={exteriorRejected}/32;fittedNeighbourExplained={neighbourExplained}/32;uncoveredSectors={string.Join(',', uncovered)};accepted={accepted}";
+        return accepted;
     }
 
     ClusterBall[] FindColourPeakBodies(Mat colourMask, string kind, byte[] rawHsv, byte[] rawBgr, double scale,

@@ -392,6 +392,27 @@ static class VerificationChecks
         }).ToArray();
         Check(BallBoundaryRefiner.HasConservativeOcclusionCoverage(partialEvidence, new(0, 0), 10, adjacentBallCentres),
             "One-sector-short visible support passes only when every rejected arc is covered by a measured neighbor");
+        var packedBlackEvidence = partialEvidence.Select(sector => sector.Index < 14
+            ? sector with { Supported = true, ExteriorRejected = false }
+            : sector with { Supported = false, ExteriorRejected = true }).ToArray();
+        var packedBlackNeighbours = Enumerable.Range(14, 18).Select(index =>
+        {
+            double angle = index * Math.PI / 16;
+            return new Point(20 * Math.Cos(angle), 20 * Math.Sin(angle));
+        }).ToArray();
+        Check(BallBoundaryRefiner.HasConservativeOcclusionCoverage(packedBlackEvidence, new(0, 0), 10,
+                packedBlackNeighbours, 14d / 32),
+            "Packed black body accepts 14/32 visible support only when every remaining exterior arc is covered by a fitted neighbor");
+        var belowPackedBlackVisibility = packedBlackEvidence.Select(sector => sector.Index == 13
+            ? sector with { Supported = false, ExteriorRejected = true } : sector).ToArray();
+        Check(!BallBoundaryRefiner.HasConservativeOcclusionCoverage(belowPackedBlackVisibility, new(0, 0), 10,
+                packedBlackNeighbours, 14d / 32),
+            "Packed black body below 14/32 direct visibility remains unknown");
+        var uncoveredPackedArc = packedBlackEvidence.Select(sector => sector.Index == 31
+            ? sector with { ExteriorRejected = false } : sector).ToArray();
+        Check(!BallBoundaryRefiner.HasConservativeOcclusionCoverage(uncoveredPackedArc, new(0, 0), 10,
+                packedBlackNeighbours, 14d / 32),
+            "Packed black body remains unknown when even one of 18 unsupported arcs lacks measured neighbor coverage");
         Check(!BallBoundaryRefiner.HasConservativeOcclusionCoverage(partialEvidence, new(0, 0), 10, []),
             "A dark candidate without measured neighboring balls cannot use the occlusion exception");
         var uncoveredArc = partialEvidence.Select(sector => sector.Index == 31

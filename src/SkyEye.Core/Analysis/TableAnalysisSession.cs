@@ -17,7 +17,10 @@ public sealed record CircleBoundaryAudit(string BallId, Point ProposalCentre, do
     double MaximumCandidateRadius, double MinimumSupportedFraction, BallBoundary Candidate);
 public sealed record VisionCandidateAudit(string Pass, string Stage, string Kind, int Index,
     Point ProposalCentre, double ProposalRadius, Point? FittedCentre, double? FittedRadius,
-    double? BoundarySupport, string? ClassifiedKind, string Decision);
+    double? BoundarySupport, string? ClassifiedKind, string Decision)
+{
+    public string? Evidence { get; init; }
+}
 public sealed record ObstructionComponentAudit(int Label, int Left, int Top, int Width, int Height, int Area,
     int BallCentres, bool WholeTableSegmentation, bool PackedClusterSizeEligible,
     bool PackedClusterExempted, bool TriggersObstruction)

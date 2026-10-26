@@ -80,7 +80,7 @@ public static class BallBoundaryRefiner
     {
         if (sectors.Count != 32 || !double.IsFinite(expectedRadius) || expectedRadius < 5 || expectedRadius > 100
             || !double.IsFinite(centre.X) || !double.IsFinite(centre.Y)
-            || !double.IsFinite(minimumVisibleFraction) || minimumVisibleFraction is < .5 or > 1)
+            || !double.IsFinite(minimumVisibleFraction) || minimumVisibleFraction < 14d / 32 || minimumVisibleFraction > 1)
             return false;
         int visible = sectors.Count(sector => sector.Supported);
         int minimumVisible = (int)Math.Floor(minimumVisibleFraction * sectors.Count);
