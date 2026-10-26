@@ -127,6 +127,7 @@ PortChecks.Run();
 await AppCoordinatorChecks.Run();
 await SceneCommandChecks.Run();
 await ClipSaveChecks.Run();
+await ShotSampleChecks.Run();
 await CameraClipSaveChecks.Run();
 await CameraCommandChecks.Run();
 await CameraControlAdapterChecks.Run();

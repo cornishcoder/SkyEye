@@ -35,6 +35,25 @@ public sealed class ClipSaveExecutor
     public CommandReceipt? FindPrevious(CommandEnvelope envelope, long currentVersion)
         => ReadPrevious(envelope, currentVersion);
 
+    // Read-only recovery for a companion sample whose metadata was persisted
+    // before the save but whose final update was interrupted.
+    public Clip? FindAcknowledgedClip(Guid operationId)
+    {
+        if (operationId == Guid.Empty) return null;
+        try
+        {
+            var path = PathFor(operationId);
+            if (!File.Exists(path) || new FileInfo(path).Length > 32768) return null;
+            var record = JsonSerializer.Deserialize<SaveRecord>(File.ReadAllText(path), JsonDefaults.Options);
+            if (record is not { Schema: 1 } || record.OperationId != operationId || record.Command is null
+                || record.Receipt is not { Outcome: CommandOutcome.Applied } receipt
+                || receipt.OperationId != operationId || receipt.DecisionVersion != record.DecisionVersion
+                || !Valid(record.Command) || !ValidClip(receipt.SavedClip, record.Command.Seconds)) return null;
+            return receipt.SavedClip;
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException or NotSupportedException) { return null; }
+    }
+
     public async Task<CommandReceipt> ExecuteAsync(CommandEnvelope envelope, long decisionVersion, CancellationToken cancellation = default)
     {
         ArgumentNullException.ThrowIfNull(envelope);
