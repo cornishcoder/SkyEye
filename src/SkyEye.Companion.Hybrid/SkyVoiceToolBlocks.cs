@@ -252,6 +252,22 @@ public sealed partial class SkySaveShotSampleBlock : FunctionInvocationContentBl
     [ToolResult] public string? ResultText { get; set; }
 }
 
+[ToolBlock("add_sample_details")]
+public sealed partial class SkyAddSampleDetailsBlock : FunctionInvocationContentBlock
+{
+    [ToolParameter(Name = "operation_id")] public string? OperationId { get; set; }
+    [ToolParameter(Name = "reported_words")] public string? ReportedWords { get; set; }
+    [ToolResult] public string? ResultText { get; set; }
+}
+
+[ToolBlock("attach_report_to_saved_clip")]
+public sealed partial class SkyAttachReportToSavedClipBlock : FunctionInvocationContentBlock
+{
+    [ToolParameter(Name = "clip_id")] public string? ClipId { get; set; }
+    [ToolParameter(Name = "reported_words")] public string? ReportedWords { get; set; }
+    [ToolResult] public string? ResultText { get; set; }
+}
+
 [ToolBlock("get_saved_clips")]
 public sealed partial class SkySavedClipsBlock : FunctionInvocationContentBlock
 {

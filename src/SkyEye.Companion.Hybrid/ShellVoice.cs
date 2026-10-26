@@ -136,8 +136,11 @@ public sealed partial class ShellSession
         if (session is not null && sky == session)
         {
             if (update.EventKind is "user_interrupted" or "session_interrupted") ClearSampleTranscript();
-            if (update.IsUserTranscript && update.TranscriptFinal && update.Transcript is { Length: > 0 } text)
-                RememberSampleTranscript(text);
+            if (update.IsUserTranscript && update.Transcript is { Length: > 0 } text)
+            {
+                if (update.TranscriptFinal) RememberSampleTranscript(text);
+                else AppendSampleTranscript(text);
+            }
         }
         void Apply()
         {
@@ -161,7 +164,7 @@ public sealed partial class ShellSession
                 skyToolStatus = update.ToolOutcome switch
                 {
                     "requested" or "started" => $"Checking: {VoiceToolLabel(toolName)}…",
-                    "completed" when toolName == "save_shot_sample" => "Sample request processed; check sample status for the save result.",
+                    "completed" when toolName is "save_shot_sample" or "save_recent_clip" => "Clip request processed; check the result before assuming it was saved.",
                     "completed" => $"Done: {VoiceToolLabel(toolName)}.",
                     "cancelled" => $"Cancelled: {VoiceToolLabel(toolName)}.",
                     _ => $"Unavailable: {VoiceToolLabel(toolName)}."
@@ -234,7 +237,7 @@ public sealed partial class ShellSession
         "record_declared_shot" => "declared shot outcome",
         "save_recent_clip" => "camera clip save",
         "set_sample_collection" or "get_sample_collection" => "sample collection",
-        "save_shot_sample" => "shot sample",
+        "save_shot_sample" or "add_sample_details" or "attach_report_to_saved_clip" => "shot sample",
         "get_saved_clips" => "saved clips",
         "play_saved_clip" => "saved clip playback",
         "replay_recent" => "recent TV replay",
@@ -282,6 +285,8 @@ public sealed partial class ShellSession
         "set_sample_collection" => SetSampleCollectionFromVoiceAsync(arguments, cancellation),
         "get_sample_collection" => Task.FromResult(ReadSampleCollection()),
         "save_shot_sample" => CollectShotSampleFromVoiceAsync(callId, arguments, cancellation),
+        "add_sample_details" => AddSampleDetailsFromVoiceAsync(arguments, cancellation),
+        "attach_report_to_saved_clip" => AttachReportToSavedClipFromVoiceAsync(arguments, cancellation),
         "get_saved_clips" => GetSavedClipsFromVoiceAsync(cancellation),
         "play_saved_clip" => PlaySavedClipFromVoiceAsync(arguments, cancellation),
         "replay_recent" => ReplayRecentFromVoiceAsync(arguments, cancellation),
@@ -482,25 +487,47 @@ public sealed partial class ShellSession
 
     async Task<object> SaveRecentClipFromVoiceAsync(string callId, JsonElement args, CancellationToken cancellation)
     {
-        int seconds = IntArg(args, "seconds");
-        if (!ReplaySelection.Durations.Contains(seconds))
-            return new { saved = false, error = "Choose 30, 60, 120, 300 or 600 seconds." };
+        int requested = IntArg(args, "seconds");
+        if (!VoiceClipSavePolicy.TryResolve(requested, out int seconds))
+            return new { saved = false, error = "Choose 5, 30, 60, 120, 300 or 600 seconds." };
+        bool collectionEnabled = SampleCollectionEnabled;
+        if (requested == 5 && collectionEnabled)
+        {
+            // A new spoken turn is not itself a cancellation of an explicit save.
+            var sample = await TryCollectShortVoiceSaveAsync(callId, CancellationToken.None);
+            if (sample is not null) return sample;
+        }
+        // The installed camera supports 30 seconds as its shortest save.
+        // A 5-second voice request deliberately saves that supported window.
         var state = await MainThread.InvokeOnMainThreadAsync(() => app.State);
         var camera = state.Camera;
         if (!active || foreground is null || !camera.CanControl || camera.Scope is not { } scope || string.IsNullOrWhiteSpace(client.HostToken))
             return new { saved = false, error = "Connect and become camera host before saving a clip." };
+        var saveToken = requested == 5 ? foreground.Token : cancellation;
+        if (requested == 5) await MainThread.InvokeOnMainThreadAsync(() => { sampleStatus = "Saving requested clip…"; Changed?.Invoke(); });
         var command = new SaveClip(seconds, new ClipSaveScope(scope.CameraIdentity, scope.SessionId, scope.HostGeneration, scope.CaptureRevision));
-        var receipt = await app.DispatchAsync(new(VoiceOperationId(callId, "save-clip-" + seconds), CommandOrigin.Sky, state.Version, command), cancellation);
+        var receipt = await app.DispatchAsync(new(VoiceOperationId(callId, "save-clip-" + seconds), CommandOrigin.Sky, state.Version, command), saveToken);
+        if (requested == 5) await MainThread.InvokeOnMainThreadAsync(() =>
+        {
+            sampleStatus = receipt.Succeeded && receipt.SavedClip is { } clip
+                ? $"Clip saved · {clip.Duration:0.0}s; sample metadata not attached."
+                : receipt.Message;
+            Changed?.Invoke();
+        });
         if (receipt.Succeeded || receipt.Outcome == CommandOutcome.Uncertain)
-            await LoadClipsAsync(cancellation);
+            await LoadClipsAsync(saveToken);
         return new
         {
             saved = receipt.Succeeded,
             outcome = receipt.Outcome.ToString(),
             receipt.Duplicate,
+            requestedSeconds = requested,
+            cameraRequestedSeconds = seconds,
             durationSeconds = receipt.SavedClip?.Duration,
             name = receipt.SavedClip?.Name,
             message = receipt.Message,
+            limitation = requested == 5 ? "The camera's shortest save request is 30 seconds; the clip is not trimmed to five. "
+                + (collectionEnabled ? "A matching player transcript was unavailable, so sample metadata was not attached." : "Sample collection is off, so no sample metadata was attached.") : null,
             clipsRefreshed = receipt.Succeeded || receipt.Outcome == CommandOutcome.Uncertain
         };
     }
@@ -511,7 +538,7 @@ public sealed partial class ShellSession
         return error is not null
             ? new { available = false, clips = Array.Empty<object>(), limitation = error }
             : new { available = true, clips = choices.Take(20).Select((clip, index) => new
-                { number = index + 1, clip.Name, durationSeconds = clip.Duration, availableOnPhone = clip.Available }).ToArray(), limitation = choices.Length == 0 ? "No saved clips were returned by the camera." : null };
+                { number = index + 1, clip.Id, clip.Name, durationSeconds = clip.Duration, availableOnPhone = clip.Available }).ToArray(), limitation = choices.Length == 0 ? "No saved clips were returned by the camera." : null };
     }
 
     async Task<object> PlaySavedClipFromVoiceAsync(JsonElement args, CancellationToken cancellation)

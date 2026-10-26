@@ -7,8 +7,10 @@ namespace SkyEye.Companion.Hybrid;
 
 public sealed partial class ShellSession
 {
+    sealed class ShortSaveNeedsFallback { public static readonly ShortSaveNeedsFallback Instance = new(); }
     ShotSampleStore shotSampleStore = null!;
     ShotSampleCollector shotSamples = null!;
+    ClipSaveExecutor sampleSaveOperations = null!;
     readonly ShotSampleTranscriptGate sampleTranscriptGate = new();
     string sampleStatus = "";
     ShotSampleRecord[] savedShotSamples = [];
@@ -22,6 +24,7 @@ public sealed partial class ShellSession
 
     void InitializeShotSamples(ClipSaveExecutor saves)
     {
+        sampleSaveOperations = saves;
         shotSampleStore = new(Path.Combine(FileSystem.AppDataDirectory, "shot-samples"));
         shotSamples = new(shotSampleStore);
         try
@@ -46,6 +49,7 @@ public sealed partial class ShellSession
     }
 
     void RememberSampleTranscript(string transcript) => sampleTranscriptGate.Remember(transcript);
+    void AppendSampleTranscript(string transcript) => sampleTranscriptGate.Append(transcript);
 
     void ClearSampleTranscript() => sampleTranscriptGate.Clear();
 
@@ -55,7 +59,7 @@ public sealed partial class ShellSession
         desiredSampleSeconds = 5, cameraSaveSeconds = 30, settlingSeconds = 2,
         latest = latestShotSample is not { } last ? null : new { operationId = last.OperationId,
             status = last.Status == "pending" && !SampleCollectionBusy ? "unknown" : last.Status,
-            clipId = last.Clip?.Id, durationSeconds = last.Clip?.Duration },
+            clipId = last.Clip?.Id, durationSeconds = last.Clip?.Duration, transcriptStatus = last.Report.TranscriptStatus },
         limitation = "The camera currently saves at least 30 seconds. Actual clip duration and source origin are retained; the exact five-second shot window is not measured."
     };
 
@@ -72,23 +76,34 @@ public sealed partial class ShellSession
     {
         string? quote = StringArg(args, "reported_words");
         if (string.IsNullOrWhiteSpace(quote) || quote.Length > 500) return new { error = "Quote a few exact words from the player's shot report." };
-        var fields = new List<ShotSampleField>(); var notes = new List<string>();
+        if (!TryReadSampleExcerpts(args, out var fields, out var notes)) return new { error = "The sample fields or notes were invalid." };
+        return await CollectShotSampleCoreAsync(callId, quote, fields, notes, cancellation);
+    }
+
+    static bool TryReadSampleExcerpts(JsonElement args, out List<ShotSampleField> fields, out List<string> notes)
+    {
+        fields = []; notes = [];
         if (args.TryGetProperty("fields", out var rawFields))
         {
-            if (rawFields.ValueKind != JsonValueKind.Array || rawFields.GetArrayLength() > 20) return new { error = "The sample fields were invalid." };
+            if (rawFields.ValueKind != JsonValueKind.Array || rawFields.GetArrayLength() > 20) return false;
             foreach (var field in rawFields.EnumerateArray())
             {
-                if (field.ValueKind != JsonValueKind.Object) return new { error = "The sample fields were invalid." };
+                if (field.ValueKind != JsonValueKind.Object) return false;
                 fields.Add(new(StringArg(field, "kind") ?? "", StringArg(field, "text") ?? ""));
             }
         }
         if (args.TryGetProperty("notes", out var rawNotes))
         {
-            if (rawNotes.ValueKind != JsonValueKind.Array || rawNotes.GetArrayLength() > 10) return new { error = "The sample notes were invalid." };
+            if (rawNotes.ValueKind != JsonValueKind.Array || rawNotes.GetArrayLength() > 10) return false;
             foreach (var note in rawNotes.EnumerateArray())
-            { if (note.ValueKind != JsonValueKind.String) return new { error = "The sample notes were invalid." }; notes.Add(note.GetString() ?? ""); }
+            { if (note.ValueKind != JsonValueKind.String) return false; notes.Add(note.GetString() ?? ""); }
         }
+        return true;
+    }
 
+    async Task<object> CollectShotSampleCoreAsync(string callId, string quote, List<ShotSampleField> fields,
+        List<string> notes, CancellationToken cancellation, long? requiredEpoch = null)
+    {
         // Input transcription may arrive after the model has begun its tool call.
         for (int attempt = 0; attempt < 15; attempt++)
         {
@@ -104,8 +119,9 @@ public sealed partial class ShellSession
             if (!active || foreground is null || !camera.CanControl || camera.Capture != CaptureState.Active || camera.Scope is not { } scope || string.IsNullOrWhiteSpace(client.HostToken))
                 return new { enabled = true, saved = false, error = "An active recording and camera host are required. Sample collection does not start recording." };
 
-            if (!sampleTranscriptGate.TryClaim(quote, fields, notes, out var report, out long tick, out var reportError))
-                return new { enabled = true, saved = false, error = reportError };
+            if (!sampleTranscriptGate.TryClaim(quote, fields, notes, out var report, out long tick, out var reportError, requiredEpoch))
+                return requiredEpoch is { } expected && sampleTranscriptGate.Epoch != expected
+                    ? ShortSaveNeedsFallback.Instance : (object)new { enabled = true, saved = false, error = reportError };
             var observation = state.Observation is { } obs && obs.Source == scope ? obs : null;
             var context = new ShotSampleContext(table.State.Source == scope && table.State.Calibration is not null ? table.State.CalibrationId : null,
                 observation?.AnalysisGeneration, observation?.Timeline, observation?.SourceTimeUs, observation?.CapturedAt,
@@ -120,10 +136,70 @@ public sealed partial class ShellSession
             if (task.IsCompletedSuccessfully)
             {
                 var immediate = task.Result;
-                return new { enabled = true, pending = false, saved = immediate.Status == "saved", status = immediate.Status, message = SampleMessage(immediate) };
+                return new { enabled = true, pending = false, saved = immediate.Status == "saved", status = immediate.Status,
+                    transcriptStatus = immediate.Report.TranscriptStatus, message = SampleMessage(immediate) };
             }
-            return new { enabled = true, pending = true, saved = false, operationId = record.OperationId,
+            return new { enabled = true, pending = true, saved = false, operationId = record.OperationId, transcriptStatus = report!.TranscriptStatus,
                 message = "Saving the sample; completion is not yet confirmed. The camera's shortest saved clip is 30 seconds." };
+        });
+    }
+
+    // A five-second voice save is an explicit request. When collection is on,
+    // attach its completed transcript to the same durable sample operation.
+    // A missing transcript must never prevent the explicitly requested clip.
+    async Task<object?> TryCollectShortVoiceSaveAsync(string callId, CancellationToken cancellation)
+    {
+        if (!SampleCollectionEnabled) return null;
+        long admittedEpoch = sampleTranscriptGate.Epoch;
+        for (int attempt = 0; attempt < 15; attempt++)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            // A later utterance must not be attached to this save request.
+            if (sampleTranscriptGate.Epoch != admittedEpoch) return null;
+            if (sampleTranscriptGate.RecentAlreadyClaimed())
+                return new { saved = false, pending = SampleCollectionBusy, alreadySubmitted = true,
+                    message = "This spoken request has already been submitted. Check sample status for its result." };
+            var words = sampleTranscriptGate.RecentWords();
+            if (sampleTranscriptGate.Epoch != admittedEpoch) return null;
+            if (!string.IsNullOrWhiteSpace(words) && sampleTranscriptGate.TranscriptReady)
+            {
+                var quote = words.Length > 200 ? words[..200] : words;
+                var result = await CollectShotSampleCoreAsync(callId, quote, [], [], cancellation, admittedEpoch);
+                return result is ShortSaveNeedsFallback ? null : result;
+            }
+            await Task.Delay(100, cancellation);
+        }
+        return null;
+    }
+
+    async Task<object> AddSampleDetailsFromVoiceAsync(JsonElement args, CancellationToken cancellation)
+    {
+        string? quote = StringArg(args, "reported_words");
+        if (!Guid.TryParse(StringArg(args, "operation_id"), out var id) || string.IsNullOrWhiteSpace(quote) || quote.Length > 500
+            || !TryReadSampleExcerpts(args, out var fields, out var notes))
+            return new { error = "Use the latest sample operation ID and exact words from the player's added report." };
+        for (int attempt = 0; attempt < 15; attempt++)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            if (sampleTranscriptGate.Contains(quote)) break;
+            await Task.Delay(100, cancellation);
+        }
+        return await MainThread.InvokeOnMainThreadAsync(() =>
+        {
+            if (latestShotSample?.OperationId != id) return (object)new { error = "That is not the latest sample. Read sample status before adding details." };
+            if (!sampleTranscriptGate.TryClaim(quote, fields, notes, out var report, out _, out var error))
+                return new { error };
+            try
+            {
+                var updated = shotSampleStore.AppendReport(id, report!);
+                latestShotSample = updated;
+                if (updated.Status == "saved") savedShotSamples = shotSampleStore.All().Where(sample => sample.Status == "saved").ToArray();
+                sampleStatus = updated.Status == "saved" ? "Player details added to saved sample." : "Player details added; clip is still saving.";
+                Changed?.Invoke();
+                return new { added = true, operationId = id, clipStatus = updated.Status, transcriptStatus = report!.TranscriptStatus, message = sampleStatus };
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
+            { return new { error = "Player details could not be attached to that sample." }; }
         });
     }
 
@@ -147,6 +223,58 @@ public sealed partial class ShellSession
     }
 
     public ShotSampleRecord? SampleForClip(string clipId) => savedShotSamples.FirstOrDefault(sample => sample.Clip?.Id == clipId);
+
+    public string AttachTypedPlayerReport(string clipId, string words)
+    {
+        var report = new ShotSampleReport(words ?? "", DateTimeOffset.UtcNow, [], [], "typed");
+        return AttachPlayerReportToClip(clipId, report).Message;
+    }
+
+    (bool Added, string Message, Guid? OperationId) AttachPlayerReportToClip(string clipId, ShotSampleReport report)
+    {
+        if (!ShotSampleStore.Valid(report)) return (false, "Enter the player's words, up to 2,000 characters.", null);
+        var admitted = catalog;
+        var clip = admitted?.ConnectionId == app.State.Camera.ConnectionId ? admitted.Clips.FirstOrDefault(item => item.Id == clipId) : null;
+        if (clip is null) return (false, "Refresh the camera clips and select the intended clip.", null);
+        try
+        {
+            var acknowledged = sampleSaveOperations.FindAcknowledgedByClip(clip.Id, clip.Sha256);
+            if (acknowledged is null) return (false, "No matching saved-clip receipt was found on this phone.", null);
+            var record = shotSampleStore.AttachToAcknowledgedClip(acknowledged, report);
+            latestShotSample = record;
+            savedShotSamples = shotSampleStore.All().Where(item => item.Status == "saved").ToArray();
+            sampleStatus = "Player report attached to the saved clip.";
+            ClipStatus = sampleStatus;
+            Changed?.Invoke();
+            return (true, sampleStatus, record.OperationId);
+        }
+        catch (Exception e) when (e is IOException or UnauthorizedAccessException or ArgumentException or InvalidOperationException)
+        { return (false, "The player report could not be attached to this clip.", null); }
+    }
+
+    async Task<object> AttachReportToSavedClipFromVoiceAsync(JsonElement args, CancellationToken cancellation)
+    {
+        string? clipId = StringArg(args, "clip_id"); string? quote = StringArg(args, "reported_words");
+        if (!Guid.TryParseExact(clipId, "N", out _) || string.IsNullOrWhiteSpace(quote) || quote.Length > 500
+            || !TryReadSampleExcerpts(args, out var fields, out var notes))
+            return new { error = "Use a current saved clip ID and exact words from the player's report." };
+        var (choices, refreshError) = await RefreshVoiceClipsAsync(cancellation);
+        if (refreshError is not null || !choices.Any(choice => choice.Id == clipId))
+            return new { error = refreshError ?? "That saved clip is no longer in the current camera list." };
+        for (int attempt = 0; attempt < 15; attempt++)
+        {
+            cancellation.ThrowIfCancellationRequested();
+            if (sampleTranscriptGate.Contains(quote)) break;
+            await Task.Delay(100, cancellation);
+        }
+        return await MainThread.InvokeOnMainThreadAsync(() =>
+        {
+            if (!sampleTranscriptGate.TryClaim(quote, fields, notes, out var report, out _, out var error)) return (object)new { error };
+            var result = AttachPlayerReportToClip(clipId!, report!);
+            return result.Added ? new { attached = true, clipId, operationId = result.OperationId, transcriptStatus = report!.TranscriptStatus, message = result.Message }
+                : (object)new { error = result.Message };
+        });
+    }
 
     public void ShareSampleMetadata(string clipId)
     {

@@ -12,11 +12,28 @@
             {
                 <details><summary>Player-reported sample</summary>
                     <p>@sample.Report.OriginalWords</p>
+                    @if (sample.Report.TranscriptStatus == "partial") { <p class="hint">Speech transcript may be incomplete.</p> }
                     @foreach (var field in sample.Report.Fields) { <p class="hint">@field.Kind: @field.Text</p> }
                     @foreach (var note in sample.Report.Notes) { <p class="hint">Note: @note</p> }
+                    @foreach (var added in sample.AdditionalReports ?? [])
+                    {
+                        <p>@added.OriginalWords</p>
+                        @if (added.TranscriptStatus == "partial") { <p class="hint">Speech transcript may be incomplete.</p> }
+                        @foreach (var field in added.Fields) { <p class="hint">@field.Kind: @field.Text</p> }
+                        @foreach (var note in added.Notes) { <p class="hint">Note: @note</p> }
+                    }
                     <p class="hint">The five-second target is not trimmed or source-timed. The camera clip is @sample.Clip!.Duration.ToString("0.0") seconds.</p>
                     <button class="secondary" @onclick="() => Session.ShareSampleMetadata(clip.Id)" aria-label="@($"Share sample metadata for {clip.Name}")">Share sample metadata</button>
                 </details>
+            }
+            <button class="quiet" @onclick="() => EditReport(clip.Id)" aria-label="@($"Add player report to {clip.Name}")">Add player report</button>
+            @if (reportClipId == clip.Id)
+            {
+                <label for="player-report">Player's words</label>
+                <textarea id="player-report" maxlength="2000" @bind="reportDraft" aria-label="Player's words for this clip"></textarea>
+                <button class="secondary" @onclick="() => SaveReport(clip.Id)">Save player report</button>
+                <button class="quiet" @onclick="CancelReport">Cancel report</button>
+                @if (reportStatus.Length > 0) { <p class="hint" role="status">@reportStatus</p> }
             }
             <button class="secondary" disabled="@(Busy || !Session.TvConnected || !Session.CanLoadClips)" @onclick="() => WatchTv.InvokeAsync(clip)" aria-label="@($"Watch {clip.Name} on TV")">Watch on TV</button>
             @if (clip.Available)
@@ -50,4 +67,13 @@
     [Parameter] public EventCallback<string> Share { get; set; }
     [Parameter] public EventCallback<ShellClipChoice> WatchTv { get; set; }
     [Parameter] public EventCallback<string> Play { get; set; }
+    string? reportClipId;
+    string reportDraft = "", reportStatus = "";
+    void EditReport(string clipId) { reportClipId = clipId; reportDraft = ""; reportStatus = ""; }
+    void CancelReport() { reportClipId = null; reportDraft = ""; reportStatus = ""; }
+    void SaveReport(string clipId)
+    {
+        reportStatus = Session.AttachTypedPlayerReport(clipId, reportDraft);
+        if (reportStatus == "Player report attached to the saved clip.") { reportClipId = null; reportDraft = ""; }
+    }
 }

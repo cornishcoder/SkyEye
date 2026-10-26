@@ -11,6 +11,7 @@ public interface IClipSaveEffect
 // Only explicit refusals known to precede the save use this exception. A transport
 // failure or malformed acknowledgement cannot establish that no clip was created.
 public sealed class ClipSaveRefusedException(string safeMessage) : Exception(safeMessage);
+public sealed record AcknowledgedClipSave(Guid OperationId, ClipSaveScope Scope, int RequestedSeconds, Clip Clip);
 
 /// <summary>Durable, fail-closed replay protection for companion-originated saves.
 /// An interrupted pending operation remains uncertain and is never sent again.
@@ -39,6 +40,11 @@ public sealed class ClipSaveExecutor
     // before the save but whose final update was interrupted.
     public Clip? FindAcknowledgedClip(Guid operationId)
     {
+        return FindAcknowledgedSave(operationId)?.Clip;
+    }
+
+    AcknowledgedClipSave? FindAcknowledgedSave(Guid operationId)
+    {
         if (operationId == Guid.Empty) return null;
         try
         {
@@ -49,9 +55,26 @@ public sealed class ClipSaveExecutor
                 || record.Receipt is not { Outcome: CommandOutcome.Applied } receipt
                 || receipt.OperationId != operationId || receipt.DecisionVersion != record.DecisionVersion
                 || !Valid(record.Command) || !ValidClip(receipt.SavedClip, record.Command.Seconds)) return null;
-            return receipt.SavedClip;
+            return new(operationId, record.Command.Scope, record.Command.Seconds, receipt.SavedClip!);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException or NotSupportedException) { return null; }
+    }
+
+    // Only a unique durable receipt with the same camera clip ID and checksum
+    // can be used to attach a later player report to an existing clip.
+    public AcknowledgedClipSave? FindAcknowledgedByClip(string clipId, string sha256)
+    {
+        if (!Guid.TryParseExact(clipId, "N", out _) || sha256 is not { Length: 64 } || !sha256.All(Uri.IsHexDigit)) return null;
+        AcknowledgedClipSave? found = null;
+        foreach (var path in Directory.EnumerateFiles(directory, "*.json"))
+        {
+            if (!Guid.TryParseExact(Path.GetFileNameWithoutExtension(path), "N", out var id)) continue;
+            var candidate = FindAcknowledgedSave(id);
+            if (candidate?.Clip.Id != clipId || !string.Equals(candidate.Clip.Sha256, sha256, StringComparison.OrdinalIgnoreCase)) continue;
+            if (found is not null) return null;
+            found = candidate;
+        }
+        return found;
     }
 
     public async Task<CommandReceipt> ExecuteAsync(CommandEnvelope envelope, long decisionVersion, CancellationToken cancellation = default)
