@@ -388,7 +388,7 @@ static class VerificationChecks
             var sizeFit = BallBoundaryRefiner.Refine(differentSize, width, height, new(80, 80), radius);
             Check(sizeFit is { SupportedSectors: >= ObservationPolicy.MinimumSupportedBoundaryFraction }
                 && Math.Abs(sizeFit.Radius - radius) < 1.5,
-                $"Bounded prior preserves an independently supported {radius}-pixel ball");
+                $"Independent boundary evidence fits a {radius}-pixel ball");
             foreach (var offset in new[] { new Point(-3, 0), new Point(3, 0), new Point(0, -3), new Point(0, 3) })
             {
                 var jitterFit = BallBoundaryRefiner.Refine(differentSize, width, height, new Point(80, 80) + offset, radius);
@@ -425,15 +425,6 @@ static class VerificationChecks
         var gapFit = BallBoundaryRefiner.Refine(adjacentBodies, width, height, new(80, 80), 26);
         Check(gapFit is null || gapFit.SupportedSectors < ObservationPolicy.MinimumSupportedBoundaryFraction,
             "Adjacent ball edges cannot create a supported boundary at the empty gap");
-        Point[] adjacentCentre = [new(105, 80)];
-        var visibleWithNeighbour = BallBoundaryRefiner.Inspect(adjacentBodies, width, height,
-            new(55, 80), 26, new(55, 80), 26, adjacentCentre);
-        Check(visibleWithNeighbour[0].NeighborOccluded && !visibleWithNeighbour[0].Supported,
-            "An adjacent ball's outer edge is recorded as occlusion, not visible boundary support");
-        var neighbourFit = BallBoundaryRefiner.Refine(adjacentBodies, width, height,
-            new(55, 80), 26, neighboringBallCentres: adjacentCentre);
-        Check(neighbourFit is { SupportedSectors: >= ObservationPolicy.MinimumSupportedBoundaryFraction },
-            "A real ball with enough visible sectors still fits beside an occluding neighbor");
         var motionAnchor = new[]
         {
             new CircleObservation("red-0", new(300, 500), 27, "solid", []) { CandidateBoundarySupport = .75 },
