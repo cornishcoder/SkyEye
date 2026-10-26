@@ -92,7 +92,7 @@ public sealed partial class ShellSession
             if (disposed || cancellation.IsCancellationRequested) return;
             RefreshLocalClips();
             remoteClips = remoteClips.Select(c => c.Id == clip.Id && c.ConnectionId == admitted.ConnectionId ? c with { Available = true } : c).ToArray();
-            ClipStatus = "Corrected clip available locally, with room audio. Uncertain corner intervals keep the original view.";
+            ClipStatus = "Corrected clip available locally, with room audio. Short stable gaps hold the correction; long geometry gaps keep the original view.";
         }
         catch (OperationCanceledException) { if (!disposed) ClipStatus = "Download cancelled. You can retry this clip."; }
         catch (Exception) { if (!disposed) { ClipStatus = "Clip unavailable. You can retry the download."; ShowError("The clip could not be prepared. Check the camera and retry."); } }
@@ -119,7 +119,7 @@ public sealed partial class ShellSession
         using var cancellation=CancellationTokenSource.CreateLinkedTokenSource(foreground.Token,clipLifetime.Token);
         transferCancellation=cancellation;var token=cancellation.Token;preparingCorrected=true;ClipStatus="Preparing corrected share file…";Publish();
         CorrectedClip local;
-        try{local=await correctedClips.LocalAsync(id,token);ClipStatus="Corrected share file ready. Uncertain corner intervals keep the original view.";}catch(OperationCanceledException){if(!disposed)ClipStatus="Preparation cancelled. You can retry this clip.";return;}catch(Exception){ShowError("Connect the original camera to prepare a corrected share file.");return;}finally{if(transferCancellation==cancellation)transferCancellation=null;preparingCorrected=false;if(!disposed)Publish();}
+        try{local=await correctedClips.LocalAsync(id,token);ClipStatus="Corrected share file ready. Short stable gaps hold the correction; long geometry gaps keep the original view.";}catch(OperationCanceledException){if(!disposed)ClipStatus="Preparation cancelled. You can retry this clip.";return;}catch(Exception){ShowError("Connect the original camera to prepare a corrected share file.");return;}finally{if(transferCancellation==cancellation)transferCancellation=null;preparingCorrected=false;if(!disposed)Publish();}
         if(!active||disposed||token.IsCancellationRequested)return;
         var activity = Platform.CurrentActivity ?? throw new InvalidOperationException("Android activity required.");
         var uri = AndroidX.Core.Content.FileProvider.GetUriForFile(activity, activity.PackageName + ".files", new Java.IO.File(local.Portrait));

@@ -23,8 +23,12 @@ public sealed class AndroidCorrectedClipRenderer(Context context):ICorrectedClip
         var store=new AnnotationJournalStore(Path.Combine(context.FilesDir!.AbsolutePath,"recorded-annotations"));
         return store.Preserved(clip)??LocalJournal(clip,original)??store.Window(clip);
     }
-    CorrectedRenderInfo Info(RecordedGeometryJournal journal,ClipAnnotationJournal annotations)=>new("perspective-v1:extract-v2:1080p:audio-original:"+UK.CO.Skyeye.Companion.Nativebridge.WatermarkRenderer.Profile(context)+":annotations-v1:"+RecordedAnnotationPlan.Fingerprint(annotations),
-        Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(journal,JsonDefaults.Options))),journal.Spans.Where(s=>s.Layout is not null).Sum(s=>(s.EndUs-s.StartUs)/1_000_000d),journal.Source.DurationUs/1_000_000d);
+    CorrectedRenderInfo Info(RecordedGeometryJournal journal,ClipAnnotationJournal annotations)
+    {
+        var plan=RecordedRenderPlan.Create(journal,journal.Source);
+        return new("perspective-v2-stable-gap-hold:extract-v2:1080p:audio-original:"+UK.CO.Skyeye.Companion.Nativebridge.WatermarkRenderer.Profile(context)+":annotations-v1:"+RecordedAnnotationPlan.Fingerprint(annotations),
+            Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(journal,JsonDefaults.Options))),plan.Spans.Where(s=>s.Corrected).Sum(s=>(s.EndUs-s.StartUs)/1_000_000d),journal.Source.DurationUs/1_000_000d);
+    }
     public async Task<CorrectedRenderInfo> PrepareAsync(Clip clip,string original,CancellationToken cancellation)=>Info(await Journal(clip,original,cancellation),Latest(clip,original));
     public async Task<CorrectedRenderInfo> PrepareSnapshotAsync(Clip clip,string original,CancellationToken cancellation)=>Info(await Journal(clip,original,cancellation),LocalJournal(clip,original)??throw new IOException("Missing frozen annotation snapshot."));
     public async Task RenderAsync(Clip clip,string original,string portrait,string landscape,CorrectedRenderInfo expected,CancellationToken cancellation)

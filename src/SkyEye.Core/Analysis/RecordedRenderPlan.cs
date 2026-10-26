@@ -2,7 +2,7 @@ using System.Collections.Immutable;
 
 namespace SkyEye.Core.Analysis;
 
-public sealed record RecordedRenderSpan(long StartUs, long EndUs, bool Corrected, ImmutableArray<double> Matrix);
+public sealed record RecordedRenderSpan(long StartUs, long EndUs, bool Corrected, ImmutableArray<double> Matrix, bool Held = false);
 public sealed record RecordedRenderPlan(RecordedGeometrySource Source, int Width, int Height, bool Portrait,
     ImmutableArray<RecordedRenderSpan> Spans, int Version = 1)
 {
@@ -11,8 +11,32 @@ public sealed record RecordedRenderPlan(RecordedGeometrySource Source, int Width
         journal.Validate(); source.Validate();
         if (journal.Source != source || source.Rotation != 0 || width is < 16 or > 3840 || height is < 16 or > 3840 || width % 2 != 0 || height % 2 != 0)
             throw new ArgumentException("Unsupported or mismatched recorded render source.");
-        var spans=journal.Spans.Select(span => new RecordedRenderSpan(span.StartUs-source.StartUs,span.EndUs-source.StartUs,span.Layout is not null,
-            Matrix(source,width,height,portrait,span.Layout).ToImmutableArray())).ToImmutableArray();
+        var observedLayouts=journal.Spans.Where(s=>s.Layout is not null).Select(s=>s.Layout!).ToArray();
+        bool clipLayoutStable=observedLayouts.Length>0&&observedLayouts.Skip(1).All(layout=>RecordedGeometry.Same(observedLayouts[0],layout));
+        var spans=journal.Spans.Select((span,index) =>
+        {
+            var layout=span.Layout; bool held=false;
+            // Keep the geometry journal honest, but avoid a raw-perspective flash
+            // across a short detector dropout when both adjacent observations
+            // independently confirm the same mounted-camera layout.
+            if(layout is null && index>0 && index+1<journal.Spans.Length
+                && span.EndUs-span.StartUs<=RecordedGeometry.MaximumSampleGapUs+10_000)
+            {
+                var before=journal.Spans[index-1].Layout; var after=journal.Spans[index+1].Layout;
+                if(before is not null && after is not null && RecordedGeometry.Same(before,after)) { layout=before; held=true; }
+            }
+            else if(layout is null && index>0 && index==journal.Spans.Length-1
+                && span.EndUs-span.StartUs<=RecordedGeometry.MaximumSampleGapUs+10_000
+                && clipLayoutStable && journal.Spans[index-1].Layout is { } lastObserved)
+            {
+                // A short clip tail can miss the final geometry sample. The
+                // mounted-camera workflow is fixed; keep the last accepted view
+                // briefly without changing the journal's unknown tail.
+                layout=lastObserved; held=true;
+            }
+            return new RecordedRenderSpan(span.StartUs-source.StartUs,span.EndUs-source.StartUs,layout is not null,
+                Matrix(source,width,height,portrait,layout).ToImmutableArray(),held);
+        }).ToImmutableArray();
         var plan=new RecordedRenderPlan(source,width,height,portrait,spans);plan.Validate();return plan;
     }
     public void Validate()
