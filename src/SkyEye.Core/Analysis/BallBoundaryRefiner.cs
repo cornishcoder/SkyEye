@@ -21,7 +21,7 @@ public static class BallBoundaryRefiner
     /// fit. This is useful for explaining a rejected fit without retaining
     /// per-candidate evidence throughout the bounded search.</summary>
     public static BoundarySectorEvidence[] Inspect(byte[] bgr, int width, int height, Point proposal,
-        double expectedRadius, Point centre, double radius)
+        double expectedRadius, Point centre, double radius, string? expectedKind = null)
     {
         if (width <= 0 || height <= 0 || bgr.Length != checked(width * height * 3)
             || !double.IsFinite(expectedRadius) || expectedRadius < 5 || expectedRadius > 100
@@ -63,7 +63,7 @@ public static class BallBoundaryRefiner
                 fineEdge += Math.Abs(bgr[innerFine + k] - bgr[outerFine + k]);
             }
             edge /= 3; exterior /= 3; fineEdge /= 3;
-            bool exteriorRejected = exterior > 40;
+            bool exteriorRejected = RejectExterior(bgr, inside, outside, exterior, expectedKind);
             evidence[i] = new(i, innerPoint, outerPoint, fineInnerPoint, fineOuterPoint,
                 edge, exterior, fineEdge, exteriorRejected, !exteriorRejected && edge >= 16);
         }
@@ -105,7 +105,7 @@ public static class BallBoundaryRefiner
 
     public static BallBoundary? Refine(byte[] bgr, int width, int height, Point proposal, double expectedRadius,
         double minimumSupportedFraction = ObservationPolicy.MinimumSupportedBoundaryFraction,
-        bool collectSectorEvidence = false)
+        bool collectSectorEvidence = false, string? expectedKind = null)
     {
         if (width <= 0 || height <= 0 || bgr.Length != checked(width * height * 3)
             || !double.IsFinite(expectedRadius) || expectedRadius < 5 || expectedRadius > 100
@@ -164,7 +164,7 @@ public static class BallBoundaryRefiner
                 double measuredEdge = edge, measuredFineEdge = fineEdge;
                 // An interior number-patch edge leads to more ball paint. The
                 // exterior of a supported body must return to local cloth.
-                bool exteriorRejected = exterior > 40;
+                bool exteriorRejected = RejectExterior(bgr, inside, outside, exterior, expectedKind);
                 if (exteriorRejected) { edge = 0; fineEdge = 0; }
                 if (edge >= 16) supported++;
                 if (sectorEvidence is not null)
@@ -184,5 +184,45 @@ public static class BallBoundaryRefiner
             if (supported >= minimumSupportedFraction * directions.Length
                 && (supportedBest is null || score > supportedBest.Score)) supportedBest = candidate;
         }
+    }
+
+    static bool RejectExterior(byte[] bgr, int inside, int outside, double exterior, string? expectedKind)
+    {
+        // A recognized red/yellow body can end at a dark cast shadow before
+        // the sample reaches cloth. Require the radial pair to cross that
+        // body's production colour mask; a far-cloth mismatch alone is not an
+        // exterior-body rejection. This also rejects number-patch edges and
+        // same-colour contacts, where the candidate's inner/outer pixels still
+        // belong to the same painted body class.
+        if (expectedKind is "red" or "yellow")
+            return !MatchesProductionColourMask(bgr, inside, expectedKind)
+                || MatchesProductionColourMask(bgr, outside, expectedKind);
+        return exterior > 40;
+    }
+
+    static bool MatchesProductionColourMask(byte[] bgr, int offset, string kind)
+    {
+        double blue = bgr[offset], green = bgr[offset + 1], red = bgr[offset + 2];
+        double maximum = Math.Max(red, Math.Max(green, blue));
+        double minimum = Math.Min(red, Math.Min(green, blue));
+        double delta = maximum - minimum;
+        double hueDegrees = 0;
+        if (delta > 0)
+        {
+            if (maximum == red)
+            {
+                hueDegrees = 60 * ((green - blue) / delta);
+                if (hueDegrees < 0) hueDegrees += 360;
+            }
+            else if (maximum == green) hueDegrees = 60 * ((blue - red) / delta + 2);
+            else hueDegrees = 60 * ((red - green) / delta + 4);
+        }
+        int hue = (int)Math.Round(hueDegrees / 2);
+        if (hue >= 180) hue -= 180;
+        int saturation = maximum <= 0 ? 0 : (int)Math.Round(delta * 255 / maximum);
+        if (saturation < 100 || maximum < 30) return false;
+        return kind == "red"
+            ? hue is <= 10 or >= 170
+            : hue is >= 10 and <= 40;
     }
 }

@@ -171,7 +171,7 @@ public sealed partial class VisionAnalyzer
             if (interiorRadius < minimumPeakRadius || interiorRadius > settings.MaximumRadius * scale)
             { Audit("rejected-peak-radius"); continue; }
             var fit = BallBoundaryRefiner.Refine(rawBgr, coordinates.Width, coordinates.Height,
-                new(x, y), PoolGeometry.Radius * coordinates.Width, .5);
+                new(x, y), PoolGeometry.Radius * coordinates.Width, .5, expectedKind: kind);
             if (fit is null || fit.SupportedSectors < .4)
             { Audit(fit is null ? "rejected-no-boundary-fit" : "rejected-insufficient-boundary-support", fit, fit?.SupportedSectors); continue; }
             var body = new Circle(fit.Centre.X, fit.Centre.Y, fit.Radius);

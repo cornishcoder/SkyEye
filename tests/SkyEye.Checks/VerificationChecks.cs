@@ -320,6 +320,31 @@ static class VerificationChecks
             && auditedFit.ProposalFit is { Centre.X: 84, Centre.Y: 77, Radius: 27 }
             && auditedFit.SectorEvidence.Select(s => s.Supported).Count(s => s) == (int)(auditedFit.SupportedSectors * 32),
             "Replay-only sector diagnostics preserve the fit and expose all 32 support decisions");
+        var shadowedRed = new byte[width * height * 3];
+        for (int y = 0; y < height; y++) for (int x = 0; x < width; x++)
+        {
+            double distance = Math.Sqrt((x - 80) * (x - 80) + (y - 80) * (y - 80));
+            byte blue = distance <= 22 ? (byte)10 : distance <= 27 ? (byte)35 : (byte)110;
+            byte green = distance <= 22 ? (byte)10 : distance <= 27 ? (byte)40 : (byte)110;
+            byte red = distance <= 22 ? (byte)180 : distance <= 27 ? (byte)50 : (byte)110;
+            int at = (y * width + x) * 3;
+            shadowedRed[at] = blue; shadowedRed[at + 1] = green; shadowedRed[at + 2] = red;
+        }
+        var shadowFit = BallBoundaryRefiner.Refine(shadowedRed, width, height, new(80, 80), 22,
+            expectedKind: "red");
+        Check(shadowFit is { SupportedSectors: >= ObservationPolicy.MinimumSupportedBoundaryFraction }
+            && Math.Abs(shadowFit.Radius - 22) < 1.5,
+            "Recognized red boundary stays on the paint edge when a dark shadow separates it from cloth");
+        var handCoveredRed = (byte[])shadowedRed.Clone();
+        for (int y = 45; y <= 80; y++) for (int x = 45; x < 115; x++)
+        {
+            int at = (y * width + x) * 3;
+            handCoveredRed[at] = 70; handCoveredRed[at + 1] = 120; handCoveredRed[at + 2] = 180;
+        }
+        var handFit = BallBoundaryRefiner.Refine(handCoveredRed, width, height, new(80, 80), 22,
+            expectedKind: "red");
+        Check(handFit is null || handFit.SupportedSectors < ObservationPolicy.MinimumSupportedBoundaryFraction,
+            "Recognized-colour paint-edge scoring still rejects a half-covered red body");
         var maskedNeighbour = new byte[width * height * 3];
         for (int y = 0; y < height; y++) for (int x = 0; x < width; x++)
         {
@@ -422,7 +447,8 @@ static class VerificationChecks
                 adjacentBodies[at + 2] = 110;
             }
         }
-        var gapFit = BallBoundaryRefiner.Refine(adjacentBodies, width, height, new(80, 80), 26);
+        var gapFit = BallBoundaryRefiner.Refine(adjacentBodies, width, height, new(80, 80), 26,
+            expectedKind: "red");
         Check(gapFit is null || gapFit.SupportedSectors < ObservationPolicy.MinimumSupportedBoundaryFraction,
             "Adjacent ball edges cannot create a supported boundary at the empty gap");
         var motionAnchor = new[]

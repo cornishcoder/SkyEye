@@ -144,7 +144,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             {
                 var fit = recoveredBoundaries.GetValueOrDefault(circles[i])
                     ?? BallBoundaryRefiner.Refine(raw, coordinates.Width, coordinates.Height, new(circles[i].X, circles[i].Y),
-                        PoolGeometry.Radius * coordinates.Width, collectSectorEvidence: boundaryDiagnostics);
+                        PoolGeometry.Radius * coordinates.Width, collectSectorEvidence: boundaryDiagnostics,
+                        expectedKind: initialLabels[i].Kind);
                 if (fit is null) { boundaryUncertain = true; continue; }
                 candidateBoundaries[circles[i]] = fit;
                 // Support is sampled at 32 fixed angles. The 18-sector minimum
