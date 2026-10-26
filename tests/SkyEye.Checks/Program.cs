@@ -6,6 +6,7 @@ using SkyEye.Core;
 
 if (args.SequenceEqual(["--game-tracking"]))
 {
+    await VerificationCaptureChecks.Run();
     GameJournalChecks.Run();
     await GameIntegrationChecks.Run();
     await SettledBaselineChecks.Run();
@@ -18,6 +19,7 @@ if (args.SequenceEqual(["--game-tracking"]))
     return;
 }
 
+await VerificationCaptureChecks.Run();
 GameJournalChecks.Run();
 await GameIntegrationChecks.Run();
 await SettledBaselineChecks.Run();

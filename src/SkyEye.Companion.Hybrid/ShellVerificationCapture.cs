@@ -10,47 +10,59 @@ public sealed partial class ShellSession
     const long MaxVerificationEvidenceBytes = 96L * 1024 * 1024;
     // Reserve 2 MiB per pixel file plus 512 KiB overhead for each of six observed frames.
     const long VerificationCaptureReservationBytes = 15L * 1024 * 1024;
-    Guid? verificationCaptureOperationId;
-    DateTimeOffset? verificationCaptureStartedAt, verificationCaptureCompletedAt;
-    string? verificationCaptureResult;
-    bool verificationCaptureRunning;
+    readonly VerificationCaptureRunStatus verificationCaptureStatus = new();
 
     public bool CanCaptureVerificationFrames => CanAnalyzeTable && HasTableCalibration && !EditingTable
-        && !CheckingTable && !verificationCaptureRunning && !table.HasPendingWork;
-    public bool VerificationCaptureRunning => verificationCaptureRunning;
-    public string VerificationCaptureLabel => verificationCaptureRunning ? "Capturing verifier frames" : "Capture verifier frames";
-    public bool VerificationCaptureFeedbackVisible => verificationCaptureOperationId is not null;
-    public DateTimeOffset? VerificationCaptureStatusAt => verificationCaptureCompletedAt ?? verificationCaptureStartedAt;
-    public string VerificationCaptureStatus => verificationCaptureRunning && verificationCaptureStartedAt is { } startedAt
-        ? $"Capturing verifier frames… {UtcTime(startedAt)} · run {ShortId(verificationCaptureOperationId!.Value)}"
-        : verificationCaptureOperationId is { } operationId && verificationCaptureCompletedAt is { } completedAt
-            ? $"{verificationCaptureResult ?? "Capture completed."} · {UtcTime(completedAt)} · run {ShortId(operationId)}"
-            : "";
+        && !CheckingTable && !verificationCaptureStatus.Running && !table.HasPendingWork;
+    public bool VerificationCaptureRunning => verificationCaptureStatus.Running;
+    public string VerificationCaptureLabel => VerificationCaptureRunning ? "Capturing verifier frames" : "Capture verifier frames";
+    public bool VerificationCaptureFeedbackVisible => verificationCaptureStatus.Visible;
+    public DateTimeOffset? VerificationCaptureStatusAt => verificationCaptureStatus.StatusAt;
+    public string VerificationCaptureStatus => verificationCaptureStatus.Format(UtcTime);
 
     public Task CaptureVerificationFramesAsync() => MainThread.InvokeOnMainThreadAsync(async () =>
     {
-        if (!CanCaptureVerificationFrames || foreground is null) return;
+        if (verificationCaptureStatus.Running) return;
+        var canStart = CanCaptureVerificationFrames && foreground is not null;
         var operationId = Guid.NewGuid();
         var startedAt = DateTimeOffset.UtcNow;
-        var root = VerificationEvidenceRoot;
-        var retained = Directory.Exists(root)
-            ? Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).Sum(path => new FileInfo(path).Length)
-            : 0;
-        if (retained + VerificationCaptureReservationBytes > MaxVerificationEvidenceBytes)
+        verificationCaptureStatus.Begin(operationId, startedAt);
+        Publish();
+        if (!canStart)
         {
-            verificationCaptureOperationId = operationId;
-            verificationCaptureStartedAt = verificationCaptureCompletedAt = startedAt;
-            var requiredMiB = VerificationCaptureReservationBytes / (1024 * 1024);
-            verificationCaptureResult = $"Capture not started · {Math.Max(0, (MaxVerificationEvidenceBytes - retained) / (1024 * 1024))} MiB free; {requiredMiB} MiB is required for six frames.";
+            var summary = $"Capture not started · {VerificationCaptureUnavailableReason()}";
+            verificationCaptureStatus.Complete(operationId, DateTimeOffset.UtcNow, summary, 0);
+            Message = VerificationCaptureStatus;
             Publish();
             return;
         }
-        verificationCaptureOperationId = operationId;
-        verificationCaptureStartedAt = startedAt;
-        verificationCaptureCompletedAt = null;
-        verificationCaptureResult = null;
-        verificationCaptureRunning = true;
-        var token = foreground.Token;
+
+        var root = VerificationEvidenceRoot;
+        long retained;
+        try
+        {
+            retained = Directory.Exists(root)
+                ? Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).Sum(path => new FileInfo(path).Length)
+                : 0;
+        }
+        catch (Exception)
+        {
+            verificationCaptureStatus.Complete(operationId, DateTimeOffset.UtcNow, "Capture not started · evidence storage could not be checked", 0);
+            Message = VerificationCaptureStatus;
+            Publish();
+            return;
+        }
+        if (retained + VerificationCaptureReservationBytes > MaxVerificationEvidenceBytes)
+        {
+            var requiredMiB = VerificationCaptureReservationBytes / (1024 * 1024);
+            var freeMiB = Math.Max(0, (MaxVerificationEvidenceBytes - retained) / (1024 * 1024));
+            verificationCaptureStatus.Complete(operationId, DateTimeOffset.UtcNow,
+                $"Capture not started · {freeMiB} MiB free; {requiredMiB} MiB is required for six frames", 0);
+            Message = VerificationCaptureStatus;
+            Publish();
+            return;
+        }
+        var token = foreground!.Token;
         var previousCapture = table.VerificationCapture;
         Message = "Capturing the bounded table check for review.";
         Publish();
@@ -58,38 +70,55 @@ public sealed partial class ShellSession
         {
             table.VerificationCapture = CaptureVerificationPixels;
             await VerifyTableWithDiagnosticsPausedAsync(token, operationId, CommandOrigin.Touch, includeChoices: false);
-            var verification = app.State.Observation?.Verification;
+            var observation = app.State.Observation;
+            var verification = observation?.Verification;
+            var saved = VerificationCaptureReceipts.CountValid(Path.Combine(root, operationId.ToString("N")), operationId);
             if (verification is null || verification.OperationId != operationId)
             {
-                verificationCaptureResult = "Capture incomplete · no matching frame receipts";
-                Message = "The table check returned no matching frame receipts.";
-                Publish();
+                verificationCaptureStatus.Complete(operationId, DateTimeOffset.UtcNow,
+                    "Capture incomplete · no matching table result", saved);
+                Message = VerificationCaptureStatus;
                 return;
             }
 
-            var folder = Path.Combine(root, operationId.ToString("N"));
-            var saved = Directory.Exists(folder) ? Directory.GetFiles(folder, "*.json").Length : 0;
-            verificationCaptureResult = $"Saved {saved} of {verification.Samples.Length} verifier frames. Table result: {app.State.Observation?.Reason}.";
-            Message = verificationCaptureResult;
+            verificationCaptureStatus.Complete(operationId, DateTimeOffset.UtcNow,
+                $"Table result: {observation!.Reason}.", saved);
+            Message = VerificationCaptureStatus;
             Publish();
         }
         catch (OperationCanceledException)
         {
-            verificationCaptureResult = "Capture cancelled";
+            var saved = VerificationCaptureReceipts.CountValid(Path.Combine(root, operationId.ToString("N")), operationId);
+            verificationCaptureStatus.Complete(operationId, DateTimeOffset.UtcNow, "Capture cancelled", saved);
+            Message = VerificationCaptureStatus;
         }
         catch (Exception)
         {
-            verificationCaptureResult = "Verifier evidence could not be saved";
+            var saved = VerificationCaptureReceipts.CountValid(Path.Combine(root, operationId.ToString("N")), operationId);
+            verificationCaptureStatus.Complete(operationId, DateTimeOffset.UtcNow, "Verifier evidence could not be saved", saved);
+            Message = VerificationCaptureStatus;
             ShowError("Verifier evidence could not be saved. The readiness result was not accepted.");
         }
         finally
         {
             table.VerificationCapture = previousCapture;
-            verificationCaptureRunning = false;
-            verificationCaptureCompletedAt = DateTimeOffset.UtcNow;
+            if (verificationCaptureStatus.Running)
+            {
+                var saved = VerificationCaptureReceipts.CountValid(Path.Combine(root, operationId.ToString("N")), operationId);
+                verificationCaptureStatus.Complete(operationId, DateTimeOffset.UtcNow, "Capture ended without a matching result", saved);
+                Message = VerificationCaptureStatus;
+            }
             Publish();
         }
     });
+
+    string VerificationCaptureUnavailableReason() => foreground is null ? "an active camera session is required"
+        : !CanAnalyzeTable ? "an active live source is required"
+        : !HasTableCalibration ? "table calibration is required"
+        : EditingTable ? "finish table calibration first"
+        : CheckingTable ? "another table check is running"
+        : table.HasPendingWork ? "wait for the current table action to finish"
+        : "capture prerequisites changed";
 
     string VerificationEvidenceRoot => Path.Combine(Android.App.Application.Context.GetExternalFilesDir(null)!.AbsolutePath, "o08-corpus");
 
@@ -134,5 +163,7 @@ public sealed partial class ShellSession
             labelStatus = "Unreviewed development evidence. User declared still table and 16 balls; centres and unsafe intervals need independent labels."
         };
         File.WriteAllText(Path.Combine(folder, name + ".json"), JsonSerializer.Serialize(receipt, options));
+        if (verificationCaptureStatus.RecordWrittenReceipt(sample.OperationId, decoded.FrameId))
+            MainThread.BeginInvokeOnMainThread(Publish);
     }
 }
