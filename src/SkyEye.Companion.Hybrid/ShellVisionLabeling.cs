@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text.Json;
 using SkyEye.Core.Analysis;
+using SkyEye.Observation;
 
 namespace SkyEye.Companion.Hybrid;
 
@@ -49,6 +50,9 @@ public sealed partial class ShellSession
     int visionDiagnosticSavedLabels;
     bool visionDiagnosticLabelSessionFinalized;
     string visionDiagnosticLabelStatus = "No labelled diagnostic frames saved.";
+    string visionAdvisoryStatus = "No second opinion requested.";
+    TableAdvisoryResult? visionAdvisoryResult;
+    bool visionAdvisoryPending;
 
     public VisionDiagnosticLabelFrame? VisionDiagnosticLabelFrame => table.VisionDiagnostics.LabelFrame;
     public string? VisionDiagnosticLabelImageUri => visionDiagnosticLabelImageUri;
@@ -65,6 +69,9 @@ public sealed partial class ShellSession
     public bool VisionDiagnosticLabelSessionFinalized => visionDiagnosticLabelSessionFinalized;
     public bool VisionDiagnosticLabelSavePending => visionDiagnosticLabelSavePending;
     public string VisionDiagnosticLabelStatus => visionDiagnosticLabelStatus;
+    public string VisionAdvisoryStatus => visionAdvisoryStatus;
+    public TableAdvisoryResult? VisionAdvisoryResult => visionAdvisoryResult;
+    public bool VisionAdvisoryPending => visionAdvisoryPending;
     public bool CanFinishVisionDiagnosticLabelSession => !VisionDiagnosticsActive && visionDiagnosticSavedLabels > 0
         && !visionDiagnosticLabelSessionFinalized && visionDiagnosticLabelSessionId != Guid.Empty;
 
@@ -111,6 +118,52 @@ public sealed partial class ShellSession
             visionDiagnosticAllBallsLabelledConfirmed = false;
             visionDiagnosticLabelNotes = "";
             visionDiagnosticLabelImageUri = frame is null ? null : "data:image/jpeg;base64," + Convert.ToBase64String(frame.Jpeg);
+            visionAdvisoryResult = null;
+            visionAdvisoryStatus = "No second opinion requested.";
+        }
+    }
+
+    public async Task AskVisionAdvisoryAsync()
+    {
+        var frame = VisionDiagnosticLabelFrame;
+        if (!active || disposed || frame is null || visionAdvisoryPending) return;
+        string key;
+        try { key = SecretStore.Get(Android.App.Application.Context, "openai") ?? ""; }
+        catch { key = ""; }
+        if (string.IsNullOrWhiteSpace(key)) { visionAdvisoryStatus = "Save a personal OpenAI key in Settings before requesting an advisory."; Changed?.Invoke(); return; }
+
+        visionAdvisoryPending = true;
+        visionAdvisoryResult = null;
+        visionAdvisoryStatus = "Sending this selected image to OpenAI for a billable GPT-6 Luna advisory…";
+        Changed?.Invoke();
+        try
+        {
+            var provenance = new TableFrameProvenance(frame.SampleId,
+                frame.FrameId.ToString(System.Globalization.CultureInfo.InvariantCulture), frame.SourceTimeUs, frame.Timeline,
+                frame.MediaGeneration, frame.AnalysisGeneration, frame.CapturedAt, frame.FrameSource, frame.CalibrationId,
+                frame.AnalyzerConfiguration, frame.Width, frame.Height,
+                frame.CalibrationCorners.Select(point => new[] { point.X, point.Y }).ToArray());
+            var local = JsonSerializer.Serialize(new
+            {
+                coordinates = "normalized calibrated table coordinates; not source image pixels",
+                uncertain = frame.DetectionUncertain,
+                balls = frame.DetectedBalls.Select(ball => new { colour = ball.Kind, x = ball.Position.X, y = ball.Position.Y, confidence = ball.Confidence })
+            }, VisionLabelJson);
+            using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
+            var result = await GptTableAdvisory.AskAsync(http, key, frame.Jpeg, provenance, local, foreground?.Token ?? CancellationToken.None);
+            if (VisionDiagnosticLabelFrame?.SampleId == frame.SampleId)
+            {
+                visionAdvisoryResult = result;
+                visionAdvisoryStatus = $"Advisory complete in {result.ElapsedMilliseconds:0} ms · one image sent · not saved · not used by game state.";
+            }
+        }
+        catch (OperationCanceledException) { visionAdvisoryStatus = "Advisory cancelled; no result applied."; }
+        catch (HttpRequestException ex) { visionAdvisoryStatus = ex.Message; }
+        catch (Exception) { visionAdvisoryStatus = "Advisory failed or returned invalid structured output. No result applied."; }
+        finally
+        {
+            visionAdvisoryPending = false;
+            Changed?.Invoke();
         }
     }
 

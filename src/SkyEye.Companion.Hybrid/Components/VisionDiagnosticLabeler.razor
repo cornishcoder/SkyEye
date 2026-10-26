@@ -1,5 +1,6 @@
 @implements IAsyncDisposable
 @using Microsoft.JSInterop
+@using SkyEye.Core
 @inject Microsoft.JSInterop.IJSRuntime JS
 
 @if (Session.VisionDiagnosticLabelFrame is { } frame)
@@ -88,6 +89,43 @@
         }
         <p class="hint" role="status">@Session.VisionDiagnosticLabelStatus</p>
         <div class="clip-actions">
+            <button type="button" class="secondary" disabled="@(Session.VisionAdvisoryPending || !Session.PersonalKeyConfigured)"
+                @onclick="Session.AskVisionAdvisoryAsync">@(Session.VisionAdvisoryPending ? "Asking GPT-6 Luna…" : "Ask GPT-6 Luna (advisory)")</button>
+        </div>
+        @if (!Session.PersonalKeyConfigured) { <p class="hint">Save a personal OpenAI API key in Settings to enable this action.</p> }
+        <p class="hint">Sends this selected JPEG and frame/calibration provenance to OpenAI using your saved personal key. API usage is billable. The result is temporary advice and never changes detector, readiness, or game state.</p>
+        <p class="hint" role="status">@Session.VisionAdvisoryStatus</p>
+        @if (Session.VisionAdvisoryResult is { } advisory)
+        {
+            <div class="vision-advisory" aria-label="GPT-6 Luna advisory">
+                <strong>Model suggestion · @advisory.Balls.Length visible item(s)</strong>
+                <p>@advisory.Summary</p>
+                <p class="hint">Frame @advisory.Provenance.FrameId · @advisory.Provenance.SourceTimeUs µs · sample @advisory.Provenance.SampleId · timeline @advisory.Provenance.Timeline · calibration @advisory.Provenance.CalibrationId · SHA-256 @advisory.ImageSha256</p>
+                <strong>Local detector · calibrated table coordinates</strong>
+                @if (frame.DetectedBalls.Length == 0)
+                {
+                    <p>No local balls returned@(frame.DetectionUncertain ? " · detector marked uncertain" : "").</p>
+                }
+                else
+                {
+                    <ul>
+                        @foreach (var localBall in frame.DetectedBalls)
+                        {
+                            <li>@localBall.Kind · table x @localBall.Position.X.ToString("0.000"), y @localBall.Position.Y.ToString("0.000") · confidence @localBall.Confidence.ToString("P0")</li>
+                        }
+                    </ul>
+                }
+                <strong>GPT-6 Luna · source image pixels</strong>
+                <ul>
+                    @foreach (var ball in advisory.Balls)
+                    {
+                        <li>@ball.Colour · @(ball.X is null ? "unlocated" : $"x {ball.X:0}, y {ball.Y:0} px") · @ball.Visibility · confidence @ball.Confidence.ToString("P0") · nearest local: @NearestLocal(ball, frame)</li>
+                    }
+                </ul>
+                <p class="hint">Image coordinates use the source JPEG, origin at top left. Distances use the saved calibration and same-colour local candidates where available; do not treat model suggestions as ground truth.</p>
+            </div>
+        }
+        <div class="clip-actions">
             <button type="button" class="primary" disabled="@(Session.VisionDiagnosticLabelSavePending || Session.VisionDiagnosticMarks.Count == 0 && !Session.VisionDiagnosticEmptyFrameConfirmed || Session.VisionDiagnosticMarks.Count > 0 && !Session.VisionDiagnosticAllBallsLabelledConfirmed)"
                 @onclick="Session.SaveVisionDiagnosticLabelsAsync">Save reviewed frame</button>
             <button type="button" class="secondary" disabled="@Session.VisionDiagnosticLabelSavePending" @onclick="Session.DiscardVisionDiagnosticLabelFrame">Discard frame</button>
@@ -131,6 +169,22 @@
     static string BoxStyle(VisionDiagnosticBallMark mark) => FormattableString.Invariant(
         $"left:{(mark.X - mark.RadiusX) * 100:0.###}%;top:{(mark.Y - mark.RadiusY) * 100:0.###}%;width:{mark.RadiusX * 200:0.###}%;height:{mark.RadiusY * 200:0.###}%");
     static string DisplayColour(string colour) => colour == "cue" ? "Cue ball" : colour;
+    static string NearestLocal(SkyEye.Observation.TableAdvisoryBall advisory, SkyEye.Core.Analysis.VisionDiagnosticLabelFrame frame)
+    {
+        if (advisory.X is not { } x || advisory.Y is not { } y || frame.DetectedBalls.Length == 0) return "not comparable";
+        try
+        {
+            var table = new TableCalibration(frame.CalibrationCorners);
+            var point = table.Unmap(new Point(x / frame.Width, y / frame.Height));
+            var candidates = frame.DetectedBalls.Where(local => string.Equals(local.Kind, advisory.Colour, StringComparison.OrdinalIgnoreCase));
+            var ranked = candidates.Select(local => (local.Kind, Distance: (local.Position - point).Length))
+                .OrderBy(item => item.Distance).ToArray();
+            if (ranked.Length == 0) return "no same-colour local candidate";
+            var nearest = ranked[0];
+            return $"{nearest.Kind} at {nearest.Distance:0.000} table units";
+        }
+        catch (ArgumentException) { return "calibration unavailable"; }
+    }
     static bool Checked(ChangeEventArgs args) => args.Value is bool value && value;
     void SetLighting(ChangeEventArgs args) => Session.SetVisionDiagnosticLabelLighting(args.Value?.ToString());
     void SetMotion(ChangeEventArgs args) => Session.SetVisionDiagnosticLabelMotion(args.Value?.ToString());

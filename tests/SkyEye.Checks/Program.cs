@@ -4,11 +4,19 @@ using System.Text;
 using System.Text.Json;
 using SkyEye.Core;
 
+if (args.SequenceEqual(["--gpt-table-advisory"]))
+{
+    await GptTableAdvisoryChecks.Run();
+    return;
+}
+
 if (args.SequenceEqual(["--shot-samples"]))
 {
     await ShotSampleChecks.Run();
     return;
 }
+
+await GptTableAdvisoryChecks.Run();
 
 if (args.SequenceEqual(["--game-tracking"]))
 {
