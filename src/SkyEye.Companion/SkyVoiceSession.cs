@@ -118,7 +118,7 @@ public sealed class SkyVoiceSession(Context context, string key, Action<string> 
                 session = new
                 {
                     model = "gpt-live-1",
-                    instructions = SkyPersonalityInstructions + "\n\n" + SkyOperatingInstructions + "\n\n" + SampleCollectionInstructions,
+                    instructions = SkyPersonalityInstructions + "\n\n" + SkyOperatingInstructions + (includeSceneCommands ? "\n\n" + SampleCollectionInstructions : ""),
                     audio = new { output = new { voice = "willow" } },
                     delegation = new
                     {
@@ -126,7 +126,7 @@ public sealed class SkyVoiceSession(Context context, string key, Action<string> 
                         responses = new
                         {
                             model = "gpt-5.6-luna",
-                            instructions = "Use get_table_state and suggest_shots to ground pool advice. Explain the geometry concisely and treat confidence and timestamps as limits. Use the rule reference returned by the tools. Distinguish an open table from an assigned group. Do not invent spin, foul calls, clearance or a legal black shot. For match state, read get_match_state first and preserve its exact version for every change. Only record player-declared outcomes; image evidence is never a declaration. Tool errors are uncertainty, not permission to guess.\n\n" + SampleCollectionInstructions,
+                            instructions = "Use get_table_state and suggest_shots to ground pool advice. Explain the geometry concisely and treat confidence and timestamps as limits. Use the rule reference returned by the tools. Distinguish an open table from an assigned group. Do not invent spin, foul calls, clearance or a legal black shot. For match state, read get_match_state first and preserve its exact version for every change. Only record player-declared outcomes; image evidence is never a declaration. Tool errors are uncertainty, not permission to guess." + (includeSceneCommands ? "\n\n" + SampleCollectionInstructions : ""),
                             tools = toolDefinitions, tool_choice = "auto"
                         }
                     }
