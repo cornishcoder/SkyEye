@@ -8,6 +8,10 @@ Keep each description concise and matched to the actual command. Do not rely on 
 
 The full implementation plan is in [glow-up-plan.md](glow-up-plan.md). Work starts from `f6ea29c`; production capture and the existing companion remain usable while the new host is proved.
 
+## Sky player-reported samples — 26 October 2026
+
+Production `0.8.12` adds an opt-in Home/Sky collection mode. A completed spoken shot report can produce a durable player-reported transcript and suggested verbatim excerpts linked to the acknowledged camera clip, without a match or automatic ruling. Busy, failure, uncertainty and interrupted-publication recovery are represented explicitly. The five-second target currently uses the camera's minimum 30-second save, with actual duration/source origin retained and shot-window coverage unknown. Core and agent checks pass, and the installed Home toggle was exercised while live video was visible; a real Sky conversation, shot report and saved sample remain unverified. The camera was stopped afterward with eight clips retained. Details and controls are in [device acceptance](device-acceptance.md#production-v0812-sky-sample-collection-26-october-2026) and the [device guide](device-control-guide.md#sky-shot-samples).
+
 ## Current roadmap decision — Settled-state reconciliation, 9 October 2026
 
 **Roadmap decision and implementation update.** The supplied brief replaces continuous trajectory tracking as a match prerequisite with trustworthy settled A/B + frozen canonical context → physical proposal → O05 review/admission → R04/R02 consequences. R01 and `AppCoordinator` remain authoritative. O03 is Activity & Settlement Boundary; O04 is Settled-State Reconciliation & Physical Outcome Proposals; O05 is Outcome Review, Admission & Canonical Game Integration. New unused ID O10 owns optional asynchronous post-shot reconstruction/replay. V04/C02/PH02/PH03 now depend on O10; failed reconstruction leaves the match usable.

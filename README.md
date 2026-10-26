@@ -76,6 +76,8 @@ The implemented [Poolgame port and intentional adaptations](docs/poolgame-port.m
 
 In the production portrait app, open **Controls → More controls** and choose **Talk to Sky** on the host. Set your personal key through the protected dialog in the portrait controls. Microphone mute/end controls are separate from recording. A microphone foreground service supports an ongoing conversation while the activity backgrounds; removing/destroying the activity closes voice. Shutdown waits for `session.closed` or a bounded timeout, recording whether usage finalization was confirmed. Voice/transcript events are stored privately on the host. No key values are logged.
 
+The companion Home **Samples off/on** control enables optional automatic samples from spoken shot reports. Sky stores the player's transcript and suggested excerpts with the acknowledged camera clip, without requiring a match. The target is a five-second sample, but the installed camera currently saves at least 30 seconds; the exact shot window is not source-timed or trimmed. The clip list exposes the report and a separate metadata share action. See the [device control guide](docs/device-control-guide.md#sky-shot-samples) for prerequisites, status and limits.
+
 ## Validation
 
 ```powershell
