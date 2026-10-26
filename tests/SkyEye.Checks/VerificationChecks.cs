@@ -61,7 +61,7 @@ static class VerificationChecks
             "The saved clear/still sixteen-ball receipt establishes ready inventory without planner spacing");
         Check(!ShotPlanner.HasSafeBallSpacing(packedTable) && !ShotPlanner.Eligible(packedTable, DateTimeOffset.UtcNow)
             && ShotPlanner.Suggest(packedTable, DateTimeOffset.UtcNow).Length == 0,
-            "The unchanged planner spacing gate rejects advice for the packed receipt and returns no candidates");
+            "The planner rejects advice for the packed receipt and returns no candidates");
         var packedEffect = new TableObservationEffect(() => packedSession, () => 1, () => true);
         var packedRequest = new ObserveTable(camera.Scope!, packedSession.State.Generation, 1, IncludeChoices: true,
             Mode: ObservationMode.VerifyForAdvice);

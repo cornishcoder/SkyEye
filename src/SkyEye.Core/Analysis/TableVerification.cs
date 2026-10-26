@@ -94,7 +94,11 @@ public sealed record VerificationProgress(int IndependentFrames, ObservationReas
 // Opt-in native evidence callback; TableFrame is borrowed only until the callback returns.
 // Pixels never enter TableObservation, agent projections or durable game state.
 public sealed record VerificationCapture(Guid OperationId, long AnalysisGeneration, string CalibrationId,
-    Point[] CalibrationCorners, TableFrame Frame, VerificationMeasurement Measurement);
+    Point[] CalibrationCorners, TableFrame Frame, VerificationMeasurement Measurement)
+{
+    public string AnalyzerConfigurationIdentity { get; init; } = "";
+    public bool DetectionRequested { get; init; }
+}
 
 /// <summary>Conservative transient association. Never carries a missing final body
 /// forward or creates durable identities. Conflicting one-to-one assignments are unresolved.</summary>

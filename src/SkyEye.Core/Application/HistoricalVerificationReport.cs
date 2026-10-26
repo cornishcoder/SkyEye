@@ -15,7 +15,10 @@ public sealed record HistoricalVerificationSample(
     double PerimeterChange, double IlluminationChange,
     double? MaximumBodyDisplacement, double? MaximumDetectedBodyDisplacement,
     double? MinimumTemplateMotionPixels, int SupportedBodies,
-    HistoricalVerificationBallCounts? BallCounts, bool? DetectionUncertain, bool? Obstructed);
+    HistoricalVerificationBallCounts? BallCounts, bool? DetectionUncertain, bool? Obstructed)
+{
+    public ObstructionAuditTelemetry? ObstructionAudit { get; init; }
+}
 
 /// <summary>Compact historical evidence for one completed bounded check. The per-frame
 /// list is capped at the verifier's six-sample limit and contains no image pixels or
@@ -51,7 +54,10 @@ public sealed record HistoricalVerificationReport(
                 sample.Measurement.IlluminationChange, sample.Measurement.MaximumBodyDisplacement,
                 sample.Measurement.MaximumDetectedBodyDisplacement, sample.Measurement.MinimumTemplateMotionPixels,
                 sample.Measurement.SupportedBodies, Counts(sample.Measurement.Vision),
-                sample.Measurement.Vision?.Uncertain, sample.Measurement.Vision?.Obstructed))
+                sample.Measurement.Vision?.Uncertain, sample.Measurement.Vision?.Obstructed)
+            {
+                ObstructionAudit = sample.Measurement.Vision?.ObstructionAudit,
+            })
             .ToArray();
 
         return new(recordedAt, evidence?.OperationId ?? Guid.Empty, publishedAsCurrent, publicationOutcome.ToString(),

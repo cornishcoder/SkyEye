@@ -107,7 +107,12 @@ public sealed partial class TableAnalysisSession
                         var measured = worker.Measure(frame, detect, linked.Token);
                         linked.Token.ThrowIfCancellationRequested();
                         stage = "capture";
-                        capture?.Invoke(new(operationId, admitted.Generation, admitted.CalibrationId, admitted.Calibration!.Corners.ToArray(), frame, measured));
+                        capture?.Invoke(new(operationId, admitted.Generation, admitted.CalibrationId, admitted.Calibration!.Corners.ToArray(), frame, measured)
+                        {
+                            AnalyzerConfigurationIdentity = (analyzer as ITableAnalyzerMetadata)?.ConfigurationIdentity
+                                ?? analyzer.GetType().FullName ?? analyzer.GetType().Name,
+                            DetectionRequested = detect,
+                        });
                         stage = "review";
                         return (measured, reviewFrame && detect ? frame.ReviewImage() : null);
                     }

@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Globalization;
 using System.Text.Json;
 using SkyEye.Core;
 using SkyEye.Core.Analysis;
@@ -20,6 +21,10 @@ public sealed partial class ShellSession
     string shotMessage = "Show choices to check the table.";
     CancellationTokenSource? candidateVerification;
     string? lastVerificationStatus;
+    Guid? candidateShortcutOperationId;
+    DateTimeOffset? candidateShortcutStartedAt, candidateShortcutCompletedAt;
+    HistoricalVerificationReport? candidateShortcutReport;
+    string? candidateShortcutFailure;
     public bool CheckingTable => candidateVerification is not null;
     public void CancelTableVerification() { candidateVerification?.Cancel(); table.CancelVerification(); }
     public PresentationPreferences ShotPresentation => app.State.Presentation;
@@ -30,15 +35,35 @@ public sealed partial class ShellSession
     public string CandidateShortcutLabel => CheckingTable ? "Checking candidate shots"
         : CandidateShortcutShown ? "Hide candidate shots" : "Show candidate shots";
     public bool CanUseCandidateShortcut => CanShowChoices && HasTableCalibration && !CheckingTable;
-    public bool CandidateShortcutFeedbackVisible => CheckingTable
+    public bool CandidateShortcutFeedbackVisible => candidateShortcutOperationId is not null || CheckingTable
         || CanAnalyzeTable && (lastVerificationStatus is not null || ShotChoices.Count > 0)
         || app.State.Observation is null && app.LatestVerificationReport is not null;
-    public string CandidateShortcutStatus => CheckingTable ? CandidateStatus
+    public string CandidateShortcutStatus => CheckingTable && candidateShortcutCompletedAt is null
+        && candidateShortcutOperationId is { } runningId && candidateShortcutStartedAt is { } startedAt
+            ? $"Checking table… Keep the view clear and the balls still. {UtcTime(startedAt)} · run {ShortId(runningId)}"
+        : candidateShortcutOperationId is { } runId && candidateShortcutCompletedAt is { } completedAt
+            ? candidateShortcutReport is { } completedReport && completedReport.OperationId == runId
+                ? $"{ShortcutReportMessage(completedReport)} · {UtcTime(completedReport.RecordedAt)} · run {ShortId(runId)}"
+                : $"Check failed · {candidateShortcutFailure ?? "No verification result matched this run."} · {UtcTime(completedAt)} · run {ShortId(runId)}"
         : app.State.Observation is null && app.LatestVerificationReport is { } report
             ? report.PublishedAsCurrent
-                ? $"Last check (historical) · {AppCoordinator.VerificationMessage(report.Reason)}"
-                : "Last check (historical) · the result was not accepted as current."
+                ? $"Last check (historical) · {ShortcutReportMessage(report)} · {UtcTime(report.RecordedAt)} · run {ShortId(report.OperationId)}"
+                : $"Last check (historical) · the result was not accepted as current · {UtcTime(report.RecordedAt)} · run {ShortId(report.OperationId)}"
             : CandidateStatus;
+    static string ShortId(Guid operationId) => operationId.ToString("N")[..8];
+    static string UtcTime(DateTimeOffset timestamp) => timestamp.UtcDateTime.ToString("HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
+    static string ShortcutReportMessage(HistoricalVerificationReport report) => report.Outcome switch
+    {
+        ObservationOutcome.Ready when report.PublishedAsCurrent && report.Reason == ObservationReason.None
+            => "Clear, still table verified. Shot choices are checked separately against safe geometry.",
+        ObservationOutcome.Unsettled when report.Reason == ObservationReason.None
+            => "Stillness was not established. Let the balls settle, then retry.",
+        ObservationOutcome.Unclear when report.Reason == ObservationReason.None
+            => "Table view is unclear. Review the view, then retry.",
+        ObservationOutcome.Ready when !report.PublishedAsCurrent
+            => "Verification completed but was not accepted as current.",
+        _ => AppCoordinator.VerificationMessage(report.Reason)
+    };
     bool CurrentShotCatalog => app.State.ShotChoices.Matches(app.State.Camera, app.State.Advice.TargetGroup, DateTimeOffset.UtcNow)
         && table.State.Table?.Version == app.State.ShotChoices.TableVersion && !EditingTable && CanAnalyzeTable;
     public string CandidateStatus => CheckingTable ? "Checking table… Keep the view clear and the balls still."
@@ -140,13 +165,23 @@ public sealed partial class ShellSession
         if (!active || foreground.IsCancellationRequested || !CurrentShotCatalog || ShotChoices.Count == 0) return;
         await SetShotDisplayAsync(app.State.Version, target, ShotDisplayMode.Cycling);
     });
-    public Task ToggleCandidateShortcutAsync(long expectedVersion) => MainThread.InvokeOnMainThreadAsync(async () =>
+    public Task ToggleCandidateShortcutAsync() => MainThread.InvokeOnMainThreadAsync(async () =>
     {
-        if (!active || foreground is null || EditingTable || expectedVersion != app.State.Version) return;
+        if (!active || foreground is null || EditingTable || candidateVerification is not null) return;
         if (CandidateShortcutShown)
-            await SetShotDisplayAsync(expectedVersion, SceneTarget.Both, ShotDisplayMode.Live);
+            await SetShotDisplayAsync(app.State.Version, SceneTarget.Both, ShotDisplayMode.Live);
         else
-            await ShowRequestedChoicesAsync(expectedVersion, SceneTarget.Both);
+        {
+            var operationId = Guid.NewGuid();
+            candidateShortcutOperationId = operationId;
+            candidateShortcutStartedAt = DateTimeOffset.UtcNow;
+            candidateShortcutCompletedAt = null;
+            candidateShortcutReport = null;
+            candidateShortcutFailure = null;
+            await RefreshShotChoicesAsync(foreground.Token, operationId, CommandOrigin.Touch, candidateShortcutRun: true);
+            if (!active || foreground.IsCancellationRequested || !CurrentShotCatalog || ShotChoices.Count == 0) return;
+            await SetShotDisplayAsync(app.State.Version, SceneTarget.Both, ShotDisplayMode.Cycling);
+        }
     });
     public SkyEyeState CommandState => app.State;
     public Task<CommandReceipt> ShowCuePathAsync(long expectedVersion, long tableVersion, string id) => ExecuteApplicationCommandAsync(
@@ -241,17 +276,26 @@ public sealed partial class ShellSession
             shotMessage = "Choices expired or the layout changed. Request a fresh observation.";
         }
     }
-    async Task RefreshShotChoicesAsync(CancellationToken token, Guid? observationOperationId = null, CommandOrigin origin = CommandOrigin.Touch)
+    async Task RefreshShotChoicesAsync(CancellationToken token, Guid? observationOperationId = null,
+        CommandOrigin origin = CommandOrigin.Touch, bool candidateShortcutRun = false)
     {
         if (candidateVerification is not null) return;
         using var checking = CancellationTokenSource.CreateLinkedTokenSource(token);
         candidateVerification = checking; token = checking.Token;
         lastVerificationStatus = null;
         shotMessage = "Checking table…";
+        Publish();
         try
         {
             await ClearShotCatalogAsync(token); RenderShotScenes(); Publish();
             await VerifyTableWithDiagnosticsPausedAsync(token, operationId: observationOperationId, origin: origin);
+            if (candidateShortcutRun && observationOperationId == candidateShortcutOperationId)
+            {
+                var report = app.LatestVerificationReport;
+                candidateShortcutReport = report?.OperationId == observationOperationId ? report : null;
+                if (candidateShortcutReport is null)
+                    candidateShortcutFailure = lastVerificationStatus ?? "No verification result was returned for this run.";
+            }
             token.ThrowIfCancellationRequested();
             var snapshot = table.State; var layout = snapshot.Table;
             if (!CanAnalyzeTable || EditingTable || snapshot.Source != app.State.Camera.Scope || app.State.Observation?.Outcome != ObservationOutcome.Ready || layout is null || !layout.Settled || layout.Occluded)
@@ -262,9 +306,32 @@ public sealed partial class ShellSession
             shotMessage = shotCarousel.Candidates.Length == 0 ? NoShotCandidatesMessage(layout, DateTimeOffset.UtcNow) : "";
             lastVerificationStatus = shotCarousel.Candidates.Length == 0 ? shotMessage : null;
         }
-        catch (OperationCanceledException) { lastVerificationStatus = shotMessage = "Table check cancelled."; }
-        catch (Exception) { await ClearShotCatalogAsync(token); shotMessage = "Table view unavailable. Request again when useful."; }
-        finally { candidateVerification = null; Publish(); }
+        catch (OperationCanceledException) when (token.IsCancellationRequested)
+        {
+            lastVerificationStatus = shotMessage = "Table check cancelled.";
+            if (candidateShortcutRun) candidateShortcutFailure = lastVerificationStatus;
+        }
+        catch (Exception exception)
+        {
+            await ClearShotCatalogAsync(token);
+            shotMessage = "Table view unavailable. Request again when useful.";
+            lastVerificationStatus = shotMessage;
+            if (candidateShortcutRun) candidateShortcutFailure = shotMessage;
+            var run = observationOperationId?.ToString("N") ?? "unassigned";
+            Android.Util.Log.Warn("SkyEyeShell", $"Candidate-shot verification {run} failed: {exception}");
+        }
+        finally
+        {
+            if (candidateShortcutRun && observationOperationId == candidateShortcutOperationId)
+            {
+                candidateShortcutCompletedAt = DateTimeOffset.UtcNow;
+                if (candidateShortcutReport is null && app.LatestVerificationReport is { } report
+                    && report.OperationId == observationOperationId) candidateShortcutReport = report;
+                if (candidateShortcutReport is null && string.IsNullOrWhiteSpace(candidateShortcutFailure))
+                    candidateShortcutFailure = lastVerificationStatus ?? "No verification result was returned for this run.";
+            }
+            candidateVerification = null; Publish();
+        }
     }
     void RenderShotScenes()
     {

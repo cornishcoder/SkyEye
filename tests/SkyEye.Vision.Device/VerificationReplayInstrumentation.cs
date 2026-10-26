@@ -20,59 +20,110 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         {
             var root = Path.Combine(TargetContext!.GetExternalFilesDir(null)!.AbsolutePath, run.Length == 0 ? "o08-replay" : "o08-replay-" + run);
             var paths = Directory.GetFiles(root, "*.json").OrderBy(p => long.Parse(Path.GetFileNameWithoutExtension(p))).ToArray();
-            if (paths.Length is < 3 or > 6) throw new IOException("Replay 3 to 6 captured development snapshots.");
+            if (paths.Length is < 1 or > 6) throw new IOException("Replay 1 to 6 captured development snapshots.");
             using var first = JsonDocument.Parse(File.ReadAllBytes(paths[0]));
-            var corners = first.RootElement.GetProperty("calibrationCorners").EnumerateArray().Select(p => new Point(p.GetProperty("x").GetDouble(), p.GetProperty("y").GetDouble())).ToArray();
+            var firstMetadata = first.RootElement;
+            var corners = firstMetadata.GetProperty("calibrationCorners").EnumerateArray().Select(p => new Point(p.GetProperty("x").GetDouble(), p.GetProperty("y").GetDouble())).ToArray();
+            var recordedConfiguration = firstMetadata.TryGetProperty("analyzerConfigurationIdentity", out var configurationElement)
+                ? configurationElement.GetString() : null;
             var calibration = new TableCalibration(corners);
             var analyzer800 = new VisionAnalyzer(new VisionSettings(Width: 800) { VerificationBodyRefinement = refinement }, boundaryAudit, boundaryAudit);
             var analyzer1000 = new VisionAnalyzer(new VisionSettings(Width: 1000) { VerificationBodyRefinement = refinement }, boundaryAudit, boundaryAudit);
+            bool? configurationMatchesPrimary = recordedConfiguration is null
+                ? null : string.Equals(recordedConfiguration, analyzer800.ConfigurationIdentity, StringComparison.Ordinal);
             using var worker800 = analyzer800.CreateVerification(calibration);
             using var worker1000 = analyzer1000.CreateVerification(calibration);
             var samples = new List<object>();
             var analyses800 = new List<VisionResult>(); var analyses1000 = new List<VisionResult>();
             var measurements800 = new List<VerificationMeasurement>(); var measurements1000 = new List<VerificationMeasurement>();
+            long priorFrameId = long.MinValue, priorSourceTimeUs = long.MinValue;
+            string? timeline = null;
             foreach (var path in paths)
             {
-                using var metadata = JsonDocument.Parse(File.ReadAllBytes(path)); var receipt = metadata.RootElement.GetProperty("indexedFrame");
+                using var metadata = JsonDocument.Parse(File.ReadAllBytes(path)); var metadataRoot = metadata.RootElement;
+                var receipt = metadataRoot.GetProperty("indexedFrame");
                 var file = receipt.GetProperty("pixelFile").GetString()!;
                 if (file != Path.GetFileName(file)) throw new IOException("Replay asset leaves its directory.");
                 var bytes = File.ReadAllBytes(Path.Combine(root, file));
                 var sha = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bytes)).ToLowerInvariant();
                 if (sha != receipt.GetProperty("pixelSha256").GetString()) throw new IOException("Captured pixel asset hash mismatch.");
+                var frameId = receipt.GetProperty("frameId").GetInt64();
+                var sourceTimeUs = receipt.GetProperty("sourceTimeUs").GetInt64();
+                var frameTimeline = receipt.GetProperty("scope").GetProperty("timeline").GetString()!;
+                if (frameId <= priorFrameId || sourceTimeUs <= priorSourceTimeUs)
+                    throw new IOException("Replay frames must preserve strictly increasing frame IDs and source PTS.");
+                if (timeline is not null && !string.Equals(timeline, frameTimeline, StringComparison.Ordinal))
+                    throw new IOException("Replay frames cross a captured source timeline.");
+                timeline = frameTimeline; priorFrameId = frameId; priorSourceTimeUs = sourceTimeUs;
+                var recordedCorners = metadataRoot.GetProperty("calibrationCorners").EnumerateArray()
+                    .Select(p => new Point(p.GetProperty("x").GetDouble(), p.GetProperty("y").GetDouble())).ToArray();
+                if (!corners.SequenceEqual(recordedCorners)) throw new IOException("Replay frames do not share one calibration corner set.");
+                var frameConfiguration = metadataRoot.TryGetProperty("analyzerConfigurationIdentity", out var frameConfigurationElement)
+                    ? frameConfigurationElement.GetString() : null;
+                if (!string.Equals(recordedConfiguration, frameConfiguration, StringComparison.Ordinal))
+                    throw new IOException("Replay frames do not share one analyzer configuration.");
+                var detectionRequested = metadataRoot.TryGetProperty("detectionRequested", out var detectionElement)
+                    ? detectionElement.GetBoolean() : true;
                 var baseline800 = analyzer800.Analyze(bytes, calibration);
                 var baseline1000 = analyzer1000.Analyze(bytes, calibration);
                 analyses800.Add(baseline800); analyses1000.Add(baseline1000);
                 bool blackSeedRecovered800 = baseline800.CandidateAudits.Any(a => a.Pass == "initial" && a.Stage == "packed-black" && a.Decision == "added-black-body");
                 bool blackSeedRecovered1000 = baseline1000.CandidateAudits.Any(a => a.Pass == "initial" && a.Stage == "packed-black" && a.Decision == "added-black-body");
                 if (dump) DumpPixels(bytes, calibration, root, Path.GetFileNameWithoutExtension(path));
-                using var frame = new TableFrame(bytes, DateTimeOffset.UtcNow, receipt.GetProperty("scope").GetProperty("timeline").GetString()!) { SourceTimeUs = receipt.GetProperty("sourceTimeUs").GetInt64() };
+                var capturedAt = metadataRoot.TryGetProperty("capturedAt", out var capturedAtElement)
+                    ? capturedAtElement.GetDateTimeOffset() : DateTimeOffset.UtcNow;
+                DecodedFrameReceipt? decodedReceipt = null;
+                if (metadataRoot.TryGetProperty("decoder", out var decoder) && decoder.ValueKind == JsonValueKind.Object)
+                    decodedReceipt = new(decoder.GetProperty("mediaGeneration").GetInt64(), decoder.GetProperty("frameId").GetInt64(),
+                        decoder.GetProperty("presentationTimeUs").GetInt64(), decoder.GetProperty("surfaceTimestampNs").GetInt64(),
+                        decoder.GetProperty("width").GetInt32(), decoder.GetProperty("height").GetInt32());
+                var frameSource = metadataRoot.TryGetProperty("frameSource", out var sourceElement)
+                    ? sourceElement.GetString() ?? "captured-verification" : "captured-verification";
+                using var frame = new TableFrame(bytes, capturedAt, frameTimeline)
+                {
+                    SourceTimeUs = sourceTimeUs,
+                    FrameSource = frameSource,
+                    DecodedReceipt = decodedReceipt,
+                };
                 var timer = System.Diagnostics.Stopwatch.StartNew();
-                var verification800 = worker800.Measure(frame, true, CancellationToken.None); measurements800.Add(verification800);
-                var verification1000 = worker1000.Measure(frame, true, CancellationToken.None); measurements1000.Add(verification1000);
+                var verification800 = worker800.Measure(frame, detectionRequested, CancellationToken.None); measurements800.Add(verification800);
+                var verification1000 = worker1000.Measure(frame, detectionRequested, CancellationToken.None); measurements1000.Add(verification1000);
+                var auditComparison = CompareCapturedAudit(metadataRoot, verification800);
+                if (verification800.Reason == ObservationReason.Obstructed) worker800.ResetAfterObstruction();
+                if (verification1000.Reason == ObservationReason.Obstructed) worker1000.ResetAfterObstruction();
                 samples.Add(new
                 {
-                    frameId = receipt.GetProperty("frameId").GetInt64(), pixelSha256 = sha, sourceTimeUs = frame.SourceTimeUs,
+                    frameId, pixelSha256 = sha, sourceTimeUs = frame.SourceTimeUs, capturedAt,
+                    detectionRequested, configurationMatchesPrimary,
+                    replayObstructionGeometryMatchesCapture = auditComparison.GeometryMatches,
+                    replayObstructionDecisionMatchesCapture = auditComparison.DecisionMatches,
                     width800 = new { blackSeedRecovered = blackSeedRecovered800, analysis = Summarize(baseline800, 800), verification = Summarize(verification800, 800),
                         darkMaskTrace = traceDarkMask ? PackedBlackMaskTrace.Capture(bytes, calibration, 800, baseline800, Path.Combine(root, "o08-black-trace-" + run), receipt.GetProperty("frameId").GetInt64().ToString()) : null,
                         packedBlackBoundaryTrace = boundaryAudit ? AuditPackedBlackBoundaries(bytes, calibration, 800, baseline800) : null },
                     width1000 = new { blackSeedRecovered = blackSeedRecovered1000, analysis = Summarize(baseline1000, 1000), verification = Summarize(verification1000, 1000),
-                        darkMaskTrace = traceDarkMask ? PackedBlackMaskTrace.Capture(bytes, calibration, 1000, baseline1000, Path.Combine(root, "o08-black-trace-" + run), receipt.GetProperty("frameId").GetInt64().ToString()) : null,
+                        darkMaskTrace = traceDarkMask ? PackedBlackMaskTrace.Capture(bytes, calibration, 1000, baseline1000, Path.Combine(root, "o08-black-trace-" + run), frameId.ToString()) : null,
                         packedBlackBoundaryTrace = boundaryAudit ? AuditPackedBlackBoundaries(bytes, calibration, 1000, baseline1000) : null },
                     analysisWidthComparison = Compare(baseline800, baseline1000),
-                    widthComparison = Compare(verification800.Vision!, verification1000.Vision!),
+                    widthComparison = verification800.Vision is null || verification1000.Vision is null
+                        ? null : Compare(verification800.Vision, verification1000.Vision),
                     processingMs = timer.Elapsed.TotalMilliseconds
                 });
             }
-            var consensus800 = VerificationConsensus.Resolve(measurements800.Select(m => m.Vision!).ToArray(), out var conflict800);
-            var consensus1000 = VerificationConsensus.Resolve(measurements1000.Select(m => m.Vision!).ToArray(), out var conflict1000);
+            var consensus800 = VerificationConsensus.Resolve(measurements800.Where(m => m.Vision is not null).Select(m => m.Vision!).ToArray(), out var conflict800);
+            var consensus1000 = VerificationConsensus.Resolve(measurements1000.Where(m => m.Vision is not null).Select(m => m.Vision!).ToArray(), out var conflict1000);
             var analysisConsensus800 = VerificationConsensus.Resolve(analyses800, out var analysisConflict800);
             var analysisConsensus1000 = VerificationConsensus.Resolve(analyses1000, out var analysisConflict1000);
             report = new { completed = true, configuration = ObservationPolicy.VerificationConfiguration, bodyRefinement = refinement, boundaryAudit,
+                recordedAnalyzerConfigurationIdentity = recordedConfiguration,
+                replayAnalyzerConfigurationIdentity = analyzer800.ConfigurationIdentity,
+                configurationMatchesPrimaryWidth = configurationMatchesPrimary,
                 fullAnalysis800 = new { consensus = analysisConsensus800, conflict = analysisConflict800, observations = analyses800.Select(v => Summarize(v, 800)) },
                 fullAnalysis1000 = new { consensus = analysisConsensus1000, conflict = analysisConflict1000, observations = analyses1000.Select(v => Summarize(v, 1000)) },
-                width800 = new { consensus = consensus800, conflict = conflict800, allMotionSamplesStill = measurements800.Skip(1).All(m => m.Motion == TableMotion.Still && m.CoverageValid), measurements = measurements800.Select(SummarizeMotion) },
-                width1000 = new { consensus = consensus1000, conflict = conflict1000, allMotionSamplesStill = measurements1000.Skip(1).All(m => m.Motion == TableMotion.Still && m.CoverageValid), measurements = measurements1000.Select(SummarizeMotion) },
-                scope = "Same captured pixel assets replayed through 800 and 1000 analysis and verification workers. Development evidence only; not blind holdout, live pixel pairing or latency acceptance.", samples };
+                width800 = new { consensus = consensus800, conflict = conflict800, allMotionSamplesStill = measurements800.Count > 1 && measurements800.Skip(1).All(m => m.Motion == TableMotion.Still && m.CoverageValid), measurements = measurements800.Select(SummarizeMotion) },
+                width1000 = new { consensus = consensus1000, conflict = conflict1000, allMotionSamplesStill = measurements1000.Count > 1 && measurements1000.Skip(1).All(m => m.Motion == TableMotion.Still && m.CoverageValid), measurements = measurements1000.Select(SummarizeMotion) },
+                scope = samples.Count == 1
+                    ? "Single captured pixel asset replayed through 800 and 1000 analysis and verification workers. The single frame has no paired motion history; use only per-frame detection audits. Development evidence only; not blind holdout, live pixel pairing or latency acceptance."
+                    : "Same captured pixel assets replayed through 800 and 1000 analysis and verification workers. Development evidence only; not blind holdout, live pixel pairing or latency acceptance.", samples };
         }
         catch (Exception error) { report = new { completed = false, error = error.ToString() }; }
         var json = JsonSerializer.Serialize(report, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });
@@ -112,6 +163,40 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         measurement.Motion, measurement.Reason, measurement.CoverageValid, measurement.MaximumBodyDisplacement,
         measurement.MaximumDetectedBodyDisplacement, measurement.SupportedBodies
     };
+    static (bool? GeometryMatches, bool? DecisionMatches) CompareCapturedAudit(JsonElement metadata, VerificationMeasurement replay)
+    {
+        ObstructionAuditTelemetry? captured = null;
+        JsonElement capturedVision = default;
+        if (metadata.TryGetProperty("measurement", out var measurement)
+            && measurement.ValueKind == JsonValueKind.Object
+            && measurement.TryGetProperty("vision", out var vision)
+            && vision.ValueKind == JsonValueKind.Object)
+        {
+            capturedVision = vision;
+            if (vision.TryGetProperty("obstructionAudit", out var audit)
+            && audit.ValueKind == JsonValueKind.Object)
+                captured = JsonSerializer.Deserialize<ObstructionAuditTelemetry>(audit.GetRawText(), new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        }
+        var actual = replay.Vision?.ObstructionAudit;
+        if (captured is null || actual is null) return (captured is null && actual is null, null);
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        static object Geometry(ObstructionAuditTelemetry audit) => new
+        {
+            audit.AnalysisWidth, audit.AnalysisHeight,
+            Components = audit.Components.Select(component => new
+            {
+                component.Label, component.Left, component.Top, component.Width, component.Height, component.Area,
+                component.BallCentres, component.BallCentresInBounds,
+                component.WholeTableSegmentation, component.PackedClusterSizeEligible,
+            }).OrderBy(component => component.Label).ToArray()
+        };
+        bool geometryMatches = JsonSerializer.Serialize(Geometry(captured), options)
+            == JsonSerializer.Serialize(Geometry(actual), options);
+        bool? decisionMatches = capturedVision.TryGetProperty("obstructed", out var capturedObstructed)
+            && capturedObstructed.ValueKind is JsonValueKind.True or JsonValueKind.False
+            ? capturedObstructed.GetBoolean() == replay.Vision?.Obstructed : null;
+        return (geometryMatches, decisionMatches);
+    }
     static object[] AuditPackedBlackBoundaries(byte[] encodedImage, TableCalibration calibration, int width, VisionResult vision)
     {
         var seeds = vision.CandidateAudits.Where(a => a.Pass == "initial" && a.Stage == "packed-black").ToArray();

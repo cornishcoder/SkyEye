@@ -291,7 +291,16 @@ public sealed partial class ShellSession
             }
         }
         catch (OperationCanceledException) { }
-        catch (Exception) { if (!token.IsCancellationRequested && !disposed) await MainThread.InvokeOnMainThreadAsync(() => ShowError("Table analysis interrupted. Check the camera and try again.")); }
+        catch (Exception exception)
+        {
+            if (!token.IsCancellationRequested && !disposed)
+            {
+                const string message = "Table analysis interrupted. Check the camera and try again.";
+                if (mode == ObservationMode.VerifyForAdvice) lastVerificationStatus = shotMessage = message;
+                Android.Util.Log.Warn("SkyEyeShell", $"Table observation {operationId?.ToString("N") ?? "unassigned"} failed: {exception}");
+                await MainThread.InvokeOnMainThreadAsync(() => ShowError(message));
+            }
+        }
         if (!token.IsCancellationRequested && !disposed) await MainThread.InvokeOnMainThreadAsync(async () => { await ReconcileShotCatalogAsync(token); Publish(); });
     }
     async Task VerifyTableWithDiagnosticsPausedAsync(CancellationToken token, Guid? operationId = null,

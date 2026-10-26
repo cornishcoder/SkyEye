@@ -270,7 +270,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         { uncertain = true; warnings.Add(referenceConflict ? "Current cue ball reference conflicts with the frozen burst gains." : "No validated burst colour reference. Review the table."); }
         if (uncertain) warnings.Add("Check uncertain colours or ball counts before using advice.");
         if (PocketColourNeedsReview(pixels)) { uncertain = true; warnings.Add("Check a coloured ball at a pocket opening; the pocket mask may hide part of it."); }
-        bool obstructed = LargeObstruction(rawHsv.Value, rawHsvPixels, circles, packedCluster.Detected, out var obstructionAudit);
+        Circle[] recognizedBallCircles = ordered.Where((_, index) => labels[index].Kind != "unknown").ToArray();
+        bool obstructed = LargeObstruction(rawHsv.Value, rawHsvPixels, recognizedBallCircles, packedCluster.Detected, out var obstructionAudit);
         if (obstructed) { uncertain = true; warnings.Add("A large object covers part of the playable surface."); }
         for (int i = 0; i < balls.Count; i++) for (int j = i + 1; j < balls.Count; j++) if ((balls[i].Position - balls[j].Position).Length < .040) { uncertain = true; warnings.Add("Overlapping circle candidates need checking."); }
         return new(balls.ToArray(), uncertain, warnings.Distinct().ToArray(), watch.Elapsed.TotalMilliseconds, circles.Length, normalized, Cv.Version, colourGains, ClothHue(pixels), obstructed, observations.ToArray())
@@ -579,6 +580,14 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         mask.Value.Put(0, 0, interior);
         using var labels = new MatLease(new Mat()); using var stats = new MatLease(new Mat()); using var centres = new MatLease(new Mat());
         int count = Imgproc.ConnectedComponentsWithStats(mask.Value, labels.Value, stats.Value, centres.Value);
+        using var ballBodyMask = new MatLease(new Mat(coordinates.Height, coordinates.Width, CvType.Cv8uc1));
+        using var maskBlack = new Scalar(0); using var maskWhite = new Scalar(255);
+        ballBodyMask.Value.SetTo(maskBlack);
+        foreach (var ball in balls)
+        {
+            using var centre = new CvPoint(ball.X, ball.Y);
+            Imgproc.Circle(ballBodyMask.Value, centre, Math.Max(1, (int)Math.Round(ball.Radius * .8)), maskWhite, -1);
+        }
         double scale = coordinates.Width / 1000.0;
         double minimumWidth = 120 * scale, minimumHeight = 120 * scale, minimumArea = 5000 * scale * scale;
         double packedMaximumWidth = 400 * scale, packedMaximumHeight = 400 * scale;
@@ -595,18 +604,42 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             bool wholeTableSegmentation = width >= coordinates.Width * .75 && height >= coordinates.Height * .75 &&
                 area >= coordinates.Width * coordinates.Height * .55;
             bool packedClusterSizeEligible = width <= packedMaximumWidth && height <= packedMaximumHeight;
-            int ballCentres = 0;
+            int ballCentres = 0, ballCentresInBounds = 0;
             foreach (var ball in balls)
             {
                 int bx = Math.Clamp((int)Math.Round(ball.X), 0, coordinates.Width - 1);
                 int by = Math.Clamp((int)Math.Round(ball.Y), 0, coordinates.Height - 1);
                 if ((int)labels.Value.Get(by, bx)![0] == i) ballCentres++;
+                if (bx >= x && bx < x + width && by >= y && by < y + height) ballCentresInBounds++;
             }
-            bool packedClusterExempted = packedClusterDetected && packedClusterSizeEligible && ballCentres >= packedClusterMinimumBallCentres;
+            int ballBodyPixels = 0;
+            if (packedClusterSizeEligible && balls.Count > 0)
+            {
+                using var componentMask = new MatLease(new Mat()); using var ballBodyOverlap = new MatLease(new Mat());
+                using var bounds = new Rect((int)x, (int)y, (int)width, (int)height);
+                using var componentLabels = new MatLease(labels.Value.Submat(bounds));
+                using var componentBallBodies = new MatLease(ballBodyMask.Value.Submat(bounds));
+                using var label = new Scalar(i);
+                Cv.Compare(componentLabels.Value, label, componentMask.Value, Cv.CmpEq);
+                Cv.Bitwise_and(componentMask.Value, componentBallBodies.Value, ballBodyOverlap.Value);
+                ballBodyPixels = Cv.CountNonZero(ballBodyOverlap.Value);
+            }
+            double ballBodyCoverage = area > 0 ? ballBodyPixels / area : 0;
+            // In a touching rack, cloth pixels can leak through the exact ball
+            // centres and split the component label. Associate a compact
+            // component with the rack by its measured bounds, while retaining
+            // exact centre membership in telemetry for audit.
+            bool packedClusterExempted = packedClusterDetected && packedClusterSizeEligible &&
+                ballCentresInBounds >= packedClusterMinimumBallCentres;
             bool triggersObstruction = !wholeTableSegmentation && !packedClusterExempted;
             if (triggersObstruction) triggeringComponents++;
             candidates.Add(new(i, (int)x, (int)y, (int)width, (int)height, (int)area, ballCentres,
-                wholeTableSegmentation, packedClusterSizeEligible, packedClusterExempted, triggersObstruction));
+                wholeTableSegmentation, packedClusterSizeEligible, packedClusterExempted, triggersObstruction)
+            {
+                BallCentresInBounds = ballCentresInBounds,
+                BallBodyPixels = ballBodyPixels,
+                BallBodyCoverageFraction = ballBodyCoverage,
+            });
         }
         const int maximumReportedComponents = 64;
         var reported = candidates.Where(component => component.TriggersObstruction).OrderByDescending(component => component.Area)

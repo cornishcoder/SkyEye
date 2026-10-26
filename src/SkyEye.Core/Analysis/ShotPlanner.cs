@@ -122,8 +122,24 @@ public static class ShotPlanner
         if (balls.Length > 16 || balls.Select(b => b.Id).Distinct().Count() != balls.Length || balls.Any(b => string.IsNullOrWhiteSpace(b.Id) || b.Kind is not ("cue" or "red" or "yellow" or "black") ||
             !double.IsFinite(b.Confidence) || b.Confidence is < .7 or > 1 || !ShotMath.Finite(b.Position) || b.Position.X is < 0 or > 2 || b.Position.Y is < 0 or > 1)) return false;
         if (balls.Count(b => b.Kind == "cue") != 1 || balls.Count(b => b.Kind == "black") > 1 || balls.Count(b => b.Kind == "red") > 7 || balls.Count(b => b.Kind == "yellow") > 7) return false;
+        if (IsCompactFullRack(balls)) return false;
         if (!HasSafeBallSpacing(balls)) return false;
         return state.Group is "open" or "red" or "yellow" or "black";
+    }
+
+    static bool IsCompactFullRack(Ball[] balls)
+    {
+        if (balls.Length != 16 || balls.Count(b => b.Kind == "red") != 7 ||
+            balls.Count(b => b.Kind == "yellow") != 7 || balls.Count(b => b.Kind == "black") != 1)
+            return false;
+
+        var objectBalls = balls.Where(ball => ball.Kind != "cue").ToArray();
+        double width = objectBalls.Max(ball => ball.Position.X) - objectBalls.Min(ball => ball.Position.X);
+        double height = objectBalls.Max(ball => ball.Position.Y) - objectBalls.Min(ball => ball.Position.Y);
+        // A full, rack-sized group is the break setup, not a settled layout for
+        // ordinary potting advice. Keep it ineligible even when a low-light
+        // frame happens to classify every ball without raising uncertainty.
+        return width <= .32 && height <= .32;
     }
 
     /// <summary>Reports the planner's existing minimum centre spacing independently

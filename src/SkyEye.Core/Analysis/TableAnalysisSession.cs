@@ -20,7 +20,12 @@ public sealed record VisionCandidateAudit(string Pass, string Stage, string Kind
     double? BoundarySupport, string? ClassifiedKind, string Decision);
 public sealed record ObstructionComponentAudit(int Label, int Left, int Top, int Width, int Height, int Area,
     int BallCentres, bool WholeTableSegmentation, bool PackedClusterSizeEligible,
-    bool PackedClusterExempted, bool TriggersObstruction);
+    bool PackedClusterExempted, bool TriggersObstruction)
+{
+    public int BallCentresInBounds { get; init; }
+    public int BallBodyPixels { get; init; }
+    public double BallBodyCoverageFraction { get; init; }
+}
 public sealed record ObstructionAuditTelemetry(int AnalysisWidth, int AnalysisHeight, int BorderPixels,
     double MinimumComponentWidth, double MinimumComponentHeight, double MinimumComponentArea,
     double PackedClusterMaximumWidth, double PackedClusterMaximumHeight, int PackedClusterMinimumBallCentres,

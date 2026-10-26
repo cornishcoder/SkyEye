@@ -80,6 +80,7 @@ public sealed partial class ShellSession
                 scope = new { source = "mounted-camera", timeline = sample.Frame.Timeline, generation = sample.AnalysisGeneration + 1, calibration = sample.CalibrationId },
                 pixelFile = name + extension, pixelSha256 = sha, encoding, width, height, analyzerPixelSource = inputSource, embeddedFrameId = false },
             sample.OperationId, sample.CalibrationCorners, sample.Frame.CapturedAt, sample.Frame.ClockSampleAgeMs, sample.Frame.ClockUncertaintyMs,
+            sample.Frame.FrameSource, sample.DetectionRequested, sample.AnalyzerConfigurationIdentity,
             decoder = decoded, sample.Measurement, configuration = ObservationPolicy.VerificationConfiguration,
             labelStatus = "Unreviewed development evidence. User declared still table and 16 balls; centres and unsafe intervals need independent labels."
         };

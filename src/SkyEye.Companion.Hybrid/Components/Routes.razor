@@ -226,7 +226,7 @@
     async Task Find() => await Run(Session.FindCamerasAsync);
     async Task SelectCamera(CameraChoice camera) { address = camera.Address; await Connect(); }
     async Task Control(CameraControlRequest request) => await Run(() => Session.ControlCameraAsync(request));
-    async Task ToggleCandidateShortcut() => await Run(() => Session.ToggleCandidateShortcutAsync(Session.Agent.State.Value.Version));
+    async Task ToggleCandidateShortcut() => await Run(Session.ToggleCandidateShortcutAsync);
     async Task Watch() => await Run(Session.WatchLiveAsync, goHome: true);
     async Task SkyToggle() { if (Session.SkyConnected || Session.CanEndSky) await Run(Session.EndSkyAsync); else await Run(Session.StartSkyAsync); }
     async Task ChooseTv() => await Run(Session.ChooseTvAsync);

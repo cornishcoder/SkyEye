@@ -17,7 +17,7 @@ static class ObservationCommandChecks
         var receipt = await pending;
         Check(receipt.Succeeded && receipt.Observation?.Outcome == ObservationOutcome.Unsettled && effect.Calls == 1 && (await duplicate).Duplicate,
             "one explicit request/duplicate performs one bounded observation and reports honest settlement");
-        Check(app.State.Observation?.Timeline == "fixture" && receipt.Observation.DurationMs == 2 && receipt.Observation.FrameAgeMs == 1,
+        Check(app.State.Observation?.Timeline == "fixture" && receipt.Observation is { DurationMs: 2, FrameAgeMs: 1 },
             "receipt preserves frame scope, age and timing");
         var replay = await app.DispatchAsync(request);
         Check(replay.Duplicate && effect.Calls == 1, "replayed request never re-observes");
@@ -39,8 +39,13 @@ static class ObservationCommandChecks
         Check((await noProof).Outcome == CommandOutcome.Failed && app.State.Observation is null,
             "A legacy ready flag without independent verification evidence cannot publish as verified advice");
         effect.Reset(); effect.Ready = true; effect.IncludeProof = true;
+        var obstructionAudit = new ObstructionAuditTelemetry(800, 1600, 52, 96, 96, 3200, 320, 320, 12,
+            2, 1, 1, 0, 1, 0,
+            [new(1, 290, 1090, 193, 198, 15625, 8, false, true, true, false) { BallCentresInBounds = 15 }]);
+        effect.Audit = obstructionAudit;
         var verifiedEnvelope = new CommandEnvelope(Guid.NewGuid(), CommandOrigin.Touch, app.State.Version,
             new ObserveTable(app.State.Camera.Scope!, 1, 1, Mode: ObservationMode.VerifyForAdvice));
+        var verifiedStartedAt = DateTimeOffset.UtcNow;
         var verifiedPending = app.DispatchAsync(verifiedEnvelope); await effect.Entered.Task; effect.Release.TrySetResult();
         var verifiedReceipt = await verifiedPending;
         var report = app.LatestVerificationReport;
@@ -48,8 +53,12 @@ static class ObservationCommandChecks
                 Outcome: ObservationOutcome.Ready, Motion: TableMotion.Still, Quality: LayoutQuality.Clear,
                 Reason: ObservationReason.None, IndependentFrames: 5, CandidateSpanIndependentFrames: 5,
                 StartSourceTimeUs: 1_000_000, EndSourceTimeUs: 3_000_000, Samples.Length: 5,
-                FinalDetection: { Total: 3, CueBalls: 1, Reds: 1, BlackBalls: 1 } },
-            "The bounded verifier report keeps its exact five-frame proof and compact detection counts");
+                FinalDetection: { Total: 3, CueBalls: 1, Reds: 1, BlackBalls: 1 } }
+            && report.OperationId == verifiedEnvelope.OperationId && report.RecordedAt >= verifiedStartedAt
+            && report.RecordedAt <= DateTimeOffset.UtcNow,
+            "The bounded verifier report keeps its exact five-frame proof, compact counts, initiating operation ID and fresh recorded time");
+        Check(ReferenceEquals(report!.Samples[0].ObstructionAudit, obstructionAudit),
+            "The metadata-only verification report preserves the per-frame obstruction component audit");
         var stop = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, app.State.Version,
             new ChangeCapture(app.State.Camera.Scope!, CaptureAction.Stop)));
         Check(stop.Succeeded && app.State.Camera.Capture == CaptureState.Stopped && app.State.Observation is null
@@ -60,6 +69,7 @@ static class ObservationCommandChecks
     sealed class Observation : ITableObservationEffect
     {
         public bool Current = true, Ready, IncludeProof; public int Calls;
+        public ObstructionAuditTelemetry? Audit;
         public TaskCompletionSource Entered = new(TaskCreationOptions.RunContinuationsAsynchronously), Release = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public void Reset() { Current = true; Entered = new(TaskCreationOptions.RunContinuationsAsynchronously); Release = new(TaskCreationOptions.RunContinuationsAsynchronously); }
         public bool IsCurrent(ObserveTable request) => Current;
@@ -75,7 +85,8 @@ static class ObservationCommandChecks
                 Ready ? ObservationOutcome.Ready : ObservationOutcome.Unsettled, "decoded-live-verification");
             if (!IncludeProof || request.Mode != ObservationMode.VerifyForAdvice) return result;
             var vision = new VisionResult([new("cue", "cue", new(1.8, .5), 1), new("red", "red", new(1, .5), 1),
-                new("black", "black", new(.2, .8), 1)], false, [], 1, 3, true, "fixture", [1, 1, 1], 100, false, []);
+                new("black", "black", new(.2, .8), 1)], false, [], 1, 3, true, "fixture", [1, 1, 1], 100, false, [])
+            { ObstructionAudit = Audit };
             var samples = Enumerable.Range(0, 5).Select(index => new VerificationSample(200 + index,
                 1_000_000 + index * 500_000, 1, 1, 1, 1, 1,
                 new(TableMotion.Still, ObservationReason.None, true, 0, .005, 0, vision)) { CapturedAt = now }).ToArray();

@@ -109,6 +109,24 @@ public sealed class PackedRackRegressionInstrumentation : global::Android.App.In
         result.PackedClusterFallback is { Attempted: true, PrimaryClusterDetected: true, PrimaryClusterComplete: false,
             PrimaryAnalysisWidth: < 1000, FallbackAnalysisWidth: 1000 };
 
+    static byte[] CreatePackedRackObstruction(Fixture fixture)
+    {
+        using var encoded = new ProbeMat(new MatOfByte(fixture.Image));
+        using var image = new ProbeMat(Imgcodecs.Imdecode(encoded.Value, Imgcodecs.ImreadColor));
+        var rackCentres = fixture.Labels.RootElement.GetProperty("expected").EnumerateArray()
+            .Where(ball => ball.GetProperty("kind").GetString() != "cue")
+            .Select(ball => ball.TryGetProperty("image", out var nested) ? nested : ball)
+            .ToArray();
+        if (rackCentres.Length != 15) throw new IOException("Packed-rack obstruction control needs 15 labelled balls.");
+        double x = rackCentres.Average(point => point.GetProperty("x").GetDouble()) * image.Value.Cols();
+        double y = rackCentres.Average(point => point.GetProperty("y").GetDouble()) * image.Value.Rows();
+        using var centre = new CvPoint(x, y); using var handColour = new Scalar(70, 130, 190);
+        Imgproc.Circle(image.Value, centre, (int)Math.Round(image.Value.Rows() * .09), handColour, -1);
+        using var result = new MatOfByte();
+        if (!Imgcodecs.Imencode(".jpg", image.Value, result)) throw new IOException("Could not encode packed-rack obstruction control.");
+        return result.ToArray();
+    }
+
     object InspectRackColourComponents(Fixture fixture)
     {
         using var encoded = new ProbeMat(new MatOfByte(fixture.Image));
@@ -234,6 +252,7 @@ public sealed class PackedRackRegressionInstrumentation : global::Android.App.In
             using var ordinary = ReadFixture("pixel-table");
             using var spread = ReadFixture("pixel-spread-dim");
             using var dimRack = ReadFixture("pixel-racked-dim");
+            byte[] packedRackObstruction = CreatePackedRackObstruction(packed);
             using var empty = ReadFixture("synthetic-empty", "pixel-table");
             using var obstruction = ReadFixture("synthetic-obstruction", "pixel-table");
             var configurations = new (string Name, VisionSettings Settings)[]
@@ -272,6 +291,7 @@ public sealed class PackedRackRegressionInstrumentation : global::Android.App.In
                     productionResolutionPassed = recovered && (primaryComplete || fallbackRecovered) && retryGate;
                 rows.Add(new { configuration = configuration.Name, role = "packed-rack-sweep", packed = packedComparison,
                     packedEligible, safeFallback, primaryComplete, fallbackRecovered, peakWorkingSetDeltaBytes,
+                    packedResult.ObstructionAudit,
                     retryGate,
                     peakWorkingSetSampleIntervalMs = 10, analysisPixelAreas = new
                     {
@@ -302,21 +322,35 @@ public sealed class PackedRackRegressionInstrumentation : global::Android.App.In
                 rows.Add(new { configuration = configuration.Name, role = "true-obstruction-control", passed = obstructionSafe,
                     obstructionRetryGate, obstructionResult.PackedCluster, obstructionResult.PackedClusterFallback,
                     obstructionResult.Uncertain, obstructionResult.Obstructed, ballCount = obstructionResult.Balls.Length, obstructionResult.Warnings, obstructionResult.ElapsedMs });
+                if (configuration.Name is "production-width-800" or "default-width-1000")
+                {
+                    var packedObstructionResult = analyzer.Analyze(packedRackObstruction, packed.Calibration);
+                    bool packedObstructionSafe = packedObstructionResult.Uncertain && packedObstructionResult.Obstructed;
+                    controlsPassed &= packedObstructionSafe;
+                    rows.Add(new { configuration = configuration.Name, role = "true-obstruction-over-packed-rack-control", passed = packedObstructionSafe,
+                        packedObstructionResult.PackedCluster, packedObstructionResult.PackedClusterFallback,
+                        packedObstructionResult.Uncertain, packedObstructionResult.Obstructed,
+                        ballCount = packedObstructionResult.Balls.Length, packedObstructionResult.ObstructionAudit,
+                        packedObstructionResult.Warnings, packedObstructionResult.ElapsedMs });
+
+                }
                 var dimResult = analyzer.Analyze(dimRack.Image, dimRack.Calibration);
                 var now = DateTimeOffset.UtcNow;
                 var table = new TableState(1, now, dimResult.Balls, "open", true, dimResult.Uncertain || dimResult.Obstructed, true, "fixture-dim-rack");
-                bool dimSafe = dimResult.Uncertain && !ShotPlanner.Eligible(table, now);
+                bool dimSafe = dimResult.PackedCluster is { Detected: true, Complete: true }
+                    && !ShotPlanner.Eligible(table, now);
                 bool dimRetryGate = RetryWasClusterGated(dimResult);
                 controlsPassed &= dimSafe && dimRetryGate;
                 rows.Add(new { configuration = configuration.Name, role = "touching-dim-rack-control", passed = dimSafe,
                     dimRetryGate, dimResult.PackedCluster, dimResult.PackedClusterFallback,
-                    dimResult.Uncertain, dimResult.Obstructed, ballCount = dimResult.Balls.Length, dimResult.Warnings, dimResult.ElapsedMs });
+                    dimResult.Uncertain, dimResult.Obstructed, shotAdviceEligible = ShotPlanner.Eligible(table, now),
+                    ballCount = dimResult.Balls.Length, dimResult.Warnings, dimResult.ElapsedMs });
             }
             passed = controlsPassed && packedRecovered && productionResolutionPassed;
         }
         catch (Exception failure) { error = failure.ToString(); }
         var report = new { passed, error, measuredAt = DateTimeOffset.UtcNow,
-            scope = "On-device OpenCV replay of the exact manually reviewed bright rack, with a conditional same-frame 1000px retry, sampled process working-set deltas and clear, empty, dim-rack and true-obstruction controls. Working-set samples are coarse 10ms process measurements; fixture is tuning evidence, not a held-out accuracy claim.", packedMaskDiagnostics, rows };
+            scope = "On-device OpenCV replay of the exact manually reviewed bright rack, with a conditional same-frame 1000px retry, sampled process working-set deltas, a compact true-obstruction over the rack, and clear, empty and dim-rack controls. Working-set samples are coarse 10ms process measurements; fixture is tuning evidence, not a held-out accuracy claim.", packedMaskDiagnostics, rows };
         string output = JsonSerializer.Serialize(report, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });
         string root = TargetContext!.GetExternalFilesDir(null)!.AbsolutePath;
         File.WriteAllText(Path.Combine(root, "packed-rack-regression-proof.json"), output);
