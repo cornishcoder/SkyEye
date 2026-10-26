@@ -103,8 +103,9 @@ public sealed partial class VisionAnalyzer
             if (seed.Centre.X < bounds.Left || seed.Centre.X > bounds.Right || seed.Centre.Y < bounds.Top || seed.Centre.Y > bounds.Bottom)
             { Audit("rejected-outside-cluster-window"); continue; }
             double expectedRadius = PoolGeometry.Radius * coordinates.Width;
+            var neighboringBallCentres = cluster.Select(ball => ball.PeakCentre).ToArray();
             var fit = BallBoundaryRefiner.Refine(rawBgrPixels, coordinates.Width, coordinates.Height,
-                seed.Centre, expectedRadius, .7);
+                seed.Centre, expectedRadius, .7, neighboringBallCentres: neighboringBallCentres);
             if (fit is null)
             { Audit("rejected-no-boundary-fit"); continue; }
             if (fit.SupportedSectors < .7
@@ -133,7 +134,8 @@ public sealed partial class VisionAnalyzer
         byte[] rawBgr, ClusterBall[] packedColourBalls)
     {
         var sectors = BallBoundaryRefiner.Inspect(rawBgr, coordinates.Width, coordinates.Height,
-            proposal, expectedRadius, fit.Centre, fit.Radius);
+            proposal, expectedRadius, fit.Centre, fit.Radius,
+            packedColourBalls.Select(ball => ball.PeakCentre).ToArray());
         var neighbours = packedColourBalls.Where(ball => ball.Kind is "red" or "yellow")
             .Select(ball => ball.PeakCentre).ToArray();
         return BallBoundaryRefiner.HasConservativeOcclusionCoverage(sectors, fit.Centre,

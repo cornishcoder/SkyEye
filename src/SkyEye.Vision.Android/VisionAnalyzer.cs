@@ -26,7 +26,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     public VisionAnalyzer(VisionSettings settings, bool includeBoundaryDiagnostics = false, bool includeCandidateDiagnostics = false)
     { settings.Validate(); this.settings = settings; boundaryDiagnostics = includeBoundaryDiagnostics; candidateDiagnostics = includeCandidateDiagnostics; coordinates = new(settings.Width); }
     public string ConfigurationIdentity => System.Text.Json.JsonSerializer.Serialize(new
-    { Algorithm = "body-priority-packed-colour-peaks-v1", Settings = settings });
+    { Algorithm = "body-priority-packed-colour-peaks-v2", Settings = settings });
     static void Load()
     {
         lock (loadGate)
@@ -142,9 +142,12 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             var raw = Read(rawWarped.Value);
             for (int i = 0; i < circles.Length; i++)
             {
+                var neighboringBallCentres = proposals.Where((_, index) => index != i)
+                    .Select(circle => new Point(circle.X, circle.Y)).ToArray();
                 var fit = recoveredBoundaries.GetValueOrDefault(circles[i])
                     ?? BallBoundaryRefiner.Refine(raw, coordinates.Width, coordinates.Height, new(circles[i].X, circles[i].Y),
-                        PoolGeometry.Radius * coordinates.Width, collectSectorEvidence: boundaryDiagnostics);
+                        PoolGeometry.Radius * coordinates.Width, collectSectorEvidence: boundaryDiagnostics,
+                        neighboringBallCentres: neighboringBallCentres);
                 if (fit is null) { boundaryUncertain = true; continue; }
                 candidateBoundaries[circles[i]] = fit;
                 // Support is sampled at 32 fixed angles. The 18-sector minimum

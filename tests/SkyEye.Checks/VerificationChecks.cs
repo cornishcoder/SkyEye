@@ -375,6 +375,65 @@ static class VerificationChecks
             "Stronger proposal support still fits the full body rather than the cream patch");
         Check(BallBoundaryRefiner.Refine(new byte[width * height * 3], width, height, new(80, 80), 27) is null,
             "Radius prior cannot invent a ball on a blank image");
+        foreach (int radius in new[] { 20, 33 })
+        {
+            var differentSize = new byte[width * height * 3];
+            for (int y = 0; y < height; y++) for (int x = 0; x < width; x++)
+            {
+                bool body = (x - 80) * (x - 80) + (y - 80) * (y - 80) <= radius * radius;
+                byte value = body ? (byte)20 : (byte)110;
+                int at = (y * width + x) * 3;
+                differentSize[at] = differentSize[at + 1] = differentSize[at + 2] = value;
+            }
+            var sizeFit = BallBoundaryRefiner.Refine(differentSize, width, height, new(80, 80), radius);
+            Check(sizeFit is { SupportedSectors: >= ObservationPolicy.MinimumSupportedBoundaryFraction }
+                && Math.Abs(sizeFit.Radius - radius) < 1.5,
+                $"Bounded prior preserves an independently supported {radius}-pixel ball");
+            foreach (var offset in new[] { new Point(-3, 0), new Point(3, 0), new Point(0, -3), new Point(0, 3) })
+            {
+                var jitterFit = BallBoundaryRefiner.Refine(differentSize, width, height, new Point(80, 80) + offset, radius);
+                Check(jitterFit is { SupportedSectors: >= ObservationPolicy.MinimumSupportedBoundaryFraction }
+                    && Math.Abs(jitterFit.Radius - radius) < 2,
+                    $"Supported {radius}-pixel boundary survives a three-pixel seed shift");
+            }
+        }
+        var adjacentBodies = new byte[width * height * 3];
+        for (int y = 0; y < height; y++) for (int x = 0; x < width; x++)
+        {
+            bool left = (x - 55) * (x - 55) + (y - 80) * (y - 80) <= 26 * 26;
+            bool right = (x - 105) * (x - 105) + (y - 80) * (y - 80) <= 26 * 26;
+            int at = (y * width + x) * 3;
+            if (left)
+            {
+                adjacentBodies[at] = 10;
+                adjacentBodies[at + 1] = 20;
+                adjacentBodies[at + 2] = 180;
+            }
+            else if (right)
+            {
+                adjacentBodies[at] = 5;
+                adjacentBodies[at + 1] = 140;
+                adjacentBodies[at + 2] = 225;
+            }
+            else
+            {
+                adjacentBodies[at] = 90;
+                adjacentBodies[at + 1] = 100;
+                adjacentBodies[at + 2] = 110;
+            }
+        }
+        var gapFit = BallBoundaryRefiner.Refine(adjacentBodies, width, height, new(80, 80), 26);
+        Check(gapFit is null || gapFit.SupportedSectors < ObservationPolicy.MinimumSupportedBoundaryFraction,
+            "Adjacent ball edges cannot create a supported boundary at the empty gap");
+        Point[] adjacentCentre = [new(105, 80)];
+        var visibleWithNeighbour = BallBoundaryRefiner.Inspect(adjacentBodies, width, height,
+            new(55, 80), 26, new(55, 80), 26, adjacentCentre);
+        Check(visibleWithNeighbour[0].NeighborOccluded && !visibleWithNeighbour[0].Supported,
+            "An adjacent ball's outer edge is recorded as occlusion, not visible boundary support");
+        var neighbourFit = BallBoundaryRefiner.Refine(adjacentBodies, width, height,
+            new(55, 80), 26, neighboringBallCentres: adjacentCentre);
+        Check(neighbourFit is { SupportedSectors: >= ObservationPolicy.MinimumSupportedBoundaryFraction },
+            "A real ball with enough visible sectors still fits beside an occluding neighbor");
         var motionAnchor = new[]
         {
             new CircleObservation("red-0", new(300, 500), 27, "solid", []) { CandidateBoundarySupport = .75 },
