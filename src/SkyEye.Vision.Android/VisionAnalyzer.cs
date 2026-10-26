@@ -26,7 +26,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     public VisionAnalyzer(VisionSettings settings, bool includeBoundaryDiagnostics = false, bool includeCandidateDiagnostics = false)
     { settings.Validate(); this.settings = settings; boundaryDiagnostics = includeBoundaryDiagnostics; candidateDiagnostics = includeCandidateDiagnostics; coordinates = new(settings.Width); }
     public string ConfigurationIdentity => System.Text.Json.JsonSerializer.Serialize(new
-    { Algorithm = "body-priority-packed-colour-peaks-v2-colour-edge", Settings = settings });
+    { Algorithm = "body-priority-packed-colour-peaks-v3-verification-fallback-mask-cache", Settings = settings });
     static void Load()
     {
         lock (loadGate)
@@ -54,12 +54,12 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     VisionResult AnalyzePixels(Mat source, TableCalibration calibration, CancellationToken cancellation, BurstAppearance? appearance = null)
     {
         var primary = AnalyzePixelsCore(source, calibration, cancellation, appearance);
-        if (appearance is not null || settings.Width >= 1000 ||
+        if (settings.Width >= 1000 ||
             primary.PackedCluster is not { Detected: true, Complete: false }) return primary;
 
         cancellation.ThrowIfCancellationRequested();
         var fallbackAnalyzer = new VisionAnalyzer(settings with { Width = 1000 }, boundaryDiagnostics, candidateDiagnostics);
-        var fallback = fallbackAnalyzer.AnalyzePixelsCore(source, calibration, cancellation);
+        var fallback = fallbackAnalyzer.AnalyzePixelsCore(source, calibration, cancellation, appearance);
         bool fallbackComplete = fallback.PackedCluster?.Complete == true;
         bool useFallback = fallbackComplete || fallback.CircleCount > primary.CircleCount;
         var chosen = useFallback ? fallback : primary;
@@ -103,6 +103,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         using var rawWarped = Warp(source, calibration);
         using var rawHsv = new MatLease(new Mat()); Imgproc.CvtColor(rawWarped.Value, rawHsv.Value, Imgproc.ColorBgr2hsv);
         byte[] rawHsvPixels = Read(rawHsv.Value);
+        var boundaryColourMask = BoundaryColourMask.FromHsvPixels(rawHsvPixels);
         using var warped = new MatLease(new Mat()); rawWarped.Value.CopyTo(warped.Value);
         IlluminationTelemetry illumination;
         if (settings.LocalIlluminationNormalization)
@@ -116,7 +117,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         var candidateAudits = candidateDiagnostics ? new List<VisionCandidateAudit>() : null;
         var circles = Detect(hsv.Value, pixels, settings.InitialVotes, out var packedCluster,
             appearance is not null && settings.VerificationBodyRefinement,
-            settings.FreshCueBallRecovery && settings.BodyProposalPriority ? rawWarped.Value : null, packedClassifications,
+            settings.FreshCueBallRecovery && settings.BodyProposalPriority ? rawWarped.Value : null,
+            rawHsv.Value, rawHsvPixels, boundaryColourMask, packedClassifications,
             candidateAudits, "initial");
         bool inspectRim = appearance is not null || settings.FreshCueBallRecovery;
         var initialLabels = circles.Select(c => Classify(c, pixels, inspectRim)).ToArray();
@@ -145,7 +147,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 var fit = recoveredBoundaries.GetValueOrDefault(circles[i])
                     ?? BallBoundaryRefiner.Refine(raw, coordinates.Width, coordinates.Height, new(circles[i].X, circles[i].Y),
                         PoolGeometry.Radius * coordinates.Width, collectSectorEvidence: boundaryDiagnostics,
-                        expectedKind: initialLabels[i].Kind);
+                        expectedKind: initialLabels[i].Kind, colourMask: boundaryColourMask);
                 if (fit is null) { boundaryUncertain = true; continue; }
                 candidateBoundaries[circles[i]] = fit;
                 // Support is sampled at 32 fixed angles. The 18-sector minimum
@@ -375,7 +377,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         finally { foreach (var point in original.Concat(portrait)) point.Dispose(); }
     }
     Circle[] Detect(Mat hsv, byte[] pixels, double votes, out PackedClusterEvidence packedCluster,
-        bool refineGeometry = false, Mat? rawImage = null,
+        bool refineGeometry = false, Mat? rawImage = null, Mat? rawHsv = null, byte[]? rawHsvPixels = null,
+        BoundaryColourMask? boundaryColourMask = null,
         Dictionary<Circle, BallClassification>? packedClassifications = null,
         List<VisionCandidateAudit>? candidateAudits = null, string pass = "initial")
     {
@@ -390,7 +393,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         bool prioritizeBodies = settings.FreshCueBallRecovery && settings.BodyProposalPriority;
         byte[]? rawBoundaryPixels = null;
         if (prioritizeBodies && rawImage is not null)
-            packedCluster = AddPackedClusterBodies(rawImage, result, scale, packedClassifications, candidateAudits, pass);
+            packedCluster = AddPackedClusterBodies(rawImage, rawHsv!, rawHsvPixels!, boundaryColourMask!, result, scale,
+                packedClassifications, candidateAudits, pass);
         if (prioritizeBodies) AddColourBodies(hsv, pixels, result, scale);
         if (prioritizeBodies && rawImage is not null) AddDarkBodies(rawImage, result, scale);
         for (int i = 0; i < count && result.Count <= 32; i++)

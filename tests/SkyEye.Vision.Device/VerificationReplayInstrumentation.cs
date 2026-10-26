@@ -15,11 +15,13 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
     public override void OnCreate(global::Android.OS.Bundle? args) { refinement = args?.GetString("refine") == "1"; dump = args?.GetString("dump") == "1"; boundaryAudit = args?.GetString("audit") == "1"; traceDarkMask = args?.GetString("trace") == "1"; run = args?.GetString("run") ?? ""; if (run.Length > 32 || run.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not '-' and not '_')) throw new ArgumentException("Invalid replay run name."); base.OnCreate(args); Start(); }
     public override void OnStart()
     {
-        base.OnStart(); object report;
+        base.OnStart(); object report; PipelineDiagnostics.Enabled = true;
         try
         {
             var root = Path.Combine(TargetContext!.GetExternalFilesDir(null)!.AbsolutePath, run.Length == 0 ? "o08-replay" : "o08-replay-" + run);
-            var paths = Directory.GetFiles(root, "*.json").OrderBy(p => long.Parse(Path.GetFileNameWithoutExtension(p))).ToArray();
+            var paths = Directory.GetFiles(root, "*.json")
+                .Where(path => long.TryParse(Path.GetFileNameWithoutExtension(path), out _))
+                .OrderBy(path => long.Parse(Path.GetFileNameWithoutExtension(path))).ToArray();
             if (paths.Length is < 1 or > 6) throw new IOException("Replay 1 to 6 captured development snapshots.");
             using var first = JsonDocument.Parse(File.ReadAllBytes(paths[0]));
             var firstMetadata = first.RootElement;
@@ -40,6 +42,16 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 ? null : !string.Equals(recordedAlgorithm, replayAlgorithm, StringComparison.Ordinal);
             using var worker800 = analyzer800.CreateVerification(calibration);
             using var worker1000 = analyzer1000.CreateVerification(calibration);
+            using var cached15Worker = analyzer800.CreateVerification(calibration);
+            using var cachedCompleteWorker = analyzer800.CreateVerification(calibration);
+            JsonDocument? cacheSeeds = File.Exists(Path.Combine(root, "cache-seeds.json"))
+                ? JsonDocument.Parse(File.ReadAllBytes(Path.Combine(root, "cache-seeds.json"))) : null;
+            if (cacheSeeds is not null)
+            {
+                var seed = cacheSeeds.RootElement;
+                SeedVerificationWorker(cached15Worker, seed.GetProperty("actual15BodyCache"), seed.GetProperty("gains"), 800);
+                SeedVerificationWorker(cachedCompleteWorker, seed.GetProperty("priorCompleteCache"), seed.GetProperty("gains"), 800);
+            }
             var samples = new List<object>();
             var analyses800 = new List<VisionResult>(); var analyses1000 = new List<VisionResult>();
             var measurements800 = new List<VerificationMeasurement>(); var measurements1000 = new List<VerificationMeasurement>();
@@ -71,8 +83,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     throw new IOException("Replay frames do not share one analyzer configuration.");
                 var detectionRequested = metadataRoot.TryGetProperty("detectionRequested", out var detectionElement)
                     ? detectionElement.GetBoolean() : true;
-                var baseline800 = analyzer800.Analyze(bytes, calibration);
-                var baseline1000 = analyzer1000.Analyze(bytes, calibration);
+                var baseline800 = Measure(() => analyzer800.Analyze(bytes, calibration), out var analysis800Metrics);
+                var baseline1000 = Measure(() => analyzer1000.Analyze(bytes, calibration), out var analysis1000Metrics);
                 analyses800.Add(baseline800); analyses1000.Add(baseline1000);
                 bool blackSeedRecovered800 = baseline800.CandidateAudits.Any(a => a.Pass == "initial" && a.Stage == "packed-black" && a.Decision == "added-black-body");
                 bool blackSeedRecovered1000 = baseline1000.CandidateAudits.Any(a => a.Pass == "initial" && a.Stage == "packed-black" && a.Decision == "added-black-body");
@@ -92,9 +104,106 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     FrameSource = frameSource,
                     DecodedReceipt = decodedReceipt,
                 };
-                var timer = System.Diagnostics.Stopwatch.StartNew();
-                var verification800 = worker800.Measure(frame, detectionRequested, CancellationToken.None); measurements800.Add(verification800);
-                var verification1000 = worker1000.Measure(frame, detectionRequested, CancellationToken.None); measurements1000.Add(verification1000);
+                var verification800 = Measure(() => worker800.Measure(frame, detectionRequested, CancellationToken.None), out var verification800Metrics); measurements800.Add(verification800);
+                var verification1000 = Measure(() => worker1000.Measure(frame, detectionRequested, CancellationToken.None), out var verification1000Metrics); measurements1000.Add(verification1000);
+                object? cacheStateRegression = null;
+                if (cacheSeeds is not null && samples.Count == 0 && detectionRequested)
+                {
+                    var seed = cacheSeeds.RootElement;
+                    var cached15 = Measure(() => cached15Worker.Measure(frame, true, CancellationToken.None), out var cached15Metrics);
+                    var cachedComplete = Measure(() => cachedCompleteWorker.Measure(frame, true, CancellationToken.None), out var cachedCompleteMetrics);
+                    using var unmodifiedSyntheticControlWorker = analyzer800.CreateVerification(calibration);
+                    SeedVerificationWorker(unmodifiedSyntheticControlWorker, seed.GetProperty("priorCompleteCache"), seed.GetProperty("gains"), 800, freezeAppearance: false);
+                    var unmodifiedSyntheticControl = Measure(() => unmodifiedSyntheticControlWorker.Measure(frame, true, CancellationToken.None), out var unmodifiedSyntheticControlMetrics);
+                    using var absentBlackWorker = analyzer800.CreateVerification(calibration);
+                    SeedVerificationWorker(absentBlackWorker, seed.GetProperty("priorCompleteCache"), seed.GetProperty("gains"), 800);
+                    var blankBitmap = global::Android.Graphics.Bitmap.CreateBitmap(800, 1600,
+                        global::Android.Graphics.Bitmap.Config.Argb8888!);
+                    blankBitmap.EraseColor(global::Android.Graphics.Color.Rgb(35, 110, 45));
+                    using var absentBlackFrame = new TableFrame([], DateTimeOffset.UtcNow, frameTimeline)
+                    {
+                        SourceTimeUs = sourceTimeUs + 1,
+                        FrameSource = "synthetic-uniform-cloth-negative",
+                        Image = new BitmapTableImage(blankBitmap)
+                    };
+                    var absentBlack = Measure(() => absentBlackWorker.Measure(absentBlackFrame, true, CancellationToken.None), out var absentBlackMetrics);
+                    var occludedBlack = CreateBlackOccludedPng(bytes, calibration, seed.GetProperty("priorCompleteCache"), 800, out var occludedPixelsHash);
+                    File.WriteAllBytes(Path.Combine(root, "black-removed-variant.png"), occludedBlack);
+                    using var occludedBlackFrame = new TableFrame(occludedBlack, DateTimeOffset.UtcNow, frameTimeline)
+                    {
+                        SourceTimeUs = sourceTimeUs + 2,
+                        FrameSource = "synthetic-packed-rack-black-removed"
+                    };
+                    using var occluded800Worker = analyzer800.CreateVerification(calibration);
+                    var analyzer1000WorkerOwner = new VisionAnalyzer(new VisionSettings(Width: 1000));
+                    using var occluded1000Worker = analyzer1000WorkerOwner.CreateVerification(calibration);
+                    SeedVerificationWorker(occluded800Worker, seed.GetProperty("priorCompleteCache"), seed.GetProperty("gains"), 800, freezeAppearance: false);
+                    SeedVerificationWorker(occluded1000Worker, seed.GetProperty("priorCompleteCache"), seed.GetProperty("gains"), 1000, freezeAppearance: false);
+                    var occluded800 = Measure(() => occluded800Worker.Measure(occludedBlackFrame, true, CancellationToken.None), out var occluded800Metrics);
+                    var occluded1000 = Measure(() => occluded1000Worker.Measure(occludedBlackFrame, true, CancellationToken.None), out var occluded1000Metrics);
+                    bool Recovered(VerificationMeasurement result) => result.Vision?.PackedClusterFallback?.Recovered == true
+                        && result.Vision.Balls.Count(ball => ball.Kind == "black") == 1;
+                    cacheStateRegression = new
+                    {
+                        samePixelSha256 = sha,
+                        inputPixelSha256 = receipt.GetProperty("pixelSha256").GetString(),
+                        freshNoCache = new { metrics = verification800Metrics, vision = Summarize(verification800, 800), recoveredBlackFromPixels = Recovered(verification800) },
+                        actual15BodyCache = new { metrics = cached15Metrics, vision = Summarize(cached15, 800), recoveredBlackFromPixels = Recovered(cached15) },
+                        priorCompleteCache = new { metrics = cachedCompleteMetrics, vision = Summarize(cachedComplete, 800), recoveredBlackFromPixels = Recovered(cachedComplete) },
+                        controlPurpose = seed.TryGetProperty("controlPurpose", out var controlPurpose) ? controlPurpose.GetString() : "current-frame cache regression",
+                        priorCompleteCacheControl = new
+                        {
+                            metrics = cachedCompleteMetrics,
+                            vision = cachedComplete.Vision is null ? null : Summarize(cachedComplete, 800),
+                            branchExecuted = cachedComplete.Vision?.Recognition?.Branch,
+                            passed = cachedComplete.Vision is { Uncertain: true, Obstructed: true }
+                        },
+                        absentBlackNegative = new
+                        {
+                            input = "Synthetic uniform cloth frame with no visible balls; frozen cue gains and a prior 16-circle anchor are preloaded.",
+                            metrics = absentBlackMetrics,
+                            vision = absentBlack.Vision is null ? null : Summarize(absentBlack.Vision, 800),
+                            detectedBlackCount = absentBlack.Vision?.Balls.Count(ball => ball.Kind == "black") ?? 0,
+                            fallback = absentBlack.Vision?.PackedClusterFallback,
+                            passed = absentBlack.Vision is { Balls.Length: 0, PackedClusterFallback: null }
+                        },
+                        packedRackBlackRemovalNegative = new
+                        {
+                            input = "Controlled removal of visible black pixels from the saved live frame; pixels inside the other 15 anchored ball disks are preserved.",
+                            unmodifiedSourcePairedControl = new
+                            {
+                                metrics = unmodifiedSyntheticControlMetrics,
+                                vision = unmodifiedSyntheticControl.Vision is null ? null : Summarize(unmodifiedSyntheticControl.Vision, 800),
+                                passed = unmodifiedSyntheticControl.Vision is { Uncertain: false, CircleCount: 16 }
+                                    && unmodifiedSyntheticControl.Vision.Balls.Count(ball => ball.Kind == "cue") == 1
+                                    && unmodifiedSyntheticControl.Vision.Balls.Count(ball => ball.Kind == "red") == 7
+                                    && unmodifiedSyntheticControl.Vision.Balls.Count(ball => ball.Kind == "yellow") == 7
+                                    && unmodifiedSyntheticControl.Vision.Balls.Count(ball => ball.Kind == "black") == 1
+                            },
+                            pixelBytesSha256 = occludedPixelsHash,
+                            width800 = new
+                            {
+                                metrics = occluded800Metrics,
+                                vision = occluded800.Vision is null ? null : Summarize(occluded800.Vision, 800),
+                                detectedBlackCount = occluded800.Vision?.Balls.Count(ball => ball.Kind == "black") ?? 0,
+                                fallback = occluded800.Vision?.PackedClusterFallback,
+                                passed = occluded800.Vision is { Uncertain: true, PackedClusterFallback: { Attempted: true, Recovered: false } }
+                                    && occluded800.Vision.Balls.All(ball => ball.Kind != "black")
+                            },
+                            width1000 = new
+                            {
+                                metrics = occluded1000Metrics,
+                                vision = occluded1000.Vision is null ? null : Summarize(occluded1000.Vision, 1000),
+                                detectedBlackCount = occluded1000.Vision?.Balls.Count(ball => ball.Kind == "black") ?? 0,
+                                fallback = occluded1000.Vision?.PackedClusterFallback,
+                                passed = occluded1000.Vision is { Uncertain: true, Obstructed: false, PackedClusterFallback: null }
+                                    && occluded1000.Vision.Balls.Length == 15 && occluded1000.Vision.Balls.All(ball => ball.Kind != "black")
+                            }
+                        },
+                        boundaryScoringCost = ProfileBoundaryScoring(bytes, calibration, seed.GetProperty("actual15BodyCache"), 800),
+                        seedSource = "Retained v2 width800 worker result for this exact live frame; cached detections are anchor/motion history only, while cached gains exercise BurstAppearance.Frozen."
+                    };
+                }
                 var auditComparison = CompareCapturedAudit(metadataRoot, verification800);
                 if (verification800.Reason == ObservationReason.Obstructed) worker800.ResetAfterObstruction();
                 if (verification1000.Reason == ObservationReason.Obstructed) worker1000.ResetAfterObstruction();
@@ -102,7 +211,11 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 {
                     frameId, pixelSha256 = sha, sourceTimeUs = frame.SourceTimeUs, capturedAt,
                     detectionRequested, configurationMatchesPrimary,
-                    replayObstructionGeometryMatchesCapture = auditComparison.GeometryMatches,
+                    analysis800Metrics, analysis1000Metrics, verification800Metrics, verification1000Metrics,
+                    cacheStateRegression,
+                    replayObstructionGeometryMatchesCapture = auditComparison.ExactGeometryMatches,
+                    replayObstructionNormalizedGeometryMatchesCapture = auditComparison.NormalizedGeometryMatches,
+                    replayObstructionMaximumNormalizedBoundsDelta = auditComparison.MaximumNormalizedBoundsDelta,
                     replayObstructionDecisionMatchesCapture = auditComparison.DecisionMatches,
                     width800 = new { blackSeedRecovered = blackSeedRecovered800, analysis = Summarize(baseline800, 800), verification = Summarize(verification800, 800),
                         darkMaskTrace = traceDarkMask ? PackedBlackMaskTrace.Capture(bytes, calibration, 800, baseline800, Path.Combine(root, "o08-black-trace-" + run), receipt.GetProperty("frameId").GetInt64().ToString()) : null,
@@ -113,7 +226,6 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     analysisWidthComparison = Compare(baseline800, baseline1000),
                     widthComparison = verification800.Vision is null || verification1000.Vision is null
                         ? null : Compare(verification800.Vision, verification1000.Vision),
-                    processingMs = timer.Elapsed.TotalMilliseconds
                 });
             }
             var consensus800 = VerificationConsensus.Resolve(measurements800.Where(m => m.Vision is not null).Select(m => m.Vision!).ToArray(), out var conflict800);
@@ -121,6 +233,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             var analysisConsensus800 = VerificationConsensus.Resolve(analyses800, out var analysisConflict800);
             var analysisConsensus1000 = VerificationConsensus.Resolve(analyses1000, out var analysisConflict1000);
             report = new { completed = true, configuration = ObservationPolicy.VerificationConfiguration, bodyRefinement = refinement, boundaryAudit,
+                pipelineDiagnostics = PipelineDiagnostics.Snapshot(),
                 recordedAnalyzerConfigurationIdentity = recordedConfiguration,
                 replayAnalyzerConfigurationIdentity = replayConfiguration,
                 configurationMatchesPrimaryWidth = configurationMatchesPrimary,
@@ -147,6 +260,134 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             : "o08-replay-proof.json";
         File.WriteAllText(Path.Combine(TargetContext!.GetExternalFilesDir(null)!.AbsolutePath, reportName), json);
         using var bundle = new global::Android.OS.Bundle(); bundle.PutString("result", "O08 development replay written"); Finish(global::Android.App.Result.Ok, bundle);
+    }
+    static void SeedVerificationWorker(ITableVerificationWorker worker, JsonElement circlesElement, JsonElement gainsElement, int width,
+        bool freezeAppearance = true)
+    {
+        const System.Reflection.BindingFlags fields = System.Reflection.BindingFlags.Instance
+            | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic;
+        var workerType = worker.GetType();
+        var appearance = workerType.GetField("appearance", fields)?.GetValue(worker)
+            ?? throw new InvalidOperationException("Verification appearance cache field is unavailable.");
+        var appearanceType = appearance.GetType();
+        if (freezeAppearance)
+        {
+            appearanceType.GetField("Gains", fields)?.SetValue(appearance, gainsElement.EnumerateArray().Select(value => value.GetDouble()).ToArray());
+            appearanceType.GetField("ReferenceValid", fields)?.SetValue(appearance, true);
+            appearanceType.GetField("Frozen", fields)?.SetValue(appearance, true);
+        }
+        var circles = circlesElement.EnumerateArray().Select(circle =>
+        {
+            string id = circle.GetProperty("ballId").GetString()!;
+            double x = circle.GetProperty("x").GetDouble(), y = circle.GetProperty("y").GetDouble();
+            double radius = circle.GetProperty("radius").GetDouble();
+            return new CircleObservation(id, new((1 - y) * width, x * width), radius * width,
+                id.Contains('-') ? id[..id.IndexOf('-')] : id, []);
+        }).ToArray();
+        workerType.GetField("anchorDetections", fields)?.SetValue(worker, circles);
+    }
+    static object ProfileBoundaryScoring(byte[] encodedImage, TableCalibration calibration, JsonElement circlesElement, int width)
+    {
+        var bgr = WarpRawPixels(encodedImage, calibration, width);
+        var hsv = WarpRawPixels(encodedImage, calibration, width, toHsv: true);
+        var mask = BoundaryColourMask.FromHsvPixels(hsv);
+        var proposals = circlesElement.EnumerateArray().Select(circle =>
+        {
+            string id = circle.GetProperty("ballId").GetString()!;
+            double x = circle.GetProperty("x").GetDouble(), y = circle.GetProperty("y").GetDouble();
+            return (Id: id, Kind: id[..id.IndexOf('-')], Centre: new Point((1 - y) * width, x * width));
+        }).ToArray();
+        BallBoundary?[] Run(BoundaryColourMask? boundaryColourMask) => proposals.Select(proposal =>
+            BallBoundaryRefiner.Refine(bgr, width, width * 2, proposal.Centre, PoolGeometry.Radius * width,
+                expectedKind: proposal.Kind, colourMask: boundaryColourMask)).ToArray();
+        _ = Run(null); _ = Run(mask); // Warm both JIT and native paths before timing.
+        PipelineDiagnostics.Enabled = false;
+        var legacy = Measure(() => Run(null), out var legacyMetrics);
+        var cached = Measure(() => Run(mask), out var cachedMetrics);
+        PipelineDiagnostics.Enabled = true;
+        int comparable = 0, changedSupport = 0, changedGeometry = 0;
+        double maximumCentreDelta = 0, maximumRadiusDelta = 0, maximumScoreDelta = 0;
+        for (int i = 0; i < proposals.Length; i++)
+        {
+            if (legacy[i] is null || cached[i] is null) { if (legacy[i] is not null || cached[i] is not null) changedGeometry++; continue; }
+            comparable++;
+            maximumCentreDelta = Math.Max(maximumCentreDelta, (legacy[i]!.Centre - cached[i]!.Centre).Length);
+            maximumRadiusDelta = Math.Max(maximumRadiusDelta, Math.Abs(legacy[i]!.Radius - cached[i]!.Radius));
+            maximumScoreDelta = Math.Max(maximumScoreDelta, Math.Abs(legacy[i]!.Score - cached[i]!.Score));
+            if (legacy[i]!.SupportedSectors != cached[i]!.SupportedSectors) changedSupport++;
+        }
+        return new { candidateCount = proposals.Length, comparable, legacyMetrics, cachedMetrics,
+            maximumCentreDelta, maximumRadiusDelta, maximumScoreDelta, changedSupport, changedGeometry };
+    }
+    static byte[] CreateBlackOccludedPng(byte[] encodedImage, TableCalibration calibration,
+        JsonElement circlesElement, int width, out string pixelBytesSha256)
+    {
+        using var encoded = new Org.Opencv.Core.MatOfByte(encodedImage);
+        using var source = Org.Opencv.Imgcodecs.Imgcodecs.Imdecode(encoded, Org.Opencv.Imgcodecs.Imgcodecs.ImreadColor);
+        if (source.Empty()) throw new IOException("Could not decode the saved rack frame for controlled black removal.");
+        int height = width * 2;
+        var original = calibration.Corners.Select(point => new Org.Opencv.Core.Point(point.X * source.Cols(), point.Y * source.Rows())).ToArray();
+        Org.Opencv.Core.Point[] target = [new(width, 0), new(width, height), new(0, height), new(0, 0)];
+        using var from = new Org.Opencv.Core.MatOfPoint2f(original);
+        using var to = new Org.Opencv.Core.MatOfPoint2f(target);
+        using var transform = Org.Opencv.Imgproc.Imgproc.GetPerspectiveTransform(from, to);
+        using var warped = new Org.Opencv.Core.Mat();
+        using var warpedSize = new Org.Opencv.Core.Size(width, height);
+        Org.Opencv.Imgproc.Imgproc.WarpPerspective(source, warped, transform, warpedSize);
+        var bgrPixels = new byte[width * height * 3]; warped.Get(0, 0, bgrPixels);
+        var black = circlesElement.EnumerateArray().Single(circle =>
+            circle.GetProperty("ballId").GetString()!.StartsWith("black-", StringComparison.Ordinal));
+        double x = black.GetProperty("x").GetDouble(), y = black.GetProperty("y").GetDouble();
+        double centreX = (1 - y) * width, centreY = x * width;
+        double radius = PoolGeometry.Radius * width;
+        var neighbours = circlesElement.EnumerateArray()
+            .Where(circle => !string.Equals(circle.GetProperty("ballId").GetString(), black.GetProperty("ballId").GetString(), StringComparison.Ordinal))
+            .Select(circle => (X: (1 - circle.GetProperty("y").GetDouble()) * width,
+                Y: circle.GetProperty("x").GetDouble() * width)).ToArray();
+        int clothOffset = ((height / 10) * width + width / 2) * 3;
+        byte blue = bgrPixels[clothOffset], green = bgrPixels[clothOffset + 1], red = bgrPixels[clothOffset + 2];
+        for (int py = Math.Max(0, (int)(centreY - radius)); py <= Math.Min(height - 1, (int)(centreY + radius)); py++)
+        for (int px = Math.Max(0, (int)(centreX - radius)); px <= Math.Min(width - 1, (int)(centreX + radius)); px++)
+        {
+            double dx = px - centreX, dy = py - centreY;
+            if (dx * dx + dy * dy > radius * radius) continue;
+            if (neighbours.Any(neighbour =>
+            {
+                double nx = px - neighbour.X, ny = py - neighbour.Y, neighbourRadius = radius * .94;
+                return nx * nx + ny * ny <= neighbourRadius * neighbourRadius;
+            })) continue;
+            int offset = (py * width + px) * 3;
+            bgrPixels[offset] = blue; bgrPixels[offset + 1] = green; bgrPixels[offset + 2] = red;
+        }
+        pixelBytesSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bgrPixels)).ToLowerInvariant();
+        using var patched = new Org.Opencv.Core.Mat(height, width, Org.Opencv.Core.CvType.Cv8uc3);
+        patched.Put(0, 0, bgrPixels);
+        using var inverse = new Org.Opencv.Core.Mat();
+        if (Org.Opencv.Core.Core.Invert(transform, inverse) == 0) throw new IOException("Could not invert the calibration transform.");
+        using var restored = new Org.Opencv.Core.Mat();
+        using var sourceSize = new Org.Opencv.Core.Size(source.Cols(), source.Rows());
+        Org.Opencv.Imgproc.Imgproc.WarpPerspective(patched, restored, inverse, sourceSize);
+        using var tableMask = new Org.Opencv.Core.Mat(source.Rows(), source.Cols(), Org.Opencv.Core.CvType.Cv8uc1);
+        tableMask.SetTo(new Org.Opencv.Core.Scalar(0));
+        using var tablePolygon = new Org.Opencv.Core.MatOfPoint(original);
+        using var white = new Org.Opencv.Core.Scalar(255);
+        Org.Opencv.Imgproc.Imgproc.FillConvexPoly(tableMask, tablePolygon, white);
+        restored.CopyTo(source, tableMask);
+        foreach (var point in original.Concat(target)) point.Dispose();
+        using var encodedVariant = new Org.Opencv.Core.MatOfByte();
+        if (!Org.Opencv.Imgcodecs.Imgcodecs.Imencode(".png", source, encodedVariant))
+            throw new IOException("Could not encode the controlled black-removal replay frame.");
+        return encodedVariant.ToArray();
+    }
+    static T Measure<T>(Func<T> action, out object metrics)
+    {
+        long allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
+        var timer = System.Diagnostics.Stopwatch.StartNew();
+        T result = action();
+        timer.Stop();
+        metrics = new { wallMs = timer.Elapsed.TotalMilliseconds,
+            managedBytes = GC.GetAllocatedBytesForCurrentThread() - allocatedBefore };
+        return result;
     }
     static string? AnalyzerAlgorithm(string? identity)
     {
@@ -189,7 +430,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         measurement.Motion, measurement.Reason, measurement.CoverageValid, measurement.MaximumBodyDisplacement,
         measurement.MaximumDetectedBodyDisplacement, measurement.SupportedBodies
     };
-    static (bool? GeometryMatches, bool? DecisionMatches) CompareCapturedAudit(JsonElement metadata, VerificationMeasurement replay)
+    static (bool? ExactGeometryMatches, bool? NormalizedGeometryMatches, double? MaximumNormalizedBoundsDelta, bool? DecisionMatches)
+        CompareCapturedAudit(JsonElement metadata, VerificationMeasurement replay)
     {
         ObstructionAuditTelemetry? captured = null;
         JsonElement capturedVision = default;
@@ -204,7 +446,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 captured = JsonSerializer.Deserialize<ObstructionAuditTelemetry>(audit.GetRawText(), new JsonSerializerOptions(JsonSerializerDefaults.Web));
         }
         var actual = replay.Vision?.ObstructionAudit;
-        if (captured is null || actual is null) return (captured is null && actual is null, null);
+        if (captured is null || actual is null) return (captured is null && actual is null, captured is null && actual is null, null, null);
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         static object Geometry(ObstructionAuditTelemetry audit) => new
         {
@@ -218,10 +460,28 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         };
         bool geometryMatches = JsonSerializer.Serialize(Geometry(captured), options)
             == JsonSerializer.Serialize(Geometry(actual), options);
+        var capturedComponents = captured.Components.OrderBy(component => component.Top / (double)captured.AnalysisHeight)
+            .ThenBy(component => component.Left / (double)captured.AnalysisWidth).ToArray();
+        var replayComponents = actual.Components.OrderBy(component => component.Top / (double)actual.AnalysisHeight)
+            .ThenBy(component => component.Left / (double)actual.AnalysisWidth).ToArray();
+        double? maximumNormalizedBoundsDelta = null;
+        bool? normalizedGeometryMatches = null;
+        if (capturedComponents.Length == replayComponents.Length)
+        {
+            var deltas = capturedComponents.Zip(replayComponents).Select(pair => new[]
+            {
+                Math.Abs(pair.First.Left / (double)captured.AnalysisWidth - pair.Second.Left / (double)actual.AnalysisWidth),
+                Math.Abs(pair.First.Top / (double)captured.AnalysisHeight - pair.Second.Top / (double)actual.AnalysisHeight),
+                Math.Abs(pair.First.Width / (double)captured.AnalysisWidth - pair.Second.Width / (double)actual.AnalysisWidth),
+                Math.Abs(pair.First.Height / (double)captured.AnalysisHeight - pair.Second.Height / (double)actual.AnalysisHeight)
+            }).SelectMany(delta => delta).ToArray();
+            maximumNormalizedBoundsDelta = deltas.Length == 0 ? 0 : deltas.Max();
+            normalizedGeometryMatches = maximumNormalizedBoundsDelta <= .003;
+        }
         bool? decisionMatches = capturedVision.TryGetProperty("obstructed", out var capturedObstructed)
             && capturedObstructed.ValueKind is JsonValueKind.True or JsonValueKind.False
             ? capturedObstructed.GetBoolean() == replay.Vision?.Obstructed : null;
-        return (geometryMatches, decisionMatches);
+        return (geometryMatches, normalizedGeometryMatches, maximumNormalizedBoundsDelta, decisionMatches);
     }
     static object[] AuditPackedBlackBoundaries(byte[] encodedImage, TableCalibration calibration, int width, VisionResult vision)
     {

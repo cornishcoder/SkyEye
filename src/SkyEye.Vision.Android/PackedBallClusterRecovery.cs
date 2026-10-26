@@ -17,28 +17,29 @@ public sealed partial class VisionAnalyzer
     /// Every returned body needs a ball-sized colour-mask peak and a supported
     /// raw-image boundary fit; table shape and declared inventory never add one.
     /// </summary>
-    PackedClusterEvidence AddPackedClusterBodies(Mat rawBgr, List<Circle> circles, double scale,
+    PackedClusterEvidence AddPackedClusterBodies(Mat rawBgr, Mat rawHsv, byte[] rawPixels, BoundaryColourMask boundaryColourMask,
+        List<Circle> circles, double scale,
         Dictionary<Circle, BallClassification>? packedClassifications,
         List<VisionCandidateAudit>? candidateAudits = null, string pass = "initial")
     {
-        using var rawHsv = new MatLease(new Mat());
-        Imgproc.CvtColor(rawBgr, rawHsv.Value, Imgproc.ColorBgr2hsv);
-        byte[] rawPixels = Read(rawHsv.Value), rawBgrPixels = Read(rawBgr);
+        byte[] rawBgrPixels = Read(rawBgr);
         using var red = new MatLease(new Mat());
         using var redLowA = new Scalar(0, 100, 30); using var redHighA = new Scalar(10, 255, 255);
         using var redLowB = new Scalar(170, 100, 30); using var redHighB = new Scalar(179, 255, 255);
         using var redWrap = new MatLease(new Mat());
-        Cv.InRange(rawHsv.Value, redLowA, redHighA, red.Value);
-        Cv.InRange(rawHsv.Value, redLowB, redHighB, redWrap.Value);
+        // Use the same raw HSV Mat that produced the per-frame boundary
+        // membership mask; do not convert the source a second time.
+        Cv.InRange(rawHsv, redLowA, redHighA, red.Value);
+        Cv.InRange(rawHsv, redLowB, redHighB, redWrap.Value);
         Cv.Bitwise_or(red.Value, redWrap.Value, red.Value);
         using var yellow = new MatLease(new Mat()); using var yellowLow = new Scalar(10, 100, 30); using var yellowHigh = new Scalar(40, 255, 255);
-        Cv.InRange(rawHsv.Value, yellowLow, yellowHigh, yellow.Value);
+        Cv.InRange(rawHsv, yellowLow, yellowHigh, yellow.Value);
 
         double minimumPeakRadius = 12 * scale;
         var proposals = FindColourPeakBodies(red.Value, "red", rawPixels, rawBgrPixels, scale, minimumPeakRadius,
-                candidateAudits, pass)
+                boundaryColourMask, candidateAudits, pass)
             .Concat(FindColourPeakBodies(yellow.Value, "yellow", rawPixels, rawBgrPixels, scale, minimumPeakRadius,
-                candidateAudits, pass)).ToArray();
+                boundaryColourMask, candidateAudits, pass)).ToArray();
         var cluster = FindDenseColourCluster(proposals, scale);
         if (candidateAudits is not null)
             for (int i = 0; i < proposals.Length; i++)
@@ -83,7 +84,7 @@ public sealed partial class VisionAnalyzer
         // and classify as black from this frame before it can become a body.
         using var dark = new MatLease(new Mat()); using var darkLow = new Scalar(0, 0, 0);
         using var darkHigh = new Scalar(179, 255, settings.DarkBodyValueCeiling);
-        Cv.InRange(rawHsv.Value, darkLow, darkHigh, dark.Value);
+        Cv.InRange(rawHsv, darkLow, darkHigh, dark.Value);
         using var cleanupSize = new Size(3, 3);
         using var cleanupKernel = new MatLease(Imgproc.GetStructuringElement(Imgproc.MorphEllipse, cleanupSize));
         Imgproc.MorphologyEx(dark.Value, dark.Value, Imgproc.MorphOpen, cleanupKernel.Value);
@@ -141,7 +142,8 @@ public sealed partial class VisionAnalyzer
     }
 
     ClusterBall[] FindColourPeakBodies(Mat colourMask, string kind, byte[] rawHsv, byte[] rawBgr, double scale,
-        double minimumPeakRadius, List<VisionCandidateAudit>? candidateAudits, string pass)
+        double minimumPeakRadius, BoundaryColourMask boundaryColourMask,
+        List<VisionCandidateAudit>? candidateAudits, string pass)
     {
         var candidates = new List<ClusterBall>();
         using var distance = new MatLease(new Mat());
@@ -171,7 +173,8 @@ public sealed partial class VisionAnalyzer
             if (interiorRadius < minimumPeakRadius || interiorRadius > settings.MaximumRadius * scale)
             { Audit("rejected-peak-radius"); continue; }
             var fit = BallBoundaryRefiner.Refine(rawBgr, coordinates.Width, coordinates.Height,
-                new(x, y), PoolGeometry.Radius * coordinates.Width, .5, expectedKind: kind);
+                new(x, y), PoolGeometry.Radius * coordinates.Width, .5, expectedKind: kind,
+                colourMask: boundaryColourMask);
             if (fit is null || fit.SupportedSectors < .4)
             { Audit(fit is null ? "rejected-no-boundary-fit" : "rejected-insufficient-boundary-support", fit, fit?.SupportedSectors); continue; }
             var body = new Circle(fit.Centre.X, fit.Centre.Y, fit.Radius);

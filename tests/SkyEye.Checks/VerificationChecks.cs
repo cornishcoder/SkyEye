@@ -301,6 +301,22 @@ static class VerificationChecks
     }
     static void BoundaryChecks()
     {
+        var hsvMask = BoundaryColourMask.FromHsvPixels([
+            0, 100, 30, 10, 100, 30, 11, 100, 30, 40, 255, 255,
+            41, 255, 255, 170, 100, 30, 169, 99, 255, 10, 99, 255,
+            179, 100, 29
+        ]);
+        Check(hsvMask.Matches("red", 0) && !hsvMask.Matches("yellow", 0)
+            && hsvMask.Matches("red", 3) && hsvMask.Matches("yellow", 3)
+            && !hsvMask.Matches("red", 6) && hsvMask.Matches("yellow", 6)
+            && hsvMask.Matches("yellow", 9) && !hsvMask.Matches("red", 9)
+            && !hsvMask.Matches("yellow", 12) && hsvMask.Matches("red", 15)
+            && !hsvMask.Matches("red", 18) && !hsvMask.Matches("red", 21)
+            && !hsvMask.Matches("red", 24),
+            "Cached HSV boundary membership preserves inclusive production thresholds and red wraparound");
+        Check(!hsvMask.Matches("blue", 0) && !hsvMask.Matches("red", -3)
+            && !hsvMask.Matches("red", 1) && !hsvMask.Matches("red", 1000),
+            "Cached HSV boundary membership rejects invalid classes and offsets");
         const int width = 160, height = 160;
         var image = new byte[width * height * 3];
         for (int y = 0; y < height; y++) for (int x = 0; x < width; x++)

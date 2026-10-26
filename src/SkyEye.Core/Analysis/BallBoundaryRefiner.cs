@@ -63,7 +63,7 @@ public static class BallBoundaryRefiner
                 fineEdge += Math.Abs(bgr[innerFine + k] - bgr[outerFine + k]);
             }
             edge /= 3; exterior /= 3; fineEdge /= 3;
-            bool exteriorRejected = RejectExterior(bgr, inside, outside, exterior, expectedKind);
+            bool exteriorRejected = RejectExterior(bgr, inside, outside, exterior, expectedKind, null);
             evidence[i] = new(i, innerPoint, outerPoint, fineInnerPoint, fineOuterPoint,
                 edge, exterior, fineEdge, exteriorRejected, !exteriorRejected && edge >= 16);
         }
@@ -105,8 +105,10 @@ public static class BallBoundaryRefiner
 
     public static BallBoundary? Refine(byte[] bgr, int width, int height, Point proposal, double expectedRadius,
         double minimumSupportedFraction = ObservationPolicy.MinimumSupportedBoundaryFraction,
-        bool collectSectorEvidence = false, string? expectedKind = null)
+        bool collectSectorEvidence = false, string? expectedKind = null, BoundaryColourMask? colourMask = null)
     {
+        PipelineDiagnostics.Count("boundaryRefineCalls");
+        using var scoringTiming = PipelineDiagnostics.Enabled ? PipelineDiagnostics.Measure("boundaryScoringMs") : null;
         if (width <= 0 || height <= 0 || bgr.Length != checked(width * height * 3)
             || !double.IsFinite(expectedRadius) || expectedRadius < 5 || expectedRadius > 100
             || !double.IsFinite(proposal.X) || !double.IsFinite(proposal.Y)
@@ -164,7 +166,7 @@ public static class BallBoundaryRefiner
                 double measuredEdge = edge, measuredFineEdge = fineEdge;
                 // An interior number-patch edge leads to more ball paint. The
                 // exterior of a supported body must return to local cloth.
-                bool exteriorRejected = RejectExterior(bgr, inside, outside, exterior, expectedKind);
+                bool exteriorRejected = RejectExterior(bgr, inside, outside, exterior, expectedKind, colourMask);
                 if (exteriorRejected) { edge = 0; fineEdge = 0; }
                 if (edge >= 16) supported++;
                 if (sectorEvidence is not null)
@@ -186,7 +188,8 @@ public static class BallBoundaryRefiner
         }
     }
 
-    static bool RejectExterior(byte[] bgr, int inside, int outside, double exterior, string? expectedKind)
+    static bool RejectExterior(byte[] bgr, int inside, int outside, double exterior, string? expectedKind,
+        BoundaryColourMask? colourMask)
     {
         // A recognized red/yellow body can end at a dark cast shadow before
         // the sample reaches cloth. Require the radial pair to cross that
@@ -195,8 +198,10 @@ public static class BallBoundaryRefiner
         // same-colour contacts, where the candidate's inner/outer pixels still
         // belong to the same painted body class.
         if (expectedKind is "red" or "yellow")
-            return !MatchesProductionColourMask(bgr, inside, expectedKind)
-                || MatchesProductionColourMask(bgr, outside, expectedKind);
+            return colourMask is null
+                ? !MatchesProductionColourMask(bgr, inside, expectedKind)
+                    || MatchesProductionColourMask(bgr, outside, expectedKind)
+                : !colourMask.Matches(expectedKind, inside) || colourMask.Matches(expectedKind, outside);
         return exterior > 40;
     }
 
