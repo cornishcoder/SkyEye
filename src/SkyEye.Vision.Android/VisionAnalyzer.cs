@@ -26,7 +26,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     public VisionAnalyzer(VisionSettings settings, bool includeBoundaryDiagnostics = false, bool includeCandidateDiagnostics = false)
     { settings.Validate(); this.settings = settings; boundaryDiagnostics = includeBoundaryDiagnostics; candidateDiagnostics = includeCandidateDiagnostics; coordinates = new(settings.Width); }
     public string ConfigurationIdentity => System.Text.Json.JsonSerializer.Serialize(new
-    { Algorithm = "body-priority-packed-colour-peaks-v5-packed-rack-evidence-gates", Settings = settings });
+    { Algorithm = "body-priority-packed-colour-peaks-v7-bounded-sparse-recovery", Settings = settings });
     static void Load()
     {
         lock (loadGate)
@@ -405,7 +405,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             packedCluster = AddPackedClusterBodies(rawImage, rawHsv!, rawHsvPixels!, boundaryColourMask!, result, scale,
                 packedClassifications, candidateAudits, pass);
         if (prioritizeBodies) AddColourBodies(hsv, pixels, result, scale);
-        if (prioritizeBodies && rawImage is not null) AddDarkBodies(rawImage, result, scale);
+        if (prioritizeBodies && rawImage is not null)
+            AddDarkBodies(rawImage, result, scale, packedClassifications, candidateAudits, pass);
         for (int i = 0; i < count && result.Count <= 32; i++)
         {
             var value = circles.Value.Get(circles.Value.Rows() == 1 ? 0 : i, circles.Value.Rows() == 1 ? i : 0);
@@ -416,8 +417,12 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             // An opening is not a ball; ball-adjacent uncertain cases remain visible through review.
             if (PocketCentres().Any(p => (new Point(c.X, c.Y) - p).Length < settings.PocketExclusionRadius * scale))
             { Audit("hough", "unknown", i, c, "rejected-pocket-exclusion"); continue; }
-            if (prioritizeBodies && result.Any(p => (new Point(p.X, p.Y) - new Point(c.X, c.Y)).Length < settings.Separation * scale))
-            { Audit("hough", "unknown", i, c, "rejected-duplicate-before-fit"); continue; }
+            if (prioritizeBodies)
+            {
+                string proposedKind = Classify(c, pixels, inspectRim: true).Kind;
+                if (HasNearbyDuplicate(c, proposedKind))
+                { Audit("hough", "unknown", i, c, "rejected-duplicate-before-fit"); continue; }
+            }
             // Cloth shadows can produce circle edges anywhere. Keep the sampled
             // cloth rejection bounded, while rescuing a low-light neutral circle
             // only when its body contrasts with the immediately surrounding cloth.
@@ -443,7 +448,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 if (fit is null || fit.SupportedSectors < settings.MinimumHoughBoundarySupport)
                 { Audit("hough", "unknown", i, c, fit is null ? "rejected-no-boundary-fit" : "rejected-insufficient-boundary-support", fit?.Centre, fit?.Radius, fit?.SupportedSectors); continue; }
                 c = new(fit.Centre.X, fit.Centre.Y, fit.Radius);
-                if (result.Any(p => (new Point(p.X, p.Y) - new Point(c.X, c.Y)).Length < settings.Separation * scale))
+                string fittedKind = Classify(c, pixels, inspectRim: true).Kind;
+                if (HasNearbyDuplicate(c, fittedKind))
                 { Audit("hough", "unknown", i, c, "rejected-duplicate-after-fit", new(c.X, c.Y), c.Radius, fit.SupportedSectors); continue; }
                 // A fit near a neighbouring edge can move off the initial
                 // contrast patch. Its centre must still belong to a body.
@@ -462,6 +468,21 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         {
             candidateAudits?.Add(new(pass, stage, kind, index, new(proposal.X, proposal.Y), proposal.Radius,
                 fitCentre, fitRadius, support, null, decision));
+        }
+
+        bool HasNearbyDuplicate(Circle candidate, string candidateKind)
+        {
+            foreach (var existing in result)
+            {
+                if (Distance(existing, candidate) >= settings.Separation * scale) continue;
+                string existingKind = packedClassifications is not null && packedClassifications.TryGetValue(existing, out var known)
+                    ? known.Kind : Classify(existing, pixels, inspectRim: true).Kind;
+                // Distinct, independently classified touching balls are valid.
+                // Preserve the old broad rejection when either body is unknown.
+                if (candidateKind == "unknown" || existingKind == "unknown" || candidateKind == existingKind)
+                    return true;
+            }
+            return false;
         }
     }
     void RefineBodyGeometry(Mat cloth, List<Circle> circles, double scale)

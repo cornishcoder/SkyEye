@@ -19,3 +19,7 @@ Colour quality is a heuristic feature score. Native runtime version, cue gains, 
 
 `pixel-packed-rack-shadowed-dark.png` is a 1920×1080 frame from a separate older session, retained as a development regression after it exposed a dark rack shadow that narrowly failed the packed-component ball-body coverage gate. Its JSON deliberately has no copied detector centres; the Pixel 11 control checks only complete 16-ball classification and the clear/unobstructed decision. The source session was used to tune the gate and is not a held-out or independently labelled accuracy sample.
 
+# Break-off with a reported red pot
+
+`break-shot-red-potted-2026-10-26.png` is a manually reviewed 24-second frame from the player's break-off clip. It labels the post-break visible inventory as six reds, seven yellows, the black and cue, with approximate image centres and the saved clip calibration. The Android regression requires all 15 centres/classes at both 800px and 1000px and retains a content hash. This is clip-specific development evidence, not proof of the player's exact pot, a match ruling, or a held-out result.
+

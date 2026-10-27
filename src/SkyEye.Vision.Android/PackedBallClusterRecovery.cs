@@ -51,7 +51,53 @@ public sealed partial class VisionAnalyzer
                     new(proposal.Body.X, proposal.Body.Y), proposal.Body.Radius, null,
                     proposal.Classification.Kind, selected ? "selected" : "outside-selected-window"));
             }
-        if (cluster.Length < 12) return default;
+        if (cluster.Length < 12)
+        {
+            // The colour peaks are also useful for well-separated balls after
+            // a shot. They are not admitted as a group: each one needs the same
+            // confirmed colour and a strong outer boundary, and must remain
+            // separated from every other admitted body. This keeps an isolated
+            // red from disappearing merely because the table no longer has a
+            // rack-sized cluster.
+            const double minimumSparseBoundarySupport = .75;
+            var admittedSparseBodies = new List<Point>();
+            for (int i = 0; i < proposals.Length; i++)
+            {
+                var proposal = proposals[i];
+                var centre = new Point(proposal.Body.X, proposal.Body.Y);
+                if (proposal.BoundarySupport < minimumSparseBoundarySupport)
+                {
+                    candidateAudits?.Add(new(pass, "sparse-colour-add", proposal.Kind, i,
+                        new(proposal.Body.X, proposal.Body.Y), proposal.Body.Radius,
+                        new(proposal.Body.X, proposal.Body.Y), proposal.Body.Radius,
+                        proposal.BoundarySupport, proposal.Classification.Kind,
+                        "rejected-insufficient-boundary-support"));
+                    continue;
+                }
+                bool duplicate = circles.Any(c => Distance(c, proposal.Body) < settings.Separation * scale)
+                    || admittedSparseBodies.Any(c => (c - centre).Length < settings.Separation * scale);
+                if (duplicate)
+                {
+                    candidateAudits?.Add(new(pass, "sparse-colour-add", proposal.Kind, i,
+                        new(proposal.Body.X, proposal.Body.Y), proposal.Body.Radius,
+                        new(proposal.Body.X, proposal.Body.Y), proposal.Body.Radius,
+                        proposal.BoundarySupport, proposal.Classification.Kind,
+                        "rejected-duplicate"));
+                    continue;
+                }
+                circles.Add(proposal.Body);
+                admittedSparseBodies.Add(centre);
+                if (packedClassifications is not null) packedClassifications[proposal.Body] = proposal.Classification;
+                candidateAudits?.Add(new(pass, "sparse-colour-add", proposal.Kind, i,
+                    new(proposal.Body.X, proposal.Body.Y), proposal.Body.Radius,
+                    new(proposal.Body.X, proposal.Body.Y), proposal.Body.Radius,
+                    proposal.BoundarySupport, proposal.Classification.Kind,
+                    "added-strong-isolated-body"));
+            }
+            AddSparseBlackBody(rawHsv, rawBgrPixels, rawPixels, proposals, circles, scale,
+                packedClassifications, candidateAudits, pass);
+            return default;
+        }
 
         var existingCentres = circles.Select(c => new Point(c.X, c.Y)).ToArray();
         var admittedBodies = new List<Point>();
@@ -133,6 +179,77 @@ public sealed partial class VisionAnalyzer
                     boundary?.Centre, boundary?.Radius, support, label, decision) { Evidence = evidence });
         }
         return new(true, cluster.Count(p => p.Kind == "red"), cluster.Count(p => p.Kind == "yellow"), blackObserved);
+    }
+
+    void AddSparseBlackBody(Mat rawHsv, byte[] rawBgrPixels, byte[] rawPixels, ClusterBall[] colourBalls,
+        List<Circle> circles, double scale,
+        Dictionary<Circle, BallClassification>? packedClassifications,
+        List<VisionCandidateAudit>? candidateAudits, string pass)
+    {
+        using var dark = new MatLease(new Mat());
+        using var darkLow = new Scalar(0, 0, 0);
+        using var darkHigh = new Scalar(179, 255, settings.DarkBodyValueCeiling);
+        Cv.InRange(rawHsv, darkLow, darkHigh, dark.Value);
+        using var cleanupSize = new Size(3, 3);
+        using var cleanupKernel = new MatLease(Imgproc.GetStructuringElement(Imgproc.MorphEllipse, cleanupSize));
+        Imgproc.MorphologyEx(dark.Value, dark.Value, Imgproc.MorphOpen, cleanupKernel.Value);
+        var bounds = (Left: 65 * scale, Right: coordinates.Width - 65 * scale,
+            Top: 65 * scale, Bottom: coordinates.Height - 65 * scale);
+        var seeds = FindPeakSeeds(dark.Value, scale, 8 * scale, bounds)
+            .Where(seed => seed.Radius <= settings.MaximumRadius * scale).ToArray();
+        // Prefer peaks near already supported painted bodies, then larger dark
+        // interiors. The 12-fit limit bounds the extra work in a sparse scene.
+        var rankedSeeds = seeds.Select(seed => (Seed: seed,
+                ColourDistance: colourBalls.Length == 0 ? double.PositiveInfinity : colourBalls
+                    .Min(ball => (new Point(ball.Body.X, ball.Body.Y) - seed.Centre).Length)))
+            .OrderBy(candidate => candidate.ColourDistance)
+            .ThenByDescending(candidate => candidate.Seed.Radius)
+            .Take(12).ToArray();
+        candidateAudits?.Add(new(pass, "sparse-black-search", "black", seeds.Length,
+            new((bounds.Left + bounds.Right) / 2, (bounds.Top + bounds.Bottom) / 2), 0, null, null, null, null,
+            $"ball-sized-full-table-seeds={seeds.Length};colour-proximity-ranked={rankedSeeds.Length};fit-cap=12"));
+        double expectedRadius = PoolGeometry.Radius * coordinates.Width;
+        for (int i = 0; i < rankedSeeds.Length; i++)
+        {
+            var seed = rankedSeeds[i].Seed;
+            if (PocketCentres().Any(p => (seed.Centre - p).Length < settings.PocketExclusionRadius * scale))
+            { Audit("rejected-pocket-exclusion"); continue; }
+            if (circles.Any(c => Classify(c, rawPixels, inspectRim: true).Kind == "black"))
+            { Audit("rejected-black-already-present"); return; }
+            var fit = BallBoundaryRefiner.Refine(rawBgrPixels, coordinates.Width, coordinates.Height,
+                seed.Centre, expectedRadius, .5625);
+            if (fit is null)
+            { Audit("rejected-no-boundary-fit"); continue; }
+            string? occlusionEvidence = null;
+            bool occlusionExplained = fit.SupportedSectors < .7
+                && HasOcclusionExplainedBlackBoundary(fit, seed.Centre, expectedRadius, rawBgrPixels,
+                    colourBalls, out occlusionEvidence);
+            if (fit.SupportedSectors < .7 && !occlusionExplained)
+            { Audit("rejected-insufficient-boundary-support", fit, fit.SupportedSectors, evidence: occlusionEvidence); continue; }
+            var body = new Circle(fit.Centre.X, fit.Centre.Y, fit.Radius);
+            var classification = Classify(body, rawPixels, inspectRim: true);
+            if (classification.Kind != "black")
+            { Audit("rejected-classification", fit, fit.SupportedSectors, classification.Kind); continue; }
+            if (circles.Any(existing => Distance(existing, body) < settings.Separation * scale
+                && IsSameOrUnclearKind(existing, classification.Kind)))
+            { Audit("rejected-duplicate", fit, fit.SupportedSectors, classification.Kind); continue; }
+            circles.Add(body);
+            if (packedClassifications is not null) packedClassifications[body] = classification;
+            Audit("added-strong-isolated-black", fit, fit.SupportedSectors, classification.Kind);
+            return;
+
+            bool IsSameOrUnclearKind(Circle existing, string candidateKind)
+            {
+                string existingKind = packedClassifications is not null && packedClassifications.TryGetValue(existing, out var known)
+                    ? known.Kind : Classify(existing, rawPixels, inspectRim: true).Kind;
+                return existingKind == "unknown" || candidateKind == "unknown" || existingKind == candidateKind;
+            }
+
+            void Audit(string decision, BallBoundary? boundary = null, double? support = null,
+                string? classifiedKind = null, string? evidence = null)
+                => candidateAudits?.Add(new(pass, "sparse-black-add", "black", i, seed.Centre, seed.Radius,
+                    boundary?.Centre, boundary?.Radius, support, classifiedKind, decision) { Evidence = evidence });
+        }
     }
 
     bool HasOcclusionExplainedBlackBoundary(BallBoundary fit, Point proposal, double expectedRadius,

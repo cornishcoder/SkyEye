@@ -1,0 +1,45 @@
+{
+  "description": "Post-break frame from the player-reported clip; the player reports that one red was potted.",
+  "capturedAt": "2026-10-26",
+  "timestampMeaning": "FFmpeg-decoded frame at 24 seconds into the saved player-reported MP4. This is a development regression frame, not held-out evidence.",
+  "source": "Player-reported SkyEye clip d71891a8a8fa4e7fa869cefe332e1aec; extracted frame reviewed visually.",
+  "sourceClipSha256": "F16533E0D236B31CA573623E811061945533A2C3C6905F5A8F2AC3319F61EBE3",
+  "width": 1920,
+  "height": 1080,
+  "lighting": "Recorded room lighting during the break-off sample.",
+  "pixelFile": "break-shot-red-potted-2026-10-26.png",
+  "pixelSha256": "e3a7532a42150aadff7d0e11b0a15ac0e3523707424aa07549cd526bee8e78b2",
+  "groundTruth": {
+    "cue": 1,
+    "red": 6,
+    "yellow": 7,
+    "black": 1,
+    "visibleTotal": 15
+  },
+  "groundTruthMeaning": "The frame visibly contains six reds after the player-reported break pot, seven yellows, the black and cue. Ball categories and approximate centres were manually reviewed from this exact image. Entry order is fixture-only and does not claim durable ball identities or independently prove a game-state ruling.",
+  "calibrationMeaning": "Active camera calibration copied from the matching saved clip replay for offline analysis; it is not a proposed device calibration.",
+  "calibration": [
+    { "x": 0.0503124992052714, "y": 0.14907407407407408 },
+    { "x": 0.8976041793823242, "y": 0.07648148006863065 },
+    { "x": 0.9005208333333333, "y": 0.9268518518518518 },
+    { "x": 0.0546875, "y": 0.8827777438693576 }
+  ],
+  "expectedBehaviour": "Recover the six visible reds from image evidence at all supported analyzer widths. Never infer a ball from the prior rack position or the spoken pot report.",
+  "expected": [
+    { "kind": "cue", "image": { "x": 0.8047, "y": 0.5120 } },
+    { "kind": "black", "image": { "x": 0.6589, "y": 0.5028 } },
+    { "kind": "red", "image": { "x": 0.3840, "y": 0.2639 } },
+    { "kind": "red", "image": { "x": 0.3026, "y": 0.4704 } },
+    { "kind": "red", "image": { "x": 0.8021, "y": 0.3611 } },
+    { "kind": "red", "image": { "x": 0.7073, "y": 0.4259 } },
+    { "kind": "red", "image": { "x": 0.6589, "y": 0.5454 } },
+    { "kind": "red", "image": { "x": 0.7276, "y": 0.6028 } },
+    { "kind": "yellow", "image": { "x": 0.6578, "y": 0.3880 } },
+    { "kind": "yellow", "image": { "x": 0.7313, "y": 0.4694 } },
+    { "kind": "yellow", "image": { "x": 0.6792, "y": 0.4806 } },
+    { "kind": "yellow", "image": { "x": 0.5932, "y": 0.5370 } },
+    { "kind": "yellow", "image": { "x": 0.6661, "y": 0.5861 } },
+    { "kind": "yellow", "image": { "x": 0.2047, "y": 0.6417 } },
+    { "kind": "yellow", "image": { "x": 0.7885, "y": 0.7167 } }
+  ]
+}
