@@ -146,12 +146,14 @@ public sealed partial class VisionAnalyzer
         int exteriorRejected = sectors.Count(sector => !sector.Supported && sector.ExteriorRejected);
         int neighbourExplained = sectors.Count(sector => !sector.Supported && sector.ExteriorRejected
             && neighbours.Any(neighbour => (neighbour - fit.Centre).Length >= expectedRadius * 1.1
-                && (sector.OuterPoint - neighbour).Length <= expectedRadius * 1.15));
+                && (sector.OuterPoint - neighbour).Length
+                    <= expectedRadius * BallBoundaryRefiner.ConservativeOcclusionNeighborRadius));
         bool accepted = BallBoundaryRefiner.HasConservativeOcclusionCoverage(sectors, fit.Centre,
             expectedRadius, neighbours, 14d / 32);
         var uncovered = sectors.Where(sector => !sector.Supported && (!sector.ExteriorRejected
                 || !neighbours.Any(neighbour => (neighbour - fit.Centre).Length >= expectedRadius * 1.1
-                    && (sector.OuterPoint - neighbour).Length <= expectedRadius * 1.15)))
+                    && (sector.OuterPoint - neighbour).Length
+                        <= expectedRadius * BallBoundaryRefiner.ConservativeOcclusionNeighborRadius)))
             .Select(sector =>
             {
                 double nearestNeighbourRadius = neighbours

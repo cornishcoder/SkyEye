@@ -26,7 +26,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     public VisionAnalyzer(VisionSettings settings, bool includeBoundaryDiagnostics = false, bool includeCandidateDiagnostics = false)
     { settings.Validate(); this.settings = settings; boundaryDiagnostics = includeBoundaryDiagnostics; candidateDiagnostics = includeCandidateDiagnostics; coordinates = new(settings.Width); }
     public string ConfigurationIdentity => System.Text.Json.JsonSerializer.Serialize(new
-    { Algorithm = "body-priority-packed-colour-peaks-v3-verification-fallback-mask-cache", Settings = settings });
+    { Algorithm = "body-priority-packed-colour-peaks-v5-packed-rack-evidence-gates", Settings = settings });
     static void Load()
     {
         lock (loadGate)
@@ -596,7 +596,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         double scale = coordinates.Width / 1000.0;
         double minimumWidth = 120 * scale, minimumHeight = 120 * scale, minimumArea = 5000 * scale * scale;
         double packedMaximumWidth = 400 * scale, packedMaximumHeight = 400 * scale;
-        const int packedClusterMinimumBallCentres = 12;
+        int packedClusterMinimumBallCentres = Math.Min(12, Math.Max(8, (int)Math.Ceiling(balls.Count * .55)));
+        const double packedClusterMinimumBallBodyCoverageFraction = .4;
         var candidates = new List<ObstructionComponentAudit>();
         int triggeringComponents = 0;
         for (int i = 1; i < count; i++)
@@ -634,8 +635,13 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             // centres and split the component label. Associate a compact
             // component with the rack by its measured bounds, while retaining
             // exact centre membership in telemetry for audit.
+            // Lighting and ball shadows can split one rack into several mask
+            // components. Exempt only a compact component that overlaps a
+            // sufficient share of recognized ball centres and ball-body pixels;
+            // a hand/object component is still caught by its size or low body overlap.
             bool packedClusterExempted = packedClusterDetected && packedClusterSizeEligible &&
-                ballCentresInBounds >= packedClusterMinimumBallCentres;
+                ballCentresInBounds >= packedClusterMinimumBallCentres &&
+                ballBodyCoverage >= packedClusterMinimumBallBodyCoverageFraction;
             bool triggersObstruction = !wholeTableSegmentation && !packedClusterExempted;
             if (triggersObstruction) triggeringComponents++;
             candidates.Add(new(i, (int)x, (int)y, (int)width, (int)height, (int)area, ballCentres,
@@ -656,7 +662,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         int reportedTriggering = reported.Count(component => component.TriggersObstruction);
         audit = new(coordinates.Width, coordinates.Height, border, minimumWidth, minimumHeight, minimumArea,
             packedMaximumWidth, packedMaximumHeight, packedClusterMinimumBallCentres, count - 1, candidates.Count, reported.Length,
-            omittedComponents, triggeringComponents, Math.Max(0, triggeringComponents - reportedTriggering), reported);
+            omittedComponents, triggeringComponents, Math.Max(0, triggeringComponents - reportedTriggering), reported)
+        { PackedClusterMinimumBallBodyCoverageFraction = packedClusterMinimumBallBodyCoverageFraction };
         return triggeringComponents > 0;
     }
     Point[] PocketCentres() => [new(0, 0), new(coordinates.Width, 0), new(0, coordinates.Width), new(coordinates.Width, coordinates.Width), new(0, coordinates.Height), new(coordinates.Width, coordinates.Height)];

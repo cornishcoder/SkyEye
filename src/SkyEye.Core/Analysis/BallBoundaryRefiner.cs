@@ -14,6 +14,10 @@ public sealed record BoundarySectorEvidence(int Index, Point InnerPoint, Point O
 /// A size prior bounds the search; it never supplies a body without edge support.</summary>
 public static class BallBoundaryRefiner
 {
+    // A fitted, partially occluded edge can shift slightly from its dark seed.
+    // Allow a narrow measured tolerance when relating failed edge sectors to
+    // independently fitted neighboring ball centres.
+    public const double ConservativeOcclusionNeighborRadius = 1.25;
     static readonly (double X, double Y)[] directions = Enumerable.Range(0, 32)
         .Select(i => (Math.Cos(i * Math.PI / 16), Math.Sin(i * Math.PI / 16))).ToArray();
 
@@ -87,7 +91,7 @@ public static class BallBoundaryRefiner
         int minimumCoverage = (int)Math.Ceiling(minimumVisibleFraction * sectors.Count);
         if (visible < minimumVisible) return false;
 
-        double occlusionRadius = expectedRadius * 1.15;
+        double occlusionRadius = expectedRadius * ConservativeOcclusionNeighborRadius;
         double distinctBallDistance = expectedRadius * 1.1;
         int explained = 0;
         foreach (var sector in sectors)

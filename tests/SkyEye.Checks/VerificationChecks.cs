@@ -392,6 +392,17 @@ static class VerificationChecks
         }).ToArray();
         Check(BallBoundaryRefiner.HasConservativeOcclusionCoverage(partialEvidence, new(0, 0), 10, adjacentBallCentres),
             "One-sector-short visible support passes only when every rejected arc is covered by a measured neighbor");
+        var narrowlyOccludedEvidence = partialEvidence.Select(sector => sector.Index == 0
+            ? sector with { Supported = false, ExteriorRejected = true, OuterPoint = new(12, 0) }
+            : sector with { Supported = true, ExteriorRejected = false }).ToArray();
+        var narrowlyOccludingNeighbour = new Point(20 * Math.Cos(35.25 * Math.PI / 180), 20 * Math.Sin(35.25 * Math.PI / 180));
+        Check(BallBoundaryRefiner.HasConservativeOcclusionCoverage(narrowlyOccludedEvidence, new(0, 0), 10,
+                [narrowlyOccludingNeighbour]),
+            "A measured neighboring-ball edge within the fitted-boundary tolerance explains a narrowly missed sector");
+        var outsideNeighbor = new Point(20 * Math.Cos(36.8 * Math.PI / 180), 20 * Math.Sin(36.8 * Math.PI / 180));
+        Check(!BallBoundaryRefiner.HasConservativeOcclusionCoverage(narrowlyOccludedEvidence, new(0, 0), 10,
+                [outsideNeighbor]),
+            "A neighboring centre outside the fitted-boundary tolerance does not explain an unsupported sector");
         var packedBlackEvidence = partialEvidence.Select(sector => sector.Index < 14
             ? sector with { Supported = true, ExteriorRejected = false }
             : sector with { Supported = false, ExteriorRejected = true }).ToArray();

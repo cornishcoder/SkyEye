@@ -33,7 +33,10 @@ public sealed record ObstructionAuditTelemetry(int AnalysisWidth, int AnalysisHe
     double MinimumComponentWidth, double MinimumComponentHeight, double MinimumComponentArea,
     double PackedClusterMaximumWidth, double PackedClusterMaximumHeight, int PackedClusterMinimumBallCentres,
     int ConnectedComponents, int QualifyingComponents, int ReportedComponents, int OmittedComponents,
-    int TriggeringComponents, int OmittedTriggeringComponents, ObstructionComponentAudit[] Components);
+    int TriggeringComponents, int OmittedTriggeringComponents, ObstructionComponentAudit[] Components)
+{
+    public double PackedClusterMinimumBallBodyCoverageFraction { get; init; }
+}
 public sealed record VisionResult(Ball[] Balls, bool Uncertain, string[] Warnings, double ElapsedMs, int CircleCount, bool Normalized, string Runtime, double[] ColourGains, int ClothHue, bool Obstructed, CircleObservation[] Circles)
 {
     public RecognitionTelemetry? Recognition { get; init; }
