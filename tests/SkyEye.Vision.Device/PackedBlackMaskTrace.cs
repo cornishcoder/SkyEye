@@ -10,7 +10,7 @@ using Point = SkyEye.Core.Point;
 
 namespace SkyEye.Vision.Device;
 
-/// <summary>Evaluation-only trace of the packed black-ball proposal mask. It never supplies a point to production decisions.</summary>
+/// <summary>Evaluation-only trace of the packed and sparse black-ball proposal masks. It never supplies a point to production decisions.</summary>
 internal static class PackedBlackMaskTrace
 {
     const int ManualImageX = 1282;
@@ -18,7 +18,7 @@ internal static class PackedBlackMaskTrace
     const int DarkValueCeiling = 40;
 
     readonly record struct Peak(int ComponentIndex, double X, double Y, double Radius, int Area, double DistanceFromLabel,
-        bool PassesMargin, bool PassesMinimumRadius, bool InPackedWindow);
+        bool PassesMargin, bool PassesMinimumRadius, bool InSearchWindow);
 
     public static object Capture(byte[] encodedImage, TableCalibration calibration, int width, VisionResult vision,
         string outputDirectory, string frameId)
@@ -52,12 +52,12 @@ internal static class PackedBlackMaskTrace
             double auditScale = width / (double)candidateAuditGeometryWidth;
             var selectedCentres = vision.CandidateAudits.Where(a => a.Pass == "initial" && a.Stage == "packed-window" && a.Decision == "selected")
                 .Select(a => a.ProposalCentre * auditScale).ToArray();
-            if (selectedCentres.Length < 12)
-                throw new InvalidDataException("Packed cluster candidates are unavailable for the dark-mask window audit.");
-            double left = selectedCentres.Min(p => p.X) - 55 * scale;
-            double right = selectedCentres.Max(p => p.X) + 55 * scale;
-            double top = selectedCentres.Min(p => p.Y) - 55 * scale;
-            double bottom = selectedCentres.Max(p => p.Y) + 55 * scale;
+            bool hasPackedWindow = selectedCentres.Length >= 12;
+            double left = hasPackedWindow ? selectedCentres.Min(p => p.X) - 55 * scale : 65 * scale;
+            double right = hasPackedWindow ? selectedCentres.Max(p => p.X) + 55 * scale : width - 65 * scale;
+            double top = hasPackedWindow ? selectedCentres.Min(p => p.Y) - 55 * scale : 65 * scale;
+            double bottom = hasPackedWindow ? selectedCentres.Max(p => p.Y) + 55 * scale : 2 * width - 65 * scale;
+            string searchWindowSource = hasPackedWindow ? "packed-cluster" : "full-table-sparse-black";
 
             using var distance = new Mat(); Imgproc.DistanceTransform(openedMask, distance, Imgproc.DistL2, 3);
             int neighbourhood = Math.Max(5, (int)Math.Round(17 * scale) | 1);
@@ -201,7 +201,7 @@ internal static class PackedBlackMaskTrace
             {
                 using var point = new CvPoint((int)Math.Round(peak.X), (int)Math.Round(peak.Y));
                 bool admittedByCroppedCap = localProductionSeedPixels.Contains(((int)Math.Round(peak.X), (int)Math.Round(peak.Y)));
-                var ink = peak.PassesMinimumRadius && peak.PassesMargin && peak.InPackedWindow
+                var ink = peak.PassesMinimumRadius && peak.PassesMargin && peak.InSearchWindow
                     ? admittedByCroppedCap ? acceptedInk : windowInk
                     : rejectedInk;
                 Imgproc.Circle(overlay, point, 4, ink, -1);
@@ -227,21 +227,25 @@ internal static class PackedBlackMaskTrace
             string distanceOverlayName = $"{frameId}-{width}-distance-window.png";
             SavePng(Path.Combine(outputDirectory, distanceOverlayName), distanceOverlay);
 
-            var auditedBlackSeeds = vision.CandidateAudits.Where(a => a.Pass == "initial" && a.Stage == "packed-black")
+            string blackSeedStage = hasPackedWindow ? "packed-black" : "sparse-black-add";
+            var auditedBlackSeeds = vision.CandidateAudits.Where(a => a.Pass == "initial" && a.Stage == blackSeedStage)
                 .OrderBy(a => a.Index).ToArray();
             int auditedProductionSeeds = auditedBlackSeeds.Length;
-            var acceptedBlackSeed = auditedBlackSeeds.FirstOrDefault(a => a.Decision == "added-black-body");
-            int expectedAttemptedSeedCount = acceptedBlackSeed is null ? productionSeeds.Count : acceptedBlackSeed.Index + 1;
-            bool seedCountComparable = candidateAuditGeometryWidth == width;
+            string acceptedBlackDecision = hasPackedWindow ? "added-black-body" : "added-strong-isolated-black";
+            var acceptedBlackSeed = auditedBlackSeeds.FirstOrDefault(a => a.Decision == acceptedBlackDecision);
+            int expectedAttemptedSeedCount = hasPackedWindow
+                ? acceptedBlackSeed is null ? productionSeeds.Count : acceptedBlackSeed.Index + 1
+                : auditedBlackSeeds.Length;
+            bool seedCountComparable = hasPackedWindow && candidateAuditGeometryWidth == width;
             return new
             {
                 frameId, analysisWidth = width, candidateAuditGeometryWidth,
                 manualBlackLabel = new { sourcePixel = new { x = ManualImageX, y = ManualImageY }, analysisPixel = label,
                     note = "Manually inspected black-ball interior point in the saved frame; evaluation-only and never supplied to analyzer decisions." },
                 darkThreshold = new { minimumH = 0, maximumH = 179, minimumS = 0, maximumS = 255, minimumV = 0, maximumV = DarkValueCeiling, openKernel = "3x3 ellipse" },
-                selectedClusterWindow = new { left, top, right, bottom, selectedColourCentres = selectedCentres.Length,
+                analysisSearchWindow = new { source = searchWindowSource, left, top, right, bottom, selectedColourCentres = selectedCentres.Length,
                     containsManualLabel = label.X >= left && label.X <= right && label.Y >= top && label.Y <= bottom },
-                darkThresholdCoverageInSelectedWindow = new { width = windowRight - windowLeft + 1,
+                darkThresholdCoverageInSearchWindow = new { width = windowRight - windowLeft + 1,
                     height = windowBottom - windowTop + 1, pixelCount = windowPixelCount,
                     rawMaskPixels = rawDarkPixelsInWindow, rawMaskFraction = rawDarkPixelsInWindow / (double)windowPixelCount,
                     openedMaskPixels = openedDarkPixelsInWindow, openedMaskFraction = openedDarkPixelsInWindow / (double)windowPixelCount },

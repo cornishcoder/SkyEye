@@ -283,7 +283,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         if (uncertain) warnings.Add("Check uncertain colours or ball counts before using advice.");
         if (PocketColourNeedsReview(pixels)) { uncertain = true; warnings.Add("Check a coloured ball at a pocket opening; the pocket mask may hide part of it."); }
         Circle[] recognizedBallCircles = ordered.Where((_, index) => labels[index].Kind != "unknown").ToArray();
-        bool obstructed = LargeObstruction(rawHsv.Value, rawHsvPixels, recognizedBallCircles, packedCluster.Detected, out var obstructionAudit);
+        bool completePackedCluster = packedCluster.Detected && !packedClusterUnresolved;
+        bool obstructed = LargeObstruction(rawHsv.Value, rawHsvPixels, recognizedBallCircles, completePackedCluster, out var obstructionAudit);
         if (obstructed) { uncertain = true; warnings.Add("A large object covers part of the playable surface."); }
         for (int i = 0; i < balls.Count; i++) for (int j = i + 1; j < balls.Count; j++) if ((balls[i].Position - balls[j].Position).Length < .040) { uncertain = true; warnings.Add("Overlapping circle candidates need checking."); }
         return new(balls.ToArray(), uncertain, warnings.Distinct().ToArray(), watch.Elapsed.TotalMilliseconds, circles.Length, normalized, Cv.Version, colourGains, ClothHue(pixels), obstructed, observations.ToArray())
@@ -585,7 +586,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         }
         catch { mask.Dispose(); throw; }
     }
-    bool LargeObstruction(Mat hsv, byte[] pixels, IReadOnlyCollection<Circle> balls, bool packedClusterDetected,
+    bool LargeObstruction(Mat hsv, byte[] pixels, IReadOnlyCollection<Circle> balls, bool completePackedCluster,
         out ObstructionAuditTelemetry audit)
     {
         // Obstruction checks retain the broad cloth range: local saturation and
@@ -626,7 +627,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         double scale = coordinates.Width / 1000.0;
         double minimumWidth = 120 * scale, minimumHeight = 120 * scale, minimumArea = 5000 * scale * scale;
         double packedMaximumWidth = 400 * scale, packedMaximumHeight = 400 * scale;
-        int packedClusterMinimumBallCentres = Math.Min(12, Math.Max(8, (int)Math.Ceiling(balls.Count * .55)));
+        int packedClusterMinimumBallCentres = Math.Min(12, Math.Max(8, (int)Math.Ceiling(balls.Count * .5)));
         const double packedClusterMinimumBallBodyCoverageFraction = .36;
         var candidates = new List<ObstructionComponentAudit>();
         int triggeringComponents = 0;
@@ -669,7 +670,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             // components. Exempt only a compact component that overlaps a
             // sufficient share of recognized ball centres and ball-body pixels;
             // a hand/object component is still caught by its size or low body overlap.
-            bool packedClusterExempted = packedClusterDetected && packedClusterSizeEligible &&
+            bool packedClusterExempted = completePackedCluster && packedClusterSizeEligible &&
                 ballCentresInBounds >= packedClusterMinimumBallCentres &&
                 ballBodyCoverage >= packedClusterMinimumBallBodyCoverageFraction;
             bool triggersObstruction = !wholeTableSegmentation && !packedClusterExempted;
