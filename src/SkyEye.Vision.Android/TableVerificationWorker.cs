@@ -43,8 +43,11 @@ public sealed partial class VisionAnalyzer
             if (geometryValid is null)
             {
                 // Observe reference geometry once; never overwrite a stored calibration.
-                var pockets = owner.FindPockets(frame.ReviewImage(), cancellation);
-                geometryValid = pockets is not null && pockets.Corners.All(p => calibration.Corners.Min(c => (c - p).Length) <= .035);
+                // FindCorners first uses the stricter pocket layout, then its existing
+                // rail/corner fallback. A missed side pocket must not invalidate a
+                // fixed, otherwise matching camera view.
+                var corners = owner.FindCorners(frame.ReviewImage(), cancellation);
+                geometryValid = corners is not null && corners.All(p => calibration.Corners.Min(c => (c - p).Length) <= .035);
             }
             VisionResult? vision = null;
             if (detect) { PipelineDiagnostics.Count("verificationFullAnalyses"); vision = owner.AnalyzePixels(bgr.Value, calibration, cancellation, appearance); }

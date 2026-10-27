@@ -775,15 +775,17 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         if (decoded.Value.Empty() || decoded.Value.Rows() > 6000 || decoded.Value.Cols() > 6000) { decoded.Dispose(); throw new IOException("Snapshot could not be decoded."); }
         return decoded;
     }
-    public Point[]? FindCorners(byte[] jpeg)
+    public Point[]? FindCorners(byte[] jpeg) => FindCorners(jpeg, CancellationToken.None);
+    public Point[]? FindCorners(byte[] jpeg, CancellationToken cancellation)
     {
-        PipelineDiagnostics.Count("calibrationDetections");
-        var pockets = FindPockets(jpeg);
+        cancellation.ThrowIfCancellationRequested(); PipelineDiagnostics.Count("calibrationDetections");
+        var pockets = FindPockets(jpeg, cancellation);
         if (pockets is not null) return pockets.Corners.ToArray();
         Load(); using var frame = Decode(jpeg); using var gray = new MatLease(new Mat()); using var edges = new MatLease(new Mat()); using var circles = new MatLease(new Mat()); using var size = new Size(7, 7);
         Imgproc.CvtColor(frame.Value, gray.Value, Imgproc.ColorBgr2gray); Imgproc.GaussianBlur(gray.Value, gray.Value, size, 0); Imgproc.Canny(gray.Value, edges.Value, 170, 200);
         double scale = Math.Min(frame.Value.Rows(), frame.Value.Cols()) / 1000.0;
         Imgproc.HoughCircles(edges.Value, circles.Value, Imgproc.HoughGradient, 1.6, 300 * scale, 30, 30, (int)(35 * scale), (int)(100 * scale));
+        cancellation.ThrowIfCancellationRequested();
         var candidates = new List<Point>();
         for (int i = 0; i < circles.Value.Cols(); i++) { var c = circles.Value.Get(0, i); if (c is { Length: >= 3 }) candidates.Add(new(c[0] / frame.Value.Cols(), c[1] / frame.Value.Rows())); }
         if (candidates.Count < 4) return null;

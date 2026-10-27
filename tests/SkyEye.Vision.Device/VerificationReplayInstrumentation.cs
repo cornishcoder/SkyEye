@@ -85,6 +85,33 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     ? detectionElement.GetBoolean() : true;
                 var baseline800 = Measure(() => analyzer800.Analyze(bytes, calibration), out var analysis800Metrics);
                 var baseline1000 = Measure(() => analyzer1000.Analyze(bytes, calibration), out var analysis1000Metrics);
+                var detectedPocketLayout = analyzer800.FindPockets(bytes);
+                var detectedPocketCorners = detectedPocketLayout?.Corners.ToArray();
+                var pocketCornerDeltas = detectedPocketCorners?.Select(corner =>
+                    calibration.Corners.Min(saved => (saved - corner).Length)).ToArray();
+                var fallbackCorners = analyzer800.FindCorners(bytes);
+                var fallbackCornerDeltas = fallbackCorners?.Select(corner =>
+                    calibration.Corners.Min(saved => (saved - corner).Length)).ToArray();
+                object? detectedPocketGeometry = null;
+                if (detectedPocketCorners is { Length: > 0 } pocketCorners && pocketCornerDeltas is { Length: > 0 } deltas)
+                    detectedPocketGeometry = new
+                    {
+                        corners = pocketCorners,
+                        nearestSavedCornerDeltas = deltas,
+                        maximumNearestSavedCornerDelta = deltas.Max(),
+                        withinSavedCalibrationTolerance = deltas.All(delta => delta <= .035),
+                        sidePocketCount = detectedPocketLayout!.SidePockets.Length,
+                        minimumContrast = detectedPocketLayout.Contrast
+                    };
+                object? fallbackCornerGeometry = null;
+                if (fallbackCorners is { Length: > 0 } fallbackCornerPoints && fallbackCornerDeltas is { Length: > 0 } fallbackDeltas)
+                    fallbackCornerGeometry = new
+                    {
+                        corners = fallbackCornerPoints,
+                        nearestSavedCornerDeltas = fallbackDeltas,
+                        maximumNearestSavedCornerDelta = fallbackDeltas.Max(),
+                        withinSavedCalibrationTolerance = fallbackDeltas.All(delta => delta <= .035)
+                    };
                 analyses800.Add(baseline800); analyses1000.Add(baseline1000);
                 bool blackSeedRecovered800 = baseline800.CandidateAudits.Any(a => a.Pass == "initial" && a.Stage == "packed-black" && a.Decision == "added-black-body");
                 bool blackSeedRecovered1000 = baseline1000.CandidateAudits.Any(a => a.Pass == "initial" && a.Stage == "packed-black" && a.Decision == "added-black-body");
@@ -106,6 +133,11 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 };
                 var verification800 = Measure(() => worker800.Measure(frame, detectionRequested, CancellationToken.None), out var verification800Metrics); measurements800.Add(verification800);
                 var verification1000 = Measure(() => worker1000.Measure(frame, detectionRequested, CancellationToken.None), out var verification1000Metrics); measurements1000.Add(verification1000);
+                bool fallbackMatchesStoredCalibration = fallbackCornerDeltas is { Length: > 0 }
+                    && fallbackCornerDeltas.All(delta => delta <= .035);
+                if (fallbackMatchesStoredCalibration
+                    && (verification800.Reason == ObservationReason.CalibrationChanged || verification1000.Reason == ObservationReason.CalibrationChanged))
+                    throw new InvalidDataException("Verification rejected a view whose detected corners match the saved calibration.");
                 object? cacheStateRegression = null;
                 if (cacheSeeds is not null && samples.Count == 0 && detectionRequested)
                 {
@@ -213,6 +245,9 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 {
                     frameId, pixelSha256 = sha, sourceTimeUs = frame.SourceTimeUs, capturedAt,
                     detectionRequested, configurationMatchesPrimary,
+                    detectedPocketGeometry,
+                    fallbackCornerGeometry,
+                    fallbackMatchesStoredCalibration,
                     analysis800Metrics, analysis1000Metrics, verification800Metrics, verification1000Metrics,
                     cacheStateRegression,
                     replayObstructionGeometryMatchesCapture = auditComparison.ExactGeometryMatches,

@@ -44,21 +44,48 @@ public sealed partial class VisionAnalyzer
             if (surround - body < 8 || body > surround * .7) continue;
             candidates.Add((new(x / width, y / height), radius / shortSide, (surround - body) / 255));
         }
-        if (candidates.Count < 5) return null;
+        PipelineDiagnostics.Sample("pocketCandidateCount", candidates.Count);
+        for (int i = 0; i < candidates.Count; i++)
+        {
+            PipelineDiagnostics.Sample($"pocketCandidate{i}X", candidates[i].Centre.X);
+            PipelineDiagnostics.Sample($"pocketCandidate{i}Y", candidates[i].Centre.Y);
+            PipelineDiagnostics.Sample($"pocketCandidate{i}Radius", candidates[i].Radius);
+            PipelineDiagnostics.Sample($"pocketCandidate{i}Contrast", candidates[i].Contrast);
+        }
+        if (candidates.Count < 5)
+        {
+            PipelineDiagnostics.Count("pocketReject.insufficientCandidates");
+            return null;
+        }
         Point[] imageCorners = [new(0, 0), new(1, 0), new(1, 1), new(0, 1)];
         var picks = imageCorners.Select(p => candidates.MinBy(c => (c.Centre - p).Length)).ToArray();
-        if (picks.Select(p => p.Centre).Distinct().Count() != 4 || picks.Where((p, i) => (p.Centre - imageCorners[i]).Length > .35).Any()
-            || picks.Max(p => p.Radius) > picks.Min(p => p.Radius) * 2.5) return null;
+        bool distinctCorners = picks.Select(p => p.Centre).Distinct().Count() == 4;
+        double maximumCornerDistance = picks.Select((pick, index) => (pick.Centre - imageCorners[index]).Length).Max();
+        double pocketRadiusRatio = picks.Max(p => p.Radius) / picks.Min(p => p.Radius);
+        PipelineDiagnostics.Sample("pocketMaximumCornerDistance", maximumCornerDistance);
+        PipelineDiagnostics.Sample("pocketCornerRadiusRatio", pocketRadiusRatio);
+        for (int i = 0; i < picks.Length; i++)
+        {
+            PipelineDiagnostics.Sample($"pocketCorner{i}X", picks[i].Centre.X);
+            PipelineDiagnostics.Sample($"pocketCorner{i}Y", picks[i].Centre.Y);
+        }
+        if (!distinctCorners) { PipelineDiagnostics.Count("pocketReject.duplicateCornerPick"); return null; }
+        if (picks.Where((p, i) => (p.Centre - imageCorners[i]).Length > .35).Any())
+        { PipelineDiagnostics.Count("pocketReject.cornerTooFarFromImageCorner"); return null; }
+        if (pocketRadiusRatio > 2.5) { PipelineDiagnostics.Count("pocketReject.cornerRadiusRatio"); return null; }
         var corners = picks.Select(p => p.Centre).ToArray();
         double area = Math.Abs(Enumerable.Range(0, 4).Sum(i => corners[i].X * corners[(i + 1) % 4].Y - corners[(i + 1) % 4].X * corners[i].Y)) / 2;
-        if (area < .35) return null;
+        PipelineDiagnostics.Sample("pocketCornerArea", area);
+        if (area < .35) { PipelineDiagnostics.Count("pocketReject.cornerArea"); return null; }
         TableCalibration pocketPlane;
         try { pocketPlane = new(corners); } catch (ArgumentException) { return null; }
         // At least one independently detected side pocket must agree with the
         // projective plane. This rejects arbitrary four dark objects at image edges.
         var sides = candidates.Where(c => !corners.Contains(c.Centre))
             .Where(c => new[] { new Point(1, 0), new Point(1, 1) }.Any(p => (pocketPlane.Map(c.Centre) - p).Length < .10)).ToArray();
-        if (sides.Length == 0) return null;
+        PipelineDiagnostics.Sample("pocketSideCandidateCount", sides.Length);
+        if (sides.Length == 0) { PipelineDiagnostics.Count("pocketReject.noSidePocket"); return null; }
+        PipelineDiagnostics.Count("pocketLayoutAccepted");
         return new(corners.ToImmutableArray(), sides.Select(p => p.Centre).ToImmutableArray(), picks.Min(p => p.Contrast));
     }
 }
