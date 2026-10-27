@@ -172,7 +172,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         double? retainedBoundarySupport = null;
         string cueRecoveryReason = settings.FreshCueBallRecovery ? "no-unique-first-pass-cue" : "disabled";
         int rawCircleCount = circles.Length;
-        bool normalized = false, referenceValid = false, referenceConflict = false; double[] colourGains = [1, 1, 1]; var cueIndices = Enumerable.Range(0, first.Length).Where(i => first[i].Kind == "cue").ToArray();
+        bool normalized = false, referenceValid = false; double[] colourGains = [1, 1, 1]; var cueIndices = Enumerable.Range(0, first.Length).Where(i => first[i].Kind == "cue").ToArray();
         if (cueIndices.Length == 1)
         {
             referenceCue = circles[cueIndices[0]];
@@ -184,12 +184,21 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             double[] gains = channels.Select(c => { c.Sort(); return c.Count == 0 || c[(int)((c.Count - 1) * .95)] < 10 ? 0 : Math.Min(3, 255.0 / c[(int)((c.Count - 1) * .95)]); }).ToArray();
             if (gains.All(g => g > 0)) { colourGains = gains; referenceValid = true; }
         }
-        if (appearance?.Frozen == true)
+        if (appearance is not null)
         {
-            referenceConflict = referenceValid && Enumerable.Range(0, 3).Any(i => Math.Abs(colourGains[i] / appearance.Gains[i] - 1) > .15);
-            colourGains = appearance.Gains.ToArray(); referenceValid = appearance.ReferenceValid;
+            if (referenceValid)
+            {
+                // Re-estimate the cue-white balance from each detected frame. A
+                // changed exposure is a normal input condition, not a conflict;
+                // the verifier still demands stable ball geometry and motion.
+                appearance.Gains = colourGains.ToArray(); appearance.ReferenceValid = true; appearance.HasReference = true;
+            }
+            else if (appearance.HasReference && appearance.ReferenceValid)
+            {
+                // A brief cue dropout may reuse the last validated reference.
+                colourGains = appearance.Gains.ToArray(); referenceValid = true;
+            }
         }
-        if (appearance is not null && !appearance.Frozen && referenceValid) { appearance.Gains = colourGains.ToArray(); appearance.ReferenceValid = true; appearance.Frozen = true; }
         if (referenceValid)
         {
             byte[] bgr = Read(warped.Value);
@@ -269,8 +278,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         if (packedClusterUnresolved)
         { uncertain = true; warnings.Add("Packed colour cluster still has unresolved visible balls; review it before using advice."); }
         if (boundaryUncertain) { uncertain = true; warnings.Add("Current ball boundary lacks sufficient edge support."); }
-        if (appearance is not null && (!referenceValid || referenceConflict))
-        { uncertain = true; warnings.Add(referenceConflict ? "Current cue ball reference conflicts with the frozen burst gains." : "No validated burst colour reference. Review the table."); }
+        if (appearance is not null && !referenceValid)
+        { uncertain = true; warnings.Add("No validated burst colour reference. Review the table."); }
         if (uncertain) warnings.Add("Check uncertain colours or ball counts before using advice.");
         if (PocketColourNeedsReview(pixels)) { uncertain = true; warnings.Add("Check a coloured ball at a pocket opening; the pocket mask may hide part of it."); }
         Circle[] recognizedBallCircles = ordered.Where((_, index) => labels[index].Kind != "unknown").ToArray();
@@ -283,7 +292,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 labels.Count(l => l.Kind == "cue"), neutralCandidates, neutralRecovered,
                 cueGeometryRetained, cueRecoveryReason, retainedBoundarySupport)
                 { RejectedInitialCueBodies = rejectedCueBodies, RejectedNormalizedCueBodies = rejectedNormalizedCueBodies } },
-            VerificationReason = referenceConflict ? ObservationReason.LightingChanged : null, Illumination = illumination,
+            Illumination = illumination,
             PackedCluster = new(packedCluster.Detected, packedCluster.Detected && !packedClusterUnresolved,
                 packedCluster.RedCentres, packedCluster.YellowCentres, packedCluster.BlackCentre),
             ObstructionAudit = obstructionAudit,

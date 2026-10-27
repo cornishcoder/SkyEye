@@ -311,7 +311,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         {
             appearanceType.GetField("Gains", fields)?.SetValue(appearance, gainsElement.EnumerateArray().Select(value => value.GetDouble()).ToArray());
             appearanceType.GetField("ReferenceValid", fields)?.SetValue(appearance, true);
-            appearanceType.GetField("Frozen", fields)?.SetValue(appearance, true);
+            appearanceType.GetField("HasReference", fields)?.SetValue(appearance, true);
         }
         var circles = circlesElement.EnumerateArray().Select(circle =>
         {

@@ -9,7 +9,7 @@ namespace SkyEye.Vision.Android;
 
 public sealed partial class VisionAnalyzer
 {
-    sealed class BurstAppearance { public bool Frozen, ReferenceValid; public double[] Gains = [1, 1, 1]; }
+    sealed class BurstAppearance { public bool HasReference, ReferenceValid; public double[] Gains = [1, 1, 1]; }
     public ITableVerificationWorker CreateVerification(TableCalibration calibration) => new VerificationWorker(this, calibration);
     sealed class VerificationWorker(VisionAnalyzer owner, TableCalibration calibration) : ITableVerificationWorker
     {
@@ -27,7 +27,7 @@ public sealed partial class VisionAnalyzer
             anchorColour = previousColour = null;
             bodies = []; anchorDetections = null; anchorVision = null;
             geometryValid = null;
-            appearance.Frozen = false; appearance.ReferenceValid = false; appearance.Gains = [1, 1, 1];
+            appearance.HasReference = false; appearance.ReferenceValid = false; appearance.Gains = [1, 1, 1];
             motion = new(motionWidth, motionHeight);
         }
         public VerificationMeasurement Measure(TableFrame frame, bool detect, CancellationToken cancellation)

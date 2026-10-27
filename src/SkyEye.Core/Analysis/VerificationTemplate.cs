@@ -3,8 +3,9 @@ namespace SkyEye.Core.Analysis;
 public sealed record TemplateDisplacement(double Dx, double Dy, double Residual);
 
 /// <summary>Bounded colour patch translation, including smooth ball outlines that
-/// do not supply four stable optical-flow corners. Channel means remove only a
-/// constant illumination offset; displacement and residual retain shape changes.</summary>
+/// do not supply four stable optical-flow corners. Per-channel affine photometric
+/// normalization removes bounded exposure and white-balance changes while retaining
+/// displacement and residual shape changes.</summary>
 public static class VerificationTemplate
 {
     public static TemplateDisplacement? Compare(byte[] before, byte[] after, int width, int height, int cx, int cy, int radius)
@@ -27,8 +28,16 @@ public static class VerificationTemplate
                     int b = after[((cy + y + dy) * width + cx + x + dx) * 3 + channel];
                     sumA += a; sumB += b; squareA += a * a; squareB += b * b; cross += a * b; count++;
                 }
-                double v = squareA + squareB - (sumA * sumA + sumB * sumB) / count;
-                variance += v; error += v - 2 * (cross - sumA * sumB / count);
+                double varianceA = Math.Max(0, squareA - sumA * sumA / count);
+                double varianceB = Math.Max(0, squareB - sumB * sumB / count);
+                double covariance = cross - sumA * sumB / count;
+                double gain = varianceA > 1 ? covariance / varianceA : 1;
+                double channelVariance = varianceA + varianceB;
+                variance += channelVariance;
+                if (!double.IsFinite(gain) || gain is < .5 or > 2)
+                    error += channelVariance;
+                else
+                    error += Math.Max(0, varianceB - 2 * gain * covariance + gain * gain * varianceA);
             }
             if (variance / (6 * count) < 4) return null;
             double score = Math.Max(0, error) / variance;

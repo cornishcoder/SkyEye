@@ -20,7 +20,8 @@ public sealed record VerificationMeasurement(TableMotion Motion, ObservationReas
 
 /// <summary>Lets complete, stable ball-template evidence absorb weak surface-pixel noise.
 /// Recognition uncertainty remains a layout concern; obstruction, strong motion,
-/// lighting and calibration signals still block a stillness result.</summary>
+/// and calibration signals still block a stillness result. Global brightness changes
+/// are handled through photometric normalization.</summary>
 public static class VerificationStillnessPolicy
 {
     public const double MaximumSupportedWeakEdgeChange = .30;
@@ -38,8 +39,7 @@ public static class VerificationStillnessPolicy
 
         return measurement.SensitiveTileChange <= MaximumSupportedWeakEdgeChange
             && measurement.PhotometricResidualTileChange <= MaximumSupportedPhotometricResidual
-            && measurement.PerimeterChange <= MaximumSupportedPerimeterChange
-            && measurement.IlluminationChange <= 8;
+            && measurement.PerimeterChange <= MaximumSupportedPerimeterChange;
     }
 }
 

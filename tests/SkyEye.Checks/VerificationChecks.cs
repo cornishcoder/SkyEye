@@ -247,9 +247,9 @@ static class VerificationChecks
         var uncertainMotion = new VerificationPixels(w, h); uncertainMotion.Measure(gray, true, null);
         Check(uncertainMotion.Measure(subtle, true, null).Motion == TableMotion.Unknown, "Small unsupported changes cannot imply stillness");
         var supportedPixelNoise = new VerificationMeasurement(TableMotion.Unknown, ObservationReason.InsufficientEvidence,
-            true, .19, .006, .9, Vision()) { SensitiveTileChange = .23, PhotometricResidualTileChange = .017 };
+            true, .19, .006, 24, Vision()) { SensitiveTileChange = .23, PhotometricResidualTileChange = .017 };
         Check(VerificationStillnessPolicy.CanResolveAsStill(supportedPixelNoise, allTrackedBodiesSupported: true),
-            "Complete stable ball-template support absorbs weak local pixel noise within measured stationary limits");
+            "Complete stable ball-template support absorbs weak local pixel noise across a broad brightness change");
         Check(!VerificationStillnessPolicy.CanResolveAsStill(supportedPixelNoise, allTrackedBodiesSupported: false),
             "Weak pixel changes cannot establish stillness when any detected body lacks template support");
         Check(VerificationStillnessPolicy.CanResolveAsStill(supportedPixelNoise with
@@ -271,11 +271,21 @@ static class VerificationChecks
         Check(new VerificationPixels(w, h).Measure(new byte[w * h], true, null).Motion == TableMotion.Unknown, "Textureless coverage never implies stillness");
         Check(new VerificationPixels(w, h).Measure(gray, true, Vision() with { Obstructed = true }).Reason == ObservationReason.Obstructed,
             "A physically obstructed bootstrap frame is refused immediately without waiting for a settled layout");
-        var lighting = new VerificationPixels(w, h); lighting.Measure(gray, true, null);
-        Check(lighting.Measure(gray.Select(b => (byte)(b + 20)).ToArray(), true, null).Reason == ObservationReason.LightingChanged, "Broad exposure change has its own reason");
+        var exposure = new VerificationPixels(w, h); exposure.Measure(gray, true, null);
+        var brighter = gray.Select(b => (byte)Math.Clamp((int)Math.Round(b * 1.35 + 12), 0, 255)).ToArray();
+        var exposureMeasurement = exposure.Measure(brighter, true, null);
+        Check(exposureMeasurement.Motion == TableMotion.Still && exposureMeasurement.IlluminationChange > 8,
+            "A global exposure shift is normalized without inventing table motion");
+        var exposureMotion = new VerificationPixels(w, h); exposureMotion.Measure(gray, true, null);
+        var movingUnderExposure = brighter.ToArray();
+        for (int y = 40; y < 48; y++) for (int x = 40; x < 48; x++) movingUnderExposure[y * w + x] = 220;
+        Check(exposureMotion.Measure(movingUnderExposure, true, null).Reason == ObservationReason.Moving,
+            "Photometric normalization retains positive evidence of local movement");
         var pose = new VerificationPixels(w, h); pose.Measure(gray, true, null);
         var shifted = Enumerable.Range(0, w * h).Select(i => gray[(i / w) * w + (i % w + 2) % w]).ToArray();
-        Check(pose.Measure(shifted, true, null).Reason == ObservationReason.CalibrationChanged, "Global camera shift invalidates calibration");
+        var shiftedMeasurement = pose.Measure(shifted, true, null);
+        Check(shiftedMeasurement.Reason == ObservationReason.CalibrationChanged,
+            $"Global camera shift invalidates calibration (reason={shiftedMeasurement.Reason}, rail={shiftedMeasurement.PerimeterChange:F3}, residual={shiftedMeasurement.PhotometricResidualTileChange:F3})");
         byte[] Body(int cx, byte foreground, bool rgb = false)
         {
             var result = Enumerable.Repeat((byte)100, w * h * (rgb ? 3 : 1)).ToArray();
@@ -293,6 +303,17 @@ static class VerificationChecks
         var translation = VerificationTemplate.Compare(before, after, w, h, 60, 100, 12);
         Check(translation is { Dx: > .8 and < 1.2, Dy: > -.2 and < .2 }, "Colour template resolves smooth low-contrast body displacement");
         Check(VerificationTemplate.Compare(before, before, w, h, 60, 100, 12) is { Dx: 0, Dy: 0 }, "A supported unchanged body has zero displacement");
+        byte[] Exposure(byte[] input)
+        {
+            var output = input.ToArray(); double[] gain = [.76, 1.08, 1.35]; double[] offset = [12, 6, 0];
+            for (int i = 0; i < output.Length; i++) output[i] = (byte)Math.Clamp((int)Math.Round(input[i] * gain[i % 3] + offset[i % 3]), 0, 255);
+            return output;
+        }
+        Check(VerificationTemplate.Compare(before, Exposure(before), w, h, 60, 100, 12) is { Dx: 0, Dy: 0 },
+            "A stationary colour template remains aligned across exposure and white-balance shifts");
+        var translatedExposure = VerificationTemplate.Compare(before, Exposure(after), w, h, 60, 100, 12);
+        Check(translatedExposure is { Dx: > .8 and < 1.2, Dy: > -.2 and < .2 },
+            "Photometric normalization preserves ball displacement evidence");
         var blank = Enumerable.Repeat((byte)100, w * h * 3).ToArray();
         Check(VerificationTemplate.Compare(blank, blank, w, h, 60, 100, 12) is null, "Textureless body template is unknown");
         var chromatic = new VerificationPixels(w, h); var sameGray = Body(60, 100);
