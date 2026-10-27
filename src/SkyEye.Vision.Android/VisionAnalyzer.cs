@@ -115,11 +115,12 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         using var hsv = new MatLease(new Mat()); Imgproc.CvtColor(warped.Value, hsv.Value, Imgproc.ColorBgr2hsv);
         byte[] pixels = Read(hsv.Value); var packedClassifications = new Dictionary<Circle, BallClassification>();
         var candidateAudits = candidateDiagnostics ? new List<VisionCandidateAudit>() : null;
+        var acceptedPackedBlackBoundaries = new Dictionary<Circle, BallBoundary>();
         var circles = Detect(hsv.Value, pixels, settings.InitialVotes, out var packedCluster,
             appearance is not null && settings.VerificationBodyRefinement,
             settings.FreshCueBallRecovery && settings.BodyProposalPriority ? rawWarped.Value : null,
             rawHsv.Value, rawHsvPixels, boundaryColourMask, packedClassifications,
-            candidateAudits, "initial");
+            candidateAudits, "initial", acceptedPackedBlackBoundaries);
         bool inspectRim = appearance is not null || settings.FreshCueBallRecovery;
         var initialLabels = circles.Select(c => Classify(c, pixels, inspectRim)).ToArray();
         int initialCueCount = initialLabels.Count(l => l.Kind == "cue");
@@ -144,7 +145,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             var raw = Read(rawWarped.Value);
             for (int i = 0; i < circles.Length; i++)
             {
-                var fit = recoveredBoundaries.GetValueOrDefault(circles[i])
+                bool packedOcclusionValidated = acceptedPackedBlackBoundaries.TryGetValue(circles[i], out var packedBlackBoundary);
+                var fit = recoveredBoundaries.GetValueOrDefault(circles[i]) ?? packedBlackBoundary
                     ?? BallBoundaryRefiner.Refine(raw, coordinates.Width, coordinates.Height, new(circles[i].X, circles[i].Y),
                         PoolGeometry.Radius * coordinates.Width, collectSectorEvidence: boundaryDiagnostics,
                         expectedKind: initialLabels[i].Kind, colourMask: boundaryColourMask);
@@ -153,7 +155,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 // Support is sampled at 32 fixed angles. The 18-sector minimum
                 // recovers a clear mounted ball with 18-20 supported sectors;
                 // repeated current-frame consensus still gates publication.
-                if (fit.SupportedSectors < ObservationPolicy.MinimumSupportedBoundaryFraction) { boundaryUncertain = true; continue; }
+                if (fit.SupportedSectors < ObservationPolicy.MinimumSupportedBoundaryFraction && !packedOcclusionValidated)
+                { boundaryUncertain = true; continue; }
                 var refined = new Circle(fit.Centre.X, fit.Centre.Y, fit.Radius);
                 boundaries[refined] = fit; candidateBoundaries[refined] = fit; circles[i] = refined;
             }
@@ -390,7 +393,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         bool refineGeometry = false, Mat? rawImage = null, Mat? rawHsv = null, byte[]? rawHsvPixels = null,
         BoundaryColourMask? boundaryColourMask = null,
         Dictionary<Circle, BallClassification>? packedClassifications = null,
-        List<VisionCandidateAudit>? candidateAudits = null, string pass = "initial")
+        List<VisionCandidateAudit>? candidateAudits = null, string pass = "initial",
+        Dictionary<Circle, BallBoundary>? acceptedPackedBlackBoundaries = null)
     {
         using var timing = PipelineDiagnostics.Measure("circleDetectionMs");
         packedCluster = default;
@@ -404,7 +408,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         byte[]? rawBoundaryPixels = null;
         if (prioritizeBodies && rawImage is not null)
             packedCluster = AddPackedClusterBodies(rawImage, rawHsv!, rawHsvPixels!, boundaryColourMask!, result, scale,
-                packedClassifications, candidateAudits, pass);
+                packedClassifications, candidateAudits, pass, acceptedPackedBlackBoundaries);
         if (prioritizeBodies) AddColourBodies(hsv, pixels, result, scale);
         if (prioritizeBodies && rawImage is not null)
             AddDarkBodies(rawImage, result, scale, packedClassifications, candidateAudits, pass);

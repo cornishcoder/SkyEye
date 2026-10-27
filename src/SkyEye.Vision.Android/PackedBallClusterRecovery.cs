@@ -20,7 +20,8 @@ public sealed partial class VisionAnalyzer
     PackedClusterEvidence AddPackedClusterBodies(Mat rawBgr, Mat rawHsv, byte[] rawPixels, BoundaryColourMask boundaryColourMask,
         List<Circle> circles, double scale,
         Dictionary<Circle, BallClassification>? packedClassifications,
-        List<VisionCandidateAudit>? candidateAudits = null, string pass = "initial")
+        List<VisionCandidateAudit>? candidateAudits = null, string pass = "initial",
+        Dictionary<Circle, BallBoundary>? acceptedPackedBlackBoundaries = null)
     {
         byte[] rawBgrPixels = Read(rawBgr);
         using var red = new MatLease(new Mat());
@@ -171,7 +172,9 @@ public sealed partial class VisionAnalyzer
             circles.Add(body);
             if (packedClassifications is not null) packedClassifications[body] = classification;
             blackObserved = true;
-            Audit("added-black-body", fit, fit.SupportedSectors, classification.Kind);
+            if (occlusionExplained && acceptedPackedBlackBoundaries is not null)
+                acceptedPackedBlackBoundaries[body] = fit;
+            Audit("added-black-body", fit, fit.SupportedSectors, classification.Kind, occlusionEvidence);
             break;
 
             void Audit(string decision, BallBoundary? boundary = null, double? support = null, string? label = null, string? evidence = null)
