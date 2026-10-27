@@ -127,6 +127,8 @@ Extend the [O01 workbench](observation-corpus-guide.md), not a second evaluation
 
 Collect short original sequences once, preserving actual source timestamps, pixel receipts/hashes, scope/calibration, camera/resolution/settings, lighting/reference state and operation windows. Labels include visible/occluded/unknown/absent bodies, centres/radii/colours, still/moving/obstructed/lighting/pose intervals, review/annotator information and uncertainty. Mark centres before seeing detector output; review identity/count boundaries. Do not treat potted/absent balls as a failed full-rack count.
 
+Lighting labels and strata are evidence annotations only. Runtime must adapt automatically across the supported lighting range and through within-session changes; users must not select a lighting condition or restart analysis for a lighting preset. Report each lighting stratum separately during evaluation so automatic adaptation cannot hide a weak condition in an aggregate.
+
 Split whole recording sessions, including adjacent windows/crops/re-encodes, before tuning. Hash checks alone cannot detect related-session leakage. Freeze corpus and parameters with the report; new labels/tuning require new versions. Repeating one still image or overlapping windows is not a set of independent trials. Repetition is useful separately for nondeterminism/soak checks.
 
 | Coverage stratum | Required cases |
