@@ -42,6 +42,14 @@ static class GptTableAdvisoryChecks
             && result.Balls.Length == 2 && result.Balls[0].X == 123.5 && result.Balls[1].X is null,
             "response is parsed and remains attached to its frame provenance");
 
+        var importedJson = JsonSerializer.Serialize(new { image_sha256 = result.ImageSha256, summary = "One visible ball.",
+            balls = new[] { new { colour = "Red", x = 123.5, y = 456.0, confidence = 0.8, visibility = "Clear" } } });
+        var imported = GptTableAdvisory.ImportCodexJson(importedJson, jpeg, frame);
+        Check(imported.Source == "Codex-supplied" && imported.Provenance == frame && imported.Balls[0].X == 123.5,
+            "manual Codex advisory is labeled and bound to the selected frame");
+        try { GptTableAdvisory.ImportCodexJson(importedJson, [1, 2, 3], frame); throw new Exception("accepted a mismatched image"); }
+        catch (InvalidDataException) { Console.WriteLine("PASS manual advisory rejects a different image"); }
+
         var refusalHandler = new CaptureHandler(_ => new(HttpStatusCode.OK)
         {
             Content = new StringContent("{\"output\":[{\"content\":[{\"type\":\"refusal\",\"refusal\":\"no\"}]}]}")
@@ -55,6 +63,20 @@ static class GptTableAdvisoryChecks
         var error = await Throws<HttpRequestException>(() => GptTableAdvisory.AskAsync(errorHttp, "test-key", jpeg, frame,
             "{}"), "HTTP errors fail closed");
         Check(!error.Message.Contains("test-key"), "API error text does not include the key");
+
+        var forbiddenHandler = new CaptureHandler(_ => new(HttpStatusCode.Forbidden)
+        {
+            Content = new StringContent("{\"error\":{\"message\":\"Model access denied for test-key\",\"type\":\"permission_error\"}}")
+        });
+        using var forbiddenHttp = new HttpClient(forbiddenHandler);
+        var forbidden = await Throws<HttpRequestException>(() => GptTableAdvisory.AskAsync(forbiddenHttp, "test-key", jpeg, frame, "{}"),
+            "model access denial produces a bounded explanation");
+        Check(forbidden.Message.Contains("model-access") && !forbidden.Message.Contains("test-key"), "403 classification never repeats server text");
+        var malformedHandler = new CaptureHandler(_ => new(HttpStatusCode.Forbidden) { Content = new StringContent("test-key not json") });
+        using var malformedHttp = new HttpClient(malformedHandler);
+        var malformed = await Throws<HttpRequestException>(() => GptTableAdvisory.AskAsync(malformedHttp, "test-key", jpeg, frame, "{}"),
+            "unrecognised 403 response fails safely");
+        Check(!malformed.Message.Contains("test-key"), "malformed error content is not displayed");
 
         var invalidHandler = new CaptureHandler(_ => new(HttpStatusCode.OK)
         {

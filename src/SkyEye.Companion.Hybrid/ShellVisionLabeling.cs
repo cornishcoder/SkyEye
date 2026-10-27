@@ -54,8 +54,10 @@ public sealed partial class ShellSession
     TableAdvisoryResult? visionAdvisoryResult;
     bool visionAdvisoryPending;
     bool visionAdvisoryHomeFeedbackVisible;
+    VisionDiagnosticLabelFrame? heldAdvisoryFrame;
+    bool holdNextAdvisoryFrame;
 
-    public VisionDiagnosticLabelFrame? VisionDiagnosticLabelFrame => table.VisionDiagnostics.LabelFrame;
+    public VisionDiagnosticLabelFrame? VisionDiagnosticLabelFrame => table.VisionDiagnostics.LabelFrame ?? heldAdvisoryFrame;
     public string? VisionDiagnosticLabelImageUri => visionDiagnosticLabelImageUri;
     public IReadOnlyList<VisionDiagnosticBallMark> VisionDiagnosticMarks => visionDiagnosticMarks;
     public IReadOnlyList<string> VisionDiagnosticKnownBallIds => visionDiagnosticKnownBallIds.Order(StringComparer.Ordinal).ToArray();
@@ -73,6 +75,8 @@ public sealed partial class ShellSession
     public string VisionAdvisoryStatus => visionAdvisoryStatus;
     public TableAdvisoryResult? VisionAdvisoryResult => visionAdvisoryResult;
     public bool VisionAdvisoryPending => visionAdvisoryPending;
+    public string VisionAdvisoryImageSha256 => VisionDiagnosticLabelFrame is { } frame
+        ? Convert.ToHexStringLower(SHA256.HashData(frame.Jpeg)) : "";
     public bool CanCaptureAdvisoryFrame => PersonalKeyConfigured && CanAnalyzeTable && HasTableCalibration && !EditingTable
         && !table.HasPendingWork && VisionDiagnosticLabelFrame is null && !VisionDiagnosticLabelCapturePending
         && (VisionDiagnosticsActive || CanStartVisionDiagnostics);
@@ -112,8 +116,10 @@ public sealed partial class ShellSession
                 return;
             }
             sessionId = table.VisionDiagnostics.SessionId;
+            holdNextAdvisoryFrame = true;
             if (!table.RequestVisionDiagnosticLabelFrame(out message))
             {
+                holdNextAdvisoryFrame = false;
                 sessionId = Guid.Empty;
                 visionDiagnosticLabelStatus = message;
                 if (startedSampling) _ = table.StopVisionDiagnosticsAsync();
@@ -185,7 +191,12 @@ public sealed partial class ShellSession
                 : $"{visionDiagnosticSavedLabels} labelled frames saved. Stop sampling and finish the session when ready.";
         }
 
-        var frame = snapshot.LabelFrame;
+        if (holdNextAdvisoryFrame && snapshot.LabelFrame is { } captured)
+        {
+            heldAdvisoryFrame = captured;
+            holdNextAdvisoryFrame = false;
+        }
+        var frame = snapshot.LabelFrame ?? heldAdvisoryFrame;
         if (frame is not null || snapshot.LabelCapturePending
             || visionDiagnosticLabelStatus.StartsWith("Waiting for one fresh frame", StringComparison.Ordinal))
             visionDiagnosticLabelStatus = snapshot.Status;
@@ -244,6 +255,32 @@ public sealed partial class ShellSession
             visionAdvisoryPending = false;
             Changed?.Invoke();
         }
+    }
+
+    public void ImportCodexAdvisory(string json, string expectedSampleId)
+    {
+        var frame = VisionDiagnosticLabelFrame;
+        if (frame is null || frame.SampleId != expectedSampleId || visionAdvisoryPending)
+        {
+            visionAdvisoryStatus = "The selected frame changed or an advisory is running; capture a fresh frame and retry.";
+            Changed?.Invoke();
+            return;
+        }
+        try
+        {
+            var provenance = new TableFrameProvenance(frame.SampleId,
+                frame.FrameId.ToString(System.Globalization.CultureInfo.InvariantCulture), frame.SourceTimeUs, frame.Timeline,
+                frame.MediaGeneration, frame.AnalysisGeneration, frame.CapturedAt, frame.FrameSource, frame.CalibrationId,
+                frame.AnalyzerConfiguration, frame.Width, frame.Height,
+                frame.CalibrationCorners.Select(point => new[] { point.X, point.Y }).ToArray());
+            visionAdvisoryResult = GptTableAdvisory.ImportCodexJson(json, frame.Jpeg, provenance);
+            visionAdvisoryStatus = "Codex-supplied advisory loaded · not saved · not used by game state.";
+        }
+        catch (Exception ex) when (ex is JsonException or InvalidDataException or KeyNotFoundException or InvalidOperationException or FormatException)
+        {
+            visionAdvisoryStatus = "Codex advisory was rejected. Check the frame hash and JSON coordinates or labels.";
+        }
+        Changed?.Invoke();
     }
 
     public void RequestVisionDiagnosticLabelFrame()
@@ -407,6 +444,8 @@ public sealed partial class ShellSession
                 foreach (var mark in marks) visionDiagnosticKnownBallIds.Add(mark.Id);
                 visionDiagnosticLabelSavePending = false;
                 visionDiagnosticLabelStatus = $"Saved {visionDiagnosticSavedLabels} hand-labelled frames for this recording session.";
+                heldAdvisoryFrame = null;
+                holdNextAdvisoryFrame = false;
                 table.CompleteVisionDiagnosticLabelFrame("Labels saved. Capture another fresh frame or stop diagnostics to finish this session.");
                 Changed?.Invoke();
             });
@@ -425,6 +464,8 @@ public sealed partial class ShellSession
     public void DiscardVisionDiagnosticLabelFrame()
     {
         if (visionDiagnosticLabelSavePending) return;
+        heldAdvisoryFrame = null;
+        holdNextAdvisoryFrame = false;
         visionDiagnosticMarks.Clear();
         visionDiagnosticEmptyFrameConfirmed = false;
         visionDiagnosticAllBallsLabelledConfirmed = false;

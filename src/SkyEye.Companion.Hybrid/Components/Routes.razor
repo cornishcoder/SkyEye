@@ -77,10 +77,10 @@
                         <span class="home-action-label">@(Session.VerificationCaptureRunning ? "Capturing" : "Capture frames")</span>
                     </button>
 
-                    @if (Session.SessionActive)
+                    @if (Session.SessionActive || Session.VisionDiagnosticLabelFrame is not null)
                     {
                         <button class="home-icon-button advisory-frame-shortcut" disabled="@busy"
-                            @onclick="CaptureAdvisoryFrame" aria-label="@(Session.CanCaptureAdvisoryFrame ? "Capture advisory frame" : $"Capture advisory frame: {Session.AdvisoryFrameUnavailableReason}")" title="@(Session.CanCaptureAdvisoryFrame ? "Capture advisory frame" : Session.AdvisoryFrameUnavailableReason)">
+                            @onclick="CaptureAdvisoryFrame" aria-label="@(Session.VisionDiagnosticLabelFrame is not null ? "Open advisory frame" : Session.CanCaptureAdvisoryFrame ? "Capture advisory frame" : $"Capture advisory frame: {Session.AdvisoryFrameUnavailableReason}")" title="@(Session.VisionDiagnosticLabelFrame is not null ? "Open advisory frame" : Session.CanCaptureAdvisoryFrame ? "Capture advisory frame" : Session.AdvisoryFrameUnavailableReason)">
                             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM8 15l2.5-3 2 2 2-3 2.5 4" /><circle cx="9" cy="9" r="1" /></svg>
                             <span class="home-action-label">GPT frame</span>
                         </button>
@@ -267,6 +267,7 @@
     async Task ToggleCandidateShortcut() => await Run(Session.ToggleCandidateShortcutAsync);
     async Task CaptureAdvisoryFrame()
     {
+        if (Session.VisionDiagnosticLabelFrame is not null) { Navigate(Screen.Advisory); return; }
         var requested = false;
         await Run(async () => requested = await Session.CaptureAdvisoryFrameAsync());
         if (requested) Navigate(Screen.Advisory);

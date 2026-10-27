@@ -11,11 +11,19 @@
             <button type="button" class="secondary" disabled="@(Session.VisionAdvisoryPending || !Session.PersonalKeyConfigured)"
                 @onclick="Session.AskVisionAdvisoryAsync">@(Session.VisionAdvisoryPending ? "Asking GPT-6 Luna…" : "Ask GPT-6 Luna (advisory)")</button>
         </div>
+        <details>
+            <summary>Import Codex advisory JSON</summary>
+            <img src="@Session.VisionDiagnosticLabelImageUri" alt="Selected source frame for Codex advisory" style="width:100%;max-height:100px;object-fit:contain" />
+            <p class="hint">Selected image SHA-256: @Session.VisionAdvisoryImageSha256. Include this as image_sha256 in the JSON.</p>
+            <label for="codex-advisory-json">Codex advisory JSON</label>
+            <textarea id="codex-advisory-json" @bind="codexJson" rows="2" maxlength="65536"></textarea>
+            <button type="button" class="secondary" @onclick="() => Session.ImportCodexAdvisory(codexJson, frame.SampleId)">Load Codex advisory</button>
+        </details>
         @if (!Session.PersonalKeyConfigured) { <p class="hint">Save a personal OpenAI API key in Settings to enable this action.</p> }
         <p class="hint">Sends this selected JPEG and frame/calibration provenance to OpenAI using your saved personal key. API usage is billable. The result is temporary advice and never changes detector, readiness, or game state.</p>
         <p class="hint" role="status">@Session.VisionAdvisoryStatus</p>
         @if (Session.VisionAdvisoryResult is { } quickAdvisory)
-        { <p role="status">Model suggestion · @quickAdvisory.Balls.Length visible item(s) · @quickAdvisory.Summary</p> }
+        { <p role="status">@quickAdvisory.Source suggestion · @quickAdvisory.Balls.Length visible item(s) · @quickAdvisory.Summary</p> }
         <p class="hint">Detector output is hidden here. Choose the colour and visibility, then drag a tight box around the whole ball. Repeat for every visible ball. Use Unknown when colour is unclear. For a shot sequence, reuse the same ID for the same physical ball in every frame; mark uncertain identities honestly.</p>
         <div class="vision-label-tags">
             <label for="vision-label-lighting">Lighting</label>
@@ -100,7 +108,7 @@
         @if (Session.VisionAdvisoryResult is { } advisory)
         {
             <div class="vision-advisory" aria-label="GPT-6 Luna advisory">
-                <strong>Model suggestion · @advisory.Balls.Length visible item(s)</strong>
+                <strong>@advisory.Source suggestion · @advisory.Balls.Length visible item(s)</strong>
                 <p>@advisory.Summary</p>
                 <p class="hint">Frame @advisory.Provenance.FrameId · @advisory.Provenance.SourceTimeUs µs · sample @advisory.Provenance.SampleId · timeline @advisory.Provenance.Timeline · calibration @advisory.Provenance.CalibrationId · SHA-256 @advisory.ImageSha256</p>
                 <strong>Local detector · calibrated table coordinates</strong>
@@ -117,7 +125,7 @@
                         }
                     </ul>
                 }
-                <strong>GPT-6 Luna · source image pixels</strong>
+                <strong>@advisory.Source · source image pixels</strong>
                 <ul>
                     @foreach (var ball in advisory.Balls)
                     {
@@ -140,6 +148,7 @@
     ElementReference surface;
     DotNetObjectReference<VisionDiagnosticLabeler>? dotNet;
     bool attached;
+    string codexJson = "";
     static readonly (string Value, string Label)[] Colours =
         [("cue", "Cue ball"), ("black", "Black"), ("red", "Red"), ("yellow", "Yellow"), ("unknown", "Unknown")];
     static readonly (string Value, string Label)[] SceneTags =

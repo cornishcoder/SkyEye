@@ -10,7 +10,10 @@ public sealed record TableFrameProvenance(string SampleId, string FrameId, long 
     long MediaGeneration, long AnalysisGeneration, DateTimeOffset CapturedAt, string FrameSource,
     string CalibrationId, string AnalyzerConfiguration, int Width, int Height, double[][] CalibrationCorners);
 public sealed record TableAdvisoryResult(string Summary, TableAdvisoryBall[] Balls, string ImageSha256,
-    TableFrameProvenance Provenance, double ElapsedMilliseconds);
+    TableFrameProvenance Provenance, double ElapsedMilliseconds)
+{
+    public string Source { get; init; } = "GPT-6 Luna";
+}
 
 /// <summary>Explicit, advisory-only image review. The caller supplies the exact selected source image and provenance.</summary>
 public static class GptTableAdvisory
@@ -85,11 +88,30 @@ public static class GptTableAdvisory
         request.Content = new StringContent(JsonSerializer.Serialize(payload, JsonOptions), Encoding.UTF8, "application/json");
         var watch = System.Diagnostics.Stopwatch.StartNew();
         using var response = await http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
-        if (!response.IsSuccessStatusCode) throw new HttpRequestException($"OpenAI returned HTTP {(int)response.StatusCode}.");
+        if (!response.IsSuccessStatusCode)
+            throw new HttpRequestException(await DescribeApiFailureAsync(response, cancellationToken).ConfigureAwait(false), null, response.StatusCode);
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false));
         var outputText = ExtractOutputText(document.RootElement);
         using var resultDoc = JsonDocument.Parse(outputText);
-        var root = resultDoc.RootElement;
+        watch.Stop();
+        return ParseAdvisory(resultDoc.RootElement, frame, sha, watch.Elapsed.TotalMilliseconds, "GPT-6 Luna");
+    }
+
+    public static TableAdvisoryResult ImportCodexJson(string json, byte[] jpeg, TableFrameProvenance frame)
+    {
+        if (string.IsNullOrWhiteSpace(json) || json.Length > 65536) throw new InvalidDataException("Advisory JSON is empty or too large.");
+        if (jpeg is not { Length: > 0 and <= 4 * 1024 * 1024 } || frame is null || frame.Width <= 0 || frame.Height <= 0)
+            throw new InvalidDataException("Selected frame is unavailable.");
+        var sha = Convert.ToHexStringLower(SHA256.HashData(jpeg));
+        using var document = JsonDocument.Parse(json);
+        if (!document.RootElement.TryGetProperty("image_sha256", out var hash) || hash.ValueKind != JsonValueKind.String
+            || !string.Equals(hash.GetString(), sha, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("Advisory image hash does not match the selected frame.");
+        return ParseAdvisory(document.RootElement, frame, sha, 0, "Codex-supplied");
+    }
+
+    static TableAdvisoryResult ParseAdvisory(JsonElement root, TableFrameProvenance frame, string sha, double elapsed, string source)
+    {
         var summary = root.GetProperty("summary").GetString() ?? "";
         var items = root.GetProperty("balls");
         if (summary.Length > 1000 || items.GetArrayLength() > 64) throw new InvalidDataException("Structured output exceeded advisory bounds.");
@@ -106,8 +128,43 @@ public static class GptTableAdvisory
                 throw new InvalidDataException("Structured output contained invalid coordinates or labels.");
             return new TableAdvisoryBall(colour, x, y, confidence, visibility);
         }).ToArray();
-        watch.Stop();
-        return new(summary, balls, sha, frame, watch.Elapsed.TotalMilliseconds);
+        return new(summary, balls, sha, frame, elapsed) { Source = source };
+    }
+
+    // Never surface arbitrary server text: it may contain secrets or user data.
+    // Inspect a bounded error body and return only fixed, locally authored messages.
+    static async Task<string> DescribeApiFailureAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        var prefix = $"OpenAI returned HTTP {(int)response.StatusCode}.";
+        if (response.StatusCode != System.Net.HttpStatusCode.Forbidden) return prefix;
+        try
+        {
+            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+            byte[] buffer = new byte[8193];
+            int count = 0;
+            while (count < buffer.Length)
+            {
+                int read = await stream.ReadAsync(buffer.AsMemory(count), cancellationToken).ConfigureAwait(false);
+                if (read == 0) break;
+                count += read;
+            }
+            if (count > 8192) return prefix + " Access was denied; the reason could not be read safely.";
+            using var document = JsonDocument.Parse(buffer.AsMemory(0, count));
+            if (!document.RootElement.TryGetProperty("error", out var error) || error.ValueKind != JsonValueKind.Object)
+                return prefix + " Access was denied; no recognised reason was returned.";
+            static string GetString(JsonElement element, string name) =>
+                element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() ?? "" : "";
+            var evidence = (GetString(error, "code") + " " + GetString(error, "type") + " " + GetString(error, "message")).ToLowerInvariant();
+            if (evidence.Contains("unsupported_country") || evidence.Contains("country, region, or territory") || evidence.Contains("unsupported region"))
+                return prefix + " The API reported an unsupported region. Check the API connection region.";
+            if (evidence.Contains("model") && (evidence.Contains("access") || evidence.Contains("permission") || evidence.Contains("not allowed")))
+                return prefix + " The API reported a model-access problem. Check GPT-6 Luna access for the key's project.";
+            if (evidence.Contains("permission") || evidence.Contains("not authorized") || evidence.Contains("not authorised"))
+                return prefix + " The API reported a permissions problem. Check the key and its project permissions.";
+            return prefix + " Access was denied; no recognised reason was returned.";
+        }
+        catch (JsonException) { return prefix + " Access was denied; the server response was not recognised."; }
+        catch (IOException) { return prefix + " Access was denied; the reason could not be read."; }
     }
 
     static string ExtractOutputText(JsonElement root)
