@@ -79,8 +79,8 @@
 
                     @if (Session.SessionActive)
                     {
-                        <button class="home-icon-button advisory-frame-shortcut" disabled="@(busy || !Session.CanCaptureAdvisoryFrame)"
-                            @onclick="CaptureAdvisoryFrame" aria-label="Capture advisory frame" title="Capture advisory frame">
+                        <button class="home-icon-button advisory-frame-shortcut" disabled="@busy"
+                            @onclick="CaptureAdvisoryFrame" aria-label="@(Session.CanCaptureAdvisoryFrame ? "Capture advisory frame" : $"Capture advisory frame: {Session.AdvisoryFrameUnavailableReason}")" title="@(Session.CanCaptureAdvisoryFrame ? "Capture advisory frame" : Session.AdvisoryFrameUnavailableReason)">
                             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4zM8 15l2.5-3 2 2 2-3 2.5 4" /><circle cx="9" cy="9" r="1" /></svg>
                             <span class="home-action-label">GPT frame</span>
                         </button>
@@ -97,6 +97,8 @@
 
                 @if (Session.HomeVerificationFeedbackVisible)
                 { <p class="home-candidate-status" role="status" aria-live="polite">@Session.HomeVerificationStatus</p> }
+                @if (Session.SessionActive && Session.VisionAdvisoryHomeFeedbackVisible)
+                { <p class="home-candidate-status" role="status" aria-live="polite">@Session.VisionDiagnosticLabelStatus</p> }
                 @if (Session.SampleCollectionStatus.Length > 0)
                 { <p class="home-candidate-status" role="status" aria-live="polite">@Session.SampleCollectionStatus</p> }
                 <p class="physics-status" role="status"><span class="status-dot @(Session.PhysicsAvailable ? "ready" : "off")"></span>@HomePhysicsStatus</p>
@@ -265,8 +267,9 @@
     async Task ToggleCandidateShortcut() => await Run(Session.ToggleCandidateShortcutAsync);
     async Task CaptureAdvisoryFrame()
     {
-        await Run(Session.CaptureAdvisoryFrameAsync);
-        if (Session.VisionDiagnosticsActive || Session.VisionDiagnosticLabelFrame is not null) Navigate(Screen.Advisory);
+        var requested = false;
+        await Run(async () => requested = await Session.CaptureAdvisoryFrameAsync());
+        if (requested) Navigate(Screen.Advisory);
     }
     async Task Watch() => await Run(Session.WatchLiveAsync, goHome: true);
     async Task SkyToggle() { if (Session.SkyConnected || Session.CanEndSky) await Run(Session.EndSkyAsync); else await Run(Session.StartSkyAsync); }

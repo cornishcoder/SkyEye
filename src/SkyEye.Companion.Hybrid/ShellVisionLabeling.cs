@@ -53,6 +53,7 @@ public sealed partial class ShellSession
     string visionAdvisoryStatus = "No second opinion requested.";
     TableAdvisoryResult? visionAdvisoryResult;
     bool visionAdvisoryPending;
+    bool visionAdvisoryHomeFeedbackVisible;
 
     public VisionDiagnosticLabelFrame? VisionDiagnosticLabelFrame => table.VisionDiagnostics.LabelFrame;
     public string? VisionDiagnosticLabelImageUri => visionDiagnosticLabelImageUri;
@@ -72,43 +73,59 @@ public sealed partial class ShellSession
     public string VisionAdvisoryStatus => visionAdvisoryStatus;
     public TableAdvisoryResult? VisionAdvisoryResult => visionAdvisoryResult;
     public bool VisionAdvisoryPending => visionAdvisoryPending;
-    public bool CanCaptureAdvisoryFrame => CanStartVisionDiagnostics && VisionDiagnosticLabelFrame is null && PersonalKeyConfigured;
+    public bool CanCaptureAdvisoryFrame => PersonalKeyConfigured && CanAnalyzeTable && HasTableCalibration && !EditingTable
+        && !table.HasPendingWork && VisionDiagnosticLabelFrame is null && !VisionDiagnosticLabelCapturePending
+        && (VisionDiagnosticsActive || CanStartVisionDiagnostics);
+    public bool VisionAdvisoryHomeFeedbackVisible => visionAdvisoryHomeFeedbackVisible;
+    public string AdvisoryFrameUnavailableReason => !PersonalKeyConfigured ? "Save a personal OpenAI key in Settings."
+        : !CanAnalyzeTable ? "Start a live session and watch the live camera as host."
+        : !HasTableCalibration ? "Calibrate the table before capturing a frame."
+        : EditingTable ? "Finish editing the table before capturing a frame."
+        : VisionDiagnosticLabelFrame is not null ? "Finish or close the current diagnostic frame first."
+        : VisionDiagnosticLabelCapturePending ? "Wait for the current diagnostic frame request."
+        : table.HasPendingWork ? "Wait for the current table action to finish."
+        : visionDiagnosticSavedLabels > 0 && !visionDiagnosticLabelSessionFinalized ? "Finish the current reviewed label session first."
+        : "";
     public bool CanFinishVisionDiagnosticLabelSession => !VisionDiagnosticsActive && visionDiagnosticSavedLabels > 0
         && !visionDiagnosticLabelSessionFinalized && visionDiagnosticLabelSessionId != Guid.Empty;
 
-    public async Task CaptureAdvisoryFrameAsync()
+    public async Task<bool> CaptureAdvisoryFrameAsync()
     {
         Guid sessionId = Guid.Empty;
+        bool startedSampling = false;
+        bool requested = false;
         await MainThread.InvokeOnMainThreadAsync(() =>
         {
+            visionAdvisoryHomeFeedbackVisible = true;
             if (!CanCaptureAdvisoryFrame)
             {
-                visionDiagnosticLabelStatus = PersonalKeyConfigured
-                    ? "Start an active calibrated live session before capturing an advisory frame."
-                    : "Save a personal OpenAI key in Settings before capturing an advisory frame.";
+                visionDiagnosticLabelStatus = AdvisoryFrameUnavailableReason;
                 Changed?.Invoke();
                 return;
             }
-            if (!table.StartVisionDiagnostics(out var message))
+            string message;
+            startedSampling = !VisionDiagnosticsActive;
+            if (startedSampling && !table.StartVisionDiagnostics(out message))
             {
                 visionDiagnosticLabelStatus = message;
                 Changed?.Invoke();
                 return;
             }
             sessionId = table.VisionDiagnostics.SessionId;
-            VisionDiagnosticsStatus = message;
             if (!table.RequestVisionDiagnosticLabelFrame(out message))
             {
                 sessionId = Guid.Empty;
                 visionDiagnosticLabelStatus = message;
-                _ = table.StopVisionDiagnosticsAsync();
+                if (startedSampling) _ = table.StopVisionDiagnosticsAsync();
                 Changed?.Invoke();
                 return;
             }
+            requested = true;
             visionDiagnosticLabelStatus = "Capturing one fresh frame for an optional advisory…";
             Changed?.Invoke();
         });
-        if (sessionId != Guid.Empty) _ = StopAdvisorySamplingAfterFrameAsync(sessionId);
+        if (startedSampling && sessionId != Guid.Empty) _ = StopAdvisorySamplingAfterFrameAsync(sessionId);
+        return requested;
     }
 
     async Task StopAdvisorySamplingAfterFrameAsync(Guid sessionId)

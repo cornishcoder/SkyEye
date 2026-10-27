@@ -7,6 +7,15 @@
 {
     <section class="vision-label-editor" aria-label="Independent ball labelling">
         <h3>Label this frame</h3>
+        <div class="clip-actions">
+            <button type="button" class="secondary" disabled="@(Session.VisionAdvisoryPending || !Session.PersonalKeyConfigured)"
+                @onclick="Session.AskVisionAdvisoryAsync">@(Session.VisionAdvisoryPending ? "Asking GPT-6 Luna…" : "Ask GPT-6 Luna (advisory)")</button>
+        </div>
+        @if (!Session.PersonalKeyConfigured) { <p class="hint">Save a personal OpenAI API key in Settings to enable this action.</p> }
+        <p class="hint">Sends this selected JPEG and frame/calibration provenance to OpenAI using your saved personal key. API usage is billable. The result is temporary advice and never changes detector, readiness, or game state.</p>
+        <p class="hint" role="status">@Session.VisionAdvisoryStatus</p>
+        @if (Session.VisionAdvisoryResult is { } quickAdvisory)
+        { <p role="status">Model suggestion · @quickAdvisory.Balls.Length visible item(s) · @quickAdvisory.Summary</p> }
         <p class="hint">Detector output is hidden here. Choose the colour and visibility, then drag a tight box around the whole ball. Repeat for every visible ball. Use Unknown when colour is unclear. For a shot sequence, reuse the same ID for the same physical ball in every frame; mark uncertain identities honestly.</p>
         <div class="vision-label-tags">
             <label for="vision-label-lighting">Lighting</label>
@@ -88,13 +97,6 @@
                 @onchange="args => Session.SetVisionDiagnosticAllBallsLabelledConfirmed(Checked(args))" /> I labelled every visible ball in this frame</label>
         }
         <p class="hint" role="status">@Session.VisionDiagnosticLabelStatus</p>
-        <div class="clip-actions">
-            <button type="button" class="secondary" disabled="@(Session.VisionAdvisoryPending || !Session.PersonalKeyConfigured)"
-                @onclick="Session.AskVisionAdvisoryAsync">@(Session.VisionAdvisoryPending ? "Asking GPT-6 Luna…" : "Ask GPT-6 Luna (advisory)")</button>
-        </div>
-        @if (!Session.PersonalKeyConfigured) { <p class="hint">Save a personal OpenAI API key in Settings to enable this action.</p> }
-        <p class="hint">Sends this selected JPEG and frame/calibration provenance to OpenAI using your saved personal key. API usage is billable. The result is temporary advice and never changes detector, readiness, or game state.</p>
-        <p class="hint" role="status">@Session.VisionAdvisoryStatus</p>
         @if (Session.VisionAdvisoryResult is { } advisory)
         {
             <div class="vision-advisory" aria-label="GPT-6 Luna advisory">
