@@ -127,7 +127,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                         Image = new BitmapTableImage(blankBitmap)
                     };
                     var absentBlack = Measure(() => absentBlackWorker.Measure(absentBlackFrame, true, CancellationToken.None), out var absentBlackMetrics);
-                    var occludedBlack = CreateBlackOccludedPng(bytes, calibration, seed.GetProperty("priorCompleteCache"), 800, out var occludedPixelsHash);
+                    var occludedBlack = CreateBlackOccludedPng(bytes, calibration, baseline800.Circles, 800,
+                        out var occludedPixelsHash, out var occludedPatchAudit);
                     File.WriteAllBytes(Path.Combine(root, "black-removed-variant.png"), occludedBlack);
                     using var occludedBlackFrame = new TableFrame(occludedBlack, DateTimeOffset.UtcNow, frameTimeline)
                     {
@@ -181,6 +182,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                                     && unmodifiedSyntheticControl.Vision.Balls.Count(ball => ball.Kind == "black") == 1
                             },
                             pixelBytesSha256 = occludedPixelsHash,
+                            pixelPatchAudit = occludedPatchAudit,
                             width800 = new
                             {
                                 metrics = occluded800Metrics,
@@ -320,7 +322,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             maximumCentreDelta, maximumRadiusDelta, maximumScoreDelta, changedSupport, changedGeometry };
     }
     static byte[] CreateBlackOccludedPng(byte[] encodedImage, TableCalibration calibration,
-        JsonElement circlesElement, int width, out string pixelBytesSha256)
+        IReadOnlyCollection<CircleObservation> circles, int width, out string pixelBytesSha256,
+        out object pixelPatchAudit)
     {
         using var encoded = new Org.Opencv.Core.MatOfByte(encodedImage);
         using var source = Org.Opencv.Imgcodecs.Imgcodecs.Imdecode(encoded, Org.Opencv.Imgcodecs.Imgcodecs.ImreadColor);
@@ -335,30 +338,91 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         using var warpedSize = new Org.Opencv.Core.Size(width, height);
         Org.Opencv.Imgproc.Imgproc.WarpPerspective(source, warped, transform, warpedSize);
         var bgrPixels = new byte[width * height * 3]; warped.Get(0, 0, bgrPixels);
-        var black = circlesElement.EnumerateArray().Single(circle =>
-            circle.GetProperty("ballId").GetString()!.StartsWith("black-", StringComparison.Ordinal));
-        double x = black.GetProperty("x").GetDouble(), y = black.GetProperty("y").GetDouble();
-        double centreX = (1 - y) * width, centreY = x * width;
+        var black = circles.Single(circle => circle.BallId.StartsWith("black-", StringComparison.Ordinal));
+        double centreX = black.Centre.X, centreY = black.Centre.Y;
         double radius = PoolGeometry.Radius * width;
-        var neighbours = circlesElement.EnumerateArray()
-            .Where(circle => !string.Equals(circle.GetProperty("ballId").GetString(), black.GetProperty("ballId").GetString(), StringComparison.Ordinal))
-            .Select(circle => (X: (1 - circle.GetProperty("y").GetDouble()) * width,
-                Y: circle.GetProperty("x").GetDouble() * width)).ToArray();
-        int clothOffset = ((height / 10) * width + width / 2) * 3;
-        byte blue = bgrPixels[clothOffset], green = bgrPixels[clothOffset + 1], red = bgrPixels[clothOffset + 2];
-        for (int py = Math.Max(0, (int)(centreY - radius)); py <= Math.Min(height - 1, (int)(centreY + radius)); py++)
-        for (int px = Math.Max(0, (int)(centreX - radius)); px <= Math.Min(width - 1, (int)(centreX + radius)); px++)
+        var neighbours = circles.Where(circle => !string.Equals(circle.BallId, black.BallId, StringComparison.Ordinal))
+            .Select(circle => (X: circle.Centre.X, Y: circle.Centre.Y, Radius: circle.Radius)).ToArray();
+
+        // Estimate the local cloth colour from an annulus around the removed
+        // ball. A single global cloth sample creates a hard-edged disk that
+        // the detector quite reasonably accepts as another ball.
+        var blueSamples = new List<byte>();
+        var greenSamples = new List<byte>();
+        var redSamples = new List<byte>();
+        double sampleInnerRadius = radius * 3.0, sampleOuterRadius = radius * 5.0;
+        for (int py = Math.Max(0, (int)(centreY - sampleOuterRadius)); py <= Math.Min(height - 1, (int)(centreY + sampleOuterRadius)); py++)
+        for (int px = Math.Max(0, (int)(centreX - sampleOuterRadius)); px <= Math.Min(width - 1, (int)(centreX + sampleOuterRadius)); px++)
         {
             double dx = px - centreX, dy = py - centreY;
-            if (dx * dx + dy * dy > radius * radius) continue;
+            double distanceSquared = dx * dx + dy * dy;
+            if (distanceSquared < sampleInnerRadius * sampleInnerRadius || distanceSquared > sampleOuterRadius * sampleOuterRadius) continue;
             if (neighbours.Any(neighbour =>
             {
-                double nx = px - neighbour.X, ny = py - neighbour.Y, neighbourRadius = radius * .94;
-                return nx * nx + ny * ny <= neighbourRadius * neighbourRadius;
+                double nx = px - neighbour.X, ny = py - neighbour.Y;
+                double exclusionRadius = Math.Max(radius * 1.12, neighbour.Radius * 1.2);
+                return nx * nx + ny * ny <= exclusionRadius * exclusionRadius;
             })) continue;
             int offset = (py * width + px) * 3;
-            bgrPixels[offset] = blue; bgrPixels[offset + 1] = green; bgrPixels[offset + 2] = red;
+            blueSamples.Add(bgrPixels[offset]);
+            greenSamples.Add(bgrPixels[offset + 1]);
+            redSamples.Add(bgrPixels[offset + 2]);
         }
+        if (blueSamples.Count < 64) throw new IOException("Not enough visible local cloth to synthesize the black-removal control.");
+        static byte Median(List<byte> samples)
+        {
+            samples.Sort();
+            return samples[samples.Count / 2];
+        }
+        byte blue = Median(blueSamples), green = Median(greenSamples), red = Median(redSamples);
+        int centrePx = Math.Clamp((int)Math.Round(centreX), 0, width - 1);
+        int centrePy = Math.Clamp((int)Math.Round(centreY), 0, height - 1);
+        int centreOffset = (centrePy * width + centrePx) * 3;
+        string centreBefore = $"{bgrPixels[centreOffset]},{bgrPixels[centreOffset + 1]},{bgrPixels[centreOffset + 2]}";
+        bool centreBlockedByNeighbour = neighbours.Any(neighbour =>
+        {
+            double nx = centrePx - neighbour.X, ny = centrePy - neighbour.Y;
+            double exclusionRadius = neighbour.Radius * 1.05;
+            return nx * nx + ny * ny <= exclusionRadius * exclusionRadius;
+        });
+
+        // Remove the ball and nearby shadow, then feather the patch into the
+        // untouched cloth. Preserve neighboring ball bodies throughout.
+        double fillRadius = radius * 1.5, featherStart = radius * .92;
+        int changedPixels = 0;
+        bool centreProcessed = false, centreSkippedByNeighbour = false;
+        double centreBlend = double.NaN;
+        for (int py = Math.Max(0, (int)(centreY - fillRadius)); py <= Math.Min(height - 1, (int)(centreY + fillRadius)); py++)
+        for (int px = Math.Max(0, (int)(centreX - fillRadius)); px <= Math.Min(width - 1, (int)(centreX + fillRadius)); px++)
+        {
+            bool isCentre = px == centrePx && py == centrePy;
+            double dx = px - centreX, dy = py - centreY;
+            double distance = Math.Sqrt(dx * dx + dy * dy);
+            bool blockedByNeighbour = neighbours.Any(neighbour =>
+            {
+                double nx = px - neighbour.X, ny = py - neighbour.Y;
+                double bodyRadius = neighbour.Radius * 1.05;
+                return nx * nx + ny * ny <= bodyRadius * bodyRadius;
+            });
+            if (isCentre && blockedByNeighbour) centreSkippedByNeighbour = true;
+            if (distance > fillRadius || blockedByNeighbour) continue;
+            double feather = distance <= featherStart ? 0 : (distance - featherStart) / (fillRadius - featherStart);
+            double blend = 1 - feather * feather * (3 - 2 * feather);
+            if (isCentre) { centreProcessed = true; centreBlend = blend; }
+            int offset = (py * width + px) * 3;
+            bgrPixels[offset] = (byte)Math.Clamp(Math.Round(bgrPixels[offset] * (1 - blend) + blue * blend), 0, 255);
+            bgrPixels[offset + 1] = (byte)Math.Clamp(Math.Round(bgrPixels[offset + 1] * (1 - blend) + green * blend), 0, 255);
+            bgrPixels[offset + 2] = (byte)Math.Clamp(Math.Round(bgrPixels[offset + 2] * (1 - blend) + red * blend), 0, 255);
+            changedPixels++;
+        }
+        string centreAfter = $"{bgrPixels[centreOffset]},{bgrPixels[centreOffset + 1]},{bgrPixels[centreOffset + 2]}";
+        pixelPatchAudit = new
+        {
+            centreX, centreY, radius,
+            localClothBgr = new { blue, green, red },
+            centreBefore, centreAfter, centreBlockedByNeighbour, centreProcessed, centreSkippedByNeighbour,
+            centreBlend, changedPixels
+        };
         pixelBytesSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(bgrPixels)).ToLowerInvariant();
         using var patched = new Org.Opencv.Core.Mat(height, width, Org.Opencv.Core.CvType.Cv8uc3);
         patched.Put(0, 0, bgrPixels);
