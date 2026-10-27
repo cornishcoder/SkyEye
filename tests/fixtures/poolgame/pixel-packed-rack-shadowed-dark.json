@@ -1,0 +1,11 @@
+{
+  "pixelSha256": "20dd28a984f0ad00295598eb916a2e8638349eb3eaef32aecc651274bd33b9b9",
+  "source": "Historical 1920x1080 mounted-camera frame 2229; reclassified as development regression after the packed-rack exemption was tuned against this session.",
+  "calibration": [
+    { "x": 0.06343749761581421, "y": 0.1464814786557798 },
+    { "x": 0.8961458206176758, "y": 0.07648148006863065 },
+    { "x": 0.9048958460489909, "y": 0.9138888888888889 },
+    { "x": 0.06927083333333334, "y": 0.862037037037037 }
+  ],
+  "expected": []
+}

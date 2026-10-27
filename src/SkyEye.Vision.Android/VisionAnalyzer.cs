@@ -606,7 +606,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         double minimumWidth = 120 * scale, minimumHeight = 120 * scale, minimumArea = 5000 * scale * scale;
         double packedMaximumWidth = 400 * scale, packedMaximumHeight = 400 * scale;
         int packedClusterMinimumBallCentres = Math.Min(12, Math.Max(8, (int)Math.Ceiling(balls.Count * .55)));
-        const double packedClusterMinimumBallBodyCoverageFraction = .4;
+        const double packedClusterMinimumBallBodyCoverageFraction = .36;
         var candidates = new List<ObstructionComponentAudit>();
         int triggeringComponents = 0;
         for (int i = 1; i < count; i++)

@@ -63,9 +63,9 @@ public sealed class PackedRackRegressionInstrumentation : global::Android.App.In
     public PackedRackRegressionInstrumentation(IntPtr handle, global::Android.Runtime.JniHandleOwnership ownership) : base(handle, ownership) { }
     public override void OnCreate(global::Android.OS.Bundle? args) { base.OnCreate(args); Start(); }
 
-    Fixture ReadFixture(string name, string? labelsName = null)
+    Fixture ReadFixture(string name, string? labelsName = null, string extension = ".jpg")
     {
-        using var image = TargetContext!.Assets!.Open(name + ".jpg");
+        using var image = TargetContext!.Assets!.Open(name + extension);
         using var bytes = new MemoryStream(); image.CopyTo(bytes);
         using var labels = TargetContext.Assets.Open((labelsName ?? name) + ".json");
         var document = JsonDocument.Parse(labels);
@@ -252,6 +252,7 @@ public sealed class PackedRackRegressionInstrumentation : global::Android.App.In
             using var ordinary = ReadFixture("pixel-table");
             using var spread = ReadFixture("pixel-spread-dim");
             using var dimRack = ReadFixture("pixel-racked-dim");
+            using var shadowedDarkRack = ReadFixture("pixel-packed-rack-shadowed-dark", extension: ".png");
             byte[] packedRackObstruction = CreatePackedRackObstruction(packed);
             using var empty = ReadFixture("synthetic-empty", "pixel-table");
             using var obstruction = ReadFixture("synthetic-obstruction", "pixel-table");
@@ -345,12 +346,30 @@ public sealed class PackedRackRegressionInstrumentation : global::Android.App.In
                     dimRetryGate, dimResult.PackedCluster, dimResult.PackedClusterFallback,
                     dimResult.Uncertain, dimResult.Obstructed, shotAdviceEligible = ShotPlanner.Eligible(table, now),
                     ballCount = dimResult.Balls.Length, dimResult.Warnings, dimResult.ElapsedMs });
+
+                var shadowedDarkRackResult = analyzer.Analyze(shadowedDarkRack.Image, shadowedDarkRack.Calibration);
+                bool shadowedDarkRackSafe = shadowedDarkRackResult.PackedCluster is { Detected: true, Complete: true,
+                    RedCentres: 7, YellowCentres: 7, BlackCentre: true }
+                    && shadowedDarkRackResult.Balls.Length == 16
+                    && shadowedDarkRackResult.Balls.Count(b => b.Kind == "cue") == 1
+                    && shadowedDarkRackResult.Balls.Count(b => b.Kind == "red") == 7
+                    && shadowedDarkRackResult.Balls.Count(b => b.Kind == "yellow") == 7
+                    && shadowedDarkRackResult.Balls.Count(b => b.Kind == "black") == 1
+                    && !shadowedDarkRackResult.Uncertain && !shadowedDarkRackResult.Obstructed;
+                bool shadowedDarkRetryGate = RetryWasClusterGated(shadowedDarkRackResult);
+                controlsPassed &= shadowedDarkRackSafe && shadowedDarkRetryGate;
+                rows.Add(new { configuration = configuration.Name, role = "shadowed-dark-packed-rack-control",
+                    passed = shadowedDarkRackSafe, shadowedDarkRetryGate, shadowedDarkRackResult.PackedCluster,
+                    shadowedDarkRackResult.PackedClusterFallback, shadowedDarkRackResult.Uncertain,
+                    shadowedDarkRackResult.Obstructed, ballCount = shadowedDarkRackResult.Balls.Length,
+                    counts = shadowedDarkRackResult.Balls.GroupBy(b => b.Kind).ToDictionary(g => g.Key, g => g.Count()),
+                    shadowedDarkRackResult.Warnings, shadowedDarkRackResult.ElapsedMs });
             }
             passed = controlsPassed && packedRecovered && productionResolutionPassed;
         }
         catch (Exception failure) { error = failure.ToString(); }
         var report = new { passed, error, measuredAt = DateTimeOffset.UtcNow,
-            scope = "On-device OpenCV replay of the exact manually reviewed bright rack, with a conditional same-frame 1000px retry, sampled process working-set deltas, a compact true-obstruction over the rack, and clear, empty and dim-rack controls. Working-set samples are coarse 10ms process measurements; fixture is tuning evidence, not a held-out accuracy claim.", packedMaskDiagnostics, rows };
+            scope = "On-device OpenCV replay of the exact manually reviewed bright rack and the shadowed-dark packed-rack regression, with a conditional same-frame 1000px retry, sampled process working-set deltas, a compact true-obstruction over the rack, and clear, empty and dim-rack controls. Working-set samples are coarse 10ms process measurements; the shadowed-dark fixture is tuning evidence, not a held-out accuracy claim.", packedMaskDiagnostics, rows };
         string output = JsonSerializer.Serialize(report, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });
         string root = TargetContext!.GetExternalFilesDir(null)!.AbsolutePath;
         File.WriteAllText(Path.Combine(root, "packed-rack-regression-proof.json"), output);
