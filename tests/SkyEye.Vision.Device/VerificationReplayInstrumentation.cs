@@ -137,7 +137,12 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     && fallbackCornerDeltas.All(delta => delta <= .035);
                 if (fallbackMatchesStoredCalibration
                     && (verification800.Reason == ObservationReason.CalibrationChanged || verification1000.Reason == ObservationReason.CalibrationChanged))
-                    throw new InvalidDataException("Verification rejected a view whose detected corners match the saved calibration.");
+                    throw new InvalidDataException($"Verification rejected a view whose detected corners match the saved calibration. frame={frameId}; " +
+                        $"width800={verification800.Reason},coverage={verification800.CoverageValid},rail={verification800.PerimeterChange:0.000},lighting={verification800.IlluminationChange:0.0}; " +
+                        $"width1000={verification1000.Reason},coverage={verification1000.CoverageValid},rail={verification1000.PerimeterChange:0.000},lighting={verification1000.IlluminationChange:0.0}; " +
+                        $"residual800={verification800.PhotometricResidualTileChange:0.000},weak800={verification800.SensitiveTileChange:0.000}," +
+                        $"bodies800={verification800.SupportedBodies},templateMotion800={verification800.MaximumBodyDisplacement:0.000}," +
+                        $"fallbackDelta={fallbackCornerDeltas?.Max():0.000}");
                 object? cacheStateRegression = null;
                 if (cacheSeeds is not null && samples.Count == 0 && detectionRequested)
                 {

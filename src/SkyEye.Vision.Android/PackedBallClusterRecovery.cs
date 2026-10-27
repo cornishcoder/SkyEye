@@ -10,7 +10,7 @@ namespace SkyEye.Vision.Android;
 public sealed partial class VisionAnalyzer
 {
     readonly record struct ClusterBall(string Kind, Circle Body, Point PeakCentre, double ColourRadius,
-        BallClassification Classification);
+        BallClassification Classification, double BoundarySupport);
 
     /// <summary>
     /// Split a compact touching group using separate red/yellow pixel masks.
@@ -140,20 +140,32 @@ public sealed partial class VisionAnalyzer
     {
         var sectors = BallBoundaryRefiner.Inspect(rawBgr, coordinates.Width, coordinates.Height,
             proposal, expectedRadius, fit.Centre, fit.Radius);
-        var neighbours = packedColourBalls.Where(ball => ball.Kind is "red" or "yellow")
-            .Select(ball => new Point(ball.Body.X, ball.Body.Y)).ToArray();
+        var fittedNeighbours = packedColourBalls.Where(ball => ball.Kind is "red" or "yellow").ToArray();
+        var neighbours = fittedNeighbours.Select(ball => new Point(ball.Body.X, ball.Body.Y)).ToArray();
         int visible = sectors.Count(sector => sector.Supported);
         int exteriorRejected = sectors.Count(sector => !sector.Supported && sector.ExteriorRejected);
-        int neighbourExplained = sectors.Count(sector => !sector.Supported && sector.ExteriorRejected
-            && neighbours.Any(neighbour => (neighbour - fit.Centre).Length >= expectedRadius * 1.1
+        bool ExplainedByMeasuredExterior(BoundarySectorEvidence sector)
+            => sector.ExteriorRejected && neighbours.Any(neighbour => (neighbour - fit.Centre).Length >= expectedRadius * 1.1
                 && (sector.OuterPoint - neighbour).Length
-                    <= expectedRadius * BallBoundaryRefiner.ConservativeOcclusionNeighborRadius));
+                    <= expectedRadius * BallBoundaryRefiner.ConservativeOcclusionNeighborRadius);
+        bool ExplainedByFittedBody(BoundarySectorEvidence sector)
+            => !sector.ExteriorRejected && fittedNeighbours.Any(neighbour =>
+            {
+                var centre = new Point(neighbour.Body.X, neighbour.Body.Y);
+                return neighbour.BoundarySupport >= .7
+                    && (centre - fit.Centre).Length >= expectedRadius * 1.1
+                    && (sector.InnerPoint - centre).Length <= neighbour.Body.Radius
+                    && (sector.OuterPoint - centre).Length <= neighbour.Body.Radius;
+            });
+        int neighbourExplained = sectors.Count(sector => !sector.Supported && ExplainedByMeasuredExterior(sector));
+        int fittedBodyExplained = sectors.Count(sector => !sector.Supported && ExplainedByFittedBody(sector));
         bool accepted = BallBoundaryRefiner.HasConservativeOcclusionCoverage(sectors, fit.Centre,
             expectedRadius, neighbours, 14d / 32);
-        var uncovered = sectors.Where(sector => !sector.Supported && (!sector.ExteriorRejected
-                || !neighbours.Any(neighbour => (neighbour - fit.Centre).Length >= expectedRadius * 1.1
-                    && (sector.OuterPoint - neighbour).Length
-                        <= expectedRadius * BallBoundaryRefiner.ConservativeOcclusionNeighborRadius)))
+        if (!accepted && sectors.Length == 32 && visible >= 14)
+            accepted = sectors.Where(sector => !sector.Supported)
+                .All(sector => ExplainedByMeasuredExterior(sector) || ExplainedByFittedBody(sector));
+        var uncovered = sectors.Where(sector => !sector.Supported
+                && !ExplainedByMeasuredExterior(sector) && !ExplainedByFittedBody(sector))
             .Select(sector =>
             {
                 double nearestNeighbourRadius = neighbours
@@ -162,7 +174,7 @@ public sealed partial class VisionAnalyzer
                     .DefaultIfEmpty(double.PositiveInfinity).Min();
                 return $"{sector.Index}(edge={sector.EdgeContrast:0.#};outside={sector.ExteriorContrast:0.#};external={sector.ExteriorRejected};nearestNeighbourR={nearestNeighbourRadius:0.00})";
             });
-        evidence = $"visible={visible}/32;exteriorRejected={exteriorRejected}/32;fittedNeighbourExplained={neighbourExplained}/32;uncoveredSectors={string.Join(',', uncovered)};accepted={accepted}";
+        evidence = $"visible={visible}/32;exteriorRejected={exteriorRejected}/32;fittedNeighbourExplained={neighbourExplained}/32;fittedBodyOccluded={fittedBodyExplained}/32;uncoveredSectors={string.Join(',', uncovered)};accepted={accepted}";
         return accepted;
     }
 
@@ -212,7 +224,7 @@ public sealed partial class VisionAnalyzer
             // original mask seeds; keep the refined bodies as separate geometry.
             if (candidates.Any(c => (c.PeakCentre - new Point(x, y)).Length < settings.Separation * scale))
             { Audit("rejected-duplicate-colour-peak", fit, fit.SupportedSectors, classification.Kind); continue; }
-            candidates.Add(new(kind, body, new(x, y), interiorRadius, classification));
+            candidates.Add(new(kind, body, new(x, y), interiorRadius, classification, fit.SupportedSectors));
             Audit("accepted-colour-peak", fit, fit.SupportedSectors, classification.Kind);
 
             void Audit(string decision, BallBoundary? boundary = null, double? support = null, string? label = null)
