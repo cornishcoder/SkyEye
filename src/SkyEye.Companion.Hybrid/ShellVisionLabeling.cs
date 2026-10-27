@@ -72,8 +72,70 @@ public sealed partial class ShellSession
     public string VisionAdvisoryStatus => visionAdvisoryStatus;
     public TableAdvisoryResult? VisionAdvisoryResult => visionAdvisoryResult;
     public bool VisionAdvisoryPending => visionAdvisoryPending;
+    public bool CanCaptureAdvisoryFrame => CanStartVisionDiagnostics && VisionDiagnosticLabelFrame is null && PersonalKeyConfigured;
     public bool CanFinishVisionDiagnosticLabelSession => !VisionDiagnosticsActive && visionDiagnosticSavedLabels > 0
         && !visionDiagnosticLabelSessionFinalized && visionDiagnosticLabelSessionId != Guid.Empty;
+
+    public async Task CaptureAdvisoryFrameAsync()
+    {
+        Guid sessionId = Guid.Empty;
+        await MainThread.InvokeOnMainThreadAsync(() =>
+        {
+            if (!CanCaptureAdvisoryFrame)
+            {
+                visionDiagnosticLabelStatus = PersonalKeyConfigured
+                    ? "Start an active calibrated live session before capturing an advisory frame."
+                    : "Save a personal OpenAI key in Settings before capturing an advisory frame.";
+                Changed?.Invoke();
+                return;
+            }
+            if (!table.StartVisionDiagnostics(out var message))
+            {
+                visionDiagnosticLabelStatus = message;
+                Changed?.Invoke();
+                return;
+            }
+            sessionId = table.VisionDiagnostics.SessionId;
+            VisionDiagnosticsStatus = message;
+            if (!table.RequestVisionDiagnosticLabelFrame(out message))
+            {
+                sessionId = Guid.Empty;
+                visionDiagnosticLabelStatus = message;
+                _ = table.StopVisionDiagnosticsAsync();
+                Changed?.Invoke();
+                return;
+            }
+            visionDiagnosticLabelStatus = "Capturing one fresh frame for an optional advisory…";
+            Changed?.Invoke();
+        });
+        if (sessionId != Guid.Empty) _ = StopAdvisorySamplingAfterFrameAsync(sessionId);
+    }
+
+    async Task StopAdvisorySamplingAfterFrameAsync(Guid sessionId)
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        try
+        {
+            while (!timeout.IsCancellationRequested && !disposed)
+            {
+                var snapshot = table.VisionDiagnostics;
+                if (snapshot.SessionId != sessionId || !snapshot.Active) return;
+                if (snapshot.LabelFrame is not null)
+                {
+                    await table.StopVisionDiagnosticsAsync().ConfigureAwait(false);
+                    return;
+                }
+                await Task.Delay(100, timeout.Token).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException) { }
+        finally
+        {
+            var current = table.VisionDiagnostics;
+            if (!disposed && current.Active && current.SessionId == sessionId)
+                await table.StopVisionDiagnosticsAsync().ConfigureAwait(false);
+        }
+    }
 
     void SyncVisionDiagnosticLabelState(VisionDiagnosticsSnapshot snapshot)
     {

@@ -1885,6 +1885,12 @@
       "skyeye.gamestate": {
         "type": "Project"
       },
+      "skyeye.observation": {
+        "type": "Project",
+        "dependencies": {
+          "SkyEye.Core": "[1.0.0, )"
+        }
+      },
       "skyeye.opencv.android": {
         "type": "Project",
         "dependencies": {

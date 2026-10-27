@@ -13,8 +13,16 @@ if (-not $BuildToolsDirectory) { $BuildToolsDirectory = Join-Path $taskRoot 'wor
 if (-not $ApkPath) { $ApkPath = Join-Path $taskRoot "work/production/bin/$Configuration/net11.0-android/android-arm64/$taskPackage-Signed.apk" }
 if ($ApkPath -and -not $SkipBuild) { & (Join-Path $PSScriptRoot 'Build-SkyEye.ps1') -Target Production -Configuration $Configuration }
 function Invoke-TaskAdb([string[]]$Arguments) {
-    $taskResult = & $AdbPath -s $CompanionSerial @Arguments 2>&1
-    if ($LASTEXITCODE -ne 0) { throw "Device operation failed: $($Arguments[0])" }
+    # adb reports successful transfer progress on stderr; keep Stop from treating
+    # that status text as a terminating error, then enforce adb's exit code.
+    $taskPreviousErrorAction = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $taskResult = & $AdbPath -s $CompanionSerial @Arguments 2>&1
+        $taskExitCode = $LASTEXITCODE
+    }
+    finally { $ErrorActionPreference = $taskPreviousErrorAction }
+    if ($taskExitCode -ne 0) { throw "Device operation failed: $($Arguments[0])" }
     return ($taskResult -join "`n").Trim()
 }
 function Get-TaskCertificate([string]$Path) {
