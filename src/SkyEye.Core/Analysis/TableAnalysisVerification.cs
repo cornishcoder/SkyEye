@@ -103,7 +103,7 @@ public sealed partial class TableAnalysisSession
                 finalReceiptAt = time.GetTimestamp(); if (samples.Count == 0) scheduleStart = finalReceiptAt;
                 bool retryUncertainFinalDetection = samples.Count == ObservationPolicy.StandardVerificationSamples
                     && samples.Count > 0
-                    && samples[^1].Measurement.Vision is { Uncertain: true, Obstructed: false };
+                    && samples[^1].Measurement.Vision is { HasUncertainLayout: true, Obstructed: false };
                 bool detect = samples.Count is 0 or 2 or 4 or 6 || retryUncertainFinalDetection;
                 var processStart = time.GetTimestamp();
                 // The task owns pixels until native work really finishes, even if the caller's deadline expires.
@@ -149,7 +149,7 @@ public sealed partial class TableAnalysisSession
                 }
                 if (samples.Count == ObservationPolicy.StandardVerificationSamples
                     && (reason is ObservationReason.None or ObservationReason.InsufficientEvidence)
-                    && measured.Vision is { Uncertain: true, Obstructed: false })
+                    && measured.Vision is { HasUncertainLayout: true, Obstructed: false })
                 {
                     // Allow one final full detection when the ordinary burst ends
                     // on an ambiguous but visually still frame. A clear re-read

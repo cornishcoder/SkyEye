@@ -623,7 +623,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
     static object Summarize(VisionResult vision, int width) => new
     {
         configuredWidth = width, geometryWidth = width,
-        vision.Uncertain, vision.Obstructed, vision.CircleCount,
+        vision.Uncertain, layoutUncertain = vision.HasUncertainLayout, vision.Obstructed, vision.CircleCount,
         counts = vision.Balls.GroupBy(b => b.Kind).OrderBy(g => g.Key).ToDictionary(g => g.Key, g => g.Count()),
         vision.Recognition,
         vision.PackedCluster, vision.PackedClusterFallback,

@@ -112,7 +112,7 @@ public static class VerificationConsensus
         if (observations.Count < 3 || observations.Any(o => o.Obstructed || o.Balls.Length > 16)) return null;
         var first = observations[0].Balls; var final = observations[^1];
         conflict = new("final-quality-or-count", observations.Count - 1, null);
-        if (final.Uncertain || first.Length != final.Balls.Length || first.Length == 0) return null;
+        if (final.HasUncertainLayout || first.Length != final.Balls.Length || first.Length == 0) return null;
         var histories = first.OrderBy(b => b.Position.X).ThenBy(b => b.Position.Y).Select(b => new List<Ball> { b }).ToArray();
         var toleratedPartialRadiusOutliers = new HashSet<string>(StringComparer.Ordinal);
         for (int sample = 1; sample < observations.Count; sample++)

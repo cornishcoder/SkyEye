@@ -119,12 +119,21 @@ public static class ShotPlanner
     {
         if ((now - state.CapturedAt).TotalSeconds is > ObservationPolicy.ReviewFreshnessSeconds or < -2 || !state.Settled || state.Occluded || !state.Confirmed || string.IsNullOrWhiteSpace(state.CalibrationId)) return false;
         var balls = state.Balls;
+        if (!ObservedLayoutValid(balls)
+            || balls.Count(b => b.Kind == "cue") != 1 || balls.Count(b => b.Kind == "black") != 1) return false;
+        if (IsCompactFullRack(balls)) return false;
+        return state.Group is "open" or "red" or "yellow" or "black";
+    }
+
+    /// <summary>Checks a visible layout without requiring cue/black presence.
+    /// Those balls are game inventory and advice requirements, not layout readiness.</summary>
+    public static bool ObservedLayoutValid(Ball[] balls)
+    {
         if (balls.Length > 16 || balls.Select(b => b.Id).Distinct().Count() != balls.Length || balls.Any(b => string.IsNullOrWhiteSpace(b.Id) || b.Kind is not ("cue" or "red" or "yellow" or "black") ||
             !double.IsFinite(b.Confidence) || b.Confidence is < .7 or > 1 || !ShotMath.Finite(b.Position) || b.Position.X is < 0 or > 2 || b.Position.Y is < 0 or > 1)) return false;
-        if (balls.Count(b => b.Kind == "cue") != 1 || balls.Count(b => b.Kind == "black") > 1 || balls.Count(b => b.Kind == "red") > 7 || balls.Count(b => b.Kind == "yellow") > 7) return false;
-        if (IsCompactFullRack(balls)) return false;
-        if (!HasSafeBallSpacing(balls)) return false;
-        return state.Group is "open" or "red" or "yellow" or "black";
+        if (balls.Count(b => b.Kind == "cue") > 1 || balls.Count(b => b.Kind == "black") > 1
+            || balls.Count(b => b.Kind == "red") > 7 || balls.Count(b => b.Kind == "yellow") > 7) return false;
+        return HasSafeBallSpacing(balls);
     }
 
     static bool IsCompactFullRack(Ball[] balls)

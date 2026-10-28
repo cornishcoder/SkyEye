@@ -8,7 +8,7 @@ internal sealed record LiveDetectLogFrame(DateTimeOffset CapturedAt, double Fram
     Guid CameraConnectionId, long MediaGeneration, long FrameId, long SourceTimeUs,
     long PresentationTimeUs, long SurfaceTimestampNs, string Timeline, string FrameSource,
     string CalibrationId, int BallCount, int Reds, int Yellows, int Black, int Cue, int Other,
-    bool Uncertain, bool Obstructed, double DetectorElapsedMs, double FullPassElapsedMs,
+    bool Uncertain, bool LayoutUncertain, bool Obstructed, double DetectorElapsedMs, double FullPassElapsedMs,
     string[] Warnings, LiveDetectLoggedBall[] Balls, string[] Events);
 internal sealed record LiveDetectLogClipSave(Guid OperationId, string Stage, DateTimeOffset RequestedAt,
     DateTimeOffset? CompletedAt, int RequestedSeconds, string Outcome, string Message,
@@ -50,19 +50,19 @@ internal sealed class LiveDetectLogStore
     {
         get
         {
-            lock (gate) return new(1, "live-detect/live-detect.jsonl", retainedRecords,
+            lock (gate) return new(2, "live-detect/live-detect.jsonl", retainedRecords,
                 retainedFrames, retainedClipSaveOperations, retainedRunEvents, firstRecordedAt, lastRecordedAt);
         }
     }
 
     public void AppendFrame(Guid runId, DateTimeOffset recordedAt, LiveDetectLogFrame frame) =>
-        Append(new(1, "frame", runId, recordedAt, Frame: frame));
+        Append(new(2, "frame", runId, recordedAt, Frame: frame));
 
     public void AppendClipSave(Guid runId, DateTimeOffset recordedAt, LiveDetectLogClipSave clipSave) =>
-        Append(new(1, "clipSave", runId, recordedAt, ClipSave: clipSave));
+        Append(new(2, "clipSave", runId, recordedAt, ClipSave: clipSave));
 
     public void AppendRunEvent(Guid runId, DateTimeOffset recordedAt, LiveDetectLogRunEvent runEvent) =>
-        Append(new(1, "runEvent", runId, recordedAt, RunEvent: runEvent));
+        Append(new(2, "runEvent", runId, recordedAt, RunEvent: runEvent));
 
     void Append(LiveDetectLogRecord record)
     {
@@ -92,7 +92,7 @@ internal sealed class LiveDetectLogStore
                     .TakeLast(limit).Select(Parse).Where(record => record is not null)
                     .Cast<LiveDetectLogRecord>().ToArray()
                 : Array.Empty<LiveDetectLogRecord>();
-            return new(new(1, "live-detect/live-detect.jsonl", retainedRecords,
+            return new(new(2, "live-detect/live-detect.jsonl", retainedRecords,
                 retainedFrames, retainedClipSaveOperations, retainedRunEvents, firstRecordedAt, lastRecordedAt),
                 limit, records.Length, records);
         }

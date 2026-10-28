@@ -247,7 +247,7 @@ public sealed partial class ShellSession
                 lastFrameId = receipt.FrameId;
                 lastSourceTimeUs = sourceTimeUs;
                 var counts = Count(vision.Balls);
-                bool clear = !vision.Uncertain && !vision.Obstructed;
+                bool clear = !vision.HasUncertainLayout && !vision.Obstructed;
                 var events = new List<string>();
                 if (clear)
                 {
@@ -269,7 +269,8 @@ public sealed partial class ShellSession
                     previousClearCounts = pendingBefore = pendingAfter = null;
                 }
 
-                var quality = vision.Obstructed ? "obstructed" : vision.Uncertain ? "uncertain" : "clear detector output";
+                var quality = vision.Obstructed ? "obstructed" : vision.HasUncertainLayout ? "uncertain"
+                    : vision.Uncertain ? "clear layout · advice unavailable" : "clear detector output";
                 var ageSeconds = Math.Max(0, observation.FrameAgeMs) / 1000;
                 try
                 {
@@ -278,7 +279,7 @@ public sealed partial class ShellSession
                         receipt.MediaGeneration, receipt.FrameId, sourceTimeUs, receipt.PresentationTimeUs,
                         receipt.SurfaceTimestampNs, observation.Timeline, observation.FrameSource,
                         calibrationId, counts.Total, counts.Reds, counts.Yellows, counts.Black,
-                        counts.Cue, counts.Other, vision.Uncertain, vision.Obstructed,
+                        counts.Cue, counts.Other, vision.Uncertain, vision.HasUncertainLayout, vision.Obstructed,
                         vision.ElapsedMs, System.Diagnostics.Stopwatch.GetElapsedTime(passStart).TotalMilliseconds,
                         vision.Warnings.ToArray(), vision.Balls.Select(ball => new LiveDetectLoggedBall(
                             ball.Id, ball.Kind, ball.Position.X, ball.Position.Y, ball.Confidence)).ToArray(),

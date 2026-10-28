@@ -41,6 +41,10 @@ public sealed record ObstructionAuditTelemetry(int AnalysisWidth, int AnalysisHe
 }
 public sealed record VisionResult(Ball[] Balls, bool Uncertain, string[] Warnings, double ElapsedMs, int CircleCount, bool Normalized, string Runtime, double[] ColourGains, int ClothHue, bool Obstructed, CircleObservation[] Circles)
 {
+    /// <summary>Overrides broad advice uncertainty when the detected layout itself is clear.
+    /// Missing cue/black inventory may still make the observation unsuitable for advice.</summary>
+    public bool? LayoutUncertain { get; init; }
+    public bool HasUncertainLayout => LayoutUncertain ?? Uncertain;
     public RecognitionTelemetry? Recognition { get; init; }
     public ObservationReason? VerificationReason { get; init; }
     public IlluminationTelemetry? Illumination { get; init; }

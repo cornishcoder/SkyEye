@@ -98,11 +98,12 @@ static class PortChecks
             var leg = candidate.Paths.CuePath.Length > 1 ? candidate.Paths.CuePath[1] : candidate.Paths.TargetPath[1];
             Require(!ShotPlanner.Valid(candidate, coordinate.FromTable(state.Balls[0].Position), coordinate.FromTable(state.Balls[1].Position), [(leg.Start + leg.End) * .5]), "An obstacle blocks the second reflected leg");
         }
-        string before = JsonSerializer.Serialize(state); var suggestions = ShotPlanner.Suggest(state, now);
+        var adviceState = state with { Balls = [.. state.Balls, new("black", "black", new(.12, .94), 1)] };
+        string before = JsonSerializer.Serialize(adviceState); var suggestions = ShotPlanner.Suggest(adviceState, now);
         Require(suggestions.Length == 3 && suggestions.All(s => s.TargetPath.Length is 2 or 3 && s.CuePath.Length is 2 or 3 && s.TableVersion == 31), "Three complete versioned candidates");
         Require(suggestions.SequenceEqual(suggestions.OrderBy(s => s.Difficulty)), "Nonmutating source ranking");
-        Require(before == JsonSerializer.Serialize(state) && JsonSerializer.Serialize(suggestions) == JsonSerializer.Serialize(ShotPlanner.Suggest(state, now)), "Deterministic ranking preserves table state");
-        foreach (var invalid in new[] { state with { CapturedAt = now.AddSeconds(-7) }, state with { CapturedAt = now.AddSeconds(3) }, state with { Settled = false }, state with { Occluded = true }, state with { Confirmed = false }, state with { CalibrationId = "" }, state with { Group = "bogus" }, state with { Balls = [state.Balls[0] with { Confidence = double.NaN }, state.Balls[1]] } })
+        Require(before == JsonSerializer.Serialize(adviceState) && JsonSerializer.Serialize(suggestions) == JsonSerializer.Serialize(ShotPlanner.Suggest(adviceState, now)), "Deterministic ranking preserves table state");
+        foreach (var invalid in new[] { adviceState with { CapturedAt = now.AddSeconds(-7) }, adviceState with { CapturedAt = now.AddSeconds(3) }, adviceState with { Settled = false }, adviceState with { Occluded = true }, adviceState with { Confirmed = false }, adviceState with { CalibrationId = "" }, adviceState with { Group = "bogus" }, adviceState with { Balls = [adviceState.Balls[0] with { Confidence = double.NaN }, adviceState.Balls[1]] } })
             Require(ShotPlanner.Suggest(invalid, now).Length == 0, "Freshness, motion, obstruction, confirmation and finite-quality gates");
         Require(ShotPlanner.Suggest(state with { Group = "black" }, now).Length == 0, "No guessed legal black on missing black");
         Console.WriteLine($"PASS {generated} generated Python reflections, bounded rails, direct/bank/kick candidates, second-leg obstruction, stable top-three ranking and advice gates");
@@ -110,7 +111,7 @@ static class PortChecks
     static void CheckCarousel()
     {
         var now = DateTimeOffset.UtcNow;
-        var state = new TableState(31, now, [new("cue", "cue", new(1.5, .3), 1), new("red", "red", new(.8, .6), 1)], "red", true, false, true, "test");
+        var state = new TableState(31, now, [new("cue", "cue", new(1.5, .3), 1), new("red", "red", new(.8, .6), 1), new("black", "black", new(.12, .94), 1)], "red", true, false, true, "test");
         var carousel = new CandidateCarousel(); carousel.Start(1000); carousel.Update(state, now);
         Require(carousel.Candidates.Length == 3, "Carousel has validated candidates");
         Require(carousel.Index(2999, now) == 0 && carousel.Index(3000, now) == 1 && carousel.Index(5000, now) == 2 && carousel.Index(7000, now) == 0, "Two-second cycle boundaries and wrapping");

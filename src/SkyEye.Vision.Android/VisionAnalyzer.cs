@@ -42,7 +42,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 settings.DarkBodyValueCeiling, settings.VerificationBodyRefinement,
                 settings.PackedColourBoundarySearchExtentFraction
             };
-            const string algorithm = "body-priority-packed-colour-peaks-v10-coincident-centre-uncertainty";
+            const string algorithm = "body-priority-packed-colour-peaks-v11-layout-quality";
             object identity = settings.UseNormalizedGeometryForDetection || settings.UseNormalizedPackedColourProposalMask
                 ? new
                 {
@@ -291,8 +291,6 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         var rawLabels = ordered.Select(c => classificationCache.TryGetValue(c, out var cached)
             ? cached : Classify(c, pixels, inspectRim)).ToArray();
         var labels = BallClassifier.ConstrainInventory(rawLabels);
-        if (appearance is not null && !referenceValid)
-            labels = labels.Select(l => l with { Kind = "unknown", Quality = 0 }).ToArray();
         for (int i = 0; i < ordered.Length; i++)
         {
             var circle = ordered[i]; var label = labels[i]; var position = coordinates.ToTable(new(circle.X, circle.Y));
@@ -317,27 +315,35 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                         expectedRadius * 1.25, ObservationPolicy.MinimumSupportedBoundaryFraction, candidate));
             }
         }
-        bool uncertain = balls.Any(b => b.Kind == "unknown") || balls.Count > 16 || balls.Count(b => b.Kind == "cue") != 1 || balls.Count(b => b.Kind == "black") != 1 || balls.Count(b => b.Kind == "red") > 7 || balls.Count(b => b.Kind == "yellow") > 7;
+        bool layoutUncertain = balls.Any(b => b.Kind == "unknown") || balls.Count > 16
+            || balls.Count(b => b.Kind == "cue") > 1 || balls.Count(b => b.Kind == "black") > 1
+            || balls.Count(b => b.Kind == "red") > 7 || balls.Count(b => b.Kind == "yellow") > 7;
+        bool uncertain = layoutUncertain || balls.Count(b => b.Kind == "cue") != 1
+            || balls.Count(b => b.Kind == "black") != 1;
         if (conflictingCoincidentCandidate)
         {
-            uncertain = true;
+            uncertain = layoutUncertain = true;
             warnings.Add("Conflicting ball candidates share nearly the same centre; review before using table state.");
         }
         bool packedClusterUnresolved = packedCluster.Detected &&
-            (balls.Any(b => b.Kind == "unknown") || balls.Count(b => b.Kind == "cue") != 1 || balls.Count(b => b.Kind == "black") != 1 ||
+            (balls.Any(b => b.Kind == "unknown") || balls.Count(b => b.Kind == "black") != 1 ||
                 balls.Count(b => b.Kind == "red") != 7 || balls.Count(b => b.Kind == "yellow") != 7);
         if (packedClusterUnresolved)
-        { uncertain = true; warnings.Add("Packed colour cluster still has unresolved visible balls; review it before using advice."); }
-        if (boundaryUncertain) { uncertain = true; warnings.Add("Current ball boundary lacks sufficient edge support."); }
+        { uncertain = layoutUncertain = true; warnings.Add("Packed colour cluster still has unresolved visible balls; review it before using advice."); }
+        if (boundaryUncertain) { uncertain = layoutUncertain = true; warnings.Add("Current ball boundary lacks sufficient edge support."); }
         if (appearance is not null && !referenceValid)
-        { uncertain = true; warnings.Add("No validated burst colour reference. Review the table."); }
+        {
+            uncertain = true;
+            if (balls.Count(b => b.Kind == "cue") != 0) layoutUncertain = true;
+            warnings.Add("No validated burst colour reference; raw colour labels are retained for layout review, not advice.");
+        }
         if (uncertain) warnings.Add("Check uncertain colours or ball counts before using advice.");
-        if (PocketColourNeedsReview(pixels)) { uncertain = true; warnings.Add("Check a coloured ball at a pocket opening; the pocket mask may hide part of it."); }
+        if (PocketColourNeedsReview(pixels)) { uncertain = layoutUncertain = true; warnings.Add("Check a coloured ball at a pocket opening; the pocket mask may hide part of it."); }
         Circle[] recognizedBallCircles = ordered.Where((_, index) => labels[index].Kind != "unknown").ToArray();
         bool completePackedCluster = packedCluster.Detected && !packedClusterUnresolved;
         bool obstructed = LargeObstruction(rawHsv.Value, rawHsvPixels, recognizedBallCircles, completePackedCluster, out var obstructionAudit);
-        if (obstructed) { uncertain = true; warnings.Add("A large object covers part of the playable surface."); }
-        for (int i = 0; i < balls.Count; i++) for (int j = i + 1; j < balls.Count; j++) if ((balls[i].Position - balls[j].Position).Length < .040) { uncertain = true; warnings.Add("Overlapping circle candidates need checking."); }
+        if (obstructed) { uncertain = layoutUncertain = true; warnings.Add("A large object covers part of the playable surface."); }
+        for (int i = 0; i < balls.Count; i++) for (int j = i + 1; j < balls.Count; j++) if ((balls[i].Position - balls[j].Position).Length < .040) { uncertain = layoutUncertain = true; warnings.Add("Overlapping circle candidates need checking."); }
         return new(balls.ToArray(), uncertain, warnings.Distinct().ToArray(), watch.Elapsed.TotalMilliseconds, circles.Length, normalized, Cv.Version, colourGains, ClothHue(pixels), obstructed, observations.ToArray())
         { Recognition = new(normalized ? "cue-normalized" : "raw", rawCircleCount, circles.Length, rawLabels.Select(l => l.Kind).ToArray(), colourGains, ClothHue(pixels), warnings.Distinct().ToArray())
             { CueBallRecovery = new(initialCueCount, cueIndices.Length, normalizedCueCount,
@@ -347,6 +353,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             Illumination = illumination,
             PackedCluster = new(packedCluster.Detected, packedCluster.Detected && !packedClusterUnresolved,
                 packedCluster.RedCentres, packedCluster.YellowCentres, packedCluster.BlackCentre),
+            LayoutUncertain = layoutUncertain,
             ObstructionAudit = obstructionAudit,
             BoundaryAudits = boundaryAudits.ToArray(), CandidateAudits = candidateAudits?.ToArray() ?? [] };
     }

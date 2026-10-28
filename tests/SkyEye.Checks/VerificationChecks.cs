@@ -19,6 +19,12 @@ static class VerificationChecks
         Check(VerificationConsensus.Resolve([good, good with { Balls = [.. good.Balls, new("extra", "red", new(.7, .3), 1)] }, good]) is null, "Unexplained extra bodies remain unresolved");
         Check(VerificationConsensus.Resolve([good, good, good with { Uncertain = true }]) is null,
             "Stable motion evidence never makes an uncertain final layout ready");
+        var noCue = good with { Balls = good.Balls.Where(b => b.Kind != "cue").ToArray(), Uncertain = true, LayoutUncertain = false };
+        Check(VerificationConsensus.Resolve([noCue, noCue, noCue])?.Length == 2,
+            "A verified cue-absent layout can be ready when its visible bodies and locations are clear");
+        var noBlack = good with { Balls = good.Balls.Where(b => b.Kind != "black").ToArray(), Uncertain = true, LayoutUncertain = false };
+        Check(VerificationConsensus.Resolve([noBlack, noBlack, noBlack])?.Length == 2,
+            "A verified black-absent layout can be ready independently of game composition");
         var drift = good with { Balls = good.Balls.Select(b => b with { Position = b.Position + new Point(.02, 0) }).ToArray() };
         Check(VerificationConsensus.Resolve([good, good, drift]) is null, "Fixed anchor prevents cumulative centre drift");
         PixelChecks();
@@ -88,6 +94,27 @@ static class VerificationChecks
         Check(!ShotPlanner.HasSafeBallSpacing(packedTable) && !ShotPlanner.Eligible(packedTable, DateTimeOffset.UtcNow)
             && ShotPlanner.Suggest(packedTable, DateTimeOffset.UtcNow).Length == 0,
             "The planner rejects advice for the packed receipt and returns no candidates");
+        var noBlackTable = new TableState(1, DateTimeOffset.UtcNow,
+            [new("cue", "cue", new(1.8, .5), 1), new("red", "red", new(1, .5), 1)],
+            "red", true, false, true, "fixture-no-black");
+        Check(!ShotPlanner.Eligible(noBlackTable, DateTimeOffset.UtcNow),
+            "Advice remains unavailable when the verified layout has no black ball");
+
+        var noCueFrames = new Frames();
+        var noCueAnalyzer = new Analyzer
+        {
+            DetectedBalls = good.Balls.Where(b => b.Kind != "cue").ToArray(),
+            LayoutUncertain = true,
+            ClearLayoutWithIncompleteInventory = true
+        };
+        using var noCueSession = new TableAnalysisSession(noCueFrames, noCueAnalyzer, new Calibration());
+        noCueSession.Bind(camera, "open"); noCueSession.RestoreCalibration();
+        await noCueSession.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !noCueSession.HasPendingWork);
+        Check(noCueSession.State.Observation is { Outcome: ObservationOutcome.Ready, Quality: LayoutQuality.Clear, Motion: TableMotion.Still }
+            && noCueSession.State.Vision is { Uncertain: true, HasUncertainLayout: false }
+            && noCueSession.State.Table is { Confirmed: true, Occluded: false }
+            && !ShotPlanner.Eligible(noCueSession.State.Table, DateTimeOffset.UtcNow),
+            "Stable cue-absent observations can be ready while their incomplete inventory remains blocked from shot advice");
         var packedEffect = new TableObservationEffect(() => packedSession, () => 1, () => true);
         var packedRequest = new ObserveTable(camera.Scope!, packedSession.State.Generation, 1, IncludeChoices: true,
             Mode: ObservationMode.VerifyForAdvice);
@@ -635,12 +662,18 @@ static class VerificationChecks
     {
         public int Detections, Disposals, DelayMs, CreatedWorkers, ObstructionResets, MeasurementCalls, ObstructAtCall;
         public bool LayoutUncertain, ObstructFirstDetectedFrame, ObstructEveryDetectedFrame, ObstructionIssued, DropLastDetectedBall;
+        public bool ClearLayoutWithIncompleteInventory;
         public int MovingAtCall;
         public HashSet<int> InsufficientEvidenceAtCalls = [];
         public HashSet<int> UncertainAtDetections = [];
         public Ball[]? DetectedBalls;
         public TaskCompletionSource? Hold, Entered; public Exception? Failure;
-        public VisionResult Analyze(byte[] jpeg, TableCalibration calibration, CancellationToken cancellation = default) => Vision(uncertain: LayoutUncertain);
+        VisionResult Detect(Ball[]? balls = null)
+        {
+            var vision = Vision(balls, LayoutUncertain);
+            return ClearLayoutWithIncompleteInventory ? vision with { LayoutUncertain = false } : vision;
+        }
+        public VisionResult Analyze(byte[] jpeg, TableCalibration calibration, CancellationToken cancellation = default) => Detect();
         public Point[]? FindCorners(byte[] jpeg) => null;
         public ITableVerificationWorker CreateVerification(TableCalibration calibration) { CreatedWorkers++; return new Worker(this); }
         sealed class Worker(Analyzer owner) : ITableVerificationWorker
@@ -663,7 +696,7 @@ static class VerificationChecks
                 if (detect)
                 {
                     int detection = Interlocked.Increment(ref owner.Detections);
-                    detected = owner.DetectedBalls is { } balls ? Vision(balls, owner.LayoutUncertain) : Vision(uncertain: owner.LayoutUncertain);
+                    detected = owner.Detect(owner.DetectedBalls);
                     if (owner.DropLastDetectedBall && detection >= 3) detected = detected with { Balls = detected.Balls[..^1] };
                     if (owner.UncertainAtDetections.Contains(detection))
                         detected = detected with { Balls = detected.Balls[..^1], Uncertain = true };

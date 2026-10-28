@@ -65,7 +65,7 @@ public sealed class TableTracker(double maximumObservationGapSeconds = 6)
         if (!state.Settled || PhysicallyObstructed || (now - state.CapturedAt).TotalSeconds is > ObservationPolicy.ReviewFreshnessSeconds or < -2)
             throw new InvalidOperationException("Corrections need a fresh, settled, unobstructed frame.");
         var corrected = state with { Version = ++version, Balls = balls.ToArray(), Confirmed = true, Occluded = false };
-        if (!ShotPlanner.Eligible(corrected, now)) throw new ArgumentException("Check ball counts, colours and positions; balls cannot overlap.");
+        if (!ShotPlanner.ObservedLayoutValid(corrected.Balls)) throw new ArgumentException("Check ball counts, colours and positions; balls cannot overlap.");
         State = corrected; manual = true; return State;
     }
     public TableState? SetGroup(string group)
