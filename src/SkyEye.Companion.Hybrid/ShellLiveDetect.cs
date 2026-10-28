@@ -7,14 +7,6 @@ namespace SkyEye.Companion.Hybrid;
 
 public sealed partial class ShellSession
 {
-    readonly record struct LiveDetectCounts(int Reds, int Yellows, int Black, int Cue, int Other)
-    {
-        public string Summary => $"{Reds} reds · {Yellows} yellows · {Black} black · {Cue} cue ball{(Cue == 1 ? "" : "s")}"
-            + (Other > 0 ? $" · {Other} unknown" : "");
-
-        public int Total => Reds + Yellows + Black + Cue + Other;
-    }
-
     readonly record struct LiveDetectFrameAnchor(long? FrameId, long? SourceTimeUs, DateTimeOffset? CapturedAt);
     readonly record struct LiveDetectAutoClipContext(SkyEyeState AppState,
         CameraScope? TableSource, LiveDetectFrameAnchor Frame);
@@ -172,8 +164,7 @@ public sealed partial class ShellSession
         var cancellation = operation.Token;
         var autoClipSaver = RunLiveDetectClipSavesAsync(cancellation, runId, source);
         AppendLiveDetectRunEvent(runId, "started", "Live Detect started.", null);
-        LiveDetectCounts? previousClearCounts = null;
-        LiveDetectCounts? pendingBefore = null, pendingAfter = null;
+        var candidateTracker = new LiveDetectCountCandidateTracker();
         long lastFrameId = long.MinValue, lastSourceTimeUs = long.MinValue;
         int consecutiveAnalysisErrors = 0;
         try
@@ -247,27 +238,10 @@ public sealed partial class ShellSession
                 lastFrameId = receipt.FrameId;
                 lastSourceTimeUs = sourceTimeUs;
                 var counts = Count(vision.Balls);
-                bool clear = !vision.HasUncertainLayout && !vision.Obstructed;
+                bool candidateEligible = !vision.HasUncertainLayout && !vision.Obstructed && !vision.Uncertain;
                 var events = new List<string>();
-                if (clear)
-                {
-                    if (pendingAfter is { } expected && counts == expected && pendingBefore is { } before)
-                    {
-                        events.AddRange(PossiblePotEvents(before, expected));
-                        pendingBefore = pendingAfter = null;
-                    }
-                    else if (previousClearCounts is { } previous && HasCountDecrease(previous, counts))
-                    {
-                        pendingBefore = previous;
-                        pendingAfter = counts;
-                    }
-                    else pendingBefore = pendingAfter = null;
-                    previousClearCounts = counts;
-                }
-                else
-                {
-                    previousClearCounts = pendingBefore = pendingAfter = null;
-                }
+                if (candidateTracker.Observe(sourceTimeUs, counts, candidateEligible) is { } candidate)
+                    events.AddRange(PossiblePotEvents(candidate.Before, candidate.After));
 
                 var quality = vision.Obstructed ? "obstructed" : vision.HasUncertainLayout ? "uncertain"
                     : vision.Uncertain ? "clear layout · advice unavailable" : "clear detector output";
@@ -491,10 +465,6 @@ public sealed partial class ShellSession
         }
         return new(reds, yellows, black, cue, other);
     }
-
-    static bool HasCountDecrease(LiveDetectCounts before, LiveDetectCounts after) =>
-        after.Reds < before.Reds || after.Yellows < before.Yellows
-        || after.Black < before.Black || after.Cue < before.Cue;
 
     static IEnumerable<string> PossiblePotEvents(LiveDetectCounts before, LiveDetectCounts after)
     {

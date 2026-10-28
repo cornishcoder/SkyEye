@@ -9,8 +9,16 @@ using Microsoft.Extensions.AI;
 using SkyEye.Companion.Hybrid;
 using SkyEye.Companion.Hybrid.Probes;
 
+if (args.Length == 2 && args[0] == "--replay-live-detect-summary")
+{
+    LiveDetectCountCandidateChecks.ReplaySummary(args[1]);
+    return;
+}
+
 static void Check(bool condition, string name) { if (!condition) throw new Exception(name); }
 static Guid OperationId(string callId, string action) => new(SHA256.HashData(Encoding.UTF8.GetBytes(callId + "\n" + action)).AsSpan(0, 16));
+
+LiveDetectCountCandidateChecks.Run();
 
 var transcript = new SkyVoiceTranscript();
 transcript.BeginSession();
