@@ -12,7 +12,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
 {
     public VerificationReplayInstrumentation() { }
     public VerificationReplayInstrumentation(IntPtr handle, global::Android.Runtime.JniHandleOwnership ownership) : base(handle, ownership) { }
-    bool refinement, dump, boundaryAudit, traceDarkMask, normalizedGeometry, normalizedPackedProposalMask, boundaryExtentAblation;
+    bool refinement, dump, boundaryAudit, traceDarkMask, normalizedGeometry, normalizedPackedProposalMask, boundaryExtentAblation,
+        continueCalibrationMismatch;
     int fastWidth, darkBodyCeiling = 40; double boundaryExtentFraction = .65; string run = "";
     public override void OnCreate(global::Android.OS.Bundle? args)
     {
@@ -20,6 +21,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         boundaryAudit = args?.GetString("audit") == "1"; traceDarkMask = args?.GetString("trace") == "1";
         normalizedGeometry = args?.GetString("normGeometry") == "1";
         normalizedPackedProposalMask = args?.GetString("normPackedProposalMask") == "1";
+        continueCalibrationMismatch = args?.GetString("continueCalibrationMismatch") == "1";
         var requestedBoundaryExtent = args?.GetString("boundaryExtent");
         if (!string.IsNullOrWhiteSpace(requestedBoundaryExtent))
         {
@@ -203,8 +205,9 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 var verification1000 = Measure(() => worker1000.Measure(frame, detectionRequested, CancellationToken.None), out var verification1000Metrics); measurements1000.Add(verification1000);
                 bool fallbackMatchesStoredCalibration = fallbackCornerDeltas is { Length: > 0 }
                     && fallbackCornerDeltas.All(delta => delta <= .035);
-                if (fallbackMatchesStoredCalibration
-                    && (verification800.Reason == ObservationReason.CalibrationChanged || verification1000.Reason == ObservationReason.CalibrationChanged))
+                bool calibrationGeometryContradiction = fallbackMatchesStoredCalibration
+                    && (verification800.Reason == ObservationReason.CalibrationChanged || verification1000.Reason == ObservationReason.CalibrationChanged);
+                if (calibrationGeometryContradiction && !continueCalibrationMismatch)
                     throw new InvalidDataException($"Verification rejected a view whose detected corners match the saved calibration. frame={frameId}; " +
                         $"width800={verification800.Reason},coverage={verification800.CoverageValid},rail={verification800.PerimeterChange:0.000},lighting={verification800.IlluminationChange:0.0}; " +
                         $"width1000={verification1000.Reason},coverage={verification1000.CoverageValid},rail={verification1000.PerimeterChange:0.000},lighting={verification1000.IlluminationChange:0.0}; " +
@@ -321,6 +324,19 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     detectedPocketGeometry,
                     fallbackCornerGeometry,
                     fallbackMatchesStoredCalibration,
+                    calibrationGeometryContradiction = calibrationGeometryContradiction ? new
+                    {
+                        diagnosticOnly = continueCalibrationMismatch,
+                        fallbackMaximumCornerDelta = fallbackCornerDeltas?.Max(),
+                        width800 = new { reason = verification800.Reason, verification800.CoverageValid,
+                            verification800.PerimeterChange, verification800.IlluminationChange,
+                            verification800.PhotometricResidualTileChange, verification800.SensitiveTileChange,
+                            verification800.SupportedBodies, verification800.MaximumBodyDisplacement },
+                        width1000 = new { reason = verification1000.Reason, verification1000.CoverageValid,
+                            verification1000.PerimeterChange, verification1000.IlluminationChange,
+                            verification1000.PhotometricResidualTileChange, verification1000.SensitiveTileChange,
+                            verification1000.SupportedBodies, verification1000.MaximumBodyDisplacement }
+                    } : null,
                     analysis800Metrics, analysis1000Metrics, verification800Metrics, verification1000Metrics,
                     normalizedGeometryAblation = normalizedGeometry ? new
                     {
