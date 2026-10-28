@@ -512,6 +512,11 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 if (fit is null || fit.SupportedSectors < settings.MinimumHoughBoundarySupport)
                 { Audit("hough", "unknown", i, c, fit is null ? "rejected-no-boundary-fit" : "rejected-insufficient-boundary-support", fit?.Centre, fit?.Radius, fit?.SupportedSectors); continue; }
                 c = new(fit.Centre.X, fit.Centre.Y, fit.Radius);
+                // The proposal can be outside a pocket's exclusion radius while
+                // its fitted centre drifts into the opening. Recheck the fitted
+                // geometry so a pocket edge cannot become a coloured ball.
+                if (PocketCentres().Any(p => (new Point(c.X, c.Y) - p).Length < settings.PocketExclusionRadius * scale))
+                { Audit("hough", "unknown", i, c, "rejected-pocket-exclusion-after-fit", new(c.X, c.Y), c.Radius, fit.SupportedSectors); continue; }
                 string fittedKind = Classify(c, pixels, inspectRim: true).Kind;
                 if (HasNearbyDuplicate(c, fittedKind))
                 { Audit("hough", "unknown", i, c, "rejected-duplicate-after-fit", new(c.X, c.Y), c.Radius, fit.SupportedSectors); continue; }
