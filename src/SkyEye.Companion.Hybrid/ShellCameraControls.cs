@@ -78,6 +78,7 @@ public sealed partial class ShellSession
     public Task EndSessionAsync() => MainThread.InvokeOnMainThreadAsync(async () =>
     {
         if (!active || disposed || foreground is null || sessionMode == TableSessionMode.None) return;
+        await StopLiveDetectAndWaitAsync("Live Detect stopped with the recording session.");
         var camera = app.State.Camera;
         if (camera.Capture is CaptureState.Active or CaptureState.Paused)
         {

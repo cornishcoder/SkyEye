@@ -8,6 +8,15 @@ public sealed class VerificationPixels(int width, int height)
     int Edge => Math.Max(12, width * 12 / 200);
     byte[]? anchor, previous;
     byte[]? anchorColour, previousColour;
+    /// <summary>Move the fixed comparison anchor to the latest measured frame after
+    /// an independently validated geometry and stable-body rebaseline.</summary>
+    public bool ReanchorToLatest()
+    {
+        if (previous is null) return false;
+        anchor = previous.ToArray();
+        anchorColour = previousColour?.ToArray();
+        return true;
+    }
     public VerificationMeasurement Measure(byte[] gray, bool geometryValid, VisionResult? vision, byte[]? colour = null, bool[]? supportedBodyPixels = null)
     {
         if (width < 100 || height < 100 || gray.Length != width * height) throw new ArgumentException("Invalid verification pixels.");

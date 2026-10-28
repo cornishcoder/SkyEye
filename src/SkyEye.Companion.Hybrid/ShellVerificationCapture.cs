@@ -7,12 +7,14 @@ namespace SkyEye.Companion.Hybrid;
 
 public sealed partial class ShellSession
 {
-    const long MaxVerificationEvidenceBytes = 96L * 1024 * 1024;
-    // Reserve 2 MiB per pixel file plus 512 KiB overhead for each of six observed frames.
-    const long VerificationCaptureReservationBytes = 15L * 1024 * 1024;
+    // Keep the evidence store bounded while leaving room for several lossless live captures.
+    const long MaxVerificationEvidenceBytes = 192L * 1024 * 1024;
+    // Reserve 2 MiB per pixel file plus 512 KiB overhead for each bounded sample.
+    const long VerificationCaptureReservationBytes = (2L * 1024 * 1024 + 512L * 1024)
+        * ObservationPolicy.MaximumCapturedVerificationSamples;
     readonly VerificationCaptureRunStatus verificationCaptureStatus = new();
 
-    public bool CanCaptureVerificationFrames => CanAnalyzeTable && HasTableCalibration && !EditingTable
+    public bool CanCaptureVerificationFrames => CanAnalyzeTable && HasTableCalibration && !EditingTable && !LiveDetectBusy
         && !CheckingTable && !verificationCaptureStatus.Running && !table.HasPendingWork;
     public bool VerificationCaptureRunning => verificationCaptureStatus.Running;
     public string VerificationCaptureLabel => VerificationCaptureRunning ? "Capturing verifier frames" : "Capture verifier frames";
@@ -54,10 +56,10 @@ public sealed partial class ShellSession
         }
         if (retained + VerificationCaptureReservationBytes > MaxVerificationEvidenceBytes)
         {
-            var requiredMiB = VerificationCaptureReservationBytes / (1024 * 1024);
+            var requiredMiB = (long)Math.Ceiling(VerificationCaptureReservationBytes / (1024d * 1024d));
             var freeMiB = Math.Max(0, (MaxVerificationEvidenceBytes - retained) / (1024 * 1024));
             verificationCaptureStatus.Complete(operationId, DateTimeOffset.UtcNow,
-                $"Capture not started · {freeMiB} MiB free; {requiredMiB} MiB is required for six frames", 0);
+                $"Capture not started · {freeMiB} MiB free; {requiredMiB} MiB is required for up to {ObservationPolicy.MaximumCapturedVerificationSamples} frames", 0);
             Message = VerificationCaptureStatus;
             Publish();
             return;
@@ -81,8 +83,13 @@ public sealed partial class ShellSession
                 return;
             }
 
+            var tableResult = observation!.Outcome == ObservationOutcome.Ready
+                ? "Ready"
+                : observation.Reason == ObservationReason.None
+                    ? observation.Outcome.ToString()
+                    : $"{observation.Outcome} ({observation.Reason})";
             verificationCaptureStatus.Complete(operationId, DateTimeOffset.UtcNow,
-                $"Table result: {observation!.Reason}.", saved);
+                $"Table result: {tableResult}.", saved);
             Message = VerificationCaptureStatus;
             Publish();
         }

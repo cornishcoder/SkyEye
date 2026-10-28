@@ -17,7 +17,8 @@ public sealed partial class VisionAnalyzer
     /// Every returned body needs a ball-sized colour-mask peak and a supported
     /// raw-image boundary fit; table shape and declared inventory never add one.
     /// </summary>
-    PackedClusterEvidence AddPackedClusterBodies(Mat rawBgr, Mat rawHsv, byte[] rawPixels, BoundaryColourMask boundaryColourMask,
+    PackedClusterEvidence AddPackedClusterBodies(Mat rawBgr, Mat rawHsv, Mat colourProposalHsv,
+        byte[] rawPixels, BoundaryColourMask boundaryColourMask,
         List<Circle> circles, double scale,
         Dictionary<Circle, BallClassification>? packedClassifications,
         List<VisionCandidateAudit>? candidateAudits = null, string pass = "initial",
@@ -28,13 +29,13 @@ public sealed partial class VisionAnalyzer
         using var redLowA = new Scalar(0, 100, 30); using var redHighA = new Scalar(10, 255, 255);
         using var redLowB = new Scalar(170, 100, 30); using var redHighB = new Scalar(179, 255, 255);
         using var redWrap = new MatLease(new Mat());
-        // Use the same raw HSV Mat that produced the per-frame boundary
-        // membership mask; do not convert the source a second time.
-        Cv.InRange(rawHsv, redLowA, redHighA, red.Value);
-        Cv.InRange(rawHsv, redLowB, redHighB, redWrap.Value);
+        // The diagnostic proposal-mask ablation may supply normalized HSV here.
+        // Boundary membership and fitted-body classification still use raw HSV.
+        Cv.InRange(colourProposalHsv, redLowA, redHighA, red.Value);
+        Cv.InRange(colourProposalHsv, redLowB, redHighB, redWrap.Value);
         Cv.Bitwise_or(red.Value, redWrap.Value, red.Value);
         using var yellow = new MatLease(new Mat()); using var yellowLow = new Scalar(10, 100, 30); using var yellowHigh = new Scalar(40, 255, 255);
-        Cv.InRange(rawHsv, yellowLow, yellowHigh, yellow.Value);
+        Cv.InRange(colourProposalHsv, yellowLow, yellowHigh, yellow.Value);
 
         double minimumPeakRadius = 12 * scale;
         var proposals = FindColourPeakBodies(red.Value, "red", rawPixels, rawBgrPixels, scale, minimumPeakRadius,
@@ -331,20 +332,26 @@ public sealed partial class VisionAnalyzer
             { Audit("rejected-peak-radius"); continue; }
             var fit = BallBoundaryRefiner.Refine(rawBgr, coordinates.Width, coordinates.Height,
                 new(x, y), PoolGeometry.Radius * coordinates.Width, .5, expectedKind: kind,
-                colourMask: boundaryColourMask);
+                colourMask: boundaryColourMask,
+                maximumCentreOffsetFraction: settings.PackedColourBoundarySearchExtentFraction);
             if (fit is null || fit.SupportedSectors < .4)
             { Audit(fit is null ? "rejected-no-boundary-fit" : "rejected-insufficient-boundary-support", fit, fit?.SupportedSectors); continue; }
             var body = new Circle(fit.Centre.X, fit.Centre.Y, fit.Radius);
             var classification = Classify(body, rawHsv, inspectRim: true);
             if (classification.Kind != kind)
             { Audit("rejected-classification", fit, fit.SupportedSectors, classification.Kind); continue; }
-            // The fitted centres are allowed to move independently by several
-            // pixels. Comparing those fits can collapse two touching balls when
-            // both move inward by one grid step. Deduplicate colour peaks by the
-            // original mask seeds; keep the refined bodies as separate geometry.
-            if (candidates.Any(c => (c.PeakCentre - new Point(x, y)).Length < settings.Separation * scale))
+            // Nearby mask peaks can be duplicate seeds for one ball, but a
+            // nearby seed can also belong to a touching same-colour neighbour.
+            // Use the seed spacing to find duplicate candidates, then require
+            // their independently fitted centres to agree within half a ball
+            // diameter before discarding one. This keeps adjacent rack balls
+            // when their fitted centres remain distinct.
+            var peakCentre = new Point(x, y);
+            if (candidates.Any(c =>
+                    (c.PeakCentre - peakCentre).Length < settings.Separation * scale
+                    && Distance(c.Body, body) < (c.Body.Radius + body.Radius) * .5))
             { Audit("rejected-duplicate-colour-peak", fit, fit.SupportedSectors, classification.Kind); continue; }
-            candidates.Add(new(kind, body, new(x, y), interiorRadius, classification, fit.SupportedSectors));
+            candidates.Add(new(kind, body, peakCentre, interiorRadius, classification, fit.SupportedSectors));
             Audit("accepted-colour-peak", fit, fit.SupportedSectors, classification.Kind);
 
             void Audit(string decision, BallBoundary? boundary = null, double? support = null, string? label = null)

@@ -18,6 +18,8 @@ namespace SkyEye.Vision.Device;
 [global::Android.Runtime.Preserve(AllMembers = true)]
 public sealed class PackedRackRegressionInstrumentation : global::Android.App.Instrumentation
 {
+    int? darkBodyCeiling;
+    double? packedColourBoundarySearchExtentFraction;
     sealed class ProbeMat(Mat value) : IDisposable
     {
         public Mat Value { get; } = value;
@@ -61,7 +63,21 @@ public sealed class PackedRackRegressionInstrumentation : global::Android.App.In
 
     public PackedRackRegressionInstrumentation() { }
     public PackedRackRegressionInstrumentation(IntPtr handle, global::Android.Runtime.JniHandleOwnership ownership) : base(handle, ownership) { }
-    public override void OnCreate(global::Android.OS.Bundle? args) { base.OnCreate(args); Start(); }
+    public override void OnCreate(global::Android.OS.Bundle? args)
+    {
+        if (int.TryParse(args?.GetString("darkCeiling"), out var requestedDarkCeiling)) darkBodyCeiling = requestedDarkCeiling;
+        if (darkBodyCeiling is < 10 or > 55) throw new ArgumentOutOfRangeException(nameof(darkBodyCeiling), "Dark-body ceiling must be between 10 and 55.");
+        if (double.TryParse(args?.GetString("boundaryExtent"), System.Globalization.NumberStyles.Float,
+            System.Globalization.CultureInfo.InvariantCulture, out var requestedBoundaryExtent))
+        {
+            if (!double.IsFinite(requestedBoundaryExtent) || requestedBoundaryExtent is < .2 or > .8)
+                throw new ArgumentOutOfRangeException(nameof(requestedBoundaryExtent), "Packed-colour boundary extent must be between 0.2 and 0.8.");
+            packedColourBoundarySearchExtentFraction = requestedBoundaryExtent;
+        }
+        else if (args?.GetString("boundaryExtent") is { Length: > 0 })
+            throw new ArgumentException("Packed-colour boundary extent must be an invariant-culture number.");
+        base.OnCreate(args); Start();
+    }
 
     Fixture ReadFixture(string name, string? labelsName = null, string extension = ".jpg")
     {
@@ -124,6 +140,18 @@ public sealed class PackedRackRegressionInstrumentation : global::Android.App.In
         Imgproc.Circle(image.Value, centre, (int)Math.Round(image.Value.Rows() * .09), handColour, -1);
         using var result = new MatOfByte();
         if (!Imgcodecs.Imencode(".jpg", image.Value, result)) throw new IOException("Could not encode packed-rack obstruction control.");
+        return result.ToArray();
+    }
+
+    static byte[] CreateLocalizedClusterObstruction(Fixture fixture)
+    {
+        using var encoded = new ProbeMat(new MatOfByte(fixture.Image));
+        using var image = new ProbeMat(Imgcodecs.Imdecode(encoded.Value, Imgcodecs.ImreadColor));
+        using var centre = new CvPoint(.65 * image.Value.Cols(), .50 * image.Value.Rows());
+        using var handColour = new Scalar(70, 130, 190);
+        Imgproc.Circle(image.Value, centre, (int)Math.Round(image.Value.Rows() * .15), handColour, -1);
+        using var result = new MatOfByte();
+        if (!Imgcodecs.Imencode(".jpg", image.Value, result)) throw new IOException("Could not encode localized cluster obstruction control.");
         return result.ToArray();
     }
 
@@ -253,6 +281,7 @@ public sealed class PackedRackRegressionInstrumentation : global::Android.App.In
             using var spread = ReadFixture("pixel-spread-dim");
             using var dimRack = ReadFixture("pixel-racked-dim");
             using var shadowedDarkRack = ReadFixture("pixel-packed-rack-shadowed-dark", extension: ".png");
+            using var postShotSpread = ReadFixture("pixel-table-post-shot-spread-2026-10-27", extension: ".png");
             byte[] packedRackObstruction = CreatePackedRackObstruction(packed);
             using var empty = ReadFixture("synthetic-empty", "pixel-table");
             using var obstruction = ReadFixture("synthetic-obstruction", "pixel-table");
@@ -266,7 +295,12 @@ public sealed class PackedRackRegressionInstrumentation : global::Android.App.In
             bool controlsPassed = true, packedRecovered = true, productionResolutionPassed = false;
             foreach (var configuration in configurations)
             {
-                var analyzer = new VisionAnalyzer(configuration.Settings);
+                var settings = configuration.Settings with
+                {
+                    DarkBodyValueCeiling = darkBodyCeiling ?? configuration.Settings.DarkBodyValueCeiling,
+                    PackedColourBoundarySearchExtentFraction = packedColourBoundarySearchExtentFraction ?? .65
+                };
+                var analyzer = new VisionAnalyzer(settings);
                 using var workingSet = new WorkingSetProbe();
                 var packedResult = analyzer.Analyze(packed.Image, packed.Calibration);
                 long peakWorkingSetDeltaBytes = workingSet.StopAndReadPeakDeltaBytes();
@@ -300,14 +334,31 @@ public sealed class PackedRackRegressionInstrumentation : global::Android.App.In
                         fallback = packedResult.PackedClusterFallback is { } retry ? 2L * retry.FallbackAnalysisWidth * retry.FallbackAnalysisWidth : 0
                     } });
 
-                foreach (var positive in new[] { ordinary, spread })
+                foreach (var positive in new[] { ordinary, spread, postShotSpread })
                 {
                     var result = analyzer.Analyze(positive.Image, positive.Calibration);
-                    var comparison = AnalyzeExpected(positive, result, positive.Name == "pixel-table" ? .015 : .025, configuration.Settings.Width);
+                    double tolerance = positive.Name switch
+                    {
+                        "pixel-table" => .015,
+                        "pixel-table-post-shot-spread-2026-10-27" => .03,
+                        _ => .025,
+                    };
+                    var comparison = AnalyzeExpected(positive, result, tolerance, configuration.Settings.Width);
                     bool good = JsonSerializer.SerializeToElement(comparison).GetProperty("exact").GetBoolean();
                     bool positiveRetryGate = RetryWasClusterGated(result);
                     controlsPassed &= good && positiveRetryGate;
                     rows.Add(new { configuration = configuration.Name, role = "clear-positive-control", fixture = positive.Name, comparison, retryGate = positiveRetryGate });
+                    if (positive.Name == "pixel-table-post-shot-spread-2026-10-27")
+                    {
+                        byte[] localizedObstruction = CreateLocalizedClusterObstruction(positive);
+                        var obstructedSpread = analyzer.Analyze(localizedObstruction, positive.Calibration);
+                        bool obstructionWasRetained = obstructedSpread.Uncertain && obstructedSpread.Obstructed;
+                        controlsPassed &= obstructionWasRetained;
+                        rows.Add(new { configuration = configuration.Name, role = "localized-obstruction-over-ball-group-control",
+                            passed = obstructionWasRetained, obstructedSpread.Uncertain, obstructedSpread.Obstructed,
+                            ballCount = obstructedSpread.Balls.Length, obstructedSpread.ObstructionAudit,
+                            obstructedSpread.Warnings, obstructedSpread.ElapsedMs });
+                    }
                 }
                 var emptyResult = analyzer.Analyze(empty.Image, empty.Calibration);
                 bool emptySafe = emptyResult.Balls.Length == 0 && emptyResult.Uncertain && !emptyResult.Obstructed;
@@ -368,7 +419,8 @@ public sealed class PackedRackRegressionInstrumentation : global::Android.App.In
             passed = controlsPassed && packedRecovered && productionResolutionPassed;
         }
         catch (Exception failure) { error = failure.ToString(); }
-        var report = new { passed, error, measuredAt = DateTimeOffset.UtcNow,
+        var report = new { passed, error, darkBodyValueCeiling = darkBodyCeiling ?? 40,
+            packedColourBoundarySearchExtentFraction = packedColourBoundarySearchExtentFraction ?? .4, measuredAt = DateTimeOffset.UtcNow,
             scope = "On-device OpenCV replay of the exact manually reviewed bright rack and the shadowed-dark packed-rack regression, with a conditional same-frame 1000px retry, sampled process working-set deltas, a compact true-obstruction over the rack, and clear, empty and dim-rack controls. Working-set samples are coarse 10ms process measurements; the shadowed-dark fixture is tuning evidence, not a held-out accuracy claim.", packedMaskDiagnostics, rows };
         string output = JsonSerializer.Serialize(report, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });
         string root = TargetContext!.GetExternalFilesDir(null)!.AbsolutePath;

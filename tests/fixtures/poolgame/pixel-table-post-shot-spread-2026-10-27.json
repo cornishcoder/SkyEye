@@ -1,0 +1,108 @@
+{
+  "description": "Manually reviewed settled frame from a player-reported shot sample; use as a development regression for clear clustered balls that must not be reported as an obstruction.",
+  "capturedAt": "2026-10-27",
+  "timestampMeaning": "FFmpeg-decoded frame at 22 seconds in saved camera clip SkyEye 27 Oct 14:22:35; exact decoded frame hash is recorded below. This is a development fixture, not held-out evidence.",
+  "source": "Player-reported SkyEye clip 792affad89214a2bb2de51dabe40097e; raw camera MP4, FFmpeg-extracted frame, visually reviewed.",
+  "sourceClipSha256": "CFB2645EE7064C4C073E0ED5250E1FBA26D6F7045ECC5E0DE7F82B90C53769CF",
+  "width": 1920,
+  "height": 1080,
+  "lighting": "Room lighting visible in the source clip; no lighting condition label supplied.",
+  "pixelFile": "pixel-table-post-shot-spread-2026-10-27.png",
+  "pixelSha256": "17cdf456aa7113b486de669108e51f4fe7439e4d872ec88c6743f02c370dc269",
+  "groundTruth": {
+    "cue": 1,
+    "red": 7,
+    "yellow": 4,
+    "black": 1,
+    "visibleTotal": 13
+  },
+  "groundTruthMeaning": "The 13 visible balls and approximate image centres were manually reviewed from this exact frame. The missing balls are not assigned a cause or match ruling.",
+  "playerReport": "break without a pot, then pot a red, then pot a yellow and cue ball",
+  "calibrationMeaning": "Same-camera table calibration from the saved replay. Current detected pocket corners agree within 0.014 normalized image units; this is a fixture calibration, not a new device calibration.",
+  "calibration": [
+    {
+      "x": 0.0503124992052714,
+      "y": 0.14907407407407408
+    },
+    {
+      "x": 0.8976041793823242,
+      "y": 0.07648148006863065
+    },
+    {
+      "x": 0.9005208333333333,
+      "y": 0.9268518518518518
+    },
+    {
+      "x": 0.0546875,
+      "y": 0.8827777438693576
+    }
+  ],
+  "expectedBehaviour": "Detect only the 13 manually reviewed visible ball centres. The compact ball-and-shadow group is not a hand or other obstruction. Do not infer absent balls or a match result.",
+  "expected": [
+    {
+      "kind": "red",
+      "x": 0.2938,
+      "y": 0.1935
+    },
+    {
+      "kind": "red",
+      "x": 0.3589,
+      "y": 0.3574
+    },
+    {
+      "kind": "red",
+      "x": 0.5354,
+      "y": 0.4343
+    },
+    {
+      "kind": "red",
+      "x": 0.6823,
+      "y": 0.4093
+    },
+    {
+      "kind": "red",
+      "x": 0.7344,
+      "y": 0.4185
+    },
+    {
+      "kind": "red",
+      "x": 0.65,
+      "y": 0.5407
+    },
+    {
+      "kind": "red",
+      "x": 0.6953,
+      "y": 0.6472
+    },
+    {
+      "kind": "yellow",
+      "x": 0.6036,
+      "y": 0.487
+    },
+    {
+      "kind": "yellow",
+      "x": 0.6464,
+      "y": 0.4379
+    },
+    {
+      "kind": "yellow",
+      "x": 0.6719,
+      "y": 0.4778
+    },
+    {
+      "kind": "yellow",
+      "x": 0.6984,
+      "y": 0.4546
+    },
+    {
+      "kind": "black",
+      "x": 0.65,
+      "y": 0.4991
+    },
+    {
+      "kind": "cue",
+      "x": 0.7156,
+      "y": 0.5148
+    }
+  ]
+}

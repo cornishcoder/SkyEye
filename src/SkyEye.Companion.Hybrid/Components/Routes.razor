@@ -59,6 +59,16 @@
                         </button>
                     }
 
+                    <button class="home-icon-button live-detect-shortcut @(Session.LiveDetectRunning ? "selected" : "")"
+                        disabled="@(busy || !Session.CanToggleLiveDetect)"
+                        @onclick="ToggleLiveDetect"
+                        aria-label="@Session.LiveDetectShortcutLabel"
+                        aria-pressed="@Session.LiveDetectRunning"
+                        title="@Session.LiveDetectShortcutLabel">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><path d="M12 12 19 5M12 2v2m10 8h-2M12 22v-2M2 12h2" /></svg>
+                        <span class="home-action-label">@Session.LiveDetectTileText</span>
+                    </button>
+
                     <button class="home-icon-button candidate-shortcut @(Session.CandidateShortcutShown ? "selected" : "")"
                         disabled="@(busy || !Session.CanUseCandidateShortcut)"
                         @onclick="ToggleCandidateShortcut"
@@ -101,6 +111,18 @@
                 { <p class="home-candidate-status" role="status" aria-live="polite">@Session.VisionDiagnosticLabelStatus</p> }
                 @if (Session.SampleCollectionStatus.Length > 0)
                 { <p class="home-candidate-status" role="status" aria-live="polite">@Session.SampleCollectionStatus</p> }
+                @if (Session.LiveDetectFeedbackVisible)
+                {
+                    <section class="home-live-detect" aria-label="Live detection status">
+                        <p role="status" aria-live="polite">@Session.LiveDetectStatus</p>
+                        @if (Session.LiveDetectInventory.Length > 0)
+                        { <p class="live-detect-inventory">@Session.LiveDetectInventory · @Session.LiveDetectReadAt</p> }
+                        <p class="live-detect-log-status">@Session.LiveDetectClipStatus</p>
+                        <p class="live-detect-log-status">@Session.LiveDetectLogStatus</p>
+                        @if (Session.LiveDetectEvents.Count > 0)
+                        { <p class="live-detect-events" role="status" aria-live="polite">@string.Join(" · ", Session.LiveDetectEvents)</p> }
+                    </section>
+                }
                 <p class="physics-status" role="status"><span class="status-dot @(Session.PhysicsAvailable ? "ready" : "off")"></span>@HomePhysicsStatus</p>
                 @if (error.Length > 0) { <p class="notice" role="alert">@error</p> }
                 @if (Session.NeedsAttention)
@@ -265,6 +287,7 @@
     async Task SelectCamera(CameraChoice camera) { address = camera.Address; await Connect(); }
     async Task Control(CameraControlRequest request) => await Run(() => Session.ControlCameraAsync(request));
     async Task ToggleCandidateShortcut() => await Run(Session.ToggleCandidateShortcutAsync);
+    async Task ToggleLiveDetect() => await Run(Session.ToggleLiveDetectAsync);
     async Task CaptureAdvisoryFrame()
     {
         if (Session.VisionDiagnosticLabelFrame is not null) { Navigate(Screen.Advisory); return; }

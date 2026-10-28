@@ -13,7 +13,14 @@ public static class ObservationPolicy
     public const double MaximumFinalAgeMs = 1500;
     public const double MaximumClockSampleAgeMs = 2500;
     public const int MinimumVerificationSamples = 5;
-    public const int MaximumVerificationSamples = 6;
+    // Allow up to two unstable bootstrap frames to be excluded before a fresh
+    // five-sample, two-second stationary span is established. Verification may
+    // add one final frame only when its last clear-view detection is uncertain.
+    // The ordinary verification burst captures up to seven independent samples.
+    // One additional sample may be taken only to re-detect an uncertain final view.
+    public const int StandardVerificationSamples = 7;
+    public const int MaximumVerificationSamples = 8;
+    public const int MaximumCapturedVerificationSamples = 7;
     public const double SampleIntervalSeconds = .5;
     public const double MinimumDetectedBallMotionFraction = .006;
     public const double MinimumTemplateBallMotionPixels = 1;

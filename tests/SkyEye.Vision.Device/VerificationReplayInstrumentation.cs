@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Globalization;
 using SkyEye.Core;
 using SkyEye.Core.Analysis;
 using SkyEye.Vision.Android;
@@ -11,8 +12,30 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
 {
     public VerificationReplayInstrumentation() { }
     public VerificationReplayInstrumentation(IntPtr handle, global::Android.Runtime.JniHandleOwnership ownership) : base(handle, ownership) { }
-    bool refinement, dump, boundaryAudit, traceDarkMask; string run = "";
-    public override void OnCreate(global::Android.OS.Bundle? args) { refinement = args?.GetString("refine") == "1"; dump = args?.GetString("dump") == "1"; boundaryAudit = args?.GetString("audit") == "1"; traceDarkMask = args?.GetString("trace") == "1"; run = args?.GetString("run") ?? ""; if (run.Length > 32 || run.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not '-' and not '_')) throw new ArgumentException("Invalid replay run name."); base.OnCreate(args); Start(); }
+    bool refinement, dump, boundaryAudit, traceDarkMask, normalizedGeometry, normalizedPackedProposalMask, boundaryExtentAblation;
+    int fastWidth, darkBodyCeiling = 40; double boundaryExtentFraction = .65; string run = "";
+    public override void OnCreate(global::Android.OS.Bundle? args)
+    {
+        refinement = args?.GetString("refine") == "1"; dump = args?.GetString("dump") == "1";
+        boundaryAudit = args?.GetString("audit") == "1"; traceDarkMask = args?.GetString("trace") == "1";
+        normalizedGeometry = args?.GetString("normGeometry") == "1";
+        normalizedPackedProposalMask = args?.GetString("normPackedProposalMask") == "1";
+        var requestedBoundaryExtent = args?.GetString("boundaryExtent");
+        if (!string.IsNullOrWhiteSpace(requestedBoundaryExtent))
+        {
+            if (!double.TryParse(requestedBoundaryExtent, NumberStyles.Float, CultureInfo.InvariantCulture, out boundaryExtentFraction)
+                || !double.IsFinite(boundaryExtentFraction) || boundaryExtentFraction is < .2 or > .8)
+                throw new ArgumentOutOfRangeException(nameof(boundaryExtentFraction), "Packed-colour boundary extent must be between 0.2 and 0.8.");
+            boundaryExtentAblation = boundaryExtentFraction != .65;
+        }
+        run = args?.GetString("run") ?? "";
+        fastWidth = int.TryParse(args?.GetString("fastWidth"), out var requestedWidth) ? requestedWidth : 0;
+        if (int.TryParse(args?.GetString("darkCeiling"), out var requestedDarkCeiling)) darkBodyCeiling = requestedDarkCeiling;
+        if (fastWidth != 0 && fastWidth is < 320 or > 800) throw new ArgumentOutOfRangeException(nameof(fastWidth), "Fast-width probe must be between 320 and 800 pixels.");
+        if (darkBodyCeiling is < 10 or > 55) throw new ArgumentOutOfRangeException(nameof(darkBodyCeiling), "Dark-body ceiling must be between 10 and 55.");
+        if (run.Length > 32 || run.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not '-' and not '_')) throw new ArgumentException("Invalid replay run name.");
+        base.OnCreate(args); Start();
+    }
     public override void OnStart()
     {
         base.OnStart(); object report; PipelineDiagnostics.Enabled = true;
@@ -29,8 +52,31 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             var recordedConfiguration = firstMetadata.TryGetProperty("analyzerConfigurationIdentity", out var configurationElement)
                 ? configurationElement.GetString() : null;
             var calibration = new TableCalibration(corners);
-            var analyzer800 = new VisionAnalyzer(new VisionSettings(Width: 800) { VerificationBodyRefinement = refinement }, boundaryAudit, boundaryAudit);
-            var analyzer1000 = new VisionAnalyzer(new VisionSettings(Width: 1000) { VerificationBodyRefinement = refinement }, boundaryAudit, boundaryAudit);
+            var analyzer800 = new VisionAnalyzer(new VisionSettings(Width: 800) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling }, boundaryAudit, boundaryAudit);
+            var analyzer1000 = new VisionAnalyzer(new VisionSettings(Width: 1000) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling }, boundaryAudit, boundaryAudit);
+            var fastAnalyzer = fastWidth > 0 ? new VisionAnalyzer(new VisionSettings(Width: fastWidth) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling }) : null;
+            var normalizedGeometryAnalyzer800 = normalizedGeometry
+                ? new VisionAnalyzer(new VisionSettings(Width: 800) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling, UseNormalizedGeometryForDetection = true }, boundaryAudit, boundaryAudit)
+                : null;
+            var normalizedGeometryAnalyzer1000 = normalizedGeometry
+                ? new VisionAnalyzer(new VisionSettings(Width: 1000) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling, UseNormalizedGeometryForDetection = true }, boundaryAudit, boundaryAudit)
+                : null;
+            var normalizedPackedProposalMaskAnalyzer800 = normalizedPackedProposalMask
+                ? new VisionAnalyzer(new VisionSettings(Width: 800) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling,
+                    UseNormalizedPackedColourProposalMask = true }, boundaryAudit, boundaryAudit)
+                : null;
+            var normalizedPackedProposalMaskAnalyzer1000 = normalizedPackedProposalMask
+                ? new VisionAnalyzer(new VisionSettings(Width: 1000) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling,
+                    UseNormalizedPackedColourProposalMask = true }, boundaryAudit, boundaryAudit)
+                : null;
+            var boundaryExtentAnalyzer800 = boundaryExtentAblation
+                ? new VisionAnalyzer(new VisionSettings(Width: 800) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling,
+                    PackedColourBoundarySearchExtentFraction = boundaryExtentFraction }, boundaryAudit, boundaryAudit)
+                : null;
+            var boundaryExtentAnalyzer1000 = boundaryExtentAblation
+                ? new VisionAnalyzer(new VisionSettings(Width: 1000) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling,
+                    PackedColourBoundarySearchExtentFraction = boundaryExtentFraction }, boundaryAudit, boundaryAudit)
+                : null;
             string replayConfiguration = analyzer800.ConfigurationIdentity;
             bool? configurationMatchesPrimary = recordedConfiguration is null
                 ? null : string.Equals(recordedConfiguration, replayConfiguration, StringComparison.Ordinal);
@@ -85,6 +131,27 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     ? detectionElement.GetBoolean() : true;
                 var baseline800 = Measure(() => analyzer800.Analyze(bytes, calibration), out var analysis800Metrics);
                 var baseline1000 = Measure(() => analyzer1000.Analyze(bytes, calibration), out var analysis1000Metrics);
+                VisionResult? normalizedGeometry800 = null, normalizedGeometry1000 = null;
+                object? normalizedGeometry800Metrics = null, normalizedGeometry1000Metrics = null;
+                if (normalizedGeometryAnalyzer800 is not null)
+                    normalizedGeometry800 = Measure(() => normalizedGeometryAnalyzer800.Analyze(bytes, calibration), out normalizedGeometry800Metrics);
+                if (normalizedGeometryAnalyzer1000 is not null)
+                    normalizedGeometry1000 = Measure(() => normalizedGeometryAnalyzer1000.Analyze(bytes, calibration), out normalizedGeometry1000Metrics);
+                VisionResult? normalizedPackedProposalMask800 = null, normalizedPackedProposalMask1000 = null;
+                object? normalizedPackedProposalMask800Metrics = null, normalizedPackedProposalMask1000Metrics = null;
+                if (normalizedPackedProposalMaskAnalyzer800 is not null)
+                    normalizedPackedProposalMask800 = Measure(() => normalizedPackedProposalMaskAnalyzer800.Analyze(bytes, calibration), out normalizedPackedProposalMask800Metrics);
+                if (normalizedPackedProposalMaskAnalyzer1000 is not null)
+                    normalizedPackedProposalMask1000 = Measure(() => normalizedPackedProposalMaskAnalyzer1000.Analyze(bytes, calibration), out normalizedPackedProposalMask1000Metrics);
+                VisionResult? boundaryExtent800 = null, boundaryExtent1000 = null;
+                object? boundaryExtent800Metrics = null, boundaryExtent1000Metrics = null;
+                if (boundaryExtentAnalyzer800 is not null)
+                    boundaryExtent800 = Measure(() => boundaryExtentAnalyzer800.Analyze(bytes, calibration), out boundaryExtent800Metrics);
+                if (boundaryExtentAnalyzer1000 is not null)
+                    boundaryExtent1000 = Measure(() => boundaryExtentAnalyzer1000.Analyze(bytes, calibration), out boundaryExtent1000Metrics);
+                VisionResult? fastAnalysis = null; object? fastAnalysisMetrics = null;
+                if (fastAnalyzer is not null)
+                    fastAnalysis = Measure(() => fastAnalyzer.Analyze(bytes, calibration), out fastAnalysisMetrics);
                 var detectedPocketLayout = analyzer800.FindPockets(bytes);
                 var detectedPocketCorners = detectedPocketLayout?.Corners.ToArray();
                 var pocketCornerDeltas = detectedPocketCorners?.Select(corner =>
@@ -101,6 +168,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                         maximumNearestSavedCornerDelta = deltas.Max(),
                         withinSavedCalibrationTolerance = deltas.All(delta => delta <= .035),
                         sidePocketCount = detectedPocketLayout!.SidePockets.Length,
+                        sidePocketCentres = detectedPocketLayout.SidePockets,
                         minimumContrast = detectedPocketLayout.Contrast
                     };
                 object? fallbackCornerGeometry = null;
@@ -173,7 +241,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                         FrameSource = "synthetic-packed-rack-black-removed"
                     };
                     using var occluded800Worker = analyzer800.CreateVerification(calibration);
-                    var analyzer1000WorkerOwner = new VisionAnalyzer(new VisionSettings(Width: 1000));
+                    var analyzer1000WorkerOwner = new VisionAnalyzer(new VisionSettings(Width: 1000) { DarkBodyValueCeiling = darkBodyCeiling });
                     using var occluded1000Worker = analyzer1000WorkerOwner.CreateVerification(calibration);
                     SeedVerificationWorker(occluded800Worker, seed.GetProperty("priorCompleteCache"), seed.GetProperty("gains"), 800, freezeAppearance: false);
                     SeedVerificationWorker(occluded1000Worker, seed.GetProperty("priorCompleteCache"), seed.GetProperty("gains"), 1000, freezeAppearance: false);
@@ -254,6 +322,34 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     fallbackCornerGeometry,
                     fallbackMatchesStoredCalibration,
                     analysis800Metrics, analysis1000Metrics, verification800Metrics, verification1000Metrics,
+                    normalizedGeometryAblation = normalizedGeometry ? new
+                    {
+                        width800 = new { metrics = normalizedGeometry800Metrics, analysis = Summarize(normalizedGeometry800!, 800),
+                            comparison = Compare(baseline800, normalizedGeometry800!, 800, 800) },
+                        width1000 = new { metrics = normalizedGeometry1000Metrics, analysis = Summarize(normalizedGeometry1000!, 1000),
+                            comparison = Compare(baseline1000, normalizedGeometry1000!, 1000, 1000) }
+                    } : null,
+                    normalizedPackedProposalMaskAblation = normalizedPackedProposalMask ? new
+                    {
+                        width800 = new { metrics = normalizedPackedProposalMask800Metrics, analysis = Summarize(normalizedPackedProposalMask800!, 800),
+                            comparison = Compare(baseline800, normalizedPackedProposalMask800!, 800, 800) },
+                        width1000 = new { metrics = normalizedPackedProposalMask1000Metrics, analysis = Summarize(normalizedPackedProposalMask1000!, 1000),
+                            comparison = Compare(baseline1000, normalizedPackedProposalMask1000!, 1000, 1000) }
+                    } : null,
+                    packedColourBoundarySearchAblation = boundaryExtentAblation ? new
+                    {
+                        extentFraction = boundaryExtentFraction,
+                        width800 = new { metrics = boundaryExtent800Metrics, analysis = Summarize(boundaryExtent800!, 800),
+                            comparison = Compare(baseline800, boundaryExtent800!, 800, 800) },
+                        width1000 = new { metrics = boundaryExtent1000Metrics, analysis = Summarize(boundaryExtent1000!, 1000),
+                            comparison = Compare(baseline1000, boundaryExtent1000!, 1000, 1000) }
+                    } : null,
+                    fastWidth = fastAnalyzer is null ? null : new
+                    {
+                        configuredWidth = fastWidth,
+                        metrics = fastAnalysisMetrics,
+                        analysis = Summarize(fastAnalysis!, fastWidth),
+                    },
                     cacheStateRegression,
                     replayObstructionGeometryMatchesCapture = auditComparison.ExactGeometryMatches,
                     replayObstructionNormalizedGeometryMatchesCapture = auditComparison.NormalizedGeometryMatches,
@@ -265,16 +361,20 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     width1000 = new { blackSeedRecovered = blackSeedRecovered1000, analysis = Summarize(baseline1000, 1000), verification = Summarize(verification1000, 1000),
                         darkMaskTrace = traceDarkMask ? PackedBlackMaskTrace.Capture(bytes, calibration, 1000, baseline1000, Path.Combine(root, "o08-black-trace-" + run), frameId.ToString()) : null,
                         packedBlackBoundaryTrace = boundaryAudit ? AuditPackedBlackBoundaries(bytes, calibration, 1000, baseline1000) : null },
-                    analysisWidthComparison = Compare(baseline800, baseline1000),
+                    analysisWidthComparison = Compare(baseline800, baseline1000, 800, 1000),
                     widthComparison = verification800.Vision is null || verification1000.Vision is null
-                        ? null : Compare(verification800.Vision, verification1000.Vision),
+                        ? null : Compare(verification800.Vision, verification1000.Vision, 800, 1000),
                 });
             }
             var consensus800 = VerificationConsensus.Resolve(measurements800.Where(m => m.Vision is not null).Select(m => m.Vision!).ToArray(), out var conflict800);
             var consensus1000 = VerificationConsensus.Resolve(measurements1000.Where(m => m.Vision is not null).Select(m => m.Vision!).ToArray(), out var conflict1000);
             var analysisConsensus800 = VerificationConsensus.Resolve(analyses800, out var analysisConflict800);
             var analysisConsensus1000 = VerificationConsensus.Resolve(analyses1000, out var analysisConflict1000);
-            report = new { completed = true, configuration = ObservationPolicy.VerificationConfiguration, bodyRefinement = refinement, boundaryAudit,
+            report = new { completed = true, configuration = ObservationPolicy.VerificationConfiguration, bodyRefinement = refinement, boundaryAudit, darkBodyValueCeiling = darkBodyCeiling,
+                normalizedGeometryAblation = normalizedGeometry,
+                normalizedPackedProposalMaskAblation = normalizedPackedProposalMask,
+                packedColourBoundarySearchExtentFraction = boundaryExtentAblation ? boundaryExtentFraction : (double?)null,
+                fastWidth = fastWidth > 0 ? fastWidth : (int?)null,
                 pipelineDiagnostics = PipelineDiagnostics.Snapshot(),
                 recordedAnalyzerConfigurationIdentity = recordedConfiguration,
                 replayAnalyzerConfigurationIdentity = replayConfiguration,
@@ -653,9 +753,9 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         }
         finally { foreach (var point in original.Concat(target)) point.Dispose(); }
     }
-    static object Compare(VisionResult low, VisionResult high)
+    static object Compare(VisionResult low, VisionResult high, int lowWidth, int highWidth)
     {
-        const int leftWidth = 800, rightWidth = 1000;
+        int leftWidth = lowWidth, rightWidth = highWidth;
         var left = low.Circles.Select(c => new Located(Kind(c.BallId), c.BallId, c.Centre.Y / leftWidth, 1 - c.Centre.X / leftWidth)).ToArray();
         var right = high.Circles.Select(c => new Located(Kind(c.BallId), c.BallId, c.Centre.Y / rightWidth, 1 - c.Centre.X / rightWidth)).ToArray();
         var pairs = new List<(Located Left, Located Right, double Distance)>(); var usedLeft = new HashSet<Located>(); var usedRight = new HashSet<Located>();
@@ -668,7 +768,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         }
         return new
         {
-            configuredWidth800 = 800, effectiveWidth800 = leftWidth, configuredWidth1000 = 1000, effectiveWidth1000 = rightWidth,
+            configuredWidthLeft = lowWidth, effectiveWidthLeft = leftWidth,
+            configuredWidthRight = highWidth, effectiveWidthRight = rightWidth,
             matchedSameColour = pairs.Count, unmatched800 = left.Length - pairs.Count, unmatched1000 = right.Length - pairs.Count,
             maximumTableDisplacement = pairs.Count == 0 ? (double?)null : pairs.Max(p => p.Distance),
             meanTableDisplacement = pairs.Count == 0 ? (double?)null : pairs.Average(p => p.Distance),

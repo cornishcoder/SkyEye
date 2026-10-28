@@ -46,6 +46,32 @@ static class VerificationChecks
         var choices = session.ComputeChoices(session.State.Generation, observation.TableVersion);
         Check(ReferenceEquals(choices, session.ComputeChoices(session.State.Generation, observation.TableVersion)) && analyzer.Detections == 3, "Choices computed once without new perception");
 
+        var transientFrames = new Frames(); var transientAnalyzer = new Analyzer { DetectedBalls = PackedRackFixture.Balls };
+        transientAnalyzer.InsufficientEvidenceAtCalls.UnionWith([2, 3]);
+        using var transientSession = new TableAnalysisSession(transientFrames, transientAnalyzer, new Calibration());
+        transientSession.Bind(camera, "open"); transientSession.RestoreCalibration();
+        await transientSession.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !transientSession.HasPendingWork);
+        Check(transientSession.State.Observation is { Outcome: ObservationOutcome.Ready, Motion: TableMotion.Still,
+                Quality: LayoutQuality.Clear, Reason: ObservationReason.None, Verification.IndependentFrames: 7,
+                Verification.CandidateSpanStartSampleIndex: 2, Verification.CandidateSpanIndependentFrames: 5,
+                Verification.ConsensusConflict: null }
+            && transientFrames.Reads == 7 && transientAnalyzer.Detections == 4,
+            "Two transient insufficient-evidence intervals restart the candidate span; only five later samples with two seconds of stillness and fresh detection consensus become ready");
+
+        var retryFrames = new Frames(); var retryAnalyzer = new Analyzer { DetectedBalls = PackedRackFixture.Balls };
+        retryAnalyzer.UncertainAtDetections.UnionWith([3, 4]);
+        using var retrySession = new TableAnalysisSession(retryFrames, retryAnalyzer, new Calibration());
+        retrySession.Bind(camera, "open"); retrySession.RestoreCalibration();
+        await retrySession.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !retrySession.HasPendingWork);
+        var retryTable = retrySession.State.Table;
+        Check(retrySession.State.Observation is { Outcome: ObservationOutcome.Ready, Motion: TableMotion.Still,
+                Quality: LayoutQuality.Clear, Reason: ObservationReason.None, Verification.IndependentFrames: 8,
+                Verification.CandidateSpanStartSampleIndex: 0, Verification.CandidateSpanIndependentFrames: 8,
+                Verification.ConsensusConflict: null }
+            && retryTable is { Confirmed: true, Balls: { Length: 16 } }
+            && retryFrames.Reads == 8 && retryAnalyzer.Detections == 5,
+            "After uncertain samples delay consensus, an uncertain last scheduled detection gets one fresh full-frame retry before the recovered inventory is judged");
+
         var packedFrames = new Frames(); var packedAnalyzer = new Analyzer { DetectedBalls = PackedRackFixture.Balls };
         using var packedSession = new TableAnalysisSession(packedFrames, packedAnalyzer, new Calibration());
         packedSession.Bind(camera, "open"); packedSession.RestoreCalibration();
@@ -106,33 +132,34 @@ static class VerificationChecks
         analyzer.ObstructFirstDetectedFrame = true;
         await session.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !session.HasPendingWork);
         Check(session.State.Observation is { Outcome: ObservationOutcome.Ready, Motion: TableMotion.Still, Reason: ObservationReason.None,
-            Verification.IndependentFrames: 6, Verification.CandidateSpanStartSampleIndex: 1, Verification.CandidateSpanIndependentFrames: 5 },
-            "A transient obstructed bootstrap restarts the stillness anchor and can recover only with five later clear frames");
-        Check(frames.Reads == 6 && analyzer.CreatedWorkers == 1 && analyzer.ObstructionResets == 1,
-            "Obstruction recovery stays inside the original six-frame budget and resets the unsafe anchor");
+            Verification.IndependentFrames: 7, Verification.CandidateSpanStartSampleIndex: 1, Verification.CandidateSpanIndependentFrames: 6 },
+            "A transient obstructed bootstrap restarts the stillness anchor and recovers only after a fresh stable span with detector consensus");
+        Check(frames.Reads == 7 && analyzer.CreatedWorkers == 1 && analyzer.ObstructionResets == 1,
+            "Obstruction recovery stays inside the bounded seven-frame budget and resets the unsafe anchor");
         analyzer.ObstructFirstDetectedFrame = false;
         session.Invalidate(); frames.Reads = 0; analyzer.CreatedWorkers = 0; analyzer.MeasurementCalls = 0; analyzer.ObstructionResets = 0; analyzer.ObstructionIssued = false;
         analyzer.ObstructAtCall = 3;
         await session.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !session.HasPendingWork);
         Check(session.State.Observation is { Outcome: ObservationOutcome.Unsettled, Motion: TableMotion.Unknown,
-            Reason: ObservationReason.InsufficientEvidence, Verification.IndependentFrames: 6,
-            Verification.CandidateSpanStartSampleIndex: 3, Verification.CandidateSpanIndependentFrames: 3 },
+            Reason: ObservationReason.InsufficientEvidence, Verification.IndependentFrames: 7,
+            Verification.CandidateSpanStartSampleIndex: 3, Verification.CandidateSpanIndependentFrames: 4 },
             "An obstruction after an initial clear span prevents combining old samples with a too-short recovery span");
-        Check(frames.Reads == 6 && analyzer.ObstructionResets == 1, "Late obstruction recovery remains within the same bounded burst");
+        Check(frames.Reads == 7 && analyzer.ObstructionResets == 1, "Late obstruction recovery remains within the bounded burst");
         analyzer.ObstructAtCall = 0;
         session.Invalidate(); frames.Reads = 0; analyzer.CreatedWorkers = 0; analyzer.ObstructionIssued = false;
         analyzer.ObstructEveryDetectedFrame = true;
         await session.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !session.HasPendingWork);
         Check(session.State.Observation is { Outcome: ObservationOutcome.Unclear, Motion: TableMotion.Unknown, Quality: LayoutQuality.Obstructed,
-            Reason: ObservationReason.Obstructed, Verification.IndependentFrames: 6, Verification.CandidateSpanIndependentFrames: 0 }
+            Reason: ObservationReason.Obstructed, Verification.IndependentFrames: 7, Verification.CandidateSpanIndependentFrames: 0 }
             && session.State.Table is { Occluded: true, Confirmed: false },
             "Persistent obstruction consumes the bounded burst but never becomes still, clear or ready");
-        Check(frames.Reads == 6, "Persistent obstruction retries only within the six-frame bound");
+        Check(frames.Reads == 7, "Persistent obstruction retries only within the seven-frame bound");
         analyzer.ObstructEveryDetectedFrame = false;
         session.Invalidate(); analyzer.LayoutUncertain = true;
         await session.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !session.HasPendingWork);
         Check(session.State.Observation is { Outcome: ObservationOutcome.Unclear, Motion: TableMotion.Still,
-            Quality: LayoutQuality.Ambiguous, Reason: ObservationReason.DetectionAmbiguous },
+            Quality: LayoutQuality.Ambiguous, Reason: ObservationReason.DetectionAmbiguous,
+            Verification.IndependentFrames: 8, Verification.CandidateSpanIndependentFrames: 8 },
             "A settled but ambiguous layout reports stillness while remaining ineligible for advice");
         var ambiguousObservation = session.State.Observation!;
         var stillDetectionMessage = AppCoordinator.VerificationMessage(ambiguousObservation);
@@ -609,6 +636,8 @@ static class VerificationChecks
         public int Detections, Disposals, DelayMs, CreatedWorkers, ObstructionResets, MeasurementCalls, ObstructAtCall;
         public bool LayoutUncertain, ObstructFirstDetectedFrame, ObstructEveryDetectedFrame, ObstructionIssued, DropLastDetectedBall;
         public int MovingAtCall;
+        public HashSet<int> InsufficientEvidenceAtCalls = [];
+        public HashSet<int> UncertainAtDetections = [];
         public Ball[]? DetectedBalls;
         public TaskCompletionSource? Hold, Entered; public Exception? Failure;
         public VisionResult Analyze(byte[] jpeg, TableCalibration calibration, CancellationToken cancellation = default) => Vision(uncertain: LayoutUncertain);
@@ -636,9 +665,13 @@ static class VerificationChecks
                     int detection = Interlocked.Increment(ref owner.Detections);
                     detected = owner.DetectedBalls is { } balls ? Vision(balls, owner.LayoutUncertain) : Vision(uncertain: owner.LayoutUncertain);
                     if (owner.DropLastDetectedBall && detection >= 3) detected = detected with { Balls = detected.Balls[..^1] };
+                    if (owner.UncertainAtDetections.Contains(detection))
+                        detected = detected with { Balls = detected.Balls[..^1], Uncertain = true };
                 }
                 if (call == owner.MovingAtCall)
                     return new(TableMotion.Moving, ObservationReason.Moving, true, 0, 0, 0, detected);
+                if (owner.InsufficientEvidenceAtCalls.Contains(call))
+                    return new(TableMotion.Unknown, ObservationReason.InsufficientEvidence, true, 0, .005, .1, detected);
                 return new(sample == 0 ? TableMotion.Unknown : TableMotion.Still,
                     sample == 0 ? ObservationReason.InsufficientEvidence : ObservationReason.None, true, 0, 0, 0, detected);
             }

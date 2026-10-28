@@ -18,21 +18,21 @@ static class VerificationCaptureChecks
             var first = Guid.NewGuid();
             var firstFolder = Path.Combine(root, first.ToString("N"));
             Directory.CreateDirectory(firstFolder);
-            for (var frame = 1; frame <= 6; frame++) WriteReceipt(firstFolder, first, frame, [1, 2, 3, (byte)frame]);
-            Check(VerificationCaptureReceipts.CountValid(firstFolder, first) == 6,
-                "A complete run counts six matching image and metadata receipts");
+            for (var frame = 1; frame <= 7; frame++) WriteReceipt(firstFolder, first, frame, [1, 2, 3, (byte)frame]);
+            Check(VerificationCaptureReceipts.CountValid(firstFolder, first) == 7,
+                "A complete run counts seven matching image and metadata receipts");
             Check(VerificationCaptureReceipts.CountValid(Path.Combine(root, Guid.NewGuid().ToString("N")), first) == 0,
                 "A receipt folder with a different operation ID cannot supply this run's count");
 
             var status = new VerificationCaptureRunStatus();
             status.Begin(first, now);
-            for (var frame = 1; frame <= 6; frame++) status.RecordWrittenReceipt(first, frame);
-            status.RecordWrittenReceipt(first, 6);
-            status.Complete(first, now.AddSeconds(3), "Table result: DetectionAmbiguous.", 6);
+            for (var frame = 1; frame <= 7; frame++) status.RecordWrittenReceipt(first, frame);
+            status.RecordWrittenReceipt(first, 7);
+            status.Complete(first, now.AddSeconds(3), "Table result: DetectionAmbiguous.", 7);
             var completedClear = status.Format(FormatTime);
-            Check(completedClear.Contains("Saved 6 of 6 verifier frames.", StringComparison.Ordinal)
+            Check(completedClear.Contains("Saved 7 verifier frames (minimum met; maximum 7).", StringComparison.Ordinal)
                 && completedClear.Contains("DetectionAmbiguous", StringComparison.Ordinal),
-                "Six valid receipts remain tied to their own table result");
+                "Seven valid receipts remain tied to their own table result");
 
             var second = Guid.NewGuid();
             var secondFolder = Path.Combine(root, second.ToString("N"));
@@ -47,20 +47,20 @@ static class VerificationCaptureChecks
 
             status.Begin(second, now.AddSeconds(4));
             var running = status.Format(FormatTime);
-            Check(running.Contains("0 of 6 valid receipt pairs", StringComparison.Ordinal)
+            Check(running.Contains("0 of 7 valid receipt pairs", StringComparison.Ordinal)
                 && running.Contains(second.ToString("N")[..8], StringComparison.Ordinal)
                 && !running.Contains("DetectionAmbiguous", StringComparison.Ordinal),
                 "A new run immediately replaces the previous success while showing its own running count");
             Check(VerificationCaptureReceipts.CountValid(secondFolder, second) == 1,
                 "Only a matching operation, valid image file, and correct pixel hash count as saved");
             Check(status.RecordWrittenReceipt(second, 1), "The active run accepts progress from its matching receipt");
-            Check(!status.Complete(first, now.AddSeconds(5), "stale result", 6), "A late result from the prior run cannot overwrite current progress");
-            Check(status.Format(FormatTime).Contains("1 of 6 valid receipt pairs", StringComparison.Ordinal),
-                "Running progress reports the verified partial count against the six-frame target");
+            Check(!status.Complete(first, now.AddSeconds(5), "stale result", 7), "A late result from the prior run cannot overwrite current progress");
+            Check(status.Format(FormatTime).Contains("1 of 7 valid receipt pairs", StringComparison.Ordinal),
+                "Running progress reports the verified partial count against the seven-frame target");
             Check(status.Complete(second, now.AddSeconds(6), "Capture failed.", 1), "The current run records its partial failure");
             var failed = status.Format(FormatTime);
             Check(failed.Contains("Capture failed.", StringComparison.Ordinal)
-                && failed.Contains("Saved 1 of 6 verifier frames.", StringComparison.Ordinal)
+                && failed.Contains("Saved 1 of 5 required verifier frames (maximum 7).", StringComparison.Ordinal)
                 && !failed.Contains("DetectionAmbiguous", StringComparison.Ordinal),
                 "A one-frame failure cannot be presented as a complete one-of-one run or retain an old success");
 
@@ -70,7 +70,7 @@ static class VerificationCaptureChecks
             status.Complete(cancelledRun, now.AddSeconds(8), "Capture cancelled", 1);
             var cancelled = status.Format(FormatTime);
             Check(cancelled.Contains("Capture cancelled", StringComparison.Ordinal)
-                && cancelled.Contains("Saved 1 of 6 verifier frames.", StringComparison.Ordinal)
+                && cancelled.Contains("Saved 1 of 5 required verifier frames (maximum 7).", StringComparison.Ordinal)
                 && !cancelled.Contains("Capture failed", StringComparison.Ordinal),
                 "Cancellation retains the current partial count and clears the prior run result");
 
@@ -79,9 +79,26 @@ static class VerificationCaptureChecks
             status.Complete(notStartedRun, now.AddSeconds(9), "Capture not started · prerequisites changed", 0);
             var notStarted = status.Format(FormatTime);
             Check(notStarted.Contains("Capture not started", StringComparison.Ordinal)
-                && notStarted.Contains("Saved 0 of 6 verifier frames.", StringComparison.Ordinal)
+                && notStarted.Contains("Saved 0 of 5 required verifier frames (maximum 7).", StringComparison.Ordinal)
                 && !notStarted.Contains("Capture cancelled", StringComparison.Ordinal),
                 "An early no-start result replaces the prior capture status rather than leaving it visible");
+
+            var timedOutRun = Guid.NewGuid();
+            status.Begin(timedOutRun, now.AddSeconds(10));
+            for (var frame = 1; frame <= 6; frame++) status.RecordWrittenReceipt(timedOutRun, frame);
+            Check(status.Complete(timedOutRun, now.AddSeconds(14), "Table result: Unsettled (TimedOut).", 6),
+                "A timed-out run publishes its accepted receipt count");
+            Check(status.Format(FormatTime).Contains("Saved 6 verifier frames", StringComparison.Ordinal),
+                "The timeout result initially shows six saved frames");
+            Check(status.RecordWrittenReceipt(timedOutRun, 7)
+                && status.Format(FormatTime).Contains("Saved 7 verifier frames", StringComparison.Ordinal),
+                "A same-operation receipt that finishes after timeout updates the saved count");
+
+            var replacementRun = Guid.NewGuid();
+            status.Begin(replacementRun, now.AddSeconds(15));
+            Check(!status.RecordWrittenReceipt(timedOutRun, 8)
+                && status.Format(FormatTime).Contains(replacementRun.ToString("N")[..8], StringComparison.Ordinal),
+                "A late receipt from a completed run cannot overwrite the next run's status");
 
             Console.WriteLine("PASS verifier capture counts are operation-scoped, hash-validated, and truthful for partial runs");
         }

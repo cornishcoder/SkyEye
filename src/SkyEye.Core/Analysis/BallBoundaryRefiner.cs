@@ -109,16 +109,18 @@ public static class BallBoundaryRefiner
 
     public static BallBoundary? Refine(byte[] bgr, int width, int height, Point proposal, double expectedRadius,
         double minimumSupportedFraction = ObservationPolicy.MinimumSupportedBoundaryFraction,
-        bool collectSectorEvidence = false, string? expectedKind = null, BoundaryColourMask? colourMask = null)
+        bool collectSectorEvidence = false, string? expectedKind = null, BoundaryColourMask? colourMask = null,
+        double maximumCentreOffsetFraction = .4)
     {
         PipelineDiagnostics.Count("boundaryRefineCalls");
         using var scoringTiming = PipelineDiagnostics.Enabled ? PipelineDiagnostics.Measure("boundaryScoringMs") : null;
         if (width <= 0 || height <= 0 || bgr.Length != checked(width * height * 3)
             || !double.IsFinite(expectedRadius) || expectedRadius < 5 || expectedRadius > 100
             || !double.IsFinite(proposal.X) || !double.IsFinite(proposal.Y)
-            || !double.IsFinite(minimumSupportedFraction) || minimumSupportedFraction is < .5 or > 1)
+            || !double.IsFinite(minimumSupportedFraction) || minimumSupportedFraction is < .5 or > 1
+            || !double.IsFinite(maximumCentreOffsetFraction) || maximumCentreOffsetFraction is < .2 or > .8)
             throw new ArgumentException("Invalid boundary image or proposal.");
-        double step = Math.Max(1.5, expectedRadius / 9), extent = expectedRadius * .4;
+        double step = Math.Max(1.5, expectedRadius / 9), extent = expectedRadius * maximumCentreOffsetFraction;
         var background = new double[3];
         for (int channel = 0; channel < 3; channel++)
         {

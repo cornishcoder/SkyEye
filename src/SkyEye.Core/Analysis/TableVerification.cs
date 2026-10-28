@@ -13,6 +13,7 @@ public sealed record VerificationMeasurement(TableMotion Motion, ObservationReas
     public double? MaximumDetectedBodyDisplacement { get; init; }
     public double? MinimumTemplateMotionPixels { get; init; }
     public int SupportedBodies { get; init; }
+    public bool GeometryRevalidatedAfterPerimeterChange { get; init; }
     public Point? MaximumTileOrigin { get; init; }
     public Point? SensitiveTileOrigin { get; init; }
     public Point? PhotometricResidualTileOrigin { get; init; }

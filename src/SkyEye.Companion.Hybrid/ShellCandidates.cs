@@ -34,7 +34,8 @@ public sealed partial class ShellSession
         || app.State.Presentation.Tv.Mode is ShotDisplayMode.Cycling or ShotDisplayMode.Pinned);
     public string CandidateShortcutLabel => CheckingTable ? "Checking candidate shots"
         : CandidateShortcutShown ? "Hide candidate shots" : "Show candidate shots";
-    public bool CanUseCandidateShortcut => CanShowChoices && HasTableCalibration && !CheckingTable;
+    public bool CanUseCandidateShortcut => CanShowChoices && HasTableCalibration && !CheckingTable
+        && (!LiveDetectBusy || CandidateShortcutShown);
     public bool CandidateShortcutFeedbackVisible => candidateShortcutOperationId is not null || CheckingTable
         || CanAnalyzeTable && (lastVerificationStatus is not null || ShotChoices.Count > 0)
         || app.State.Observation is null && app.LatestVerificationReport is not null;

@@ -4,11 +4,39 @@ public static class PixelDimensions
 {
     public static void Verify(IndexedFrame frame, ReadOnlySpan<byte> bytes)
     {
-        if (frame.Encoding == PixelEncoding.Gray8)
+        switch (frame.Encoding)
         {
-            if (bytes.Length != checked(frame.Width * frame.Height)) throw new InvalidDataException("Gray payload dimensions disagree.");
-            return;
+            case PixelEncoding.Gray8:
+                if (bytes.Length != checked(frame.Width * frame.Height)) throw new InvalidDataException("Gray payload dimensions disagree.");
+                return;
+            case PixelEncoding.Png:
+                VerifyPng(frame, bytes);
+                return;
+            case PixelEncoding.Jpeg:
+                VerifyJpeg(frame, bytes);
+                return;
+            default:
+                throw new InvalidDataException("Unsupported pixel encoding.");
         }
+    }
+
+    static void VerifyPng(IndexedFrame frame, ReadOnlySpan<byte> bytes)
+    {
+        ReadOnlySpan<byte> signature = [137, 80, 78, 71, 13, 10, 26, 10];
+        if (bytes.Length < 24 || !bytes[..8].SequenceEqual(signature) || ReadBigEndianUInt32(bytes.Slice(8, 4)) != 13
+            || !bytes.Slice(12, 4).SequenceEqual("IHDR"u8))
+            throw new InvalidDataException("Expected PNG payload with an IHDR header.");
+        uint width = ReadBigEndianUInt32(bytes.Slice(16, 4));
+        uint height = ReadBigEndianUInt32(bytes.Slice(20, 4));
+        if (width != frame.Width || height != frame.Height)
+            throw new InvalidDataException("PNG dimensions disagree with the paired receipt.");
+    }
+
+    static uint ReadBigEndianUInt32(ReadOnlySpan<byte> bytes) =>
+        ((uint)bytes[0] << 24) | ((uint)bytes[1] << 16) | ((uint)bytes[2] << 8) | bytes[3];
+
+    static void VerifyJpeg(IndexedFrame frame, ReadOnlySpan<byte> bytes)
+    {
         if (bytes.Length < 4 || bytes[0] != 0xff || bytes[1] != 0xd8) throw new InvalidDataException("Expected JPEG payload.");
         int offset = 2;
         while (offset + 4 <= bytes.Length)

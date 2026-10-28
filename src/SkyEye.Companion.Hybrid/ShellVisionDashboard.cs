@@ -283,6 +283,15 @@ public sealed partial class ShellSession
         if (request.Path == "/") return new(200, "text/html; charset=utf-8", html);
         if (request.Path == "/scenario") return new(200, "text/html; charset=utf-8", scenarioHtml);
         if (request.Path == "/api/scenario") return HttpResponse.Json(dashboardScenario.Snapshot());
+        if (request.Path == "/api/live-detect-log")
+        {
+            int limit = 500;
+            if (request.Query.TryGetValue("limit", out var value)
+                && (!int.TryParse(value, out limit) || limit is < 1 or > LiveDetectLogStore.MaximumRetainedRecords))
+                return HttpResponse.Json(new { error = $"Choose a limit from 1 to {LiveDetectLogStore.MaximumRetainedRecords}." }, 400);
+            cancellation.ThrowIfCancellationRequested();
+            return HttpResponse.Json(liveDetectLog.ReadLast(limit));
+        }
         if (request.Path == "/api/live-match")
         {
             return await MainThread.InvokeOnMainThreadAsync(() =>
@@ -377,6 +386,7 @@ public sealed partial class ShellSession
                     totalSamples = diagnostic.TotalSamples,
                     sessionId = diagnostic.SessionId,
                     measuredAt = DateTimeOffset.UtcNow,
+                    liveDetectLog = liveDetectLog.Summary,
                     frame = sample is null ? null : new
                     {
                         sequence = sample.Sequence, sample.CapturedAt, sample.FrameAgeMs, sample.MediaGeneration,

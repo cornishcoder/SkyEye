@@ -63,7 +63,9 @@ public sealed partial class ShellSession : IDisposable
             return percent;
         }
     }
-    public double DockHeight => (ControlsVisible ? NeedsAttention ? 360 : 320 : 80) * FontScale;
+    public double DockHeight => (ControlsVisible
+        ? LiveDetectFeedbackVisible ? NeedsAttention ? 460 : 410 : NeedsAttention ? 360 : 320
+        : 80) * FontScale;
     public string Message { get; private set; } = "Your table. Every shot.";
     public string Playback { get; private set; } = "Waiting for your table";
     public bool Playing { get; private set; }
@@ -113,6 +115,7 @@ public sealed partial class ShellSession : IDisposable
         InitializeAnnotations();
         InitializeClips();
         InitializeTable();
+        InitializeLiveDetectLog();
         Agent = new(agentClient, options => options.AddGeneratedToolBlocks(), new ShellViewState());
         subscription = app.Subscribe(state => {
             if (savedPhoneCorrection != state.Presentation.PhoneCorrected)
@@ -252,6 +255,7 @@ public sealed partial class ShellSession : IDisposable
     public void Stop()
     {
         if (!MainThread.IsMainThread) { MainThread.BeginInvokeOnMainThread(Stop); return; }
+        RequestLiveDetectStop("Live Detect stopped with the live view.");
         StopMotion();
         CollectAnnotations();
         StopPocketFraming(); StopShotScenes(); ClearSceneCheck(); selection.Stop(); player?.Stop(); if (!TvReplaySelected && BackgroundTvService.Instance is null) cast?.Configure("", true);
@@ -259,6 +263,7 @@ public sealed partial class ShellSession : IDisposable
     }
     public void Suspend()
     {
+        RequestLiveDetectStop("Live Detect stopped while SkyEye was paused.");
         if (VisionDashboardActive) VisionDashboardStatus = "Dashboard is available; waiting for SkyEye to resume fresh sampling.";
         ReleaseMotion();
         CheckpointAnnotations();
@@ -341,6 +346,8 @@ public sealed partial class ShellSession : IDisposable
         var state = app.State.Camera;
         if (sessionMode != TableSessionMode.None && state.Reachability == CameraReachability.Reachable
             && state.Capture is not (CaptureState.Active or CaptureState.Paused)) sessionMode = TableSessionMode.None;
+        if (liveDetectCancellation is not null && !CanAnalyzeTable)
+            RequestLiveDetectStop("Live Detect stopped · the live camera session is no longer active.");
         if (TvReplaySelected && tvReplay.Connection != state.ConnectionId) { tvReplay.Clear(); cast?.Configure("", true); }
         if (tvLive.Request is not null && tvLive.Connection != state.ConnectionId) { tvLive.Clear(); cast?.Configure("", true); }
         InvalidateClipCatalog(state.ConnectionId);

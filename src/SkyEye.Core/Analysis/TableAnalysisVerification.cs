@@ -50,12 +50,17 @@ public sealed partial class TableAnalysisSession
         VerificationRejection? rejected = null;
         VerificationFailure? failure = null;
         int candidateSpanStartSampleIndex = 0;
+        int maximumSamples = ObservationPolicy.StandardVerificationSamples;
         string stage = "admission";
+        bool HasStillSpan(IReadOnlyList<VerificationSample> span) => span.Count >= ObservationPolicy.MinimumVerificationSamples
+            && span[^1].SourceTimeUs - span[0].SourceTimeUs >= ObservationPolicy.MinimumStillSeconds * 1_000_000
+            && span.All(s => s.Measurement.CoverageValid)
+            && span.Skip(1).All(s => s.Measurement.Motion == TableMotion.Still);
         try
         {
             await analyzerGate.WaitAsync(linked.Token).ConfigureAwait(false); leased = true;
             worker = ((ITableVerificationAnalyzer)analyzer).CreateVerification(admitted.Calibration!);
-            while (samples.Count < ObservationPolicy.MaximumVerificationSamples)
+            while (samples.Count < maximumSamples)
             {
                 linked.Token.ThrowIfCancellationRequested();
                 if (samples.Count is 0 or 2 or 4 && frames is ITableVerificationFrameSource clockSource)
@@ -96,7 +101,10 @@ public sealed partial class TableAnalysisSession
                 void RejectFrame() => rejected = new(reason, receipt, frame.Timeline, pts, age, mappingAge, uncertainty);
                 timeline = frame.Timeline; capturedAt = frame.CapturedAt; lastReceipt = receipt;
                 finalReceiptAt = time.GetTimestamp(); if (samples.Count == 0) scheduleStart = finalReceiptAt;
-                bool detect = samples.Count is 0 or 2 or 4 or 5;
+                bool retryUncertainFinalDetection = samples.Count == ObservationPolicy.StandardVerificationSamples
+                    && samples.Count > 0
+                    && samples[^1].Measurement.Vision is { Uncertain: true, Obstructed: false };
+                bool detect = samples.Count is 0 or 2 or 4 or 6 || retryUncertainFinalDetection;
                 var processStart = time.GetTimestamp();
                 // The task owns pixels until native work really finishes, even if the caller's deadline expires.
                 processing = Task.Run(() =>
@@ -133,16 +141,33 @@ public sealed partial class TableAnalysisSession
                 {
                     // An obstructed decoded view invalidates the current stillness
                     // anchor, but may be a single transient hand/edge. Keep the
-                    // attempt within the same six-frame/four-second budget, and
-                    // require a new complete clear span before advice can be ready.
+                    // attempt within the ordinary seven-frame/four-second budget,
+                    // and require a new complete clear span before advice can be ready.
                     candidateSpanStartSampleIndex = samples.Count;
                     worker.ResetAfterObstruction();
                     continue;
                 }
+                if (samples.Count == ObservationPolicy.StandardVerificationSamples
+                    && (reason is ObservationReason.None or ObservationReason.InsufficientEvidence)
+                    && measured.Vision is { Uncertain: true, Obstructed: false })
+                {
+                    // Allow one final full detection when the ordinary burst ends
+                    // on an ambiguous but visually still frame. A clear re-read
+                    // may complete consensus; otherwise the eighth sample keeps
+                    // the unresolved layout explicitly ambiguous.
+                    maximumSamples = ObservationPolicy.MaximumVerificationSamples;
+                }
                 if (reason is not (ObservationReason.None or ObservationReason.InsufficientEvidence)) break;
+                if (reason == ObservationReason.InsufficientEvidence && samples.Count > 1)
+                {
+                    // A motion/photometric interval with insufficient support
+                    // cannot poison the later stationary span. Keep that current
+                    // frame as the new baseline and require a full fresh span
+                    // after it; no motion or coverage threshold is relaxed.
+                    candidateSpanStartSampleIndex = samples.Count - 1;
+                }
                 var candidateSamples = samples.Skip(candidateSpanStartSampleIndex).ToArray();
-                if (candidateSamples.Length >= ObservationPolicy.MinimumVerificationSamples
-                    && pts.Value - candidateSamples[0].SourceTimeUs >= ObservationPolicy.MinimumStillSeconds * 1000000
+                if (HasStillSpan(candidateSamples)
                     && VerificationConsensus.Resolve(candidateSamples.Where(s => s.Measurement.Vision is not null)
                         .Select(s => s.Measurement.Vision!).ToArray()) is not null) break;
             }
@@ -195,10 +220,7 @@ public sealed partial class TableAnalysisSession
                 var lastDetection = candidateSamples.LastOrDefault(s => s.Measurement.Vision is not null)
                     ?? samples.LastOrDefault(s => s.Measurement.Vision is not null);
                 var consensus = VerificationConsensus.Resolve(visions, out var conflict);
-                bool still = candidateSamples.Length >= ObservationPolicy.MinimumVerificationSamples
-                    && candidateSamples[^1].SourceTimeUs - candidateSamples[0].SourceTimeUs >= ObservationPolicy.MinimumStillSeconds * 1000000
-                    && candidateSamples.All(s => s.Measurement.CoverageValid)
-                    && candidateSamples.Skip(1).All(s => s.Measurement.Motion == TableMotion.Still);
+                bool still = HasStillSpan(candidateSamples);
                 var sinceReceiptMs = time.GetElapsedTime(finalReceiptAt).TotalMilliseconds;
                 var finalAge = samples.Count == 0 ? 0 : samples[^1].AgeMs + samples[^1].ClockUncertaintyMs + sinceReceiptMs;
                 var finalClockAge = samples.Count == 0 ? double.PositiveInfinity : samples[^1].ClockSampleAgeMs + sinceReceiptMs;

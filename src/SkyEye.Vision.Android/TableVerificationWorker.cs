@@ -114,10 +114,36 @@ public sealed partial class VisionAnalyzer
                             // jitter. Recognition uncertainty can still block layout
                             // readiness without turning that jitter into ball motion.
                             templatesShowNoMotion = true;
-                            if (VerificationStillnessPolicy.CanResolveAsStill(measured with
-                                { Motion = TableMotion.Unknown, Reason = ObservationReason.InsufficientEvidence, Vision = vision ?? anchorVision },
-                                allTrackedBodiesSupported: true))
+                            var supportedStillness = measured with
+                                { Motion = TableMotion.Unknown, Reason = ObservationReason.InsufficientEvidence, Vision = vision ?? anchorVision };
+                            if (VerificationStillnessPolicy.CanResolveAsStill(supportedStillness, allTrackedBodiesSupported: true))
                                 measured = measured with { Motion = TableMotion.Still, Reason = ObservationReason.None };
+                            else if (measured.PerimeterChange > VerificationStillnessPolicy.MaximumSupportedPerimeterChange
+                                && VerificationStillnessPolicy.CanResolveAsStill(supportedStillness with { PerimeterChange = 0 }, allTrackedBodiesSupported: true))
+                            {
+                                // A perimeter-only photometric step must not keep
+                                // comparing every later sample to a stale exposure
+                                // anchor. Before rebasing, independently confirm the
+                                // stored table geometry still matches this frame. The
+                                // transition frame remains inconclusive; only later
+                                // samples can begin a fresh stillness span.
+                                var corners = owner.FindCorners(frame.ReviewImage(), cancellation);
+                                bool geometryMatches = corners is not null
+                                    && corners.All(p => calibration.Corners.Min(c => (c - p).Length) <= .035);
+                                if (geometryMatches && motion.ReanchorToLatest())
+                                {
+                                    anchorColour = colour;
+                                    if (vision is not null) bodies = vision.Circles;
+                                    measured = measured with { Motion = TableMotion.Still, Reason = ObservationReason.None,
+                                        GeometryRevalidatedAfterPerimeterChange = true };
+                                }
+                                else
+                                {
+                                    geometryValid = false;
+                                    measured = measured with { Motion = TableMotion.Unknown,
+                                        Reason = ObservationReason.CalibrationChanged, CoverageValid = false };
+                                }
+                            }
                         }
                     }
                 }

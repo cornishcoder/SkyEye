@@ -25,8 +25,39 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     public VisionAnalyzer(int width = 1000) : this(new VisionSettings(Width: width)) { }
     public VisionAnalyzer(VisionSettings settings, bool includeBoundaryDiagnostics = false, bool includeCandidateDiagnostics = false)
     { settings.Validate(); this.settings = settings; boundaryDiagnostics = includeBoundaryDiagnostics; candidateDiagnostics = includeCandidateDiagnostics; coordinates = new(settings.Width); }
-    public string ConfigurationIdentity => System.Text.Json.JsonSerializer.Serialize(new
-    { Algorithm = "body-priority-packed-colour-peaks-v7-bounded-sparse-recovery", Settings = settings });
+    public string ConfigurationIdentity
+    {
+        get
+        {
+            // Keep experiment-only knobs out of the production configuration
+            // identity so default replay still matches historical receipts.
+            // When an ablation is enabled, identify it explicitly as diagnostic.
+            var productionSettings = new
+            {
+                settings.Width, settings.MinimumRadius, settings.MaximumRadius, settings.Separation,
+                settings.MorphologyKernel, settings.HoughDp, settings.EdgeThreshold, settings.InitialVotes,
+                settings.NormalizedVotes, settings.HueBand, settings.PocketExclusionRadius,
+                settings.LocalIlluminationNormalization, settings.IlluminationKernelWidth,
+                settings.FreshCueBallRecovery, settings.BodyProposalPriority, settings.MinimumHoughBoundarySupport,
+                settings.DarkBodyValueCeiling, settings.VerificationBodyRefinement,
+                settings.PackedColourBoundarySearchExtentFraction
+            };
+            const string algorithm = "body-priority-packed-colour-peaks-v10-coincident-centre-uncertainty";
+            object identity = settings.UseNormalizedGeometryForDetection || settings.UseNormalizedPackedColourProposalMask
+                ? new
+                {
+                    Algorithm = algorithm,
+                    Settings = productionSettings,
+                    DiagnosticAblations = new
+                    {
+                        settings.UseNormalizedGeometryForDetection,
+                        settings.UseNormalizedPackedColourProposalMask
+                    }
+                }
+                : new { Algorithm = algorithm, Settings = productionSettings };
+            return System.Text.Json.JsonSerializer.Serialize(identity);
+        }
+    }
     static void Load()
     {
         lock (loadGate)
@@ -114,13 +145,20 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         else illumination = new(false, 0, 1, 1, 0);
         using var hsv = new MatLease(new Mat()); Imgproc.CvtColor(warped.Value, hsv.Value, Imgproc.ColorBgr2hsv);
         byte[] pixels = Read(hsv.Value); var packedClassifications = new Dictionary<Circle, BallClassification>();
+        Mat geometryImage = settings.UseNormalizedGeometryForDetection ? warped.Value : rawWarped.Value;
+        Mat geometryHsv = settings.UseNormalizedGeometryForDetection ? hsv.Value : rawHsv.Value;
+        byte[] geometryHsvPixels = settings.UseNormalizedGeometryForDetection ? pixels : rawHsvPixels;
+        Mat packedColourProposalHsv = settings.UseNormalizedPackedColourProposalMask ? hsv.Value : geometryHsv;
+        BoundaryColourMask geometryBoundaryColourMask = settings.UseNormalizedGeometryForDetection
+            ? BoundaryColourMask.FromHsvPixels(geometryHsvPixels) : boundaryColourMask;
         var candidateAudits = candidateDiagnostics ? new List<VisionCandidateAudit>() : null;
         var acceptedPackedBlackBoundaries = new Dictionary<Circle, BallBoundary>();
         var circles = Detect(hsv.Value, pixels, settings.InitialVotes, out var packedCluster,
+            out bool conflictingCoincidentCandidate,
             appearance is not null && settings.VerificationBodyRefinement,
-            settings.FreshCueBallRecovery && settings.BodyProposalPriority ? rawWarped.Value : null,
-            rawHsv.Value, rawHsvPixels, boundaryColourMask, packedClassifications,
-            candidateAudits, "initial", acceptedPackedBlackBoundaries);
+            settings.FreshCueBallRecovery && settings.BodyProposalPriority ? geometryImage : null,
+            geometryHsv, geometryHsvPixels, geometryBoundaryColourMask, packedClassifications,
+            candidateAudits, "initial", acceptedPackedBlackBoundaries, packedColourProposalHsv);
         bool inspectRim = appearance is not null || settings.FreshCueBallRecovery;
         var initialLabels = circles.Select(c => Classify(c, pixels, inspectRim)).ToArray();
         int initialCueCount = initialLabels.Count(l => l.Kind == "cue");
@@ -214,8 +252,13 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 // clipped-cloth circles. Preserve the original branch for ablation.
                 if (appearance is null)
                 {
-                    if (!settings.FreshCueBallRecovery) circles = Detect(hsv.Value, pixels, settings.NormalizedVotes, out _,
-                        packedClassifications: packedClassifications, candidateAudits: candidateAudits, pass: "normalized");
+                    if (!settings.FreshCueBallRecovery)
+                    {
+                        circles = Detect(hsv.Value, pixels, settings.NormalizedVotes, out _,
+                            out bool normalizedCoincidentConflict,
+                            packedClassifications: packedClassifications, candidateAudits: candidateAudits, pass: "normalized");
+                        conflictingCoincidentCandidate |= normalizedCoincidentConflict;
+                    }
                     var normalizedLabels = circles.Select(c => Classify(c, pixels, inspectRim)).ToArray();
                     normalizedCueCount = normalizedLabels.Count(l => l.Kind == "cue");
                     if (settings.FreshCueBallRecovery)
@@ -275,6 +318,11 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             }
         }
         bool uncertain = balls.Any(b => b.Kind == "unknown") || balls.Count > 16 || balls.Count(b => b.Kind == "cue") != 1 || balls.Count(b => b.Kind == "black") != 1 || balls.Count(b => b.Kind == "red") > 7 || balls.Count(b => b.Kind == "yellow") > 7;
+        if (conflictingCoincidentCandidate)
+        {
+            uncertain = true;
+            warnings.Add("Conflicting ball candidates share nearly the same centre; review before using table state.");
+        }
         bool packedClusterUnresolved = packedCluster.Detected &&
             (balls.Any(b => b.Kind == "unknown") || balls.Count(b => b.Kind == "cue") != 1 || balls.Count(b => b.Kind == "black") != 1 ||
                 balls.Count(b => b.Kind == "red") != 7 || balls.Count(b => b.Kind == "yellow") != 7);
@@ -390,14 +438,18 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         finally { foreach (var point in original.Concat(portrait)) point.Dispose(); }
     }
     Circle[] Detect(Mat hsv, byte[] pixels, double votes, out PackedClusterEvidence packedCluster,
+        out bool conflictingCoincidentCandidate,
         bool refineGeometry = false, Mat? rawImage = null, Mat? rawHsv = null, byte[]? rawHsvPixels = null,
         BoundaryColourMask? boundaryColourMask = null,
         Dictionary<Circle, BallClassification>? packedClassifications = null,
         List<VisionCandidateAudit>? candidateAudits = null, string pass = "initial",
-        Dictionary<Circle, BallBoundary>? acceptedPackedBlackBoundaries = null)
+        Dictionary<Circle, BallBoundary>? acceptedPackedBlackBoundaries = null,
+        Mat? packedColourProposalHsv = null)
     {
         using var timing = PipelineDiagnostics.Measure("circleDetectionMs");
         packedCluster = default;
+        conflictingCoincidentCandidate = false;
+        bool conflictingCoincidentCandidateDetected = false;
         using var mask = ClothMask(hsv, pixels); using var circles = new MatLease(new Mat());
         double scale = coordinates.Width / 1000.0;
         Imgproc.HoughCircles(mask.Value, circles.Value, Imgproc.HoughGradient, settings.HoughDp, settings.Separation * scale, settings.EdgeThreshold, votes * scale, (int)(settings.MinimumRadius * scale), (int)(settings.MaximumRadius * scale));
@@ -407,7 +459,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         bool prioritizeBodies = settings.FreshCueBallRecovery && settings.BodyProposalPriority;
         byte[]? rawBoundaryPixels = null;
         if (prioritizeBodies && rawImage is not null)
-            packedCluster = AddPackedClusterBodies(rawImage, rawHsv!, rawHsvPixels!, boundaryColourMask!, result, scale,
+            packedCluster = AddPackedClusterBodies(rawImage, rawHsv!, packedColourProposalHsv ?? rawHsv!, rawHsvPixels!, boundaryColourMask!, result, scale,
                 packedClassifications, candidateAudits, pass, acceptedPackedBlackBoundaries);
         if (prioritizeBodies) AddColourBodies(hsv, pixels, result, scale);
         if (prioritizeBodies && rawImage is not null)
@@ -466,6 +518,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         }
         if (!prioritizeBodies) AddColourBodies(hsv, pixels, result, scale);
         if (refineGeometry) RefineBodyGeometry(mask.Value, result, scale);
+        conflictingCoincidentCandidate = conflictingCoincidentCandidateDetected;
         return result.ToArray();
 
         void Audit(string stage, string kind, int index, Circle proposal, string decision,
@@ -477,11 +530,24 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
 
         bool HasNearbyDuplicate(Circle candidate, string candidateKind)
         {
+            double coincidentCentreThreshold = settings.Separation * scale * .25;
             foreach (var existing in result)
             {
-                if (Distance(existing, candidate) >= settings.Separation * scale) continue;
-                string existingKind = packedClassifications is not null && packedClassifications.TryGetValue(existing, out var known)
-                    ? known.Kind : Classify(existing, pixels, inspectRim: true).Kind;
+                double distance = Distance(existing, candidate);
+                // Independently classified balls can touch, but they cannot
+                // occupy the same centre. Reject near-coincident proposals
+                // across colours before applying the wider same-colour gate.
+                if (distance < coincidentCentreThreshold)
+                {
+                    string coincidentKind = packedClassifications is not null && packedClassifications.TryGetValue(existing, out var coincidentKnown)
+                        ? coincidentKnown.Kind : Classify(existing, pixels, inspectRim: true).Kind;
+                    if (candidateKind == "unknown" || coincidentKind == "unknown" || candidateKind != coincidentKind)
+                        conflictingCoincidentCandidateDetected = true;
+                    return true;
+                }
+                if (distance >= settings.Separation * scale) continue;
+                string existingKind = packedClassifications is not null && packedClassifications.TryGetValue(existing, out var nearbyKnown)
+                    ? nearbyKnown.Kind : Classify(existing, pixels, inspectRim: true).Kind;
                 // Distinct, independently classified touching balls are valid.
                 // Preserve the old broad rejection when either body is unknown.
                 if (candidateKind == "unknown" || existingKind == "unknown" || candidateKind == existingKind)
@@ -633,6 +699,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         double packedMaximumWidth = 400 * scale, packedMaximumHeight = 400 * scale;
         int packedClusterMinimumBallCentres = Math.Min(12, Math.Max(8, (int)Math.Ceiling(balls.Count * .5)));
         const double packedClusterMinimumBallBodyCoverageFraction = .36;
+        const int ballGroupExemptionMinimumCentres = 5;
+        const double ballGroupExemptionMinimumBodyCoverageFraction = .52;
         var candidates = new List<ObstructionComponentAudit>();
         int triggeringComponents = 0;
         for (int i = 1; i < count; i++)
@@ -666,17 +734,19 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 ballBodyPixels = Cv.CountNonZero(ballBodyOverlap.Value);
             }
             double ballBodyCoverage = area > 0 ? ballBodyPixels / area : 0;
-            // In a touching rack, cloth pixels can leak through the exact ball
-            // centres and split the component label. Associate a compact
-            // component with the rack by its measured bounds, while retaining
-            // exact centre membership in telemetry for audit.
-            // Lighting and ball shadows can split one rack into several mask
-            // components. Exempt only a compact component that overlaps a
-            // sufficient share of recognized ball centres and ball-body pixels;
-            // a hand/object component is still caught by its size or low body overlap.
-            bool packedClusterExempted = completePackedCluster && packedClusterSizeEligible &&
+            // Ball shadows can join a compact group of recognized balls into one
+            // non-cloth component even when the whole table is not a packed rack.
+            // Keep the stricter full-rack rule, but also allow a localized group
+            // only when at least five detected centres lie inside the component
+            // and supported ball bodies explain at least half its pixels. A broad
+            // hand/object region still fails the compact-size or body-coverage gate.
+            bool completePackedClusterExempted = completePackedCluster && packedClusterSizeEligible &&
                 ballCentresInBounds >= packedClusterMinimumBallCentres &&
                 ballBodyCoverage >= packedClusterMinimumBallBodyCoverageFraction;
+            bool localizedBallGroupExempted = packedClusterSizeEligible &&
+                ballCentresInBounds >= ballGroupExemptionMinimumCentres &&
+                ballBodyCoverage >= ballGroupExemptionMinimumBodyCoverageFraction;
+            bool packedClusterExempted = completePackedClusterExempted || localizedBallGroupExempted;
             bool triggersObstruction = !wholeTableSegmentation && !packedClusterExempted;
             if (triggersObstruction) triggeringComponents++;
             candidates.Add(new(i, (int)x, (int)y, (int)width, (int)height, (int)area, ballCentres,
@@ -698,7 +768,11 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         audit = new(coordinates.Width, coordinates.Height, border, minimumWidth, minimumHeight, minimumArea,
             packedMaximumWidth, packedMaximumHeight, packedClusterMinimumBallCentres, count - 1, candidates.Count, reported.Length,
             omittedComponents, triggeringComponents, Math.Max(0, triggeringComponents - reportedTriggering), reported)
-        { PackedClusterMinimumBallBodyCoverageFraction = packedClusterMinimumBallBodyCoverageFraction };
+        {
+            PackedClusterMinimumBallBodyCoverageFraction = packedClusterMinimumBallBodyCoverageFraction,
+            BallGroupExemptionMinimumCentres = ballGroupExemptionMinimumCentres,
+            BallGroupExemptionMinimumBallBodyCoverageFraction = ballGroupExemptionMinimumBodyCoverageFraction,
+        };
         return triggeringComponents > 0;
     }
     Point[] PocketCentres() => [new(0, 0), new(coordinates.Width, 0), new(0, coordinates.Width), new(coordinates.Width, coordinates.Width), new(0, coordinates.Height), new(coordinates.Width, coordinates.Height)];

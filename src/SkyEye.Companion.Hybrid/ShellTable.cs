@@ -27,7 +27,7 @@ public sealed partial class ShellSession
     public bool CanAnalyzeTable => sessionMode == TableSessionMode.Live
         && app.State.Camera is { CanControl: true, Capture: CaptureState.Active } && selection.Kind == ViewingSource.Live;
     public bool HasTableCalibration => table.State.Calibration is not null;
-    public bool CanCorrectTable => CanAnalyzeTable && table.VisionDiagnostics.Active == false && table.State is { Calibration: not null, Table: not null };
+    public bool CanCorrectTable => CanAnalyzeTable && !LiveDetectBusy && table.VisionDiagnostics.Active == false && table.State is { Calibration: not null, Table: not null };
     public bool CanApplyTableEdit => CanAnalyzeTable && edit.Matches(table.State.Generation, table.State.Table?.Version)
         && (edit.Mode == TableEditMode.Correction || edit.Corners.Count == 4);
     public AdviceTargetGroup TargetGroup => app.State.Advice.TargetGroup;
@@ -38,7 +38,7 @@ public sealed partial class ShellSession
     public string VisionDiagnosticRecordingSessionId => table.VisionDiagnostics.RecordingSessionId;
     public bool VisionDiagnosticLabelCapturePending => table.VisionDiagnostics.LabelCapturePending;
     public bool CanStartVisionDiagnostics => CanAnalyzeTable && HasTableCalibration && !EditingTable && !VisionDiagnosticsActive
-        && !table.HasPendingWork && (visionDiagnosticSavedLabels == 0 || visionDiagnosticLabelSessionFinalized);
+        && !LiveDetectBusy && !table.HasPendingWork && (visionDiagnosticSavedLabels == 0 || visionDiagnosticLabelSessionFinalized);
     public string VisionDiagnosticsStatus { get; private set; } = "Diagnostics are off.";
     public string VisionDiagnosticsDump
     {

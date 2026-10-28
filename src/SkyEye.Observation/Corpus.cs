@@ -8,7 +8,7 @@ public enum CorpusKind { Real, Synthetic }
 public enum CorpusSplit { Unassigned, Development, Holdout, Regression }
 public enum SequencePurpose { Shot, StillRegression, Contract, StillVerification, NegativeVerification }
 public enum SourceClock { Unknown, RecordingMicroseconds, ClipMicroseconds, SyntheticMicroseconds }
-public enum PixelEncoding { Jpeg, Gray8 }
+public enum PixelEncoding { Jpeg, Gray8, Png }
 public enum LabelVisibility { Visible, Occluded, Uncertain, Absent }
 public sealed record MediaSource(string Id, string Origin, string File, string Sha256, int Width, int Height, SourceClock Clock,
     string CalibrationVersion, double? NominalFps = null);

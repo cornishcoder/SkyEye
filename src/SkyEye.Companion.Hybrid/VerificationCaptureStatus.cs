@@ -113,9 +113,13 @@ public sealed class VerificationCaptureRunStatus
     {
         lock (gate)
         {
-            if (!running || operationId != id || frameId <= 0) return false;
+            // A native analysis worker can finish writing a frame just after the
+            // verifier publishes TimedOut. Keep that matching late receipt visible
+            // until a newer run replaces this status; never let an older run update
+            // the progress for a newer operation.
+            if (operationId != id || frameId <= 0) return false;
             writtenFrameIds.Add(frameId);
-            savedFrames = Math.Min(writtenFrameIds.Count, ObservationPolicy.MaximumVerificationSamples);
+            savedFrames = Math.Min(writtenFrameIds.Count, ObservationPolicy.MaximumCapturedVerificationSamples);
             return true;
         }
     }
@@ -125,7 +129,7 @@ public sealed class VerificationCaptureRunStatus
         lock (gate)
         {
             if (!running || operationId != id) return false;
-            savedFrames = Math.Clamp(count, 0, ObservationPolicy.MaximumVerificationSamples);
+            savedFrames = Math.Clamp(count, 0, ObservationPolicy.MaximumCapturedVerificationSamples);
             result = summary;
             completedAt = at;
             running = false;
@@ -139,8 +143,12 @@ public sealed class VerificationCaptureRunStatus
         {
             if (operationId is not { } id || startedAt is not { } start) return "";
             var run = id.ToString("N")[..8];
-            var count = $"Saved {savedFrames} of {ObservationPolicy.MaximumVerificationSamples} verifier frames.";
-            if (running) return $"Capturing verifier frames… {savedFrames} of {ObservationPolicy.MaximumVerificationSamples} valid receipt pairs · {formatTime(start)} · run {run}";
+            var minimum = ObservationPolicy.MinimumVerificationSamples;
+            var maximum = ObservationPolicy.MaximumCapturedVerificationSamples;
+            var count = savedFrames >= minimum
+                ? $"Saved {savedFrames} verifier frames (minimum met; maximum {maximum})."
+                : $"Saved {savedFrames} of {minimum} required verifier frames (maximum {maximum}).";
+            if (running) return $"Capturing verifier frames… {savedFrames} of {maximum} valid receipt pairs (minimum {minimum}) · {formatTime(start)} · run {run}";
             if (completedAt is not { } completed) return "";
             var message = result?.StartsWith("Table result:", StringComparison.Ordinal) == true
                 ? $"{count} {result}"

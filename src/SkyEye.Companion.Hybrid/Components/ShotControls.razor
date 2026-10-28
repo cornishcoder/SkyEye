@@ -14,7 +14,7 @@
     <button class="primary" disabled="@(Busy || Session.CheckingTable || !Session.CanShowChoices)" @onclick="Cycle">@(Session.CheckingTable ? "Checking table…" : "Show candidate shots")</button>
     @if (Session.CheckingTable) { <button class="secondary" @onclick="Session.CancelTableVerification">Cancel table check</button> }
     <button class="secondary" disabled="@(Busy || !Session.CanCaptureVerificationFrames)" @onclick="Session.CaptureVerificationFramesAsync">Capture verifier frames</button>
-    <button class="secondary" disabled="@(Busy || Session.CheckingTable || !Session.CanAnalyzeTable)" @onclick="Session.ObserveTableAsync">Observe table once</button>
+    <button class="secondary" disabled="@(Busy || Session.CheckingTable || Session.LiveDetectBusy || !Session.CanAnalyzeTable)" @onclick="Session.ObserveTableAsync">Observe table once</button>
     <button class="secondary" disabled="@Busy" @onclick="Live">@(Session.TvReplaySelected ? "Clear candidates" : "Clear candidates · show live")</button>
     <p class="hint">Show checks several fresh views while the table is still, for up to @SkyEye.Core.Analysis.ObservationPolicy.VerificationTimeoutSeconds seconds. Computed choices cycle every 2 seconds and expire after @SkyEye.Core.Analysis.ObservationPolicy.CatalogueLifetimeSeconds seconds.</p>
     <p class="hint">Capture verifier frames saves the exact bounded-check pixels and source receipts for local review. It does not create or change match facts.</p>
