@@ -166,6 +166,7 @@ public sealed partial class ShellSession
         AppendLiveDetectRunEvent(runId, "started", "Live Detect started.", null);
         var eventTracker = new LiveDetectTableEventTracker();
         var frameCursor = new LiveDetectFrameCursor();
+        var freshFrameWait = new LiveDetectFreshFrameWaitTracker();
         var eventClipTasks = new List<Task>();
         using var eventClipSaveGate = new SemaphoreSlim(1, 1);
         int consecutiveAnalysisErrors = 0;
@@ -204,6 +205,10 @@ public sealed partial class ShellSession
                     }
 
                     consecutiveFrameAcquisitionErrors++;
+                    var waitStartedAt = DateTimeOffset.UtcNow;
+                    if (freshFrameWait.Begin(waitStartedAt))
+                        AppendLiveDetectRunEvent(runId, "fresh_frame_wait_started",
+                            $"Waiting for a fresh paired frame after {error.Code}.", error.GetType().Name);
                     string sourceStatus = string.IsNullOrWhiteSpace(error.SourceStatus)
                         ? "source status unavailable" : $"source status {error.SourceStatus}";
                     AppendLiveDetectRunEvent(runId, "frame_acquisition_retry",
@@ -257,6 +262,10 @@ public sealed partial class ShellSession
                     || !frameCursor.TryAccept(receipt.MediaGeneration, observation.Timeline, receipt.FrameId,
                     sourceTimeUs, out bool timelineChanged))
                 {
+                    var waitStartedAt = DateTimeOffset.UtcNow;
+                    if (freshFrameWait.Begin(waitStartedAt))
+                        AppendLiveDetectRunEvent(runId, "fresh_frame_wait_started",
+                            "Waiting for a newer uniquely paired camera frame; the last accepted table reading is stale.", null);
                     await MainThread.InvokeOnMainThreadAsync(() =>
                     {
                         if (ReferenceEquals(liveDetectCancellation, operation) && !cancellation.IsCancellationRequested)
@@ -271,6 +280,10 @@ public sealed partial class ShellSession
                     await Task.Delay(TimeSpan.FromMilliseconds(150), cancellation);
                     continue;
                 }
+
+                if (freshFrameWait.Recover(DateTimeOffset.UtcNow) is { } recoveredAfter)
+                    AppendLiveDetectRunEvent(runId, "fresh_frame_wait_recovered",
+                        $"A fresh paired camera frame arrived after {recoveredAfter.TotalSeconds:0.0}s.", null);
 
                 if (timelineChanged)
                     eventTracker.Reset();
@@ -358,6 +371,10 @@ public sealed partial class ShellSession
         finally
         {
             if (!cancellation.IsCancellationRequested) operation.Cancel();
+            if (freshFrameWait.Stop(DateTimeOffset.UtcNow) is { } unresolvedFor)
+                AppendLiveDetectRunEvent(runId, "fresh_frame_wait_unresolved",
+                    $"Live Detect stopped before a fresh paired camera frame arrived; the last table reading is stale ({unresolvedFor.TotalSeconds:0.0}s wait).",
+                    null);
             try { await Task.WhenAll(eventClipTasks); }
             catch (Exception) { }
             AppendLiveDetectRunEvent(runId, "stopped", liveDetectStopReason ?? "Live Detect stopped.", null);
@@ -368,6 +385,9 @@ public sealed partial class ShellSession
                     liveDetectCancellation = null;
                     liveDetectRunId = null;
                     liveDetectStatus = liveDetectStopReason ?? "Live Detect stopped.";
+                    liveDetectInventory = liveDetectReadAt is { } lastRead
+                        ? $"Last accepted reading {lastRead.ToLocalTime():HH:mm:ss} · Live Detect stopped; this is not a current reading."
+                        : "No current table reading · Live Detect stopped.";
                     liveDetectStopReason = null;
                     if (liveDetectClipStatus.StartsWith("Shot clips save after a movement event", StringComparison.Ordinal))
                         liveDetectClipStatus = "Live Detect stopped before a settled table event was ready for a clip.";

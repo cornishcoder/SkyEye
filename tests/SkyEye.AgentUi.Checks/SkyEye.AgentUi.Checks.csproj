@@ -16,6 +16,7 @@
     <Compile Include="../../src/SkyEye.Companion.Hybrid/TvLiveSelection.cs" Link="TvLiveSelection.cs" />
     <Compile Include="../../src/SkyEye.Companion.Hybrid/ControlChrome.cs" Link="ControlChrome.cs" />
     <Compile Include="../../src/SkyEye.Companion.Hybrid/LiveDetectCountCandidateTracker.cs" Link="LiveDetectCountCandidateTracker.cs" />
+    <Compile Include="../../src/SkyEye.Companion.Hybrid/LiveDetectFreshFrameWaitTracker.cs" Link="LiveDetectFreshFrameWaitTracker.cs" />
     <Compile Include="../../src/SkyEye.Companion.Hybrid/LiveDetectTableEventTracker.cs" Link="LiveDetectTableEventTracker.cs" />
     <Compile Include="../../src/SkyEye.Companion.Hybrid/LiveDetectShotClipWindow.cs" Link="LiveDetectShotClipWindow.cs" />
     <Compile Include="../../src/SkyEye.Companion.Hybrid/LiveDetectLogStore.cs" Link="LiveDetectLogStore.cs" />
