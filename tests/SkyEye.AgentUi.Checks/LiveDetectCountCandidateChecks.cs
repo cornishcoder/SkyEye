@@ -8,6 +8,32 @@ internal static class LiveDetectCountCandidateChecks
 
     public static void Run()
     {
+        var cursor = new LiveDetectFrameCursor();
+        Require(cursor.TryAccept(6, "camera-a", 5394, 72570736044, out _), "initial decoded frame is admitted");
+        Require(cursor.TryAccept(7, "camera-a", 282, 72581337288, out var changedTimeline) && !changedTimeline,
+            "decoder recovery admits a restarted frame ID when camera PTS continues");
+        Require(!cursor.TryAccept(6, "camera-a", 6000, 72582337288, out _), "late old-decoder frames cannot return");
+        Require(!cursor.TryAccept(7, "camera-a", 282, 72581337288, out _)
+            && !cursor.TryAccept(7, "camera-a", 283, 72580337288, out _),
+            "duplicates and backward camera time remain rejected after recovery");
+        Require(!cursor.TryAccept(8, "camera-a", 1, 72580337288, out _),
+            "new decoder generation cannot turn an older camera image into fresh evidence");
+        Require(cursor.TryAccept(8, "camera-a", 1, 72583337288, out _), "subsequent fresh recovery succeeds");
+        Require(!cursor.TryAccept(8, "camera-b", 2, 100, out _), "timeline cannot switch within a decoder generation");
+        Require(cursor.TryAccept(9, "camera-b", 1, 100, out changedTimeline) && changedTimeline,
+            "a new camera timeline is admitted with an explicit baseline reset signal");
+
+        var initialRack = new LiveDetectCountCandidateTracker();
+        Require(initialRack.Observe(1_000_000, Full, true, packedRack: true) is null
+            && initialRack.Observe(2_000_000, Full, true, packedRack: true) is { Kind: LiveDetectChangeKind.Racked },
+            "initial rack is reported only after two supported packed-rack observations");
+        initialRack.Observe(3_000_000, OneYellowDown, true);
+        initialRack.Observe(4_000_000, OneYellowDown, true);
+        initialRack.Observe(20_000_000, OneYellowDown, false);
+        Require(initialRack.Observe(21_000_000, Full, true, packedRack: true) is null
+            && initialRack.Observe(22_000_000, Full, true, packedRack: true) is { Kind: LiveDetectChangeKind.Racked },
+            "a long obstructed re-rack can establish and report a fresh rack after historical counts expire");
+
         var recovered = new LiveDetectCountCandidateTracker();
         Require(recovered.Observe(1_000_000, Full, true) is null, "first clear inventory establishes baseline");
         Require(recovered.Observe(2_400_000, OneYellowDown, false) is null, "uncertain decrease is ignored");

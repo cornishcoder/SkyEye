@@ -165,7 +165,7 @@ public sealed partial class ShellSession
         var autoClipSaver = RunLiveDetectClipSavesAsync(cancellation, runId, source);
         AppendLiveDetectRunEvent(runId, "started", "Live Detect started.", null);
         var candidateTracker = new LiveDetectCountCandidateTracker();
-        long lastFrameId = long.MinValue, lastSourceTimeUs = long.MinValue;
+        var frameCursor = new LiveDetectFrameCursor();
         int consecutiveAnalysisErrors = 0;
         try
         {
@@ -218,16 +218,21 @@ public sealed partial class ShellSession
                 var observation = state.Observation;
                 var receipt = observation?.DecodedReceipt;
                 var vision = state.Vision;
+                long priorMediaGeneration = frameCursor.MediaGeneration;
                 if (observation is null || receipt is null || observation.Source != source
                     || state.Calibration != calibration || vision is null
-                    || receipt.FrameId <= lastFrameId || observation.SourceTimeUs is not { } sourceTimeUs
-                    || sourceTimeUs <= lastSourceTimeUs)
+                    || observation.SourceTimeUs is not { } sourceTimeUs
+                    || !frameCursor.TryAccept(receipt.MediaGeneration, observation.Timeline, receipt.FrameId,
+                    sourceTimeUs, out bool timelineChanged))
                 {
                     await MainThread.InvokeOnMainThreadAsync(() =>
                     {
                         if (ReferenceEquals(liveDetectCancellation, operation) && !cancellation.IsCancellationRequested)
                         {
                             liveDetectStatus = "Live Detect running · waiting for a newer paired camera frame.";
+                            liveDetectInventory = liveDetectReadAt is { } priorRead
+                                ? $"Last accepted reading {priorRead.ToLocalTime():HH:mm:ss} · waiting for a fresh camera frame."
+                                : "Waiting for the first current camera frame.";
                             Changed?.Invoke();
                         }
                     });
@@ -235,8 +240,11 @@ public sealed partial class ShellSession
                     continue;
                 }
 
-                lastFrameId = receipt.FrameId;
-                lastSourceTimeUs = sourceTimeUs;
+                if (timelineChanged) candidateTracker.Reset();
+                if (priorMediaGeneration > 0 && receipt.MediaGeneration != priorMediaGeneration)
+                    AppendLiveDetectRunEvent(runId, "decoder_recovered",
+                        timelineChanged ? "New camera timeline; inventory baseline reset."
+                            : "Decoder recovered; camera timestamps continue with restarted frame IDs.", null);
                 var counts = Count(vision.Balls);
                 bool candidateEligible = !vision.HasUncertainLayout && !vision.Obstructed;
                 var events = new List<string>();

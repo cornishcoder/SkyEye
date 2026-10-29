@@ -1,5 +1,29 @@
 namespace SkyEye.Companion.Hybrid;
 
+/// <summary>Decoder frame IDs restart on each media generation; camera PTS does not.</summary>
+internal sealed class LiveDetectFrameCursor
+{
+    public long MediaGeneration { get; private set; }
+    string? timeline;
+    long frameId, sourceTimeUs;
+
+    public bool TryAccept(long generation, string sourceTimeline, long nextFrameId, long nextSourceTimeUs,
+        out bool timelineChanged)
+    {
+        timelineChanged = false;
+        if (generation <= 0 || nextFrameId <= 0 || nextSourceTimeUs < 0 || string.IsNullOrWhiteSpace(sourceTimeline)
+            || generation < MediaGeneration) return false;
+        bool sameTimeline = timeline == sourceTimeline;
+        if (timeline is not null && generation == MediaGeneration && !sameTimeline) return false;
+        if (sameTimeline && (nextSourceTimeUs <= sourceTimeUs
+            || generation == MediaGeneration && nextFrameId <= frameId)) return false;
+        timelineChanged = timeline is not null && !sameTimeline;
+        MediaGeneration = generation; timeline = sourceTimeline;
+        frameId = nextFrameId; sourceTimeUs = nextSourceTimeUs;
+        return true;
+    }
+}
+
 internal readonly record struct LiveDetectCounts(int Reds, int Yellows, int Black, int Cue, int Other)
 {
     public string Summary => $"{Reds} reds · {Yellows} yellows · {Black} black · {Cue} cue ball{(Cue == 1 ? "" : "s")}"
@@ -55,7 +79,13 @@ internal sealed class LiveDetectCountCandidateTracker
 
         if (baseline is not { } trusted)
         {
-            SetBaseline(counts, sourceTimeUs, packedRack);
+            // A rack is a current observation, so it can be reported even after
+            // a long hands-on re-rack expires the previous shot baseline.
+            SetBaseline(counts, sourceTimeUs, packedRack: false);
+            if (packedRack)
+            {
+                pending = counts; pendingSourceTimeUs = sourceTimeUs; pendingPackedRack = true;
+            }
             return null;
         }
 

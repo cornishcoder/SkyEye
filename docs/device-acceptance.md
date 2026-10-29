@@ -4,6 +4,16 @@ Record phone models, OS/builds, app revision, network and capture settings for e
 
 For the current Production companion's home controls, live-session flow, package identity, and read-only detector diagnostics, see [Pixel companion control guide](device-control-guide.md).
 
+## Production code36 live inventory and interrupted play check — 29 October 2026
+
+Production `0.8.28` / code `36` was installed in place on Pixel 11; signer, UID and private-storage identity checks passed. APK SHA-256: `8DA34B503175E01A110CF3247972D6E67C878BA4ECFA0619DB65F6BA66FE1EC3`; rollback APK: `work/production/backups/20261029-084440/before.apk`. Camera was `Stopped` before installation. The mounted-camera package and Cast were untouched.
+
+Static run `a7ff69e3-8f9f-4f89-b737-ce6072352c5d` logged 242/242 clear full 16-ball results over 88.041 source seconds, with strictly increasing frame IDs and PTS, no warnings, obstruction or events. Mean/p95 full pass: 363.7/415.2ms; mean/p95 source age: 811.0/875.3ms. Two automatic clips (31.001s and 29.936s) were saved. Home showed `Start live session` after one stop action; independent `/status` confirmed `Stopped`, revision 41, battery 94%, 36 clips. Receipts and summary are under `work/production/evidence/live-detect-code36-20261029/`.
+
+The user then confirmed readiness for play. In the same continuous play run `c5800012-e256-4f4b-abb6-c36680827031`, the user reported a no-pot break; the resulting spread inventory was 7R/7Y/black/cue and there was no event. A reported red pot produced one red 7→6 candidate at 08:52:20.843 UTC. A deliberately potted cue produced one cue 1→0 candidate at 08:53:15.224 UTC; the supported current inventory became 6R/7Y/black, layout-clear while advice remained unavailable. The user returned the cue, visible in the screenshot, but acceptance then failed: Live Detect remained on its old 08:53:17 reading while video and clip saves continued.
+
+The last logged frame was decoder generation 6, frame ID 5394, PTS 72570736044. A frame-acquisition retry followed; later clip receipts referenced new decoded frame IDs 282, 333, 1184 and 1232 with increasing camera PTS. Source review confirmed `PlayerBridge.play` increments decoder generation and resets its frame ledger. Live Detect incorrectly required every next frame ID to exceed the old generation's ID. A generation-aware freshness fix is under test for code37. This run does not pass continuous recovery or re-rack acceptance. Capture was stopped at the safe boundary: `/status` `Stopped`, revision 43, battery 96%, 45 clips; Home `Start live session`, Cast disconnected. Logs/screenshots and the before/after pull snapshots remain in the same evidence folder.
+
 ## Production v0.8.27 code35 live no-match readiness — 28 October 2026
 
 Production `uk.co.skyeye.companion` was updated in place to `0.8.27` / code `35`; the guarded installer preserved app identity and private storage. Rollback APK: `work/production/backups/20261028-211040/before.apk`. Installed APK SHA-256: `F6820DEAFB8362A8BC47565BE4880A564E7F8240816E7F733FB21720597E8598`. Pixel 10 camera package and data were untouched.
