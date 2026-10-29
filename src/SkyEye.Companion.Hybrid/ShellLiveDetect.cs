@@ -376,7 +376,8 @@ public sealed partial class ShellSession
                             ball.Id, ball.Kind, ball.Position.X, ball.Position.Y, ball.Confidence)).ToArray(),
                         events.ToArray(), checkOutcome, observation.Change?.SpatiallyCompatible, rackEvidence,
                         LiveDetectLogObstructionAudit.From(vision.ObstructionAudit), observation.PlayerPlayback,
-                        vision.PocketColourAudit));
+                        vision.PocketColourAudit, eventBatch.BaselineMatchSamples,
+                        eventBatch.SettledBaselineMatchesCurrent));
                     foreach (var tableEvent in eventBatch.TableEvents)
                         liveDetectLog.AppendTableEvent(runId, tableEvent.CapturedAt, tableEvent);
                     liveDetectLogError = null;
@@ -393,8 +394,15 @@ public sealed partial class ShellSession
                     liveDetectStatus = $"Live Detect running · full pass {vision.ElapsedMs / 1000:0.0}s.";
                     liveDetectInventory = eventBatch.SettledBaselineMatchesCurrent && eventBatch.SettledBaseline is { } settled
                         ? $"Settled current state · {settled.Total} detected · {settled.Summary} · confirmed by this frame · frame age {ageSeconds:0.0}s"
+                        : currentInventoryClear && checkOutcome == "clear_unchanged"
+                            && eventBatch.SettledBaseline is not null
+                            ? $"Fresh clear frame matches the last settled layout · {counts.Total} current detections · {counts.Summary} · stillness check {eventBatch.BaselineMatchSamples}/{StableTableChangeTracker.RequiredStableSamples} · frame age {ageSeconds:0.0}s"
+                        : currentInventoryClear && checkOutcome is ("layout_change_pending" or "inventory_change_pending")
+                            ? $"Table change pending · {counts.Total} current detections · {counts.Summary} · {quality} · frame age {ageSeconds:0.0}s"
+                        : currentInventoryClear && checkOutcome == "baseline_pending"
+                            ? $"Establishing table baseline · {counts.Total} current detections · {counts.Summary} · frame age {ageSeconds:0.0}s"
                         : currentInventoryClear
-                            ? $"Table change pending · {counts.Total} current detections · {counts.Summary} · {LastSettledInventorySummary(observation.CapturedAt)} · {quality} · frame age {ageSeconds:0.0}s"
+                            ? $"Current clear reading · {counts.Total} detections · {counts.Summary} · {quality} · frame age {ageSeconds:0.0}s"
                             : UnknownLiveDetectInventory(quality, observation.CapturedAt, ageSeconds);
                     foreach (var item in events)
                     {

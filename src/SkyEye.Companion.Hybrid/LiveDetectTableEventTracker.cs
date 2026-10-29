@@ -17,7 +17,7 @@ internal sealed record LiveDetectEventBatch(string CheckOutcome,
     ImmutableArray<LiveDetectLogTableEvent> TableEvents, LiveDetectActivity? ClipActivity,
     string? ClipEventType, long? ClipEndSourceTimeUs,
     LiveDetectCounts? SettledBaseline, DateTimeOffset? SettledBaselineAt,
-    bool SettledBaselineMatchesCurrent)
+    bool SettledBaselineMatchesCurrent, int BaselineMatchSamples)
 {
     public IEnumerable<string> Messages => TableEvents.Select(tableEvent => tableEvent.Message);
 }
@@ -330,7 +330,8 @@ internal sealed class LiveDetectTableEventTracker
         bool settledBaselineMatchesCurrent = stableSampleEligible
             && currentBaselineStableSamples >= StableTableChangeTracker.RequiredStableSamples;
         return new(checkOutcome, events.ToImmutable(), clipActivity, clipEventType, clipEndSourceTimeUs,
-            ToLiveDetectCounts(baselineCounts), baselineCapturedAt, settledBaselineMatchesCurrent);
+            ToLiveDetectCounts(baselineCounts), baselineCapturedAt, settledBaselineMatchesCurrent,
+            currentBaselineStableSamples);
     }
 
     static bool IsStableInventory(LiveDetectCounts counts) =>
