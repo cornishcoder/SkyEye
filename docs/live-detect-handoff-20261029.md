@@ -6,7 +6,7 @@
 - Production code42 (`0.8.34`) is installed on Pixel 11. Source branch is `master`; the last relevant commits are `7e425fd`, `84a5b45`, and `cce942a`.
 - The user-authorized code42 no-pot check did **not** complete. It established 7 reds, 7 yellows, black and cue, then logged movement during the user's no-pot shot. The user confirmed the table remained clear. Live Detect reported a large obstruction on 618 of 950 retained frame rows, with only 332 clear and isolated samples. It never settled, so it produced no `no_pot_observed` and no event clip. Treat this as a detector/observation-quality failure, not a reducer verdict.
 - The pulled log is `work/production/evidence/live-detect-code42-20261029/pixel11-code42-miss-final.jsonl`; full facts are in `docs/device-acceptance.md` and `docs/live-detect-plan.md`.
-- Capture is **stopped**: mounted-camera `/status` says `Stopped`, revision 69, battery 74%, 65 clips. Pixel 11 Home shows **Start live session**. Cast remains disconnected and was not touched.
+- Capture is **stopped**: latest mounted-camera `/status` says `Stopped`, revision 69, battery 73%, 65 clips. Pixel 11 Home shows **Start live session**. Cast remains disconnected and was not touched.
 - Stopping required reclaiming host control. Home first displayed a host-lost warning; Settings showed **Host available · Active**. Tapping **Become host** changed it to **You control this camera · Active**. Returning Home, revealing the panel with an upward swipe on the video, and tapping **End recording session** stopped the camera. This recovery sequence is now in `docs/device-control-guide.md`.
 
 ## Findings to carry forward
