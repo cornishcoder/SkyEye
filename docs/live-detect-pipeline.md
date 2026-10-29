@@ -24,19 +24,29 @@ flowchart TD
     E --> Q[Constrain colour inventory and set uncertainty / obstruction warnings]
     Q --> T[Map rectified pixel centres to normalized 2:1 table coordinates]
     T --> TR[TableTracker compares current layout to previous and stable anchor]
-    TR --> UI[Publish counts, quality, frame age and pass time]
-    UI --> LOG[Append timestamped frame and ball coordinates to image-free JSONL]
-    UI --> CT[Separate count candidate tracker]
+    TR --> CO[Classify every full pass: clear unchanged, movement, obstruction, uncertainty, pending change or settled transition]
+    CO --> UI[Publish counts, check outcome, frame age and pass time]
+    CO --> LOG[Append timestamped frame, checkOutcome and ball coordinates to image-free JSONL]
+    CO --> CT[Separate count candidate and rack tracker]
     CT --> CE{Two eligible inventories and rack flags agree
     on a changed observation?}
-    CE -- yes --> EVENT[Show possible pot, returned balls, inventory change or detected rack]
+    CE -- yes --> EVENT[Append typed count / rack candidate]
     CE -- no --> LOOP
-    EVENT --> LOOP
-    L -. every 30 seconds .-> CLIP[Request a saved camera clip; log request / receipt]
+    CO --> ST[StableTableChangeTracker compares clear layouts to baseline]
+    ST --> SET{Three matching clear samples settle a changed layout?}
+    SET -- no --> LOOP
+    SET -- yes --> E[Append typed event with before/after counts, positions and source PTS]
+    EVENT --> E
+    E --> SHOT{Non-rack movement activity settles as a pot candidate,
+    no-pot observation or mixed inventory change?}
+    SHOT -- no --> LOOP
+    SHOT -- yes --> WAIT[Wait 2 seconds for post-roll]
+    WAIT --> CLIP[Request supported recent clip; link activity / event IDs,
+    intended PTS window and returned clip origin / coverage]
     CLIP --> LOOP
 ```
 
-`Start live session` starts the camera path; `Start live detect` requires that session and saved calibration and never starts capture itself. Live Detect does not need a match, run shot planning, write to `GameState`, or confirm a pot. The clip-save timer is a side branch and does not change the image-analysis result.
+`Start live session` starts the camera path; `Start live detect` requires that session and saved calibration and never starts capture itself. Every full pass is recorded with its `checkOutcome`, while typed events mark meaningful transitions. Live Detect does not need a match, run shot planning, write to `GameState`, or confirm a pot. Event clips start only after a qualifying settled result; there is no periodic timer clip.
 
 ## Perspective correction and image branches
 
@@ -46,7 +56,7 @@ flowchart TD
 4. **Two rectified image versions:** the analyzer retains the perspective-warped image before illumination adjustment (`rawWarped`) and makes a copy that can receive local illumination normalization (`warped`). It derives HSV and masks from these branches. The main detector receives normalized HSV, while selected body/boundary support inputs use the raw or normalized rectified branch according to diagnostic settings. This is why `UseNormalizedGeometryForDetection = false` does **not** mean “no perspective correction”; it selects the unnormalized rectified support image. The name `rawWarped` means raw lighting, not raw camera perspective.
 5. **Candidates and checks:** the detector combines Hough and colour-body proposals with bounded packed-rack and cue recovery. It checks pocket exclusions, cloth contrast, duplicates and fitted boundary support; it constrains colour inventory and marks unresolved counts, overlaps, weak boundaries, pocket ambiguity and obstructions uncertain. Those gates can keep the layout untrusted even when some balls were found.
 6. **Coordinates:** detected centre pixels are in the rectified analysis raster. [`AnalysisCoordinates.ToTable`](../src/SkyEye.Core/Analysis/AnalysisCoordinates.cs) converts them to normalized table coordinates with long-axis range 0–2 and short-axis range 0–1. They are not camera-image pixels. Overlay code that draws a detector centre on the original camera image must apply the matching inverse calibration transform and source dimensions exactly once.
-7. **Readiness and events are separate:** [`TableTracker`](../src/SkyEye.Core/Analysis/TableTracker.cs) checks repeated layout agreement, timing, uncertainty and obstruction to establish a settled table. The Live Detect count tracker separately confirms eligible repeated decreases, increases and mixed changes. A full rack event additionally requires repeated complete packed-rack evidence. These observations do not write match history; decreases remain possible-pot candidates.
+7. **Readiness and events are separate:** [`TableTracker`](../src/SkyEye.Core/Analysis/TableTracker.cs) checks repeated layout agreement, timing, uncertainty and obstruction to establish a settled table. `StableTableChangeTracker` independently compares clear before/after layouts; the Live Detect count tracker confirms eligible repeated decreases, increases and mixed changes. Every full pass still has a check outcome when the layout is unchanged or uncertain. A full rack event additionally requires repeated complete packed-rack evidence. These observations do not write match history; decreases remain possible-pot candidates.
 
 The phone's live-view correction is a separate rendering path (`SceneProjection` / TextureView transform). It can make the displayed table look rectangular without running ball detection. Live Detect does not read pixels back from that corrected display; it snapshots decoded pixels and applies the saved calibration inside `VisionAnalyzer`, avoiding dependence on UI layout or accidental double-warping.
 

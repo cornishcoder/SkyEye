@@ -1,6 +1,8 @@
 using SkyEye.Core;
 using SkyEye.Core.Application;
 using SkyEye.Core.Analysis;
+using SkyEye.GameState;
+using System.Collections.Immutable;
 using System.Text.Json;
 
 namespace SkyEye.Companion.Hybrid;
@@ -8,9 +10,11 @@ namespace SkyEye.Companion.Hybrid;
 public sealed partial class ShellSession
 {
     readonly record struct LiveDetectFrameAnchor(long? FrameId, long? SourceTimeUs, DateTimeOffset? CapturedAt);
-    readonly record struct LiveDetectAutoClipContext(SkyEyeState AppState,
-        CameraScope? TableSource, LiveDetectFrameAnchor Frame);
-    const int LiveDetectAutoClipSeconds = 30;
+    readonly record struct LiveDetectEventClipContext(SkyEyeState AppState,
+        CameraScope? TableSource, string? Timeline, LiveDetectFrameAnchor Frame);
+
+    readonly record struct LiveDetectActivity(Guid Id, string Timeline, long StartSourceTimeUs, long StartFrameId,
+        DateTimeOffset StartedAt, string StartReason, bool MovementObserved = false);
 
     CancellationTokenSource? liveDetectCancellation;
     Task? liveDetectTask;
@@ -19,7 +23,7 @@ public sealed partial class ShellSession
     Guid? liveDetectRunId;
     LiveDetectLogStore liveDetectLog = null!;
     string liveDetectStatus = "Live Detect is off.";
-    string liveDetectClipStatus = "Automatic 30-second clips start after Live Detect has run for 30 seconds.";
+    string liveDetectClipStatus = "Shot clips save after a movement event reaches a confirmed settled layout.";
     string liveDetectInventory = "";
     DateTimeOffset? liveDetectReadAt;
     readonly Queue<string> liveDetectEvents = new();
@@ -48,7 +52,7 @@ public sealed partial class ShellSession
     public string LiveDetectReadAt => liveDetectReadAt is { } value ? value.ToLocalTime().ToString("HH:mm:ss") : "";
     public string LiveDetectLogStatus => liveDetectLogError is { Length: > 0 } error
         ? $"Log write failed · {error}"
-        : $"Logged {liveDetectLog.Summary.RetainedFrames} frames · {liveDetectLog.Summary.RetainedClipSaveOperations} automatic clips · GET /api/live-detect-log";
+        : $"Logged {liveDetectLog.Summary.RetainedFrames} frames · {liveDetectLog.Summary.RetainedTableEvents} table events · {liveDetectLog.Summary.RetainedClipSaveOperations} event clips · GET /api/live-detect-log";
     public IReadOnlyList<string> LiveDetectEvents => liveDetectEvents.ToArray();
 
     string LiveDetectUnavailableReason => !CanAnalyzeTable ? "start a live session first"
@@ -129,7 +133,7 @@ public sealed partial class ShellSession
         liveDetectStopReason = null;
         liveDetectLogError = null;
         liveDetectStatus = "Live Detect starting · waiting for the first full analysis.";
-        liveDetectClipStatus = "Automatic 30-second clips start after Live Detect has run for 30 seconds.";
+        liveDetectClipStatus = "Shot clips save after a movement event reaches a confirmed settled layout.";
         liveDetectInventory = "";
         liveDetectReadAt = null;
         liveDetectEvents.Clear();
@@ -162,10 +166,19 @@ public sealed partial class ShellSession
     {
         await Task.Yield();
         var cancellation = operation.Token;
-        var autoClipSaver = RunLiveDetectClipSavesAsync(cancellation, runId, source);
         AppendLiveDetectRunEvent(runId, "started", "Live Detect started.", null);
         var candidateTracker = new LiveDetectCountCandidateTracker();
+        StableTableChangeTracker stableLayoutTracker = new();
         var frameCursor = new LiveDetectFrameCursor();
+        Guid? lastStableChangeId = null;
+        bool? lastClearLayout = null;
+        bool stableBaselineEstablished = false;
+        SettledTableCounts? baselineCounts = null;
+        ImmutableArray<SettledBallPosition> baselineLayout = [];
+        int stableAtBaselineSamples = 0;
+        LiveDetectActivity? activity = null;
+        var eventClipTasks = new List<Task>();
+        using var eventClipSaveGate = new SemaphoreSlim(1, 1);
         int consecutiveAnalysisErrors = 0;
         int consecutiveFrameAcquisitionErrors = 0;
         try
@@ -270,7 +283,18 @@ public sealed partial class ShellSession
                     continue;
                 }
 
-                if (timelineChanged) candidateTracker.Reset();
+                if (timelineChanged)
+                {
+                    candidateTracker.Reset();
+                    stableLayoutTracker = new();
+                    lastStableChangeId = null;
+                    lastClearLayout = null;
+                    stableBaselineEstablished = false;
+                    baselineCounts = null;
+                    baselineLayout = [];
+                    stableAtBaselineSamples = 0;
+                    activity = null;
+                }
                 if (priorMediaGeneration > 0 && receipt.MediaGeneration != priorMediaGeneration)
                     AppendLiveDetectRunEvent(runId, "decoder_recovered",
                         timelineChanged ? "New camera timeline; inventory baseline reset."
@@ -278,16 +302,221 @@ public sealed partial class ShellSession
                 var counts = Count(vision.Balls);
                 bool candidateEligible = !vision.HasUncertainLayout && !vision.Obstructed;
                 var events = new List<string>();
+                var tableEvents = new List<LiveDetectLogTableEvent>();
+                string? passEventType = null;
+                var layout = CaptureLiveDetectLayout(vision.Balls);
+                var settledCounts = new SettledTableCounts(counts.Reds, counts.Yellows, counts.Cue, counts.Black);
+                bool stableSampleEligible = candidateEligible && IsStableLiveDetectInventory(counts)
+                    && layout.Length == counts.Total;
+                var evidenceSource = new EvidenceSource(source.CameraIdentity, observation.Timeline,
+                    state.Generation + 1, calibrationId, source.ConnectionId.ToString("N"));
+                var stableBefore = stableLayoutTracker.Snapshot;
+                var stableSnapshot = stableLayoutTracker.Observe(new StableTableLayoutSample(evidenceSource,
+                    sourceTimeUs, observation.CapturedAt, stableSampleEligible ? settledCounts : new(0, 0, 0, 0),
+                    stableSampleEligible ? layout : [], stableSampleEligible));
+                bool rackEvidence = vision.PackedCluster is { Detected: true, Complete: true }
+                    && counts == new LiveDetectCounts(7, 7, 1, 1, 0);
+
+                void AddTableEvent(string type, string message, Guid? activityId = null,
+                    LiveDetectCounts? before = null, LiveDetectCounts? after = null,
+                    long? beforeSourceTimeUs = null, int? movedBallCount = null,
+                    double? largestMovement = null,
+                    ImmutableArray<SettledBallPosition> beforeLayout = default,
+                    ImmutableArray<SettledBallPosition> afterLayout = default)
+                {
+                    events.Add(message);
+                    tableEvents.Add(new(Guid.NewGuid(), activityId, type, observation.CapturedAt,
+                        source.ConnectionId, receipt.MediaGeneration, receipt.FrameId, sourceTimeUs,
+                        observation.Timeline, calibrationId, message, before, after, beforeSourceTimeUs,
+                        movedBallCount, largestMovement, ToLoggedPositions(beforeLayout),
+                        ToLoggedPositions(afterLayout)));
+                }
+
+                void StartActivity(string reason)
+                {
+                    if (activity is not null || !stableBaselineEstablished) return;
+                    activity = new(Guid.NewGuid(), observation.Timeline, sourceTimeUs, receipt.FrameId, observation.CapturedAt, reason);
+                    AddTableEvent("activity_started", $"Table activity observed · {reason}; waiting for a clear settled result.",
+                        activity.Value.Id, after: ToLiveDetectCounts(baselineCounts));
+                }
+
+                if (stableBefore.BaselineEstablished && lastClearLayout is true && !stableSampleEligible)
+                {
+                    string qualityEvent = vision.Obstructed ? "obstruction_started" : "layout_uncertain";
+                    string qualityMessage = vision.Obstructed
+                        ? "Table view obstructed · positions and inventory cannot confirm an event."
+                        : "Table layout uncertain · retaining the last clear baseline.";
+                    StartActivity(vision.Obstructed ? "obstruction" : "uncertain view");
+                    AddTableEvent(qualityEvent, qualityMessage, activity?.Id,
+                        after: stableSampleEligible ? counts : null);
+                }
+                else if (lastClearLayout is false && stableSampleEligible && activity is not null)
+                {
+                    AddTableEvent("clear_view_returned", "Clear classified view returned · checking for a settled layout.", activity.Value.Id,
+                        after: ToLiveDetectCounts(settledCounts));
+                }
+
+                if (stableBaselineEstablished && stableSampleEligible
+                    && observation.Change is { SpatiallyCompatible: false })
+                {
+                    StartActivity("ball positions or inventory changed");
+                    if (activity is { MovementObserved: false } moving)
+                    {
+                        activity = moving with { MovementObserved = true };
+                        passEventType = "movement_observed";
+                        AddTableEvent("movement_observed", "Ball movement/layout change observed · waiting for the settled result.",
+                            moving.Id, before: ToLiveDetectCounts(baselineCounts), after: ToLiveDetectCounts(settledCounts),
+                            beforeSourceTimeUs: stableSnapshot.BaselineSourceTimeUs);
+                    }
+                }
+                lastClearLayout = stableSampleEligible;
+
                 bool rackReset = false;
                 if (candidateTracker.Observe(sourceTimeUs, counts, candidateEligible,
                     vision.PackedCluster is { Detected: true, Complete: true }) is { } candidate)
                 {
-                    events.AddRange(InventoryEvents(candidate));
+                    string candidateType = candidate.Kind switch
+                    {
+                        LiveDetectChangeKind.Racked => "rack_detected",
+                        LiveDetectChangeKind.Increase => "balls_returned_candidate",
+                        LiveDetectChangeKind.Changed => "table_inventory_changed_candidate",
+                        _ => "possible_pot"
+                    };
+                    passEventType = candidateType;
+                    foreach (var message in InventoryEvents(candidate))
+                        AddTableEvent(candidateType, message, activity?.Id, candidate.Before,
+                            candidate.After, afterLayout: layout);
                     rackReset = candidate.Kind == LiveDetectChangeKind.Racked;
                 }
 
-                var quality = vision.Obstructed ? "obstructed" : vision.HasUncertainLayout ? "uncertain"
-                    : vision.Uncertain ? "clear layout · advice unavailable" : "clear detector output";
+                if (rackReset && activity is { } rackActivity)
+                {
+                    AddTableEvent("activity_ended", "Packed rack detected · closing table activity without a shot clip.", rackActivity.Id,
+                        before: ToLiveDetectCounts(baselineCounts), after: counts);
+                    activity = null;
+                }
+
+                if (!stableBefore.BaselineEstablished && stableSnapshot.BaselineEstablished)
+                {
+                    stableBaselineEstablished = true;
+                    baselineCounts = stableSnapshot.BaselineCounts;
+                    baselineLayout = layout;
+                    stableAtBaselineSamples = 0;
+                    passEventType = "settled_layout_baseline";
+                    AddTableEvent("settled_layout_baseline", $"Stable table baseline established · {counts.Summary}.",
+                        after: counts, afterLayout: layout);
+                }
+
+                var latestStableChange = stableSnapshot.RecentEvents.LastOrDefault();
+                if (latestStableChange is { } settledChange && settledChange.Id != lastStableChangeId)
+                {
+                    lastStableChangeId = settledChange.Id;
+                    baselineCounts = settledChange.After;
+                    baselineLayout = settledChange.AfterLayout;
+                    stableAtBaselineSamples = 0;
+                    bool settledRack = rackEvidence;
+                    bool activityObservedBeforeSettlement = activity is not null;
+                    bool movementObserved = activity is { MovementObserved: true };
+                    if (!settledRack && activity is null)
+                        StartActivity("stable layout transition confirmed");
+                    bool sameInventory = settledChange.Before == settledChange.After;
+                    var beforeCounts = ToLiveDetectCounts(settledChange.Before);
+                    var afterCounts = ToLiveDetectCounts(settledChange.After);
+                    bool countDecreased = beforeCounts is { } beforeInventory && afterCounts is { } afterInventory
+                        && (afterInventory.Reds < beforeInventory.Reds || afterInventory.Yellows < beforeInventory.Yellows
+                            || afterInventory.Black < beforeInventory.Black || afterInventory.Cue < beforeInventory.Cue);
+                    bool countIncreased = beforeCounts is { } beforeInventory2 && afterCounts is { } afterInventory2
+                        && (afterInventory2.Reds > beforeInventory2.Reds || afterInventory2.Yellows > beforeInventory2.Yellows
+                            || afterInventory2.Black > beforeInventory2.Black || afterInventory2.Cue > beforeInventory2.Cue);
+                    string settledType = settledRack ? "rack_layout_settled"
+                        : sameInventory ? movementObserved ? "no_pot_observed"
+                            : activityObservedBeforeSettlement ? "settled_layout_change_unclassified" : "layout_changed_without_activity_boundary"
+                        : countDecreased && !countIncreased ? "possible_pot_settled"
+                        : countIncreased && !countDecreased ? "balls_returned_settled"
+                        : "settled_inventory_change";
+                    passEventType = settledType;
+                    string settledMessage = settledRack
+                        ? "Packed rack reached a stable layout; inventory baseline advanced."
+                        : sameInventory
+                            ? settledType switch
+                            {
+                                "no_pot_observed" => $"No pot observed after movement · inventory unchanged; {settledChange.MovedBallCount ?? 0} ball(s) moved. Shooter/legality and turn are not inferred.",
+                                "settled_layout_change_unclassified" => $"Stable layout changed during an activity · inventory unchanged; {settledChange.MovedBallCount ?? 0} ball(s) moved, but movement was not independently observed. No shot outcome inferred.",
+                                _ => $"Stable layout changed without an activity boundary · inventory unchanged; {settledChange.MovedBallCount ?? 0} ball(s) moved. No shot outcome inferred."
+                            }
+                            : countDecreased && !countIncreased
+                                ? $"Settled inventory decrease · possible pot; {BuildLiveDetectCountSummary(settledChange.After)}."
+                                : countIncreased && !countDecreased
+                                    ? $"Settled inventory increase · balls returned; {BuildLiveDetectCountSummary(settledChange.After)}."
+                                    : $"Settled table change · {BuildLiveDetectCountSummary(settledChange.After)}.";
+                    AddTableEvent(settledType, settledMessage, activity?.Id,
+                        ToLiveDetectCounts(settledChange.Before), ToLiveDetectCounts(settledChange.After),
+                        settledChange.BeforeLayoutSourceTimeUs ?? settledChange.BeforeSourceTimeUs,
+                        settledChange.MovedBallCount, settledChange.LargestMovement,
+                        settledChange.BeforeLayout, settledChange.AfterLayout);
+
+                    if (activity is { } settledActivity)
+                    {
+                        AddTableEvent("activity_ended", settledMessage, settledActivity.Id,
+                            ToLiveDetectCounts(settledChange.Before), ToLiveDetectCounts(settledChange.After),
+                            settledChange.BeforeLayoutSourceTimeUs ?? settledChange.BeforeSourceTimeUs,
+                            settledChange.MovedBallCount, settledChange.LargestMovement,
+                            settledChange.BeforeLayout, settledChange.AfterLayout);
+                        if (!settledRack && settledType is ("no_pot_observed" or "possible_pot_settled" or "settled_inventory_change"))
+                        {
+                            eventClipTasks.RemoveAll(task => task.IsCompleted);
+                            eventClipTasks.Add(SaveLiveDetectEventClipAsync(runId, source, settledActivity,
+                                settledType, sourceTimeUs, eventClipSaveGate));
+                        }
+                        activity = null;
+                    }
+                }
+
+                if (stableSampleEligible && stableBaselineEstablished && activity is not null
+                    && baselineCounts == settledCounts
+                    && SettledLayoutReconciler.SameLayout(baselineLayout, layout,
+                        SettledLayoutReconciler.MovementThreshold))
+                    stableAtBaselineSamples++;
+                else stableAtBaselineSamples = 0;
+
+                if (activity is { } unchangedActivity && stableAtBaselineSamples >= StableTableChangeTracker.RequiredStableSamples)
+                {
+                    AddTableEvent("activity_ended_without_layout_change",
+                        "Activity ended with the previous clear layout and inventory unchanged; no shot outcome inferred.",
+                        unchangedActivity.Id, before: ToLiveDetectCounts(baselineCounts), after: counts,
+                        beforeSourceTimeUs: stableSnapshot.BaselineSourceTimeUs, afterLayout: layout);
+                    passEventType = "activity_ended_without_layout_change";
+                    if (unchangedActivity.MovementObserved)
+                    {
+                        eventClipTasks.RemoveAll(task => task.IsCompleted);
+                        eventClipTasks.Add(SaveLiveDetectEventClipAsync(runId, source, unchangedActivity,
+                            "activity_ended_without_layout_change", sourceTimeUs, eventClipSaveGate));
+                    }
+                    activity = null;
+                    stableAtBaselineSamples = 0;
+                }
+
+                string checkOutcome;
+                if (vision.Obstructed) checkOutcome = "obstructed";
+                else if (vision.HasUncertainLayout) checkOutcome = "layout_uncertain";
+                else if (passEventType is not null) checkOutcome = passEventType;
+                else if (!stableBaselineEstablished) checkOutcome = "baseline_pending";
+                else if (baselineCounts == settledCounts
+                    && SettledLayoutReconciler.SameLayout(baselineLayout, layout)) checkOutcome = "clear_unchanged";
+                else if (baselineCounts == settledCounts) checkOutcome = "layout_change_pending";
+                else checkOutcome = "inventory_change_pending";
+                string quality = checkOutcome switch
+                {
+                    "obstructed" => "obstructed",
+                    "layout_uncertain" => "uncertain layout",
+                    "baseline_pending" => "establishing baseline",
+                    "clear_unchanged" => "clear · unchanged",
+                    "layout_change_pending" => "clear · layout changing",
+                    "inventory_change_pending" => "clear · inventory changing",
+                    _ => checkOutcome.Replace('_', ' ')
+                };
+                if (vision.Uncertain && !vision.HasUncertainLayout && !vision.Obstructed)
+                    quality += " · advice unavailable";
                 var ageSeconds = Math.Max(0, observation.FrameAgeMs) / 1000;
                 try
                 {
@@ -300,7 +529,9 @@ public sealed partial class ShellSession
                         vision.ElapsedMs, System.Diagnostics.Stopwatch.GetElapsedTime(passStart).TotalMilliseconds,
                         vision.Warnings.ToArray(), vision.Balls.Select(ball => new LiveDetectLoggedBall(
                             ball.Id, ball.Kind, ball.Position.X, ball.Position.Y, ball.Confidence)).ToArray(),
-                        events.ToArray()));
+                        events.ToArray(), checkOutcome));
+                    foreach (var tableEvent in tableEvents)
+                        liveDetectLog.AppendTableEvent(runId, tableEvent.CapturedAt, tableEvent);
                     liveDetectLogError = null;
                 }
                 catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException)
@@ -314,11 +545,10 @@ public sealed partial class ShellSession
                     liveDetectReadAt = observation.CapturedAt;
                     liveDetectStatus = $"Live Detect running · full pass {vision.ElapsedMs / 1000:0.0}s.";
                     liveDetectInventory = $"{counts.Total} detected · {counts.Summary} · {quality} · frame age {ageSeconds:0.0}s";
-                    if (rackReset) liveDetectEvents.Clear();
                     foreach (var item in events)
                     {
                         liveDetectEvents.Enqueue($"{observation.CapturedAt.ToLocalTime():HH:mm:ss} · {item}");
-                        while (liveDetectEvents.Count > 3) liveDetectEvents.Dequeue();
+                        while (liveDetectEvents.Count > 12) liveDetectEvents.Dequeue();
                     }
                     Changed?.Invoke();
                 });
@@ -333,8 +563,8 @@ public sealed partial class ShellSession
         finally
         {
             if (!cancellation.IsCancellationRequested) operation.Cancel();
-            try { await autoClipSaver; }
-            catch (OperationCanceledException) { }
+            try { await Task.WhenAll(eventClipTasks); }
+            catch (Exception) { }
             AppendLiveDetectRunEvent(runId, "stopped", liveDetectStopReason ?? "Live Detect stopped.", null);
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
@@ -344,8 +574,8 @@ public sealed partial class ShellSession
                     liveDetectRunId = null;
                     liveDetectStatus = liveDetectStopReason ?? "Live Detect stopped.";
                     liveDetectStopReason = null;
-                    if (liveDetectClipStatus.StartsWith("Automatic 30-second clips start", StringComparison.Ordinal))
-                        liveDetectClipStatus = "Live Detect stopped before the first automatic clip interval completed.";
+                    if (liveDetectClipStatus.StartsWith("Shot clips save after a movement event", StringComparison.Ordinal))
+                        liveDetectClipStatus = "Live Detect stopped before a settled table event was ready for a clip.";
                     if (VisionDashboardActive) visionDashboardSamplingPaused = false;
                     if (resumeDiagnostics && !disposed && CanStartVisionDiagnostics)
                     {
@@ -364,96 +594,127 @@ public sealed partial class ShellSession
         }
     }
 
-    async Task RunLiveDetectClipSavesAsync(CancellationToken cancellation, Guid runId, CameraScope source)
+    async Task SaveLiveDetectEventClipAsync(Guid runId, CameraScope source, LiveDetectActivity activity,
+        string eventType, long settledSourceTimeUs, SemaphoreSlim saveGate)
     {
-        long intervalTicks = LiveDetectAutoClipSeconds * (long)System.Diagnostics.Stopwatch.Frequency;
-        long nextSaveAt = System.Diagnostics.Stopwatch.GetTimestamp() + intervalTicks;
+        long saveScheduledAt = System.Diagnostics.Stopwatch.GetTimestamp();
+        await Task.Delay(TimeSpan.FromSeconds(LiveDetectShotClipWindowPolicy.PostRollSeconds));
+        await saveGate.WaitAsync();
         try
         {
-            while (true)
+            var context = await MainThread.InvokeOnMainThreadAsync(() =>
             {
-                long remaining = nextSaveAt - System.Diagnostics.Stopwatch.GetTimestamp();
-                if (remaining > 0)
-                    await Task.Delay(TimeSpan.FromSeconds(remaining / (double)System.Diagnostics.Stopwatch.Frequency), cancellation);
-                cancellation.ThrowIfCancellationRequested();
-                await SaveLiveDetectClipAsync(cancellation, runId, source);
-                long now = System.Diagnostics.Stopwatch.GetTimestamp();
-                nextSaveAt += intervalTicks;
-                if (nextSaveAt <= now) nextSaveAt = now + intervalTicks;
+                var tableState = table.State;
+                var observation = tableState.Observation;
+                var receipt = observation?.DecodedReceipt;
+                return new LiveDetectEventClipContext(app.State, tableState.Source, observation?.Timeline,
+                    new(receipt?.FrameId, observation?.SourceTimeUs, observation?.CapturedAt));
+            });
+            long elapsedUs = (long)(System.Diagnostics.Stopwatch.GetElapsedTime(saveScheduledAt).TotalMilliseconds * 1000);
+            long estimatedRequestSourceTimeUs = Math.Max(context.Frame.SourceTimeUs ?? settledSourceTimeUs,
+                checked(settledSourceTimeUs + elapsedUs));
+            if (context.Timeline != activity.Timeline || !LiveDetectShotClipWindowPolicy.TryCreate(activity.Id,
+                activity.Timeline, activity.StartSourceTimeUs, settledSourceTimeUs,
+                estimatedRequestSourceTimeUs, out var window))
+            {
+                var skippedAt = DateTimeOffset.UtcNow;
+                await SetLiveDetectClipStatusAsync(context.Timeline != activity.Timeline
+                    ? "Event clip skipped · camera timeline changed before the clip could be saved."
+                    : "Event clip skipped · the padded shot window exceeds the camera's supported save range.");
+                AppendLiveDetectTableEvent(runId, skippedAt, new(Guid.NewGuid(), activity.Id,
+                    "event_clip_skipped", skippedAt, source.ConnectionId,
+                    table.State.Observation?.MediaGeneration ?? 0, table.State.Observation?.DecodedReceipt?.FrameId ?? 0,
+                    context.Frame.SourceTimeUs ?? settledSourceTimeUs, context.Timeline ?? "", table.State.CalibrationId,
+                    context.Timeline != activity.Timeline
+                        ? "Event clip skipped because the camera timeline changed before saving."
+                        : "Event clip skipped because its padded range exceeds the supported camera save window.",
+                    null, null, activity.StartSourceTimeUs, null, null));
+                return;
             }
-        }
-        catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { }
-    }
 
-    async Task SaveLiveDetectClipAsync(CancellationToken cancellation, Guid runId, CameraScope source)
-    {
-        cancellation.ThrowIfCancellationRequested();
-        var context = await MainThread.InvokeOnMainThreadAsync(() =>
-        {
-            var observation = table.State.Observation;
-            var receipt = observation?.DecodedReceipt;
-            return new LiveDetectAutoClipContext(app.State, table.State.Source,
-                new(receipt?.FrameId, observation?.SourceTimeUs, observation?.CapturedAt));
-        });
-        var camera = context.AppState.Camera;
-        var operationId = Guid.NewGuid();
-        var requestedAt = DateTimeOffset.UtcNow;
-        var anchor = context.Frame;
-        var requested = new LiveDetectLogClipSave(operationId, "requested", requestedAt, null,
-            LiveDetectAutoClipSeconds, "Pending", "Automatic Live Detect clip save requested.",
-            anchor.FrameId, anchor.SourceTimeUs, anchor.CapturedAt,
-            null, null, null, null, null, null, null, null, null);
-        AppendLiveDetectClipSave(runId, requestedAt, requested);
+            var camera = context.AppState.Camera;
+            var operationId = Guid.NewGuid();
+            var requestedAt = DateTimeOffset.UtcNow;
+            var anchor = context.Frame;
+            var requested = new LiveDetectLogClipSave(operationId, "requested", requestedAt, null,
+                window.SaveSeconds, "Pending", $"Event clip requested for {eventType}.",
+                anchor.FrameId, anchor.SourceTimeUs, anchor.CapturedAt,
+                null, null, null, null, null, null, null, null, null,
+                activity.Id, eventType, window.Timeline, window.StartSourceTimeUs, window.EndSourceTimeUs);
+            AppendLiveDetectClipSave(runId, requestedAt, requested);
 
-        if (!camera.CanControl || camera.Capture != CaptureState.Active || camera.Scope != source
-            || context.TableSource != source)
-        {
-            var skipped = requested with { Stage = "completed", CompletedAt = DateTimeOffset.UtcNow,
-                Outcome = "Skipped", Message = "Camera host, capture, or live source was no longer available." };
-            AppendLiveDetectClipSave(runId, skipped.CompletedAt.Value, skipped);
-            await SetLiveDetectClipStatusAsync($"Automatic clip skipped · camera session is no longer active.");
-            return;
-        }
+            if (!camera.CanControl || camera.Capture != CaptureState.Active || camera.Scope != source
+                || context.TableSource != source || context.Timeline != window.Timeline)
+            {
+                var skipped = requested with { Stage = "completed", CompletedAt = DateTimeOffset.UtcNow,
+                    Outcome = "Skipped", Message = "Camera host, capture, or live source was no longer available." };
+                AppendLiveDetectClipSave(runId, skipped.CompletedAt.Value, skipped);
+                await SetLiveDetectClipStatusAsync("Event clip skipped · camera session is no longer active.");
+                return;
+            }
 
-        await SetLiveDetectClipStatusAsync($"Saving automatic {LiveDetectAutoClipSeconds}-second clip…");
-        CommandReceipt receipt;
-        try
-        {
-            var saveScope = new ClipSaveScope(source.CameraIdentity, source.SessionId,
-                source.HostGeneration, source.CaptureRevision);
-            receipt = await app.DispatchAsync(new(operationId, CommandOrigin.System,
-                context.AppState.Version, new SaveClip(LiveDetectAutoClipSeconds, saveScope)), CancellationToken.None);
-        }
-        catch (Exception)
-        {
-            receipt = new(operationId, CommandOutcome.Uncertain, context.AppState.Version,
-                "Automatic clip save result is unknown. Check saved camera clips before concluding it failed.");
-        }
+            await SetLiveDetectClipStatusAsync($"Saving {window.SaveSeconds}-second clip for the settled table event…");
+            CommandReceipt saveReceipt;
+            try
+            {
+                var saveScope = new ClipSaveScope(source.CameraIdentity, source.SessionId,
+                    source.HostGeneration, source.CaptureRevision);
+                saveReceipt = await app.DispatchAsync(new(operationId, CommandOrigin.System,
+                    context.AppState.Version, new SaveClip(window.SaveSeconds, saveScope)), CancellationToken.None);
+            }
+            catch (Exception)
+            {
+                saveReceipt = new(operationId, CommandOutcome.Uncertain, context.AppState.Version,
+                    "Event clip save result is unknown. Check saved camera clips before concluding it failed.");
+            }
 
-        var acknowledgement = await MainThread.InvokeOnMainThreadAsync(() =>
+            var acknowledgement = await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                var observation = table.State.Observation;
+                var decoded = observation?.DecodedReceipt;
+                return new LiveDetectFrameAnchor(decoded?.FrameId, observation?.SourceTimeUs, observation?.CapturedAt);
+            });
+            var completedAt = DateTimeOffset.UtcNow;
+            var clip = saveReceipt.SavedClip;
+            bool? windowCovered = clip?.RecordingOrigin is { } clipOrigin
+                ? clipOrigin.Timeline == window.Timeline
+                    && clipOrigin.StartUs <= window.StartSourceTimeUs
+                    && clipOrigin.StartUs + (long)(clip.Duration * 1_000_000) >= window.EndSourceTimeUs
+                : null;
+            var completed = requested with
+            {
+                Stage = "completed", CompletedAt = completedAt, Outcome = saveReceipt.Outcome.ToString(),
+                Message = saveReceipt.Message, AcknowledgementFrameId = acknowledgement.FrameId,
+                AcknowledgementSourceTimeUs = acknowledgement.SourceTimeUs,
+                AcknowledgementFrameCapturedAt = acknowledgement.CapturedAt,
+                ClipId = clip?.Id, ClipName = clip?.Name, ClipDurationSeconds = clip?.Duration,
+                ClipCreatedAt = clip?.CreatedAt, ClipBytes = clip?.Bytes, ClipSha256 = clip?.Sha256,
+                ClipStartSourceTimeUs = clip?.RecordingOrigin?.StartUs,
+                ClipTimeline = clip?.RecordingOrigin?.Timeline, WindowCovered = windowCovered
+            };
+            AppendLiveDetectClipSave(runId, completedAt, completed);
+            await SetLiveDetectClipStatusAsync(saveReceipt.Succeeded && clip is not null
+                ? windowCovered == true
+                    ? $"Event clip saved · {clip.Duration:0}s · shot window covered."
+                    : $"Event clip saved · {clip.Duration:0}s · source-window coverage unverified."
+                : saveReceipt.Outcome == CommandOutcome.Uncertain
+                    ? "Event clip save uncertain · check saved clips before concluding it failed."
+                    : $"Event clip save failed · {saveReceipt.Message}");
+        }
+        catch (Exception error)
         {
-            var observation = table.State.Observation;
-            var decoded = observation?.DecodedReceipt;
-            return new LiveDetectFrameAnchor(decoded?.FrameId, observation?.SourceTimeUs, observation?.CapturedAt);
-        });
-        var completedAt = DateTimeOffset.UtcNow;
-        var clip = receipt.SavedClip;
-        var outcome = receipt.Outcome.ToString();
-        var completed = requested with
-        {
-            Stage = "completed", CompletedAt = completedAt, Outcome = outcome,
-            Message = receipt.Message, AcknowledgementFrameId = acknowledgement.FrameId,
-            AcknowledgementSourceTimeUs = acknowledgement.SourceTimeUs,
-            AcknowledgementFrameCapturedAt = acknowledgement.CapturedAt,
-            ClipId = clip?.Id, ClipName = clip?.Name, ClipDurationSeconds = clip?.Duration,
-            ClipCreatedAt = clip?.CreatedAt, ClipBytes = clip?.Bytes, ClipSha256 = clip?.Sha256
-        };
-        AppendLiveDetectClipSave(runId, completedAt, completed);
-        await SetLiveDetectClipStatusAsync(receipt.Succeeded && clip is not null
-            ? $"Automatic clip saved · {clip.Duration:0.0}s · {completedAt.ToLocalTime():HH:mm:ss}."
-            : receipt.Outcome == CommandOutcome.Uncertain
-                ? "Automatic clip save uncertain · check saved clips before concluding it failed."
-                : $"Automatic clip save failed · {receipt.Message}");
+            var recordedAt = DateTimeOffset.UtcNow;
+            var state = table.State;
+            var observation = state.Observation;
+            AppendLiveDetectTableEvent(runId, recordedAt, new(Guid.NewGuid(), activity.Id,
+                "event_clip_failed", recordedAt, source.ConnectionId, observation?.MediaGeneration ?? 0,
+                observation?.DecodedReceipt?.FrameId ?? 0, observation?.SourceTimeUs ?? settledSourceTimeUs,
+                observation?.Timeline ?? "", state.CalibrationId,
+                $"Event clip save failed before confirmation ({error.GetType().Name}).", null, null,
+                activity.StartSourceTimeUs, null, null));
+            await SetLiveDetectClipStatusAsync($"Event clip failed · {error.GetType().Name}.");
+        }
+        finally { saveGate.Release(); }
     }
 
     void AppendLiveDetectClipSave(Guid runId, DateTimeOffset recordedAt, LiveDetectLogClipSave save)
@@ -461,6 +722,19 @@ public sealed partial class ShellSession
         try
         {
             liveDetectLog.AppendClipSave(runId, recordedAt, save);
+            liveDetectLogError = null;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException)
+        {
+            liveDetectLogError = "storage unavailable";
+        }
+    }
+
+    void AppendLiveDetectTableEvent(Guid runId, DateTimeOffset recordedAt, LiveDetectLogTableEvent tableEvent)
+    {
+        try
+        {
+            liveDetectLog.AppendTableEvent(runId, recordedAt, tableEvent);
             liveDetectLogError = null;
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException)
@@ -509,6 +783,45 @@ public sealed partial class ShellSession
         }
         return new(reds, yellows, black, cue, other);
     }
+
+    static ImmutableArray<SettledBallPosition> CaptureLiveDetectLayout(Ball[] balls)
+    {
+        if (balls is null || balls.Length is < 1 or > 16) return [];
+        var result = ImmutableArray.CreateBuilder<SettledBallPosition>(balls.Length);
+        foreach (var ball in balls)
+        {
+            BallColour colour = ball.Kind.Trim().ToLowerInvariant() switch
+            {
+                "red" => BallColour.Red,
+                "yellow" => BallColour.Yellow,
+                "black" => BallColour.Black,
+                "cue" or "cue ball" or "cue-ball" => BallColour.Cue,
+                _ => BallColour.Unknown
+            };
+            double x = ball.Position.X / 2d, y = ball.Position.Y;
+            if (colour == BallColour.Unknown || !double.IsFinite(x) || !double.IsFinite(y)
+                || x is < 0 or > 1 || y is < 0 or > 1) return [];
+            result.Add(new(colour, x, y));
+        }
+        return result.ToImmutable();
+    }
+
+    static bool IsStableLiveDetectInventory(LiveDetectCounts counts) =>
+        counts.Reds is >= 0 and <= 7 && counts.Yellows is >= 0 and <= 7
+        && counts.Black is 0 or 1 && counts.Cue is 0 or 1 && counts.Other == 0
+        && counts.Total is > 0 and <= 16;
+
+    static LiveDetectCounts? ToLiveDetectCounts(SettledTableCounts? counts) =>
+        counts is { IsComplete: true }
+            ? new(counts.Reds!.Value, counts.Yellows!.Value, counts.BlackBalls!.Value, counts.CueBalls!.Value, 0)
+            : null;
+
+    static LiveDetectLoggedPosition[]? ToLoggedPositions(ImmutableArray<SettledBallPosition> layout) =>
+        layout.IsDefaultOrEmpty ? null : layout.Select(ball => new LiveDetectLoggedPosition(
+            ball.Colour.ToString(), ball.X, ball.Y)).ToArray();
+
+    static string BuildLiveDetectCountSummary(SettledTableCounts counts) =>
+        $"{counts.Reds} reds · {counts.Yellows} yellows · {counts.BlackBalls} black · {counts.CueBalls} cue ball";
 
     static IEnumerable<string> PossiblePotEvents(LiveDetectCounts before, LiveDetectCounts after)
     {

@@ -32,6 +32,32 @@ internal static class LiveDetectLogStoreChecks
                 && reopened.ReadLast(1).Records.Single().RunEvent?.FrameId == 599,
                 "retained byte-bounded records remain readable after reopening the store");
 
+            var eventPath = Path.Combine(directory, "table-events.jsonl");
+            var eventStore = new LiveDetectLogStore(eventPath);
+            var tableEventAt = start.AddSeconds(1);
+            var tableEvent = new LiveDetectLogTableEvent(Guid.NewGuid(), Guid.NewGuid(), "no_pot_observed",
+                tableEventAt, Guid.NewGuid(), 4, 81, 9_876_543, Guid.NewGuid().ToString("N"), "calibration",
+                "Stable same-inventory layout change.", new(7, 4, 1, 1, 0), new(7, 4, 1, 1, 0),
+                9_000_000, 2, .12);
+            eventStore.AppendTableEvent(runId, tableEventAt, tableEvent);
+            var eventReadout = eventStore.ReadLast(1);
+            Require(eventReadout.Summary.RetainedTableEvents == 1
+                && eventReadout.Records.Single().TableEvent?.SourceTimeUs == 9_876_543
+                && eventReadout.Records.Single().TableEvent?.ActivityId == tableEvent.ActivityId,
+                "table events retain typed kinds, activity identity and source timestamps");
+            Require(new LiveDetectLogStore(eventPath).Summary.RetainedTableEvents == 1,
+                "table event counts and records survive log-store reopening");
+
+            var framePath = Path.Combine(directory, "classified-checks.jsonl");
+            var frameStore = new LiveDetectLogStore(framePath);
+            var checkAt = start.AddSeconds(2);
+            var frame = new LiveDetectLogFrame(checkAt, 12, Guid.NewGuid(), 3, 82, 9_987_654,
+                9_987_654, 1_234_567, Guid.NewGuid().ToString("N"), "decoded-frame", "calibration",
+                16, 7, 7, 1, 1, 0, false, false, false, 22, 45, [], [], [], "clear_unchanged");
+            frameStore.AppendFrame(runId, checkAt, frame);
+            Require(new LiveDetectLogStore(framePath).ReadLast(1).Records.Single().Frame?.CheckOutcome == "clear_unchanged",
+                "every full analysis check records its typed outcome, including unchanged layouts");
+
             var countPath = Path.Combine(directory, "record-cap.jsonl");
             var countStore = new LiveDetectLogStore(countPath);
             for (int index = 0; index <= LiveDetectLogStore.MaximumRetainedRecords; index++)
