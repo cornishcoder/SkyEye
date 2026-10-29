@@ -42,7 +42,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 settings.DarkBodyValueCeiling, settings.VerificationBodyRefinement,
                 settings.PackedColourBoundarySearchExtentFraction
             };
-            const string algorithm = "body-priority-packed-colour-peaks-v17-supported-shadow-groups";
+            const string algorithm = "body-priority-packed-colour-peaks-v18-supported-pocket-bodies";
             object identity = settings.UseNormalizedGeometryForDetection || settings.UseNormalizedPackedColourProposalMask
                 ? new
                 {
@@ -374,7 +374,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             warnings.Add("No validated burst colour reference; raw colour labels are retained for layout review, not advice.");
         }
         if (uncertain) warnings.Add("Check uncertain colours or ball counts before using advice.");
-        if (PocketColourNeedsReview(pixels)) { uncertain = layoutUncertain = true; warnings.Add("Check a coloured ball at a pocket opening; the pocket mask may hide part of it."); }
+        if (PocketColourNeedsReview(pixels, rawWarped.Value, ordered, labels, boundaryColourMask, out var pocketColourAudit))
+        { uncertain = layoutUncertain = true; warnings.Add("Check a coloured ball at a pocket opening; the pocket mask may hide part of it."); }
         Circle[] recognizedBallCircles = ordered.Where((_, index) => labels[index].Kind != "unknown").ToArray();
         bool completePackedCluster = packedCluster.Detected && !packedClusterUnresolved;
         bool obstructed = LargeObstruction(rawHsv.Value, rawHsvPixels, recognizedBallCircles, completePackedCluster, out var obstructionAudit);
@@ -395,6 +396,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 packedCluster.RedCentres, packedCluster.YellowCentres, packedCluster.BlackCentre),
             LayoutUncertain = layoutUncertain,
             ObstructionAudit = obstructionAudit,
+            PocketColourAudit = pocketColourAudit,
             BoundaryAudits = boundaryAudits.ToArray(), CandidateAudits = candidateAudits?.ToArray() ?? [] };
     }
     IlluminationTelemetry NormalizeIllumination(Mat image, CancellationToken cancellation)
@@ -838,20 +840,71 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         return triggeringComponents > 0;
     }
     Point[] PocketCentres() => [new(0, 0), new(coordinates.Width, 0), new(0, coordinates.Width), new(coordinates.Width, coordinates.Width), new(0, coordinates.Height), new(coordinates.Width, coordinates.Height)];
-    bool PocketColourNeedsReview(byte[] pixels)
+    bool PocketColourNeedsReview(byte[] pixels, Mat rawImage, Circle[] circles, BallClassification[] labels,
+        BoundaryColourMask colourMask, out PocketColourAuditTelemetry audit)
     {
         double scale = coordinates.Width / 1000.0, radius = settings.PocketExclusionRadius * scale;
+        double threshold = 100 * scale * scale, expectedRadius = PoolGeometry.Radius * coordinates.Width;
+        byte[]? raw = null;
+        var pockets = new List<PocketColourRegionAudit>();
+        bool IsPocketColour(int offset) => pixels[offset + 1] > 120 && pixels[offset + 2] > 100
+            && (pixels[offset] <= 37 || pixels[offset] >= 163);
         foreach (var pocket in PocketCentres())
         {
             int coloured = 0;
             ForPixels(new(pocket.X, pocket.Y, radius), 1, (x, y) =>
             {
                 int i = (y * coordinates.Width + x) * 3;
-                if (pixels[i + 1] > 120 && pixels[i + 2] > 100 && (pixels[i] <= 37 || pixels[i] >= 163)) coloured++;
+                if (IsPocketColour(i)) coloured++;
             });
-            if (coloured > 100 * scale * scale) return true;
+            if (coloured <= threshold)
+            {
+                pockets.Add(new(pocket, coloured, 0, coloured, 0, false));
+                continue;
+            }
+            // A detected ball outside the exclusion can still paint pixels inside
+            // it. Explain only an accepted red's inner body, with independent
+            // raw-image boundary support, including the arc facing the opening.
+            // Hidden/partial bodies and unexplained colour retain the old guard.
+            var supported = new List<Circle>();
+            for (int n = 0; n < circles.Length; n++)
+            {
+                var circle = circles[n]; string kind = labels[n].Kind;
+                if (kind != "red") continue;
+                var centre = new Point(circle.X, circle.Y); double distance = (centre - pocket).Length;
+                if (distance < radius || distance >= radius + circle.Radius) continue;
+                raw ??= Read(rawImage);
+                var fit = BallBoundaryRefiner.Refine(raw, coordinates.Width, coordinates.Height, centre, expectedRadius,
+                    minimumSupportedFraction: .75, collectSectorEvidence: true, expectedKind: kind, colourMask: colourMask);
+                if (fit is null || fit.SupportedSectors < .75 || fit.SectorEvidence.Length != 32 ||
+                    (fit.Centre - centre).Length > expectedRadius * .25 ||
+                    Math.Abs(fit.Radius - circle.Radius) > expectedRadius * .25 ||
+                    fit.Centre.X < fit.Radius || fit.Centre.Y < fit.Radius ||
+                    fit.Centre.X > coordinates.Width - fit.Radius || fit.Centre.Y > coordinates.Height - fit.Radius ||
+                    PocketCentres().Any(p => (fit.Centre - p).Length < radius)) continue;
+                var towardPocket = pocket - fit.Centre; double pocketDistance = towardPocket.Length;
+                bool pocketArcSupported = fit.SectorEvidence.Where(sector =>
+                {
+                    var direction = sector.OuterPoint - fit.Centre;
+                    return (direction.X * towardPocket.X + direction.Y * towardPocket.Y)
+                        / (direction.Length * pocketDistance) >= Math.Sqrt(.5);
+                }).All(sector => sector.Supported);
+                if (pocketArcSupported) supported.Add(new(fit.Centre.X, fit.Centre.Y, fit.Radius * .95));
+            }
+            int explained = 0;
+            ForPixels(new(pocket.X, pocket.Y, radius), 1, (x, y) =>
+            {
+                int i = (y * coordinates.Width + x) * 3;
+                if (!IsPocketColour(i)) return;
+                if (supported.Any(ball =>
+                    (x - ball.X) * (x - ball.X) + (y - ball.Y) * (y - ball.Y)
+                        <= ball.Radius * ball.Radius)) explained++;
+            });
+            int unexplained = coloured - explained;
+            pockets.Add(new(pocket, coloured, explained, unexplained, supported.Count, unexplained > threshold));
         }
-        return false;
+        audit = new(coordinates.Width, coordinates.Height, radius, threshold, pockets.ToArray());
+        return pockets.Any(pocket => pocket.NeedsReview);
     }
     BallClassification Classify(Circle circle, byte[] hsv, bool inspectRim = false,
         bool allowWarmNeutralCueCandidate = false)

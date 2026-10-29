@@ -36,7 +36,8 @@ internal sealed record LiveDetectLogFrame(DateTimeOffset CapturedAt, double Fram
     string[] Warnings, LiveDetectLoggedBall[] Balls, string[] Events, string CheckOutcome,
     bool? SpatiallyCompatible = null, bool PackedRackEvidence = false,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LiveDetectLogObstructionAudit? ObstructionAudit = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] PlayerPlaybackTelemetry? PlayerPlayback = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] PlayerPlaybackTelemetry? PlayerPlayback = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] PocketColourAuditTelemetry? PocketColourAudit = null);
 internal sealed record LiveDetectLogClipSave(Guid OperationId, string Stage, DateTimeOffset RequestedAt,
     DateTimeOffset? CompletedAt, int RequestedSeconds, string Outcome, string Message,
     long? RequestFrameId, long? RequestSourceTimeUs, DateTimeOffset? RequestFrameCapturedAt,
@@ -69,7 +70,7 @@ internal sealed record LiveDetectLogReadout(LiveDetectLogSummary Summary, int Re
 /// <summary>Bounded, image-free frame and automatic clip-save receipts for later review.</summary>
 internal sealed class LiveDetectLogStore
 {
-    internal const int CurrentSchemaVersion = 10;
+    internal const int CurrentSchemaVersion = 11;
     public const int MaximumRetainedRecords = 2000;
     internal const long MaximumBytes = 4 * 1024 * 1024;
     const int RetainedRecordTarget = MaximumRetainedRecords * 3 / 4;

@@ -39,6 +39,10 @@ public sealed record ObstructionAuditTelemetry(int AnalysisWidth, int AnalysisHe
     public int BallGroupExemptionMinimumCentres { get; init; }
     public double BallGroupExemptionMinimumBallBodyCoverageFraction { get; init; }
 }
+public sealed record PocketColourRegionAudit(Point Centre, int ColouredPixels, int ExplainedPixels,
+    int UnexplainedPixels, int SupportedBallBodies, bool NeedsReview);
+public sealed record PocketColourAuditTelemetry(int AnalysisWidth, int AnalysisHeight, double ExclusionRadius,
+    double ReviewPixelThreshold, PocketColourRegionAudit[] Pockets);
 public sealed record VisionResult(Ball[] Balls, bool Uncertain, string[] Warnings, double ElapsedMs, int CircleCount, bool Normalized, string Runtime, double[] ColourGains, int ClothHue, bool Obstructed, CircleObservation[] Circles)
 {
     /// <summary>Overrides broad advice uncertainty when the detected layout itself is clear.
@@ -51,6 +55,7 @@ public sealed record VisionResult(Ball[] Balls, bool Uncertain, string[] Warning
     public PackedClusterTelemetry? PackedCluster { get; init; }
     public PackedClusterFallbackTelemetry? PackedClusterFallback { get; init; }
     public ObstructionAuditTelemetry? ObstructionAudit { get; init; }
+    public PocketColourAuditTelemetry? PocketColourAudit { get; init; }
     public CircleBoundaryAudit[] BoundaryAudits { get; init; } = [];
     public VisionCandidateAudit[] CandidateAudits { get; init; } = [];
 }
