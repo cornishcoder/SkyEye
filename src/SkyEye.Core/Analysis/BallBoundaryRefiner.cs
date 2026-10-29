@@ -7,13 +7,18 @@ public sealed record BallBoundary(Point Centre, double Radius, double SupportedS
 }
 public sealed record BoundarySectorEvidence(int Index, Point InnerPoint, Point OuterPoint,
     Point FineInnerPoint, Point FineOuterPoint, double EdgeContrast, double ExteriorContrast,
-    double FineEdgeContrast, bool ExteriorRejected, bool Supported);
+    double FineEdgeContrast, bool ExteriorRejected, bool Supported)
+{
+    public bool ColourMaskTransitionUsed { get; init; }
+}
 
 /// <summary>Bounded current-image refinement of an existing circle proposal.
 /// Raw colour edges distinguish painted bodies from cloth/shadow and interior patches.
 /// A size prior bounds the search; it never supplies a body without edge support.</summary>
 public static class BallBoundaryRefiner
 {
+    const double MinimumColourMaskEdgeContrast = 8;
+    const double MinimumColourMaskFineEdgeContrast = 3;
     // A fitted, partially occluded edge can shift slightly from its dark seed.
     // Allow a narrow measured tolerance when relating failed edge sectors to
     // independently fitted neighboring ball centres.
@@ -67,8 +72,11 @@ public static class BallBoundaryRefiner
             }
             edge /= 3; exterior /= 3; fineEdge /= 3;
             bool exteriorRejected = RejectExterior(bgr, inside, outside, exterior, expectedKind, null);
+            bool colourMaskTransitionUsed = IsColourMaskTransitionSupport(expectedKind, exteriorRejected, edge, fineEdge);
+            bool supported = !exteriorRejected && (edge >= 16 || colourMaskTransitionUsed);
             evidence[i] = new(i, innerPoint, outerPoint, fineInnerPoint, fineOuterPoint,
-                edge, exterior, fineEdge, exteriorRejected, !exteriorRejected && edge >= 16);
+                edge, exterior, fineEdge, exteriorRejected, supported)
+            { ColourMaskTransitionUsed = colourMaskTransitionUsed };
         }
         return evidence;
     }
@@ -172,11 +180,14 @@ public static class BallBoundaryRefiner
                 // An interior number-patch edge leads to more ball paint. The
                 // exterior of a supported body must return to local cloth.
                 bool exteriorRejected = RejectExterior(bgr, inside, outside, exterior, expectedKind, colourMask);
+                bool colourMaskTransitionUsed = IsColourMaskTransitionSupport(expectedKind, exteriorRejected, measuredEdge, measuredFineEdge);
                 if (exteriorRejected) { edge = 0; fineEdge = 0; }
-                if (edge >= 16) supported++;
+                bool supportedSector = !exteriorRejected && (measuredEdge >= 16 || colourMaskTransitionUsed);
+                if (supportedSector) supported++;
                 if (sectorEvidence is not null)
                     sectorEvidence[i] = new(i, innerPoint, outerPoint, fineInnerPoint, fineOuterPoint,
-                        measuredEdge, exterior, measuredFineEdge, exteriorRejected, !exteriorRejected && measuredEdge >= 16);
+                        measuredEdge, exterior, measuredFineEdge, exteriorRejected, supportedSector)
+                    { ColourMaskTransitionUsed = colourMaskTransitionUsed };
                 // Cap strong highlights so a few patch/shadow edges cannot dominate.
                 score += Math.Min(60, fineEdge) + .1 * Math.Min(60, edge);
             }
@@ -203,6 +214,14 @@ public static class BallBoundaryRefiner
             && Math.Round(x + radius + offset) < width
             && Math.Round(y + radius + offset) < height;
     }
+
+    static bool IsColourMaskTransitionSupport(string? expectedKind, bool exteriorRejected,
+        double edgeContrast, double fineEdgeContrast)
+        => !exteriorRejected
+            && (expectedKind is "red" or "yellow")
+            && edgeContrast < 16
+            && edgeContrast >= MinimumColourMaskEdgeContrast
+            && fineEdgeContrast >= MinimumColourMaskFineEdgeContrast;
 
     static bool RejectExterior(byte[] bgr, int inside, int outside, double exterior, string? expectedKind,
         BoundaryColourMask? colourMask)

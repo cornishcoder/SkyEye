@@ -42,7 +42,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 settings.DarkBodyValueCeiling, settings.VerificationBodyRefinement,
                 settings.PackedColourBoundarySearchExtentFraction
             };
-            const string algorithm = "body-priority-packed-colour-peaks-v15-preserve-recovered-cue";
+            const string algorithm = "body-priority-packed-colour-peaks-v16-colour-mask-edge-support";
             object identity = settings.UseNormalizedGeometryForDetection || settings.UseNormalizedPackedColourProposalMask
                 ? new
                 {

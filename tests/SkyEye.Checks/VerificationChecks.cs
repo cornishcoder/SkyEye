@@ -410,6 +410,18 @@ static class VerificationChecks
             && !hsvMask.Matches("red", 1) && !hsvMask.Matches("red", 1000),
             "Cached HSV boundary membership rejects invalid classes and offsets");
         const int width = 160, height = 160;
+        BoundaryColourMask CreateColourMask(Func<int, int, int> classify)
+        {
+            var hsv = new byte[width * height * 3];
+            for (int y = 0; y < height; y++) for (int x = 0; x < width; x++)
+            {
+                int kind = classify(x, y), at = (y * width + x) * 3;
+                hsv[at] = kind switch { 1 => (byte)0, 2 => (byte)20, _ => (byte)60 };
+                hsv[at + 1] = kind == 0 ? (byte)0 : (byte)200;
+                hsv[at + 2] = kind == 0 ? (byte)20 : (byte)50;
+            }
+            return BoundaryColourMask.FromHsvPixels(hsv);
+        }
         var image = new byte[width * height * 3];
         for (int y = 0; y < height; y++) for (int x = 0; x < width; x++)
         {
@@ -443,6 +455,39 @@ static class VerificationChecks
         Check(shadowFit is { SupportedSectors: >= ObservationPolicy.MinimumSupportedBoundaryFraction }
             && Math.Abs(shadowFit.Radius - 22) < 1.5,
             "Recognized red boundary stays on the paint edge when a dark shadow separates it from cloth");
+        var dimRed = new byte[width * height * 3];
+        for (int y = 0; y < height; y++) for (int x = 0; x < width; x++)
+        {
+            bool body = (x - 80) * (x - 80) + (y - 80) * (y - 80) <= 22 * 22;
+            int at = (y * width + x) * 3;
+            dimRed[at] = body ? (byte)8 : (byte)16;
+            dimRed[at + 1] = body ? (byte)16 : (byte)20;
+            dimRed[at + 2] = body ? (byte)40 : (byte)24;
+        }
+        var dimRedMask = CreateColourMask((x, y)
+            => (x - 80) * (x - 80) + (y - 80) * (y - 80) <= 22 * 22 ? 1 : 0);
+        var dimRedFit = BallBoundaryRefiner.Refine(dimRed, width, height, new(80, 80), 22,
+            collectSectorEvidence: true, expectedKind: "red", colourMask: dimRedMask);
+        Check(dimRedFit is { SupportedSectors: >= ObservationPolicy.MinimumSupportedBoundaryFraction }
+            && dimRedFit.SectorEvidence.Any(sector => sector.ColourMaskTransitionUsed)
+            && Math.Abs(dimRedFit.Radius - 22) < 1.5,
+            "A dim red edge may use measured colour-mask plus fine-contrast evidence below the ordinary contrast floor");
+        var dimHandRed = (byte[])dimRed.Clone();
+        for (int y = 45; y <= 80; y++) for (int x = 45; x < 115; x++)
+        {
+            int at = (y * width + x) * 3;
+            dimHandRed[at] = 40; dimHandRed[at + 1] = 45; dimHandRed[at + 2] = 50;
+        }
+        var dimHandMask = CreateColourMask((x, y) =>
+        {
+            bool hand = x >= 45 && x < 115 && y >= 45 && y <= 80;
+            bool body = (x - 80) * (x - 80) + (y - 80) * (y - 80) <= 22 * 22;
+            return body && !hand ? 1 : 0;
+        });
+        var dimHandFit = BallBoundaryRefiner.Refine(dimHandRed, width, height, new(80, 80), 22,
+            expectedKind: "red", colourMask: dimHandMask);
+        Check(dimHandFit is null || dimHandFit.SupportedSectors < ObservationPolicy.MinimumSupportedBoundaryFraction,
+            "The dim colour-mask transition does not make a half-hand-covered red body supported");
         var handCoveredRed = (byte[])shadowedRed.Clone();
         for (int y = 45; y <= 80; y++) for (int x = 45; x < 115; x++)
         {
@@ -597,6 +642,16 @@ static class VerificationChecks
             expectedKind: "red");
         Check(gapFit is null || gapFit.SupportedSectors < ObservationPolicy.MinimumSupportedBoundaryFraction,
             "Adjacent ball edges cannot create a supported boundary at the empty gap");
+        var adjacentMask = CreateColourMask((x, y) =>
+        {
+            bool red = (x - 55) * (x - 55) + (y - 80) * (y - 80) <= 26 * 26;
+            bool yellow = (x - 105) * (x - 105) + (y - 80) * (y - 80) <= 26 * 26;
+            return red ? 1 : yellow ? 2 : 0;
+        });
+        var maskedGapFit = BallBoundaryRefiner.Refine(adjacentBodies, width, height, new(80, 80), 26,
+            expectedKind: "red", colourMask: adjacentMask);
+        Check(maskedGapFit is null || maskedGapFit.SupportedSectors < ObservationPolicy.MinimumSupportedBoundaryFraction,
+            "Red-to-yellow colour transitions at a touching-ball gap do not form a red body boundary");
         var motionAnchor = new[]
         {
             new CircleObservation("red-0", new(300, 500), 27, "solid", []) { CandidateBoundarySupport = .75 },
