@@ -2,7 +2,11 @@
 
 ## Current deployment and device state
 
-Production 0.8.41 / code49 is installed on Pixel 11 from source commit 94aa5c3. The guarded installer preserved Production package, signer, UID and private-storage identity; rollback APK: work/production/backups/20261029-160010/before.apk; signed APK SHA-256: CAD54B38184D2AEEBF211BE7A1D7737C1E4EF1092160E2D7E86453F6BDDA5277. Camera /status is Stopped, revision 19, battery 100%, clipCount=82, zero viewers. Home shows Start live session. Cast is disconnected; no Cast/TV action or match was used. Keep capture stopped for builds, replay, waits and when not collecting authorized evidence. The goal remains active.
+Production 0.8.41 / code49 is installed on Pixel 11 from source commit 94aa5c3. The guarded installer preserved Production package, signer, UID and private-storage identity; rollback APK: work/production/backups/20261029-160010/before.apk; signed APK SHA-256: CAD54B38184D2AEEBF211BE7A1D7737C1E4EF1092160E2D7E86453F6BDDA5277. Latest camera `/status` is Stopped, revision 20, battery 100%, `clipCount=82`, zero viewers. Pixel 11 Home shows Start live session. Cast is disconnected; no Cast/TV action or match was used. Keep capture stopped for builds, replay, waits and when not collecting authorized evidence. The goal remains active.
+
+## Latest stop confirmation
+
+The user ended the bounded check after reporting that the current camera view was obstructed and its detector reading unusable. The camera was independently confirmed `Stopped` at revision 19 at 15:59:34 UTC and again at revision 20 at 16:02:21 UTC; both reads show 82 clips and zero viewers. Pixel 11's fresh Home hierarchy shows `Start live session`, `Cast. Disconnected`, and the Home controls. The latest retained Live Detect JSONL is still the earlier code48 run, ending at 15:45:18 with 13 table events and zero event-clip operations; the 15:53 screen shows that log as historical. No fresh code49 event log or saved event clip is present, so code49's interruption clip path remains physically unverified. Evidence: `camera-status-after-test.json`, `camera-status-after-code49.json`, `pixel11-current-after-test.png`, `pixel11-after-code49.png`, and `pixel11-live-detect-final.jsonl` under `work/production/evidence/20261029-live-detect-grouping/`. Do not infer a shot outcome from the user's reported break/no-pot when the contemporaneous view was obstructed and the retained data has no fresh corresponding event.
 
 ## Code48 interruption and code49 bounded review-clip follow-up
 
