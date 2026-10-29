@@ -1,6 +1,19 @@
 # Physical-device acceptance
 
 
+## Production code57 fresh-clear recovery readout — 29 October 2026
+
+Commit `5c5f07b` updates the Live Detect status text and schema-12 telemetry without changing the table-event stability threshold. A clear frame matching the last settled layout is shown as **Fresh clear frame matches the last settled layout** with the current match count `n/3`; only confirmed layout/inventory changes use **Table change pending**. Activity still closes only after the existing consecutive clear-frame gate. Each frame logs `baselineMatchSamples` and `settledBaselineMatchesCurrent`. The transient `n/3` rendering is in `ShellLiveDetect.cs`; the progress count is supplied by `LiveDetectTableEventTracker`.
+
+Production Release `0.8.49` / versionCode 57 built with 13 warnings and zero errors, then was installed in place on Pixel 11. The guarded installer preserved package identity and private storage; rollback APK: `work/production/backups/20261029-181257/before.apk`. No tests were run, and the mounted-camera package was not changed.
+
+Live Detect run `da070311-c37e-4ea8-a9f9-877c62f31fc3` captured 278 full checks from 18:14:25 to 18:16:15 UTC (110 seconds) on the unchanged 15-ball spread (6 reds, 7 yellows, black, cue). Outcomes were 257 `clear_unchanged`, 14 `obstructed`, one `layout_uncertain`, two `baseline_pending`, one `settled_layout_baseline`, and three `activity_ended_without_layout_change`. The first two clear recoveries after uncertainty recorded baseline-match samples 1/3 and 2/3; the activities ended with the previous clear inventory unchanged. The run recorded 252 frames with `settledBaselineMatchesCurrent=true`. It did not produce a pot, miss, or movement outcome. The screenshot captured after recovery shows the 15-ball settled state and recent uncertainty/recovery messages; it does not capture the intermediate 1/3 or 2/3 text. Final JSONL and screenshots are in `work/production/evidence/code57-readout-recovery-20261029/`.
+
+The 14 obstruction frames each contain a qualifying broad crop-boundary component in the 800x1600 analysis frame: left=52, top=52, width=696, with height 163–383. The sampled component reports zero ball centres and zero ball-body pixels. Because the frame log is image-free, these diagnostics do not identify the visual source; capture the exact flagged frame pixels and a nearby known-clear frame before changing obstruction classification.
+
+The user stopped the session through Home. Final camera `/status`: `Stopped`, revision 35, battery 100%, `clipCount=98`, zero viewers. Pixel 11 Home shows `Start live session` and `Cast. Disconnected`. No Cast/TV action occurred.
+
+
 ## Production code56 pocket-edge uncertainty check — 29 October 2026
 
 Commit `2626f1a` adds a conservative explanation for pocket-colour pixels that belong to a strongly supported, already accepted red ball body, and logs the per-pocket attribution in schema 11. Production Release `0.8.48` / versionCode 56 built with 13 warnings and zero errors. It was installed in place on Pixel 11 with `Install-ProductionCompanion.ps1`; the installer retained package, signer, UID and private storage. Rollback APK: `work/production/backups/20261029-175859/before.apk`. Installed signed APK SHA-256: `AEE7AB05D7F0F297A2E894163D86701B419439F08064B9A3991C6DEEC549C43E`. No tests were run, and the mounted-camera package was not changed.
