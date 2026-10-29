@@ -2,6 +2,12 @@
 
 Use this guide to operate the Hybrid Production companion on the Pixel 11 and inspect the mounted camera without guessing at screen coordinates or changing match state. Prefer the current accessibility label and a fresh screenshot/UI tree; layout bounds move as the video and Settings panel scroll.
 
+## Current stopped state and clip catalog refresh
+
+After the code52 physical run, camera readback is `Stopped`, revision 24, `clipCount=97`; Home shows **Start live session**. The run and its limits are recorded in [device acceptance](device-acceptance.md). The deployment-only checkpoints below are historical.
+
+**Open clips** uses `Routes.razor` → `Navigate(Screen.Clips)`. The pending source fix calls `ShellSession.LoadClipsAsync` on entry; successful Live Detect saves also reload on the same connection. **Refresh camera clips** in `ClipControls.razor` invokes that same method. Prerequisites are a reachable camera, active foreground companion, and a visibly reachable control; capture need not be active and none of these actions starts it. The visible states are **Loading camera clips…**, then the camera clip list or a connection/refresh error. Concurrent requests coalesce into one follow-up read. Read back the newest clip ID/name and compare with the save receipt; the camera currently lists all 97 clips. This source fix is not installed or physically verified yet. The long Home event log currently obscures the clip tile; do not tap from stale hierarchy bounds. Keep capture stopped and Cast/TV untouched.
+
 ## Code 52 deployment and Live Detect playback logs
 
 Production 0.8.44 / code52 is installed in place on Pixel 11 from commit `5265b6e`, retaining package identity and private storage. Rollback APK: `work/production/backups/20261029-163127/before.apk`; signed APK SHA-256: `AB2E715E80713EB78FC9B3AE888EF14A5AAEE1280827FC4FD271026B4D6A3C49`. It keeps code50's 1,000ms network-stream buffer cap and advances Live Detect logs to schema 10. Schema-10 frame records and frame-wait/retry run events can include `playerPlayback`: `playbackState`, `loading`, `playing`, `bufferedMs`, and nullable `liveOffsetMs`. This lets a later review compare accepted-frame age with player state and also see the player state sampled during frame-acquisition failures. These are point-in-time snapshots, not a continuous rebuffer event trace; short transitions between observations may be missed.

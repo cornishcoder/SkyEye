@@ -706,6 +706,12 @@ public sealed partial class ShellSession
                 ClipTimeline = clip?.RecordingOrigin?.Timeline, WindowCovered = windowCovered
             };
             AppendLiveDetectClipSave(runId, completedAt, completed);
+            if (saveReceipt.Succeeded && clip is not null)
+                await MainThread.InvokeOnMainThreadAsync(async () =>
+                {
+                    if (app.State.Camera.ConnectionId == camera.ConnectionId)
+                        await LoadClipsAsync(CancellationToken.None);
+                });
             await SetLiveDetectClipStatusAsync(saveReceipt.Succeeded && clip is not null
                 ? windowCovered == true
                     ? $"Event clip saved · {clip.Duration:0}s · shot window covered."

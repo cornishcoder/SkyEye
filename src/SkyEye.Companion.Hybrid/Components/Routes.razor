@@ -273,6 +273,7 @@
         Session.SetUiScreen(target.ToString().ToLowerInvariant());
         error = "";
         Session.SetSheet(target != Screen.Home);
+        if (target == Screen.Clips) _ = Session.LoadClipsAsync();
     }
     void NavigateFromControl(string target)
     {

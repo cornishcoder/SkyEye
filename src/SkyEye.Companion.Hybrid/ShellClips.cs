@@ -18,6 +18,7 @@ public sealed partial class ShellSession
     string? clipCatalogError;
     CancellationTokenSource? transferCancellation;
     long catalogGeneration;
+    bool clipReloadPending;
     bool preparingCorrected;
     public IReadOnlyList<ShellClipChoice> RemoteClips => remoteClips;
     public IReadOnlyList<ShellClipChoice> LocalClips => localClips;
@@ -46,7 +47,9 @@ public sealed partial class ShellSession
     public Task LoadClipsAsync() => LoadClipsAsync(CancellationToken.None);
     public Task LoadClipsAsync(CancellationToken operationCancellation) => MainThread.InvokeOnMainThreadAsync(async () =>
     {
-        if (!active || foreground is null || LoadingClips || !CanLoadClips) return;
+        if (!active || foreground is null || !CanLoadClips) return;
+        if (LoadingClips) { clipReloadPending = true; return; }
+        clipReloadPending = false;
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(foreground.Token, operationCancellation);
         var token = linked.Token; var generation = ++catalogGeneration;
         clipCatalogError = null;
@@ -62,7 +65,20 @@ public sealed partial class ShellSession
         }
         catch (OperationCanceledException) { }
         catch (Exception) { if (!token.IsCancellationRequested && !disposed) { clipCatalogError = "Camera clips could not load. Check the connection and refresh."; ShowError("Camera clips could not load. Check the connection and refresh."); } }
-        finally { if (generation == catalogGeneration) { LoadingClips = false; if (!disposed) Publish(); } }
+        finally
+        {
+            if (generation == catalogGeneration)
+            {
+                LoadingClips = false;
+                if (!disposed) Publish();
+                // A save may finish while an older catalog request is in flight.
+                // Coalesce those notifications into one fresh read after it ends.
+                var reload = clipReloadPending;
+                clipReloadPending = false;
+                if (reload && !disposed && !token.IsCancellationRequested)
+                    await LoadClipsAsync(CancellationToken.None);
+            }
+        }
     });
     public Task DownloadClipAsync(ShellClipChoice choice) => DownloadClipAsync(choice, CancellationToken.None);
     public Task DownloadClipAsync(ShellClipChoice choice, CancellationToken operationCancellation) => MainThread.InvokeOnMainThreadAsync(async () =>
