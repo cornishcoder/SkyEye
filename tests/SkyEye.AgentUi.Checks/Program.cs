@@ -25,7 +25,7 @@ static Guid OperationId(string callId, string action) => new(SHA256.HashData(Enc
 
 LiveDetectCountCandidateChecks.Run();
 LiveDetectTableEventTrackerChecks.Run();
-LiveDetectShotClipWindowChecks.Run();
+await LiveDetectShotClipWindowChecks.Run();
 LiveDetectLogStoreChecks.Run();
 
 var transcript = new SkyVoiceTranscript();

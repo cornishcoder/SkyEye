@@ -392,37 +392,61 @@ public sealed partial class ShellSession
     async Task SaveLiveDetectEventClipAsync(Guid runId, CameraScope source, LiveDetectActivity activity,
         string eventType, long settledSourceTimeUs, SemaphoreSlim saveGate)
     {
-        long saveScheduledAt = System.Diagnostics.Stopwatch.GetTimestamp();
-        await Task.Delay(TimeSpan.FromSeconds(LiveDetectShotClipWindowPolicy.PostRollSeconds));
+        // Camera assembly can legitimately take longer than the post-roll wait.
+        // Preserve the existing serialized save queue; bound source-frame waiting below.
         await saveGate.WaitAsync();
         try
         {
-            var context = await MainThread.InvokeOnMainThreadAsync(() =>
+            LiveDetectEventClipContext context = default;
+            var postRoll = await LiveDetectShotClipWindowPolicy.WaitForPostRollAsync(activity.Timeline,
+                settledSourceTimeUs, async cancellationToken =>
             {
-                var tableState = table.State;
-                var observation = tableState.Observation;
-                var receipt = observation?.DecodedReceipt;
-                return new LiveDetectEventClipContext(app.State, tableState.Source, observation?.Timeline,
-                    new(receipt?.FrameId, observation?.SourceTimeUs, observation?.CapturedAt));
-            });
-            long elapsedUs = (long)(System.Diagnostics.Stopwatch.GetElapsedTime(saveScheduledAt).TotalMilliseconds * 1000);
-            long estimatedRequestSourceTimeUs = Math.Max(context.Frame.SourceTimeUs ?? settledSourceTimeUs,
-                checked(settledSourceTimeUs + elapsedUs));
-            if (context.Timeline != activity.Timeline || !LiveDetectShotClipWindowPolicy.TryCreate(activity.Id,
-                activity.Timeline, activity.StartSourceTimeUs, settledSourceTimeUs,
-                estimatedRequestSourceTimeUs, out var window))
+                context = await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    var tableState = table.State;
+                    var observation = tableState.Observation;
+                    var receipt = observation?.DecodedReceipt;
+                    return new LiveDetectEventClipContext(app.State, tableState.Source, observation?.Timeline,
+                        new(receipt?.FrameId, observation?.SourceTimeUs, observation?.CapturedAt));
+                });
+                bool sessionAvailable = context.AppState.Camera.CanControl
+                    && context.AppState.Camera.Capture == CaptureState.Active
+                    && context.AppState.Camera.Scope == source && context.TableSource == source;
+                return new(context.Timeline, context.Frame.SourceTimeUs, sessionAvailable);
+            }, cancellationToken: CancellationToken.None);
+            if (postRoll.Status != LiveDetectShotClipWindowPolicy.PostRollWaitStatus.Ready)
             {
                 var skippedAt = DateTimeOffset.UtcNow;
-                await SetLiveDetectClipStatusAsync(context.Timeline != activity.Timeline
-                    ? "Event clip skipped · camera timeline changed before the clip could be saved."
-                    : "Event clip skipped · the padded shot window exceeds the camera's supported save range.");
+                string statusEventType = postRoll.Status == LiveDetectShotClipWindowPolicy.PostRollWaitStatus.TimedOut
+                    ? "event_clip_postroll_timeout" : "event_clip_skipped";
+                string message = postRoll.Status switch
+                {
+                    LiveDetectShotClipWindowPolicy.PostRollWaitStatus.TimelineChanged => "Event clip skipped because the camera timeline changed before post-roll completed.",
+                    LiveDetectShotClipWindowPolicy.PostRollWaitStatus.SessionUnavailable => "Event clip skipped because camera control, capture, or the live source ended before post-roll completed.",
+                    _ => "Event clip skipped because no same-timeline frame reached the required two-second post-roll within five seconds."
+                };
+                await SetLiveDetectClipStatusAsync(message);
+                AppendLiveDetectTableEvent(runId, skippedAt, new(Guid.NewGuid(), activity.Id,
+                    statusEventType, skippedAt, source.ConnectionId, table.State.Observation?.MediaGeneration ?? 0,
+                    context.Frame.FrameId ?? 0, context.Frame.SourceTimeUs ?? settledSourceTimeUs,
+                    context.Timeline ?? activity.Timeline, table.State.CalibrationId, message,
+                    null, null, activity.StartSourceTimeUs, null, null));
+                return;
+            }
+
+            long requestSourceTimeUs = postRoll.LastObservation.SourceTimeUs!.Value;
+            if (!LiveDetectShotClipWindowPolicy.TryCreate(activity.Id,
+                activity.Timeline, activity.StartSourceTimeUs, settledSourceTimeUs,
+                requestSourceTimeUs, out var window))
+            {
+                var skippedAt = DateTimeOffset.UtcNow;
+                const string message = "Event clip skipped because its padded range exceeds the camera's supported save range.";
+                await SetLiveDetectClipStatusAsync(message);
                 AppendLiveDetectTableEvent(runId, skippedAt, new(Guid.NewGuid(), activity.Id,
                     "event_clip_skipped", skippedAt, source.ConnectionId,
                     table.State.Observation?.MediaGeneration ?? 0, table.State.Observation?.DecodedReceipt?.FrameId ?? 0,
                     context.Frame.SourceTimeUs ?? settledSourceTimeUs, context.Timeline ?? "", table.State.CalibrationId,
-                    context.Timeline != activity.Timeline
-                        ? "Event clip skipped because the camera timeline changed before saving."
-                        : "Event clip skipped because its padded range exceeds the supported camera save window.",
+                    message,
                     null, null, activity.StartSourceTimeUs, null, null));
                 return;
             }

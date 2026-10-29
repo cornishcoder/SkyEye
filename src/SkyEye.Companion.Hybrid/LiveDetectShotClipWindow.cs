@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using SkyEye.Core;
 
 namespace SkyEye.Companion.Hybrid;
@@ -11,6 +12,46 @@ internal static class LiveDetectShotClipWindowPolicy
     public const int LeadInSeconds = 20;
     public const int PostRollSeconds = 2;
     const int SaveBoundarySafetySeconds = 4;
+    public static readonly TimeSpan PostRollWaitTimeout = TimeSpan.FromSeconds(5);
+    public static readonly TimeSpan PostRollWaitPollInterval = TimeSpan.FromMilliseconds(100);
+
+    internal enum PostRollWaitStatus { Ready, TimelineChanged, SessionUnavailable, TimedOut }
+    internal readonly record struct PostRollObservation(string? Timeline, long? SourceTimeUs, bool SessionAvailable);
+    internal readonly record struct PostRollWaitResult(PostRollWaitStatus Status, PostRollObservation LastObservation);
+
+    public static async Task<PostRollWaitResult> WaitForPostRollAsync(string timeline, long settledSourceTimeUs,
+        Func<CancellationToken, Task<PostRollObservation>> readObservation,
+        TimeSpan? timeout = null, TimeSpan? pollInterval = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(readObservation);
+        long requiredSourceTimeUs = checked(settledSourceTimeUs + PostRollSeconds * 1_000_000L);
+        var maximumWait = timeout ?? PostRollWaitTimeout;
+        var interval = pollInterval ?? PostRollWaitPollInterval;
+        long startedAt = Stopwatch.GetTimestamp();
+        PostRollObservation last = default;
+        while (true)
+        {
+            var remainingForRead = maximumWait - Stopwatch.GetElapsedTime(startedAt);
+            if (remainingForRead <= TimeSpan.Zero) return new(PostRollWaitStatus.TimedOut, last);
+            try
+            {
+                last = await readObservation(cancellationToken).WaitAsync(remainingForRead, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (TimeoutException)
+            {
+                return new(PostRollWaitStatus.TimedOut, last);
+            }
+            if (!last.SessionAvailable) return new(PostRollWaitStatus.SessionUnavailable, last);
+            if (last.Timeline != timeline) return new(PostRollWaitStatus.TimelineChanged, last);
+            if (last.SourceTimeUs is { } sourceTimeUs && sourceTimeUs >= requiredSourceTimeUs)
+                return new(PostRollWaitStatus.Ready, last);
+
+            var remaining = maximumWait - Stopwatch.GetElapsedTime(startedAt);
+            if (remaining <= TimeSpan.Zero) return new(PostRollWaitStatus.TimedOut, last);
+            await Task.Delay(remaining < interval ? remaining : interval, cancellationToken).ConfigureAwait(false);
+        }
+    }
 
     public static bool TryCreate(Guid activityId, string timeline, long activityStartSourceTimeUs,
         long settledSourceTimeUs, long saveRequestSourceTimeUs, out LiveDetectShotClipWindow window)

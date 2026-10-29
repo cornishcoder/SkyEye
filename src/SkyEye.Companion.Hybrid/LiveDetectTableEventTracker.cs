@@ -5,7 +5,8 @@ using SkyEye.GameState;
 namespace SkyEye.Companion.Hybrid;
 
 internal sealed record LiveDetectActivity(Guid Id, string Timeline, long StartSourceTimeUs, long StartFrameId,
-    DateTimeOffset StartedAt, string StartReason, bool MovementObserved = false);
+    DateTimeOffset StartedAt, string StartReason, bool MovementObserved = false,
+    bool ShotClipSuppressed = false);
 
 internal sealed record LiveDetectTableEventObservation(EvidenceSource Source, Guid CameraConnectionId,
     long MediaGeneration, long FrameId, DateTimeOffset CapturedAt, long SourceTimeUs, string Timeline,
@@ -137,6 +138,8 @@ internal sealed class LiveDetectTableEventTracker
             foreach (var message in InventoryEvents(candidate))
                 Add(candidateType, message, activity?.Id, candidate.Before, candidate.After,
                     afterLayout: sample.Layout);
+            if (candidate.Kind == LiveDetectChangeKind.Increase && activity is { } returning)
+                activity = returning with { ShotClipSuppressed = true };
             rackReset = candidate.Kind == LiveDetectChangeKind.Racked;
         }
 
@@ -216,7 +219,8 @@ internal sealed class LiveDetectTableEventTracker
                     settledChange.BeforeLayoutSourceTimeUs ?? settledChange.BeforeSourceTimeUs,
                     settledChange.MovedBallCount, settledChange.LargestMovement,
                     settledChange.BeforeLayout, settledChange.AfterLayout);
-                if (!settledRack && settledType is ("no_pot_observed" or "possible_pot_settled" or "settled_inventory_change"))
+                if (!settledRack && !settledActivity.ShotClipSuppressed
+                    && settledType is ("no_pot_observed" or "possible_pot_settled" or "settled_inventory_change"))
                 {
                     clipActivity = settledActivity;
                     clipEventType = settledType;
@@ -235,12 +239,16 @@ internal sealed class LiveDetectTableEventTracker
 
         if (activity is { } unchangedActivity && stableAtBaselineSamples >= StableTableChangeTracker.RequiredStableSamples)
         {
-            Add("activity_ended_without_layout_change",
-                "Activity ended with the previous clear layout and inventory unchanged; no shot outcome inferred.",
-                unchangedActivity.Id, before: ToLiveDetectCounts(baselineCounts), after: sample.Counts,
+            string endedType = unchangedActivity.ShotClipSuppressed
+                ? "activity_ended" : "activity_ended_without_layout_change";
+            string endedMessage = unchangedActivity.ShotClipSuppressed
+                ? "Activity ended after a balls-returned candidate; no shot clip queued."
+                : "Activity ended with the previous clear layout and inventory unchanged; no shot outcome inferred.";
+            Add(endedType, endedMessage, unchangedActivity.Id,
+                before: ToLiveDetectCounts(baselineCounts), after: sample.Counts,
                 beforeSourceTimeUs: stableSnapshot.BaselineSourceTimeUs, afterLayout: sample.Layout);
-            passEventType = "activity_ended_without_layout_change";
-            if (unchangedActivity.MovementObserved)
+            passEventType = endedType;
+            if (unchangedActivity.MovementObserved && !unchangedActivity.ShotClipSuppressed)
             {
                 clipActivity = unchangedActivity;
                 clipEventType = "activity_ended_without_layout_change";

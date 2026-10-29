@@ -16,6 +16,7 @@ internal static class LiveDetectTableEventTrackerChecks
         BaselineAndMissedShotProduceEventsAndClipCandidate();
         ObstructionWithoutMovementDoesNotProduceShotOutcome();
         SettledInventoryDecreaseProducesPotCandidate();
+        ReturnedBallActivityDoesNotProduceShotClip();
         ReRackIsReportedWithoutShotClip();
         Console.WriteLine("PASS Live Detect table event reducer handles baseline, activity, no-pot, pot and re-rack sequences");
     }
@@ -108,6 +109,31 @@ internal static class LiveDetectTableEventTrackerChecks
             "re-racking updates the table baseline without saving a shot clip");
     }
 
+    static void ReturnedBallActivityDoesNotProduceShotClip()
+    {
+        var tracker = NewBaseline();
+        var withoutCue = new LiveDetectCounts(1, 0, 0, 0, 0);
+        var withoutCueLayout = ImmutableArray.Create(new SettledBallPosition(BallColour.Red, .2, .3));
+        tracker.Observe(Sample(4, withoutCue, withoutCueLayout, movementObserved: true));
+        tracker.Observe(Sample(5, withoutCue, withoutCueLayout));
+        tracker.Observe(Sample(6, withoutCue, withoutCueLayout));
+        tracker.Observe(Sample(7, withoutCue, withoutCueLayout));
+
+        var withCue = BaseCounts;
+        var withCueLayout = BaseLayout;
+        tracker.Observe(Sample(8, withCue, withCueLayout, movementObserved: true, sourceGeneration: 2));
+        var returnedCandidate = tracker.Observe(Sample(9, withCue, withCueLayout, sourceGeneration: 2));
+        Require(returnedCandidate.TableEvents.Any(e => e.Type == "balls_returned_candidate"),
+            "a count increase during activity is recorded as a returned-ball candidate");
+        tracker.Observe(Sample(10, withCue, withCueLayout, sourceGeneration: 2));
+        tracker.Observe(Sample(11, withCue, withCueLayout, sourceGeneration: 2));
+        var ended = tracker.Observe(Sample(12, withCue, withCueLayout, sourceGeneration: 2));
+        Require(ended.TableEvents.Any(e => e.Type == "activity_ended")
+            && ended.TableEvents.All(e => e.Type != "activity_ended_without_layout_change")
+            && ended.ClipActivity is null,
+            "a returned-ball candidate that reaches a new clear baseline closes without a shot clip");
+    }
+
     static LiveDetectTableEventTracker NewBaseline()
     {
         var tracker = new LiveDetectTableEventTracker();
@@ -117,12 +143,13 @@ internal static class LiveDetectTableEventTrackerChecks
 
     static LiveDetectTableEventObservation Sample(int index, LiveDetectCounts counts,
         ImmutableArray<SettledBallPosition> layout, bool obstructed = false,
-        bool layoutUncertain = false, bool movementObserved = false, bool packedRack = false)
+        bool layoutUncertain = false, bool movementObserved = false, bool packedRack = false,
+        long sourceGeneration = 1)
     {
         long sourceTimeUs = index * 400_000L;
         var timeline = "event-check-timeline";
         var calibration = "event-check-calibration";
-        return new(new("camera", timeline, 1, calibration, ConnectionId.ToString("N")),
+        return new(new("camera", timeline, sourceGeneration, calibration, ConnectionId.ToString("N")),
             ConnectionId, 3, index + 1, Start.AddTicks(sourceTimeUs * 10), sourceTimeUs,
             timeline, calibration, counts, layout, obstructed, layoutUncertain,
             movementObserved, packedRack);
