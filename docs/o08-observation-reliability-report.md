@@ -2,6 +2,18 @@
 
 7 October 2026. Baseline `5453d0b`. **Runtime foundation implemented; O08 reliability/release acceptance is incomplete.** Do not mark the mission complete or describe automatic advice as dependable. [Small evidence summary](evidence/o08-runtime-smoke.json); large media, raw receipts and retained APKs are under `work/o08`.
 
+## Latest exact-source offline replay — 29 October 2026
+
+The rebuilt Pixel 11 analyzer (`o08-provisional-v21`, APK SHA-256 `43036c6da9bd792833a31058b3aec63073184373b995819d915d08989d369172`) replayed six saved frames from each of the lights-off, mid-light, all-lights and daylight clips. Across both 800px and 1000px analysis widths, all 48 frame/width runs returned a clear 16-ball inventory (7 red, 7 yellow, black and cue), with no uncertainty, layout uncertainty or obstruction. Each 2.5-second sequence had an `Unknown` bootstrap followed by five `Still` intervals with valid coverage; maximum source gap was about 501ms.
+
+The four conditions were matched by ball class at 800px on their last sample, using all-lights as the reference. Maximum centre displacement was 0.0038 table units for lights-off, 0.0170 for mid-light and 0.0066 for daylight (reference ball diameter: 0.052 table units). Mid-light's largest displacement was the cue; red and yellow maxima were 0.0114 and 0.0120. This is relative cross-clip repeatability, not measured accuracy against labelled centres. Nearest detected centres in each rack were 0.94–0.97 ball diameters apart, with no pair closer than half a diameter; this replay did not reproduce an extra same-location packed-rack detection.
+
+The same rebuilt analyzer processed the five saved user shot clips at 1.4-second cadence. Of 111 sampled frames, 89 distinct timeline samples remained after overlapping timestamps were grouped. Feeding those exact inventories through the current `LiveDetectCountCandidateTracker` and production eligibility predicate reproduced two **advisory** yellow decreases: 7 to 6 in `SkyEye 27 Oct 14:21:26`, and 5 to 4 in `SkyEye 27 Oct 14:22:35`. It produced no red-decrease candidate and changed no canonical `GameState`. This does not confirm a pot or validate the spoken shot labels; in particular, the reported red pot was not recovered as a red event. These are saved-clip replays, not live acceptance.
+
+The lighting frames are previously used development footage, not an independent blind holdout, and none of these results supplies reviewed absolute centre labels. Camera `/status` was `Stopped` before and after the replay, with 31 saved clips; Cast/TV were not touched. Detailed evidence is in `work/production/evidence/o08-current-device-check-20261029/v21-lighting-replay/` and `work/production/evidence/shot-samples-20261027/current-v21-five-clips-20261029/`.
+
+Next, reconcile the missing red-shot candidate against the exact sampled frames, obtain independently reviewed ball centres on a held-out sequence, and investigate the remaining mid-light relative shift before claiming lighting-independent location accuracy. Keep physical/live acceptance separate from these offline results.
+
 ## Latest physical progress — 28 October 2026
 
 Production code33 returned a second no-match physical `Ready / Still / Clear / None` result on the racked table. Five frames spanned 2.000 seconds with 533.389ms maximum source gap; four post-bootstrap intervals were `Still`. Three full detections each reported 16 clear balls (7 red, 7 yellow, 1 black, 1 cue). This verifies the bounded readiness path in the current setup, but not held-out lighting or absolute centre accuracy.
