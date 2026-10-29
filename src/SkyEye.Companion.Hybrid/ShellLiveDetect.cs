@@ -167,6 +167,7 @@ public sealed partial class ShellSession
         var candidateTracker = new LiveDetectCountCandidateTracker();
         var frameCursor = new LiveDetectFrameCursor();
         int consecutiveAnalysisErrors = 0;
+        int consecutiveFrameAcquisitionErrors = 0;
         try
         {
             while (true)
@@ -187,8 +188,37 @@ public sealed partial class ShellSession
                 {
                     await table.UpdateAsync(cancellation);
                     consecutiveAnalysisErrors = 0;
+                    consecutiveFrameAcquisitionErrors = 0;
                 }
                 catch (OperationCanceledException) when (cancellation.IsCancellationRequested) { throw; }
+                catch (FrameAcquisitionException error)
+                {
+                    consecutiveAnalysisErrors = 0;
+                    if (error.Reason == ObservationReason.SourceChanged)
+                    {
+                        liveDetectStopReason = $"Live Detect stopped · camera source changed ({error.Code}).";
+                        AppendLiveDetectRunEvent(runId, "frame_source_changed", liveDetectStopReason, error.GetType().Name);
+                        break;
+                    }
+
+                    consecutiveFrameAcquisitionErrors++;
+                    string sourceStatus = string.IsNullOrWhiteSpace(error.SourceStatus)
+                        ? "source status unavailable" : $"source status {error.SourceStatus}";
+                    AppendLiveDetectRunEvent(runId, "frame_acquisition_retry",
+                        $"No fresh paired camera frame ({error.Code}; {sourceStatus}); retrying.", error.GetType().Name);
+                    await MainThread.InvokeOnMainThreadAsync(() =>
+                    {
+                        if (!ReferenceEquals(liveDetectCancellation, operation) || cancellation.IsCancellationRequested) return;
+                        liveDetectStatus = $"Live Detect waiting · fresh camera frame unavailable ({error.Code}); retrying.";
+                        liveDetectInventory = liveDetectReadAt is { } priorRead
+                            ? $"Last accepted reading {priorRead.ToLocalTime():HH:mm:ss} · waiting for a fresh camera frame."
+                            : "Waiting for the first current camera frame.";
+                        Changed?.Invoke();
+                    });
+                    int retryDelayMs = Math.Min(2000, 250 * (1 << Math.Min(consecutiveFrameAcquisitionErrors - 1, 3)));
+                    await Task.Delay(TimeSpan.FromMilliseconds(retryDelayMs), cancellation);
+                    continue;
+                }
                 catch (Exception error)
                 {
                     consecutiveAnalysisErrors++;
