@@ -70,7 +70,44 @@ internal static class LiveDetectCountCandidateChecks
             && cumulativeBefore == Full && cumulativeAfter == yellowAndCueDown,
             "repeated cumulative decrease reports all changes from the pre-motion inventory");
 
-        Console.WriteLine("PASS Live Detect candidate baseline survives brief uncertainty, requires repeated clear counts, and expires safely");
+        var returns = new LiveDetectCountCandidateTracker();
+        returns.Observe(1_000_000, OneYellowDown, true);
+        Require(returns.Observe(2_000_000, Full, true) is null, "a single increase cannot replace the baseline");
+        Require(returns.Observe(3_000_000, OneYellowDown, true) is null
+            && returns.Observe(4_000_000, OneYellowDown, true) is null,
+            "one false extra ball followed by its disappearance cannot create a false pot");
+        returns.Observe(5_000_000, Full, true);
+        Require(returns.Observe(6_000_000, Full, true) is { Kind: LiveDetectChangeKind.Increase },
+            "a repeated return is reported without inventing a rack from counts alone");
+        returns.Observe(7_000_000, Full, true, packedRack: true);
+        Require(returns.Observe(8_000_000, Full, true, packedRack: true) is { Kind: LiveDetectChangeKind.Racked },
+            "a full spread inventory becoming a supported packed rack is reported");
+        Require(returns.Observe(9_000_000, Full, true, packedRack: true) is null,
+            "same rack is not announced again");
+        returns.Observe(10_000_000, Full, true, packedRack: false);
+        Require(returns.Observe(11_000_000, Full, true, packedRack: true) is null
+            && returns.Observe(12_000_000, Full, true, packedRack: true) is null,
+            "one packed-rack telemetry flicker cannot announce a new rack");
+        returns.Observe(13_000_000, Full, true, packedRack: false);
+        returns.Observe(14_000_000, Full, true, packedRack: false);
+        returns.Observe(15_000_000, OneYellowDown, true);
+        Require(returns.Observe(16_000_000, OneYellowDown, true) is { Kind: LiveDetectChangeKind.Decrease },
+            "pot candidates continue after the rack is opened without restarting the tracker");
+        returns.Observe(17_000_000, Full, true, packedRack: true);
+        Require(returns.Observe(18_000_000, Full, true, packedRack: true) is { Kind: LiveDetectChangeKind.Racked },
+            "re-rack after a pot creates a new supported baseline in the same run");
+        returns.Observe(19_000_000, OneYellowDown, true);
+        Require(returns.Observe(20_000_000, OneYellowDown, true) is { Kind: LiveDetectChangeKind.Decrease },
+            "a fresh decrease compares with the new rack rather than the previous frame's baseline");
+
+        var relabel = new LiveDetectCountCandidateTracker();
+        relabel.Observe(1_000_000, OneYellowDown, true);
+        var mixedValid = new LiveDetectCounts(6, 7, 1, 1, 0);
+        relabel.Observe(2_000_000, mixedValid, true);
+        Require(relabel.Observe(3_000_000, mixedValid, true) is { Kind: LiveDetectChangeKind.Changed },
+            "a repeated mixed change is reported as inventory change rather than a pot");
+
+        Console.WriteLine("PASS Live Detect repeats inventory changes, rejects transient extras, handles returns and re-racks, and expires safely");
     }
 
     public static void ReplaySummary(string path)
@@ -97,7 +134,7 @@ internal static class LiveDetectCountCandidateChecks
         {
             var before = item.Candidate.Before;
             var after = item.Candidate.After;
-            Console.WriteLine($"{item.Clip} at source {item.SourceTimeUs}: {Describe(before, after)}");
+            Console.WriteLine($"{item.Clip} at source {item.SourceTimeUs}: {item.Candidate.Kind} · {Describe(before, after)}");
         }
     }
 
@@ -112,7 +149,7 @@ internal static class LiveDetectCountCandidateChecks
 
         void Add(string kind, int prior, int current)
         {
-            if (current < prior) changes.Add($"{kind} {prior} → {current}");
+            if (current != prior) changes.Add($"{kind} {prior} → {current}");
         }
     }
 

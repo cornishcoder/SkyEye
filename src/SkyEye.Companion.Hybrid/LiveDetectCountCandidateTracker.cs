@@ -8,11 +8,17 @@ internal readonly record struct LiveDetectCounts(int Reds, int Yellows, int Blac
     public int Total => Reds + Yellows + Black + Cue + Other;
 }
 
-internal readonly record struct LiveDetectCountCandidate(LiveDetectCounts Before, LiveDetectCounts After);
+internal enum LiveDetectChangeKind { Decrease, Increase, Changed, Racked }
+
+internal readonly record struct LiveDetectCountCandidate(LiveDetectCounts Before, LiveDetectCounts After)
+{
+    public LiveDetectChangeKind Kind { get; init; }
+}
 
 /// <summary>
 /// Holds a recent fully certain inventory across brief unclear frames and emits only
-/// repeated, lower-count layouts as advisory candidates. It never changes game state.
+/// repeated inventory changes as advisory candidates. Rack events require a supported
+/// packed full rack, not just a sixteen-ball count. It never changes game state.
 /// </summary>
 internal sealed class LiveDetectCountCandidateTracker
 {
@@ -24,8 +30,10 @@ internal sealed class LiveDetectCountCandidateTracker
     LiveDetectCounts? pending;
     long pendingSourceTimeUs;
     long lastSourceTimeUs = long.MinValue;
+    bool baselinePackedRack, pendingPackedRack;
 
-    public LiveDetectCountCandidate? Observe(long sourceTimeUs, LiveDetectCounts counts, bool candidateEligible)
+    public LiveDetectCountCandidate? Observe(long sourceTimeUs, LiveDetectCounts counts, bool candidateEligible,
+        bool packedRack = false)
     {
         if (sourceTimeUs <= lastSourceTimeUs)
         {
@@ -37,45 +45,51 @@ internal sealed class LiveDetectCountCandidateTracker
         if (baseline is not null && sourceTimeUs - baselineSourceTimeUs > MaximumBaselineAgeUs)
             ClearBaseline();
 
-        if (!candidateEligible)
+        if (!candidateEligible || counts.Reds is < 0 or > 7 || counts.Yellows is < 0 or > 7
+            || counts.Black is < 0 or > 1 || counts.Cue is < 0 or > 1 || counts.Other != 0)
         {
             pending = null;
             return null;
         }
+        packedRack = packedRack && counts == new LiveDetectCounts(7, 7, 1, 1, 0);
 
         if (baseline is not { } trusted)
         {
-            SetBaseline(counts, sourceTimeUs);
+            SetBaseline(counts, sourceTimeUs, packedRack);
             return null;
         }
 
-        if (counts == trusted)
+        if (counts == trusted && packedRack == baselinePackedRack)
         {
             pending = null;
             baselineSourceTimeUs = sourceTimeUs;
-            return null;
-        }
-
-        if (!IsNamedCountDecrease(trusted, counts))
-        {
-            // A clear increase, mixed increase/decrease, or unknown-colour change
-            // makes the previous inventory unsuitable as a pot-candidate baseline.
-            SetBaseline(counts, sourceTimeUs);
+            baselinePackedRack = packedRack;
             return null;
         }
 
         if (pending is { } expected && counts == expected
+            && packedRack == pendingPackedRack
             && sourceTimeUs - pendingSourceTimeUs <= MaximumConfirmationGapUs)
         {
-            var candidate = new LiveDetectCountCandidate(trusted, counts);
-            SetBaseline(counts, sourceTimeUs);
+            if (counts == trusted && !packedRack)
+            {
+                SetBaseline(counts, sourceTimeUs, packedRack);
+                return null;
+            }
+            var kind = packedRack && !baselinePackedRack ? LiveDetectChangeKind.Racked
+                : IsNamedCountDecrease(trusted, counts) ? LiveDetectChangeKind.Decrease
+                : IsNamedCountDecrease(counts, trusted) ? LiveDetectChangeKind.Increase
+                : LiveDetectChangeKind.Changed;
+            var candidate = new LiveDetectCountCandidate(trusted, counts) { Kind = kind };
+            SetBaseline(counts, sourceTimeUs, packedRack);
             return candidate;
         }
 
-        // A further decrease before confirmation is compared with the same
-        // trusted pre-motion inventory; confirmation still requires a repeat.
+        // Confirm increases as well as decreases. A transient extra detection must
+        // not replace the baseline and make its disappearance look like a pot.
         pending = counts;
         pendingSourceTimeUs = sourceTimeUs;
+        pendingPackedRack = packedRack;
         return null;
     }
 
@@ -85,11 +99,12 @@ internal sealed class LiveDetectCountCandidateTracker
         lastSourceTimeUs = long.MinValue;
     }
 
-    void SetBaseline(LiveDetectCounts counts, long sourceTimeUs)
+    void SetBaseline(LiveDetectCounts counts, long sourceTimeUs, bool packedRack)
     {
         baseline = counts;
         baselineSourceTimeUs = sourceTimeUs;
         pending = null;
+        baselinePackedRack = packedRack;
     }
 
     void ClearBaseline()
@@ -98,6 +113,7 @@ internal sealed class LiveDetectCountCandidateTracker
         baselineSourceTimeUs = 0;
         pending = null;
         pendingSourceTimeUs = 0;
+        baselinePackedRack = pendingPackedRack = false;
     }
 
     static bool IsNamedCountDecrease(LiveDetectCounts before, LiveDetectCounts after) =>

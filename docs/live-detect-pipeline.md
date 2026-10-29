@@ -27,9 +27,9 @@ flowchart TD
     TR --> UI[Publish counts, quality, frame age and pass time]
     UI --> LOG[Append timestamped frame and ball coordinates to image-free JSONL]
     UI --> CT[Separate count candidate tracker]
-    CT --> CE{Two eligible results agree within its time window,
-    with one named colour decreasing?}
-    CE -- yes --> EVENT[Show advisory possible-pot event]
+    CT --> CE{Two eligible inventories and rack flags agree
+    on a changed observation?}
+    CE -- yes --> EVENT[Show possible pot, returned balls, inventory change or detected rack]
     CE -- no --> LOOP
     EVENT --> LOOP
     L -. every 30 seconds .-> CLIP[Request a saved camera clip; log request / receipt]
@@ -46,7 +46,7 @@ flowchart TD
 4. **Two rectified image versions:** the analyzer retains the perspective-warped image before illumination adjustment (`rawWarped`) and makes a copy that can receive local illumination normalization (`warped`). It derives HSV and masks from these branches. The main detector receives normalized HSV, while selected body/boundary support inputs use the raw or normalized rectified branch according to diagnostic settings. This is why `UseNormalizedGeometryForDetection = false` does **not** mean “no perspective correction”; it selects the unnormalized rectified support image. The name `rawWarped` means raw lighting, not raw camera perspective.
 5. **Candidates and checks:** the detector combines Hough and colour-body proposals with bounded packed-rack and cue recovery. It checks pocket exclusions, cloth contrast, duplicates and fitted boundary support; it constrains colour inventory and marks unresolved counts, overlaps, weak boundaries, pocket ambiguity and obstructions uncertain. Those gates can keep the layout untrusted even when some balls were found.
 6. **Coordinates:** detected centre pixels are in the rectified analysis raster. [`AnalysisCoordinates.ToTable`](../src/SkyEye.Core/Analysis/AnalysisCoordinates.cs) converts them to normalized table coordinates with long-axis range 0–2 and short-axis range 0–1. They are not camera-image pixels. Overlay code that draws a detector centre on the original camera image must apply the matching inverse calibration transform and source dimensions exactly once.
-7. **Readiness and events are separate:** [`TableTracker`](../src/SkyEye.Core/Analysis/TableTracker.cs) checks repeated layout agreement, timing, uncertainty and obstruction to establish a settled table. The Live Detect count tracker separately emits a possible count-decrease event only from eligible repeated inventories. That event is advisory and does not write match history.
+7. **Readiness and events are separate:** [`TableTracker`](../src/SkyEye.Core/Analysis/TableTracker.cs) checks repeated layout agreement, timing, uncertainty and obstruction to establish a settled table. The Live Detect count tracker separately confirms eligible repeated decreases, increases and mixed changes. A full rack event additionally requires repeated complete packed-rack evidence. These observations do not write match history; decreases remain possible-pot candidates.
 
 The phone's live-view correction is a separate rendering path (`SceneProjection` / TextureView transform). It can make the displayed table look rectangular without running ball detection. Live Detect does not read pixels back from that corrected display; it snapshots decoded pixels and applies the saved calibration inside `VisionAnalyzer`, avoiding dependence on UI layout or accidental double-warping.
 

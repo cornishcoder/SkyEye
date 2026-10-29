@@ -240,8 +240,13 @@ public sealed partial class ShellSession
                 var counts = Count(vision.Balls);
                 bool candidateEligible = !vision.HasUncertainLayout && !vision.Obstructed && !vision.Uncertain;
                 var events = new List<string>();
-                if (candidateTracker.Observe(sourceTimeUs, counts, candidateEligible) is { } candidate)
-                    events.AddRange(PossiblePotEvents(candidate.Before, candidate.After));
+                bool rackReset = false;
+                if (candidateTracker.Observe(sourceTimeUs, counts, candidateEligible,
+                    vision.PackedCluster is { Detected: true, Complete: true }) is { } candidate)
+                {
+                    events.AddRange(InventoryEvents(candidate));
+                    rackReset = candidate.Kind == LiveDetectChangeKind.Racked;
+                }
 
                 var quality = vision.Obstructed ? "obstructed" : vision.HasUncertainLayout ? "uncertain"
                     : vision.Uncertain ? "clear layout · advice unavailable" : "clear detector output";
@@ -271,9 +276,10 @@ public sealed partial class ShellSession
                     liveDetectReadAt = observation.CapturedAt;
                     liveDetectStatus = $"Live Detect running · full pass {vision.ElapsedMs / 1000:0.0}s.";
                     liveDetectInventory = $"{counts.Total} detected · {counts.Summary} · {quality} · frame age {ageSeconds:0.0}s";
+                    if (rackReset) liveDetectEvents.Clear();
                     foreach (var item in events)
                     {
-                        liveDetectEvents.Enqueue(item);
+                        liveDetectEvents.Enqueue($"{observation.CapturedAt.ToLocalTime():HH:mm:ss} · {item}");
                         while (liveDetectEvents.Count > 3) liveDetectEvents.Dequeue();
                     }
                     Changed?.Invoke();
@@ -476,4 +482,12 @@ public sealed partial class ShellSession
         static string PossiblePot(string colour, int beforeCount, int afterCount) =>
             $"Possible pot · {colour} detections {beforeCount} → {afterCount}. Confirm on the table before recording.";
     }
+
+    static IEnumerable<string> InventoryEvents(LiveDetectCountCandidate candidate) => candidate.Kind switch
+    {
+        LiveDetectChangeKind.Racked => [$"Rack detected · {candidate.After.Summary}. New inventory baseline."],
+        LiveDetectChangeKind.Increase => [$"Balls returned · {candidate.After.Summary}."],
+        LiveDetectChangeKind.Changed => [$"Table inventory changed · {candidate.After.Summary}."],
+        _ => PossiblePotEvents(candidate.Before, candidate.After)
+    };
 }
