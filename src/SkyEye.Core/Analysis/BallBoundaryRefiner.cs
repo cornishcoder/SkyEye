@@ -44,8 +44,7 @@ public static class BallBoundaryRefiner
         }
 
         double offset = Math.Max(2, expectedRadius * .12);
-        if (centre.X - radius - offset < 0 || centre.Y - radius - offset < 0
-            || centre.X + radius + offset >= width || centre.Y + radius + offset >= height)
+        if (!FitsSampleBounds(centre.X, centre.Y, radius, offset, width, height))
             return [];
         var evidence = new BoundarySectorEvidence[directions.Length];
         for (int i = 0; i < directions.Length; i++)
@@ -152,7 +151,7 @@ public static class BallBoundaryRefiner
         void Consider(double x, double y, double radius, bool reference = false)
         {
             double offset = Math.Max(2, expectedRadius * .12);
-            if (x - radius - offset < 0 || y - radius - offset < 0 || x + radius + offset >= width || y + radius + offset >= height) return;
+            if (!FitsSampleBounds(x, y, radius, offset, width, height)) return;
             int supported = 0; double score = 0;
             var sectorEvidence = collectSectorEvidence ? new BoundarySectorEvidence[directions.Length] : null;
             for (int i = 0; i < directions.Length; i++)
@@ -192,6 +191,17 @@ public static class BallBoundaryRefiner
             if (supported >= minimumSupportedFraction * directions.Length
                 && (supportedBest is null || score > supportedBest.Score)) supportedBest = candidate;
         }
+    }
+
+    static bool FitsSampleBounds(double x, double y, double radius, double offset, int width, int height)
+    {
+        // Pixel reads round floating-point coordinates. A continuous sample
+        // just below width/height can therefore round to the first pixel past
+        // the row or image; validate the rounded extrema before indexing.
+        return Math.Round(x - radius - offset) >= 0
+            && Math.Round(y - radius - offset) >= 0
+            && Math.Round(x + radius + offset) < width
+            && Math.Round(y + radius + offset) < height;
     }
 
     static bool RejectExterior(byte[] bgr, int inside, int outside, double exterior, string? expectedKind,

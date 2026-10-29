@@ -523,6 +523,12 @@ static class VerificationChecks
             "Stronger proposal support still fits the full body rather than the cream patch");
         Check(BallBoundaryRefiner.Refine(new byte[width * height * 3], width, height, new(80, 80), 27) is null,
             "Radius prior cannot invent a ball on a blank image");
+        var edgeImage = new byte[200 * 200 * 3];
+        Check(BallBoundaryRefiner.Refine(edgeImage, 200, 200, new(170, 100), 20) is null,
+            "Refinement safely rejects boundary candidates whose rounded pixel samples fall outside the image");
+        Check(BallBoundaryRefiner.Inspect(edgeImage, 200, 200, new(170, 100), 20,
+                new(177.56, 100), 20).Length == 0,
+            "Boundary inspection safely rejects rounded pixel samples outside the image");
         foreach (int radius in new[] { 20, 33 })
         {
             var differentSize = new byte[width * height * 3];
