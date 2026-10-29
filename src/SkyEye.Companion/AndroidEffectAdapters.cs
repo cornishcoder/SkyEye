@@ -1,4 +1,6 @@
 using Android.Content;
+using Android.Provider;
+using System.Globalization;
 using Android.OS;
 using SkyEye.Core;
 using SkyEye.Core.Analysis;
@@ -79,5 +81,64 @@ public sealed class AndroidPortraitClipExporter(Context context) : IPortraitClip
     {
         public void OnComplete() => completion.TrySetResult();
         public void OnError(string? error) => completion.TrySetException(new IOException(error ?? "Portrait export failed."));
+    }
+}
+
+/// <summary>Publishes an explicitly selected clip into shared Android video storage.</summary>
+public sealed class AndroidGalleryClipPublisher(Context context)
+{
+    const string RelativePath = "Movies/SkyEye/";
+    const string DisplayNameColumn = "display_name";
+
+    public async Task<string> PublishAsync(string sourcePath, Clip clip, CancellationToken cancellation)
+    {
+        ClipLibrary.Validate(clip);
+        if (!File.Exists(sourcePath)) throw new FileNotFoundException("The prepared clip is not available on this phone.", sourcePath);
+
+        var name = DisplayName(clip);
+        var collection = MediaStore.Video.Media.ExternalContentUri ?? throw new IOException("Android video storage is unavailable.");
+        var resolver = context.ContentResolver ?? throw new IOException("Android media storage is unavailable.");
+
+        // A stable, clip-specific name makes repeat taps idempotent and avoids
+        // accumulating duplicate copies in the user's Photos library.
+        using (var existing = resolver.Query(collection, ["_id"], $"{DisplayNameColumn} = ?", [name], null))
+        {
+            if (existing?.MoveToFirst() == true)
+                return Android.Net.Uri.WithAppendedPath(collection, existing.GetLong(0).ToString(CultureInfo.InvariantCulture))?.ToString()
+                    ?? throw new IOException("The existing Photos copy could not be opened.");
+        }
+
+        var values = new ContentValues();
+        values.Put(MediaStore.IMediaColumns.DisplayName, name);
+        values.Put(MediaStore.IMediaColumns.MimeType, "video/mp4");
+        values.Put(MediaStore.IMediaColumns.RelativePath, RelativePath);
+        values.Put(MediaStore.IMediaColumns.IsPending, 1);
+        var uri = resolver.Insert(collection, values) ?? throw new IOException("Android could not create the Photos copy.");
+        try
+        {
+            await using (var source = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read, 64 * 1024, useAsync: true))
+            await using (var destination = resolver.OpenOutputStream(uri) ?? throw new IOException("Android could not open the Photos copy for writing."))
+                await source.CopyToAsync(destination, 64 * 1024, cancellation).ConfigureAwait(false);
+
+            cancellation.ThrowIfCancellationRequested();
+            var published = new ContentValues();
+            published.Put(MediaStore.IMediaColumns.IsPending, 0);
+            if (resolver.Update(uri, published, null, null) != 1)
+                throw new IOException("Android could not publish the completed Photos copy.");
+            return uri.ToString() ?? throw new IOException("Android returned an invalid Photos address.");
+        }
+        catch
+        {
+            resolver.Delete(uri, null, null);
+            throw;
+        }
+    }
+
+    static string DisplayName(Clip clip)
+    {
+        var stem = new string(clip.Name.Select(character => char.IsLetterOrDigit(character) || character is ' ' or '-' or '_' ? character : '_').ToArray()).Trim();
+        if (stem.Length > 64) stem = stem[..64].Trim();
+        if (stem.Length == 0) stem = "Camera clip";
+        return $"{clip.CreatedAt.LocalDateTime:yyyy-MM-dd HH-mm-ss} {stem} {clip.Id[..8]}.mp4";
     }
 }

@@ -2,7 +2,7 @@
     <div class="clips-heading"><div><h2>Camera clips</h2><p class="hint" role="status">@Session.ClipStatus</p></div>
         <button class="icon-button refresh-button" disabled="@(Busy || Session.LoadingClips || !Session.CanLoadClips)" @onclick="Session.LoadClipsAsync" aria-label="Refresh camera clips" title="Refresh">↻</button>
     </div>
-    <p class="hint">Watch a camera clip on TV with room audio, download it for offline use, or share it.</p>
+    <p class="hint">Watch or download a clip, share it, or save a corrected full-table copy to this phone’s Movies/SkyEye folder for Google Photos.</p>
     @if (Session.TransferringClip) { <button class="quiet" @onclick="Session.CancelClipTransfer">Cancel download</button> }
     @foreach (var clip in Session.RemoteClips)
     {
@@ -36,6 +36,7 @@
                 @if (reportStatus.Length > 0) { <p class="hint" role="status">@reportStatus</p> }
             }
             <button class="secondary" disabled="@(Busy || !Session.TvConnected || !Session.CanLoadClips)" @onclick="() => WatchTv.InvokeAsync(clip)" aria-label="@($"Watch {clip.Name} on TV")">Watch on TV</button>
+            <button class="secondary" disabled="@(Busy || Session.TransferringClip || (!clip.Available && !Session.CanLoadClips))" @onclick="() => Session.SaveClipToPhotosAsync(clip.Id)" aria-label="@($"Save {clip.Name} to Photos")">Save to Photos</button>
             @if (clip.Available)
             {
                 <p class="hint">Saved on this phone</p>
@@ -56,6 +57,7 @@
             <div class="clip-actions">
                 <button class="secondary" disabled="@Busy" @onclick="() => Play.InvokeAsync(clip.Id)" aria-label="@($"Play {clip.Name}")">Play</button>
                 <button class="secondary" disabled="@Busy" @onclick="() => Share.InvokeAsync(clip.Id)" aria-label="@($"Share {clip.Name}")">Share</button>
+                <button class="secondary" disabled="@(Busy || Session.TransferringClip)" @onclick="() => Session.SaveClipToPhotosAsync(clip.Id)" aria-label="@($"Save {clip.Name} to Photos")">Save to Photos</button>
             </div>
         </article>
     }

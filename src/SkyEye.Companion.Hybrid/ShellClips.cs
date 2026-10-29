@@ -13,6 +13,7 @@ public sealed partial class ShellSession
     readonly CancellationTokenSource clipLifetime = new();
     CompanionClipService clips = null!;
     CompanionCorrectedClips correctedClips = null!;
+    AndroidGalleryClipPublisher photos = null!;
     CameraClipCatalog? catalog;
     ShellClipChoice[] remoteClips = [], localClips = [];
     string? clipCatalogError;
@@ -35,6 +36,7 @@ public sealed partial class ShellSession
         clips = new(client, () => app.State.Camera,
             new ClipLibrary(Path.Combine(context.FilesDir!.AbsolutePath, "clips")), new AndroidPortraitClipExporter(context));
         correctedClips=new(client,()=>app.State.Camera,clips,Path.Combine(context.FilesDir!.AbsolutePath,"corrected-clips"),new AndroidCorrectedClipRenderer(context),annotations,()=>player?.AnnotationMetrics()??"{}",port:IsLab?8768:8767);
+        photos = new(context);
         RefreshLocalClips();
     }
     void RefreshLocalClips() => localClips = correctedClips.Local().Concat(clips.Library.Local().Select(c=>c.Clip)).DistinctBy(c=>c.Id).OrderByDescending(c=>c.CreatedAt)
@@ -115,6 +117,36 @@ public sealed partial class ShellSession
         finally { if (transferCancellation == cancellation) transferCancellation = null; if (!disposed) Publish(); }
     });
     public void CancelClipTransfer() => transferCancellation?.Cancel();
+    public Task SaveClipToPhotosAsync(string id) => SaveClipToPhotosAsync(id, CancellationToken.None);
+    public Task SaveClipToPhotosAsync(string id, CancellationToken operationCancellation) => MainThread.InvokeOnMainThreadAsync(async () =>
+    {
+        if (!active || disposed || TransferringClip) return;
+        using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(clipLifetime.Token, operationCancellation);
+        transferCancellation = cancellation; preparingCorrected = true; DismissNotice();
+        ClipStatus = "Preparing a corrected clip for Photos…"; Publish();
+        try
+        {
+            var corrected = await correctedClips.LocalAsync(id, cancellation.Token);
+            if (disposed || cancellation.IsCancellationRequested) return;
+            await photos.PublishAsync(corrected.Landscape, corrected.Manifest.Clip, cancellation.Token);
+            if (!disposed) ClipStatus = "Saved to this phone · Movies/SkyEye. Open Google Photos → Collections → On this device → SkyEye.";
+        }
+        catch (OperationCanceledException) { if (!disposed) ClipStatus = "Save cancelled. The camera clip is unchanged."; }
+        catch (Exception)
+        {
+            if (!disposed)
+            {
+                ClipStatus = "Could not save this clip to Photos. Check the camera connection and available phone storage.";
+                ShowError(ClipStatus);
+            }
+        }
+        finally
+        {
+            if (transferCancellation == cancellation) transferCancellation = null;
+            preparingCorrected = false;
+            if (!disposed) Publish();
+        }
+    });
     public Task PlayClipAsync(string id) => PlayClipAsync(id, CancellationToken.None);
     public Task PlayClipAsync(string id, CancellationToken operationCancellation) => MainThread.InvokeOnMainThreadAsync(async () =>
     {
