@@ -4,6 +4,14 @@ Record phone models, OS/builds, app revision, network and capture settings for e
 
 For the current Production companion's home controls, live-session flow, package identity, and read-only detector diagnostics, see [Pixel companion control guide](device-control-guide.md).
 
+## Offline replay correction for long-obstruction event — 29 October 2026
+
+The code37 physical run remains an honest failure of the then-installed tracker: it did not report the user's yellow from the break. The tracker previously discarded the last clear inventory after 15 seconds, even when camera PTS remained continuous. The source now retains that historical comparison point across unclear frames for the current camera timeline; only two matching, eligible frames can confirm a change, and a timeline change still resets the tracker. The retained baseline is not presented as the current table reading.
+
+The focused `SkyEye.AgentUi.Checks` suite and Production Release build passed (9 existing warnings, zero errors). Replaying all 598 exact Pixel 11 frame records from code37 run `9044724b-aa70-4f2c-81a2-1982fdbf53f8` through the changed production tracker now produces four candidates: the previously missed yellow 7→6 at source PTS `73321967222`, followed by yellow 6→5 and 5→4, plus the reported red return during re-racking. The replay changes no canonical `GameState`; it is offline evidence from saved detector outputs, not a new physical acceptance or installed build. Replay input: `work/production/evidence/live-detect-code36-20261029/code37-replay-summary.json`.
+
+The cue scratch still cannot be safely reconstructed from whole-table counts: every cue-absent sample in that interval is marked obstructed, and the next clear sample has the cue back. A read-only attempt to fetch the retained camera MP4s returned 403 (`Reconnect to the camera to refresh viewing access.`), so no video/pocket-trajectory review was possible. Do not loosen the whole-table obstruction gate or infer a scratch from these frames. The last status read confirmed the camera remains `Stopped` at revision 47; no Cast/TV or camera control was used. The built Production artifact has not been installed. Continue with a fresh bounded physical check after reviewing cue/pocket evidence access and the log-store retention/performance issue in the plan.
+
 ## Production code37 re-rack and decoder recovery — 29 October 2026
 
 Production `0.8.29` / code `37` was installed in place with signer, UID and private storage preserved. APK SHA-256: `0C2867333851D2BD7CEA3009772C02DB678B5ABFAD037D32F446571FB251F0BD`; rollback: `work/production/backups/20261029-090103/before.apk`. Agent UI checks and the Production build passed (9 build warnings, zero errors). Camera was stopped throughout builds/installation; no camera-package or Cast action occurred.

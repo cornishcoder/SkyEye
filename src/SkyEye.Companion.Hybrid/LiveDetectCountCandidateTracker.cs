@@ -40,17 +40,15 @@ internal readonly record struct LiveDetectCountCandidate(LiveDetectCounts Before
 }
 
 /// <summary>
-/// Holds a recent fully certain inventory across brief unclear frames and emits only
+/// Holds the last fully certain inventory across unclear frames and emits only
 /// repeated inventory changes as advisory candidates. Rack events require a supported
 /// packed full rack, not just a sixteen-ball count. It never changes game state.
 /// </summary>
 internal sealed class LiveDetectCountCandidateTracker
 {
-    internal const long MaximumBaselineAgeUs = 15_000_000;
     internal const long MaximumConfirmationGapUs = 5_000_000;
 
     LiveDetectCounts? baseline;
-    long baselineSourceTimeUs;
     LiveDetectCounts? pending;
     long pendingSourceTimeUs;
     long lastSourceTimeUs = long.MinValue;
@@ -66,9 +64,6 @@ internal sealed class LiveDetectCountCandidateTracker
         }
         lastSourceTimeUs = sourceTimeUs;
 
-        if (baseline is not null && sourceTimeUs - baselineSourceTimeUs > MaximumBaselineAgeUs)
-            ClearBaseline();
-
         if (!candidateEligible || counts.Reds is < 0 or > 7 || counts.Yellows is < 0 or > 7
             || counts.Black is < 0 or > 1 || counts.Cue is < 0 or > 1 || counts.Other != 0)
         {
@@ -79,9 +74,9 @@ internal sealed class LiveDetectCountCandidateTracker
 
         if (baseline is not { } trusted)
         {
-            // A rack is a current observation, so it can be reported even after
-            // a long hands-on re-rack expires the previous shot baseline.
-            SetBaseline(counts, sourceTimeUs, packedRack: false);
+            // A rack is a current observation, so it can be reported after a
+            // long hands-on re-rack without treating its packed layout as a pot.
+            SetBaseline(counts, packedRack: false);
             if (packedRack)
             {
                 pending = counts; pendingSourceTimeUs = sourceTimeUs; pendingPackedRack = true;
@@ -92,7 +87,6 @@ internal sealed class LiveDetectCountCandidateTracker
         if (counts == trusted && packedRack == baselinePackedRack)
         {
             pending = null;
-            baselineSourceTimeUs = sourceTimeUs;
             baselinePackedRack = packedRack;
             return null;
         }
@@ -103,7 +97,7 @@ internal sealed class LiveDetectCountCandidateTracker
         {
             if (counts == trusted && !packedRack)
             {
-                SetBaseline(counts, sourceTimeUs, packedRack);
+                SetBaseline(counts, packedRack);
                 return null;
             }
             var kind = packedRack && !baselinePackedRack ? LiveDetectChangeKind.Racked
@@ -111,7 +105,7 @@ internal sealed class LiveDetectCountCandidateTracker
                 : IsNamedCountDecrease(counts, trusted) ? LiveDetectChangeKind.Increase
                 : LiveDetectChangeKind.Changed;
             var candidate = new LiveDetectCountCandidate(trusted, counts) { Kind = kind };
-            SetBaseline(counts, sourceTimeUs, packedRack);
+            SetBaseline(counts, packedRack);
             return candidate;
         }
 
@@ -129,10 +123,9 @@ internal sealed class LiveDetectCountCandidateTracker
         lastSourceTimeUs = long.MinValue;
     }
 
-    void SetBaseline(LiveDetectCounts counts, long sourceTimeUs, bool packedRack)
+    void SetBaseline(LiveDetectCounts counts, bool packedRack)
     {
         baseline = counts;
-        baselineSourceTimeUs = sourceTimeUs;
         pending = null;
         baselinePackedRack = packedRack;
     }
@@ -140,7 +133,6 @@ internal sealed class LiveDetectCountCandidateTracker
     void ClearBaseline()
     {
         baseline = null;
-        baselineSourceTimeUs = 0;
         pending = null;
         pendingSourceTimeUs = 0;
         baselinePackedRack = pendingPackedRack = false;

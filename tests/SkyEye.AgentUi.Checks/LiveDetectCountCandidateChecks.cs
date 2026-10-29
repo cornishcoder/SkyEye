@@ -32,7 +32,7 @@ internal static class LiveDetectCountCandidateChecks
         initialRack.Observe(20_000_000, OneYellowDown, false);
         Require(initialRack.Observe(21_000_000, Full, true, packedRack: true) is null
             && initialRack.Observe(22_000_000, Full, true, packedRack: true) is { Kind: LiveDetectChangeKind.Racked },
-            "a long obstructed re-rack can establish and report a fresh rack after historical counts expire");
+            "a long obstructed re-rack can establish and report a fresh rack while retaining the last clear inventory");
 
         var recovered = new LiveDetectCountCandidateTracker();
         Require(recovered.Observe(1_000_000, Full, true) is null, "first clear inventory establishes baseline");
@@ -78,12 +78,14 @@ internal static class LiveDetectCountCandidateChecks
             && unknown.Observe(3_800_000, unknownChanged, true) is null,
             "unknown-colour change cannot be called a pot");
 
-        var expired = new LiveDetectCountCandidateTracker();
-        expired.Observe(1_000_000, Full, true);
-        expired.Observe(17_000_001, OneYellowDown, false);
-        Require(expired.Observe(17_100_000, OneYellowDown, true) is null
-            && expired.Observe(18_500_000, OneYellowDown, true) is null,
-            "unclear interval beyond the baseline lifetime starts a fresh inventory");
+        var longObstruction = new LiveDetectCountCandidateTracker();
+        longObstruction.Observe(1_000_000, Full, true);
+        longObstruction.Observe(17_000_001, OneYellowDown, false);
+        Require(longObstruction.Observe(17_100_000, OneYellowDown, true) is null
+            && longObstruction.Observe(18_500_000, OneYellowDown, true) is { Kind: LiveDetectChangeKind.Decrease,
+                Before: var beforeLongGap, After: var afterLongGap }
+            && beforeLongGap == Full && afterLongGap == OneYellowDown,
+            "a stable named count decrease after a long obstruction is compared with the last clear inventory");
 
         var confirmation = new LiveDetectCountCandidateTracker();
         confirmation.Observe(1_000_000, Full, true);
@@ -140,7 +142,7 @@ internal static class LiveDetectCountCandidateChecks
         Require(relabel.Observe(3_000_000, mixedValid, true) is { Kind: LiveDetectChangeKind.Changed },
             "a repeated mixed change is reported as inventory change rather than a pot");
 
-        Console.WriteLine("PASS Live Detect repeats inventory changes, rejects transient extras, handles returns and re-racks, and expires safely");
+        Console.WriteLine("PASS Live Detect repeats inventory changes, rejects transient extras, retains clear history, and handles returns and re-racks");
     }
 
     public static void ReplaySummary(string path)
