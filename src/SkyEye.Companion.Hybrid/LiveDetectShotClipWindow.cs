@@ -6,7 +6,7 @@ namespace SkyEye.Companion.Hybrid;
 internal readonly record struct LiveDetectShotClipWindow(Guid ActivityId, string Timeline,
     long StartSourceTimeUs, long EndSourceTimeUs, int SaveSeconds);
 
-/// <summary>Maps a completed Live Detect activity to a bounded source-time clip range.</summary>
+/// <summary>Maps a Live Detect event boundary to a bounded source-time clip range.</summary>
 internal static class LiveDetectShotClipWindowPolicy
 {
     public const int LeadInSeconds = 2;
