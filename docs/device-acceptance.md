@@ -4,6 +4,14 @@ Record phone models, OS/builds, app revision, network and capture settings for e
 
 For the current Production companion's home controls, live-session flow, package identity, and read-only detector diagnostics, see [Pixel companion control guide](device-control-guide.md).
 
+## Production code47 decoder-recovery stationary rack check (29 October 2026)
+
+Production `0.8.39` / code `47` includes the decoder-generation boundary fix from `42d3317` and the version bump in `64c8079`. The Release build succeeded with 13 warnings and zero errors. The guarded in-place install verified the Production package/signature and preserved UID/private-storage identity. Rollback APK: `work/production/backups/20261029-142409/before.apk`; signed APK SHA-256: `D60DB948B82EBD2238565CE05D91939CDC2593B09DD802C7F9B1233019C4A8D5`.
+
+Run `3806f3d7-46c9-4923-a53b-86773411b99d` began with the visible 15-ball rack and cue ball. From 14:26:07–14:29:25 UTC, all 537 full detector passes returned 16 balls (7 red, 7 yellow, black and cue), with zero uncertain, layout-uncertain or obstructed frames. Mean full-pass time was 357.7ms (maximum 816.1ms). The decoder changed media generation 3→4 at 14:28:38; its first frame was marked `spatiallyCompatible=false` / `source_generation_changed`, and the unchanged 16-ball layout was re-baselined at 14:28:39. No movement/activity outcome or clip-save operation was emitted across this restart. This physically verifies one stationary-rack recovery boundary; it does not verify a real shot or pot during/after decoder recovery.
+
+The camera was stopped through Home after the bounded run. Independent `/status`: `Stopped`, revision 7, battery 100%, 77 clips, zero viewers. Home shows `Start live session`; no dismissible notice was visible in the final screenshot. Cast/TV was not used. Full run log and UI evidence: `work/production/evidence/live-detect-code47-20261029/`.
+
 ## Production code45 bounded post-roll after stop (29 October 2026)
 
 Production `0.8.37` / code `45`, source commit `f57271a`, advances paired table analysis during a queued event clip's post-roll when the prior Live Detect loop has stopped. It waits for an actual same-timeline source PTS at least two seconds beyond settlement; the wait is bounded to five seconds and cancels a pending frame acquisition on timeout. Agent UI checks passed, including source-time boundary and cancellation behavior. The Production Android Release built with 13 warnings and zero errors.
