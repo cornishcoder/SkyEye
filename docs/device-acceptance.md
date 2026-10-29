@@ -4,6 +4,12 @@ Record phone models, OS/builds, app revision, network and capture settings for e
 
 For the current Production companion's home controls, live-session flow, package identity, and read-only detector diagnostics, see [Pixel companion control guide](device-control-guide.md).
 
+## Production code42 event reducer install — 29 October 2026
+
+Production `0.8.34` / code `42` was built with 13 warnings and zero errors, then installed in place on Pixel 11 with `Install-ProductionCompanion.ps1`. Rollback APK: `work/production/backups/20261029-113708/before.apk`; installed APK SHA-256: `42B28705845D1E0FC47F812F218D1BAB717F987D23DF547DF1980ED7110837B5`. The guarded installer retained the package identity and private storage. The mounted Pixel 10 camera package and saved clips were not changed. No Cast or TV action occurred.
+
+Independent package readback reports `uk.co.skyeye.companion`, `versionCode=42`, `versionName=0.8.34`; Home accessibility shows **Start live session** and Live Detect unavailable until a session starts. No capture was started after the update. The last independent camera read before this install was `Stopped`, revision 63; the mounted camera received no command during this installation. Accordingly this is an install check only, not a live event or clip-coverage acceptance. The current source replays saved code39 detector outputs into a no-pot event and a settled possible-pot event; the next physical acceptance still needs a same-run miss, pot, and re-rack with event-to-footage correlation.
+
 ## Production code40 event check and code41 counter fix — 29 October 2026
 
 Production `0.8.32` / code `40` was built and installed in place on Pixel 11 using `Install-ProductionCompanion.ps1`. The guarded installer verified the Production package, matching signing certificate, and preserved UID/private-storage identity; rollback APK: `work/production/backups/20261029-110523/before.apk`. Installed APK SHA-256: `EDA38982972724496E7D5F580773A0911EA974C76E080237D0DD5B48F4AC3CF1`. Build succeeded with 13 warnings and zero errors. The mounted camera package and saved clips were not changed; Cast/TV were not touched.
