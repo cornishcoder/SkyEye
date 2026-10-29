@@ -107,6 +107,8 @@ Update this tracker after each concrete implementation or evidence result. Commi
 
 ## Latest verification
 
+Production 0.8.45 / code53 is installed in place on Pixel 11. It includes the code52 event/logging work, the latest Live Detect table-state HUD changes (`6ee61b8`, `b761281`), and per-clip **Save to Photos** (`5fd9663`). The guarded installer retained app identity and private storage. Camera `/status` remains `Stopped`, revision 24, 97 clips. This is build/install evidence only: no new live run was started, and neither HUD nor Photos export has been physically exercised. See [device acceptance](device-acceptance.md#production-code53-clips-to-photos-install--29-october-2026) and the [device control guide](device-control-guide.md) for the exact export folder. The reliability work below remains open.
+
 Code47 physical play run `456524fc-bdd2-46cb-955b-30d412c3410c` matched the user's break/no-pot and red-pot reports under the earlier 20-second clip policy. It established `no_pot_observed` and a red decrease 7→6, and an idle decoder interruption recovered after 4.5s. The later 2-second-pre-roll installation and acceptance are recorded at the top of this plan. This earlier run's log and clips are in `work/production/evidence/live-detect-code47-20261029/`.
 
 Historical code44 deployment: Production `0.8.36` from source `5f3d372` is the physical baseline for the cue-post-roll and return-clip failures documented below. The [code44 acceptance record](device-acceptance.md#production-code44-live-play-and-event-clips-29-october-2026) includes the earlier install, static rack check and same-run play sequence. Code45 supersedes it for current device work; the rest of the older verification paragraphs are historical checkpoints.

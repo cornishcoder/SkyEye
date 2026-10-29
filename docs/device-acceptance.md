@@ -1,6 +1,14 @@
 # Physical-device acceptance
 
 
+## Production code53 clips-to-Photos install — 29 October 2026
+
+Commit `b761281` adds a settled-baseline readout to the Live Detect HUD; the preceding `6ee61b8` makes uncertain/stale table state explicit, and `5fd9663` adds per-clip **Save to Photos**. Production 0.8.45 / code53 built successfully with 13 warnings and zero errors, then was installed in place on Pixel 11 using `Install-ProductionCompanion.ps1`. Package UID/private-storage identity and signer were retained. Rollback APK: `work/production/backups/20261029-172004/before.apk`; signed APK SHA-256: `A7A0E5B87EB8967219BFC0C518C23CAC70A020C21516E639E358F4494E69DEEB`. Installed package readback is versionCode 53 / versionName 0.8.45.
+
+The new clip action publishes the selected corrected full-table MP4 into Pixel 11 shared storage at `Movies/SkyEye/`, where Android MediaStore and Google Photos can discover it. It does not automatically copy all camera clips; each desired clip must be selected with **Save to Photos**. The copied item is expected in Google Photos under **Collections → On this device → SkyEye**; cloud backup of that folder is a separate Photos preference. The action has not yet been tapped on-device, so gallery indexing and playback are not physically verified.
+
+After install, read-only camera `/status` was `Stopped`, revision 24, battery 100%, `clipCount=97`, host null and viewers 0. No capture, Cast/TV action, camera-package update or saved-data reset occurred. The HUD and Photos export are installed but not physically verified. This deployment does not close the Live Detect reliability goal: the code52 obstruction-to-rack ambiguity, two deliberately distinct rapid shots, stop-during-post-roll, broad lighting/location coverage and canonical GameState integration remain open.
+
 ## Code52 physical run and offline clip audit — 29 October 2026
 
 Run `7f8990c2-5e1b-4b5e-b7c2-e7e7622d079c` began with a clear 16-ball baseline (7R/7Y/black/cue) at 16:40:26 UTC. On the first controlled shot, the user reported a red pot. Live Detect observed movement and a possible red decrease 7→6 at 16:42:44, but a decoder restart interrupted the activity at 16:42:49 before settlement. It recovered a clear 15-ball baseline (6R/7Y/black/cue) at 16:42:50. Clip `0a89da9cd1484d42bce8dc1676605180` is a 14.776s `activity_interrupted` review clip, hash-verified and reported covered; its outcome remains unknown rather than a confirmed settled pot. This physically exercises the recent-movement interruption review path.
