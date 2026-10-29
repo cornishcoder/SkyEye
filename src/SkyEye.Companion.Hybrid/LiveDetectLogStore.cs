@@ -49,7 +49,8 @@ internal sealed record LiveDetectLogClipSave(Guid OperationId, string Stage, Dat
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Guid[]? LinkedTableEventIds = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string[]? LinkedEventTypes = null);
 internal sealed record LiveDetectLogRunEvent(string Status, DateTimeOffset OccurredAt,
-    string Message, string? ExceptionType, long? FrameId, long? SourceTimeUs, DateTimeOffset? FrameCapturedAt);
+    string Message, string? ExceptionType, long? FrameId, long? SourceTimeUs, DateTimeOffset? FrameCapturedAt,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] PlayerPlaybackTelemetry? PlayerPlayback = null);
 internal sealed record LiveDetectLogTableEvent(Guid EventId, Guid? ActivityId, string Type,
     DateTimeOffset CapturedAt, Guid CameraConnectionId, long MediaGeneration, long FrameId,
     long SourceTimeUs, string Timeline, string CalibrationId, string Message,
@@ -68,7 +69,7 @@ internal sealed record LiveDetectLogReadout(LiveDetectLogSummary Summary, int Re
 /// <summary>Bounded, image-free frame and automatic clip-save receipts for later review.</summary>
 internal sealed class LiveDetectLogStore
 {
-    internal const int CurrentSchemaVersion = 9;
+    internal const int CurrentSchemaVersion = 10;
     public const int MaximumRetainedRecords = 2000;
     internal const long MaximumBytes = 4 * 1024 * 1024;
     const int RetainedRecordTarget = MaximumRetainedRecords * 3 / 4;

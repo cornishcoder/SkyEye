@@ -211,11 +211,13 @@ public sealed partial class ShellSession
                     var waitStartedAt = DateTimeOffset.UtcNow;
                     if (freshFrameWait.Begin(waitStartedAt))
                         AppendLiveDetectRunEvent(runId, "fresh_frame_wait_started",
-                            $"Waiting for a fresh paired frame after {error.Code}.", error.GetType().Name);
+                            $"Waiting for a fresh paired frame after {error.Code}.", error.GetType().Name,
+                            playerPlayback: error.PlayerPlayback);
                     string sourceStatus = string.IsNullOrWhiteSpace(error.SourceStatus)
                         ? "source status unavailable" : $"source status {error.SourceStatus}";
                     AppendLiveDetectRunEvent(runId, "frame_acquisition_retry",
-                        $"No fresh paired camera frame ({error.Code}; {sourceStatus}); retrying.", error.GetType().Name);
+                        $"No fresh paired camera frame ({error.Code}; {sourceStatus}); retrying.", error.GetType().Name,
+                        playerPlayback: error.PlayerPlayback);
                     await MainThread.InvokeOnMainThreadAsync(() =>
                     {
                         if (!ReferenceEquals(liveDetectCancellation, operation) || cancellation.IsCancellationRequested) return;
@@ -753,7 +755,8 @@ public sealed partial class ShellSession
         }
     }
 
-    void AppendLiveDetectRunEvent(Guid runId, string status, string message, string? exceptionType)
+    void AppendLiveDetectRunEvent(Guid runId, string status, string message, string? exceptionType,
+        PlayerPlaybackTelemetry? playerPlayback = null)
     {
         try
         {
@@ -762,7 +765,7 @@ public sealed partial class ShellSession
             var receipt = observation?.DecodedReceipt;
             var recordedAt = DateTimeOffset.UtcNow;
             liveDetectLog.AppendRunEvent(runId, recordedAt, new(status, recordedAt, message,
-                exceptionType, receipt?.FrameId, observation?.SourceTimeUs, observation?.CapturedAt));
+                exceptionType, receipt?.FrameId, observation?.SourceTimeUs, observation?.CapturedAt, playerPlayback));
             liveDetectLogError = null;
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException)

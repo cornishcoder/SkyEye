@@ -20,6 +20,39 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
         : throw new ArgumentOutOfRangeException(nameof(decodedReadbackScale));
     const int MotionUpdateFallbackMs = 250;
     public Task RefreshVerificationClockAsync(CancellationToken cancellation) => refreshClock?.Invoke(cancellation) ?? Task.CompletedTask;
+
+    static PlayerPlaybackTelemetry? ParsePlayerPlayback(JsonElement source)
+    {
+        if (source.TryGetProperty("playerPlayback", out var nested) && nested.ValueKind == JsonValueKind.Object)
+            source = nested;
+        if (!source.TryGetProperty("playbackState", out var playbackState)
+            || !playbackState.TryGetInt32(out var parsedPlaybackState)
+            || !source.TryGetProperty("loading", out var loading)
+            || loading.ValueKind is not (JsonValueKind.True or JsonValueKind.False)
+            || !source.TryGetProperty("playing", out var playing)
+            || playing.ValueKind is not (JsonValueKind.True or JsonValueKind.False)
+            || !source.TryGetProperty("bufferedMs", out var buffered)
+            || !buffered.TryGetDouble(out var parsedBufferedMs)
+            || !double.IsFinite(parsedBufferedMs) || parsedBufferedMs < 0)
+            return null;
+
+        double? liveOffsetMs = source.TryGetProperty("liveOffsetMs", out var liveOffset)
+            && liveOffset.ValueKind == JsonValueKind.Number && liveOffset.TryGetDouble(out var parsedLiveOffset)
+            && double.IsFinite(parsedLiveOffset) ? parsedLiveOffset : null;
+        return new(parsedPlaybackState, loading.GetBoolean(), playing.GetBoolean(), parsedBufferedMs, liveOffsetMs);
+    }
+
+    static PlayerPlaybackTelemetry? ParsePlayerPlaybackStatus(string? status)
+    {
+        if (string.IsNullOrWhiteSpace(status)) return null;
+        try
+        {
+            using var document = JsonDocument.Parse(status);
+            return ParsePlayerPlayback(document.RootElement);
+        }
+        catch (JsonException) { return null; }
+    }
+
     public Task<bool> IsVerificationSourceCurrentAsync(CameraScope source, long mediaGeneration, string timeline, CancellationToken cancellation)
     {
         var completion = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -233,8 +266,9 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
                     var code = owner.LastCopyFailure();
                     var failureCode = string.IsNullOrWhiteSpace(code) ? "paired-frame-unavailable" : code;
                     Android.Util.Log.Warn("SkyEyeFrameSource", $"Live candidate frame unavailable after {acquisitionAttempts} attempts: {failureCode}");
+                    var sourceStatus = owner.ObservationSourceStatus();
                     throw new FrameAcquisitionException(failureCode == "unmapped-source-clock" ? ObservationReason.ClockUntrusted : ObservationReason.FrameUnavailable,
-                        failureCode, owner.ObservationSourceStatus());
+                        failureCode, sourceStatus, ParsePlayerPlaybackStatus(sourceStatus));
                 }
                 completion.TrySetResult(new(probe, frame));
             }
@@ -275,25 +309,7 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
             var imageHeight = stamp.TryGetProperty("imageHeight", out var ih) ? ih.GetInt32() : stamp.GetProperty("height").GetInt32();
             var uncertainty = stamp.TryGetProperty("clockUncertaintyMs", out var u) ? u.GetDouble() : -1;
             var clockAge = stamp.TryGetProperty("clockSampleAgeMs", out var ca) ? ca.GetDouble() : -1;
-            PlayerPlaybackTelemetry? playerPlayback = null;
-            if (stamp.TryGetProperty("playerPlayback", out var playbackStamp)
-                && playbackStamp.ValueKind == JsonValueKind.Object
-                && playbackStamp.TryGetProperty("playbackState", out var playbackState)
-                && playbackState.TryGetInt32(out var parsedPlaybackState)
-                && playbackStamp.TryGetProperty("loading", out var playbackLoading)
-                && playbackLoading.ValueKind is JsonValueKind.True or JsonValueKind.False
-                && playbackStamp.TryGetProperty("playing", out var playbackPlaying)
-                && playbackPlaying.ValueKind is JsonValueKind.True or JsonValueKind.False
-                && playbackStamp.TryGetProperty("bufferedMs", out var playbackBuffered)
-                && playbackBuffered.TryGetDouble(out var parsedBufferedMs)
-                && double.IsFinite(parsedBufferedMs) && parsedBufferedMs >= 0)
-            {
-                double? liveOffsetMs = playbackStamp.TryGetProperty("liveOffsetMs", out var liveOffset)
-                    && liveOffset.ValueKind == JsonValueKind.Number && liveOffset.TryGetDouble(out var parsedLiveOffset)
-                    && double.IsFinite(parsedLiveOffset) ? parsedLiveOffset : null;
-                playerPlayback = new(parsedPlaybackState, playbackLoading.GetBoolean(), playbackPlaying.GetBoolean(),
-                    parsedBufferedMs, liveOffsetMs);
-            }
+            var playerPlayback = ParsePlayerPlayback(stamp);
             long? textureUpdateCount = stamp.TryGetProperty("textureUpdateCount", out var updateCount)
                 && updateCount.ValueKind == JsonValueKind.Number && updateCount.TryGetInt64(out var parsedUpdateCount) ? parsedUpdateCount : null;
             double? textureAgeMs = stamp.TryGetProperty("textureAgeMs", out var textureAge)
@@ -372,8 +388,9 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
                     var code = owner.LastCopyFailure();
                     var failureCode = string.IsNullOrWhiteSpace(code) ? "paired-frame-unavailable" : code;
                     Android.Util.Log.Warn("SkyEyeFrameSource", $"Live observation frame unavailable after {acquisitionAttempts} attempts: {failureCode}");
+                    var sourceStatus = owner.ObservationSourceStatus();
                     throw new FrameAcquisitionException(failureCode == "unmapped-source-clock" ? ObservationReason.ClockUntrusted : ObservationReason.FrameUnavailable,
-                        failureCode, owner.ObservationSourceStatus());
+                        failureCode, sourceStatus, ParsePlayerPlaybackStatus(sourceStatus));
                 }
                 completion.TrySetResult(frame);
             }

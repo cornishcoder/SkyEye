@@ -82,11 +82,13 @@ public sealed record VerificationFailure(string Stage, string Code)
 {
     public string? SourceStatus { get; init; }
 }
-public sealed class FrameAcquisitionException(ObservationReason reason, string code, string? sourceStatus = null) : IOException(code)
+public sealed class FrameAcquisitionException(ObservationReason reason, string code, string? sourceStatus = null,
+    PlayerPlaybackTelemetry? playerPlayback = null) : IOException(code)
 {
     public ObservationReason Reason { get; } = reason;
     public string Code { get; } = code;
     public string? SourceStatus { get; } = sourceStatus;
+    public PlayerPlaybackTelemetry? PlayerPlayback { get; } = playerPlayback;
 }
 public sealed record ConsensusConflict(string Code, int Sample, string? BallId);
 public sealed record VerificationRejection(ObservationReason Reason, DecodedFrameReceipt? Receipt, string Timeline,
