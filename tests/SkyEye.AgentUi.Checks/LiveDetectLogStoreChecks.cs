@@ -1,4 +1,6 @@
 using SkyEye.Companion.Hybrid;
+using SkyEye.Core.Analysis;
+using System.Text.Json;
 
 internal static class LiveDetectLogStoreChecks
 {
@@ -75,6 +77,32 @@ internal static class LiveDetectLogStoreChecks
             frameStore.AppendFrame(runId, checkAt, frame);
             Require(new LiveDetectLogStore(framePath).ReadLast(1).Records.Single().Frame?.CheckOutcome == "clear_unchanged",
                 "every full analysis check records its typed outcome, including unchanged layouts");
+
+            // A large exempted region must not crowd the actual triggering
+            // components out of the bounded audit. Include unreported triggers.
+            ObstructionComponentAudit Component(int label, int area, bool triggers) =>
+                new(label, 10, 20, 140, 160, area, 2, !triggers, true, !triggers, triggers)
+                { BallCentresInBounds = 3, BallBodyPixels = 120, BallBodyCoverageFraction = .125 };
+            var fullAudit = new ObstructionAuditTelemetry(800, 1600, 52, 96, 96, 3200, 320, 320, 8,
+                90, 7, 5, 2, 5, 1,
+                [Component(1, 90_000, false), Component(2, 7000, true), Component(3, 10_000, true),
+                 Component(4, 8000, true), Component(5, 6000, true)]);
+            var compact = LiveDetectLogObstructionAudit.From(fullAudit)!;
+            Require(compact.Components.Select(component => component.Label).SequenceEqual([3, 4, 2])
+                && compact.OmittedComponents == 4 && compact.OmittedTriggeringComponents == 2,
+                "bounded audit keeps largest actual triggers and preserves omitted counts");
+            frameStore.AppendFrame(runId, checkAt.AddSeconds(1), frame with { Obstructed = true, ObstructionAudit = compact });
+            var audited = new LiveDetectLogStore(framePath).ReadLast(1).Records.Single();
+            Require(audited.SchemaVersion == 7 && audited.Frame?.ObstructionAudit is { } retainedAudit
+                && retainedAudit.AnalysisWidth == 800 && retainedAudit.Components.Length == 3
+                && retainedAudit.Components[0].BallBodyCoverageFraction == .125
+                && retainedAudit.Components[0].BallCentresInBounds == 3,
+                "obstruction bounds and body evidence survive JSONL serialization and reopening");
+            var oldOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+            var oldRecord = JsonSerializer.Serialize(new LiveDetectLogRecord(6, "frame", runId, checkAt, Frame: frame), oldOptions);
+            Require(!oldRecord.Contains("obstructionAudit")
+                && JsonSerializer.Deserialize<LiveDetectLogRecord>(oldRecord, oldOptions)?.Frame?.ObstructionAudit is null,
+                "schema-six frames without obstruction audits stay readable");
 
             var countPath = Path.Combine(directory, "record-cap.jsonl");
             var countStore = new LiveDetectLogStore(countPath);

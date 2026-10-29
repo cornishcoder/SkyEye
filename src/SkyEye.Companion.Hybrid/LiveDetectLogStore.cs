@@ -1,17 +1,41 @@
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using SkyEye.Core.Analysis;
 
 namespace SkyEye.Companion.Hybrid;
 
 internal sealed record LiveDetectLoggedBall(string Id, string Colour, double X, double Y, double Confidence);
 internal sealed record LiveDetectLoggedPosition(string Colour, double X, double Y);
+internal sealed record LiveDetectLogObstructionAudit(int AnalysisWidth, int AnalysisHeight, int BorderPixels,
+    int ConnectedComponents, int QualifyingComponents, int TriggeringComponents,
+    int OmittedComponents, int OmittedTriggeringComponents, ObstructionComponentAudit[] Components)
+{
+    internal const int MaximumComponents = 3;
+
+    public static LiveDetectLogObstructionAudit? From(ObstructionAuditTelemetry? audit)
+    {
+        if (audit is null) return null;
+        // Keep the largest triggers first, then any remaining largest exempted
+        // regions. Counts still describe all components, including omitted ones.
+        var components = audit.Components.OrderByDescending(component => component.TriggersObstruction)
+            .ThenByDescending(component => component.Area).ThenBy(component => component.Label)
+            .Take(MaximumComponents).ToArray();
+        return new(audit.AnalysisWidth, audit.AnalysisHeight, audit.BorderPixels,
+            audit.ConnectedComponents, audit.QualifyingComponents, audit.TriggeringComponents,
+            Math.Max(0, audit.QualifyingComponents - components.Length),
+            Math.Max(0, audit.TriggeringComponents - components.Count(component => component.TriggersObstruction)),
+            components);
+    }
+}
 internal sealed record LiveDetectLogFrame(DateTimeOffset CapturedAt, double FrameAgeMs,
     Guid CameraConnectionId, long MediaGeneration, long FrameId, long SourceTimeUs,
     long PresentationTimeUs, long SurfaceTimestampNs, string Timeline, string FrameSource,
     string CalibrationId, int BallCount, int Reds, int Yellows, int Black, int Cue, int Other,
     bool Uncertain, bool LayoutUncertain, bool Obstructed, double DetectorElapsedMs, double FullPassElapsedMs,
     string[] Warnings, LiveDetectLoggedBall[] Balls, string[] Events, string CheckOutcome,
-    bool? SpatiallyCompatible = null, bool PackedRackEvidence = false);
+    bool? SpatiallyCompatible = null, bool PackedRackEvidence = false,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LiveDetectLogObstructionAudit? ObstructionAudit = null);
 internal sealed record LiveDetectLogClipSave(Guid OperationId, string Stage, DateTimeOffset RequestedAt,
     DateTimeOffset? CompletedAt, int RequestedSeconds, string Outcome, string Message,
     long? RequestFrameId, long? RequestSourceTimeUs, DateTimeOffset? RequestFrameCapturedAt,
@@ -40,6 +64,7 @@ internal sealed record LiveDetectLogReadout(LiveDetectLogSummary Summary, int Re
 /// <summary>Bounded, image-free frame and automatic clip-save receipts for later review.</summary>
 internal sealed class LiveDetectLogStore
 {
+    internal const int CurrentSchemaVersion = 7;
     public const int MaximumRetainedRecords = 2000;
     internal const long MaximumBytes = 4 * 1024 * 1024;
     const int RetainedRecordTarget = MaximumRetainedRecords * 3 / 4;
@@ -62,22 +87,22 @@ internal sealed class LiveDetectLogStore
     {
         get
         {
-            lock (gate) return new(6, "live-detect/live-detect.jsonl", retainedRecords,
+            lock (gate) return new(CurrentSchemaVersion, "live-detect/live-detect.jsonl", retainedRecords,
                 retainedFrames, retainedEventClipOperations, retainedRunEvents, retainedTableEvents, firstRecordedAt, lastRecordedAt);
         }
     }
 
     public void AppendFrame(Guid runId, DateTimeOffset recordedAt, LiveDetectLogFrame frame) =>
-        Append(new(6, "frame", runId, recordedAt, Frame: frame));
+        Append(new(CurrentSchemaVersion, "frame", runId, recordedAt, Frame: frame));
 
     public void AppendClipSave(Guid runId, DateTimeOffset recordedAt, LiveDetectLogClipSave clipSave) =>
-        Append(new(6, "clipSave", runId, recordedAt, ClipSave: clipSave));
+        Append(new(CurrentSchemaVersion, "clipSave", runId, recordedAt, ClipSave: clipSave));
 
     public void AppendRunEvent(Guid runId, DateTimeOffset recordedAt, LiveDetectLogRunEvent runEvent) =>
-        Append(new(6, "runEvent", runId, recordedAt, RunEvent: runEvent));
+        Append(new(CurrentSchemaVersion, "runEvent", runId, recordedAt, RunEvent: runEvent));
 
     public void AppendTableEvent(Guid runId, DateTimeOffset recordedAt, LiveDetectLogTableEvent tableEvent) =>
-        Append(new(6, "tableEvent", runId, recordedAt, TableEvent: tableEvent));
+        Append(new(CurrentSchemaVersion, "tableEvent", runId, recordedAt, TableEvent: tableEvent));
 
     void Append(LiveDetectLogRecord record)
     {
@@ -109,7 +134,7 @@ internal sealed class LiveDetectLogStore
                     .TakeLast(limit).Select(Parse).Where(record => record is not null)
                     .Cast<LiveDetectLogRecord>().ToArray()
                 : Array.Empty<LiveDetectLogRecord>();
-            return new(new(6, "live-detect/live-detect.jsonl", retainedRecords,
+            return new(new(CurrentSchemaVersion, "live-detect/live-detect.jsonl", retainedRecords,
                 retainedFrames, retainedEventClipOperations, retainedRunEvents, retainedTableEvents, firstRecordedAt, lastRecordedAt),
                 limit, records.Length, records);
         }

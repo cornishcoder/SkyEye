@@ -49,7 +49,7 @@ public sealed partial class ShellSession
     public string LiveDetectReadAt => liveDetectReadAt is { } value ? value.ToLocalTime().ToString("HH:mm:ss") : "";
     public string LiveDetectLogStatus => liveDetectLogError is { Length: > 0 } error
         ? $"Log write failed · {error}"
-        : $"Logged {liveDetectLog.Summary.RetainedFrames} frames · {liveDetectLog.Summary.RetainedTableEvents} table events · {liveDetectLog.Summary.RetainedEventClipOperations} event clip operations · GET /api/live-detect-log";
+        : $"Retained log across runs · {liveDetectLog.Summary.RetainedFrames} frames · {liveDetectLog.Summary.RetainedTableEvents} table events · {liveDetectLog.Summary.RetainedEventClipOperations} event clip operations · GET /api/live-detect-log";
     public IReadOnlyList<string> LiveDetectEvents => liveDetectEvents.ToArray();
 
     string LiveDetectUnavailableReason => !CanAnalyzeTable ? "start a live session first"
@@ -323,7 +323,8 @@ public sealed partial class ShellSession
                         vision.ElapsedMs, System.Diagnostics.Stopwatch.GetElapsedTime(passStart).TotalMilliseconds,
                         vision.Warnings.ToArray(), vision.Balls.Select(ball => new LiveDetectLoggedBall(
                             ball.Id, ball.Kind, ball.Position.X, ball.Position.Y, ball.Confidence)).ToArray(),
-                        events.ToArray(), checkOutcome, observation.Change?.SpatiallyCompatible, rackEvidence));
+                        events.ToArray(), checkOutcome, observation.Change?.SpatiallyCompatible, rackEvidence,
+                        LiveDetectLogObstructionAudit.From(vision.ObstructionAudit)));
                     foreach (var tableEvent in eventBatch.TableEvents)
                         liveDetectLog.AppendTableEvent(runId, tableEvent.CapturedAt, tableEvent);
                     liveDetectLogError = null;
