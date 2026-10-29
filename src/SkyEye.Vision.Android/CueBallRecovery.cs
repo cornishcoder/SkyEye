@@ -139,7 +139,8 @@ public sealed partial class VisionAnalyzer
             {
                 string decision = classification.Kind != "cue" ? "rejected-not-cue" : "rejected-no-local-contrast";
                 audits?.Add(new(candidate.X, candidate.Y, candidate.Radius, fit.Centre.X, fit.Centre.Y,
-                    fit.Radius, fit.SupportedSectors, classification.Kind, localContrast, decision));
+                    fit.Radius, fit.SupportedSectors, classification.Kind, localContrast, decision)
+                { ClassificationEvidence = classification });
                 continue;
             }
             var matching = result.Select((c, i) => (Circle: c, Index: i))

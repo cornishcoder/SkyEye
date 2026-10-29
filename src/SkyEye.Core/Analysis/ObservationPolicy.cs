@@ -101,5 +101,8 @@ public sealed record CueBallRecoveryTelemetry(int InitialCueBallCount, int Befor
 }
 public sealed record NeutralCueCandidateTelemetry(double ProposalX, double ProposalY, double ProposalRadius,
     double? FittedX, double? FittedY, double? FittedRadius, double? BoundarySupport,
-    string? Classification, bool? LocalContrast, string Decision);
+    string? Classification, bool? LocalContrast, string Decision)
+{
+    public BallClassification? ClassificationEvidence { get; init; }
+}
 public sealed record LayoutChangeTelemetry(int PreviousCount, int CurrentCount, bool SpatiallyCompatible, bool LabelsCompatible);
