@@ -176,7 +176,10 @@ internal sealed class LiveDetectTableEventTracker
         lastClearLayout = stableSampleEligible;
 
         bool rackReset = false;
-        if (candidateTracker.Observe(sample.SourceTimeUs, sample.Counts, candidateEligible,
+        // Inventory candidates need the same complete, non-empty support as the
+        // settled-layout tracker. A clear-looking zero-detection frame is not proof
+        // that every ball was potted and must not create a count-decrease event.
+        if (candidateTracker.Observe(sample.SourceTimeUs, sample.Counts, stableSampleEligible,
             sample.PackedRack) is { } candidate)
         {
             string candidateType = candidate.Kind switch
