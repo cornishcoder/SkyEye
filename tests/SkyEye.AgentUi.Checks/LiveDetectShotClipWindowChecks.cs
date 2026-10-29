@@ -16,8 +16,8 @@ internal static class LiveDetectShotClipWindowChecks
             "shot clip retains the configured lead-in before first activity");
         Require(window.EndSourceTimeUs == settled + LiveDetectShotClipWindowPolicy.PostRollSeconds * 1_000_000L,
             "shot clip records the post-roll end after the settled layout");
-        Require(window.SaveSeconds == 47,
-            "event clip uses its measured source-time range instead of rounding up to a duration bucket");
+        Require(window.SaveSeconds == 29,
+            "event clip uses a two-second pre-roll and measured source-time range instead of a duration bucket");
 
         long postRollEnd = settled + LiveDetectShotClipWindowPolicy.PostRollSeconds * 1_000_000L;
         Require(!LiveDetectShotClipWindowPolicy.TryCreate(id, timeline, movement, settled,

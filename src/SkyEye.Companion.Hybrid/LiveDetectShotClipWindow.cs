@@ -9,7 +9,7 @@ internal readonly record struct LiveDetectShotClipWindow(Guid ActivityId, string
 /// <summary>Maps a completed Live Detect activity to a bounded source-time clip range.</summary>
 internal static class LiveDetectShotClipWindowPolicy
 {
-    public const int LeadInSeconds = 20;
+    public const int LeadInSeconds = 2;
     public const int PostRollSeconds = 2;
     const int MaximumClipSeconds = 600;
     public static readonly TimeSpan PostRollWaitTimeout = TimeSpan.FromSeconds(5);
