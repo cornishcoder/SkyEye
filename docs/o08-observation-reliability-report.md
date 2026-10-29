@@ -563,3 +563,18 @@ Focused checks cover a dim red body, a half-hand-covered dim red body, and a tou
 Every frame matched all 16 same-colour centres between the two analysis widths, with no unmatched circles. Maximum cross-width displacement ranged from 0.00177 to 0.00389 table units across the six frames; this is repeatability, not independently reviewed absolute location accuracy. The same diagnostic gamma derivative remains the input, so this is not acceptance across actual supported lighting or proof of production exposure correction. The v21 replay is `work/production/evidence/o08-current-device-check-20261029/luma-gamma-six16-v21-colour-mask-edge-replay.json`.
 
 Pixel 11 disconnected from ADB after this replay. The four saved lighting-set regressions and the five saved potting clips have not been rerun under v21. The latest earlier 1.4-second shot-sample replay processed 89 distinct timeline samples and produced two yellow-count candidates (7→6 and 5→4), no red-count decrease, and no canonical `GameState` changes. Those candidates remain earlier-analyzer evidence; this pass does not claim v21 shot-event behavior. No live camera or Cast/TV action occurred during this pass.
+
+### Fresh session-separated raw holdout capture — 29 October 2026
+
+With the user confirming that the table was undisturbed and the Pixel 10 mount stable, the Production companion started a fresh camera session and six 1920×1080 frames were decoded from its live stream at 0.5-second spacing (relative decode PTS 0.0–2.5s). The camera timeline was `e3c02bb9dc4542948c829a512630041a`; capture artifacts are under `work/production/evidence/o08-holdout-20261029/raw-session-e3c02bb9dc4542948c829a512630041a/`. The PNG SHA-256 values are:
+
+| Frame | SHA-256 |
+|---|---|
+| 01 | `DAA8DFDF70492E7338DFD0B3BDC0C51BFD028B969DB276AAC1AED4DE6DFEDCB4` |
+| 02 | `CB4BA9D2D4F2BFEE2B5547F919B6C8BE3FB9B2CFF82D0CF9A3EDD239C6B27C51` |
+| 03 | `75150258E265707FE2E22B1AD601D46D463BAFF496EE2435C8D81FA6972ADE31` |
+| 04 | `23A1196CDF3394C8B6D7B1544B84ED5ADEDDADC00A5C017A2ED348FABB097FD4` |
+| 05 | `40E861FC7EC00C2B05943E128BC6B6E7558CEB4D73294DBE08AFED03CAC5B0BB` |
+| 06 | `2DEE830493734B876612103ABF1D8DAEB72632A6310E3828E424C29DB104C2B7` |
+
+These are raw camera frames only: no Pixel 11 table analysis, detector overlay, or match action has been run on them. They are reserved as a session-separated holdout candidate until the visible ball inventory and centres are independently reviewed and labelled. The review contact sheet is `raw-review-contact-sheet.png` in the same directory. Pixel 10 was absent from ADB and mDNS discovery, but the companion camera API was reachable. After extraction, Home showed `Start live session`, `/status` reported `Stopped` (revision 31, 50% battery, 31 clips, zero viewers), and Cast remained disconnected. No Cast/TV interaction occurred.
