@@ -1,29 +1,35 @@
 # Live Detect handoff — 29 October 2026
 
-## Current state
+## Current deployment and device state
 
-- Objective: reliable live table inventory and locations; source-timed activity, movement, obstruction, settled pot/no-pot and rack events; event-linked clips. The goal remains active. Keep table-event evidence separate from canonical `SkyEye.GameState`; unresolved or obstructed observations stay unknown.
-- Production code43 (`0.8.35`) is installed on Pixel 11 from source commit `08399b0`; it adds compact schema 7 obstruction audit telemetry. Agent UI checks passed; Release build had zero errors and 13 warnings. Rollback APK: `work/production/backups/20261029-120436/before.apk`; installed signed APK SHA-256: `A59A867529D0136A9FC8E90A1870CD7E48D48C9AD04F7BCB4BDD22F8DEB6E0A8`.
-- Code42 no-pot acceptance remains inconclusive: the user confirmed the table stayed clear, but repeated false obstruction prevented settlement and no `no_pot_observed` or event clip followed. Full counts and the resolved all-run/Home-counter scope are retained in the linked acceptance record.
-- Code43 stationary run `40f329c8-860e-412e-a8f2-ba71f8821125`: 146 frames, all 16 balls; 25 (17.12%) obstructed. All 25 triggers were the same 800×1600 analysis region (x=273, y=1352–1353, 120–121×111–112), with three ball centres and 0.5317–0.5420 body coverage. Size and body coverage passed; the five-centre ball-group exemption failed. A separate verifier PNG (not the triggering live frame), rectified to the audit region, shows two reds, one yellow and normal shadows with no object. Full evidence and compact statistics are in the acceptance record and `work/production/evidence/live-detect-code43-20261029/run-summary.json`.
-- Capture is **stopped**: latest mounted-camera `/status` says `Stopped`, revision 73, battery 71%, 65 clips. Pixel 11 Home shows **Start live session**. Cast remains disconnected and was not touched.
-- The earlier code42 stop required reclaiming host control after Home showed a host-lost warning; the recovery procedure is documented in `docs/device-control-guide.md`. Code43 was independently stopped and verified at revision 73.
+Production code44 (`0.8.36`, source `5f3d372`) is installed on Pixel 11. Camera capture is independently confirmed **Stopped**, revision 79, battery 67%, 68 saved clips. Home shows **Start live session**; Cast is disconnected. Keep capture stopped for builds, replay and waits. The user requested continuing this same task on **GPT-6 Luna, extra-high reasoning**; the goal remains active.
 
-## Findings to carry forward
+## What now works physically
 
-1. **Correct and recheck the localized component.** Code43 evidence shows the same three-ball/shadow component triggering in 25/146 stationary frames; the rectified verifier crop shows no object. Code44 is implementing actual component-centre membership while keeping current size and 0.52 coverage gates. After build/install, repeat the bounded stationary run and verify this region becomes non-triggering while true object controls still trigger. Code44 is not yet accepted or installed.
-2. **Retry no-pot after clear observations remain continuous.** Code42 did not validate the no-pot event logic physically. Keep no-pot, pot, cue-ball return/rack, event-to-footage correlation and full same-run acceptance open until source-stamped transitions and clip coverage are physically checked.
-3. **Keep the verifier/live-frame distinction explicit.** The single saved verifier PNG is a separate clear frame; it is not the exact live frame that raised the obstruction warning. The close-up was independently rectified using the live audit bounds.
+- Schema 7 logs a bounded obstruction-component audit. This isolated a repeated false warning from three nearby balls and their shadows. Code44 uses three actual component-member centres, retaining the existing size and 0.52 body-coverage gates. The real-hand replay remains obstructed/uncertain at both widths; the on-device rack/obstruction regression passed.
+- The initial rack check returned 170/170 full, clear 16-ball reads. The user had re-racked while capture was off, so this does not recreate the prior three-ball spread exactly.
+- Same-run play `b9f9163e-e782-4da3-b5c4-338e297d3e1f` matched the user's reports: no-pot break, red pot, only cue ball potted, cue returned, re-rack. Settled inventories: 16 → 15 → 14 → 15 → 16. Events included no-pot, red/cue settled decreases, return and new rack/settlement without restarting detection.
+- No-pot clip `f748a31bbd2646658c0314dec221f2d7` (51.371s) and red-pot clip `8c42f73b5067427aaaae055bc3847172` (60.406s) were downloaded and SHA-256 checked. Their sampled footage covers line-up, shot and rest; reported source windows are covered. Contact sheets and MP4s are in `work/production/evidence/live-detect-code44-20261029/clips/`.
 
-## Existing code pointers
+## Two clip defects and the prepared patch
 
-- Obstruction generation: `src/SkyEye.Vision.Android/VisionAnalyzer.cs`, `LargeObstruction` around line 718.
-- Audit model: `src/SkyEye.Core/Analysis/TableAnalysisSession.cs`, `ObstructionAuditTelemetry` and `ObstructionComponentAudit`.
-- Live Detect log projection and append: `src/SkyEye.Companion.Hybrid/ShellLiveDetect.cs`, around line 317.
-- Log schema, limits and trimming: `src/SkyEye.Companion.Hybrid/LiveDetectLogStore.cs`.
-- Event reducer: `src/SkyEye.Companion.Hybrid/LiveDetectTableEventTracker.cs`.
-- Pipeline and acceptance: `docs/live-detect-pipeline.md`, `docs/live-detect-plan.md`, `docs/device-acceptance.md`.
+The cue-pot clip was skipped with a misleading supported-range message although its activity was only about six seconds. Its exact estimated save PTS was not logged, so the original failure branch is not fully proven; the most plausible admission failure is post-roll source time. A later 31.204s clip `5abc075c390a46fcb8b41479de05a546` was incorrectly saved for cue replacement/rolling. It is not the cue-pot clip.
 
-## Physical safeguards
+Commit `7be9d2d` prepares fixes: wait up to five seconds for a same-timeline observed frame PTS at least two seconds beyond settlement; log post-roll timeout separately; suppress clips throughout a ball-return activity. The existing serialized camera-save queue is retained. Root review fixed a parameter-shadowing compile issue and extended return suppression to both clip-selection branches. `SkyEye.AgentUi.Checks` passed after review; log: `work/production/code44-clip-fix-checks.log`.
 
-Keep Pixel 10 capture stopped except during bounded live evidence collection. Do not interact with Cast/TV while the user watches. Preserve clips and app data. Do not start a match for perception checks, and do not let shot planning gate table readiness.
+**This patch has not had an Android build, version bump, installation or physical acceptance.** Next:
+
+1. Review queued-stop behavior before deployment: the post-roll reader uses `table.State.Observation`; it may stop advancing when Live Detect is cancelled immediately after settlement. Add a focused check and preserve completion of an already queued clip when recording ends. Avoid an unbounded wait and avoid claiming post-roll from an estimated timestamp.
+2. Build Production from current source, bump to code45 / `0.8.37`, install in place with the guarded installer while capture is stopped. Preserve clips/private storage.
+3. Run a bounded cue-pot/return acceptance when the user is available: cue loss must save the correct clip after source post-roll, and cue replacement must produce no shot clip. Also check stopping immediately after a settled event and a temporary frame stall.
+4. Stop through Home and independently verify `/status: Stopped` plus Home `Start live session` before offline inspection or waiting. Download/hash and visually review the saved clip.
+5. Keep broader location/lighting reliability and accepted GameState integration open. Table events remain perception evidence; no shooter, legality or turn is inferred. Do not add a parallel canonical state store.
+
+## Evidence and source pointers
+
+- Complete play log reconstructed by deduplicating successive bounded snapshots in append order: `work/production/evidence/live-detect-code44-20261029/play-complete.jsonl` (763 frame rows, 37 table events). `play-summary.json` records outcomes. The phone log is bounded; do not assume its final tail retains the full run.
+- Code43 false-warning audit and separate exact clear verifier frame: `work/production/evidence/live-detect-code43-20261029/`. The verifier PNG is not the exact flagged live image; the independently rectified close-up identifies the same region.
+- Camera clip URL viewing access can be refreshed from `/status` and passed as `?access=` for a supported read. Never print the token. Downloading all three code44 clips worked and their hashes matched.
+- `docs/device-acceptance.md`, `docs/live-detect-plan.md`, `docs/device-control-guide.md`, `docs/live-detect-pipeline.md`.
+- `ShellLiveDetect.cs`, `LiveDetectShotClipWindow.cs`, `LiveDetectTableEventTracker.cs`, `LiveDetectLogStore.cs` in `src/SkyEye.Companion.Hybrid/`.
+- ADB: `C:\Program Files (x86)\Android\android-sdk\platform-tools\adb.exe`; Pixel 11 serial `66181FDDV001HS`; camera status `http://192.168.1.124:8765/status`.
