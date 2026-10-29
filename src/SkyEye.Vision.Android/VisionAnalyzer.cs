@@ -163,6 +163,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         var initialLabels = circles.Select(c => Classify(c, pixels, inspectRim)).ToArray();
         int initialCueCount = initialLabels.Count(l => l.Kind == "cue");
         int neutralCandidates = 0, neutralRecovered = 0;
+        NeutralCueCandidateTelemetry[] neutralCandidateAudits = [];
         var recoveredBoundaries = new Dictionary<Circle, BallBoundary>();
         var recoveredClassifications = new Dictionary<Circle, BallClassification>();
         int rejectedCueBodies = 0, rejectedNormalizedCueBodies = 0;
@@ -173,7 +174,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         for (int i = 0; i < circles.Length; i++) initialClassificationCache[circles[i]] = initialLabels[i];
         if (settings.FreshCueBallRecovery && initialLabels.All(l => l.Kind != "cue"))
             circles = RecoverNeutralCueBodies(rawWarped.Value, circles, recoveredBoundaries, recoveredClassifications,
-                cancellation, out neutralCandidates, out neutralRecovered);
+                cancellation, out neutralCandidates, out neutralRecovered, out neutralCandidateAudits, candidateDiagnostics);
         var proposals = circles.ToArray();
         var boundaries = new Dictionary<Circle, BallBoundary>(recoveredBoundaries);
         var candidateBoundaries = new Dictionary<Circle, BallBoundary>();
@@ -349,7 +350,11 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             { CueBallRecovery = new(initialCueCount, cueIndices.Length, normalizedCueCount,
                 labels.Count(l => l.Kind == "cue"), neutralCandidates, neutralRecovered,
                 cueGeometryRetained, cueRecoveryReason, retainedBoundarySupport)
-                { RejectedInitialCueBodies = rejectedCueBodies, RejectedNormalizedCueBodies = rejectedNormalizedCueBodies } },
+                {
+                    RejectedInitialCueBodies = rejectedCueBodies,
+                    RejectedNormalizedCueBodies = rejectedNormalizedCueBodies,
+                    NeutralCandidateAudits = neutralCandidateAudits
+                } },
             Illumination = illumination,
             PackedCluster = new(packedCluster.Detected, packedCluster.Detected && !packedClusterUnresolved,
                 packedCluster.RedCentres, packedCluster.YellowCentres, packedCluster.BlackCentre),

@@ -60,7 +60,8 @@ public sealed partial class VisionAnalyzer
     Circle[] RecoverNeutralCueBodies(Mat raw, Circle[] circles,
         Dictionary<Circle, BallBoundary> boundaries, Dictionary<Circle, BallClassification> classifications,
         CancellationToken cancellation,
-        out int candidateCount, out int recoveredCount)
+        out int candidateCount, out int recoveredCount, out NeutralCueCandidateTelemetry[] candidateAudits,
+        bool auditCandidates)
     {
         int width = coordinates.Width, height = coordinates.Height;
         double scale = width / 1000d, expectedRadius = PoolGeometry.Radius * width;
@@ -106,6 +107,8 @@ public sealed partial class VisionAnalyzer
             candidates.Add(c);
         }
         candidateCount = candidates.Count; recoveredCount = 0;
+        var audits = auditCandidates ? new List<NeutralCueCandidateTelemetry>(Math.Min(4, candidates.Count)) : null;
+        candidateAudits = [];
         // Too many bodies are ambiguous, not permission to select an arbitrary
         // cue ball. Bound expensive boundary fitting to four plausible bodies.
         if (candidates.Count > 4) return circles;
@@ -115,23 +118,57 @@ public sealed partial class VisionAnalyzer
             cancellation.ThrowIfCancellationRequested();
             rawPixels ??= Read(raw);
             var fit = BallBoundaryRefiner.Refine(rawPixels, width, height, new(candidate.X, candidate.Y), expectedRadius);
-            if (fit is null || fit.SupportedSectors < ObservationPolicy.MinimumSupportedBoundaryFraction) continue;
+            if (fit is null)
+            {
+                audits?.Add(new(candidate.X, candidate.Y, candidate.Radius, null, null, null, null,
+                    null, null, "rejected-no-boundary-fit"));
+                continue;
+            }
+            if (fit.SupportedSectors < ObservationPolicy.MinimumSupportedBoundaryFraction)
+            {
+                audits?.Add(new(candidate.X, candidate.Y, candidate.Radius, fit.Centre.X, fit.Centre.Y,
+                    fit.Radius, fit.SupportedSectors, null, null, "rejected-insufficient-boundary-support"));
+                continue;
+            }
             var body = new Circle(fit.Centre.X, fit.Centre.Y, fit.Radius);
             // The whole body and its rim must agree; a cream patch on the black
             // ball cannot supply a white body at the full calibrated diameter.
             var classification = Classify(body, hsv, true);
-            if (classification.Kind != "cue" || !HasLowLightNeutralBallContrast(body, hsv, includeWarmCream: true)) continue;
+            bool localContrast = HasLowLightNeutralBallContrast(body, hsv, includeWarmCream: true);
+            if (classification.Kind != "cue" || !localContrast)
+            {
+                string decision = classification.Kind != "cue" ? "rejected-not-cue" : "rejected-no-local-contrast";
+                audits?.Add(new(candidate.X, candidate.Y, candidate.Radius, fit.Centre.X, fit.Centre.Y,
+                    fit.Radius, fit.SupportedSectors, classification.Kind, localContrast, decision));
+                continue;
+            }
             var matching = result.Select((c, i) => (Circle: c, Index: i))
                 .Where(p => SameBody(p.Circle, body)).ToArray();
-            if (matching.Length > 1) continue;
+            if (matching.Length > 1)
+            {
+                audits?.Add(new(candidate.X, candidate.Y, candidate.Radius, fit.Centre.X, fit.Centre.Y,
+                    fit.Radius, fit.SupportedSectors, classification.Kind, localContrast,
+                    "rejected-ambiguous-existing-match"));
+                continue;
+            }
             if (matching.Length == 1)
             {
-                if (Classify(matching[0].Circle, hsv, true).Kind is not ("unknown" or "cue")) continue;
+                string existingKind = Classify(matching[0].Circle, hsv, true).Kind;
+                if (existingKind is not ("unknown" or "cue"))
+                {
+                    audits?.Add(new(candidate.X, candidate.Y, candidate.Radius, fit.Centre.X, fit.Centre.Y,
+                        fit.Radius, fit.SupportedSectors, classification.Kind, localContrast,
+                        "rejected-existing-kind-conflict"));
+                    continue;
+                }
                 result[matching[0].Index] = body;
             }
             else result.Add(body);
             boundaries[body] = fit; classifications[body] = classification; recoveredCount++;
+            audits?.Add(new(candidate.X, candidate.Y, candidate.Radius, fit.Centre.X, fit.Centre.Y,
+                fit.Radius, fit.SupportedSectors, classification.Kind, localContrast, "recovered"));
         }
+        candidateAudits = audits?.ToArray() ?? [];
         return result.ToArray();
     }
 

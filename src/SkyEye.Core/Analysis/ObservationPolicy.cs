@@ -97,5 +97,9 @@ public sealed record CueBallRecoveryTelemetry(int InitialCueBallCount, int Befor
 {
     public int RejectedInitialCueBodies { get; init; }
     public int RejectedNormalizedCueBodies { get; init; }
+    public NeutralCueCandidateTelemetry[] NeutralCandidateAudits { get; init; } = [];
 }
+public sealed record NeutralCueCandidateTelemetry(double ProposalX, double ProposalY, double ProposalRadius,
+    double? FittedX, double? FittedY, double? FittedRadius, double? BoundarySupport,
+    string? Classification, bool? LocalContrast, string Decision);
 public sealed record LayoutChangeTelemetry(int PreviousCount, int CurrentCount, bool SpatiallyCompatible, bool LabelsCompatible);
