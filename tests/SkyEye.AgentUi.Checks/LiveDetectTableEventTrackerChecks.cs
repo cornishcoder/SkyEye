@@ -18,7 +18,9 @@ internal static class LiveDetectTableEventTrackerChecks
         SettledInventoryDecreaseProducesPotCandidate();
         ReturnedBallActivityDoesNotProduceShotClip();
         ReRackIsReportedWithoutShotClip();
-        Console.WriteLine("PASS Live Detect table event reducer handles baseline, activity, no-pot, pot and re-rack sequences");
+        DecoderRecoveryDoesNotCreateMovementOrClip();
+        DecoderRecoveryInterruptsActivityWithoutClip();
+        Console.WriteLine("PASS Live Detect table event reducer handles baseline, activity, decoder recovery, no-pot, pot and re-rack sequences");
     }
 
     static void BaselineAndMissedShotProduceEventsAndClipCandidate()
@@ -134,6 +136,55 @@ internal static class LiveDetectTableEventTrackerChecks
             "a returned-ball candidate that reaches a new clear baseline closes without a shot clip");
     }
 
+    static void DecoderRecoveryDoesNotCreateMovementOrClip()
+    {
+        var tracker = NewBaseline();
+        var recovered = tracker.Observe(Sample(4, BaseCounts, BaseLayout, movementObserved: true,
+            sourceGeneration: 2, mediaGeneration: 4));
+        Require(recovered.CheckOutcome == "source_generation_changed"
+            && recovered.TableEvents.All(e => e.Type != "movement_observed")
+            && recovered.TableEvents.All(e => e.Type != "activity_started")
+            && recovered.ClipActivity is null,
+            "the first spatially incompatible frame after a decoder restart cannot start movement or a clip");
+
+        for (int i = 5; i <= 7; i++)
+            tracker.Observe(Sample(i, BaseCounts, BaseLayout, sourceGeneration: 2, mediaGeneration: 4));
+
+        var movedLayout = ImmutableArray.Create(
+            new SettledBallPosition(BallColour.Red, .34, .39),
+            new SettledBallPosition(BallColour.Cue, .75, .64));
+        var moved = tracker.Observe(Sample(8, BaseCounts, movedLayout, movementObserved: true,
+            sourceGeneration: 2, mediaGeneration: 4));
+        Require(moved.TableEvents.Any(e => e.Type == "movement_observed"),
+            "continuous spatial evidence after decoder recovery can still start real movement activity");
+    }
+
+    static void DecoderRecoveryInterruptsActivityWithoutClip()
+    {
+        var tracker = NewBaseline();
+        var movedLayout = ImmutableArray.Create(
+            new SettledBallPosition(BallColour.Red, .34, .39),
+            new SettledBallPosition(BallColour.Cue, .75, .64));
+        var moving = tracker.Observe(Sample(4, BaseCounts, movedLayout, movementObserved: true));
+        Require(moving.TableEvents.Any(e => e.Type == "movement_observed"),
+            "a continuous pre-restart movement signal starts an activity");
+
+        var recovered = tracker.Observe(Sample(5, BaseCounts, movedLayout, movementObserved: true,
+            sourceGeneration: 2, mediaGeneration: 4));
+        Require(recovered.TableEvents.Any(e => e.Type == "activity_interrupted")
+            && recovered.TableEvents.All(e => e.Type != "movement_observed")
+            && recovered.ClipActivity is null,
+            "decoder recovery closes an open activity as unknown without inferring a shot or saving a clip");
+
+        LiveDetectEventBatch settled = default!;
+        for (int i = 6; i <= 8; i++)
+            settled = tracker.Observe(Sample(i, BaseCounts, movedLayout,
+                sourceGeneration: 2, mediaGeneration: 4));
+        Require(settled.TableEvents.All(e => e.Type != "no_pot_observed")
+            && settled.ClipActivity is null,
+            "the post-recovery stable layout cannot complete an interrupted activity as a no-pot shot");
+    }
+
     static LiveDetectTableEventTracker NewBaseline()
     {
         var tracker = new LiveDetectTableEventTracker();
@@ -144,13 +195,13 @@ internal static class LiveDetectTableEventTrackerChecks
     static LiveDetectTableEventObservation Sample(int index, LiveDetectCounts counts,
         ImmutableArray<SettledBallPosition> layout, bool obstructed = false,
         bool layoutUncertain = false, bool movementObserved = false, bool packedRack = false,
-        long sourceGeneration = 1)
+        long sourceGeneration = 1, long mediaGeneration = 3)
     {
         long sourceTimeUs = index * 400_000L;
         var timeline = "event-check-timeline";
         var calibration = "event-check-calibration";
         return new(new("camera", timeline, sourceGeneration, calibration, ConnectionId.ToString("N")),
-            ConnectionId, 3, index + 1, Start.AddTicks(sourceTimeUs * 10), sourceTimeUs,
+            ConnectionId, mediaGeneration, index + 1, Start.AddTicks(sourceTimeUs * 10), sourceTimeUs,
             timeline, calibration, counts, layout, obstructed, layoutUncertain,
             movementObserved, packedRack);
     }

@@ -29,6 +29,7 @@ internal sealed class LiveDetectTableEventTracker
     LiveDetectCountCandidateTracker candidateTracker = new();
     StableTableChangeTracker stableLayoutTracker = new();
     string? timeline;
+    long? mediaGeneration;
     Guid? lastStableChangeId;
     bool? lastClearLayout;
     bool stableBaselineEstablished;
@@ -42,6 +43,7 @@ internal sealed class LiveDetectTableEventTracker
         candidateTracker.Reset();
         stableLayoutTracker = new();
         timeline = null;
+        mediaGeneration = null;
         lastStableChangeId = null;
         lastClearLayout = null;
         stableBaselineEstablished = false;
@@ -54,7 +56,11 @@ internal sealed class LiveDetectTableEventTracker
     public LiveDetectEventBatch Observe(LiveDetectTableEventObservation sample)
     {
         ArgumentNullException.ThrowIfNull(sample);
-        if (timeline is not null && timeline != sample.Timeline) Reset();
+        bool timelineChanged = timeline is not null && timeline != sample.Timeline;
+        if (timelineChanged) Reset();
+        bool mediaGenerationChanged = mediaGeneration is { } previousGeneration
+            && sample.MediaGeneration != previousGeneration;
+        mediaGeneration = sample.MediaGeneration;
         timeline = sample.Timeline;
 
         bool candidateEligible = !sample.LayoutUncertain && !sample.Obstructed;
@@ -69,7 +75,7 @@ internal sealed class LiveDetectTableEventTracker
             stableSampleEligible ? sample.Layout : [], stableSampleEligible));
 
         var events = ImmutableArray.CreateBuilder<LiveDetectLogTableEvent>();
-        string? passEventType = null;
+        string? passEventType = mediaGenerationChanged ? "source_generation_changed" : null;
 
         void Add(string type, string message, Guid? activityId = null,
             LiveDetectCounts? before = null, LiveDetectCounts? after = null,
@@ -94,6 +100,22 @@ internal sealed class LiveDetectTableEventTracker
                 activity.Id, after: ToLiveDetectCounts(baselineCounts));
         }
 
+        if (mediaGenerationChanged)
+        {
+            stableAtBaselineSamples = 0;
+            if (activity is { } interruptedActivity)
+            {
+                Add("activity_interrupted",
+                    "Decoder restarted; movement continuity is unknown. No shot outcome inferred.",
+                    interruptedActivity.Id, before: ToLiveDetectCounts(baselineCounts),
+                    after: stableSampleEligible ? sample.Counts : null,
+                    beforeSourceTimeUs: stableSnapshot.BaselineSourceTimeUs,
+                    beforeLayout: baselineLayout,
+                    afterLayout: stableSampleEligible ? sample.Layout : []);
+                activity = null;
+            }
+        }
+
         if (stableBefore.BaselineEstablished && lastClearLayout is true && !stableSampleEligible)
         {
             string type = sample.Obstructed ? "obstruction_started" : "layout_uncertain";
@@ -109,7 +131,11 @@ internal sealed class LiveDetectTableEventTracker
                 activity.Id, after: sample.Counts);
         }
 
-        if (stableBaselineEstablished && stableSampleEligible && sample.MovementObserved)
+        // The first frame of a restarted decoder has no spatial continuity with the
+        // prior generation. It may still establish a fresh layout, but that jump is
+        // not evidence that balls moved.
+        if (stableBaselineEstablished && stableSampleEligible && sample.MovementObserved
+            && !mediaGenerationChanged)
         {
             StartActivity("ball positions or inventory changed");
             if (activity is { MovementObserved: false } moving)
