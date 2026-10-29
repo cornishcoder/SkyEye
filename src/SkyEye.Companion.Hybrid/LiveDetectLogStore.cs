@@ -31,7 +31,7 @@ internal sealed record LiveDetectLogRecord(int SchemaVersion, string Kind, Guid 
     DateTimeOffset RecordedAt, LiveDetectLogFrame? Frame = null, LiveDetectLogClipSave? ClipSave = null,
     LiveDetectLogRunEvent? RunEvent = null, LiveDetectLogTableEvent? TableEvent = null);
 internal sealed record LiveDetectLogSummary(int SchemaVersion, string StoragePath, int RetainedRecords,
-    int RetainedFrames, int RetainedClipSaveOperations, int RetainedRunEvents, int RetainedTableEvents,
+    int RetainedFrames, int RetainedEventClipOperations, int RetainedRunEvents, int RetainedTableEvents,
     DateTimeOffset? FirstRecordedAt, DateTimeOffset? LastRecordedAt);
 internal sealed record LiveDetectLogReadout(LiveDetectLogSummary Summary, int RequestedLimit,
     int ReturnedRecords, LiveDetectLogRecord[] Records);
@@ -47,7 +47,7 @@ internal sealed class LiveDetectLogStore
     readonly object gate = new();
     readonly string path;
     readonly HashSet<Guid> clipSaveIds = [];
-    int retainedRecords, retainedFrames, retainedClipSaveOperations, retainedRunEvents, retainedTableEvents;
+    int retainedRecords, retainedFrames, retainedEventClipOperations, retainedRunEvents, retainedTableEvents;
     DateTimeOffset? firstRecordedAt, lastRecordedAt;
 
     public LiveDetectLogStore(string path)
@@ -61,22 +61,22 @@ internal sealed class LiveDetectLogStore
     {
         get
         {
-            lock (gate) return new(4, "live-detect/live-detect.jsonl", retainedRecords,
-                retainedFrames, retainedClipSaveOperations, retainedRunEvents, retainedTableEvents, firstRecordedAt, lastRecordedAt);
+            lock (gate) return new(5, "live-detect/live-detect.jsonl", retainedRecords,
+                retainedFrames, retainedEventClipOperations, retainedRunEvents, retainedTableEvents, firstRecordedAt, lastRecordedAt);
         }
     }
 
     public void AppendFrame(Guid runId, DateTimeOffset recordedAt, LiveDetectLogFrame frame) =>
-        Append(new(4, "frame", runId, recordedAt, Frame: frame));
+        Append(new(5, "frame", runId, recordedAt, Frame: frame));
 
     public void AppendClipSave(Guid runId, DateTimeOffset recordedAt, LiveDetectLogClipSave clipSave) =>
-        Append(new(4, "clipSave", runId, recordedAt, ClipSave: clipSave));
+        Append(new(5, "clipSave", runId, recordedAt, ClipSave: clipSave));
 
     public void AppendRunEvent(Guid runId, DateTimeOffset recordedAt, LiveDetectLogRunEvent runEvent) =>
-        Append(new(4, "runEvent", runId, recordedAt, RunEvent: runEvent));
+        Append(new(5, "runEvent", runId, recordedAt, RunEvent: runEvent));
 
     public void AppendTableEvent(Guid runId, DateTimeOffset recordedAt, LiveDetectLogTableEvent tableEvent) =>
-        Append(new(4, "tableEvent", runId, recordedAt, TableEvent: tableEvent));
+        Append(new(5, "tableEvent", runId, recordedAt, TableEvent: tableEvent));
 
     void Append(LiveDetectLogRecord record)
     {
@@ -86,8 +86,9 @@ internal sealed class LiveDetectLogStore
             File.AppendAllText(path, JsonSerializer.Serialize(record, JsonOptions) + "\n", new UTF8Encoding(false));
             retainedRecords++;
             if (record.Kind == "frame") retainedFrames++;
-            if (record.Kind == "clipSave" && record.ClipSave is { } save && clipSaveIds.Add(save.OperationId))
-                retainedClipSaveOperations = clipSaveIds.Count;
+            if (record.Kind == "clipSave" && record.ClipSave is { ActivityId: not null, EventType: not null } save
+                && clipSaveIds.Add(save.OperationId))
+                retainedEventClipOperations = clipSaveIds.Count;
             if (record.Kind == "runEvent") retainedRunEvents++;
             if (record.Kind == "tableEvent" && record.TableEvent is not null) retainedTableEvents++;
             firstRecordedAt ??= record.RecordedAt;
@@ -107,8 +108,8 @@ internal sealed class LiveDetectLogStore
                     .TakeLast(limit).Select(Parse).Where(record => record is not null)
                     .Cast<LiveDetectLogRecord>().ToArray()
                 : Array.Empty<LiveDetectLogRecord>();
-            return new(new(4, "live-detect/live-detect.jsonl", retainedRecords,
-                retainedFrames, retainedClipSaveOperations, retainedRunEvents, retainedTableEvents, firstRecordedAt, lastRecordedAt),
+            return new(new(5, "live-detect/live-detect.jsonl", retainedRecords,
+                retainedFrames, retainedEventClipOperations, retainedRunEvents, retainedTableEvents, firstRecordedAt, lastRecordedAt),
                 limit, records.Length, records);
         }
     }
@@ -137,7 +138,7 @@ internal sealed class LiveDetectLogStore
 
     void RefreshIndex()
     {
-        retainedRecords = retainedFrames = retainedClipSaveOperations = retainedRunEvents = retainedTableEvents = 0;
+        retainedRecords = retainedFrames = retainedEventClipOperations = retainedRunEvents = retainedTableEvents = 0;
         clipSaveIds.Clear();
         firstRecordedAt = lastRecordedAt = null;
         foreach (var line in File.ReadLines(path))
@@ -146,13 +147,14 @@ internal sealed class LiveDetectLogStore
             if (record is null) continue;
             retainedRecords++;
             if (record.Kind == "frame" && record.Frame is not null) retainedFrames++;
-            if (record.Kind == "clipSave" && record.ClipSave is { } save) clipSaveIds.Add(save.OperationId);
+            if (record.Kind == "clipSave" && record.ClipSave is { ActivityId: not null, EventType: not null } save)
+                clipSaveIds.Add(save.OperationId);
             if (record.Kind == "runEvent" && record.RunEvent is not null) retainedRunEvents++;
             if (record.Kind == "tableEvent" && record.TableEvent is not null) retainedTableEvents++;
             firstRecordedAt ??= record.RecordedAt;
             lastRecordedAt = record.RecordedAt;
         }
-        retainedClipSaveOperations = clipSaveIds.Count;
+        retainedEventClipOperations = clipSaveIds.Count;
     }
 
     static LiveDetectLogRecord? Parse(string line)

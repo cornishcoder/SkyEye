@@ -48,6 +48,24 @@ internal static class LiveDetectLogStoreChecks
             Require(new LiveDetectLogStore(eventPath).Summary.RetainedTableEvents == 1,
                 "table event counts and records survive log-store reopening");
 
+            var clipOperation = Guid.NewGuid();
+            var activityId = Guid.NewGuid();
+            var timeline = Guid.NewGuid().ToString("N");
+            var legacyPeriodicSave = new LiveDetectLogClipSave(Guid.NewGuid(), "completed", tableEventAt,
+                tableEventAt.AddSeconds(1), 30, "Applied", "Legacy periodic clip.", null, null, null,
+                null, null, null, "legacy", "legacy clip", 30, tableEventAt.AddSeconds(1), 100, "hash");
+            eventStore.AppendClipSave(runId, tableEventAt, legacyPeriodicSave);
+            var eventSave = new LiveDetectLogClipSave(clipOperation, "requested", tableEventAt, null,
+                60, "Pending", "Event-linked clip.", null, null, null, null, null, null,
+                null, null, null, null, null, null, ActivityId: activityId, EventType: "possible_pot_settled",
+                EventTimeline: timeline, WindowStartSourceTimeUs: 1, WindowEndSourceTimeUs: 2);
+            eventStore.AppendClipSave(runId, tableEventAt, eventSave);
+            eventStore.AppendClipSave(runId, tableEventAt.AddSeconds(1), eventSave with
+                { Stage = "completed", CompletedAt = tableEventAt.AddSeconds(1), Outcome = "Applied" });
+            Require(eventStore.Summary.RetainedEventClipOperations == 1
+                && new LiveDetectLogStore(eventPath).Summary.RetainedEventClipOperations == 1,
+                "only distinct activity-linked event clip operations count; old periodic saves are excluded");
+
             var framePath = Path.Combine(directory, "classified-checks.jsonl");
             var frameStore = new LiveDetectLogStore(framePath);
             var checkAt = start.AddSeconds(2);

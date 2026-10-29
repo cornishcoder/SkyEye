@@ -52,7 +52,7 @@ public sealed partial class ShellSession
     public string LiveDetectReadAt => liveDetectReadAt is { } value ? value.ToLocalTime().ToString("HH:mm:ss") : "";
     public string LiveDetectLogStatus => liveDetectLogError is { Length: > 0 } error
         ? $"Log write failed · {error}"
-        : $"Logged {liveDetectLog.Summary.RetainedFrames} frames · {liveDetectLog.Summary.RetainedTableEvents} table events · {liveDetectLog.Summary.RetainedClipSaveOperations} event clips · GET /api/live-detect-log";
+        : $"Logged {liveDetectLog.Summary.RetainedFrames} frames · {liveDetectLog.Summary.RetainedTableEvents} table events · {liveDetectLog.Summary.RetainedEventClipOperations} event clip operations · GET /api/live-detect-log";
     public IReadOnlyList<string> LiveDetectEvents => liveDetectEvents.ToArray();
 
     string LiveDetectUnavailableReason => !CanAnalyzeTable ? "start a live session first"
