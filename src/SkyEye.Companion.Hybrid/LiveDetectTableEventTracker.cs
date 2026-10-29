@@ -15,7 +15,9 @@ internal sealed record LiveDetectTableEventObservation(EvidenceSource Source, Gu
 
 internal sealed record LiveDetectEventBatch(string CheckOutcome,
     ImmutableArray<LiveDetectLogTableEvent> TableEvents, LiveDetectActivity? ClipActivity,
-    string? ClipEventType, long? ClipEndSourceTimeUs)
+    string? ClipEventType, long? ClipEndSourceTimeUs,
+    LiveDetectCounts? SettledBaseline, DateTimeOffset? SettledBaselineAt,
+    bool SettledBaselineMatchesCurrent)
 {
     public IEnumerable<string> Messages => TableEvents.Select(tableEvent => tableEvent.Message);
 }
@@ -35,7 +37,9 @@ internal sealed class LiveDetectTableEventTracker
     bool stableBaselineEstablished;
     SettledTableCounts? baselineCounts;
     ImmutableArray<SettledBallPosition> baselineLayout = [];
+    DateTimeOffset? baselineCapturedAt;
     int stableAtBaselineSamples;
+    int currentBaselineStableSamples;
     LiveDetectActivity? activity;
 
     public void Reset()
@@ -49,7 +53,9 @@ internal sealed class LiveDetectTableEventTracker
         stableBaselineEstablished = false;
         baselineCounts = null;
         baselineLayout = [];
+        baselineCapturedAt = null;
         stableAtBaselineSamples = 0;
+        currentBaselineStableSamples = 0;
         activity = null;
     }
 
@@ -79,6 +85,7 @@ internal sealed class LiveDetectTableEventTracker
         LiveDetectActivity? clipActivity = null;
         string? clipEventType = null;
         long? clipEndSourceTimeUs = null;
+        bool baselineAdvancedThisSample = false;
 
         void Add(string type, string message, Guid? activityId = null,
             LiveDetectCounts? before = null, LiveDetectCounts? after = null,
@@ -106,6 +113,7 @@ internal sealed class LiveDetectTableEventTracker
         if (mediaGenerationChanged)
         {
             stableAtBaselineSamples = 0;
+            currentBaselineStableSamples = 0;
             if (activity is { } interruptedActivity)
             {
                 bool recentMovementEpisode = interruptedActivity.MovementObserved
@@ -199,7 +207,9 @@ internal sealed class LiveDetectTableEventTracker
             stableBaselineEstablished = true;
             baselineCounts = stableSnapshot.BaselineCounts;
             baselineLayout = sample.Layout;
+            baselineCapturedAt = sample.CapturedAt;
             stableAtBaselineSamples = 0;
+            baselineAdvancedThisSample = true;
             passEventType = "settled_layout_baseline";
             Add("settled_layout_baseline", $"Stable table baseline established · {sample.Counts.Summary}.",
                 after: sample.Counts, afterLayout: sample.Layout);
@@ -211,7 +221,9 @@ internal sealed class LiveDetectTableEventTracker
             lastStableChangeId = settledChange.Id;
             baselineCounts = settledChange.After;
             baselineLayout = settledChange.AfterLayout;
+            baselineCapturedAt = settledChange.CapturedAt;
             stableAtBaselineSamples = 0;
+            baselineAdvancedThisSample = true;
             bool settledRack = sample.PackedRack;
             bool activityObservedBeforeSettlement = activity is not null;
             bool movementObserved = activity is { MovementObserved: true };
@@ -278,6 +290,13 @@ internal sealed class LiveDetectTableEventTracker
             stableAtBaselineSamples++;
         else stableAtBaselineSamples = 0;
 
+        if (!stableSampleEligible) currentBaselineStableSamples = 0;
+        else if (baselineAdvancedThisSample) currentBaselineStableSamples = StableTableChangeTracker.RequiredStableSamples;
+        else if (stableBaselineEstablished && baselineCounts == settledCounts
+            && SettledLayoutReconciler.SameLayout(baselineLayout, sample.Layout))
+            currentBaselineStableSamples++;
+        else currentBaselineStableSamples = 0;
+
         if (activity is { } unchangedActivity && stableAtBaselineSamples >= StableTableChangeTracker.RequiredStableSamples)
         {
             string endedType = unchangedActivity.ShotClipSuppressed
@@ -305,7 +324,10 @@ internal sealed class LiveDetectTableEventTracker
                 : baselineCounts == settledCounts && SettledLayoutReconciler.SameLayout(baselineLayout, sample.Layout)
                     ? "clear_unchanged"
                     : baselineCounts == settledCounts ? "layout_change_pending" : "inventory_change_pending");
-        return new(checkOutcome, events.ToImmutable(), clipActivity, clipEventType, clipEndSourceTimeUs);
+        bool settledBaselineMatchesCurrent = stableSampleEligible
+            && currentBaselineStableSamples >= StableTableChangeTracker.RequiredStableSamples;
+        return new(checkOutcome, events.ToImmutable(), clipActivity, clipEventType, clipEndSourceTimeUs,
+            ToLiveDetectCounts(baselineCounts), baselineCapturedAt, settledBaselineMatchesCurrent);
     }
 
     static bool IsStableInventory(LiveDetectCounts counts) =>

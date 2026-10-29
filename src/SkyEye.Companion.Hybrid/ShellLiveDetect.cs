@@ -27,6 +27,8 @@ public sealed partial class ShellSession
     DateTimeOffset? liveDetectReadAt;
     string? liveDetectLastClearInventory;
     DateTimeOffset? liveDetectLastClearAt;
+    string? liveDetectLastSettledInventory;
+    DateTimeOffset? liveDetectLastSettledAt;
     readonly Queue<string> liveDetectEvents = new();
     bool liveDetectHasResult;
 
@@ -139,6 +141,8 @@ public sealed partial class ShellSession
         liveDetectReadAt = null;
         liveDetectLastClearInventory = null;
         liveDetectLastClearAt = null;
+        liveDetectLastSettledInventory = null;
+        liveDetectLastSettledAt = null;
         liveDetectEvents.Clear();
         liveDetectHasResult = false;
         Changed?.Invoke();
@@ -314,6 +318,16 @@ public sealed partial class ShellSession
                     sourceTimeUs, observation.Timeline, calibrationId, counts, layout,
                     vision.Obstructed, vision.HasUncertainLayout,
                     observation.Change is { SpatiallyCompatible: false }, rackEvidence));
+                if (eventBatch.SettledBaseline is { } settledBaseline)
+                {
+                    liveDetectLastSettledInventory = $"{settledBaseline.Total} · {settledBaseline.Summary}";
+                    liveDetectLastSettledAt = eventBatch.SettledBaselineAt;
+                }
+                else
+                {
+                    liveDetectLastSettledInventory = null;
+                    liveDetectLastSettledAt = null;
+                }
                 var events = eventBatch.Messages.ToArray();
                 string checkOutcome = eventBatch.CheckOutcome;
                 string quality = checkOutcome switch
@@ -376,9 +390,11 @@ public sealed partial class ShellSession
                     liveDetectHasResult = true;
                     liveDetectReadAt = observation.CapturedAt;
                     liveDetectStatus = $"Live Detect running · full pass {vision.ElapsedMs / 1000:0.0}s.";
-                    liveDetectInventory = currentInventoryClear
-                        ? $"{counts.Total} detected · {counts.Summary} · {quality} · frame age {ageSeconds:0.0}s"
-                        : UnknownLiveDetectInventory(quality, observation.CapturedAt, ageSeconds);
+                    liveDetectInventory = eventBatch.SettledBaselineMatchesCurrent && eventBatch.SettledBaseline is { } settled
+                        ? $"Settled current state · {settled.Total} detected · {settled.Summary} · confirmed by this frame · frame age {ageSeconds:0.0}s"
+                        : currentInventoryClear
+                            ? $"Table change pending · {counts.Total} current detections · {counts.Summary} · {LastSettledInventorySummary(observation.CapturedAt)} · {quality} · frame age {ageSeconds:0.0}s"
+                            : UnknownLiveDetectInventory(quality, observation.CapturedAt, ageSeconds);
                     foreach (var item in events)
                     {
                         liveDetectEvents.Enqueue($"{observation.CapturedAt.ToLocalTime():HH:mm:ss} · {item}");
@@ -816,8 +832,13 @@ public sealed partial class ShellSession
             ? $"last clear reading {inventory} · {Math.Max(0, (now - capturedAt).TotalSeconds):0}s ago"
             : "no clear inventory reading yet";
         string age = frameAgeSeconds is { } seconds ? $" · frame age {seconds:0.0}s" : "";
-        return $"Current table state unknown · {reason} · {lastClear}{age}";
+        return $"Current table state unknown · {reason} · {LastSettledInventorySummary(now)} · {lastClear}{age}";
     }
+
+    string LastSettledInventorySummary(DateTimeOffset now) =>
+        liveDetectLastSettledInventory is { } inventory && liveDetectLastSettledAt is { } capturedAt
+            ? $"last settled state {inventory} · {Math.Max(0, (now - capturedAt).TotalSeconds):0}s ago"
+            : "no settled baseline yet";
 
     static ImmutableArray<SettledBallPosition> CaptureLiveDetectLayout(Ball[] balls)
     {
