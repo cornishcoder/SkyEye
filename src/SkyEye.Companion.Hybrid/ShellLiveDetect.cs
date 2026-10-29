@@ -352,7 +352,7 @@ public sealed partial class ShellSession
                         vision.Warnings.ToArray(), vision.Balls.Select(ball => new LiveDetectLoggedBall(
                             ball.Id, ball.Kind, ball.Position.X, ball.Position.Y, ball.Confidence)).ToArray(),
                         events.ToArray(), checkOutcome, observation.Change?.SpatiallyCompatible, rackEvidence,
-                        LiveDetectLogObstructionAudit.From(vision.ObstructionAudit)));
+                        LiveDetectLogObstructionAudit.From(vision.ObstructionAudit), observation.PlayerPlayback));
                     foreach (var tableEvent in eventBatch.TableEvents)
                         liveDetectLog.AppendTableEvent(runId, tableEvent.CapturedAt, tableEvent);
                     liveDetectLogError = null;

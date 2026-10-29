@@ -20,6 +20,7 @@ public sealed record TableObservation(CameraScope Source, long AnalysisGeneratio
     public LayoutChangeTelemetry? Change { get; init; }
     public VerificationEvidence? Verification { get; init; }
     public DetectionEvidenceAge? DetectionEvidence { get; init; }
+    public PlayerPlaybackTelemetry? PlayerPlayback { get; init; }
 }
 public interface ITableObservationEffect
 {

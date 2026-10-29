@@ -275,6 +275,25 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
             var imageHeight = stamp.TryGetProperty("imageHeight", out var ih) ? ih.GetInt32() : stamp.GetProperty("height").GetInt32();
             var uncertainty = stamp.TryGetProperty("clockUncertaintyMs", out var u) ? u.GetDouble() : -1;
             var clockAge = stamp.TryGetProperty("clockSampleAgeMs", out var ca) ? ca.GetDouble() : -1;
+            PlayerPlaybackTelemetry? playerPlayback = null;
+            if (stamp.TryGetProperty("playerPlayback", out var playbackStamp)
+                && playbackStamp.ValueKind == JsonValueKind.Object
+                && playbackStamp.TryGetProperty("playbackState", out var playbackState)
+                && playbackState.TryGetInt32(out var parsedPlaybackState)
+                && playbackStamp.TryGetProperty("loading", out var playbackLoading)
+                && playbackLoading.ValueKind is JsonValueKind.True or JsonValueKind.False
+                && playbackStamp.TryGetProperty("playing", out var playbackPlaying)
+                && playbackPlaying.ValueKind is JsonValueKind.True or JsonValueKind.False
+                && playbackStamp.TryGetProperty("bufferedMs", out var playbackBuffered)
+                && playbackBuffered.TryGetDouble(out var parsedBufferedMs)
+                && double.IsFinite(parsedBufferedMs) && parsedBufferedMs >= 0)
+            {
+                double? liveOffsetMs = playbackStamp.TryGetProperty("liveOffsetMs", out var liveOffset)
+                    && liveOffset.ValueKind == JsonValueKind.Number && liveOffset.TryGetDouble(out var parsedLiveOffset)
+                    && double.IsFinite(parsedLiveOffset) ? parsedLiveOffset : null;
+                playerPlayback = new(parsedPlaybackState, playbackLoading.GetBoolean(), playbackPlaying.GetBoolean(),
+                    parsedBufferedMs, liveOffsetMs);
+            }
             long? textureUpdateCount = stamp.TryGetProperty("textureUpdateCount", out var updateCount)
                 && updateCount.ValueKind == JsonValueKind.Number && updateCount.TryGetInt64(out var parsedUpdateCount) ? parsedUpdateCount : null;
             double? textureAgeMs = stamp.TryGetProperty("textureAgeMs", out var textureAge)
@@ -296,6 +315,7 @@ public sealed class PlayerTableFrameSource(Func<Bridge.PlayerBridge?> player, Fu
                 TextureAgeMs = textureAgeMs,
                 ClockSampleAgeMs = clockAge >= 0 ? clockAge : null,
                 ClockUncertaintyMs = uncertainty >= 0 ? uncertainty : null,
+                PlayerPlayback = playerPlayback,
                 DecodedReceipt = new(stamp.GetProperty("mediaGeneration").GetInt64(), stamp.GetProperty("frameId").GetInt64(),
                     stamp.GetProperty("presentationUs").GetInt64(), stamp.GetProperty("surfaceTimestampNs").GetInt64(),
                     stamp.GetProperty("width").GetInt32(), stamp.GetProperty("height").GetInt32())

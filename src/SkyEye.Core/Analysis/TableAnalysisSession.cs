@@ -68,6 +68,8 @@ public interface ITableAnalyzer
 public interface ITableFrameImage : IDisposable { byte[] EncodeForReview(); }
 public sealed record DecodedFrameReceipt(long MediaGeneration, long FrameId, long PresentationTimeUs,
     long SurfaceTimestampNs, int Width, int Height);
+public sealed record PlayerPlaybackTelemetry(int PlaybackState, bool IsLoading, bool IsPlaying,
+    double BufferedMs, double? LiveOffsetMs);
 public sealed record TableFrame(byte[] Jpeg, DateTimeOffset CapturedAt, string Timeline) : IDisposable
 {
     public ITableFrameImage? Image { get; init; }
@@ -83,6 +85,7 @@ public sealed record TableFrame(byte[] Jpeg, DateTimeOffset CapturedAt, string T
     public DecodedFrameReceipt? DecodedReceipt { get; init; }
     public double? ClockSampleAgeMs { get; init; }
     public double? ClockUncertaintyMs { get; init; }
+    public PlayerPlaybackTelemetry? PlayerPlayback { get; init; }
     public byte[] ReviewImage() => Jpeg.Length > 0 ? Jpeg : Image?.EncodeForReview() ?? throw new IOException("Review frame unavailable.");
     public void Dispose() => Image?.Dispose();
 }
@@ -223,6 +226,7 @@ public sealed partial class TableAnalysisSession(ITableFrameSource frames, ITabl
                                     (time.GetUtcNow() - frame.CapturedAt).TotalMilliseconds, acquisitionMs, detected.ElapsedMs, watch.Elapsed.TotalMilliseconds,
                                     table.Version, table.Occluded ? ObservationOutcome.Unclear : table.Settled ? ObservationOutcome.Ready : ObservationOutcome.Unsettled, frame.FrameSource)
                                     { DecodedReceipt = frame.DecodedReceipt, Quality = detected.Obstructed ? LayoutQuality.Obstructed : detected.HasUncertainLayout ? LayoutQuality.Ambiguous : LayoutQuality.Clear,
+                                        PlayerPlayback = frame.PlayerPlayback,
                                         Reason = detected.Obstructed ? ObservationReason.Obstructed : detected.HasUncertainLayout ? ObservationReason.DetectionAmbiguous : table.Settled ? ObservationReason.None : ObservationReason.InsufficientEvidence,
                                         Recognition = detected.Recognition,
                                         Change = detected.HasUncertainLayout || detected.Obstructed ? null

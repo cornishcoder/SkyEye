@@ -21,7 +21,10 @@ public final class PlayerBridge {
     public String observationSourceStatus(){try{return new JSONObject().put("playing",player.isPlaying()).put("playWhenReady",player.getPlayWhenReady())
         .put("playbackState",player.getPlaybackState()).put("suppressionReason",player.getPlaybackSuppressionReason())
         .put("errorCode",player.getPlayerError()==null?JSONObject.NULL:player.getPlayerError().errorCode).put("textureAvailable",texture.isAvailable())
-        .put("released",released).put("mediaGeneration",generation).put("copyFailure",lastCopyFailure).toString();}catch(Exception ignored){return "{}";}}
+        .put("loading",player.isLoading()).put("bufferedMs",player.getTotalBufferedDuration())
+        .put("liveOffsetMs",player.getCurrentLiveOffset()==C.TIME_UNSET?JSONObject.NULL:player.getCurrentLiveOffset())
+        .put("positionMs",player.getCurrentPosition()).put("released",released).put("mediaGeneration",generation)
+        .put("copyFailure",lastCopyFailure).toString();}catch(Exception ignored){return "{}";}}
     private DecodedFrameSnapshot copyFailure(String reason){lastCopyFailure=reason;copyFailures.put(reason,copyFailures.getOrDefault(reason,0)+1);return null;}
     public String decodedCopyMetrics(){try{return new JSONObject().put("failures",new JSONObject(copyFailures)).put("beforeNs",copyBefore)
         .put("afterNs",copyAfter).put("newestReleaseNs",decodedLedger.newestRelease()).put("ledgerSize",decodedLedger.size()).toString();}catch(Exception ignored){return "{}";}}
@@ -129,11 +132,16 @@ public final class PlayerBridge {
                 clock.put("ageEstimateMs",clock.getDouble("ageEstimateMs")+copyElapsed);
                 clock.put("clockSampleAgeMs",clock.getLong("clockSampleAgeMs")+copyElapsed);
             }
+            long currentLiveOffsetMs=player.getCurrentLiveOffset();
+            JSONObject playerPlayback=new JSONObject().put("playbackState",player.getPlaybackState())
+                .put("loading",player.isLoading()).put("playing",player.isPlaying())
+                .put("bufferedMs",player.getTotalBufferedDuration())
+                .put("liveOffsetMs",currentLiveOffsetMs==C.TIME_UNSET?JSONObject.NULL:currentLiveOffsetMs);
             String metadata=clock.put("mediaGeneration",media).put("frameId",paired.frameId).put("presentationUs",paired.presentationUs)
                 .put("surfaceTimestampNs",stamp).put("releaseTimestampNs",paired.releaseNs).put("width",paired.width).put("height",paired.height)
                 .put("imageWidth",bitmap.getWidth()).put("imageHeight",bitmap.getHeight())
                 .put("textureUpdateCount",textureFrames).put("textureAgeMs",lastTextureNs==0?JSONObject.NULL:(System.nanoTime()-lastTextureNs)/1000000d)
-                .put("bitmapCopyMs",lastBitmapCopyMs)
+                .put("bitmapCopyMs",lastBitmapCopyMs).put("playerPlayback",playerPlayback)
                 .put("pairing","exact-surface-timestamp").toString();
             DecodedFrameSnapshot result=new DecodedFrameSnapshot(bitmap,metadata);bitmap=null;lastCopyFailure="";return result;
         }catch(org.json.JSONException invalid){return copyFailure("invalid-source-metadata");}finally{if(bitmap!=null)bitmap.recycle();}
