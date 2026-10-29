@@ -12,6 +12,15 @@ Treat events as the shared evidence layer for the live display, later match-stat
 
 Every completed sequential full analysis pass must produce one timestamped observation record with exactly one `checkOutcome`: for example `baseline_pending`, `clear_unchanged`, `movement_observed`, `obstructed`, `layout_uncertain`, `layout_change_pending`, or a settled transition. This answers “what did this check conclude?” even when the answer is “nothing changed.” The typed event stream is a separate layer: it records meaningful transitions and before/after evidence, rather than duplicating a `still` event for every unchanged frame. A failed or unavailable pass must also be recorded as a failure/stale-source outcome, never silently omitted or represented by the prior result.
 
+### State-machine boundary
+
+Use two processing stages, with one canonical state history:
+
+1. **Table event interpretation** consumes each fresh Live Detect observation, its source time, quality and layout, plus the last supported baseline. It tracks the table-analysis phase (baseline, activity, obstruction/uncertainty, settling, settled) and emits evidence-backed table events such as movement, no-pot observed, possible pot settled, balls returned, or rack detected. These remain perception observations/candidates and do not choose a shooter or declare legality.
+2. **Match-state reduction** applies only accepted table facts together with player-declared or otherwise supported rule facts. The existing `SkyEye.GameState` append-only history and `GameReducer` remain authoritative for `TableState`, `FrameState` and `MatchState`; do not add another persisted table inventory or a parallel match reducer.
+
+The code currently has separate pieces rather than one table-event state machine: `TableMotionStateMachine` is diagnostic-only through `TableMotionFeed`; Live Detect coordinates `StableTableChangeTracker` and `LiveDetectCountCandidateTracker` inside `ShellLiveDetect`; and `GameReducer` owns the canonical table and match projections. Before extracting a standalone table-event reducer, replay and test the current movement → obstruction/clear view → settled outcome sequence, then move transition logic behind a pure input/output seam without changing canonical-state ownership. This keeps debugging the current event failures ahead of adding a second state store.
+
 | Stage | Event evidence | Meaning and limits |
 | --- | --- | --- |
 | Baseline | `rack_detected` or `settled_layout_observed`, with source timeline, frame ID/source PTS, inventory, positions, and quality | A complete packed rack can establish a new inventory baseline. A spread layout can also establish a baseline; a match is not required. |
