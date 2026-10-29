@@ -1,0 +1,230 @@
+using System.Collections.Immutable;
+using System.Text.Json;
+using SkyEye.Companion.Hybrid;
+using SkyEye.GameState;
+
+internal static class LiveDetectTableEventTrackerChecks
+{
+    static readonly DateTimeOffset Start = new(2026, 10, 29, 12, 0, 0, TimeSpan.Zero);
+    static readonly Guid ConnectionId = Guid.Parse("c0000000-0000-0000-0000-000000000001");
+    static readonly LiveDetectCounts BaseCounts = new(1, 0, 0, 1, 0);
+    static readonly ImmutableArray<SettledBallPosition> BaseLayout =
+    [new(BallColour.Red, .2, .3), new(BallColour.Cue, .8, .7)];
+
+    public static void Run()
+    {
+        BaselineAndMissedShotProduceEventsAndClipCandidate();
+        ObstructionWithoutMovementDoesNotProduceShotOutcome();
+        SettledInventoryDecreaseProducesPotCandidate();
+        ReRackIsReportedWithoutShotClip();
+        Console.WriteLine("PASS Live Detect table event reducer handles baseline, activity, no-pot, pot and re-rack sequences");
+    }
+
+    static void BaselineAndMissedShotProduceEventsAndClipCandidate()
+    {
+        var tracker = new LiveDetectTableEventTracker();
+        LiveDetectEventBatch baseline = default!;
+        for (int i = 0; i < 3; i++) baseline = tracker.Observe(Sample(i, BaseCounts, BaseLayout));
+        Require(baseline.CheckOutcome == "settled_layout_baseline", "three clear frames establish the table baseline");
+        var still = tracker.Observe(Sample(3, BaseCounts, BaseLayout));
+        Require(still.CheckOutcome == "clear_unchanged" && still.TableEvents.IsEmpty,
+            "unchanged checks remain recorded outcomes without duplicate table events");
+
+        var obscured = tracker.Observe(Sample(4, BaseCounts, [], obstructed: true));
+        Require(obscured.CheckOutcome == "obstructed"
+            && obscured.TableEvents.Any(e => e.Type == "obstruction_started"),
+            "obstruction opens an activity without changing the inventory baseline");
+        var obscuredAgain = tracker.Observe(Sample(5, BaseCounts, [], obstructed: true));
+        Require(obscuredAgain.TableEvents.All(e => e.Type != "obstruction_started"),
+            "continuous obstruction emits one transition rather than a repeated event per check");
+
+        var afterShot = ImmutableArray.Create(
+            new SettledBallPosition(BallColour.Red, .34, .39),
+            new SettledBallPosition(BallColour.Cue, .75, .64));
+        var returned = tracker.Observe(Sample(6, BaseCounts, afterShot, movementObserved: true));
+        Require(returned.TableEvents.Any(e => e.Type == "clear_view_returned")
+            && returned.TableEvents.Any(e => e.Type == "movement_observed"),
+            "clear frames after obstruction expose independently observed movement");
+        tracker.Observe(Sample(7, BaseCounts, afterShot));
+        var settled = tracker.Observe(Sample(8, BaseCounts, afterShot));
+        Require(settled.CheckOutcome == "no_pot_observed"
+            && settled.TableEvents.Any(e => e.Type == "no_pot_observed"),
+            "same inventory after observed movement and a stable layout produces a no-pot observation");
+        Require(settled.ClipActivity is { MovementObserved: true }
+            && settled.ClipEventType == "no_pot_observed"
+            && settled.ClipSettledSourceTimeUs == 3_200_000,
+            "a settled no-pot observation carries the activity range needed to save its shot clip");
+    }
+
+    static void ObstructionWithoutMovementDoesNotProduceShotOutcome()
+    {
+        var tracker = NewBaseline();
+        tracker.Observe(Sample(4, BaseCounts, [], obstructed: true));
+        tracker.Observe(Sample(5, BaseCounts, BaseLayout));
+        tracker.Observe(Sample(6, BaseCounts, BaseLayout));
+        var ended = tracker.Observe(Sample(7, BaseCounts, BaseLayout));
+        Require(ended.TableEvents.Any(e => e.Type == "activity_ended_without_layout_change")
+            && ended.TableEvents.All(e => e.Type != "no_pot_observed")
+            && ended.ClipActivity is null,
+            "obstruction alone cannot become a miss or a shot clip");
+    }
+
+    static void SettledInventoryDecreaseProducesPotCandidate()
+    {
+        var tracker = NewBaseline();
+        var afterCounts = new LiveDetectCounts(0, 0, 0, 1, 0);
+        var afterLayout = ImmutableArray.Create(new SettledBallPosition(BallColour.Cue, .78, .69));
+        tracker.Observe(Sample(4, afterCounts, afterLayout, movementObserved: true));
+        tracker.Observe(Sample(5, afterCounts, afterLayout));
+        var settled = tracker.Observe(Sample(6, afterCounts, afterLayout));
+        Require(settled.CheckOutcome == "possible_pot_settled"
+            && settled.TableEvents.Any(e => e.Type == "possible_pot_settled"),
+            "a clear, repeated settled inventory decrease produces a possible-pot event");
+        Require(settled.ClipEventType == "possible_pot_settled" && settled.ClipActivity is not null,
+            "a settled possible-pot event carries its activity range for automatic clip saving");
+    }
+
+    static void ReRackIsReportedWithoutShotClip()
+    {
+        var tracker = NewBaseline();
+        var rackCounts = new LiveDetectCounts(7, 7, 1, 1, 0);
+        var rack = ImmutableArray.CreateBuilder<SettledBallPosition>(16);
+        var objectColours = Enumerable.Repeat(BallColour.Red, 7)
+            .Concat(Enumerable.Repeat(BallColour.Yellow, 7)).Append(BallColour.Black).ToArray();
+        int objectIndex = 0;
+        for (int row = 0; row < 5; row++)
+            for (int col = 0; col <= row; col++)
+                rack.Add(new(objectColours[objectIndex++],
+                    .45 + (col - row / 2d) * .018, .3 + row * .016));
+        rack.Add(new(BallColour.Cue, .8, .7));
+
+        tracker.Observe(Sample(4, rackCounts, rack.ToImmutable(), movementObserved: true, packedRack: true));
+        var candidate = tracker.Observe(Sample(5, rackCounts, rack.ToImmutable(), packedRack: true));
+        var settled = tracker.Observe(Sample(6, rackCounts, rack.ToImmutable(), packedRack: true));
+        Require(candidate.TableEvents.Any(e => e.Type == "rack_detected")
+            && settled.TableEvents.Any(e => e.Type == "rack_layout_settled"),
+            "repeated packed-rack evidence reports the new frame baseline");
+        Require(settled.ClipActivity is null,
+            "re-racking updates the table baseline without saving a shot clip");
+    }
+
+    static LiveDetectTableEventTracker NewBaseline()
+    {
+        var tracker = new LiveDetectTableEventTracker();
+        for (int i = 0; i < 3; i++) tracker.Observe(Sample(i, BaseCounts, BaseLayout));
+        return tracker;
+    }
+
+    static LiveDetectTableEventObservation Sample(int index, LiveDetectCounts counts,
+        ImmutableArray<SettledBallPosition> layout, bool obstructed = false,
+        bool layoutUncertain = false, bool movementObserved = false, bool packedRack = false)
+    {
+        long sourceTimeUs = index * 400_000L;
+        var timeline = "event-check-timeline";
+        var calibration = "event-check-calibration";
+        return new(new("camera", timeline, 1, calibration, ConnectionId.ToString("N")),
+            ConnectionId, 3, index + 1, Start.AddTicks(sourceTimeUs * 10), sourceTimeUs,
+            timeline, calibration, counts, layout, obstructed, layoutUncertain,
+            movementObserved, packedRack);
+    }
+
+    public static void Replay(string path, Guid runId)
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var tracker = new LiveDetectTableEventTracker();
+        LiveDetectLoggedBall[]? previousClear = null;
+        string? previousTimeline = null;
+        var outcomes = new Dictionary<string, int>(StringComparer.Ordinal);
+        var eventCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+        int frameCount = 0;
+
+        foreach (string line in File.ReadLines(path))
+        {
+            if (string.IsNullOrWhiteSpace(line)) continue;
+            var record = JsonSerializer.Deserialize<LiveDetectLogRecord>(line, options);
+            if (record?.RunId != runId || record.Kind != "frame" || record.Frame is not { } frame) continue;
+            if (previousTimeline is not null && previousTimeline != frame.Timeline)
+            {
+                tracker.Reset();
+                previousClear = null;
+            }
+            previousTimeline = frame.Timeline;
+
+            bool clear = !frame.Obstructed && !frame.LayoutUncertain && frame.Other == 0;
+            bool movementObserved = frame.SpatiallyCompatible is { } compatible
+                ? !compatible
+                : clear && previousClear is { Length: > 0 } && !SpatiallyCompatible(previousClear, frame.Balls);
+            if (clear) previousClear = frame.Balls;
+
+            var layout = CaptureLayout(frame.Balls);
+            var counts = new LiveDetectCounts(frame.Reds, frame.Yellows, frame.Black, frame.Cue, frame.Other);
+            var source = new EvidenceSource("replay-camera", frame.Timeline, 1,
+                frame.CalibrationId, frame.CameraConnectionId.ToString("N"));
+            var result = tracker.Observe(new(source, frame.CameraConnectionId, frame.MediaGeneration,
+                frame.FrameId, frame.CapturedAt, frame.SourceTimeUs, frame.Timeline, frame.CalibrationId,
+                counts, layout, frame.Obstructed, frame.LayoutUncertain, movementObserved,
+                frame.PackedRackEvidence));
+            outcomes[result.CheckOutcome] = outcomes.GetValueOrDefault(result.CheckOutcome) + 1;
+            foreach (var tableEvent in result.TableEvents)
+            {
+                eventCounts[tableEvent.Type] = eventCounts.GetValueOrDefault(tableEvent.Type) + 1;
+                Console.WriteLine($"{tableEvent.CapturedAt:O} PTS={tableEvent.SourceTimeUs} {tableEvent.Type}: {tableEvent.Message}");
+            }
+            if (result.ClipEventType is { } clipType && result.ClipActivity is { } clipActivity)
+                Console.WriteLine($"CLIP CANDIDATE {clipType} activity={clipActivity.Id} startPTS={clipActivity.StartSourceTimeUs} endPTS={result.ClipSettledSourceTimeUs}");
+            frameCount++;
+        }
+
+        Console.WriteLine($"Replay run {runId}: {frameCount} frames; outcomes [{string.Join(", ", outcomes.Select(kv => $"{kv.Key}={kv.Value}"))}]; events [{string.Join(", ", eventCounts.Select(kv => $"{kv.Key}={kv.Value}"))}].");
+        Console.WriteLine("Replay used saved detector output; it did not rerun vision, write match state, or save camera clips.");
+    }
+
+    static ImmutableArray<SettledBallPosition> CaptureLayout(LiveDetectLoggedBall[] balls)
+    {
+        if (balls.Length is < 1 or > 16) return [];
+        var result = ImmutableArray.CreateBuilder<SettledBallPosition>(balls.Length);
+        foreach (var ball in balls)
+        {
+            var colour = ball.Colour.Trim().ToLowerInvariant() switch
+            {
+                "red" => BallColour.Red,
+                "yellow" => BallColour.Yellow,
+                "black" => BallColour.Black,
+                "cue" or "cue ball" or "cue-ball" => BallColour.Cue,
+                _ => BallColour.Unknown
+            };
+            double x = ball.X / 2d;
+            if (colour == BallColour.Unknown || !double.IsFinite(x) || !double.IsFinite(ball.Y)
+                || x is < 0 or > 1 || ball.Y is < 0 or > 1) return [];
+            result.Add(new(colour, x, ball.Y));
+        }
+        return result.ToImmutable();
+    }
+
+    static bool SpatiallyCompatible(LiveDetectLoggedBall[] before, LiveDetectLoggedBall[] after)
+    {
+        if (before.Length != after.Length) return false;
+        var remaining = after.Select(ball => (ball.X, ball.Y)).ToList();
+        foreach (var ball in before)
+        {
+            if (remaining.Count == 0) return false;
+            int nearest = 0;
+            double nearestSquared = double.PositiveInfinity;
+            for (int index = 0; index < remaining.Count; index++)
+            {
+                double dx = remaining[index].X - ball.X, dy = remaining[index].Y - ball.Y;
+                double squared = dx * dx + dy * dy;
+                if (squared < nearestSquared) { nearest = index; nearestSquared = squared; }
+            }
+            var matched = remaining[nearest];
+            remaining.RemoveAt(nearest);
+            if (Math.Sqrt(nearestSquared) > .015) return false;
+        }
+        return remaining.Count == 0;
+    }
+
+    static void Require(bool condition, string name)
+    {
+        if (!condition) throw new Exception("Live Detect event tracker check failed: " + name);
+    }
+}

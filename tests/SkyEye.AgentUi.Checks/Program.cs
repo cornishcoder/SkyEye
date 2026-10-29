@@ -14,11 +14,17 @@ if (args.Length == 2 && args[0] == "--replay-live-detect-summary")
     LiveDetectCountCandidateChecks.ReplaySummary(args[1]);
     return;
 }
+if (args.Length == 3 && args[0] == "--replay-live-detect-events" && Guid.TryParse(args[2], out var replayRunId))
+{
+    LiveDetectTableEventTrackerChecks.Replay(args[1], replayRunId);
+    return;
+}
 
 static void Check(bool condition, string name) { if (!condition) throw new Exception(name); }
 static Guid OperationId(string callId, string action) => new(SHA256.HashData(Encoding.UTF8.GetBytes(callId + "\n" + action)).AsSpan(0, 16));
 
 LiveDetectCountCandidateChecks.Run();
+LiveDetectTableEventTrackerChecks.Run();
 LiveDetectShotClipWindowChecks.Run();
 LiveDetectLogStoreChecks.Run();
 

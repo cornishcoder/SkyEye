@@ -13,9 +13,6 @@ public sealed partial class ShellSession
     readonly record struct LiveDetectEventClipContext(SkyEyeState AppState,
         CameraScope? TableSource, string? Timeline, LiveDetectFrameAnchor Frame);
 
-    readonly record struct LiveDetectActivity(Guid Id, string Timeline, long StartSourceTimeUs, long StartFrameId,
-        DateTimeOffset StartedAt, string StartReason, bool MovementObserved = false);
-
     CancellationTokenSource? liveDetectCancellation;
     Task? liveDetectTask;
     string? liveDetectStopReason;
@@ -167,16 +164,8 @@ public sealed partial class ShellSession
         await Task.Yield();
         var cancellation = operation.Token;
         AppendLiveDetectRunEvent(runId, "started", "Live Detect started.", null);
-        var candidateTracker = new LiveDetectCountCandidateTracker();
-        StableTableChangeTracker stableLayoutTracker = new();
+        var eventTracker = new LiveDetectTableEventTracker();
         var frameCursor = new LiveDetectFrameCursor();
-        Guid? lastStableChangeId = null;
-        bool? lastClearLayout = null;
-        bool stableBaselineEstablished = false;
-        SettledTableCounts? baselineCounts = null;
-        ImmutableArray<SettledBallPosition> baselineLayout = [];
-        int stableAtBaselineSamples = 0;
-        LiveDetectActivity? activity = null;
         var eventClipTasks = new List<Task>();
         using var eventClipSaveGate = new SemaphoreSlim(1, 1);
         int consecutiveAnalysisErrors = 0;
@@ -284,227 +273,24 @@ public sealed partial class ShellSession
                 }
 
                 if (timelineChanged)
-                {
-                    candidateTracker.Reset();
-                    stableLayoutTracker = new();
-                    lastStableChangeId = null;
-                    lastClearLayout = null;
-                    stableBaselineEstablished = false;
-                    baselineCounts = null;
-                    baselineLayout = [];
-                    stableAtBaselineSamples = 0;
-                    activity = null;
-                }
+                    eventTracker.Reset();
                 if (priorMediaGeneration > 0 && receipt.MediaGeneration != priorMediaGeneration)
                     AppendLiveDetectRunEvent(runId, "decoder_recovered",
                         timelineChanged ? "New camera timeline; inventory baseline reset."
                             : "Decoder recovered; camera timestamps continue with restarted frame IDs.", null);
                 var counts = Count(vision.Balls);
-                bool candidateEligible = !vision.HasUncertainLayout && !vision.Obstructed;
-                var events = new List<string>();
-                var tableEvents = new List<LiveDetectLogTableEvent>();
-                string? passEventType = null;
                 var layout = CaptureLiveDetectLayout(vision.Balls);
-                var settledCounts = new SettledTableCounts(counts.Reds, counts.Yellows, counts.Cue, counts.Black);
-                bool stableSampleEligible = candidateEligible && IsStableLiveDetectInventory(counts)
-                    && layout.Length == counts.Total;
-                var evidenceSource = new EvidenceSource(source.CameraIdentity, observation.Timeline,
-                    state.Generation + 1, calibrationId, source.ConnectionId.ToString("N"));
-                var stableBefore = stableLayoutTracker.Snapshot;
-                var stableSnapshot = stableLayoutTracker.Observe(new StableTableLayoutSample(evidenceSource,
-                    sourceTimeUs, observation.CapturedAt, stableSampleEligible ? settledCounts : new(0, 0, 0, 0),
-                    stableSampleEligible ? layout : [], stableSampleEligible));
                 bool rackEvidence = vision.PackedCluster is { Detected: true, Complete: true }
                     && counts == new LiveDetectCounts(7, 7, 1, 1, 0);
-
-                void AddTableEvent(string type, string message, Guid? activityId = null,
-                    LiveDetectCounts? before = null, LiveDetectCounts? after = null,
-                    long? beforeSourceTimeUs = null, int? movedBallCount = null,
-                    double? largestMovement = null,
-                    ImmutableArray<SettledBallPosition> beforeLayout = default,
-                    ImmutableArray<SettledBallPosition> afterLayout = default)
-                {
-                    events.Add(message);
-                    tableEvents.Add(new(Guid.NewGuid(), activityId, type, observation.CapturedAt,
-                        source.ConnectionId, receipt.MediaGeneration, receipt.FrameId, sourceTimeUs,
-                        observation.Timeline, calibrationId, message, before, after, beforeSourceTimeUs,
-                        movedBallCount, largestMovement, ToLoggedPositions(beforeLayout),
-                        ToLoggedPositions(afterLayout)));
-                }
-
-                void StartActivity(string reason)
-                {
-                    if (activity is not null || !stableBaselineEstablished) return;
-                    activity = new(Guid.NewGuid(), observation.Timeline, sourceTimeUs, receipt.FrameId, observation.CapturedAt, reason);
-                    AddTableEvent("activity_started", $"Table activity observed · {reason}; waiting for a clear settled result.",
-                        activity.Value.Id, after: ToLiveDetectCounts(baselineCounts));
-                }
-
-                if (stableBefore.BaselineEstablished && lastClearLayout is true && !stableSampleEligible)
-                {
-                    string qualityEvent = vision.Obstructed ? "obstruction_started" : "layout_uncertain";
-                    string qualityMessage = vision.Obstructed
-                        ? "Table view obstructed · positions and inventory cannot confirm an event."
-                        : "Table layout uncertain · retaining the last clear baseline.";
-                    StartActivity(vision.Obstructed ? "obstruction" : "uncertain view");
-                    AddTableEvent(qualityEvent, qualityMessage, activity?.Id,
-                        after: stableSampleEligible ? counts : null);
-                }
-                else if (lastClearLayout is false && stableSampleEligible && activity is not null)
-                {
-                    AddTableEvent("clear_view_returned", "Clear classified view returned · checking for a settled layout.", activity.Value.Id,
-                        after: ToLiveDetectCounts(settledCounts));
-                }
-
-                if (stableBaselineEstablished && stableSampleEligible
-                    && observation.Change is { SpatiallyCompatible: false })
-                {
-                    StartActivity("ball positions or inventory changed");
-                    if (activity is { MovementObserved: false } moving)
-                    {
-                        activity = moving with { MovementObserved = true };
-                        passEventType = "movement_observed";
-                        AddTableEvent("movement_observed", "Ball movement/layout change observed · waiting for the settled result.",
-                            moving.Id, before: ToLiveDetectCounts(baselineCounts), after: ToLiveDetectCounts(settledCounts),
-                            beforeSourceTimeUs: stableSnapshot.BaselineSourceTimeUs);
-                    }
-                }
-                lastClearLayout = stableSampleEligible;
-
-                bool rackReset = false;
-                if (candidateTracker.Observe(sourceTimeUs, counts, candidateEligible,
-                    vision.PackedCluster is { Detected: true, Complete: true }) is { } candidate)
-                {
-                    string candidateType = candidate.Kind switch
-                    {
-                        LiveDetectChangeKind.Racked => "rack_detected",
-                        LiveDetectChangeKind.Increase => "balls_returned_candidate",
-                        LiveDetectChangeKind.Changed => "table_inventory_changed_candidate",
-                        _ => "possible_pot"
-                    };
-                    passEventType = candidateType;
-                    foreach (var message in InventoryEvents(candidate))
-                        AddTableEvent(candidateType, message, activity?.Id, candidate.Before,
-                            candidate.After, afterLayout: layout);
-                    rackReset = candidate.Kind == LiveDetectChangeKind.Racked;
-                }
-
-                if (rackReset && activity is { } rackActivity)
-                {
-                    AddTableEvent("activity_ended", "Packed rack detected · closing table activity without a shot clip.", rackActivity.Id,
-                        before: ToLiveDetectCounts(baselineCounts), after: counts);
-                    activity = null;
-                }
-
-                if (!stableBefore.BaselineEstablished && stableSnapshot.BaselineEstablished)
-                {
-                    stableBaselineEstablished = true;
-                    baselineCounts = stableSnapshot.BaselineCounts;
-                    baselineLayout = layout;
-                    stableAtBaselineSamples = 0;
-                    passEventType = "settled_layout_baseline";
-                    AddTableEvent("settled_layout_baseline", $"Stable table baseline established · {counts.Summary}.",
-                        after: counts, afterLayout: layout);
-                }
-
-                var latestStableChange = stableSnapshot.RecentEvents.LastOrDefault();
-                if (latestStableChange is { } settledChange && settledChange.Id != lastStableChangeId)
-                {
-                    lastStableChangeId = settledChange.Id;
-                    baselineCounts = settledChange.After;
-                    baselineLayout = settledChange.AfterLayout;
-                    stableAtBaselineSamples = 0;
-                    bool settledRack = rackEvidence;
-                    bool activityObservedBeforeSettlement = activity is not null;
-                    bool movementObserved = activity is { MovementObserved: true };
-                    if (!settledRack && activity is null)
-                        StartActivity("stable layout transition confirmed");
-                    bool sameInventory = settledChange.Before == settledChange.After;
-                    var beforeCounts = ToLiveDetectCounts(settledChange.Before);
-                    var afterCounts = ToLiveDetectCounts(settledChange.After);
-                    bool countDecreased = beforeCounts is { } beforeInventory && afterCounts is { } afterInventory
-                        && (afterInventory.Reds < beforeInventory.Reds || afterInventory.Yellows < beforeInventory.Yellows
-                            || afterInventory.Black < beforeInventory.Black || afterInventory.Cue < beforeInventory.Cue);
-                    bool countIncreased = beforeCounts is { } beforeInventory2 && afterCounts is { } afterInventory2
-                        && (afterInventory2.Reds > beforeInventory2.Reds || afterInventory2.Yellows > beforeInventory2.Yellows
-                            || afterInventory2.Black > beforeInventory2.Black || afterInventory2.Cue > beforeInventory2.Cue);
-                    string settledType = settledRack ? "rack_layout_settled"
-                        : sameInventory ? movementObserved ? "no_pot_observed"
-                            : activityObservedBeforeSettlement ? "settled_layout_change_unclassified" : "layout_changed_without_activity_boundary"
-                        : countDecreased && !countIncreased ? "possible_pot_settled"
-                        : countIncreased && !countDecreased ? "balls_returned_settled"
-                        : "settled_inventory_change";
-                    passEventType = settledType;
-                    string settledMessage = settledRack
-                        ? "Packed rack reached a stable layout; inventory baseline advanced."
-                        : sameInventory
-                            ? settledType switch
-                            {
-                                "no_pot_observed" => $"No pot observed after movement · inventory unchanged; {settledChange.MovedBallCount ?? 0} ball(s) moved. Shooter/legality and turn are not inferred.",
-                                "settled_layout_change_unclassified" => $"Stable layout changed during an activity · inventory unchanged; {settledChange.MovedBallCount ?? 0} ball(s) moved, but movement was not independently observed. No shot outcome inferred.",
-                                _ => $"Stable layout changed without an activity boundary · inventory unchanged; {settledChange.MovedBallCount ?? 0} ball(s) moved. No shot outcome inferred."
-                            }
-                            : countDecreased && !countIncreased
-                                ? $"Settled inventory decrease · possible pot; {BuildLiveDetectCountSummary(settledChange.After)}."
-                                : countIncreased && !countDecreased
-                                    ? $"Settled inventory increase · balls returned; {BuildLiveDetectCountSummary(settledChange.After)}."
-                                    : $"Settled table change · {BuildLiveDetectCountSummary(settledChange.After)}.";
-                    AddTableEvent(settledType, settledMessage, activity?.Id,
-                        ToLiveDetectCounts(settledChange.Before), ToLiveDetectCounts(settledChange.After),
-                        settledChange.BeforeLayoutSourceTimeUs ?? settledChange.BeforeSourceTimeUs,
-                        settledChange.MovedBallCount, settledChange.LargestMovement,
-                        settledChange.BeforeLayout, settledChange.AfterLayout);
-
-                    if (activity is { } settledActivity)
-                    {
-                        AddTableEvent("activity_ended", settledMessage, settledActivity.Id,
-                            ToLiveDetectCounts(settledChange.Before), ToLiveDetectCounts(settledChange.After),
-                            settledChange.BeforeLayoutSourceTimeUs ?? settledChange.BeforeSourceTimeUs,
-                            settledChange.MovedBallCount, settledChange.LargestMovement,
-                            settledChange.BeforeLayout, settledChange.AfterLayout);
-                        if (!settledRack && settledType is ("no_pot_observed" or "possible_pot_settled" or "settled_inventory_change"))
-                        {
-                            eventClipTasks.RemoveAll(task => task.IsCompleted);
-                            eventClipTasks.Add(SaveLiveDetectEventClipAsync(runId, source, settledActivity,
-                                settledType, sourceTimeUs, eventClipSaveGate));
-                        }
-                        activity = null;
-                    }
-                }
-
-                if (stableSampleEligible && stableBaselineEstablished && activity is not null
-                    && baselineCounts == settledCounts
-                    && SettledLayoutReconciler.SameLayout(baselineLayout, layout,
-                        SettledLayoutReconciler.MovementThreshold))
-                    stableAtBaselineSamples++;
-                else stableAtBaselineSamples = 0;
-
-                if (activity is { } unchangedActivity && stableAtBaselineSamples >= StableTableChangeTracker.RequiredStableSamples)
-                {
-                    AddTableEvent("activity_ended_without_layout_change",
-                        "Activity ended with the previous clear layout and inventory unchanged; no shot outcome inferred.",
-                        unchangedActivity.Id, before: ToLiveDetectCounts(baselineCounts), after: counts,
-                        beforeSourceTimeUs: stableSnapshot.BaselineSourceTimeUs, afterLayout: layout);
-                    passEventType = "activity_ended_without_layout_change";
-                    if (unchangedActivity.MovementObserved)
-                    {
-                        eventClipTasks.RemoveAll(task => task.IsCompleted);
-                        eventClipTasks.Add(SaveLiveDetectEventClipAsync(runId, source, unchangedActivity,
-                            "activity_ended_without_layout_change", sourceTimeUs, eventClipSaveGate));
-                    }
-                    activity = null;
-                    stableAtBaselineSamples = 0;
-                }
-
-                string checkOutcome;
-                if (vision.Obstructed) checkOutcome = "obstructed";
-                else if (vision.HasUncertainLayout) checkOutcome = "layout_uncertain";
-                else if (passEventType is not null) checkOutcome = passEventType;
-                else if (!stableBaselineEstablished) checkOutcome = "baseline_pending";
-                else if (baselineCounts == settledCounts
-                    && SettledLayoutReconciler.SameLayout(baselineLayout, layout)) checkOutcome = "clear_unchanged";
-                else if (baselineCounts == settledCounts) checkOutcome = "layout_change_pending";
-                else checkOutcome = "inventory_change_pending";
+                var evidenceSource = new EvidenceSource(source.CameraIdentity, observation.Timeline,
+                    state.Generation + 1, calibrationId, source.ConnectionId.ToString("N"));
+                var eventBatch = eventTracker.Observe(new LiveDetectTableEventObservation(evidenceSource,
+                    source.ConnectionId, receipt.MediaGeneration, receipt.FrameId, observation.CapturedAt,
+                    sourceTimeUs, observation.Timeline, calibrationId, counts, layout,
+                    vision.Obstructed, vision.HasUncertainLayout,
+                    observation.Change is { SpatiallyCompatible: false }, rackEvidence));
+                var events = eventBatch.Messages.ToArray();
+                string checkOutcome = eventBatch.CheckOutcome;
                 string quality = checkOutcome switch
                 {
                     "obstructed" => "obstructed",
@@ -515,6 +301,14 @@ public sealed partial class ShellSession
                     "inventory_change_pending" => "clear · inventory changing",
                     _ => checkOutcome.Replace('_', ' ')
                 };
+                if (eventBatch.ClipActivity is { } clipActivity
+                    && eventBatch.ClipEventType is { } clipEventType
+                    && eventBatch.ClipSettledSourceTimeUs is { } settledSourceTimeUs)
+                {
+                    eventClipTasks.RemoveAll(task => task.IsCompleted);
+                    eventClipTasks.Add(SaveLiveDetectEventClipAsync(runId, source, clipActivity,
+                        clipEventType, settledSourceTimeUs, eventClipSaveGate));
+                }
                 if (vision.Uncertain && !vision.HasUncertainLayout && !vision.Obstructed)
                     quality += " · advice unavailable";
                 var ageSeconds = Math.Max(0, observation.FrameAgeMs) / 1000;
@@ -529,8 +323,8 @@ public sealed partial class ShellSession
                         vision.ElapsedMs, System.Diagnostics.Stopwatch.GetElapsedTime(passStart).TotalMilliseconds,
                         vision.Warnings.ToArray(), vision.Balls.Select(ball => new LiveDetectLoggedBall(
                             ball.Id, ball.Kind, ball.Position.X, ball.Position.Y, ball.Confidence)).ToArray(),
-                        events.ToArray(), checkOutcome));
-                    foreach (var tableEvent in tableEvents)
+                        events.ToArray(), checkOutcome, observation.Change?.SpatiallyCompatible, rackEvidence));
+                    foreach (var tableEvent in eventBatch.TableEvents)
                         liveDetectLog.AppendTableEvent(runId, tableEvent.CapturedAt, tableEvent);
                     liveDetectLogError = null;
                 }
@@ -806,39 +600,4 @@ public sealed partial class ShellSession
         return result.ToImmutable();
     }
 
-    static bool IsStableLiveDetectInventory(LiveDetectCounts counts) =>
-        counts.Reds is >= 0 and <= 7 && counts.Yellows is >= 0 and <= 7
-        && counts.Black is 0 or 1 && counts.Cue is 0 or 1 && counts.Other == 0
-        && counts.Total is > 0 and <= 16;
-
-    static LiveDetectCounts? ToLiveDetectCounts(SettledTableCounts? counts) =>
-        counts is { IsComplete: true }
-            ? new(counts.Reds!.Value, counts.Yellows!.Value, counts.BlackBalls!.Value, counts.CueBalls!.Value, 0)
-            : null;
-
-    static LiveDetectLoggedPosition[]? ToLoggedPositions(ImmutableArray<SettledBallPosition> layout) =>
-        layout.IsDefaultOrEmpty ? null : layout.Select(ball => new LiveDetectLoggedPosition(
-            ball.Colour.ToString(), ball.X, ball.Y)).ToArray();
-
-    static string BuildLiveDetectCountSummary(SettledTableCounts counts) =>
-        $"{counts.Reds} reds · {counts.Yellows} yellows · {counts.BlackBalls} black · {counts.CueBalls} cue ball";
-
-    static IEnumerable<string> PossiblePotEvents(LiveDetectCounts before, LiveDetectCounts after)
-    {
-        if (after.Reds < before.Reds) yield return PossiblePot("red", before.Reds, after.Reds);
-        if (after.Yellows < before.Yellows) yield return PossiblePot("yellow", before.Yellows, after.Yellows);
-        if (after.Black < before.Black) yield return PossiblePot("black", before.Black, after.Black);
-        if (after.Cue < before.Cue) yield return PossiblePot("cue ball", before.Cue, after.Cue);
-
-        static string PossiblePot(string colour, int beforeCount, int afterCount) =>
-            $"Possible pot · {colour} detections {beforeCount} → {afterCount}. Confirm on the table before recording.";
-    }
-
-    static IEnumerable<string> InventoryEvents(LiveDetectCountCandidate candidate) => candidate.Kind switch
-    {
-        LiveDetectChangeKind.Racked => [$"Rack detected · {candidate.After.Summary}. New inventory baseline."],
-        LiveDetectChangeKind.Increase => [$"Balls returned · {candidate.After.Summary}."],
-        LiveDetectChangeKind.Changed => [$"Table inventory changed · {candidate.After.Summary}."],
-        _ => PossiblePotEvents(candidate.Before, candidate.After)
-    };
 }
