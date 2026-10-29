@@ -42,7 +42,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 settings.DarkBodyValueCeiling, settings.VerificationBodyRefinement,
                 settings.PackedColourBoundarySearchExtentFraction
             };
-            const string algorithm = "body-priority-packed-colour-peaks-v12-underexposed-gain-floor";
+            const string algorithm = "body-priority-packed-colour-peaks-v13-mixed-neutral-cue-reference";
             object identity = settings.UseNormalizedGeometryForDetection || settings.UseNormalizedPackedColourProposalMask
                 ? new
                 {
@@ -219,11 +219,16 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         {
             referenceCue = circles[cueIndices[0]];
             if (settings.FreshCueBallRecovery)
-                cueRecoveryReason = appearance is null ? "colour-reference-unavailable" : "verification-preserves-geometry";
+                cueRecoveryReason = neutralRecovered > 0 ? "recovered-neutral-cue-midrange-reference"
+                    : appearance is null ? "colour-reference-unavailable" : "verification-preserves-geometry";
             byte[] bgr = Read(warped.Value); var cue = circles[cueIndices[0]];
             var channels = new[] { new List<byte>(), new List<byte>(), new List<byte>() };
             ForPixels(cue, .7, (x, y) => { int offset = (y * coordinates.Width + x) * 3; for (int k = 0; k < 3; k++) channels[k].Add(bgr[offset + k]); });
-            double[] gains = channels.Select(c => { c.Sort(); return c.Count == 0 || c[(int)((c.Count - 1) * .95)] < 10 ? 0 : Math.Min(3, 255.0 / c[(int)((c.Count - 1) * .95)]); }).ToArray();
+            // A recovered mixed-neutral candidate is good geometric evidence,
+            // but its dim warm colour is a poor full-white reference. Target
+            // midrange so correcting it cannot force colored balls into clipping.
+            double referenceTarget = neutralRecovered > 0 ? 128 : 255;
+            double[] gains = channels.Select(c => { c.Sort(); return c.Count == 0 || c[(int)((c.Count - 1) * .95)] < 10 ? 0 : Math.Min(3, referenceTarget / c[(int)((c.Count - 1) * .95)]); }).ToArray();
             if (gains.All(g => g > 0)) { colourGains = gains; referenceValid = true; }
         }
         if (appearance is not null)
