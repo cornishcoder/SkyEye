@@ -11,6 +11,7 @@ internal static class LiveDetectShotClipWindowPolicy
 {
     public const int LeadInSeconds = 2;
     public const int PostRollSeconds = 2;
+    public const int MaximumInterruptedActivitySeconds = 30;
     const int MaximumClipSeconds = 600;
     public static readonly TimeSpan PostRollWaitTimeout = TimeSpan.FromSeconds(5);
     public static readonly TimeSpan PostRollWaitPollInterval = TimeSpan.FromMilliseconds(100);
@@ -19,12 +20,12 @@ internal static class LiveDetectShotClipWindowPolicy
     internal readonly record struct PostRollObservation(string? Timeline, long? SourceTimeUs, bool SessionAvailable);
     internal readonly record struct PostRollWaitResult(PostRollWaitStatus Status, PostRollObservation LastObservation);
 
-    public static async Task<PostRollWaitResult> WaitForPostRollAsync(string timeline, long settledSourceTimeUs,
+    public static async Task<PostRollWaitResult> WaitForPostRollAsync(string timeline, long eventEndSourceTimeUs,
         Func<CancellationToken, Task<PostRollObservation>> readObservation,
         TimeSpan? timeout = null, TimeSpan? pollInterval = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(readObservation);
-        long requiredSourceTimeUs = checked(settledSourceTimeUs + PostRollSeconds * 1_000_000L);
+        long requiredSourceTimeUs = checked(eventEndSourceTimeUs + PostRollSeconds * 1_000_000L);
         var maximumWait = timeout ?? PostRollWaitTimeout;
         var interval = pollInterval ?? PostRollWaitPollInterval;
         if (maximumWait <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(timeout));
@@ -82,15 +83,15 @@ internal static class LiveDetectShotClipWindowPolicy
     }
 
     public static bool TryCreate(Guid activityId, string timeline, long activityStartSourceTimeUs,
-        long settledSourceTimeUs, long saveRequestSourceTimeUs, out LiveDetectShotClipWindow window)
+        long eventEndSourceTimeUs, long saveRequestSourceTimeUs, out LiveDetectShotClipWindow window)
     {
         window = default;
         if (activityId == Guid.Empty || !Guid.TryParseExact(timeline, "N", out _)
-            || activityStartSourceTimeUs <= 0 || settledSourceTimeUs < activityStartSourceTimeUs)
+            || activityStartSourceTimeUs <= 0 || eventEndSourceTimeUs < activityStartSourceTimeUs)
             return false;
 
         long start = Math.Max(0, activityStartSourceTimeUs - LeadInSeconds * 1_000_000L);
-        long end = checked(settledSourceTimeUs + PostRollSeconds * 1_000_000L);
+        long end = checked(eventEndSourceTimeUs + PostRollSeconds * 1_000_000L);
         if (saveRequestSourceTimeUs < end) return false;
         long requestedSeconds = (end - start + 999_999) / 1_000_000;
         if (requestedSeconds is <= 0 or > MaximumClipSeconds) return false;

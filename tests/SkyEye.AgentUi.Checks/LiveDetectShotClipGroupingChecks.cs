@@ -33,10 +33,10 @@ internal static class LiveDetectShotClipGroupingChecks
     }
 
     static LiveDetectEventClipCandidate Candidate(Guid activityId, string timeline,
-        long activityStartSourceTimeUs, long settledSourceTimeUs, string eventType, Guid tableEventId) =>
+        long activityStartSourceTimeUs, long eventEndSourceTimeUs, string eventType, Guid tableEventId) =>
         new(new LiveDetectActivity(activityId, timeline, activityStartSourceTimeUs, 1,
                 DateTimeOffset.UnixEpoch, "fixture", MovementObserved: true),
-            eventType, settledSourceTimeUs, [tableEventId]);
+            eventType, eventEndSourceTimeUs, [tableEventId]);
 
     static void Require(bool condition, string message)
     {

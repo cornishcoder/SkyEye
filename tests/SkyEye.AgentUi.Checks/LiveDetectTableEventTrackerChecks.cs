@@ -19,7 +19,9 @@ internal static class LiveDetectTableEventTrackerChecks
         ReturnedBallActivityDoesNotProduceShotClip();
         ReRackIsReportedWithoutShotClip();
         DecoderRecoveryDoesNotCreateMovementOrClip();
-        DecoderRecoveryInterruptsActivityWithoutClip();
+        DecoderRecoveryInterruptsActivityWithBoundedReviewClip();
+        UnobservedActivityInterruptionDoesNotCreateReviewClip();
+        OldInterruptedActivityDoesNotCreateOversizedClip();
         Console.WriteLine("PASS Live Detect table event reducer handles baseline, activity, decoder recovery, no-pot, pot and re-rack sequences");
     }
 
@@ -55,7 +57,7 @@ internal static class LiveDetectTableEventTrackerChecks
             "same inventory after observed movement and a stable layout produces a no-pot observation");
         Require(settled.ClipActivity is { MovementObserved: true }
             && settled.ClipEventType == "no_pot_observed"
-            && settled.ClipSettledSourceTimeUs == 3_200_000,
+            && settled.ClipEndSourceTimeUs == 3_200_000,
             "a settled no-pot observation carries the activity range needed to save its shot clip");
     }
 
@@ -159,7 +161,7 @@ internal static class LiveDetectTableEventTrackerChecks
             "continuous spatial evidence after decoder recovery can still start real movement activity");
     }
 
-    static void DecoderRecoveryInterruptsActivityWithoutClip()
+    static void DecoderRecoveryInterruptsActivityWithBoundedReviewClip()
     {
         var tracker = NewBaseline();
         var movedLayout = ImmutableArray.Create(
@@ -173,8 +175,10 @@ internal static class LiveDetectTableEventTrackerChecks
             sourceGeneration: 2, mediaGeneration: 4));
         Require(recovered.TableEvents.Any(e => e.Type == "activity_interrupted")
             && recovered.TableEvents.All(e => e.Type != "movement_observed")
-            && recovered.ClipActivity is null,
-            "decoder recovery closes an open activity as unknown without inferring a shot or saving a clip");
+            && recovered.ClipActivity is { MovementObserved: true }
+            && recovered.ClipEventType == "activity_interrupted"
+            && recovered.ClipEndSourceTimeUs == 2_000_000,
+            "recent observed movement interrupted by decoder recovery requests a bounded review clip without inferring an outcome");
 
         LiveDetectEventBatch settled = default!;
         for (int i = 6; i <= 8; i++)
@@ -183,6 +187,34 @@ internal static class LiveDetectTableEventTrackerChecks
         Require(settled.TableEvents.All(e => e.Type != "no_pot_observed")
             && settled.ClipActivity is null,
             "the post-recovery stable layout cannot complete an interrupted activity as a no-pot shot");
+    }
+
+    static void OldInterruptedActivityDoesNotCreateOversizedClip()
+    {
+        var tracker = NewBaseline();
+        var movedLayout = ImmutableArray.Create(
+            new SettledBallPosition(BallColour.Red, .34, .39),
+            new SettledBallPosition(BallColour.Cue, .75, .64));
+        tracker.Observe(Sample(4, BaseCounts, movedLayout, movementObserved: true));
+
+        var recovered = tracker.Observe(Sample(80, BaseCounts, movedLayout,
+            sourceGeneration: 2, mediaGeneration: 4));
+        Require(recovered.TableEvents.Any(e => e.Type == "activity_interrupted"
+                && e.Message.Contains("bounded review window", StringComparison.Ordinal))
+            && recovered.ClipActivity is null && recovered.ClipEventType is null,
+            "a decoder restart more than the configured bound after activity start is logged as unknown without requesting a long clip");
+    }
+
+    static void UnobservedActivityInterruptionDoesNotCreateReviewClip()
+    {
+        var tracker = NewBaseline();
+        tracker.Observe(Sample(4, BaseCounts, [], obstructed: true));
+
+        var recovered = tracker.Observe(Sample(5, BaseCounts, [], obstructed: true,
+            sourceGeneration: 2, mediaGeneration: 4));
+        Require(recovered.TableEvents.Any(e => e.Type == "activity_interrupted")
+            && recovered.ClipActivity is null && recovered.ClipEventType is null,
+            "an interrupted obstruction without an independently observed movement signal remains clip-free");
     }
 
     static LiveDetectTableEventTracker NewBaseline()
@@ -249,7 +281,7 @@ internal static class LiveDetectTableEventTrackerChecks
                 Console.WriteLine($"{tableEvent.CapturedAt:O} PTS={tableEvent.SourceTimeUs} {tableEvent.Type}: {tableEvent.Message}");
             }
             if (result.ClipEventType is { } clipType && result.ClipActivity is { } clipActivity)
-                Console.WriteLine($"CLIP CANDIDATE {clipType} activity={clipActivity.Id} startPTS={clipActivity.StartSourceTimeUs} endPTS={result.ClipSettledSourceTimeUs}");
+                Console.WriteLine($"CLIP CANDIDATE {clipType} activity={clipActivity.Id} startPTS={clipActivity.StartSourceTimeUs} endPTS={result.ClipEndSourceTimeUs}");
             frameCount++;
         }
 

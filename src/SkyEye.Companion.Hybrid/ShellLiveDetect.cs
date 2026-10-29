@@ -329,10 +329,10 @@ public sealed partial class ShellSession
                 }
                 if (eventBatch.ClipActivity is { } clipActivity
                     && eventBatch.ClipEventType is { } clipEventType
-                    && eventBatch.ClipSettledSourceTimeUs is { } settledSourceTimeUs)
+                    && eventBatch.ClipEndSourceTimeUs is { } eventEndSourceTimeUs)
                 {
                     var candidate = new LiveDetectEventClipCandidate(clipActivity, clipEventType,
-                        settledSourceTimeUs, eventBatch.TableEvents
+                        eventEndSourceTimeUs, eventBatch.TableEvents
                             .Where(tableEvent => tableEvent.ActivityId == clipActivity.Id)
                             .Select(tableEvent => tableEvent.EventId).ToArray());
                     eventClipQueue.Writer.TryWrite(new LiveDetectEventClipCandidateMessage(candidate));
@@ -509,7 +509,7 @@ public sealed partial class ShellSession
                         AppendLiveDetectTableEvent(runId, timeoutAt, new(Guid.NewGuid(), group.ClipActivity.Id,
                             "event_clip_grouping_timeout", timeoutAt, source.ConnectionId,
                             context.MediaGeneration, context.Frame.FrameId ?? 0,
-                            context.Frame.SourceTimeUs ?? group.SettledSourceTimeUs, group.Timeline,
+                            context.Frame.SourceTimeUs ?? group.EndSourceTimeUs, group.Timeline,
                             table.State.CalibrationId, timeoutMessage, null, null,
                             group.ActivityStartSourceTimeUs, null, null));
                         break;
@@ -560,7 +560,7 @@ public sealed partial class ShellSession
         {
             var activity = group.ClipActivity;
             string eventType = group.EventType;
-            long settledSourceTimeUs = group.SettledSourceTimeUs;
+            long eventEndSourceTimeUs = group.EndSourceTimeUs;
             LiveDetectEventClipContext context = default;
             async Task<LiveDetectShotClipWindowPolicy.PostRollObservation> ReadPostRollObservationAsync(
                 CancellationToken cancellationToken)
@@ -569,7 +569,7 @@ public sealed partial class ShellSession
                 if (!CanAdvancePostRoll(context))
                     return new(context.Timeline ?? activity.Timeline, context.Frame.SourceTimeUs, false);
 
-                long requiredSourceTimeUs = checked(settledSourceTimeUs
+                long requiredSourceTimeUs = checked(eventEndSourceTimeUs
                     + LiveDetectShotClipWindowPolicy.PostRollSeconds * 1_000_000L);
                 if (context.Frame.SourceTimeUs is not { } sourceTimeUs || sourceTimeUs < requiredSourceTimeUs)
                 {
@@ -602,7 +602,7 @@ public sealed partial class ShellSession
                 && value.AppState.Camera.Scope == source && value.TableSource == source;
 
             var postRoll = await LiveDetectShotClipWindowPolicy.WaitForPostRollAsync(activity.Timeline,
-                settledSourceTimeUs, ReadPostRollObservationAsync);
+                eventEndSourceTimeUs, ReadPostRollObservationAsync);
             if (postRoll.Status != LiveDetectShotClipWindowPolicy.PostRollWaitStatus.Ready)
             {
                 var skippedAt = DateTimeOffset.UtcNow;
@@ -617,7 +617,7 @@ public sealed partial class ShellSession
                 await SetLiveDetectClipStatusAsync(message);
                 AppendLiveDetectTableEvent(runId, skippedAt, new(Guid.NewGuid(), activity.Id,
                     statusEventType, skippedAt, source.ConnectionId, table.State.Observation?.MediaGeneration ?? 0,
-                    context.Frame.FrameId ?? 0, context.Frame.SourceTimeUs ?? settledSourceTimeUs,
+                    context.Frame.FrameId ?? 0, context.Frame.SourceTimeUs ?? eventEndSourceTimeUs,
                     context.Timeline ?? activity.Timeline, table.State.CalibrationId, message,
                     null, null, activity.StartSourceTimeUs, null, null));
                 return;
@@ -625,7 +625,7 @@ public sealed partial class ShellSession
 
             long requestSourceTimeUs = postRoll.LastObservation.SourceTimeUs!.Value;
             if (!LiveDetectShotClipWindowPolicy.TryCreate(activity.Id,
-                activity.Timeline, activity.StartSourceTimeUs, settledSourceTimeUs,
+                activity.Timeline, activity.StartSourceTimeUs, eventEndSourceTimeUs,
                 requestSourceTimeUs, out var window))
             {
                 var skippedAt = DateTimeOffset.UtcNow;
@@ -634,7 +634,7 @@ public sealed partial class ShellSession
                 AppendLiveDetectTableEvent(runId, skippedAt, new(Guid.NewGuid(), activity.Id,
                     "event_clip_skipped", skippedAt, source.ConnectionId,
                     table.State.Observation?.MediaGeneration ?? 0, table.State.Observation?.DecodedReceipt?.FrameId ?? 0,
-                    context.Frame.SourceTimeUs ?? settledSourceTimeUs, context.Timeline ?? "", table.State.CalibrationId,
+                    context.Frame.SourceTimeUs ?? eventEndSourceTimeUs, context.Timeline ?? "", table.State.CalibrationId,
                     message,
                     null, null, activity.StartSourceTimeUs, null, null));
                 return;
@@ -719,7 +719,7 @@ public sealed partial class ShellSession
             var observation = state.Observation;
             AppendLiveDetectTableEvent(runId, recordedAt, new(Guid.NewGuid(), group.ClipActivity.Id,
                 "event_clip_failed", recordedAt, source.ConnectionId, observation?.MediaGeneration ?? 0,
-                observation?.DecodedReceipt?.FrameId ?? 0, observation?.SourceTimeUs ?? group.SettledSourceTimeUs,
+                observation?.DecodedReceipt?.FrameId ?? 0, observation?.SourceTimeUs ?? group.EndSourceTimeUs,
                 observation?.Timeline ?? "", state.CalibrationId,
                 $"Event clip save failed before confirmation ({error.GetType().Name}).", null, null,
                 group.ActivityStartSourceTimeUs, null, null));

@@ -15,7 +15,7 @@ internal sealed record LiveDetectTableEventObservation(EvidenceSource Source, Gu
 
 internal sealed record LiveDetectEventBatch(string CheckOutcome,
     ImmutableArray<LiveDetectLogTableEvent> TableEvents, LiveDetectActivity? ClipActivity,
-    string? ClipEventType, long? ClipSettledSourceTimeUs)
+    string? ClipEventType, long? ClipEndSourceTimeUs)
 {
     public IEnumerable<string> Messages => TableEvents.Select(tableEvent => tableEvent.Message);
 }
@@ -76,6 +76,9 @@ internal sealed class LiveDetectTableEventTracker
 
         var events = ImmutableArray.CreateBuilder<LiveDetectLogTableEvent>();
         string? passEventType = mediaGenerationChanged ? "source_generation_changed" : null;
+        LiveDetectActivity? clipActivity = null;
+        string? clipEventType = null;
+        long? clipEndSourceTimeUs = null;
 
         void Add(string type, string message, Guid? activityId = null,
             LiveDetectCounts? before = null, LiveDetectCounts? after = null,
@@ -105,13 +108,28 @@ internal sealed class LiveDetectTableEventTracker
             stableAtBaselineSamples = 0;
             if (activity is { } interruptedActivity)
             {
-                Add("activity_interrupted",
-                    "Decoder restarted; movement continuity is unknown. No shot outcome inferred.",
+                bool recentMovementEpisode = interruptedActivity.MovementObserved
+                    && interruptedActivity.StartSourceTimeUs > 0
+                    && sample.SourceTimeUs >= interruptedActivity.StartSourceTimeUs
+                    && sample.SourceTimeUs - interruptedActivity.StartSourceTimeUs
+                        <= LiveDetectShotClipWindowPolicy.MaximumInterruptedActivitySeconds * 1_000_000L;
+                string interruptionMessage = recentMovementEpisode
+                    ? "Decoder restarted before the activity settled; a bounded review clip was requested. No shot outcome inferred."
+                    : interruptedActivity.MovementObserved
+                        ? "Decoder restarted after the bounded review window; movement continuity is unknown. No shot outcome inferred and no clip was queued."
+                        : "Decoder restarted; movement continuity is unknown. No shot outcome inferred.";
+                Add("activity_interrupted", interruptionMessage,
                     interruptedActivity.Id, before: ToLiveDetectCounts(baselineCounts),
                     after: stableSampleEligible ? sample.Counts : null,
                     beforeSourceTimeUs: stableSnapshot.BaselineSourceTimeUs,
                     beforeLayout: baselineLayout,
                     afterLayout: stableSampleEligible ? sample.Layout : []);
+                if (recentMovementEpisode)
+                {
+                    clipActivity = interruptedActivity;
+                    clipEventType = "activity_interrupted";
+                    clipEndSourceTimeUs = sample.SourceTimeUs;
+                }
                 activity = null;
             }
         }
@@ -187,9 +205,6 @@ internal sealed class LiveDetectTableEventTracker
                 after: sample.Counts, afterLayout: sample.Layout);
         }
 
-        LiveDetectActivity? clipActivity = null;
-        string? clipEventType = null;
-        long? clipSettledSourceTimeUs = null;
         var latestStableChange = stableSnapshot.RecentEvents.LastOrDefault();
         if (latestStableChange is { } settledChange && settledChange.Id != lastStableChangeId)
         {
@@ -250,7 +265,7 @@ internal sealed class LiveDetectTableEventTracker
                 {
                     clipActivity = settledActivity;
                     clipEventType = settledType;
-                    clipSettledSourceTimeUs = sample.SourceTimeUs;
+                    clipEndSourceTimeUs = sample.SourceTimeUs;
                 }
                 activity = null;
             }
@@ -278,7 +293,7 @@ internal sealed class LiveDetectTableEventTracker
             {
                 clipActivity = unchangedActivity;
                 clipEventType = "activity_ended_without_layout_change";
-                clipSettledSourceTimeUs = sample.SourceTimeUs;
+                clipEndSourceTimeUs = sample.SourceTimeUs;
             }
             activity = null;
             stableAtBaselineSamples = 0;
@@ -290,7 +305,7 @@ internal sealed class LiveDetectTableEventTracker
                 : baselineCounts == settledCounts && SettledLayoutReconciler.SameLayout(baselineLayout, sample.Layout)
                     ? "clear_unchanged"
                     : baselineCounts == settledCounts ? "layout_change_pending" : "inventory_change_pending");
-        return new(checkOutcome, events.ToImmutable(), clipActivity, clipEventType, clipSettledSourceTimeUs);
+        return new(checkOutcome, events.ToImmutable(), clipActivity, clipEventType, clipEndSourceTimeUs);
     }
 
     static bool IsStableInventory(LiveDetectCounts counts) =>

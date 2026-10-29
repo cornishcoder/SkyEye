@@ -1,11 +1,11 @@
 namespace SkyEye.Companion.Hybrid;
 
 internal sealed record LiveDetectEventClipCandidate(LiveDetectActivity Activity, string EventType,
-    long SettledSourceTimeUs, Guid[] TableEventIds)
+    long EndSourceTimeUs, Guid[] TableEventIds)
 {
     public long WindowStartSourceTimeUs => Math.Max(0,
         Activity.StartSourceTimeUs - LiveDetectShotClipWindowPolicy.LeadInSeconds * 1_000_000L);
-    public long WindowEndSourceTimeUs => checked(SettledSourceTimeUs
+    public long WindowEndSourceTimeUs => checked(EndSourceTimeUs
         + LiveDetectShotClipWindowPolicy.PostRollSeconds * 1_000_000L);
 }
 
@@ -29,7 +29,7 @@ internal sealed class LiveDetectEventClipGroup
     public long WindowStartSourceTimeUs { get; private set; }
     public long WindowEndSourceTimeUs { get; private set; }
     public long ActivityStartSourceTimeUs => candidates.Min(candidate => candidate.Activity.StartSourceTimeUs);
-    public long SettledSourceTimeUs => candidates.Max(candidate => candidate.SettledSourceTimeUs);
+    public long EndSourceTimeUs => candidates.Max(candidate => candidate.EndSourceTimeUs);
     public LiveDetectActivity ClipActivity => candidates
         .MinBy(candidate => candidate.Activity.StartSourceTimeUs)!.Activity with
         { StartSourceTimeUs = ActivityStartSourceTimeUs };
