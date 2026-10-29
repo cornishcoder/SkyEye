@@ -4,6 +4,14 @@ Record phone models, OS/builds, app revision, network and capture settings for e
 
 For the current Production companion's home controls, live-session flow, package identity, and read-only detector diagnostics, see [Pixel companion control guide](device-control-guide.md).
 
+## Production code50 frame-age experiment (29 October 2026)
+
+The prior code48 JSONL contains 1,169 frame observations: source-frame age 896ms median, 3,111ms p90 and 3,127ms p95, with 470 frames older than 1.4s. Full analysis was 370ms median, 442ms p95 and 944ms maximum. This separates upstream playback age from detector compute.
+
+Commit `d63aa1b` caps Media3 streaming buffer at 1,000ms (250ms minimum) and keeps the local-playback policy separate. Production 0.8.42 / code50 built with 13 warnings and zero errors, then was installed in place on Pixel 11 using the guarded installer. The installer retained package, signer, UID and private storage; rollback APK: `work/production/backups/20261029-161616/before.apk`; signed APK SHA-256: `8CC11380A879AA219217FC60D0DE875D4164DD6AF151E06633EC25255036002C`. Installed version reads 0.8.42 / 50. After installation, camera `/status` is `Stopped`, revision 20, battery 100%, `clipCount=82`, zero viewers; Pixel 11 Home shows `Start live session` and `Cast. Disconnected`. No capture started, and the camera package was not changed.
+
+This is an unverified latency hypothesis, not physical acceptance: no frame-age or rebuffer data has been collected on code50. Next, when the user is at the table, collect a clear stationary interval followed by one shot; record source-frame age, full-pass time, decoder/rebuffer events, table events and the linked clip. Keep capture bounded and stop at the first safe boundary. Do not use Cast/TV.
+
 ## Production code49 bounded decoder-interruption clip follow-up (29 October 2026)
 
 Commit `94aa5c3` requests an event clip for `activity_interrupted` only when movement was independently observed and the decoder restart arrives within 30 seconds of the activity start. The clip retains the existing 2-second lead-in and post-roll, uses the interruption source PTS as its event end, and remains explicitly unknown: it cannot emit a no-pot or pot result. Obstruction-only and older interrupted activities stay clip-free. Focused Agent UI checks cover recent movement, obstruction-only interruption, and the >30-second bound. Production Release build succeeded with 13 warnings and zero errors.
