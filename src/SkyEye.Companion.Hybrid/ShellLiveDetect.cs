@@ -11,7 +11,7 @@ public sealed partial class ShellSession
 {
     readonly record struct LiveDetectFrameAnchor(long? FrameId, long? SourceTimeUs, DateTimeOffset? CapturedAt);
     readonly record struct LiveDetectEventClipContext(SkyEyeState AppState,
-        CameraScope? TableSource, string? Timeline, LiveDetectFrameAnchor Frame);
+        CameraScope? TableSource, string? Timeline, LiveDetectFrameAnchor Frame, bool CanAdvanceAnalysis);
 
     CancellationTokenSource? liveDetectCancellation;
     Task? liveDetectTask;
@@ -398,22 +398,60 @@ public sealed partial class ShellSession
         try
         {
             LiveDetectEventClipContext context = default;
-            var postRoll = await LiveDetectShotClipWindowPolicy.WaitForPostRollAsync(activity.Timeline,
-                settledSourceTimeUs, async cancellationToken =>
+            async Task<LiveDetectShotClipWindowPolicy.PostRollObservation> ReadPostRollObservationAsync(
+                CancellationToken cancellationToken)
             {
-                context = await MainThread.InvokeOnMainThreadAsync(() =>
+                context = await MainThread.InvokeOnMainThreadAsync(CaptureClipContext);
+                if (!CanAdvancePostRoll(context))
+                    return new(context.Timeline ?? activity.Timeline, context.Frame.SourceTimeUs, false);
+
+                long requiredSourceTimeUs = checked(settledSourceTimeUs
+                    + LiveDetectShotClipWindowPolicy.PostRollSeconds * 1_000_000L);
+                if (context.Frame.SourceTimeUs is not { } sourceTimeUs || sourceTimeUs < requiredSourceTimeUs)
                 {
-                    var tableState = table.State;
-                    var observation = tableState.Observation;
-                    var receipt = observation?.DecodedReceipt;
-                    return new LiveDetectEventClipContext(app.State, tableState.Source, observation?.Timeline,
-                        new(receipt?.FrameId, observation?.SourceTimeUs, observation?.CapturedAt));
-                });
-                bool sessionAvailable = context.AppState.Camera.CanControl
-                    && context.AppState.Camera.Capture == CaptureState.Active
-                    && context.AppState.Camera.Scope == source && context.TableSource == source;
-                return new(context.Timeline, context.Frame.SourceTimeUs, sessionAvailable);
-            }, cancellationToken: CancellationToken.None);
+                    try
+                    {
+                        // Live Detect may have been stopped while this clip was queued.
+                        // Keep acquiring paired frames for this bounded post-roll window
+                        // so stopping detection cannot strand the clip at a stale PTS.
+                        await table.UpdateAsync(cancellationToken);
+                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception)
+                    {
+                        // A transient read failure leaves the last actual source PTS
+                        // unchanged; the bounded policy will retry before timing out.
+                    }
+                    context = await MainThread.InvokeOnMainThreadAsync(CaptureClipContext);
+                }
+
+                return new(context.Timeline ?? activity.Timeline, context.Frame.SourceTimeUs,
+                    CanAdvancePostRoll(context));
+            }
+
+            LiveDetectEventClipContext CaptureClipContext()
+            {
+                var tableState = table.State;
+                var observation = tableState.Observation;
+                var receipt = observation?.DecodedReceipt;
+                var cameraState = app.State;
+                bool canAdvance = CanAnalyzeTable && cameraState.Camera.CanControl
+                    && cameraState.Camera.Capture == CaptureState.Active
+                    && cameraState.Camera.Scope == source && tableState.Source == source;
+                return new(cameraState, tableState.Source, observation?.Timeline,
+                    new(receipt?.FrameId, observation?.SourceTimeUs, observation?.CapturedAt), canAdvance);
+            }
+
+            bool CanAdvancePostRoll(LiveDetectEventClipContext value) => value.CanAdvanceAnalysis
+                && value.AppState.Camera.CanControl
+                && value.AppState.Camera.Capture == CaptureState.Active
+                && value.AppState.Camera.Scope == source && value.TableSource == source;
+
+            var postRoll = await LiveDetectShotClipWindowPolicy.WaitForPostRollAsync(activity.Timeline,
+                settledSourceTimeUs, ReadPostRollObservationAsync);
             if (postRoll.Status != LiveDetectShotClipWindowPolicy.PostRollWaitStatus.Ready)
             {
                 var skippedAt = DateTimeOffset.UtcNow;

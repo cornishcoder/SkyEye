@@ -34,7 +34,7 @@ internal static class LiveDetectShotClipWindowChecks
                 : new LiveDetectShotClipWindowPolicy.PostRollObservation(timeline, postRollEnd, true)),
             timeout: TimeSpan.FromMilliseconds(100), pollInterval: TimeSpan.FromMilliseconds(1));
         Require(ready.Status == LiveDetectShotClipWindowPolicy.PostRollWaitStatus.Ready && reads == 2,
-            "post-roll waits for a source timestamp at the boundary");
+            "post-roll rereads source observations until a fresh timestamp reaches the boundary");
 
         var changed = await LiveDetectShotClipWindowPolicy.WaitForPostRollAsync(timeline, settled, _ =>
             Task.FromResult(new LiveDetectShotClipWindowPolicy.PostRollObservation("other-timeline", postRollEnd, true)),
@@ -48,11 +48,18 @@ internal static class LiveDetectShotClipWindowChecks
         Require(unavailable.Status == LiveDetectShotClipWindowPolicy.PostRollWaitStatus.SessionUnavailable,
             "post-roll wait exits when the camera session is lost");
 
-        var pendingRead = new TaskCompletionSource<LiveDetectShotClipWindowPolicy.PostRollObservation>();
-        var timedOut = await LiveDetectShotClipWindowPolicy.WaitForPostRollAsync(timeline, settled, _ => pendingRead.Task,
-            timeout: TimeSpan.FromMilliseconds(5), pollInterval: TimeSpan.FromMilliseconds(1));
-        Require(timedOut.Status == LiveDetectShotClipWindowPolicy.PostRollWaitStatus.TimedOut,
-            "post-roll wait remains bounded when frame readback stalls");
+        var pendingRead = new TaskCompletionSource<LiveDetectShotClipWindowPolicy.PostRollObservation>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var pendingReadCancelled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var timedOut = await LiveDetectShotClipWindowPolicy.WaitForPostRollAsync(timeline, settled, cancellationToken =>
+        {
+            cancellationToken.Register(() => pendingReadCancelled.TrySetResult());
+            return pendingRead.Task;
+        }, timeout: TimeSpan.FromMilliseconds(20), pollInterval: TimeSpan.FromMilliseconds(1));
+        await pendingReadCancelled.Task.WaitAsync(TimeSpan.FromMilliseconds(100));
+        Require(timedOut.Status == LiveDetectShotClipWindowPolicy.PostRollWaitStatus.TimedOut
+            && pendingReadCancelled.Task.IsCompleted,
+            "a stalled source read times out and cancels its pending acquisition");
 
         Require(!LiveDetectShotClipWindowPolicy.TryCreate(id, "not-a-timeline", movement, settled, request, out _),
             "clip windows reject malformed camera timelines");

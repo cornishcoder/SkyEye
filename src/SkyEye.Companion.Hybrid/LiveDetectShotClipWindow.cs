@@ -27,18 +27,34 @@ internal static class LiveDetectShotClipWindowPolicy
         long requiredSourceTimeUs = checked(settledSourceTimeUs + PostRollSeconds * 1_000_000L);
         var maximumWait = timeout ?? PostRollWaitTimeout;
         var interval = pollInterval ?? PostRollWaitPollInterval;
+        if (maximumWait <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(timeout));
+        if (interval <= TimeSpan.Zero) throw new ArgumentOutOfRangeException(nameof(pollInterval));
         long startedAt = Stopwatch.GetTimestamp();
         PostRollObservation last = default;
+        using var timeoutCancellation = new CancellationTokenSource(maximumWait);
+        using var linkedCancellation = CancellationTokenSource.CreateLinkedTokenSource(
+            cancellationToken, timeoutCancellation.Token);
+        var waitCancellation = linkedCancellation.Token;
         while (true)
         {
             var remainingForRead = maximumWait - Stopwatch.GetElapsedTime(startedAt);
-            if (remainingForRead <= TimeSpan.Zero) return new(PostRollWaitStatus.TimedOut, last);
+            if (remainingForRead <= TimeSpan.Zero)
+            {
+                timeoutCancellation.Cancel();
+                return new(PostRollWaitStatus.TimedOut, last);
+            }
             try
             {
-                last = await readObservation(cancellationToken).WaitAsync(remainingForRead, cancellationToken)
+                last = await readObservation(waitCancellation).WaitAsync(remainingForRead, waitCancellation)
                     .ConfigureAwait(false);
             }
             catch (TimeoutException)
+            {
+                timeoutCancellation.Cancel();
+                return new(PostRollWaitStatus.TimedOut, last);
+            }
+            catch (OperationCanceledException) when (timeoutCancellation.IsCancellationRequested
+                && !cancellationToken.IsCancellationRequested)
             {
                 return new(PostRollWaitStatus.TimedOut, last);
             }
@@ -48,8 +64,20 @@ internal static class LiveDetectShotClipWindowPolicy
                 return new(PostRollWaitStatus.Ready, last);
 
             var remaining = maximumWait - Stopwatch.GetElapsedTime(startedAt);
-            if (remaining <= TimeSpan.Zero) return new(PostRollWaitStatus.TimedOut, last);
-            await Task.Delay(remaining < interval ? remaining : interval, cancellationToken).ConfigureAwait(false);
+            if (remaining <= TimeSpan.Zero)
+            {
+                timeoutCancellation.Cancel();
+                return new(PostRollWaitStatus.TimedOut, last);
+            }
+            try
+            {
+                await Task.Delay(remaining < interval ? remaining : interval, waitCancellation).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (timeoutCancellation.IsCancellationRequested
+                && !cancellationToken.IsCancellationRequested)
+            {
+                return new(PostRollWaitStatus.TimedOut, last);
+            }
         }
     }
 
