@@ -42,7 +42,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 settings.DarkBodyValueCeiling, settings.VerificationBodyRefinement,
                 settings.PackedColourBoundarySearchExtentFraction
             };
-            const string algorithm = "body-priority-packed-colour-peaks-v16-colour-mask-edge-support";
+            const string algorithm = "body-priority-packed-colour-peaks-v17-supported-shadow-groups";
             object identity = settings.UseNormalizedGeometryForDetection || settings.UseNormalizedPackedColourProposalMask
                 ? new
                 {
@@ -758,7 +758,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         double packedMaximumWidth = 400 * scale, packedMaximumHeight = 400 * scale;
         int packedClusterMinimumBallCentres = Math.Min(12, Math.Max(8, (int)Math.Ceiling(balls.Count * .5)));
         const double packedClusterMinimumBallBodyCoverageFraction = .36;
-        const int ballGroupExemptionMinimumCentres = 5;
+        const int ballGroupExemptionMinimumCentres = 3;
         const double ballGroupExemptionMinimumBodyCoverageFraction = .52;
         var candidates = new List<ObstructionComponentAudit>();
         int triggeringComponents = 0;
@@ -796,14 +796,17 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             // Ball shadows can join a compact group of recognized balls into one
             // non-cloth component even when the whole table is not a packed rack.
             // Keep the stricter full-rack rule, but also allow a localized group
-            // only when at least five detected centres lie inside the component
-            // and supported ball bodies explain at least half its pixels. A broad
-            // hand/object region still fails the compact-size or body-coverage gate.
+            // when at least three supported ball centres belong to the component
+            // and supported ball bodies explain at least half its pixels. The live
+            // three-ball spread group was falsely blocked by the old five-centre
+            // floor. Rectangle membership alone is insufficient: a hand's bounds
+            // can include visible balls outside its actual connected component.
+            // Broad hand/object regions still fail size or body-coverage gates.
             bool completePackedClusterExempted = completePackedCluster && packedClusterSizeEligible &&
                 ballCentresInBounds >= packedClusterMinimumBallCentres &&
                 ballBodyCoverage >= packedClusterMinimumBallBodyCoverageFraction;
             bool localizedBallGroupExempted = packedClusterSizeEligible &&
-                ballCentresInBounds >= ballGroupExemptionMinimumCentres &&
+                ballCentres >= ballGroupExemptionMinimumCentres &&
                 ballBodyCoverage >= ballGroupExemptionMinimumBodyCoverageFraction;
             bool packedClusterExempted = completePackedClusterExempted || localizedBallGroupExempted;
             bool triggersObstruction = !wholeTableSegmentation && !packedClusterExempted;
