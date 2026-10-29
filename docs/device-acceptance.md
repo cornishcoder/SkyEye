@@ -4,6 +4,14 @@ Record phone models, OS/builds, app revision, network and capture settings for e
 
 For the current Production companion's home controls, live-session flow, package identity, and read-only detector diagnostics, see [Pixel companion control guide](device-control-guide.md).
 
+## Production code52 structured playback telemetry install (29 October 2026)
+
+Commit `5265b6e` adds structured Media3 playback snapshots to Live Detect frame-acquisition wait/retry records as well as accepted-frame records, and advances the log schema to 10. Production `0.8.44` / code52 built with 13 warnings and zero errors, then was installed in place on Pixel 11 using `Install-ProductionCompanion.ps1`; package identity and private storage were retained. Rollback APK: `work/production/backups/20261029-163127/before.apk`; signed APK SHA-256: `AB2E715E80713EB78FC9B3AE888EF14A5AAEE1280827FC4FD271026B4D6A3C49`. Package readback reports versionCode 52 / versionName 0.8.44.
+
+Both frame and retry-event records can include `playerPlayback.playbackState`, `loading`, `playing`, `bufferedMs`, and nullable `liveOffsetMs`, sampled at the time the observation or acquisition failure is recorded. The existing free-text source status remains. These are point-in-time samples, not a continuous rebuffer trace. Installation did not start capture or change the mounted-camera package. Camera `/status`: `Stopped`, revision 20, battery 100%, 82 clips and zero viewers. Pixel 11 screenshot shows Home with `Connect your camera` and its pinned panel; Cast is disconnected. The immediate post-install accessibility hierarchy did not expose the exact `Start live session` label. Screenshot: `work/production/evidence/code52-install/pixel11-after-install.png`.
+
+This is build/install evidence only. No code52 live frames or physical event/clip results were collected. The latest retained Live Detect log remains the older code48 run; the subsequent user-reported break/no-pot check ended with an obstructed view and has no fresh matching frame log or event clip. Do not treat it as a confirmed no-pot event or as a code52 result. The next bounded live run should compare frame age and full-pass time with player snapshots on both accepted frames and retry events, then inspect the linked clip. Keep capture stopped otherwise and do not use Cast/TV.
+
 ## Production code51 playback telemetry install (29 October 2026)
 
 Commit `a229544` carries the Media3 playback snapshot beside each accepted Live Detect frame and advances the log schema to 9. Production `0.8.43` / code51 built with 13 warnings and zero errors, then was installed in place on Pixel 11 using `Install-ProductionCompanion.ps1`; package identity and private storage were retained. Rollback APK: `work/production/backups/20261029-162331/before.apk`; signed APK SHA-256: `7504870CC51B84C1FEDBD7701091999140BEC047125BD3171E9C5A2ACEDD1B9F`. Package readback reports versionCode 51 / versionName 0.8.43.
