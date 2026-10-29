@@ -4,7 +4,31 @@ Updated: 29 October 2026. Goal active; end-to-end event acceptance is incomplete
 
 ## Required outcome
 
-While Live Detect is active, report the supported current table inventory and positions, recognise table events during normal play, and recover naturally when the user replaces balls or re-racks for another frame. No match setup should be required for perception. Keep clear what is observed, uncertain, stale, or inferred; a last good inventory must not masquerade as a fresh observation. Shot planning must not gate detection or readiness.
+While Live Detect is active, report the supported current table inventory and positions, recognise table events during normal play, and recover naturally when the user replaces balls or re-racks for another frame. No match setup should be required for perception. Keep clear what is observed, uncertain, stale, or inferred; a last good inventory must not masquerade as a fresh observation. Shot planning must not gate detection or readiness. Record an event timeline that can later support both match-state inference and clips spanning a player's setup, shot, and the next settled table.
+
+## Event timeline and shot-clip path
+
+Treat events as the shared evidence layer for the live display, later match-state inference, and shot clips. Keep perception events independent of `GameState`: a table observation or candidate does not by itself change the shooter, turn, foul, score, or frame result.
+
+| Stage | Event evidence | Meaning and limits |
+| --- | --- | --- |
+| Baseline | `rack_detected` or `settled_layout_observed`, with source timeline, frame ID/source PTS, inventory, positions, and quality | A complete packed rack can establish a new inventory baseline. A spread layout can also establish a baseline; a match is not required. |
+| Activity | `activity_started` / `activity_ended`, with source-time bounds; `obstruction_started` / `obstruction_ended` as quality transitions | Movement can delimit a shot attempt. Obstruction means the layout is temporarily unreadable; it is not evidence of a pot or a shot outcome. If motion coverage is missing or interrupted, retain an unknown boundary. |
+| Settled after-state | `settled_layout_observed`, backed by repeated fresh, clear, matching layouts | Compare the new layout against the last clear baseline. Preserve both inventories, positions, frame IDs and source PTS so the transition can be replayed and reviewed. |
+| Derived table event | `possible_pot`, `balls_returned`, `layout_changed_no_inventory_change`, `no_pot_observed`, or `rack_detected` | A decrease is a pot candidate only after clear confirmation. Same inventory plus meaningful moved positions establishes a no-inventory-change transition; label it a no-pot shot only when a shot/activity window was independently observed and the after-state is clear. Otherwise report a layout change or unknown, not a missed shot. |
+| Match projection | Accepted pot / no-pot / foul / turn / rack decisions projected into canonical `GameState` | Rules need shooter, groups, contact/legality and cue-ball facts where applicable. Keep unresolved facts pending; visual inventory alone must not advance the turn. |
+| Shot clip | Link a saved camera clip to the activity and settled-state event IDs, including intended pre-roll/post-roll and verified source-time window | Aim to include the player's line-up, movement, and balls coming to rest. Event timestamps can select the window only after camera PTS-to-clip mapping is verified. Preserve the wider source clip and event metadata until exact trimming is proven. |
+
+The current camera save command accepts whole recent windows of 30, 60, 120, 300, or 600 seconds; Live Detect's periodic save uses 30 seconds. An event-triggered save after settlement can retain a recent window containing the activity, but it does not yet make an exact shot-length clip. First validate that decoded frame source PTS and the clip's recording origin describe the same timeline, then measure how much pre-roll is needed to include normal player setup. Until then, keep the periodic clips and record proposed shot windows in the log; do not claim exact lineup/shot coverage or replace the known-good save path.
+
+### Acceptance sequence
+
+1. Establish a clear spread or rack baseline and log its timestamped positions.
+2. Capture a no-pot shot: observe activity, any obstruction, then a clear settled same-inventory layout with positions moved. Emit a no-pot observation only if all evidence supports that chain; otherwise retain an unknown/layout-change result.
+3. Capture a pot and a cue scratch/return with the same event chain; verify count changes and location evidence do not turn a hand occlusion into a pot.
+4. Re-rack in the same Live Detect run. Confirm the rack event replaces the current baseline while retaining the preceding event history.
+5. Join each event window to saved footage using source timeline/PTS and frame anchors. Review that the selected clip includes line-up, action, and rest; adjust pre-roll/post-roll from measured examples.
+6. Only after event and clip correlation is verified, feed supported outcomes through existing rules and canonical `GameState`. Keep rule facts the camera cannot see as unknown or player-confirmed.
 
 ## Work tracker
 
