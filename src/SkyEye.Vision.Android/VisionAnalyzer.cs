@@ -42,7 +42,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 settings.DarkBodyValueCeiling, settings.VerificationBodyRefinement,
                 settings.PackedColourBoundarySearchExtentFraction
             };
-            const string algorithm = "body-priority-packed-colour-peaks-v11-layout-quality";
+            const string algorithm = "body-priority-packed-colour-peaks-v12-underexposed-gain-floor";
             object identity = settings.UseNormalizedGeometryForDetection || settings.UseNormalizedPackedColourProposalMask
                 ? new
                 {
@@ -380,6 +380,13 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         if (tableSamples.Count < 20) return new(false, 0, 1, 1, 0);
         tableSamples.Sort();
         double reference = tableSamples[tableSamples.Count / 2];
+        // If the whole playable area is underexposed, using its low median as
+        // the target makes every dark pixel hit the minimum 0.65 gain. That
+        // attenuates the entire scene and can erase otherwise visible ball
+        // colour. Keep the measured reference for diagnostics, but floor the
+        // normalization target so low-light pixels are preserved rather than
+        // darkened again.
+        double targetBrightness = Math.Max(55, reference);
         byte[] bgr = Read(image);
         // The gain depends only on the local brightness byte. Precompute the
         // exact per-channel rounded output so the two-million-pixel pass does
@@ -390,7 +397,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         var correctedChannelByBrightness = new byte[256 * 256];
         for (int brightness = 0; brightness < 256; brightness++)
         {
-            double gain = Math.Clamp(reference / Math.Max(55, brightness), .65, 1.55);
+            double gain = Math.Clamp(targetBrightness / Math.Max(55, brightness), .65, 1.55);
             gainsByBrightness[brightness] = gain;
             adjustedByBrightness[brightness] = Math.Abs(gain - 1) > .05;
             int lookupBase = brightness << 8;
