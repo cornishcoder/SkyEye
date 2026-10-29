@@ -71,6 +71,26 @@ public static class BallClassifier
             return baseline with { Kind = "black", Quality = .75 };
         return baseline;
     }
+    /// <summary>Recover a warm-neutral cue candidate only when separate body
+    /// samples and a current local-contrast check jointly support its neutral
+    /// appearance. Callers must already have a fitted full-body boundary and
+    /// an existing unknown at this location; this does not replace a known ball.</summary>
+    public static BallClassification ClassifyWarmNeutralCueCandidate(HsvPixel[] samples, HsvPixel[] rim,
+        bool localNeutralContrast)
+    {
+        var baseline = ClassifyWithRim(samples, rim);
+        bool Valid(HsvPixel p) => double.IsFinite(p.H) && p.H is >= 0 and <= 179
+            && p.V is > 5 and <= 255 && p.S is >= 0 and <= 255;
+        var body = samples.Where(Valid).ToArray();
+        if (!localNeutralContrast || body.Length < 8 || baseline.Kind == "black"
+            || baseline.BodyDarkFraction is null or > .25 || baseline.RimDarkFraction is null or > .25)
+            return baseline;
+        int warmNeutral = body.Count(p => p.S < 85 && p.V >= 35
+            || p.H is >= 8 and <= 30 && p.S < 160 && p.V > 130);
+        double fraction = warmNeutral / (double)body.Length;
+        if (fraction < .65) return baseline;
+        return baseline with { Kind = "cue", Quality = Math.Min(.9, .72 + fraction * .18) };
+    }
     static ColourCluster[] Cluster(HsvPixel[] pixels)
     {
         // Deterministic farthest-point seeds handle fewer than four distinct colours.

@@ -35,6 +35,23 @@ static class VerificationChecks
             "Cream patch needs independently dark rim/body evidence for local black recovery");
         Check(BallClassifier.ClassifyWithRim(patch, Enumerable.Repeat(cream, 30).ToArray()).Kind == "cue", "Inventory alone cannot turn a second cue into black");
         Check(BallClassifier.ClassifyWithRim(Enumerable.Repeat(cream, 100).ToArray(), Enumerable.Repeat(dark, 30).ToArray()).Kind == "cue", "An outside shadow cannot manufacture a black body");
+        var mixedWarmNeutralCue = Enumerable.Range(0, 80).Select(index => (index % 4) switch
+        {
+            0 => new HsvPixel(17, 64, 109), 1 => new HsvPixel(18, 106, 163),
+            2 => new HsvPixel(17, 82, 126), _ => new HsvPixel(18, 96, 144)
+        }).ToArray();
+        Check(BallClassifier.ClassifyWithRim(mixedWarmNeutralCue, mixedWarmNeutralCue).Kind == "unknown"
+            && BallClassifier.ClassifyWarmNeutralCueCandidate(mixedWarmNeutralCue, mixedWarmNeutralCue, true).Kind == "cue",
+            "Strongly contrasting mixed warm-neutral cue evidence is combined only in the fitted-candidate recovery path");
+        var saturatedYellow = Enumerable.Repeat(new HsvPixel(22, 200, 180), 80).ToArray();
+        Check(BallClassifier.ClassifyWarmNeutralCueCandidate(saturatedYellow, saturatedYellow, true).Kind == "yellow",
+            "A saturated yellow body remains yellow in the warm-neutral candidate classifier");
+        var blackNumberPatch = Enumerable.Repeat(new HsvPixel(20, 210, 25), 60)
+            .Concat(Enumerable.Repeat(new HsvPixel(20, 110, 240), 20)).ToArray();
+        Check(BallClassifier.ClassifyWarmNeutralCueCandidate(blackNumberPatch, blackNumberPatch, true).Kind == "black",
+            "A black body with a cream number patch is never recovered as a cue");
+        Check(BallClassifier.ClassifyWarmNeutralCueCandidate(mixedWarmNeutralCue, mixedWarmNeutralCue, false).Kind == "unknown",
+            "A mixed neutral candidate without measured local contrast remains unknown");
 
         var camera = new CameraConnection(Guid.NewGuid(), new string('A', 64), CameraReachability.Reachable, true, CaptureState.Active,
             CameraOwnership.Owned, "fixture", 1, Guid.NewGuid().ToString("N"), 1);

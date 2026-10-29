@@ -815,10 +815,11 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         }
         return false;
     }
-    BallClassification Classify(Circle circle, byte[] hsv, bool inspectRim = false)
+    BallClassification Classify(Circle circle, byte[] hsv, bool inspectRim = false,
+        bool allowWarmNeutralCueCandidate = false)
     {
         var samples = new List<HsvPixel>();
-        bool lowLightNeutralCueBallContrast = HasLowLightNeutralBallContrast(circle, hsv);
+        bool lowLightNeutralCueBallContrast = HasLowLightNeutralBallContrast(circle, hsv, allowWarmNeutralCueCandidate);
         // Include enough of the ball body to distinguish the black from its large
         // cream number patch when the fitted circle centre lands on a highlight.
         ForPixels(circle, .85, (x, y) => { int offset = (y * coordinates.Width + x) * 3; samples.Add(new(hsv[offset], hsv[offset + 1], hsv[offset + 2])); });
@@ -829,7 +830,9 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             if ((x - circle.X) * (x - circle.X) + (y - circle.Y) * (y - circle.Y) < circle.Radius * circle.Radius * .8 * .8) return;
             int offset = (y * coordinates.Width + x) * 3; rim.Add(new(hsv[offset], hsv[offset + 1], hsv[offset + 2]));
         });
-        return BallClassifier.ClassifyWithRim(samples.ToArray(), rim.ToArray(), lowLightNeutralCueBallContrast);
+        return allowWarmNeutralCueCandidate
+            ? BallClassifier.ClassifyWarmNeutralCueCandidate(samples.ToArray(), rim.ToArray(), lowLightNeutralCueBallContrast)
+            : BallClassifier.ClassifyWithRim(samples.ToArray(), rim.ToArray(), lowLightNeutralCueBallContrast);
     }
     double NeutralClothValueCeiling(int clothValueFloor)
         // The fixed 90 ceiling makes holes in bright neutral cloth. Follow the

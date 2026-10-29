@@ -131,9 +131,25 @@ public sealed partial class VisionAnalyzer
                 continue;
             }
             var body = new Circle(fit.Centre.X, fit.Centre.Y, fit.Radius);
+            var matching = result.Select((c, i) => (Circle: c, Index: i))
+                .Where(p => SameBody(p.Circle, body)).ToArray();
+            if (matching.Length > 1)
+            {
+                audits?.Add(new(candidate.X, candidate.Y, candidate.Radius, fit.Centre.X, fit.Centre.Y,
+                    fit.Radius, fit.SupportedSectors, null, null, "rejected-ambiguous-existing-match"));
+                continue;
+            }
+            string? existingKind = matching.Length == 1 ? Classify(matching[0].Circle, hsv, true).Kind : null;
+            if (matching.Length == 1 && existingKind is not ("unknown" or "cue"))
+            {
+                audits?.Add(new(candidate.X, candidate.Y, candidate.Radius, fit.Centre.X, fit.Centre.Y,
+                    fit.Radius, fit.SupportedSectors, existingKind, null, "rejected-existing-kind-conflict"));
+                continue;
+            }
             // The whole body and its rim must agree; a cream patch on the black
             // ball cannot supply a white body at the full calibrated diameter.
-            var classification = Classify(body, hsv, true);
+            bool allowWarmNeutralCueCandidate = matching.Length == 1 && existingKind == "unknown";
+            var classification = Classify(body, hsv, true, allowWarmNeutralCueCandidate);
             bool localContrast = HasLowLightNeutralBallContrast(body, hsv, includeWarmCream: true);
             if (classification.Kind != "cue" || !localContrast)
             {
@@ -143,25 +159,8 @@ public sealed partial class VisionAnalyzer
                 { ClassificationEvidence = classification });
                 continue;
             }
-            var matching = result.Select((c, i) => (Circle: c, Index: i))
-                .Where(p => SameBody(p.Circle, body)).ToArray();
-            if (matching.Length > 1)
-            {
-                audits?.Add(new(candidate.X, candidate.Y, candidate.Radius, fit.Centre.X, fit.Centre.Y,
-                    fit.Radius, fit.SupportedSectors, classification.Kind, localContrast,
-                    "rejected-ambiguous-existing-match"));
-                continue;
-            }
             if (matching.Length == 1)
             {
-                string existingKind = Classify(matching[0].Circle, hsv, true).Kind;
-                if (existingKind is not ("unknown" or "cue"))
-                {
-                    audits?.Add(new(candidate.X, candidate.Y, candidate.Radius, fit.Centre.X, fit.Centre.Y,
-                        fit.Radius, fit.SupportedSectors, classification.Kind, localContrast,
-                        "rejected-existing-kind-conflict"));
-                    continue;
-                }
                 result[matching[0].Index] = body;
             }
             else result.Add(body);
