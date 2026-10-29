@@ -88,7 +88,7 @@ public sealed class AndroidPortraitClipExporter(Context context) : IPortraitClip
 public sealed class AndroidGalleryClipPublisher(Context context)
 {
     const string RelativePath = "Movies/SkyEye/";
-    const string DisplayNameColumn = "display_name";
+    const string DisplayNameColumn = "_display_name";
 
     public async Task<string> PublishAsync(string sourcePath, Clip clip, CancellationToken cancellation)
     {
