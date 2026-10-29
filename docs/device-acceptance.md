@@ -4,6 +4,18 @@ Record phone models, OS/builds, app revision, network and capture settings for e
 
 For the current Production companion's home controls, live-session flow, package identity, and read-only detector diagnostics, see [Pixel companion control guide](device-control-guide.md).
 
+## Production code37 re-rack and decoder recovery — 29 October 2026
+
+Production `0.8.29` / code `37` was installed in place with signer, UID and private storage preserved. APK SHA-256: `0C2867333851D2BD7CEA3009772C02DB678B5ABFAD037D32F446571FB251F0BD`; rollback: `work/production/backups/20261029-090103/before.apk`. Agent UI checks and the Production build passed (9 build warnings, zero errors). Camera was stopped throughout builds/installation; no camera-package or Cast action occurred.
+
+Live run `9044724b-aa70-4f2c-81a2-1982fdbf53f8` began on the previous 6R/7Y/black/cue spread, with the returned cue now correctly present. The user returned the missing red and re-racked normally. During about 25 seconds of hand/triangle obstruction, the loop emitted no false pot. It then reported one **Rack detected** event at 09:04:26.301 UTC with a clear full 16-ball inventory. The same run continued through a new break and later shots.
+
+Native playback naturally restarted at 09:06:12 UTC. The last generation-3 frame was ID 5380, source PTS 73343503233; the next admitted generation-4 frame was ID 9, source PTS 73345470033. The log contains `decoder_recovered`, and detections/events continued without a restart of Live Detect. This physically exercises the code36 freeze fix.
+
+The user reported, in order: **“potted a yellow from the break. then potted the cue ball. then potted a yellow. then another yellow”**. Final screenshot and clear detections agree on 7R/4Y/black/cue. However, event acceptance remains incomplete: the log contains only the later yellow 6→5 and 5→4 candidates, alongside the rack event. The first yellow was not reported: about 20 seconds of broad obstruction outlasted the 15-second candidate-baseline lifetime before a 7R/6Y/black/cue clear view appeared. The scratch was not reported either: the cue-absent samples were all obstructed, and the cue had returned by the next clear sample. These are separate failures: baseline expiry and missing unobstructed scratch evidence. Do not relax the global obstruction gate merely to force the expected events; use the retained video and local body/pocket evidence to resolve the latter.
+
+The run logged 598 observations over 256.356 source seconds, with monotonic PTS across generations. Mean/p95 full pass was 368.0/439.7ms (max 822.7ms); mean/p95 frame age 955.3/1116.3ms (max 1509.9ms). Eight automatic clips were saved, with all receipts retained. After one supported End recording session action, `/status` independently confirmed `Stopped`, revision 47, battery 98%, 53 clips; Home showed `Start live session`, Cast disconnected. Receipts: `work/production/evidence/live-detect-code36-20261029/code37-summary.json`, `code37-final-log.jsonl`, `code37-inventory-spans.json`, screenshots and install/build/check logs in that folder. No match was started. The goal remains active; event completeness has not passed.
+
 ## Production code36 live inventory and interrupted play check — 29 October 2026
 
 Production `0.8.28` / code `36` was installed in place on Pixel 11; signer, UID and private-storage identity checks passed. APK SHA-256: `8DA34B503175E01A110CF3247972D6E67C878BA4ECFA0619DB65F6BA66FE1EC3`; rollback APK: `work/production/backups/20261029-084440/before.apk`. Camera was `Stopped` before installation. The mounted-camera package and Cast were untouched.
