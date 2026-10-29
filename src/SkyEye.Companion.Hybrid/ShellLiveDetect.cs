@@ -4,6 +4,7 @@ using SkyEye.Core.Analysis;
 using SkyEye.GameState;
 using System.Collections.Immutable;
 using System.Text.Json;
+using System.Threading.Channels;
 
 namespace SkyEye.Companion.Hybrid;
 
@@ -11,7 +12,8 @@ public sealed partial class ShellSession
 {
     readonly record struct LiveDetectFrameAnchor(long? FrameId, long? SourceTimeUs, DateTimeOffset? CapturedAt);
     readonly record struct LiveDetectEventClipContext(SkyEyeState AppState,
-        CameraScope? TableSource, string? Timeline, LiveDetectFrameAnchor Frame, bool CanAdvanceAnalysis);
+        CameraScope? TableSource, long MediaGeneration, string? Timeline, LiveDetectFrameAnchor Frame,
+        bool CanAdvanceAnalysis);
 
     CancellationTokenSource? liveDetectCancellation;
     Task? liveDetectTask;
@@ -167,8 +169,9 @@ public sealed partial class ShellSession
         var eventTracker = new LiveDetectTableEventTracker();
         var frameCursor = new LiveDetectFrameCursor();
         var freshFrameWait = new LiveDetectFreshFrameWaitTracker();
-        var eventClipTasks = new List<Task>();
-        using var eventClipSaveGate = new SemaphoreSlim(1, 1);
+        var eventClipQueue = Channel.CreateUnbounded<LiveDetectEventClipQueueMessage>();
+        var eventClipTask = ProcessLiveDetectEventClipQueueAsync(runId, source,
+            eventClipQueue.Reader, cancellation);
         int consecutiveAnalysisErrors = 0;
         int consecutiveFrameAcquisitionErrors = 0;
         try
@@ -314,13 +317,25 @@ public sealed partial class ShellSession
                     "inventory_change_pending" => "clear · inventory changing",
                     _ => checkOutcome.Replace('_', ' ')
                 };
+                foreach (var tableEvent in eventBatch.TableEvents)
+                {
+                    if (tableEvent.ActivityId is not { } activityId) continue;
+                    if (tableEvent.Type == "activity_started")
+                        eventClipQueue.Writer.TryWrite(new LiveDetectEventClipActivityBoundaryMessage(
+                            activityId, tableEvent.Timeline, tableEvent.SourceTimeUs, Started: true));
+                    else if (tableEvent.Type is "activity_ended" or "activity_ended_without_layout_change" or "activity_interrupted")
+                        eventClipQueue.Writer.TryWrite(new LiveDetectEventClipActivityBoundaryMessage(
+                            activityId, tableEvent.Timeline, tableEvent.SourceTimeUs, Started: false));
+                }
                 if (eventBatch.ClipActivity is { } clipActivity
                     && eventBatch.ClipEventType is { } clipEventType
                     && eventBatch.ClipSettledSourceTimeUs is { } settledSourceTimeUs)
                 {
-                    eventClipTasks.RemoveAll(task => task.IsCompleted);
-                    eventClipTasks.Add(SaveLiveDetectEventClipAsync(runId, source, clipActivity,
-                        clipEventType, settledSourceTimeUs, eventClipSaveGate));
+                    var candidate = new LiveDetectEventClipCandidate(clipActivity, clipEventType,
+                        settledSourceTimeUs, eventBatch.TableEvents
+                            .Where(tableEvent => tableEvent.ActivityId == clipActivity.Id)
+                            .Select(tableEvent => tableEvent.EventId).ToArray());
+                    eventClipQueue.Writer.TryWrite(new LiveDetectEventClipCandidateMessage(candidate));
                 }
                 if (vision.Uncertain && !vision.HasUncertainLayout && !vision.Obstructed)
                     quality += " · advice unavailable";
@@ -375,7 +390,8 @@ public sealed partial class ShellSession
                 AppendLiveDetectRunEvent(runId, "fresh_frame_wait_unresolved",
                     $"Live Detect stopped before a fresh paired camera frame arrived; the last table reading is stale ({unresolvedFor.TotalSeconds:0.0}s wait).",
                     null);
-            try { await Task.WhenAll(eventClipTasks); }
+            eventClipQueue.Writer.TryComplete();
+            try { await eventClipTask; }
             catch (Exception) { }
             AppendLiveDetectRunEvent(runId, "stopped", liveDetectStopReason ?? "Live Detect stopped.", null);
             await MainThread.InvokeOnMainThreadAsync(() =>
@@ -409,19 +425,147 @@ public sealed partial class ShellSession
         }
     }
 
-    async Task SaveLiveDetectEventClipAsync(Guid runId, CameraScope source, LiveDetectActivity activity,
-        string eventType, long settledSourceTimeUs, SemaphoreSlim saveGate)
+    async Task ProcessLiveDetectEventClipQueueAsync(Guid runId, CameraScope source,
+        ChannelReader<LiveDetectEventClipQueueMessage> reader, CancellationToken runCancellation)
     {
-        // Camera assembly can legitimately take longer than the post-roll wait.
-        // Preserve the existing serialized save queue; bound source-frame waiting below.
-        await saveGate.WaitAsync();
+        LiveDetectEventClipCandidate? carry = null;
         try
         {
+            while (true)
+            {
+                LiveDetectEventClipCandidate? first = carry;
+                carry = null;
+                while (first is null && await reader.WaitToReadAsync())
+                {
+                    while (reader.TryRead(out var message))
+                    {
+                        if (message is LiveDetectEventClipCandidateMessage candidateMessage)
+                        {
+                            first = candidateMessage.Candidate;
+                            break;
+                        }
+                    }
+                }
+                if (first is null) return;
+
+                var group = new LiveDetectEventClipGroup(first);
+                var pendingOverlappingActivities = new HashSet<Guid>();
+                long waitStarted = System.Diagnostics.Stopwatch.GetTimestamp();
+                while (true)
+                {
+                    bool groupReady = false;
+                    while (reader.TryRead(out var message))
+                    {
+                        if (message is LiveDetectEventClipActivityBoundaryMessage boundary)
+                        {
+                            if (!boundary.Started)
+                            {
+                                pendingOverlappingActivities.Remove(boundary.ActivityId);
+                            }
+                            else if (boundary.Timeline == group.Timeline
+                                && !group.ContainsActivity(boundary.ActivityId)
+                                && Math.Max(0, boundary.SourceTimeUs
+                                    - LiveDetectShotClipWindowPolicy.LeadInSeconds * 1_000_000L)
+                                    < group.WindowEndSourceTimeUs)
+                            {
+                                pendingOverlappingActivities.Add(boundary.ActivityId);
+                            }
+                        }
+                        else if (message is LiveDetectEventClipCandidateMessage candidateMessage)
+                        {
+                            if (group.TryAdd(candidateMessage.Candidate))
+                            {
+                                pendingOverlappingActivities.Remove(candidateMessage.Candidate.Activity.Id);
+                                waitStarted = System.Diagnostics.Stopwatch.GetTimestamp();
+                            }
+                            else
+                            {
+                                carry = candidateMessage.Candidate;
+                                groupReady = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (groupReady) break;
+
+                    var context = await CaptureLiveDetectEventClipContextAsync(source);
+                    if (context.Timeline is { } timeline && timeline != group.Timeline)
+                        break;
+                    if (context.Frame.SourceTimeUs is { } currentSourceTimeUs
+                        && currentSourceTimeUs >= group.WindowEndSourceTimeUs
+                            + LiveDetectShotClipWindowPolicy.LeadInSeconds * 1_000_000L
+                        && pendingOverlappingActivities.Count == 0)
+                        break;
+
+                    // Stopping Live Detect closes the observation stream. Save the best
+                    // confirmed range rather than waiting for an event that cannot arrive.
+                    if (runCancellation.IsCancellationRequested || !CanAdvanceEventClipSource(context))
+                        break;
+
+                    if (System.Diagnostics.Stopwatch.GetElapsedTime(waitStarted) >= TimeSpan.FromSeconds(15))
+                    {
+                        var timeoutAt = DateTimeOffset.UtcNow;
+                        const string timeoutMessage = "Shot-clip grouping timed out while waiting for an overlapping activity to settle; saving the confirmed event range.";
+                        AppendLiveDetectTableEvent(runId, timeoutAt, new(Guid.NewGuid(), group.ClipActivity.Id,
+                            "event_clip_grouping_timeout", timeoutAt, source.ConnectionId,
+                            context.MediaGeneration, context.Frame.FrameId ?? 0,
+                            context.Frame.SourceTimeUs ?? group.SettledSourceTimeUs, group.Timeline,
+                            table.State.CalibrationId, timeoutMessage, null, null,
+                            group.ActivityStartSourceTimeUs, null, null));
+                        break;
+                    }
+
+                    try
+                    {
+                        using var updateTimeout = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                        await table.UpdateAsync(updateTimeout.Token);
+                    }
+                    catch (OperationCanceledException) when (!runCancellation.IsCancellationRequested) { }
+                    catch (Exception) { await Task.Delay(100); }
+                }
+
+                await SaveLiveDetectEventClipAsync(runId, source, group);
+            }
+        }
+        catch (Exception error)
+        {
+            AppendLiveDetectRunEvent(runId, "event_clip_queue_failed",
+                $"Event clip queue failed ({error.GetType().Name}).", error.GetType().Name);
+            await SetLiveDetectClipStatusAsync($"Event clip queue failed · {error.GetType().Name}.");
+        }
+    }
+
+    Task<LiveDetectEventClipContext> CaptureLiveDetectEventClipContextAsync(CameraScope source) =>
+        MainThread.InvokeOnMainThreadAsync(() =>
+        {
+            var tableState = table.State;
+            var observation = tableState.Observation;
+            var receipt = observation?.DecodedReceipt;
+            var cameraState = app.State;
+            bool canAdvance = CanAnalyzeTable && cameraState.Camera.CanControl
+                && cameraState.Camera.Capture == CaptureState.Active
+                && cameraState.Camera.Scope == source && tableState.Source == source;
+            return new LiveDetectEventClipContext(cameraState, tableState.Source,
+                observation?.MediaGeneration ?? receipt?.MediaGeneration ?? 0, observation?.Timeline,
+                new(receipt?.FrameId, observation?.SourceTimeUs, observation?.CapturedAt), canAdvance);
+        });
+
+    static bool CanAdvanceEventClipSource(LiveDetectEventClipContext context) => context.CanAdvanceAnalysis
+        && context.AppState.Camera.CanControl && context.AppState.Camera.Capture == CaptureState.Active
+        && context.AppState.Camera.Scope == context.TableSource;
+
+    async Task SaveLiveDetectEventClipAsync(Guid runId, CameraScope source, LiveDetectEventClipGroup group)
+    {
+        try
+        {
+            var activity = group.ClipActivity;
+            string eventType = group.EventType;
+            long settledSourceTimeUs = group.SettledSourceTimeUs;
             LiveDetectEventClipContext context = default;
             async Task<LiveDetectShotClipWindowPolicy.PostRollObservation> ReadPostRollObservationAsync(
                 CancellationToken cancellationToken)
             {
-                context = await MainThread.InvokeOnMainThreadAsync(CaptureClipContext);
+                context = await CaptureLiveDetectEventClipContextAsync(source);
                 if (!CanAdvancePostRoll(context))
                     return new(context.Timeline ?? activity.Timeline, context.Frame.SourceTimeUs, false);
 
@@ -445,24 +589,11 @@ public sealed partial class ShellSession
                         // A transient read failure leaves the last actual source PTS
                         // unchanged; the bounded policy will retry before timing out.
                     }
-                    context = await MainThread.InvokeOnMainThreadAsync(CaptureClipContext);
+                    context = await CaptureLiveDetectEventClipContextAsync(source);
                 }
 
                 return new(context.Timeline ?? activity.Timeline, context.Frame.SourceTimeUs,
                     CanAdvancePostRoll(context));
-            }
-
-            LiveDetectEventClipContext CaptureClipContext()
-            {
-                var tableState = table.State;
-                var observation = tableState.Observation;
-                var receipt = observation?.DecodedReceipt;
-                var cameraState = app.State;
-                bool canAdvance = CanAnalyzeTable && cameraState.Camera.CanControl
-                    && cameraState.Camera.Capture == CaptureState.Active
-                    && cameraState.Camera.Scope == source && tableState.Source == source;
-                return new(cameraState, tableState.Source, observation?.Timeline,
-                    new(receipt?.FrameId, observation?.SourceTimeUs, observation?.CapturedAt), canAdvance);
             }
 
             bool CanAdvancePostRoll(LiveDetectEventClipContext value) => value.CanAdvanceAnalysis
@@ -517,7 +648,9 @@ public sealed partial class ShellSession
                 window.SaveSeconds, "Pending", $"Event clip requested for {eventType}.",
                 anchor.FrameId, anchor.SourceTimeUs, anchor.CapturedAt,
                 null, null, null, null, null, null, null, null, null,
-                activity.Id, eventType, window.Timeline, window.StartSourceTimeUs, window.EndSourceTimeUs);
+                activity.Id, eventType, window.Timeline, window.StartSourceTimeUs, window.EndSourceTimeUs,
+                LinkedActivityIds: group.ActivityIds, LinkedTableEventIds: group.TableEventIds,
+                LinkedEventTypes: group.EventTypes);
             AppendLiveDetectClipSave(runId, requestedAt, requested);
 
             if (!camera.CanControl || camera.Capture != CaptureState.Active || camera.Scope != source
@@ -584,15 +717,14 @@ public sealed partial class ShellSession
             var recordedAt = DateTimeOffset.UtcNow;
             var state = table.State;
             var observation = state.Observation;
-            AppendLiveDetectTableEvent(runId, recordedAt, new(Guid.NewGuid(), activity.Id,
+            AppendLiveDetectTableEvent(runId, recordedAt, new(Guid.NewGuid(), group.ClipActivity.Id,
                 "event_clip_failed", recordedAt, source.ConnectionId, observation?.MediaGeneration ?? 0,
-                observation?.DecodedReceipt?.FrameId ?? 0, observation?.SourceTimeUs ?? settledSourceTimeUs,
+                observation?.DecodedReceipt?.FrameId ?? 0, observation?.SourceTimeUs ?? group.SettledSourceTimeUs,
                 observation?.Timeline ?? "", state.CalibrationId,
                 $"Event clip save failed before confirmation ({error.GetType().Name}).", null, null,
-                activity.StartSourceTimeUs, null, null));
+                group.ActivityStartSourceTimeUs, null, null));
             await SetLiveDetectClipStatusAsync($"Event clip failed · {error.GetType().Name}.");
         }
-        finally { saveGate.Release(); }
     }
 
     void AppendLiveDetectClipSave(Guid runId, DateTimeOffset recordedAt, LiveDetectLogClipSave save)

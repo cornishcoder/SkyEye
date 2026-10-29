@@ -43,7 +43,10 @@ internal sealed record LiveDetectLogClipSave(Guid OperationId, string Stage, Dat
     string? ClipId, string? ClipName, double? ClipDurationSeconds, DateTimeOffset? ClipCreatedAt,
     long? ClipBytes, string? ClipSha256, Guid? ActivityId = null, string? EventType = null,
     string? EventTimeline = null, long? WindowStartSourceTimeUs = null, long? WindowEndSourceTimeUs = null,
-    long? ClipStartSourceTimeUs = null, string? ClipTimeline = null, bool? WindowCovered = null);
+    long? ClipStartSourceTimeUs = null, string? ClipTimeline = null, bool? WindowCovered = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Guid[]? LinkedActivityIds = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] Guid[]? LinkedTableEventIds = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string[]? LinkedEventTypes = null);
 internal sealed record LiveDetectLogRunEvent(string Status, DateTimeOffset OccurredAt,
     string Message, string? ExceptionType, long? FrameId, long? SourceTimeUs, DateTimeOffset? FrameCapturedAt);
 internal sealed record LiveDetectLogTableEvent(Guid EventId, Guid? ActivityId, string Type,
@@ -64,7 +67,7 @@ internal sealed record LiveDetectLogReadout(LiveDetectLogSummary Summary, int Re
 /// <summary>Bounded, image-free frame and automatic clip-save receipts for later review.</summary>
 internal sealed class LiveDetectLogStore
 {
-    internal const int CurrentSchemaVersion = 7;
+    internal const int CurrentSchemaVersion = 8;
     public const int MaximumRetainedRecords = 2000;
     internal const long MaximumBytes = 4 * 1024 * 1024;
     const int RetainedRecordTarget = MaximumRetainedRecords * 3 / 4;

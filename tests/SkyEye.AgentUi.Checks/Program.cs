@@ -27,6 +27,7 @@ LiveDetectCountCandidateChecks.Run();
 LiveDetectFreshFrameWaitChecks.Run();
 LiveDetectTableEventTrackerChecks.Run();
 await LiveDetectShotClipWindowChecks.Run();
+LiveDetectShotClipGroupingChecks.Run();
 LiveDetectLogStoreChecks.Run();
 
 var transcript = new SkyVoiceTranscript();

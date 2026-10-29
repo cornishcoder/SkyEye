@@ -60,13 +60,20 @@ internal static class LiveDetectLogStoreChecks
             var eventSave = new LiveDetectLogClipSave(clipOperation, "requested", tableEventAt, null,
                 60, "Pending", "Event-linked clip.", null, null, null, null, null, null,
                 null, null, null, null, null, null, ActivityId: activityId, EventType: "possible_pot_settled",
-                EventTimeline: timeline, WindowStartSourceTimeUs: 1, WindowEndSourceTimeUs: 2);
+                EventTimeline: timeline, WindowStartSourceTimeUs: 1, WindowEndSourceTimeUs: 2,
+                LinkedActivityIds: [activityId], LinkedTableEventIds: [tableEvent.EventId],
+                LinkedEventTypes: ["possible_pot_settled"]);
             eventStore.AppendClipSave(runId, tableEventAt, eventSave);
             eventStore.AppendClipSave(runId, tableEventAt.AddSeconds(1), eventSave with
                 { Stage = "completed", CompletedAt = tableEventAt.AddSeconds(1), Outcome = "Applied" });
             Require(eventStore.Summary.RetainedEventClipOperations == 1
                 && new LiveDetectLogStore(eventPath).Summary.RetainedEventClipOperations == 1,
                 "only distinct activity-linked event clip operations count; old periodic saves are excluded");
+            var groupedClipSave = new LiveDetectLogStore(eventPath).ReadLast(1).Records.Single().ClipSave;
+            Require(groupedClipSave?.LinkedActivityIds?.SequenceEqual([activityId]) == true
+                && groupedClipSave.LinkedTableEventIds?.SequenceEqual([tableEvent.EventId]) == true
+                && groupedClipSave.LinkedEventTypes?.SequenceEqual(["possible_pot_settled"]) == true,
+                "clip receipts preserve linked activity, table-event and event-type identities");
 
             var framePath = Path.Combine(directory, "classified-checks.jsonl");
             var frameStore = new LiveDetectLogStore(framePath);
@@ -93,7 +100,7 @@ internal static class LiveDetectLogStoreChecks
                 "bounded audit keeps largest actual triggers and preserves omitted counts");
             frameStore.AppendFrame(runId, checkAt.AddSeconds(1), frame with { Obstructed = true, ObstructionAudit = compact });
             var audited = new LiveDetectLogStore(framePath).ReadLast(1).Records.Single();
-            Require(audited.SchemaVersion == 7 && audited.Frame?.ObstructionAudit is { } retainedAudit
+            Require(audited.SchemaVersion == 8 && audited.Frame?.ObstructionAudit is { } retainedAudit
                 && retainedAudit.AnalysisWidth == 800 && retainedAudit.Components.Length == 3
                 && retainedAudit.Components[0].BallBodyCoverageFraction == .125
                 && retainedAudit.Components[0].BallCentresInBounds == 3,
