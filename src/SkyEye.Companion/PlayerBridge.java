@@ -38,8 +38,13 @@ public final class PlayerBridge {
     public void removeMotionFrameUpdateListener(MotionFrameUpdateListener listener){if(listener!=null)motionFrameUpdateListeners.remove(listener);}
     public PlayerBridge(Activity context,Listener listener){
         this.listener=listener;texture=new TextureView(context);texture.setOpaque(false);
+        // The phone's raw MPEG-TS live feed is progressive and has no moving
+        // live window to seek to. Bound network buffering so decoded frames do
+        // not drift several seconds behind the camera; local clips keep the
+        // library's separate local-playback buffer policy.
         androidx.media3.exoplayer.DefaultLoadControl buffering=new androidx.media3.exoplayer.DefaultLoadControl.Builder()
-            .setBufferDurationsMs(250,5000,100,250).setPrioritizeTimeOverSizeThresholds(true).build();
+            .setBufferDurationsMsForStreaming(250,1000,100,250)
+            .setPrioritizeTimeOverSizeThresholdsForStreaming(true).build();
         player=new ExoPlayer.Builder(context).setLoadControl(buffering).build();player.setVideoTextureView(texture);player.setVolume(0);
         container=new FrameLayout(context);container.setBackgroundColor(android.graphics.Color.BLACK);container.addView(texture,new FrameLayout.LayoutParams(-1,-1));
         overlay=new View(context){protected void onDraw(Canvas canvas){super.onDraw(canvas);org.json.JSONObject snapshot=tableDrawing.snapshot(System.currentTimeMillis());Matrix matrix=texture.getTransform(new Matrix());canvas.save();if(sceneApplied)clipScene(canvas);canvas.concat(matrix);drawing.draw(canvas,getWidth(),getHeight());tableDrawing.geometry(canvas,getWidth(),getHeight(),videoWidth/(float)videoHeight,snapshot);if(sceneApplied)drawGuides(canvas,getWidth(),getHeight());canvas.restore();tableDrawing.textLayer(canvas,getWidth(),getHeight(),matrix,snapshot);phoneScene=tableDrawing.metrics(snapshot,generation,player.getCurrentPosition()).toString();phoneFraming=calculateFramingMetrics();annotationRecorder.drawn(snapshot,scene==null?"":scene.toString(),false,generation);if(liveUrl(activeUrl))WatermarkRenderer.draw(context,canvas,getWidth(),getHeight());}};
