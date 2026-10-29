@@ -116,7 +116,7 @@
                     <section class="home-live-detect" aria-label="Live detection status">
                         <p role="status" aria-live="polite">@Session.LiveDetectStatus</p>
                         @if (Session.LiveDetectInventory.Length > 0)
-                        { <p class="live-detect-inventory">@Session.LiveDetectInventory · @Session.LiveDetectReadAt</p> }
+                        { <p class="live-detect-inventory">@Session.LiveDetectInventory · analyzed @Session.LiveDetectReadAt</p> }
                         <p class="live-detect-log-status">@Session.LiveDetectClipStatus</p>
                         <p class="live-detect-log-status">@Session.LiveDetectLogStatus</p>
                         @if (Session.LiveDetectEvents.Count > 0)

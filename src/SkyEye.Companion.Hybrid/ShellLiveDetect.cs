@@ -25,6 +25,8 @@ public sealed partial class ShellSession
     string liveDetectClipStatus = "Shot clips save after a movement event reaches a confirmed settled layout.";
     string liveDetectInventory = "";
     DateTimeOffset? liveDetectReadAt;
+    string? liveDetectLastClearInventory;
+    DateTimeOffset? liveDetectLastClearAt;
     readonly Queue<string> liveDetectEvents = new();
     bool liveDetectHasResult;
 
@@ -135,6 +137,8 @@ public sealed partial class ShellSession
         liveDetectClipStatus = "Shot clips save after a movement event reaches a confirmed settled layout.";
         liveDetectInventory = "";
         liveDetectReadAt = null;
+        liveDetectLastClearInventory = null;
+        liveDetectLastClearAt = null;
         liveDetectEvents.Clear();
         liveDetectHasResult = false;
         Changed?.Invoke();
@@ -222,9 +226,7 @@ public sealed partial class ShellSession
                     {
                         if (!ReferenceEquals(liveDetectCancellation, operation) || cancellation.IsCancellationRequested) return;
                         liveDetectStatus = $"Live Detect waiting · fresh camera frame unavailable ({error.Code}); retrying.";
-                        liveDetectInventory = liveDetectReadAt is { } priorRead
-                            ? $"Last accepted reading {priorRead.ToLocalTime():HH:mm:ss} · waiting for a fresh camera frame."
-                            : "Waiting for the first current camera frame.";
+                        liveDetectInventory = UnknownLiveDetectInventory("fresh camera frame unavailable", DateTimeOffset.UtcNow);
                         Changed?.Invoke();
                     });
                     int retryDelayMs = Math.Min(2000, 250 * (1 << Math.Min(consecutiveFrameAcquisitionErrors - 1, 3)));
@@ -276,9 +278,7 @@ public sealed partial class ShellSession
                         if (ReferenceEquals(liveDetectCancellation, operation) && !cancellation.IsCancellationRequested)
                         {
                             liveDetectStatus = "Live Detect running · waiting for a newer paired camera frame.";
-                            liveDetectInventory = liveDetectReadAt is { } priorRead
-                                ? $"Last accepted reading {priorRead.ToLocalTime():HH:mm:ss} · waiting for a fresh camera frame."
-                                : "Waiting for the first current camera frame.";
+                            liveDetectInventory = UnknownLiveDetectInventory("fresh camera frame unavailable", DateTimeOffset.UtcNow);
                             Changed?.Invoke();
                         }
                     });
@@ -298,6 +298,13 @@ public sealed partial class ShellSession
                             : "Decoder recovered; camera timestamps continue with restarted frame IDs.", null);
                 var counts = Count(vision.Balls);
                 var layout = CaptureLiveDetectLayout(vision.Balls);
+                bool currentInventoryClear = !vision.Obstructed && !vision.HasUncertainLayout
+                    && counts.Other == 0 && counts.Total > 0;
+                if (currentInventoryClear)
+                {
+                    liveDetectLastClearInventory = $"{counts.Total} detected · {counts.Summary}";
+                    liveDetectLastClearAt = observation.CapturedAt;
+                }
                 bool rackEvidence = vision.PackedCluster is { Detected: true, Complete: true }
                     && counts == new LiveDetectCounts(7, 7, 1, 1, 0);
                 var evidenceSource = new EvidenceSource(source.CameraIdentity, observation.Timeline,
@@ -369,7 +376,9 @@ public sealed partial class ShellSession
                     liveDetectHasResult = true;
                     liveDetectReadAt = observation.CapturedAt;
                     liveDetectStatus = $"Live Detect running · full pass {vision.ElapsedMs / 1000:0.0}s.";
-                    liveDetectInventory = $"{counts.Total} detected · {counts.Summary} · {quality} · frame age {ageSeconds:0.0}s";
+                    liveDetectInventory = currentInventoryClear
+                        ? $"{counts.Total} detected · {counts.Summary} · {quality} · frame age {ageSeconds:0.0}s"
+                        : UnknownLiveDetectInventory(quality, observation.CapturedAt, ageSeconds);
                     foreach (var item in events)
                     {
                         liveDetectEvents.Enqueue($"{observation.CapturedAt.ToLocalTime():HH:mm:ss} · {item}");
@@ -403,9 +412,7 @@ public sealed partial class ShellSession
                     liveDetectCancellation = null;
                     liveDetectRunId = null;
                     liveDetectStatus = liveDetectStopReason ?? "Live Detect stopped.";
-                    liveDetectInventory = liveDetectReadAt is { } lastRead
-                        ? $"Last accepted reading {lastRead.ToLocalTime():HH:mm:ss} · Live Detect stopped; this is not a current reading."
-                        : "No current table reading · Live Detect stopped.";
+                    liveDetectInventory = UnknownLiveDetectInventory("Live Detect stopped; the last reading is not current", DateTimeOffset.UtcNow);
                     liveDetectStopReason = null;
                     if (liveDetectClipStatus.StartsWith("Shot clips save after a movement event", StringComparison.Ordinal))
                         liveDetectClipStatus = "Live Detect stopped before a settled table event was ready for a clip.";
@@ -801,6 +808,15 @@ public sealed partial class ShellSession
             }
         }
         return new(reds, yellows, black, cue, other);
+    }
+
+    string UnknownLiveDetectInventory(string reason, DateTimeOffset now, double? frameAgeSeconds = null)
+    {
+        string lastClear = liveDetectLastClearInventory is { } inventory && liveDetectLastClearAt is { } capturedAt
+            ? $"last clear reading {inventory} · {Math.Max(0, (now - capturedAt).TotalSeconds):0}s ago"
+            : "no clear inventory reading yet";
+        string age = frameAgeSeconds is { } seconds ? $" · frame age {seconds:0.0}s" : "";
+        return $"Current table state unknown · {reason} · {lastClear}{age}";
     }
 
     static ImmutableArray<SettledBallPosition> CaptureLiveDetectLayout(Ball[] balls)
