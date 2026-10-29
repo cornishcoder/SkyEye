@@ -42,7 +42,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 settings.DarkBodyValueCeiling, settings.VerificationBodyRefinement,
                 settings.PackedColourBoundarySearchExtentFraction
             };
-            const string algorithm = "body-priority-packed-colour-peaks-v13-mixed-neutral-cue-reference";
+            const string algorithm = "body-priority-packed-colour-peaks-v15-preserve-recovered-cue";
             object identity = settings.UseNormalizedGeometryForDetection || settings.UseNormalizedPackedColourProposalMask
                 ? new
                 {
@@ -223,12 +223,30 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                     : appearance is null ? "colour-reference-unavailable" : "verification-preserves-geometry";
             byte[] bgr = Read(warped.Value); var cue = circles[cueIndices[0]];
             var channels = new[] { new List<byte>(), new List<byte>(), new List<byte>() };
-            ForPixels(cue, .7, (x, y) => { int offset = (y * coordinates.Width + x) * 3; for (int k = 0; k < 3; k++) channels[k].Add(bgr[offset + k]); });
-            // A recovered mixed-neutral candidate is good geometric evidence,
-            // but its dim warm colour is a poor full-white reference. Target
-            // midrange so correcting it cannot force colored balls into clipping.
-            double referenceTarget = neutralRecovered > 0 ? 128 : 255;
-            double[] gains = channels.Select(c => { c.Sort(); return c.Count == 0 || c[(int)((c.Count - 1) * .95)] < 10 ? 0 : Math.Min(3, referenceTarget / c[(int)((c.Count - 1) * .95)]); }).ToArray();
+            var luminanceValues = new List<byte>();
+            ForPixels(cue, .7, (x, y) =>
+            {
+                int offset = (y * coordinates.Width + x) * 3;
+                for (int k = 0; k < 3; k++) channels[k].Add(bgr[offset + k]);
+                luminanceValues.Add((byte)Math.Clamp((int)Math.Round(.114 * bgr[offset] + .587 * bgr[offset + 1] + .299 * bgr[offset + 2]), 0, 255));
+            });
+            double[] gains;
+            if (neutralRecovered > 0)
+            {
+                // Mixed-neutral recovery supports cue geometry, but its channel
+                // ratios are not a trustworthy white reference. Lift brightness
+                // from sampled luma only so red/yellow chroma stays unchanged.
+                luminanceValues.Sort();
+                double p95 = luminanceValues.Count == 0 ? 0 : luminanceValues[(int)((luminanceValues.Count - 1) * .95)];
+                double gain = p95 < 10 ? 0 : Math.Min(3, 128.0 / p95);
+                gains = [gain, gain, gain];
+                cueRecoveryReason = "recovered-neutral-cue-luma-reference";
+            }
+            else
+            {
+                double[] reference = channels.Select(c => { c.Sort(); return c.Count == 0 ? 0.0 : (double)c[(int)((c.Count - 1) * .95)]; }).ToArray();
+                gains = reference.Select(value => value < 10 ? 0 : Math.Min(3, 255.0 / value)).ToArray();
+            }
             if (gains.All(g => g > 0)) { colourGains = gains; referenceValid = true; }
         }
         if (appearance is not null)
@@ -286,6 +304,18 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                             if (recoveredClassifications.TryGetValue(circles[i], out var supportedLabel))
                                 classificationCache[circles[i]] = supportedLabel;
                     }
+                }
+                else if (settings.FreshCueBallRecovery && referenceCue is { } liveCurrentCue)
+                {
+                    // The live-appearance path keeps detector geometry instead
+                    // of rerunning normalized proposals. Preserve the same
+                    // validated raw cue label used by the offline path.
+                    cueRecoveryReason = "preserved-current-frame-geometry";
+                    cueGeometryRetained = true;
+                    retainedBoundarySupport = recoveredBoundaries.GetValueOrDefault(liveCurrentCue)?.SupportedSectors;
+                    for (int i = 0; i < circles.Length; i++)
+                        if (recoveredClassifications.TryGetValue(circles[i], out var supportedLabel))
+                            classificationCache[circles[i]] = supportedLabel;
                 }
                 normalized = true;
             }
