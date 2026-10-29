@@ -46,6 +46,12 @@ Mean/p95/max full-pass time was 415.3/481.2/538.4ms; frame age was 885.3/959.5/1
 
 At the safe boundary, Home **End recording session** stopped the bounded run. The mounted-camera `/status` read at `10:27:16Z` was `Stopped`, revision 57, armed, battery 91%, 63 clips and zero viewers. Pixel 11 returned to idle Home (**Camera ready**; Live Detect off and the live-session control idle). No Cast/TV action occurred. The table remains in the observed 12-ball layout. Evidence, including the complete log, run summary and screenshots, is in `work/production/evidence/live-detect-code39-recovery-20261029/`.
 
+### Code39 no-pot control — 29 October 2026
+
+After the yellow-pot check, the same 12-ball layout was used for a no-pot/miss control. Live Detect run `556f0f91-1b38-43d4-b8ea-d13dc0275f35` ran from `10:32:19.432Z` to `10:33:41.090Z`; the user reported **“missed.”** It logged 218 frames: 216 retained the same 12-ball inventory (7 reds, 3 yellows, black and cue), while two transient readings had 13 detections. There were 204 clear frames, 14 uncertain/obstructed frames, and zero event-candidate frames. In particular, the last 16 frames were all clear at the same 12-ball count. The run correctly emitted no pot candidate for the miss.
+
+Capture was stopped through Home **End recording session**. Camera `/status` at `10:34:07Z` was `Stopped`, revision 59, armed, battery 89%, 65 clips and zero viewers; Pixel 11 Home was idle at **Camera ready**. Cast/TV were untouched. The no-pot log, summary and screenshots are under `work/production/evidence/live-detect-code39-recovery-20261029/`. The code39 transient-acquisition retry path still has not been exercised by a physical run.
+
 ## Offline replay correction for long-obstruction event — 29 October 2026
 
 The code37 physical run remains an honest failure of the then-installed tracker: it did not report the user's yellow from the break. The tracker previously discarded the last clear inventory after 15 seconds, even when camera PTS remained continuous. The source now retains that historical comparison point across unclear frames for the current camera timeline; only two matching, eligible frames can confirm a change, and a timeline change still resets the tracker. The retained baseline is not presented as the current table reading.
