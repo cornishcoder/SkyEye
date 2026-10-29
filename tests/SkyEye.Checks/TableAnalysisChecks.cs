@@ -38,6 +38,25 @@ static class TableAnalysisChecks
         analyzer.Obstructed = true; clock.Advance(1); await session.UpdateAsync();
         Refused(() => session.Correct(session.State.Table!.Version, "cue 1 0.5")); analyzer.Obstructed = false;
 
+        analyzer.MissingCue = true; clock.Advance(1); await session.UpdateAsync();
+        Check(session.State.Table is { Occluded: false, Balls.Length: 3 }
+            && session.State.Table.Balls.All(b => b.Kind != "cue")
+            && session.State.Observation is { Quality: LayoutQuality.Clear, Change: not null }
+            && session.State.Vision is { Uncertain: true, HasUncertainLayout: false },
+            "a clear cue-absent observation replaces the old inventory while retaining advice uncertainty");
+        clock.Advance(3); await session.UpdateAsync();
+        Check(session.State.Table is { Settled: true, Occluded: false }
+            && session.State.Observation is { Outcome: ObservationOutcome.Ready },
+            "cue absence cannot prevent repeated reliable layout observations from becoming ready");
+        analyzer.UnclearLayout = true; clock.Advance(1); await session.UpdateAsync();
+        Check(session.State.Table is { Settled: false, Occluded: true }
+            && session.State.Observation is { Quality: LayoutQuality.Ambiguous, Change: null },
+            "a genuinely uncertain cue-absent layout still blocks readiness and event evidence");
+        analyzer.MissingCue = analyzer.UnclearLayout = false; clock.Advance(1); await session.UpdateAsync();
+        Check(session.State.Table is { Balls.Length: 4, Occluded: false }
+            && session.State.Table.Balls.Any(b => b.Kind == "cue"),
+            "the same observation session recovers the returned cue without resetting calibration");
+
         frames.Hold(); var old = session.UpdateAsync(); await frames.Entered!.Task;
         camera = camera with { ConnectionId = Guid.NewGuid() }; session.Bind(camera, "red"); frames.Release(); await Cancelled(old);
         Check(session.State.Table is null && session.State.Vision is null && session.State.Calibration is not null, "same-camera reconnect rejects late frame, retains mount calibration");
@@ -76,9 +95,14 @@ static class TableAnalysisChecks
     }
     sealed class Analyzer : ITableAnalyzer
     {
-        public bool Obstructed;
+        public bool Obstructed, MissingCue, UnclearLayout;
         public VisionResult Analyze(byte[] jpeg, TableCalibration calibration, CancellationToken cancellation = default)
-            => new([new("cue", "cue", new(1.8, .5), 1), new("red", "red", new(1, .5), 1), new("yellow", "yellow", new(.5, .2), 1), new("black", "black", new(.2, .8), 1)], false, [], 1, 4, true, "fixture", [1, 1, 1], 100, Obstructed, []);
+        {
+            Ball[] balls = [new("cue", "cue", new(1.8, .5), 1), new("red", "red", new(1, .5), 1), new("yellow", "yellow", new(.5, .2), 1), new("black", "black", new(.2, .8), 1)];
+            if (MissingCue) balls = balls.Where(b => b.Kind != "cue").ToArray();
+            return new(balls, MissingCue || UnclearLayout, [], 1, balls.Length, true, "fixture", [1, 1, 1], 100, Obstructed, [])
+                { LayoutUncertain = UnclearLayout };
+        }
         public Point[]? FindCorners(byte[] jpeg) => [new(0, 0), new(1, 0), new(1, 1), new(0, 1)];
     }
     sealed class Calibrations : ICalibrationStore

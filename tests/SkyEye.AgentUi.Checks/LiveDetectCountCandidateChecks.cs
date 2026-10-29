@@ -28,7 +28,14 @@ internal static class LiveDetectCountCandidateChecks
         var noCue = new LiveDetectCounts(7, 6, 1, 0, 0);
         Require(adviceUnavailable.Observe(2_400_000, noCue, false) is null
             && adviceUnavailable.Observe(3_800_000, noCue, false) is null,
-            "broad uncertainty suppresses candidates even when visible layout is clear");
+            "an uncertain cue-absent layout cannot establish a candidate");
+        adviceUnavailable.Observe(5_200_000, noCue, true);
+        Require(adviceUnavailable.Observe(6_600_000, noCue, true) is { Kind: LiveDetectChangeKind.Decrease,
+            Before.Cue: 1, After.Cue: 0, Before.Yellows: 7, After.Yellows: 6 },
+            "repeated clear cue-absent layout reports cue and colour loss from the pre-motion inventory");
+        adviceUnavailable.Observe(8_000_000, OneYellowDown, true);
+        Require(adviceUnavailable.Observe(9_400_000, OneYellowDown, true) is { Kind: LiveDetectChangeKind.Increase,
+            Before.Cue: 0, After.Cue: 1 }, "cue return is reported after cue-absent play without restarting");
 
         var changing = new LiveDetectCountCandidateTracker();
         changing.Observe(1_000_000, Full, true);
@@ -122,8 +129,7 @@ internal static class LiveDetectCountCandidateChecks
                 value.GetProperty("yellow").GetInt32(), value.GetProperty("black").GetInt32(),
                 value.GetProperty("cue").GetInt32(), value.GetProperty("other").GetInt32());
             bool candidateEligible = !row.GetProperty("layoutUncertain").GetBoolean()
-                && !row.GetProperty("obstructed").GetBoolean()
-                && !row.GetProperty("uncertain").GetBoolean();
+                && !row.GetProperty("obstructed").GetBoolean();
             if (tracker.Observe(row.GetProperty("sourceTimeUs").GetInt64(), counts, candidateEligible) is { } candidate)
                 candidates.Add((row.GetProperty("sourceTimeUs").GetInt64(), row.GetProperty("clipName").GetString() ?? "unknown", candidate));
         }

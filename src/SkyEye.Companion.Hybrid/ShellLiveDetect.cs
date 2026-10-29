@@ -238,7 +238,7 @@ public sealed partial class ShellSession
                 lastFrameId = receipt.FrameId;
                 lastSourceTimeUs = sourceTimeUs;
                 var counts = Count(vision.Balls);
-                bool candidateEligible = !vision.HasUncertainLayout && !vision.Obstructed && !vision.Uncertain;
+                bool candidateEligible = !vision.HasUncertainLayout && !vision.Obstructed;
                 var events = new List<string>();
                 bool rackReset = false;
                 if (candidateTracker.Observe(sourceTimeUs, counts, candidateEligible,

@@ -214,15 +214,18 @@ public sealed partial class TableAnalysisSession(ITableFrameSource frames, ITabl
                         {
                             using var post = PipelineDiagnostics.Measure("postProcessingMs");
                             var previous = state.Table?.Balls ?? [];
-                            var table = tracker.Observe(state.CalibrationId, frame.Timeline, frame.CapturedAt, detected.Balls, group, detected.Uncertain, detected.Obstructed);
+                            // Missing cue/black can prevent advice without making the
+                            // visible layout unclear. Do not retain an obsolete ball
+                            // inventory merely because a shot cannot be planned.
+                            var table = tracker.Observe(state.CalibrationId, frame.Timeline, frame.CapturedAt, detected.Balls, group, detected.HasUncertainLayout, detected.Obstructed);
                             state = state with { Table = table, Vision = detected, Choices = [], ChoicesComputed = false, Jpeg = reviewFrame ? frame.ReviewImage() : frame.Jpeg.Length == 0 ? null : frame.Jpeg,
                                 Observation = new(admitted.Source!, admitted.Generation, 0, frame.Timeline, frame.CapturedAt, frame.SourceTimeUs,
                                     (time.GetUtcNow() - frame.CapturedAt).TotalMilliseconds, acquisitionMs, detected.ElapsedMs, watch.Elapsed.TotalMilliseconds,
                                     table.Version, table.Occluded ? ObservationOutcome.Unclear : table.Settled ? ObservationOutcome.Ready : ObservationOutcome.Unsettled, frame.FrameSource)
-                                    { DecodedReceipt = frame.DecodedReceipt, Quality = detected.Obstructed ? LayoutQuality.Obstructed : detected.Uncertain ? LayoutQuality.Ambiguous : LayoutQuality.Clear,
-                                        Reason = detected.Obstructed ? ObservationReason.Obstructed : detected.Uncertain ? ObservationReason.DetectionAmbiguous : table.Settled ? ObservationReason.None : ObservationReason.InsufficientEvidence,
+                                    { DecodedReceipt = frame.DecodedReceipt, Quality = detected.Obstructed ? LayoutQuality.Obstructed : detected.HasUncertainLayout ? LayoutQuality.Ambiguous : LayoutQuality.Clear,
+                                        Reason = detected.Obstructed ? ObservationReason.Obstructed : detected.HasUncertainLayout ? ObservationReason.DetectionAmbiguous : table.Settled ? ObservationReason.None : ObservationReason.InsufficientEvidence,
                                         Recognition = detected.Recognition,
-                                        Change = detected.Uncertain || detected.Obstructed ? null
+                                        Change = detected.HasUncertainLayout || detected.Obstructed ? null
                                             : new(previous.Length, detected.Balls.Length, SpatiallyCompatible(previous, detected.Balls), TableTracker.SameLayout(previous, detected.Balls)) } }; lastTimeline = frame.Timeline;
                         }
                     }
