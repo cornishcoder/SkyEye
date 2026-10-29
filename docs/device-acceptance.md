@@ -1,6 +1,17 @@
 # Physical-device acceptance
 
 
+## Production code56 pocket-edge uncertainty check — 29 October 2026
+
+Commit `2626f1a` adds a conservative explanation for pocket-colour pixels that belong to a strongly supported, already accepted red ball body, and logs the per-pocket attribution in schema 11. Production Release `0.8.48` / versionCode 56 built with 13 warnings and zero errors. It was installed in place on Pixel 11 with `Install-ProductionCompanion.ps1`; the installer retained package, signer, UID and private storage. Rollback APK: `work/production/backups/20261029-175859/before.apk`. Installed signed APK SHA-256: `AEE7AB05D7F0F297A2E894163D86701B419439F08064B9A3991C6DEEC549C43E`. No tests were run, and the mounted-camera package was not changed.
+
+The table was left in its existing 15-ball spread (6 reds, 7 yellows, black and cue), with no shot or hand intervention. Live Detect run `5456c8ff-3026-4a85-b377-9bbdcb7469f0` collected 394 full passes over 2m33s. The inventory remained 6R/7Y/black/cue in all frames: 387 were clear, layout-certain, unobstructed `clear_unchanged` results; 7 had the distinct large-obstruction warning. The right middle-pocket audit recorded coloured pixels in all 394 frames (maximum 158), explained pixels to 153, and unexplained pixels to 59; the unchanged review threshold is 64. No frame raised the pocket-colour warning or requested pocket review. The five activity episodes all ended with the prior clear inventory unchanged, and no pot/miss result was inferred. This verifies the narrow case from code55: the visible accepted red no longer makes its pocket look like a partly hidden ball.
+
+The bounded run ended through Home **End recording session**. Final camera `/status` was `Stopped`, revision 32, battery 100%, `clipCount=98`, zero viewers. Pixel 11 accessibility shows Home **Start live session** and **Cast. Disconnected**. No Cast/TV action was used. Final log and screenshots are in `work/production/evidence/code56-pocket-edge-20261029/`.
+
+This is a positive check on one unchanged spread, not full table-readiness acceptance. Intermittent large-obstruction/activity events remain: the UI temporarily displayed `Table change pending` despite a clear unchanged 15-ball frame and the last settled 15-ball inventory. The check did not include a partly hidden ball or an unexplained pocket-colour control, and does not establish performance across lighting. Those remain next steps; preserve the conservative uncertainty gate.
+
+
 ## Production code54 Photos export and clip-catalog check — 29 October 2026
 
 Production 0.8.46 / code54 built with 13 warnings and zero errors and was installed in place on Pixel 11 using `Install-ProductionCompanion.ps1`. The guarded installer retained the app UID and private storage; rollback APK: `work/production/backups/20261029-173027/before.apk`; signed APK SHA-256: `7806E611DEA6574F516BECE0296E6A427C6D662AA4331E8E824FF3715D127F14`. Package readback reports versionCode 54 / versionName 0.8.46.
