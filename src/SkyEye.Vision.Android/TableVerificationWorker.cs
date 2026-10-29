@@ -148,11 +148,13 @@ public sealed partial class VisionAnalyzer
                     }
                 }
                 else { anchorColour = colour; bodies = vision?.Circles ?? []; }
-                // Positive movement from repeated supported detections outranks
-                // missing template coverage; an untranslated/ambiguous ROI must
-                // not erase a ball displacement already measured in this burst.
+                // A poor or obstructed layout can shift the same-colour matching
+                // assignment when a packed ball is missing, fabricating a large
+                // displacement between two different balls. Keep that evidence
+                // inconclusive until the current detection is unobstructed.
                 if (!templatesShowNoMotion
-                    && detectedDisplacement >= Math.Max(5, owner.coordinates.Width * ObservationPolicy.MinimumDetectedBallMotionFraction))
+                    && VerificationObjectMotion.IsReliablePositiveEvidence(vision, detectedDisplacement,
+                        Math.Max(5, owner.coordinates.Width * ObservationPolicy.MinimumDetectedBallMotionFraction)))
                     measured = measured with { Motion = TableMotion.Moving, Reason = ObservationReason.Moving };
                 previousColour = colour;
                 return vision?.VerificationReason is { } reason ? measured with { Reason = reason } : measured;

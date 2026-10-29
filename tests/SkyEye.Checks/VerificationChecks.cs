@@ -589,6 +589,14 @@ static class VerificationChecks
         Check(VerificationObjectMotion.MaximumSupportedDisplacement(motionAnchor, unsupportedRoll) is < 6,
             "Unsupported geometry cannot establish object motion");
         var good = Vision();
+        Check(VerificationObjectMotion.IsReliablePositiveEvidence(good, 6.1, 6),
+            "An unobstructed supported detection can establish positive movement");
+        Check(!VerificationObjectMotion.IsReliablePositiveEvidence(good, 5.9, 6),
+            "Sub-threshold detector displacement cannot establish movement");
+        Check(!VerificationObjectMotion.IsReliablePositiveEvidence(good with { Obstructed = true }, 56.08, 6),
+            "An obstructed packed-table detection cannot turn a missing-ball association into movement");
+        Check(!VerificationObjectMotion.IsReliablePositiveEvidence(null, 56.08, 6),
+            "Missing detections cannot establish positive movement");
         var supported = good with { Circles = good.Balls.Select(b => new CircleObservation(b.Id, new(100, 100), 27, "solid", [])
             { ProposalRadius = 27, BoundarySupport = 1 }).ToArray() };
         var bad = supported with { Circles = supported.Circles.Select(c => c with { Radius = 18, BoundarySupport = null }).ToArray(), Uncertain = true };

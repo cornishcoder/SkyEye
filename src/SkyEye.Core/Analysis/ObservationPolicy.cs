@@ -41,6 +41,14 @@ public enum ObservationReason
 /// It may establish movement; absence or weak support never establishes stillness.</summary>
 public static class VerificationObjectMotion
 {
+    public static bool IsReliablePositiveEvidence(VisionResult? current, double? displacement, double minimumDisplacement) =>
+        current is { Obstructed: false }
+        && displacement is { } pixels
+        && double.IsFinite(pixels)
+        && double.IsFinite(minimumDisplacement)
+        && minimumDisplacement >= 0
+        && pixels >= minimumDisplacement;
+
     public static double? MaximumSupportedDisplacement(IReadOnlyList<CircleObservation> before,
         IReadOnlyList<CircleObservation> after, double minimumBoundarySupport = ObservationPolicy.MinimumSupportedBoundaryFraction)
     {
