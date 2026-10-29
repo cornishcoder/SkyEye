@@ -4,6 +4,14 @@ Record phone models, OS/builds, app revision, network and capture settings for e
 
 For the current Production companion's home controls, live-session flow, package identity, and read-only detector diagnostics, see [Pixel companion control guide](device-control-guide.md).
 
+## Production code51 playback telemetry install (29 October 2026)
+
+Commit `a229544` carries the Media3 playback snapshot beside each accepted Live Detect frame and advances the log schema to 9. Production `0.8.43` / code51 built with 13 warnings and zero errors, then was installed in place on Pixel 11 using `Install-ProductionCompanion.ps1`; package identity and private storage were retained. Rollback APK: `work/production/backups/20261029-162331/before.apk`; signed APK SHA-256: `7504870CC51B84C1FEDBD7701091999140BEC047125BD3171E9C5A2ACEDD1B9F`. Package readback reports versionCode 51 / versionName 0.8.43.
+
+Each accepted frame can now include `playerPlayback.playbackState`, `loading`, `playing`, `bufferedMs`, and nullable `liveOffsetMs`, sampled alongside existing source-frame age and full-pass timing. They are snapshots, not a continuous transition/rebuffer trace. The installation did not start capture or change the mounted-camera package. Camera `/status`: `Stopped`, revision 20, battery 100%, 82 clips and zero viewers. Pixel 11 screenshot shows Home with its pinned panel; Cast is disconnected. The immediate post-install accessibility hierarchy did not expose the exact `Start live session` label. Screenshot: `work/production/evidence/code51-install/pixel11-after-install.png`.
+
+This is build/install evidence only. No code51 live frames or physical event/clip results were collected. The latest retained Live Detect log remains the older code48 run; the subsequent user-reported break/no-pot check ended with an obstructed view and has no fresh matching frame log or event clip. Do not treat it as a confirmed no-pot event or as a code51 result. The next bounded live run should compare frame age and full-pass time with `playerPlayback` snapshots during a clear stationary interval and one decoder-stable shot, then inspect the linked clip. Keep capture stopped otherwise and do not use Cast/TV.
+
 ## Production code50 frame-age experiment (29 October 2026)
 
 The prior code48 JSONL contains 1,169 frame observations: source-frame age 896ms median, 3,111ms p90 and 3,127ms p95, with 470 frames older than 1.4s. Full analysis was 370ms median, 442ms p95 and 944ms maximum. This separates upstream playback age from detector compute.
