@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using SkyEye.Core.Application;
 
 namespace SkyEye.Core;
 
@@ -62,16 +63,29 @@ public sealed class SessionAuthority(TimeProvider? clock = null)
     }
 }
 
-public static class ReplaySelection
+public static class ClipRangeSelection
 {
-    public static readonly int[] Durations = [30, 60, 120, 300, 600];
-    public static Segment[] Select(IEnumerable<Segment> history, int seconds, long endUs)
+    public static Segment[] SelectRange(IEnumerable<Segment> history, ClipSourceRange range,
+        string currentTimeline, long nowUs)
     {
-        if (!Durations.Contains(seconds)) throw new ArgumentException("Replay duration must be 30, 60, 120, 300 or 600 seconds.");
-        var ordered = history.Where(x => x.StartUs < endUs).OrderBy(x => x.Sequence).ToArray();
-        if (ordered.Length == 0) return [];
-        // A pause starts a new timeline; never disguise that gap as continuous video.
-        var timeline = ordered[^1].Timeline;
-        return ordered.Where(x => x.Timeline == timeline && x.StartUs + x.Duration * 1_000_000 > endUs - seconds * 1_000_000L).ToArray();
+        if (!Guid.TryParseExact(range.Timeline, "N", out _) || range.StartUs <= 0
+            || range.EndUs <= range.StartUs || range.EndUs - range.StartUs > 600_000_000L)
+            throw new ArgumentException("Invalid source-time clip range.");
+        if (range.Timeline != currentTimeline || range.EndUs > nowUs
+            || nowUs - range.EndUs > 620_000_000L)
+            throw new InvalidOperationException("The camera recording changed or the requested clip range is no longer recent.");
+
+        var selected = history.Where(x => x.Timeline == range.Timeline
+                && double.IsFinite(x.Duration) && x.Duration > 0 && x.Duration <= 4
+                && x.StartUs < range.EndUs
+                && x.StartUs + x.Duration * 1_000_000 > range.StartUs)
+            .OrderBy(x => x.StartUs).ToArray();
+        if (selected.Length == 0 || selected[0].StartUs >= range.EndUs
+            || selected[^1].StartUs + selected[^1].Duration * 1_000_000 < range.EndUs - 100_000)
+            throw new InvalidOperationException("The requested clip range is not fully available in camera history.");
+        for (int i = 1; i < selected.Length; i++)
+            if (Math.Abs(selected[i].StartUs - (selected[i - 1].StartUs + selected[i - 1].Duration * 1_000_000)) > 100_000)
+                throw new InvalidOperationException("The requested clip range contains a recording gap.");
+        return selected;
     }
 }

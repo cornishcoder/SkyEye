@@ -54,7 +54,7 @@ public sealed class ClipSaveExecutor
             if (record is not { Schema: 1 } || record.OperationId != operationId || record.Command is null
                 || record.Receipt is not { Outcome: CommandOutcome.Applied } receipt
                 || receipt.OperationId != operationId || receipt.DecisionVersion != record.DecisionVersion
-                || !Valid(record.Command) || !ValidClip(receipt.SavedClip, record.Command.Seconds)) return null;
+                || !Valid(record.Command) || !ValidClip(receipt.SavedClip, record.Command)) return null;
             return new(operationId, record.Command.Scope, record.Command.Seconds, receipt.SavedClip!);
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException or NotSupportedException) { return null; }
@@ -93,7 +93,7 @@ public sealed class ClipSaveExecutor
             var previous = ReadPrevious(envelope, decisionVersion);
             if (previous is not null) return previous;
             if (envelope.Command is not SaveClip command || !Valid(command))
-                return Receipt(CommandOutcome.Rejected, "Choose a supported duration and refresh camera host status.");
+                return Receipt(CommandOutcome.Rejected, "Choose a valid source-time clip range and refresh camera host status.");
             if (Directory.EnumerateFiles(directory, "*.json").Take(capacity).Count() >= capacity)
                 return Receipt(CommandOutcome.Failed, "The save journal is full. No save was sent.");
             var record = new SaveRecord(1, envelope.OperationId, envelope.Origin, envelope.ExpectedVersion, command, decisionVersion, null);
@@ -108,7 +108,7 @@ public sealed class ClipSaveExecutor
                 try
                 {
                     var clip = await effect.SaveAsync(envelope.OperationId, command, cancellation).ConfigureAwait(false);
-                    result = ValidClip(clip, command.Seconds)
+                    result = ValidClip(clip, command)
                         ? Receipt(CommandOutcome.Applied, $"Saved {clip.Duration:0.0} seconds on camera.") with { SavedClip = clip }
                         : Receipt(CommandOutcome.Uncertain, "The camera returned an invalid save acknowledgement. Check its clips; this request will not be repeated.");
                 }
@@ -151,7 +151,7 @@ public sealed class ClipSaveExecutor
             if (record.Receipt is null) return Unknown(record.DecisionVersion);
             var receipt = record.Receipt;
             if (receipt.OperationId != envelope.OperationId || !Enum.IsDefined(receipt.Outcome) || receipt.DecisionVersion != record.DecisionVersion
-                || receipt.Outcome == CommandOutcome.Applied && !ValidClip(receipt.SavedClip, record.Command.Seconds)) return Unknown(record.DecisionVersion);
+                || receipt.Outcome == CommandOutcome.Applied && !ValidClip(receipt.SavedClip, record.Command)) return Unknown(record.DecisionVersion);
             return receipt with { Duplicate = true };
         }
         catch (Exception e) when (e is IOException or UnauthorizedAccessException or JsonException or NotSupportedException) { return Unknown(); }
@@ -173,11 +173,22 @@ public sealed class ClipSaveExecutor
         }
         finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
-    static bool Valid(SaveClip command) => ReplaySelection.Durations.Contains(command.Seconds) && command.Scope is { } scope
+    static bool Valid(SaveClip command) => command.SourceRange is { } range
+        ? range.Timeline is { } timeline && Guid.TryParseExact(timeline, "N", out _)
+            && range.StartUs > 0 && range.EndUs > range.StartUs
+            && range.EndUs - range.StartUs <= 600_000_000L
+            && command.Seconds == (int)((range.EndUs - range.StartUs + 999_999) / 1_000_000)
+            && command.Seconds is > 0 and <= 600 && ValidScope(command.Scope)
+        : command.Seconds is > 0 and <= 600 && ValidScope(command.Scope);
+    static bool ValidScope(ClipSaveScope? scope) => scope is not null
         && scope.CameraIdentity is { Length: 64 } identity && identity.All(Uri.IsHexDigit)
         && Guid.TryParseExact(scope.SessionId, "N", out _) && scope.HostGeneration > 0 && scope.CaptureRevision >= 0;
-    static bool ValidClip(Clip? clip, int seconds) => clip is not null && Guid.TryParseExact(clip.Id, "N", out _)
-        && clip.Name is { Length: > 0 and <= 200 } && double.IsFinite(clip.Duration) && clip.Duration > 0 && clip.Duration <= seconds + 2
-        && clip.Bytes > 0 && clip.Sha256 is { Length: 64 } hash && hash.All(Uri.IsHexDigit);
+    static bool ValidClip(Clip? clip, SaveClip command) => clip is not null && Guid.TryParseExact(clip.Id, "N", out _)
+        && clip.Name is { Length: > 0 and <= 200 } && double.IsFinite(clip.Duration) && clip.Duration > 0
+        && clip.Duration <= command.Seconds + 2
+        && clip.Bytes > 0 && clip.Sha256 is { Length: 64 } hash && hash.All(Uri.IsHexDigit)
+        && (command.SourceRange is not { } range || clip.RecordingOrigin is { } origin
+            && origin.Timeline == range.Timeline && origin.StartUs < range.EndUs
+            && origin.StartUs + (long)(clip.Duration * 1_000_000) >= range.EndUs - 100_000);
     sealed record SaveRecord(int Schema, Guid OperationId, CommandOrigin Origin, long ExpectedVersion, SaveClip Command, long DecisionVersion, CommandReceipt? Receipt);
 }

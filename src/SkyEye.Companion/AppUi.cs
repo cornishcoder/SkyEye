@@ -92,7 +92,7 @@ public sealed partial class MainActivity
         await RefreshAsync();
         if (!app.State.Camera.CanControl || client.SaveScope is not { } scope || client.HostToken is null) { Say("Connect and become host before saving a clip."); return; }
         var envelope = new CommandEnvelope(Guid.NewGuid(), CommandOrigin.Touch, renderedAppState.Version,
-            new SaveClip(ReplaySelection.Durations[duration.SelectedItemPosition], scope));
+            new SaveClip(RecentClipDurationPresets.Values[duration.SelectedItemPosition], scope));
 #if SKYEYE_COMMAND_LAB
         File.WriteAllText(LabSaveRequestPath, System.Text.Json.JsonSerializer.Serialize(
             new LabSaveRequest(envelope.OperationId, envelope.Origin, envelope.ExpectedVersion, (SaveClip)envelope.Command), JsonDefaults.Options));

@@ -11,7 +11,9 @@ static class CameraClipSaveChecks
     {
         var allocation = new TcpListener(IPAddress.Loopback, 0); allocation.Start(); int port = ((IPEndPoint)allocation.LocalEndpoint).Port; allocation.Stop();
         var clock = new TestTime(); var authority = new SessionAuthority(clock); var lease = authority.Claim("fixture companion"); authority.Transition(CaptureState.Active);
-        int saves = 0, heartbeats = 0; string mode = "success"; Guid sentId = Guid.Empty;
+        int saves = 0, rangeSaves = 0, heartbeats = 0; string mode = "success"; Guid sentId = Guid.Empty;
+        Guid sentRangeId = Guid.Empty;
+        string rangeTimeline = Guid.NewGuid().ToString("N");
         var root = Path.Combine(Path.GetTempPath(), "skyeye-camera-save-" + Guid.NewGuid().ToString("N"));
         TaskCompletionSource? statusEntered = null, statusReleased = null;
         await using var server = new LocalHttpServer(port, async (request, ct) =>
@@ -21,16 +23,28 @@ static class CameraClipSaveChecks
                 if (statusEntered is not null) { statusEntered.TrySetResult(); await statusReleased!.Task.WaitAsync(ct); }
                 var host = authority.Current;
                 return HttpResponse.Json(new { readToken = "fixture-viewing-access", authority.SessionId, authority.Revision,
-                    host = host is null ? null : new { host.Generation }, state = authority.State.ToString() });
+                    host = host is null ? null : new { host.Generation }, state = authority.State.ToString(),
+                    sourceTimeUs = 210_000_000L, lastFrameSourceTimeUs = 200_000_000L, timeline = rangeTimeline });
             }
             authority.Require(request.HostToken);
             if (request.Path == "/host/heartbeat") { Interlocked.Increment(ref heartbeats); authority.Heartbeat(request.HostToken!); return HttpResponse.Json(new { renewed = true }); }
-            if (request.Path == "/clips/save")
+            if (request.Path == "/clips/save-range")
             {
                 Interlocked.Increment(ref saves);
                 var payload = request.Json<Dictionary<string, System.Text.Json.JsonElement>>();
                 sentId = Guid.ParseExact(payload["commandId"].GetString()!, "N");
-                Check(payload["seconds"].GetInt32() == 30, "wire duration preserved");
+                long startUs = payload["startUs"].GetInt64(), endUs = payload["endUs"].GetInt64();
+                Check(payload["timeline"].GetString() == rangeTimeline, "source timeline is sent with every saved clip");
+                Check(!payload.ContainsKey("seconds"), "range save does not silently fall back to fixed duration");
+                if (startUs == 100_000_000 && endUs == 121_000_000)
+                {
+                    Interlocked.Increment(ref rangeSaves); sentRangeId = sentId;
+                    return HttpResponse.Json(new Clip(Guid.NewGuid().ToString("N"), "Fixture event range", 22, 1234,
+                        new string('E', 64), DateTimeOffset.UtcNow,
+                        RecordingOrigin: new(rangeTimeline, 99_000_000, 1920, 1080, 0)));
+                }
+                Check(startUs == 170_000_000 && endUs == 200_000_000,
+                    "duration convenience input is converted to source timestamps before camera save");
                 if (mode == "no-history") return HttpResponse.Json(new { error = "No recording history is available yet." }, 409);
                 if (mode == "uncertain") return HttpResponse.Json(new { error = "fixture failure after possible save" }, 500);
                 return HttpResponse.Json(new Clip(Guid.NewGuid().ToString("N"), "Fixture replay", 29.7, 1234, new string('C', 64), DateTimeOffset.UtcNow));
@@ -68,13 +82,20 @@ static class CameraClipSaveChecks
             Check((await frozen).Succeeded && saves == 4, "connection changes cannot redirect an admitted effect or replace its credential");
             statusEntered = null; statusReleased = null;
             client.Connect($"127.0.0.1:{port}"); client.HostToken = lease.Token;
+            var sourceRange = new ClipSourceRange(rangeTimeline, 100_000_000, 121_000_000);
+            var rangeRequest = new CommandEnvelope(Guid.NewGuid(), CommandOrigin.System, app.State.Version,
+                new SaveClip(21, scope, sourceRange));
+            var rangeResult = await app.DispatchAsync(rangeRequest);
+            Check(rangeResult.Succeeded && rangeResult.SavedClip?.RecordingOrigin?.Timeline == rangeTimeline
+                && rangeSaves == 1 && sentRangeId == rangeRequest.OperationId,
+                "real camera adapter preserves and acknowledges a source-time clip range");
             clock.Advance(31);
-            Check((await app.DispatchAsync(Request())).Outcome == CommandOutcome.Failed && saves == 4, "expired lease cannot dispatch save");
-            Check((await app.DispatchAsync(first)).Succeeded && saves == 4, "historical acknowledgement stays historical after lease expiry");
-            Check(retained==2,"failed, uncertain, rejected and duplicate saves do not create invented clip annotation bindings");
+            Check((await app.DispatchAsync(Request())).Outcome == CommandOutcome.Failed && saves == 5, "expired lease cannot dispatch save");
+            Check((await app.DispatchAsync(first)).Succeeded && saves == 5, "historical acknowledgement stays historical after lease expiry");
+            Check(retained==3,"verified range acknowledgements retain once while failed, uncertain and duplicate saves do not create extra bindings");
             var content = string.Join("", Directory.EnumerateFiles(root, "*.json").Select(File.ReadAllText));
             Check(!content.Contains(lease.Token) && !content.Contains("fixture-invalid-host-token") && !content.Contains("fixture-viewing-access") && !content.Contains(client.Address), "native credentials and endpoint never enter operation journal");
-            Console.WriteLine("PASS real camera HTTP save adapter: command ID, host proof/expiry, scoped capture, guest/refused/ambiguous outcomes, frozen endpoint and secret boundary");
+            Console.WriteLine("PASS real camera HTTP save adapter: source-time ranges, duration translation, command ID, host proof/expiry and secret boundary");
         }
         finally
         {

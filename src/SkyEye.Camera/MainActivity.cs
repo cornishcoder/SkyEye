@@ -20,11 +20,10 @@ public sealed class MainActivity : Activity
         var content = new LinearLayout(this) { Orientation = Orientation.Vertical };
         content.SetPadding(32, 56, 32, 32); content.SetBackgroundColor(Color.Rgb(11, 20, 28));
         var title = new TextView(this) { Text = "SkyEye\nMounted camera", TextSize = 30 }; title.SetTextColor(Color.White); content.AddView(title);
-        var help = new TextView(this) { Text = "Arm once before mounting. Your companion starts, pauses and stops recording. You can switch this display off.", TextSize = 17 }; help.SetTextColor(Color.Rgb(180, 205, 210)); content.AddView(help);
-        var arm = new Button(this) { Text = "Arm camera" }; arm.Click += (_, _) => Arm(); content.AddView(arm);
+        var help = new TextView(this) { Text = "Camera control arms automatically when this app opens. Recording stays stopped until your companion starts it.", TextSize = 17 }; help.SetTextColor(Color.Rgb(180, 205, 210)); content.AddView(help);
         status = new TextView(this) { TextSize = 18 }; status.SetTextColor(Color.Rgb(80, 220, 185)); content.AddView(status);
         SetContentView(content); handler = new Handler(Looper.MainLooper!);
-        if (Intent?.GetBooleanExtra("arm", false) == true) Arm();
+        Arm();
     }
     void Arm()
     {

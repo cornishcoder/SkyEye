@@ -3,12 +3,18 @@ using System.Diagnostics;
 
 namespace SkyEye.Core.Application;
 
+/// <summary>Convenience choices for the companion UI. Saves are still sent as source-time ranges.</summary>
+public static class RecentClipDurationPresets
+{
+    public static readonly int[] Values = [5, 10, 15, 30, 60, 120, 300, 600];
+}
+
 public static class VoiceClipSavePolicy
 {
     public static bool TryResolve(int requestedSeconds, out int cameraSeconds)
     {
-        cameraSeconds = requestedSeconds == 5 ? 30 : requestedSeconds;
-        return ReplaySelection.Durations.Contains(cameraSeconds) && (requestedSeconds == 5 || requestedSeconds == cameraSeconds);
+        cameraSeconds = requestedSeconds;
+        return requestedSeconds is > 0 and <= 600;
     }
 }
 

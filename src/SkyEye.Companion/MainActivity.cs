@@ -67,7 +67,8 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
         controls = new LinearLayout(this) { Orientation = Orientation.Vertical }; root.AddView(controls);
         var sessionRow = Row(controls); Add(sessionRow, "Start", () => CaptureCommand(CaptureAction.Start)); Add(sessionRow, "Pause", () => CaptureCommand(CaptureAction.Pause)); Add(sessionRow, "Resume", () => CaptureCommand(CaptureAction.Resume)); Add(sessionRow, "Stop", () => CaptureCommand(CaptureAction.Stop));
         var replayRow = Row(controls);
-        duration = new Spinner(this); duration.Adapter = new ArrayAdapter<string>(this, Android.Resource.Layout.SimpleSpinnerDropDownItem, ["30 seconds", "1 minute", "2 minutes", "5 minutes", "10 minutes"]); replayRow.AddView(duration);
+        duration = new Spinner(this); duration.Adapter = new ArrayAdapter<string>(this, Android.Resource.Layout.SimpleSpinnerDropDownItem,
+            RecentClipDurationPresets.Values.Select(seconds => seconds < 60 ? $"{seconds} seconds" : $"{seconds / 60} minute{(seconds == 60 ? "" : "s")}").ToArray()); replayRow.AddView(duration);
         Add(replayRow, "Save last…", () => _ = ActionAsync(SaveClipUiAsync));
         controls.AddView(Label("Save ends at the camera's current moment. Viewing is delayed.", 12));
 #if SKYEYE_COMMAND_LAB

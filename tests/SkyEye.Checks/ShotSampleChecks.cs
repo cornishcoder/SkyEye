@@ -26,9 +26,10 @@ static class ShotSampleChecks
             legacyReport.Remove("transcriptStatus");
             Check(JsonSerializer.Deserialize<ShotSampleReport>(legacyReport.ToJsonString(), JsonDefaults.Options)?.TranscriptStatus == "completed",
                 "older sample reports remain readable after adding transcript status");
-            Check(VoiceClipSavePolicy.TryResolve(5, out var shortWindow) && shortWindow == 30
+            Check(VoiceClipSavePolicy.TryResolve(5, out var shortWindow) && shortWindow == 5
+                && VoiceClipSavePolicy.TryResolve(6, out var sixSecondWindow) && sixSecondWindow == 6
                 && VoiceClipSavePolicy.TryResolve(60, out var longWindow) && longWindow == 60
-                && !VoiceClipSavePolicy.TryResolve(6, out _), "five-second voice requests use the existing 30-second camera save and longer durations are unchanged");
+                && !VoiceClipSavePolicy.TryResolve(601, out _), "voice clip windows retain their requested duration and reject only values outside the rolling buffer");
             var effect = new FixtureEffect(); var journal = new ClipSaveExecutor(Path.Combine(root, "saves"), effect);
             var app = new AppCoordinator(clipSaves: journal);
             Task<CommandReceipt> Save(Guid id, ClipSaveScope scope, CancellationToken ct) => app.DispatchAsync(new(id, CommandOrigin.Sky, app.State.Version, new SaveClip(30, scope)), ct);

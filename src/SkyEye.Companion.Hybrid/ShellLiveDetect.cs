@@ -510,14 +510,15 @@ public sealed partial class ShellSession
                 return;
             }
 
-            await SetLiveDetectClipStatusAsync($"Saving {window.SaveSeconds}-second clip for the settled table event…");
+            await SetLiveDetectClipStatusAsync($"Saving {window.SaveSeconds}-second event range…");
             CommandReceipt saveReceipt;
             try
             {
                 var saveScope = new ClipSaveScope(source.CameraIdentity, source.SessionId,
                     source.HostGeneration, source.CaptureRevision);
                 saveReceipt = await app.DispatchAsync(new(operationId, CommandOrigin.System,
-                    context.AppState.Version, new SaveClip(window.SaveSeconds, saveScope)), CancellationToken.None);
+                    context.AppState.Version, new SaveClip(window.SaveSeconds, saveScope,
+                        new ClipSourceRange(window.Timeline, window.StartSourceTimeUs, window.EndSourceTimeUs))), CancellationToken.None);
             }
             catch (Exception)
             {
@@ -536,7 +537,7 @@ public sealed partial class ShellSession
             bool? windowCovered = clip?.RecordingOrigin is { } clipOrigin
                 ? clipOrigin.Timeline == window.Timeline
                     && clipOrigin.StartUs <= window.StartSourceTimeUs
-                    && clipOrigin.StartUs + (long)(clip.Duration * 1_000_000) >= window.EndSourceTimeUs
+                    && clipOrigin.StartUs + (long)(clip.Duration * 1_000_000) >= window.EndSourceTimeUs - 100_000
                 : null;
             var completed = requested with
             {

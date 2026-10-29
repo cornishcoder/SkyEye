@@ -4,6 +4,7 @@ using Android.Content.PM;
 using Android.Net.Nsd;
 using Android.OS;
 using SkyEye.Core;
+using SkyEye.Core.Application;
 using System.Globalization;
 using System.Net;
 using System.Security.Cryptography;
@@ -42,6 +43,7 @@ public sealed class CameraService : Service
     long completedFrames;
     readonly LiveTransportHub livePhones = new();
     long lastEncodeAgeUs;
+    long lastFrameSourceTimeUs;
     static TaskCompletionSource<bool> Signal() => new(TaskCreationOptions.RunContinuationsAsynchronously);
     public override IBinder? OnBind(Intent? intent) => null;
     public override void OnCreate()
@@ -89,7 +91,7 @@ public sealed class CameraService : Service
             temperatureC = (battery?.GetIntExtra(BatteryManager.ExtraTemperature, 0) ?? 0) / 10.0,
             availableBytes = new StatFs(root).AvailableBytes, uptimeSeconds = (DateTimeOffset.UtcNow - armedAt).TotalSeconds,
             historySeconds = history.Where(x => x.Timeline == timeline).Sum(x => x.Duration),
-            error, readToken, sourceTimeUs = Engine.TimeUs(), timeline, recentReplayVersion = 1,
+            error, readToken, sourceTimeUs = Engine.TimeUs(), lastFrameSourceTimeUs = Interlocked.Read(ref lastFrameSourceTimeUs), timeline, recentReplayVersion = 1,
             streamPath = $"/live/index.m3u8?access={readToken}", clipCount = clips.Count, addresses = Addresses(),
             phoneStreamPath = $"/live/stream.ts?access={readToken}&timeline={timeline}", liveTransportVersion = 1,
             liveTransport = livePhones.Metrics, lastEncodeAgeUs,
@@ -212,7 +214,13 @@ public sealed class CameraService : Service
                 case "/session/stop":
                     if (Authority.State == CaptureState.Ready) { result = HttpResponse.Json(Status()); break; }
                     livePhones.Reset(); if (Authority.State != CaptureState.Faulted) engine?.Pause(); Authority.Transition(CaptureState.Stopped); if (wake?.IsHeld == true) wake.Release(); result = HttpResponse.Json(Status()); break;
-                case "/clips/save": result = await SaveAsync(command.RootElement.GetProperty("seconds").GetInt32(), ct); break;
+                case "/clips/save": result = await SaveRecentAsync(command.RootElement.GetProperty("seconds").GetInt32(), ct); break;
+                case "/clips/save-range":
+                    result = await SaveAsync(new ClipSourceRange(
+                        command.RootElement.GetProperty("timeline").GetString() ?? "",
+                        command.RootElement.GetProperty("startUs").GetInt64(),
+                        command.RootElement.GetProperty("endUs").GetInt64()), ct);
+                    break;
                 default: return HttpResponse.Json(new { error = "Not found" }, 404);
             }
             completed[key] = result; completedOrder.Enqueue(key);
@@ -271,11 +279,29 @@ public sealed class CameraService : Service
         }
         finally { lock (historyGate) foreach (var segment in window.Segments) { if (--pins[segment.Name] == 0) pins.Remove(segment.Name); } }
     }
-    async Task<HttpResponse> SaveAsync(int seconds, CancellationToken ct)
+    async Task<HttpResponse> SaveRecentAsync(int seconds, CancellationToken ct)
     {
-        if (!ReplaySelection.Durations.Contains(seconds)) throw new ArgumentException("Unsupported replay duration.");
-        if (new StatFs(root).AvailableBytes < 256L * 1024 * 1024) throw new InvalidOperationException("Camera storage is low. Free device space before saving more.");
+        if (seconds is <= 0 or > 600) throw new ArgumentException("Choose a recent clip window between 1 and 600 seconds.");
         long end = Engine.TimeUs();
+        if (Authority.State != CaptureState.Active)
+        {
+            lock (historyGate)
+            {
+                var latest = history.LastOrDefault(x => x.Timeline == timeline);
+                if (latest is not null) end = (long)(latest.StartUs + latest.Duration * 1_000_000);
+            }
+        }
+        var range = new ClipSourceRange(timeline, Math.Max(1, end - seconds * 1_000_000L), end);
+        return await SaveAsync(range, ct, allowShortHistory: true);
+    }
+
+    async Task<HttpResponse> SaveAsync(ClipSourceRange range, CancellationToken ct, bool allowShortHistory = false)
+    {
+        if (!Guid.TryParseExact(range.Timeline, "N", out _) || range.StartUs <= 0
+            || range.EndUs <= range.StartUs || range.EndUs - range.StartUs > 600_000_000L)
+            throw new ArgumentException("Invalid source-time clip range.");
+        if (new StatFs(root).AvailableBytes < 256L * 1024 * 1024) throw new InvalidOperationException("Camera storage is low. Free device space before saving more.");
+        long end = range.EndUs;
         if (Authority.State == CaptureState.Active)
         {
             Task wait; lock (historyGate) wait = nextSegment.Task;
@@ -286,7 +312,14 @@ public sealed class CameraService : Service
         Segment[] selected;
         lock (historyGate)
         {
-            selected = ReplaySelection.Select(history, seconds, end);
+            var availableRange = range;
+            if (allowShortHistory)
+            {
+                var oldest = history.FirstOrDefault(x => x.Timeline == range.Timeline);
+                if (oldest is not null && availableRange.StartUs < oldest.StartUs)
+                    availableRange = availableRange with { StartUs = oldest.StartUs };
+            }
+            selected = ClipRangeSelection.SelectRange(history, availableRange, timeline, Engine.TimeUs());
             if (selected.Length == 0) throw new InvalidOperationException("No recording history is available yet.");
             foreach (var segment in selected) pins[segment.Name] = pins.GetValueOrDefault(segment.Name) + 1;
         }
@@ -363,7 +396,7 @@ public sealed class CameraService : Service
     {
         public bool NeedsLiveFrames() => owner.livePhones.HasViewers;
         public void OnLiveFrame(byte[]? transport, bool key, long sourceUs, long encodeAgeUs)
-        { Interlocked.Exchange(ref owner.lastEncodeAgeUs, encodeAgeUs); if (transport is not null) owner.livePhones.Publish(transport, key); }
+        { Interlocked.Exchange(ref owner.lastEncodeAgeUs, encodeAgeUs); Interlocked.Exchange(ref owner.lastFrameSourceTimeUs, sourceUs); if (transport is not null) owner.livePhones.Publish(transport, key); }
         public void OnReady() { owner.ready = true; Android.Util.Log.Info("SkyEye", "Camera armed and ready for screen-off commands"); }
         public void OnError(string? message) => owner.Fault(message ?? "Capture error");
         public void OnSegment(string? name, long sequence, string? timeline, long startUs, double duration, long wallMs) => owner.AddSegment(name!, sequence, timeline!, startUs, duration, wallMs);

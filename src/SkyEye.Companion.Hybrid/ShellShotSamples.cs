@@ -56,11 +56,11 @@ public sealed partial class ShellSession
     object ReadSampleCollection() => new
     {
         enabled = SampleCollectionEnabled, busy = SampleCollectionBusy, status = sampleStatus,
-        desiredSampleSeconds = 5, cameraSaveSeconds = 30, settlingSeconds = 2,
+        desiredSampleSeconds = 5, cameraSaveSeconds = 5, settlingSeconds = 2,
         latest = latestShotSample is not { } last ? null : new { operationId = last.OperationId,
             status = last.Status == "pending" && !SampleCollectionBusy ? "unknown" : last.Status,
             clipId = last.Clip?.Id, durationSeconds = last.Clip?.Duration, transcriptStatus = last.Report.TranscriptStatus },
-        limitation = "The camera currently saves at least 30 seconds. Actual clip duration and source origin are retained; the exact five-second shot window is not measured."
+        limitation = "The five-second request is translated to camera source timestamps; the saved clip may include the preceding keyframe segment. Actual duration and source origin are retained."
     };
 
     async Task<object> SetSampleCollectionFromVoiceAsync(JsonElement args, CancellationToken cancellation)
@@ -140,7 +140,7 @@ public sealed partial class ShellSession
                     transcriptStatus = immediate.Report.TranscriptStatus, message = SampleMessage(immediate) };
             }
             return new { enabled = true, pending = true, saved = false, operationId = record.OperationId, transcriptStatus = report!.TranscriptStatus,
-                message = "Saving the sample; completion is not yet confirmed. The camera's shortest saved clip is 30 seconds." };
+                message = "Saving the sample's source-time range; completion is not yet confirmed." };
         });
     }
 
@@ -210,7 +210,7 @@ public sealed partial class ShellSession
             var current = await MainThread.InvokeOnMainThreadAsync(() => app.State);
             if (!active || current.Camera.Scope != scope || !current.Camera.CanControl || current.Camera.Capture != CaptureState.Active)
                 return new CommandReceipt(id, CommandOutcome.Failed, current.Version, "Recording or camera ownership changed before the save. No clip was requested.");
-            return await app.DispatchAsync(new(id, CommandOrigin.Sky, current.Version, new SaveClip(30, saveScope)), token);
+            return await app.DispatchAsync(new(id, CommandOrigin.Sky, current.Version, new SaveClip(5, saveScope)), token);
         }, cancellation);
         await MainThread.InvokeOnMainThreadAsync(() =>
         {

@@ -29,8 +29,34 @@ static class ClipSaveChecks
             Check((await restarted.DispatchAsync(request with { Command = new SaveClip(60, Scope) })).Outcome == CommandOutcome.Conflict, "save ID binds duration");
             Check((await restarted.DispatchAsync(request with { Command = new SaveClip(30, Scope with { HostGeneration = 2 }) })).Outcome == CommandOutcome.Conflict, "save ID binds host/session scope");
             Check((await restarted.DispatchAsync(request with { Command = new ShowShotChoices(true) })).Outcome == CommandOutcome.Conflict, "save ID cannot be reused by a preference");
-            var invalid = await app.DispatchAsync(Request(31, 1));
-            Check(invalid.Outcome == CommandOutcome.Rejected && effect.Calls == 1, "unsupported duration cannot save");
+
+            var rangeTimeline = Guid.NewGuid().ToString("N");
+            var sourceRange = new ClipSourceRange(rangeTimeline, 100_000_000, 122_500_000);
+            var rangeCommand = new SaveClip(23, Scope, sourceRange);
+            var rangeEffect = new FixtureEffect((_, command, _) =>
+            {
+                Check(command.SourceRange == sourceRange, "source-time range survives the durable save boundary");
+                return Task.FromResult(new Clip(Guid.NewGuid().ToString("N"), "Event range", 24, 1234,
+                    new string('D', 64), DateTimeOffset.UtcNow,
+                    RecordingOrigin: new(rangeTimeline, 98_500_000, 1920, 1080, 0)));
+            });
+            var rangePath = Path.Combine(root, "source-range");
+            var rangeApp = new AppCoordinator(clipSaves: new(rangePath, rangeEffect));
+            var rangeRequest = new CommandEnvelope(Guid.NewGuid(), CommandOrigin.System, 0, rangeCommand);
+            Check((await rangeApp.DispatchAsync(rangeRequest)).Succeeded, "custom event range accepts a decodable clip that covers its requested source window");
+            var rangeRestart = new AppCoordinator(clipSaves: new ClipSaveExecutor(rangePath, rangeEffect));
+            Check((await rangeRestart.DispatchAsync(rangeRequest)).Duplicate
+                && (await rangeRestart.DispatchAsync(rangeRequest with
+                {
+                    Command = rangeCommand with { SourceRange = sourceRange with { EndUs = sourceRange.EndUs + 1 } }
+                })).Outcome == CommandOutcome.Conflict,
+                "range acknowledgement survives restart and operation IDs remain bound to exact source PTS");
+            Check((await new AppCoordinator(clipSaves: new(Path.Combine(root, "bad-range"), rangeEffect))
+                .DispatchAsync(new(Guid.NewGuid(), CommandOrigin.System, 0, rangeCommand with { Seconds = 30 }))).Outcome == CommandOutcome.Rejected,
+                "range duration metadata must match the requested source window");
+
+            var invalid = await app.DispatchAsync(Request(601, 1));
+            Check(invalid.Outcome == CommandOutcome.Rejected && effect.Calls == 1, "a window beyond retained history cannot save");
             var staleRequest = Request(version: 0);
             Check((await app.DispatchAsync(staleRequest)).Outcome == CommandOutcome.Stale && effect.Calls == 1, "stale admission cannot save");
             Check((await restarted.DispatchAsync(staleRequest)).Outcome == CommandOutcome.Stale && effect.Calls == 1, "stale refusal is durable even when new app version matches");

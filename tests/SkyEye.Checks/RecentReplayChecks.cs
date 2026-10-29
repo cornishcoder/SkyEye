@@ -1,4 +1,5 @@
 using SkyEye.Core;
+using SkyEye.Core.Application;
 
 static class RecentReplayChecks
 {
@@ -12,6 +13,17 @@ static class RecentReplayChecks
         var request = Request(); var window = RecentReplay.Select(history, request, timeline, 140_000_000);
         Check(window.StartUs == 124_000_000 && window.EndUs == 139_000_000 && window.Segments.Length == 8, "replay uses camera timestamp and preceding keyframe, not phone playback position");
         Check(RecentReplay.Select(history.TakeLast(2), request, timeline, 140_000_000).StartUs == 136_000_000, "short history reports its actual start");
+        var sourceRange = new ClipSourceRange(timeline, 121_000_000, 127_500_000);
+        var rangeSegments = ClipRangeSelection.SelectRange(history, sourceRange, timeline, 140_000_000);
+        Check(rangeSegments.Length == 4 && rangeSegments[0].StartUs == 120_000_000
+            && rangeSegments[^1].StartUs == 126_000_000,
+            "durable range selection includes the preceding independently decodable segment and reaches the requested end");
+        await Reject<InvalidOperationException>(() => Task.FromResult(ClipRangeSelection.SelectRange(
+            history.Where(s => s.Sequence != 11), sourceRange, timeline, 140_000_000)));
+        await Reject<InvalidOperationException>(() => Task.FromResult(ClipRangeSelection.SelectRange(
+            history, sourceRange with { EndUs = 141_000_000 }, timeline, 140_000_000)));
+        await Reject<InvalidOperationException>(() => Task.FromResult(ClipRangeSelection.SelectRange(
+            history, sourceRange, Guid.NewGuid().ToString("N"), 140_000_000)));
         await Reject<InvalidOperationException>(() => Task.FromResult(RecentReplay.Select(history, request, Guid.NewGuid().ToString("N"), 140_000_000)));
         await Reject<InvalidOperationException>(() => Task.FromResult(RecentReplay.Select(history, request, timeline, 138_000_000)));
         await Reject<InvalidOperationException>(() => Task.FromResult(RecentReplay.Select(history, request, timeline, 170_000_000)));

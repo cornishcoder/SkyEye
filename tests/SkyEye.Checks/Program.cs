@@ -80,13 +80,7 @@ authority.Transition(CaptureState.Stopped); authority.Transition(CaptureState.Ac
 Throws<InvalidOperationException>(() => authority.Transition(CaptureState.Ready));
 Console.WriteLine("PASS atomic ownership, guest rejection, lease expiry, stale-token rejection and session transitions");
 
-var history = Enumerable.Range(0, 310).Select(i => new Segment("s" + i, i, "one", i * 2_000_000L, 2, DateTimeOffset.UnixEpoch.AddSeconds(i * 2))).ToArray();
-foreach (int duration in ReplaySelection.Durations) { var selected = ReplaySelection.Select(history, duration, 620_000_000); Require(Math.Abs(selected.Sum(x => x.Duration) - duration) < .001, "Replay duration " + duration); }
-var afterPause = history.Concat([new Segment("new", 400, "two", 900_000_000, 2, DateTimeOffset.UnixEpoch)]).ToArray();
-Require(ReplaySelection.Select(afterPause, 600, 902_000_000).Length == 1, "Never combine footage across pause discontinuities");
-Require(ReplaySelection.Select(history.Take(3), 600, 6_000_000).Sum(x => x.Duration) == 6, "Report actual available short history");
-Throws<ArgumentException>(() => ReplaySelection.Select(history, 90, 620_000_000));
-Console.WriteLine("PASS all replay intervals, short history and pause discontinuities");
+Console.WriteLine("PASS source-time clip range selection is covered by RecentReplayChecks");
 
 var calibration = new TableCalibration([new(.1, .1), new(.9, .15), new(.85, .9), new(.15, .85)]);
 Point[] expected = [new(0, 0), new(2, 0), new(2, 1), new(0, 1)];

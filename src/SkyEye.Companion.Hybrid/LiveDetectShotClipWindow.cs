@@ -6,12 +6,12 @@ namespace SkyEye.Companion.Hybrid;
 internal readonly record struct LiveDetectShotClipWindow(Guid ActivityId, string Timeline,
     long StartSourceTimeUs, long EndSourceTimeUs, int SaveSeconds);
 
-/// <summary>Maps a completed Live Detect activity to a supported recent-clip window.</summary>
+/// <summary>Maps a completed Live Detect activity to a bounded source-time clip range.</summary>
 internal static class LiveDetectShotClipWindowPolicy
 {
     public const int LeadInSeconds = 20;
     public const int PostRollSeconds = 2;
-    const int SaveBoundarySafetySeconds = 4;
+    const int MaximumClipSeconds = 600;
     public static readonly TimeSpan PostRollWaitTimeout = TimeSpan.FromSeconds(5);
     public static readonly TimeSpan PostRollWaitPollInterval = TimeSpan.FromMilliseconds(100);
 
@@ -92,13 +92,10 @@ internal static class LiveDetectShotClipWindowPolicy
         long start = Math.Max(0, activityStartSourceTimeUs - LeadInSeconds * 1_000_000L);
         long end = checked(settledSourceTimeUs + PostRollSeconds * 1_000_000L);
         if (saveRequestSourceTimeUs < end) return false;
-        long requiredEnd = checked(Math.Max(end, saveRequestSourceTimeUs)
-            + SaveBoundarySafetySeconds * 1_000_000L);
-        long requiredSeconds = (requiredEnd - start + 999_999) / 1_000_000;
-        int saveSeconds = ReplaySelection.Durations.FirstOrDefault(seconds => seconds >= requiredSeconds);
-        if (saveSeconds == 0) return false;
+        long requestedSeconds = (end - start + 999_999) / 1_000_000;
+        if (requestedSeconds is <= 0 or > MaximumClipSeconds) return false;
 
-        window = new(activityId, timeline, start, end, saveSeconds);
+        window = new(activityId, timeline, start, end, (int)requestedSeconds);
         return true;
     }
 }

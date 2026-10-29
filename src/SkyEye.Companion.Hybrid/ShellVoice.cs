@@ -489,7 +489,7 @@ public sealed partial class ShellSession
     {
         int requested = IntArg(args, "seconds");
         if (!VoiceClipSavePolicy.TryResolve(requested, out int seconds))
-            return new { saved = false, error = "Choose 5, 30, 60, 120, 300 or 600 seconds." };
+            return new { saved = false, error = "Choose a clip window between 1 and 600 seconds." };
         bool collectionEnabled = SampleCollectionEnabled;
         if (requested == 5 && collectionEnabled)
         {
@@ -497,8 +497,7 @@ public sealed partial class ShellSession
             var sample = await TryCollectShortVoiceSaveAsync(callId, CancellationToken.None);
             if (sample is not null) return sample;
         }
-        // The installed camera supports 30 seconds as its shortest save.
-        // A 5-second voice request deliberately saves that supported window.
+        // Duration is convenience input only; the camera receives source PTS bounds.
         var state = await MainThread.InvokeOnMainThreadAsync(() => app.State);
         var camera = state.Camera;
         if (!active || foreground is null || !camera.CanControl || camera.Scope is not { } scope || string.IsNullOrWhiteSpace(client.HostToken))
@@ -526,7 +525,7 @@ public sealed partial class ShellSession
             durationSeconds = receipt.SavedClip?.Duration,
             name = receipt.SavedClip?.Name,
             message = receipt.Message,
-            limitation = requested == 5 ? "The camera's shortest save request is 30 seconds; the clip is not trimmed to five. "
+            limitation = requested == 5 ? "The saved range may include a short preceding keyframe segment. "
                 + (collectionEnabled ? "A matching player transcript was unavailable, so sample metadata was not attached." : "Sample collection is off, so no sample metadata was attached.") : null,
             clipsRefreshed = receipt.Succeeded || receipt.Outcome == CommandOutcome.Uncertain
         };
