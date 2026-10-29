@@ -17,6 +17,7 @@ internal static class LiveDetectTableEventTrackerChecks
         ObstructionWithoutMovementDoesNotProduceShotOutcome();
         SettledInventoryDecreaseProducesPotCandidate();
         ReturnedBallActivityDoesNotProduceShotClip();
+        TransientReturnCandidateDoesNotSuppressSettledPotClip();
         ReRackIsReportedWithoutShotClip();
         DecoderRecoveryDoesNotCreateMovementOrClip();
         DecoderRecoveryInterruptsActivityWithBoundedReviewClip();
@@ -136,6 +137,37 @@ internal static class LiveDetectTableEventTrackerChecks
             && ended.TableEvents.All(e => e.Type != "activity_ended_without_layout_change")
             && ended.ClipActivity is null,
             "a returned-ball candidate that reaches a new clear baseline closes without a shot clip");
+    }
+
+    static void TransientReturnCandidateDoesNotSuppressSettledPotClip()
+    {
+        var tracker = NewBaseline();
+        var movedLayout = ImmutableArray.Create(
+            new SettledBallPosition(BallColour.Red, .34, .39),
+            new SettledBallPosition(BallColour.Cue, .75, .64));
+        tracker.Observe(Sample(4, BaseCounts, movedLayout, movementObserved: true));
+
+        var transientCounts = new LiveDetectCounts(2, 0, 0, 1, 0);
+        var transientLayout = ImmutableArray.Create(
+            new SettledBallPosition(BallColour.Red, .34, .39),
+            new SettledBallPosition(BallColour.Red, .52, .48),
+            new SettledBallPosition(BallColour.Cue, .75, .64));
+        tracker.Observe(Sample(5, transientCounts, transientLayout));
+        var returnedCandidate = tracker.Observe(Sample(6, transientCounts, transientLayout));
+        Require(returnedCandidate.TableEvents.Any(e => e.Type == "balls_returned_candidate"),
+            "a repeated transient extra-ball reading remains visible as a returned-ball candidate");
+
+        var afterPotCounts = new LiveDetectCounts(1, 0, 0, 0, 0);
+        var afterPotLayout = ImmutableArray.Create(
+            new SettledBallPosition(BallColour.Red, .34, .39));
+        tracker.Observe(Sample(7, afterPotCounts, afterPotLayout, movementObserved: true));
+        tracker.Observe(Sample(8, afterPotCounts, afterPotLayout));
+        var settled = tracker.Observe(Sample(9, afterPotCounts, afterPotLayout));
+
+        Require(settled.TableEvents.Any(e => e.Type == "possible_pot_settled"),
+            "a clear stable decrease supersedes the transient increase candidate");
+        Require(settled.ClipEventType == "possible_pot_settled" && settled.ClipActivity is not null,
+            "a settled possible-pot event retains its review clip even after a transient increase");
     }
 
     static void DecoderRecoveryDoesNotCreateMovementOrClip()

@@ -275,8 +275,12 @@ internal sealed class LiveDetectTableEventTracker
                     settledChange.BeforeLayoutSourceTimeUs ?? settledChange.BeforeSourceTimeUs,
                     settledChange.MovedBallCount, settledChange.LargestMovement,
                     settledChange.BeforeLayout, settledChange.AfterLayout);
-                if (!settledRack && !settledActivity.ShotClipSuppressed
-                    && settledType is ("no_pot_observed" or "possible_pot_settled" or "settled_inventory_change"))
+                // A settled decrease still needs a review clip when an earlier,
+                // transient increase occurred in the same activity. The clip is
+                // evidence only; it does not admit a pot into canonical match state.
+                if (!settledRack
+                    && settledType is ("no_pot_observed" or "possible_pot_settled" or "settled_inventory_change")
+                    && (!settledActivity.ShotClipSuppressed || settledType == "possible_pot_settled"))
                 {
                     clipActivity = settledActivity;
                     clipEventType = settledType;

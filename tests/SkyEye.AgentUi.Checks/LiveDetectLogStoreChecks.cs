@@ -100,7 +100,8 @@ internal static class LiveDetectLogStoreChecks
                 "bounded audit keeps largest actual triggers and preserves omitted counts");
             frameStore.AppendFrame(runId, checkAt.AddSeconds(1), frame with { Obstructed = true, ObstructionAudit = compact });
             var audited = new LiveDetectLogStore(framePath).ReadLast(1).Records.Single();
-            Require(audited.SchemaVersion == 8 && audited.Frame?.ObstructionAudit is { } retainedAudit
+            Require(audited.SchemaVersion == LiveDetectLogStore.CurrentSchemaVersion
+                && audited.Frame?.ObstructionAudit is { } retainedAudit
                 && retainedAudit.AnalysisWidth == 800 && retainedAudit.Components.Length == 3
                 && retainedAudit.Components[0].BallBodyCoverageFraction == .125
                 && retainedAudit.Components[0].BallCentresInBounds == 3,
