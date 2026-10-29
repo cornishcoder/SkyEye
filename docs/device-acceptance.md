@@ -4,6 +4,16 @@ Record phone models, OS/builds, app revision, network and capture settings for e
 
 For the current Production companion's home controls, live-session flow, package identity, and read-only detector diagnostics, see [Pixel companion control guide](device-control-guide.md).
 
+## Production code47 two-second pre-roll and two-red check (29 October 2026)
+
+Source commit `93574aa` changed requested Live Detect pre-roll from 20 seconds to 2 seconds, retaining a 2-second post-roll. Production companion `0.8.39` / code47 was installed in place on Pixel 11. The guarded installer retained package identity and private storage; rollback APK: `work/production/backups/20261029-150238/before.apk`; signed APK SHA-256: `C3735E1B6FBC2C94EA69E834414FF004900D42A9C77784A19C7BBB3A38AC6367`.
+
+Physical run `6a256f4b-3d18-4e53-ae13-e1077887474e` began from a clear rack (7 reds, 7 yellows, black and cue). The user reported one red potted on the break and another red on the next shot. The detector logged 7→6 reds with cue detection falling from 1 to 0, followed by 6→5 reds while cue detection returned from 0 to 1. This agrees with the two red reports at the inventory level, but mixed cue changes mean the latter event is not a clean isolated pot classification.
+
+Three event clips were saved and all report `windowCovered=true`; each MP4 fully decodes and matches its receipt hash. Clip IDs/durations: `e0b22ebc680c4970b56e19c6fcc9f414` (15.320s actual, 14s requested), `a92e68e2321a45778a5df3ab14496356` (9.487s, 9s), and `5dfd279dbcbf448b88efa9dbf65d0d68` (7.945s, 7s). Packet PTS audited against the camera-reported origin shows keyframe lead-in of 1.533, 1.300 and 1.667 seconds. The second and third requested source ranges overlap by 1.799933 seconds. The user identifies clips 2 and 3 as one shot episode: the reducer split it into two activity records and the saver produced duplicate overlapping footage. Preserve separate table events, but coalesce their ranges into one shot clip linked to both. Then verify that two genuinely separate rapid shots still receive distinct clips. Full log, MP4s, contact sheets and screenshots are under `work/production/evidence/live-detect-preroll-20261029/`.
+
+Capture was stopped through Home **End recording session**. Independent camera `/status`: **Stopped**, revision 15, battery 100%, 82 clips, zero viewers. No Cast/TV action occurred. No match or turn decision was inferred.
+
 ## Production code47 live break/no-pot and red-pot check (29 October 2026)
 
 Production `0.8.39` / code `47` Live Detect run `456524fc-bdd2-46cb-955b-30d412c3410c` started from a clear packed 16-ball rack without a match. It established `rack_detected` and a settled baseline at 7 reds, 7 yellows, black and cue. On the first shot, the user reported a no-pot break. After a temporary player obstruction, the detector observed movement and emitted `no_pot_observed`: inventory remained 7/7/black/cue and 13 balls moved. The linked clip `f2778959b15347d684cbb4cc31b18104` (`SkyEye 29 Oct 14:39:57`) saved 31.236 seconds with `windowCovered=true`; its receipt SHA-256 is `3D95042DEEABA17429D5586A6202FB78D7A12B93CC10756299AB334865D5A342`.
