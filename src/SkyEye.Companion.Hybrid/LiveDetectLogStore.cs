@@ -31,7 +31,9 @@ internal sealed record LiveDetectLogReadout(LiveDetectLogSummary Summary, int Re
 internal sealed class LiveDetectLogStore
 {
     public const int MaximumRetainedRecords = 2000;
-    const long MaximumBytes = 4 * 1024 * 1024;
+    internal const long MaximumBytes = 4 * 1024 * 1024;
+    const int RetainedRecordTarget = MaximumRetainedRecords * 3 / 4;
+    const long RetainedBytesTarget = MaximumBytes * 3 / 4;
     static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     readonly object gate = new();
     readonly string path;
@@ -100,9 +102,23 @@ internal sealed class LiveDetectLogStore
 
     void RetainRecentRecords()
     {
-        var recent = File.ReadLines(path).Where(line => !string.IsNullOrWhiteSpace(line))
-            .TakeLast(MaximumRetainedRecords).ToArray();
-        AtomicWrite(path, string.Join("\n", recent) + (recent.Length == 0 ? "" : "\n"));
+        var recent = new Queue<(string Line, int Bytes)>();
+        long retainedBytes = 0;
+        foreach (var line in File.ReadLines(path).Where(line => !string.IsNullOrWhiteSpace(line)))
+        {
+            int bytes = Encoding.UTF8.GetByteCount(line) + 1;
+            recent.Enqueue((line, bytes));
+            retainedBytes += bytes;
+            while (recent.Count > RetainedRecordTarget || retainedBytes > RetainedBytesTarget)
+            {
+                // Keep one valid record if it alone is larger than the trim target,
+                // but never let the retained file exceed its hard maximum.
+                if (recent.Count == 1 && retainedBytes <= MaximumBytes) break;
+                retainedBytes -= recent.Dequeue().Bytes;
+            }
+        }
+        var lines = recent.Select(item => item.Line).ToArray();
+        AtomicWrite(path, string.Join("\n", lines) + (lines.Length == 0 ? "" : "\n"));
         RefreshIndex();
     }
 

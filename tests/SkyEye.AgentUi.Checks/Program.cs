@@ -19,6 +19,7 @@ static void Check(bool condition, string name) { if (!condition) throw new Excep
 static Guid OperationId(string callId, string action) => new(SHA256.HashData(Encoding.UTF8.GetBytes(callId + "\n" + action)).AsSpan(0, 16));
 
 LiveDetectCountCandidateChecks.Run();
+LiveDetectLogStoreChecks.Run();
 
 var transcript = new SkyVoiceTranscript();
 transcript.BeginSession();
