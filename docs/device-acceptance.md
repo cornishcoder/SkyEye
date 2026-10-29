@@ -4,6 +4,18 @@ Record phone models, OS/builds, app revision, network and capture settings for e
 
 For the current Production companion's home controls, live-session flow, package identity, and read-only detector diagnostics, see [Pixel companion control guide](device-control-guide.md).
 
+## Production code48 overlapping event-clip grouping attempt (29 October 2026)
+
+Source commit 3ea2210 adds same-timeline source-range grouping for overlapping event clips. Individual table events remain separate and the saved clip record links all contributing activity IDs, table-event IDs and event types. The focused Agent UI checks passed, including overlapping-range grouping, distinct/touching range separation, and timeline guards. Production Release build succeeded with 13 warnings and zero errors. Production companion 0.8.40 / code48 installed in place on Pixel 11; the guarded installer preserved package, signer, UID and private-storage identity. Rollback APK: work/production/backups/20261029-153610/before.apk. Signed APK SHA-256: CB12AEC21F24F84AC4AD1AF1B575A73B2DAB9FCC3B3ADAADF59399670BCF5158.
+
+Live Detect run f5832114-996c-4d2e-a572-ca91f3bbd8b1 began from a clear rack with 7 reds, 7 yellows, black and cue, and no match. The user reported a break with no ball potted. The event stream recorded activity_started and obstruction_started at source PTS 97006734900, clear_view_returned and movement_observed at 97012600577, then layout_uncertain at 97014601389. The camera decoder restarted and activity_interrupted was recorded at 97070573011. No confirmed settled result or shot clip candidate followed, so the run did not exercise clip grouping.
+
+After the restart, a new activity and movement_observed were recorded at 97200850555. At 97201183922 the tracker detected a new 7-red, 7-yellow, black-and-cue rack and closed the activity with “Packed rack detected; closing table activity without a shot clip.” A stable table baseline followed at 97201583955. The current run has zero clip-save records; camera clipCount remained 82 from before to after the run. This provides evidence that the packed-rack branch did not create a false shot clip. It is not a physical pass or failure of overlapping-shot grouping because the decoder interruption prevented a settled event candidate.
+
+The complete pulled schema-8 log and screenshots are under work/production/evidence/20261029-live-detect-grouping/ (run ID f5832114-996c-4d2e-a572-ca91f3bbd8b1). The final Home hierarchy confirmed Start live session and Cast. Disconnected. Camera /status: Stopped, revision 19, battery 100%, 82 clips, zero viewers. No match or Cast/TV action occurred.
+
+Next physical acceptance: start from a clear baseline, take one shot without re-racking until its settled event and clip have been inspected, and verify that one clip links all overlapping subevents. Then test two distinct quick shots and a re-rack. Keep the stop-during-post-roll path separate.
+
 ## Production code47 two-second pre-roll and two-red check (29 October 2026)
 
 Source commit `93574aa` changed requested Live Detect pre-roll from 20 seconds to 2 seconds, retaining a 2-second post-roll. Production companion `0.8.39` / code47 was installed in place on Pixel 11. The guarded installer retained package identity and private storage; rollback APK: `work/production/backups/20261029-150238/before.apk`; signed APK SHA-256: `C3735E1B6FBC2C94EA69E834414FF004900D42A9C77784A19C7BBB3A38AC6367`.
