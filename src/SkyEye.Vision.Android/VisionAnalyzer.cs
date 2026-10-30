@@ -22,17 +22,20 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     readonly bool candidateDiagnostics;
     readonly bool obstructionMaskDiagnostics;
     readonly (int Hue, int SaturationFloor, int ValueFloor, int MedianValue)? diagnosticObstructionClothRangeOverride;
+    readonly (int Minimum, int Maximum)? diagnosticObstructionNeutralValueRangeOverride;
     byte[]? lastObstructionMaskDiagnosticPng;
     readonly record struct Circle(double X, double Y, double Radius);
     readonly record struct PackedClusterEvidence(bool Detected, int RedCentres, int YellowCentres, bool BlackCentre);
     public VisionAnalyzer(int width = 1000) : this(new VisionSettings(Width: width)) { }
     public VisionAnalyzer(VisionSettings settings, bool includeBoundaryDiagnostics = false, bool includeCandidateDiagnostics = false,
         bool includeObstructionMaskDiagnostics = false,
-        (int Hue, int SaturationFloor, int ValueFloor, int MedianValue)? diagnosticObstructionClothRangeOverride = null)
+        (int Hue, int SaturationFloor, int ValueFloor, int MedianValue)? diagnosticObstructionClothRangeOverride = null,
+        (int Minimum, int Maximum)? diagnosticObstructionNeutralValueRangeOverride = null)
     {
         settings.Validate(); this.settings = settings; boundaryDiagnostics = includeBoundaryDiagnostics;
         candidateDiagnostics = includeCandidateDiagnostics; obstructionMaskDiagnostics = includeObstructionMaskDiagnostics;
         this.diagnosticObstructionClothRangeOverride = diagnosticObstructionClothRangeOverride;
+        this.diagnosticObstructionNeutralValueRangeOverride = diagnosticObstructionNeutralValueRangeOverride;
         coordinates = new(settings.Width);
     }
     public byte[]? TakeObstructionMaskDiagnosticPng()
@@ -82,6 +85,11 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 diagnosticAblations["obstructionClothRangeOverride"] = new
                 {
                     clothRange.Hue, clothRange.SaturationFloor, clothRange.ValueFloor, clothRange.MedianValue
+                };
+            if (diagnosticObstructionNeutralValueRangeOverride is { } neutralRange)
+                diagnosticAblations["obstructionNeutralValueRangeOverride"] = new
+                {
+                    neutralRange.Minimum, neutralRange.Maximum
                 };
             object identity = diagnosticAblations.Count > 0
                 ? new
@@ -773,13 +781,18 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         var sampledClothRange = ClothRange(pixels);
         var clothRange = diagnosticObstructionClothRangeOverride ?? sampledClothRange;
         using var mask = ClothMask(hsv, pixels, separateBalls: false, rangeOverride: clothRange);
-        if (clothRange.MedianValue > 0)
+        (int Minimum, int Maximum)? sampledNeutralValueRange = sampledClothRange.MedianValue > 0
+            ? ((int)Math.Floor(sampledClothRange.MedianValue * .25), (int)Math.Ceiling(sampledClothRange.MedianValue * 1.8))
+            : null;
+        (int Minimum, int Maximum)? clothRangeNeutralValueRange = clothRange.MedianValue > 0
+            ? ((int)Math.Floor(clothRange.MedianValue * .25), (int)Math.Ceiling(clothRange.MedianValue * 1.8))
+            : null;
+        var appliedNeutralValueRange = diagnosticObstructionNeutralValueRangeOverride ?? clothRangeNeutralValueRange;
+        if (appliedNeutralValueRange is { } neutralRange)
         {
-            int minimumNeutralValue = (int)Math.Floor(clothRange.MedianValue * .25);
-            int maximumNeutralValue = (int)Math.Ceiling(clothRange.MedianValue * 1.8);
             using var neutral = new MatLease(new Mat());
-            using var low = new Scalar(0, 0, minimumNeutralValue);
-            using var high = new Scalar(179, 45, Math.Min(255, maximumNeutralValue));
+            using var low = new Scalar(0, 0, neutralRange.Minimum);
+            using var high = new Scalar(179, 45, Math.Min(255, neutralRange.Maximum));
             Cv.InRange(hsv, low, high, neutral.Value);
             Cv.Bitwise_or(mask.Value, neutral.Value, mask.Value);
         }
@@ -897,6 +910,10 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             DiagnosticAppliedClothSaturationFloor = obstructionMaskDiagnostics ? clothRange.SaturationFloor : null,
             DiagnosticAppliedClothValueFloor = obstructionMaskDiagnostics ? clothRange.ValueFloor : null,
             DiagnosticAppliedClothMedianValue = obstructionMaskDiagnostics ? clothRange.MedianValue : null,
+            DiagnosticSampledNeutralMinimumValue = obstructionMaskDiagnostics ? sampledNeutralValueRange?.Minimum : null,
+            DiagnosticSampledNeutralMaximumValue = obstructionMaskDiagnostics ? sampledNeutralValueRange?.Maximum : null,
+            DiagnosticAppliedNeutralMinimumValue = obstructionMaskDiagnostics ? appliedNeutralValueRange?.Minimum : null,
+            DiagnosticAppliedNeutralMaximumValue = obstructionMaskDiagnostics ? appliedNeutralValueRange?.Maximum : null,
         };
         return triggeringComponents > 0;
     }

@@ -48,6 +48,10 @@ public sealed record ObstructionAuditTelemetry(int AnalysisWidth, int AnalysisHe
     public int? DiagnosticAppliedClothSaturationFloor { get; init; }
     public int? DiagnosticAppliedClothValueFloor { get; init; }
     public int? DiagnosticAppliedClothMedianValue { get; init; }
+    public int? DiagnosticSampledNeutralMinimumValue { get; init; }
+    public int? DiagnosticSampledNeutralMaximumValue { get; init; }
+    public int? DiagnosticAppliedNeutralMinimumValue { get; init; }
+    public int? DiagnosticAppliedNeutralMaximumValue { get; init; }
 }
 public sealed record PocketColourRegionAudit(Point Centre, int ColouredPixels, int ExplainedPixels,
     int UnexplainedPixels, int SupportedBallBodies, bool NeedsReview);

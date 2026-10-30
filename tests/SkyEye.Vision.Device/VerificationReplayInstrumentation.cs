@@ -22,6 +22,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
     int sparseBlackCandidateLimit = 12;
     bool sparseBlackRankByRadius = VisionSettings.DefaultSparseBlackRankByRadius;
     (int Hue, int SaturationFloor, int ValueFloor, int MedianValue)? diagnosticObstructionClothRangeOverride;
+    (int Minimum, int Maximum)? diagnosticObstructionNeutralValueRangeOverride;
     string run = "";
     public override void OnCreate(global::Android.OS.Bundle? args)
     {
@@ -115,6 +116,20 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 throw new ArgumentOutOfRangeException(nameof(requestedObstructionHue), "Diagnostic obstruction cloth range values are outside HSV bounds.");
             diagnosticObstructionClothRangeOverride = (hue, saturationFloor, valueFloor, medianValue);
         }
+        var requestedNeutralMinimum = args?.GetString("obstructionNeutralMinimum");
+        var requestedNeutralMaximum = args?.GetString("obstructionNeutralMaximum");
+        int requestedNeutralRangeCount = new[] { requestedNeutralMinimum, requestedNeutralMaximum }
+            .Count(value => !string.IsNullOrWhiteSpace(value));
+        if (requestedNeutralRangeCount is 1 || requestedNeutralRangeCount == 2 && !obstructionMaskTrace)
+            throw new ArgumentException("A diagnostic obstruction neutral range needs both values and obstruction-mask tracing.");
+        if (requestedNeutralRangeCount == 2)
+        {
+            if (!int.TryParse(requestedNeutralMinimum, NumberStyles.Integer, CultureInfo.InvariantCulture, out int minimum)
+                || !int.TryParse(requestedNeutralMaximum, NumberStyles.Integer, CultureInfo.InvariantCulture, out int maximum)
+                || minimum is < 0 or > 255 || maximum is < 0 or > 255 || maximum < minimum)
+                throw new ArgumentOutOfRangeException(nameof(requestedNeutralMinimum), "Diagnostic obstruction neutral range must satisfy 0 <= minimum <= maximum <= 255.");
+            diagnosticObstructionNeutralValueRangeOverride = (minimum, maximum);
+        }
         run = args?.GetString("run") ?? "";
         fastWidth = int.TryParse(args?.GetString("fastWidth"), out var requestedWidth) ? requestedWidth : 0;
         if (int.TryParse(args?.GetString("darkCeiling"), out var requestedDarkCeiling)) darkBodyCeiling = requestedDarkCeiling;
@@ -158,9 +173,9 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     UseNormalizedPackedColourProposalMask = useNormalizedProposalMask
                 };
             var analyzer800 = new VisionAnalyzer(ReplaySettings(800), boundaryAudit, boundaryAudit, obstructionMaskTrace,
-                diagnosticObstructionClothRangeOverride);
+                diagnosticObstructionClothRangeOverride, diagnosticObstructionNeutralValueRangeOverride);
             var analyzer1000 = new VisionAnalyzer(ReplaySettings(1000), boundaryAudit, boundaryAudit, obstructionMaskTrace,
-                diagnosticObstructionClothRangeOverride);
+                diagnosticObstructionClothRangeOverride, diagnosticObstructionNeutralValueRangeOverride);
             var fastAnalyzer = fastWidth > 0 ? new VisionAnalyzer(ReplaySettings(fastWidth)) : null;
             var normalizedGeometryAnalyzer800 = normalizedGeometry
                 ? new VisionAnalyzer(ReplaySettings(800, useNormalizedGeometry: true), boundaryAudit, boundaryAudit)
@@ -532,7 +547,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             var analysisConsensus800 = VerificationConsensus.Resolve(analyses800, out var analysisConflict800);
             var analysisConsensus1000 = VerificationConsensus.Resolve(analyses1000, out var analysisConflict1000);
             report = new { completed = true, configuration = ObservationPolicy.VerificationConfiguration, bodyRefinement = refinement, boundaryAudit,
-                obstructionMaskTrace, diagnosticObstructionClothRangeOverride, darkBodyValueCeiling = darkBodyCeiling,
+                obstructionMaskTrace, diagnosticObstructionClothRangeOverride, diagnosticObstructionNeutralValueRangeOverride,
+                darkBodyValueCeiling = darkBodyCeiling,
                 localIlluminationNormalization,
                 pocketExclusionRadius, minimumHoughBoundarySupport = minimumBoundarySupport,
                 minimumSparseColourBoundarySupport,

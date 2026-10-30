@@ -21,7 +21,9 @@ param(
     [int]$ObstructionClothHue = -1,
     [int]$ObstructionClothSaturationFloor = -1,
     [int]$ObstructionClothValueFloor = -1,
-    [int]$ObstructionClothMedianValue = -1
+    [int]$ObstructionClothMedianValue = -1,
+    [int]$ObstructionNeutralMinimum = -1,
+    [int]$ObstructionNeutralMaximum = -1
 )
 
 $ErrorActionPreference = 'Stop'
@@ -42,6 +44,16 @@ if ($specifiedObstructionClothRange -eq 4) {
     if (($ObstructionClothHue -gt 179) -or ($ObstructionClothSaturationFloor -gt 255) -or
         ($ObstructionClothValueFloor -gt 255) -or ($ObstructionClothMedianValue -lt 1) -or ($ObstructionClothMedianValue -gt 255)) {
         throw 'Obstruction cloth hue must be 0–179; saturation/value floors 0–255; median value 1–255.'
+    }
+}
+$obstructionNeutralRange = @($ObstructionNeutralMinimum, $ObstructionNeutralMaximum)
+$specifiedObstructionNeutralRange = @($obstructionNeutralRange | Where-Object { $_ -ge 0 }).Count
+if ($specifiedObstructionNeutralRange -notin @(0, 2)) { throw 'Obstruction neutral range override requires both values.' }
+if ($specifiedObstructionNeutralRange -eq 2) {
+    if (-not $ObstructionMaskTrace) { throw 'Obstruction neutral range override requires -ObstructionMaskTrace.' }
+    if (($ObstructionNeutralMinimum -gt 255) -or ($ObstructionNeutralMaximum -gt 255) -or
+        ($ObstructionNeutralMaximum -lt $ObstructionNeutralMinimum)) {
+        throw 'Obstruction neutral range must satisfy 0 <= minimum <= maximum <= 255.'
     }
 }
 
@@ -149,6 +161,10 @@ if ($specifiedObstructionClothRange -eq 4) {
         '-e', 'obstructionClothValueFloor', "$ObstructionClothValueFloor",
         '-e', 'obstructionClothMedianValue', "$ObstructionClothMedianValue")
 }
+if ($specifiedObstructionNeutralRange -eq 2) {
+    $instrumentArguments += @('-e', 'obstructionNeutralMinimum', "$ObstructionNeutralMinimum",
+        '-e', 'obstructionNeutralMaximum', "$ObstructionNeutralMaximum")
+}
 if ($TraceBlackMask) { $instrumentArguments += @('-e', 'trace', '1', '-e', 'blackLabelX', "$BlackLabelX", '-e', 'blackLabelY', "$BlackLabelY") }
 $instrumentArguments += $instrumentation
 $instrumentResult = Invoke-Adb (@('-s', $serial) + $instrumentArguments)
@@ -218,6 +234,9 @@ $manifest = [pscustomobject]@{
     obstructionMaskTrace = [bool]$ObstructionMaskTrace
     diagnosticObstructionClothRangeOverride = if ($specifiedObstructionClothRange -eq 4) {
         [pscustomobject]@{ hue = $ObstructionClothHue; saturationFloor = $ObstructionClothSaturationFloor; valueFloor = $ObstructionClothValueFloor; medianValue = $ObstructionClothMedianValue }
+    } else { $null }
+    diagnosticObstructionNeutralValueRangeOverride = if ($specifiedObstructionNeutralRange -eq 2) {
+        [pscustomobject]@{ minimum = $ObstructionNeutralMinimum; maximum = $ObstructionNeutralMaximum }
     } else { $null }
     obstructionMasks = $maskArtifacts
     traceBlackMask = [bool]$TraceBlackMask
