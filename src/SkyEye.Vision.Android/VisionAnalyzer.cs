@@ -879,6 +879,10 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             PackedClusterMinimumBallBodyCoverageFraction = packedClusterMinimumBallBodyCoverageFraction,
             BallGroupExemptionMinimumCentres = ballGroupExemptionMinimumCentres,
             BallGroupExemptionMinimumBallBodyCoverageFraction = ballGroupExemptionMinimumBodyCoverageFraction,
+            DiagnosticClothHue = obstructionMaskDiagnostics ? clothRange.Hue : null,
+            DiagnosticClothSaturationFloor = obstructionMaskDiagnostics ? clothRange.SaturationFloor : null,
+            DiagnosticClothValueFloor = obstructionMaskDiagnostics ? clothRange.ValueFloor : null,
+            DiagnosticClothMedianValue = obstructionMaskDiagnostics ? clothRange.MedianValue : null,
         };
         return triggeringComponents > 0;
     }

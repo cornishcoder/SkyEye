@@ -38,6 +38,12 @@ public sealed record ObstructionAuditTelemetry(int AnalysisWidth, int AnalysisHe
     public double PackedClusterMinimumBallBodyCoverageFraction { get; init; }
     public int BallGroupExemptionMinimumCentres { get; init; }
     public double BallGroupExemptionMinimumBallBodyCoverageFraction { get; init; }
+    // Populated only by explicit obstruction-mask diagnostics. These let an
+    // offline replay explain why a static cloth patch became a non-cloth region.
+    public int? DiagnosticClothHue { get; init; }
+    public int? DiagnosticClothSaturationFloor { get; init; }
+    public int? DiagnosticClothValueFloor { get; init; }
+    public int? DiagnosticClothMedianValue { get; init; }
 }
 public sealed record PocketColourRegionAudit(Point Centre, int ColouredPixels, int ExplainedPixels,
     int UnexplainedPixels, int SupportedBallBodies, bool NeedsReview);
