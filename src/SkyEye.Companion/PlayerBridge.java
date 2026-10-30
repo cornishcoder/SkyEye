@@ -194,7 +194,7 @@ public final class PlayerBridge {
         annotationRecorder.drawn(snapshot,tvScene==null?"":tvScene.toString(),true,generation);
         try{return tvDrawing.metrics(snapshot,generation,position).put("watermarked",true).put("rectangular",framed).put("pocketPixels",mappedPockets(framed?tvScene:null,matrix,output.getWidth(),output.getHeight())).toString();}catch(Exception ignored){return "{}";}
     }
-    public void play(String url){generation++;annotationRecorder.reset(generation);decodedLedger.reset(generation);
+    public void play(String url){texture.setVisibility(View.VISIBLE);generation++;annotationRecorder.reset(generation);decodedLedger.reset(generation);
         long frameGeneration=generation;
         player.setVideoFrameMetadataListener((pts,release,format,mediaFormat)->{
             if(frameGeneration!=generation)return;
@@ -220,7 +220,9 @@ public final class PlayerBridge {
             player.setMediaSource(new androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(new androidx.media3.datasource.DefaultDataSource.Factory(container.getContext()),extractors)
                 .setContinueLoadingCheckIntervalBytes(16384).createMediaSource(new MediaItem.Builder().setUri(url).setMimeType(MimeTypes.VIDEO_MP2T).build()));
         }else player.setMediaItem(MediaItem.fromUri(url));player.prepare();player.play();}
-    public void stop(){generation++;annotationRecorder.reset(generation);decodedLedger.reset(generation);tableDrawing.reset();tvDrawing.reset();drawing.set("{}");phoneScene="{}";activeUrl="";player.stop();player.clearMediaItems();}
+    public void stop(){generation++;annotationRecorder.reset(generation);decodedLedger.reset(generation);tableDrawing.reset();tvDrawing.reset();drawing.set("{}");phoneScene="{}";activeUrl="";player.stop();player.clearMediaItems();
+        // TextureView keeps its last decoded buffer after ExoPlayer stops. Hide it until a new source is played so a disconnected camera is not shown as live.
+        texture.setVisibility(View.INVISIBLE);}
     public void setMuted(boolean muted){player.setVolume(muted?0:1);}
     public void setPortrait(boolean portrait){rotation=portrait?90:0;transform();}
     private void transform(){float w=texture.getWidth(),h=texture.getHeight();if(w<=0||h<=0)return;sceneApplied=false;texture.setClipBounds(null);
