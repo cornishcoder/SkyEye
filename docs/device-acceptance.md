@@ -1,5 +1,11 @@
 # Physical-device acceptance
 
+## Production code59 pocket/cushion verifier diagnosis — 30 October 2026
+
+A bounded verifier capture on the black-absent pocket/cushion layout is recorded under `work/production/evidence/code59-pocket-frame/verifier-277b9c2f233a40cabb5109e113b21d3a/`. The user confirmed the black was intentionally removed; the visible expected inventory is 7 reds, 7 yellows and cue. The capture saved three of five required source-frame/receipt pairs, and the UI returned `Unsettled (Moving)`. The first and last analyzed images show no visible ball movement; detector centres nevertheless shifted one pocket-adjacent red by 7.526px while the independent colour-template displacement was only 0.273px. Both detections were layout-uncertain. Commit `5b9f4dc` now prevents uncertain detections at either end of an association from establishing positive movement. Focused checks passed with `dotnet run --project tests/SkyEye.Checks -- --game-tracking`.
+
+The same frames were replayed through the current Pixel 11 Vision Device package with receipt hashes verified. Default 800px results were 9/15 and 8/15; combined diagnostic changes recovered 13/15 and 13–14/15, still uncertain. No Production detector threshold was changed, and this motion fix has not yet been installed in Production. Final camera `/status` was `Stopped`, revision 51, battery 100%, 134 clips and zero viewers; Pixel 11 Home showed `Start live session`. No Cast/TV or mounted-camera package action occurred. Full replay settings, report hashes and next steps are in the [Live Detect plan](live-detect-plan.md#code59-pocketcushion-capture-and-false-motion-correction--30-october-2026).
+
 ## Production code59 raw-pixel live check — 30 October 2026
 
 Production companion `0.8.51` / code59 was built successfully (13 existing warnings, zero errors) and installed in place on Pixel 11. The guarded install preserved the app UID and private storage; rollback APK: `work/production/backups/20261030-210356/before.apk`. Installed APK SHA-256: `80266694C627F540FDFCD71AC33CFA7E5FA10EADF425B83DFAFA1D570B38B364`. The isolated Vision Device package used for offline replay was not installed during this deployment.
