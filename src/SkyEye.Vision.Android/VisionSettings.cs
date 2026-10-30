@@ -35,6 +35,9 @@ public sealed record VisionSettings(int Width = 1000, double MinimumRadius = 18,
     public double SparseBlackBoundarySearchExtentFraction { get; init; } = .4;
     public double MinimumSparseBlackBoundarySupport { get; init; } = .7;
     public int SparseBlackCandidateLimit { get; init; } = 12;
+    // Diagnostic ranking experiment: consider larger dark interiors before
+    // painted-ball proximity; production keeps the current order by default.
+    public bool SparseBlackRankByRadius { get; init; }
     // Keep the conservative default: source-time-paired brighter footage replayed
     // at 55 lost the black at 1000px in three of six frames; 40 retained all 16.
     public int DarkBodyValueCeiling { get; init; } = 40;

@@ -75,6 +75,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 diagnosticAblations["minimumSparseBlackBoundarySupport"] = settings.MinimumSparseBlackBoundarySupport;
             if (settings.SparseBlackCandidateLimit != 12)
                 diagnosticAblations["sparseBlackCandidateLimit"] = settings.SparseBlackCandidateLimit;
+            if (settings.SparseBlackRankByRadius)
+                diagnosticAblations["sparseBlackRankByRadius"] = true;
             object identity = diagnosticAblations.Count > 0
                 ? new
                 {

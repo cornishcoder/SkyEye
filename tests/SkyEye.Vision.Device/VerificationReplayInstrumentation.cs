@@ -18,7 +18,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
     double boundaryExtentFraction = .65, pocketExclusionRadius = 55, minimumBoundarySupport = .75,
         minimumSparseColourBoundarySupport = .75, sparseBlackSearchExtentFraction = .4,
         minimumSparseBlackBoundarySupport = .7;
-    int sparseBlackCandidateLimit = 12; string run = "";
+    int sparseBlackCandidateLimit = 12; bool sparseBlackRankByRadius; string run = "";
     public override void OnCreate(global::Android.OS.Bundle? args)
     {
         refinement = args?.GetString("refine") == "1"; dump = args?.GetString("dump") == "1";
@@ -82,6 +82,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             && (!int.TryParse(requestedSparseBlackLimit, NumberStyles.Integer, CultureInfo.InvariantCulture, out sparseBlackCandidateLimit)
                 || sparseBlackCandidateLimit is < 1 or > 64))
             throw new ArgumentOutOfRangeException(nameof(sparseBlackCandidateLimit), "Sparse-black candidate limit must be between 1 and 64.");
+        sparseBlackRankByRadius = args?.GetString("sparseBlackRadiusRank") is "1" or "true";
         run = args?.GetString("run") ?? "";
         fastWidth = int.TryParse(args?.GetString("fastWidth"), out var requestedWidth) ? requestedWidth : 0;
         if (int.TryParse(args?.GetString("darkCeiling"), out var requestedDarkCeiling)) darkBodyCeiling = requestedDarkCeiling;
@@ -117,6 +118,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     SparseBlackBoundarySearchExtentFraction = sparseBlackSearchExtentFraction,
                     MinimumSparseBlackBoundarySupport = minimumSparseBlackBoundarySupport,
                     SparseBlackCandidateLimit = sparseBlackCandidateLimit,
+                    SparseBlackRankByRadius = sparseBlackRankByRadius,
                     PackedClusterImageEdgeMargin = edgeMargin,
                     PackedColourBoundarySearchExtentFraction = boundaryExtent,
                     UseNormalizedGeometryForDetection = useNormalizedGeometry,
@@ -494,7 +496,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 pocketExclusionRadius, minimumHoughBoundarySupport = minimumBoundarySupport,
                 minimumSparseColourBoundarySupport,
                 sparseBlackSearchExtentFraction, minimumSparseBlackBoundarySupport,
-                sparseBlackCandidateLimit,
+                sparseBlackCandidateLimit, sparseBlackRankByRadius,
                 normalizedGeometryAblation = normalizedGeometry,
                 normalizedPackedProposalMaskAblation = normalizedPackedProposalMask,
                 packedColourBoundarySearchExtentFraction = boundaryExtentAblation ? boundaryExtentFraction : (double?)null,

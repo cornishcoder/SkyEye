@@ -10,6 +10,7 @@ param(
     [double]$SparseBlackSearchExtent = 0.4,
     [double]$SparseBlackSupport = 0.7,
     [int]$SparseBlackCandidateLimit = 12,
+    [switch]$SparseBlackRankByRadius,
     [switch]$ObstructionMaskTrace,
     [switch]$TraceBlackMask,
     [int]$BlackLabelX = 1282,
@@ -105,6 +106,7 @@ $instrumentArguments = @('shell', 'am', 'instrument', '-w', '-e', 'run', $run,
     '-e', 'sparseColourSupport', "$SparseColourSupport",
     '-e', 'sparseBlackExtent', "$SparseBlackSearchExtent", '-e', 'sparseBlackSupport', "$SparseBlackSupport",
     '-e', 'sparseBlackLimit', "$SparseBlackCandidateLimit")
+if ($SparseBlackRankByRadius) { $instrumentArguments += @('-e', 'sparseBlackRadiusRank', '1') }
 if ($ObstructionMaskTrace) { $instrumentArguments += @('-e', 'obstructionMaskTrace', '1') }
 if ($TraceBlackMask) { $instrumentArguments += @('-e', 'trace', '1', '-e', 'blackLabelX', "$BlackLabelX", '-e', 'blackLabelY', "$BlackLabelY") }
 $instrumentArguments += $instrumentation
@@ -178,6 +180,7 @@ $manifest = [pscustomobject]@{
     sparseBlackBoundarySearchExtentFraction = $SparseBlackSearchExtent
     minimumSparseBlackBoundarySupport = $SparseBlackSupport
     sparseBlackCandidateLimit = $SparseBlackCandidateLimit
+    sparseBlackRankByRadius = [bool]$SparseBlackRankByRadius
     sourceFrames = $inputs | ForEach-Object {
         [pscustomobject]@{ frameId = $_.Receipt.indexedFrame.frameId; png = [IO.Path]::GetFileName($_.PngPath); receipt = [IO.Path]::GetFileName($_.JsonPath); sha256 = $_.Hash }
     }

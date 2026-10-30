@@ -202,17 +202,21 @@ public sealed partial class VisionAnalyzer
             Top: edgeMargin, Bottom: coordinates.Height - edgeMargin);
         var seeds = FindPeakSeeds(dark.Value, scale, 8 * scale, bounds)
             .Where(seed => seed.Radius <= settings.MaximumRadius * scale).ToArray();
-        // Prefer peaks near already supported painted bodies, then larger dark
-        // interiors. The 12-fit limit bounds the extra work in a sparse scene.
-        var rankedSeeds = seeds.Select(seed => (Seed: seed,
-                ColourDistance: colourBalls.Length == 0 ? double.PositiveInfinity : colourBalls
-                    .Min(ball => (new Point(ball.Body.X, ball.Body.Y) - seed.Centre).Length)))
-            .OrderBy(candidate => candidate.ColourDistance)
-            .ThenByDescending(candidate => candidate.Seed.Radius)
-            .Take(settings.SparseBlackCandidateLimit).ToArray();
+        // Prefer peaks near supported painted bodies by default. A diagnostic
+        // ablation can prioritize larger dark interiors to test isolated-black
+        // recovery without raising the bounded candidate-fit budget.
+        var candidates = seeds.Select(seed => (Seed: seed,
+            ColourDistance: colourBalls.Length == 0 ? double.PositiveInfinity : colourBalls
+                .Min(ball => (new Point(ball.Body.X, ball.Body.Y) - seed.Centre).Length))).ToArray();
+        var ranked = settings.SparseBlackRankByRadius
+            ? candidates.OrderByDescending(candidate => candidate.Seed.Radius)
+                .ThenBy(candidate => candidate.ColourDistance)
+            : candidates.OrderBy(candidate => candidate.ColourDistance)
+                .ThenByDescending(candidate => candidate.Seed.Radius);
+        var rankedSeeds = ranked.Take(settings.SparseBlackCandidateLimit).ToArray();
         candidateAudits?.Add(new(pass, "sparse-black-search", "black", seeds.Length,
             new((bounds.Left + bounds.Right) / 2, (bounds.Top + bounds.Bottom) / 2), 0, null, null, null, null,
-            $"ball-sized-full-table-seeds={seeds.Length};colour-proximity-ranked={rankedSeeds.Length};fit-cap={settings.SparseBlackCandidateLimit}"));
+            $"ball-sized-full-table-seeds={seeds.Length};ranking={(settings.SparseBlackRankByRadius ? "dark-radius-then-colour-proximity" : "colour-proximity-then-dark-radius")};ranked={rankedSeeds.Length};fit-cap={settings.SparseBlackCandidateLimit}"));
         double expectedRadius = PoolGeometry.Radius * coordinates.Width;
         for (int i = 0; i < rankedSeeds.Length; i++)
         {
