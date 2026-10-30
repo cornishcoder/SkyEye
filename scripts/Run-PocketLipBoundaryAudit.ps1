@@ -4,6 +4,9 @@ param(
     [string]$RunPrefix = 'pocketlip30',
     [string]$Purpose = 'Current-code exact-frame candidate and boundary audit for the Oct 30 pocket-lip fixture.',
     [int]$EdgeMargin = 65,
+    [double]$PocketRadius = 55,
+    [double]$BoundarySupport = 0.75,
+    [double]$SparseColourSupport = 0.75,
     [switch]$ObstructionMaskTrace,
     [switch]$TraceBlackMask,
     [int]$BlackLabelX = 1282,
@@ -12,6 +15,9 @@ param(
 
 $ErrorActionPreference = 'Stop'
 if ($EdgeMargin -lt 0 -or $EdgeMargin -gt 100) { throw 'EdgeMargin must be between 0 and 100 pixels at width 1000.' }
+if ($PocketRadius -le 0 -or $PocketRadius -gt 80) { throw 'PocketRadius must be greater than 0 and at most 80 pixels at width 1000.' }
+if ($BoundarySupport -lt 0.5625 -or $BoundarySupport -gt 1) { throw 'BoundarySupport must be between 0.5625 and 1.' }
+if ($SparseColourSupport -lt 0.5625 -or $SparseColourSupport -gt 1) { throw 'SparseColourSupport must be between 0.5625 and 1.' }
 if ($BlackLabelX -lt 0 -or $BlackLabelY -lt 0) { throw 'Black label coordinates must be non-negative source-image pixels.' }
 
 $adb = 'C:\Program Files (x86)\Android\android-sdk\platform-tools\adb.exe'
@@ -87,7 +93,10 @@ foreach ($input in $inputs) {
     }
 }
 
-$instrumentArguments = @('shell', 'am', 'instrument', '-w', '-e', 'run', $run, '-e', 'audit', '1', '-e', 'edgeMargin', "$EdgeMargin")
+$instrumentArguments = @('shell', 'am', 'instrument', '-w', '-e', 'run', $run,
+    '-e', 'audit', '1', '-e', 'edgeMargin', "$EdgeMargin",
+    '-e', 'pocketRadius', "$PocketRadius", '-e', 'boundarySupport', "$BoundarySupport",
+    '-e', 'sparseColourSupport', "$SparseColourSupport")
 if ($ObstructionMaskTrace) { $instrumentArguments += @('-e', 'obstructionMaskTrace', '1') }
 if ($TraceBlackMask) { $instrumentArguments += @('-e', 'trace', '1', '-e', 'blackLabelX', "$BlackLabelX", '-e', 'blackLabelY', "$BlackLabelY") }
 $instrumentArguments += $instrumentation
@@ -155,6 +164,9 @@ $manifest = [pscustomobject]@{
     manualBlackLabelSourcePixel = if ($TraceBlackMask) { [pscustomobject]@{ x = $BlackLabelX; y = $BlackLabelY } } else { $null }
     blackMaskTraces = $blackMaskArtifacts
     packedClusterImageEdgeMargin = $EdgeMargin
+    pocketExclusionRadius = $PocketRadius
+    minimumHoughBoundarySupport = $BoundarySupport
+    minimumSparseColourBoundarySupport = $SparseColourSupport
     sourceFrames = $inputs | ForEach-Object {
         [pscustomobject]@{ frameId = $_.Receipt.indexedFrame.frameId; png = [IO.Path]::GetFileName($_.PngPath); receipt = [IO.Path]::GetFileName($_.JsonPath); sha256 = $_.Hash }
     }

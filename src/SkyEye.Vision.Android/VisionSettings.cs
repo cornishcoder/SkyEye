@@ -27,6 +27,9 @@ public sealed record VisionSettings(int Width = 1000, double MinimumRadius = 18,
     // Separately replay the whole-table proposal fix against the v2 cue branch.
     public bool BodyProposalPriority { get; init; } = true;
     public double MinimumHoughBoundarySupport { get; init; } = .75;
+    // Diagnostic-only threshold for admitting isolated packed-colour proposals;
+    // the production default remains the conservative 24/32-sector gate.
+    public double MinimumSparseColourBoundarySupport { get; init; } = .75;
     // Keep the conservative default: source-time-paired brighter footage replayed
     // at 55 lost the black at 1000px in three of six frames; 40 retained all 16.
     public int DarkBodyValueCeiling { get; init; } = 40;
@@ -42,6 +45,8 @@ public sealed record VisionSettings(int Width = 1000, double MinimumRadius = 18,
             throw new ArgumentException("Invalid table vision settings.");
         if (!double.IsFinite(MinimumHoughBoundarySupport) || MinimumHoughBoundarySupport is < .5625 or > 1)
             throw new ArgumentException("Invalid Hough body boundary support.");
+        if (!double.IsFinite(MinimumSparseColourBoundarySupport) || MinimumSparseColourBoundarySupport is < .5625 or > 1)
+            throw new ArgumentException("Invalid sparse-colour body boundary support.");
         if (!double.IsFinite(PackedColourBoundarySearchExtentFraction) || PackedColourBoundarySearchExtentFraction is < .2 or > .8)
             throw new ArgumentException("Invalid packed-colour boundary search extent.");
         if (PackedClusterImageEdgeMargin is < 0 or > 100)

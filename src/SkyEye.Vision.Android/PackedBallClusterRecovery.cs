@@ -61,7 +61,7 @@ public sealed partial class VisionAnalyzer
             // separated from every other admitted body. This keeps an isolated
             // red from disappearing merely because the table no longer has a
             // rack-sized cluster.
-            const double minimumSparseBoundarySupport = .75;
+            double minimumSparseBoundarySupport = settings.MinimumSparseColourBoundarySupport;
             var admittedSparseBodies = new List<Point>();
             for (int i = 0; i < proposals.Length; i++)
             {

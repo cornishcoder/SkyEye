@@ -15,7 +15,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
     bool refinement, dump, boundaryAudit, traceDarkMask, normalizedGeometry, normalizedPackedProposalMask, boundaryExtentAblation,
         edgeMarginAblation, continueCalibrationMismatch, obstructionMaskTrace;
     int fastWidth, darkBodyCeiling = 40, packedClusterImageEdgeMargin = 65, manualBlackImageX = 1282, manualBlackImageY = 536;
-    double boundaryExtentFraction = .65; string run = "";
+    double boundaryExtentFraction = .65, pocketExclusionRadius = 55, minimumBoundarySupport = .75,
+        minimumSparseColourBoundarySupport = .75; string run = "";
     public override void OnCreate(global::Android.OS.Bundle? args)
     {
         refinement = args?.GetString("refine") == "1"; dump = args?.GetString("dump") == "1";
@@ -49,6 +50,21 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 throw new ArgumentOutOfRangeException(nameof(packedClusterImageEdgeMargin), "Packed-cluster image edge margin must be between 0 and 100 pixels at width 1000.");
             edgeMarginAblation = packedClusterImageEdgeMargin != 65;
         }
+        var requestedPocketRadius = args?.GetString("pocketRadius");
+        if (!string.IsNullOrWhiteSpace(requestedPocketRadius)
+            && (!double.TryParse(requestedPocketRadius, NumberStyles.Float, CultureInfo.InvariantCulture, out pocketExclusionRadius)
+                || !double.IsFinite(pocketExclusionRadius) || pocketExclusionRadius is <= 0 or > 80))
+            throw new ArgumentOutOfRangeException(nameof(pocketExclusionRadius), "Pocket exclusion radius must be greater than 0 and at most 80 pixels at width 1000.");
+        var requestedBoundarySupport = args?.GetString("boundarySupport");
+        if (!string.IsNullOrWhiteSpace(requestedBoundarySupport)
+            && (!double.TryParse(requestedBoundarySupport, NumberStyles.Float, CultureInfo.InvariantCulture, out minimumBoundarySupport)
+                || !double.IsFinite(minimumBoundarySupport) || minimumBoundarySupport is < .5625 or > 1))
+            throw new ArgumentOutOfRangeException(nameof(minimumBoundarySupport), "Minimum boundary support must be between 0.5625 and 1.");
+        var requestedSparseColourSupport = args?.GetString("sparseColourSupport");
+        if (!string.IsNullOrWhiteSpace(requestedSparseColourSupport)
+            && (!double.TryParse(requestedSparseColourSupport, NumberStyles.Float, CultureInfo.InvariantCulture, out minimumSparseColourBoundarySupport)
+                || !double.IsFinite(minimumSparseColourBoundarySupport) || minimumSparseColourBoundarySupport is < .5625 or > 1))
+            throw new ArgumentOutOfRangeException(nameof(minimumSparseColourBoundarySupport), "Minimum sparse-colour boundary support must be between 0.5625 and 1.");
         run = args?.GetString("run") ?? "";
         fastWidth = int.TryParse(args?.GetString("fastWidth"), out var requestedWidth) ? requestedWidth : 0;
         if (int.TryParse(args?.GetString("darkCeiling"), out var requestedDarkCeiling)) darkBodyCeiling = requestedDarkCeiling;
@@ -73,38 +89,45 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             var recordedConfiguration = firstMetadata.TryGetProperty("analyzerConfigurationIdentity", out var configurationElement)
                 ? configurationElement.GetString() : null;
             var calibration = new TableCalibration(corners);
-            var analyzer800 = new VisionAnalyzer(new VisionSettings(Width: 800) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling }, boundaryAudit, boundaryAudit, obstructionMaskTrace);
-            var analyzer1000 = new VisionAnalyzer(new VisionSettings(Width: 1000) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling }, boundaryAudit, boundaryAudit, obstructionMaskTrace);
-            var fastAnalyzer = fastWidth > 0 ? new VisionAnalyzer(new VisionSettings(Width: fastWidth) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling }) : null;
+            VisionSettings ReplaySettings(int width, int edgeMargin = 65, double boundaryExtent = .65,
+                bool useNormalizedGeometry = false, bool useNormalizedProposalMask = false)
+                => new(Width: width, PocketExclusionRadius: pocketExclusionRadius)
+                {
+                    VerificationBodyRefinement = refinement,
+                    DarkBodyValueCeiling = darkBodyCeiling,
+                    MinimumHoughBoundarySupport = minimumBoundarySupport,
+                    MinimumSparseColourBoundarySupport = minimumSparseColourBoundarySupport,
+                    PackedClusterImageEdgeMargin = edgeMargin,
+                    PackedColourBoundarySearchExtentFraction = boundaryExtent,
+                    UseNormalizedGeometryForDetection = useNormalizedGeometry,
+                    UseNormalizedPackedColourProposalMask = useNormalizedProposalMask
+                };
+            var analyzer800 = new VisionAnalyzer(ReplaySettings(800), boundaryAudit, boundaryAudit, obstructionMaskTrace);
+            var analyzer1000 = new VisionAnalyzer(ReplaySettings(1000), boundaryAudit, boundaryAudit, obstructionMaskTrace);
+            var fastAnalyzer = fastWidth > 0 ? new VisionAnalyzer(ReplaySettings(fastWidth)) : null;
             var normalizedGeometryAnalyzer800 = normalizedGeometry
-                ? new VisionAnalyzer(new VisionSettings(Width: 800) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling, UseNormalizedGeometryForDetection = true }, boundaryAudit, boundaryAudit)
+                ? new VisionAnalyzer(ReplaySettings(800, useNormalizedGeometry: true), boundaryAudit, boundaryAudit)
                 : null;
             var normalizedGeometryAnalyzer1000 = normalizedGeometry
-                ? new VisionAnalyzer(new VisionSettings(Width: 1000) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling, UseNormalizedGeometryForDetection = true }, boundaryAudit, boundaryAudit)
+                ? new VisionAnalyzer(ReplaySettings(1000, useNormalizedGeometry: true), boundaryAudit, boundaryAudit)
                 : null;
             var normalizedPackedProposalMaskAnalyzer800 = normalizedPackedProposalMask
-                ? new VisionAnalyzer(new VisionSettings(Width: 800) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling,
-                    UseNormalizedPackedColourProposalMask = true }, boundaryAudit, boundaryAudit)
+                ? new VisionAnalyzer(ReplaySettings(800, useNormalizedProposalMask: true), boundaryAudit, boundaryAudit)
                 : null;
             var normalizedPackedProposalMaskAnalyzer1000 = normalizedPackedProposalMask
-                ? new VisionAnalyzer(new VisionSettings(Width: 1000) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling,
-                    UseNormalizedPackedColourProposalMask = true }, boundaryAudit, boundaryAudit)
+                ? new VisionAnalyzer(ReplaySettings(1000, useNormalizedProposalMask: true), boundaryAudit, boundaryAudit)
                 : null;
             var boundaryExtentAnalyzer800 = boundaryExtentAblation
-                ? new VisionAnalyzer(new VisionSettings(Width: 800) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling,
-                    PackedColourBoundarySearchExtentFraction = boundaryExtentFraction }, boundaryAudit, boundaryAudit)
+                ? new VisionAnalyzer(ReplaySettings(800, boundaryExtent: boundaryExtentFraction), boundaryAudit, boundaryAudit)
                 : null;
             var boundaryExtentAnalyzer1000 = boundaryExtentAblation
-                ? new VisionAnalyzer(new VisionSettings(Width: 1000) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling,
-                    PackedColourBoundarySearchExtentFraction = boundaryExtentFraction }, boundaryAudit, boundaryAudit)
+                ? new VisionAnalyzer(ReplaySettings(1000, boundaryExtent: boundaryExtentFraction), boundaryAudit, boundaryAudit)
                 : null;
             var edgeMarginAnalyzer800 = edgeMarginAblation
-                ? new VisionAnalyzer(new VisionSettings(Width: 800) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling,
-                    PackedClusterImageEdgeMargin = packedClusterImageEdgeMargin }, boundaryAudit, boundaryAudit)
+                ? new VisionAnalyzer(ReplaySettings(800, edgeMargin: packedClusterImageEdgeMargin), boundaryAudit, boundaryAudit)
                 : null;
             var edgeMarginAnalyzer1000 = edgeMarginAblation
-                ? new VisionAnalyzer(new VisionSettings(Width: 1000) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling,
-                    PackedClusterImageEdgeMargin = packedClusterImageEdgeMargin }, boundaryAudit, boundaryAudit)
+                ? new VisionAnalyzer(ReplaySettings(1000, edgeMargin: packedClusterImageEdgeMargin), boundaryAudit, boundaryAudit)
                 : null;
             string replayConfiguration = analyzer800.ConfigurationIdentity;
             bool? configurationMatchesPrimary = recordedConfiguration is null
@@ -448,6 +471,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             var analysisConsensus1000 = VerificationConsensus.Resolve(analyses1000, out var analysisConflict1000);
             report = new { completed = true, configuration = ObservationPolicy.VerificationConfiguration, bodyRefinement = refinement, boundaryAudit,
                 obstructionMaskTrace, darkBodyValueCeiling = darkBodyCeiling,
+                pocketExclusionRadius, minimumHoughBoundarySupport = minimumBoundarySupport,
+                minimumSparseColourBoundarySupport,
                 normalizedGeometryAblation = normalizedGeometry,
                 normalizedPackedProposalMaskAblation = normalizedPackedProposalMask,
                 packedColourBoundarySearchExtentFraction = boundaryExtentAblation ? boundaryExtentFraction : (double?)null,

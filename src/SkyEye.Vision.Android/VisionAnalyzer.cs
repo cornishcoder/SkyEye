@@ -58,36 +58,24 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             const string algorithm = "body-priority-packed-colour-peaks-v18-supported-pocket-bodies";
             bool normalizedProposalAblation = settings.UseNormalizedGeometryForDetection || settings.UseNormalizedPackedColourProposalMask;
             bool edgeMarginAblation = settings.PackedClusterImageEdgeMargin != 65;
-            object identity = normalizedProposalAblation && edgeMarginAblation
+            bool sparseColourSupportAblation = settings.MinimumSparseColourBoundarySupport != .75;
+            var diagnosticAblations = new Dictionary<string, object>();
+            if (normalizedProposalAblation)
+            {
+                diagnosticAblations["UseNormalizedGeometryForDetection"] = settings.UseNormalizedGeometryForDetection;
+                diagnosticAblations["UseNormalizedPackedColourProposalMask"] = settings.UseNormalizedPackedColourProposalMask;
+            }
+            if (edgeMarginAblation)
+                diagnosticAblations["packedClusterImageEdgeMargin"] = settings.PackedClusterImageEdgeMargin;
+            if (sparseColourSupportAblation)
+                diagnosticAblations["minimumSparseColourBoundarySupport"] = settings.MinimumSparseColourBoundarySupport;
+            object identity = diagnosticAblations.Count > 0
                 ? new
                 {
                     Algorithm = algorithm,
                     Settings = productionSettings,
-                    DiagnosticAblations = new
-                    {
-                        settings.UseNormalizedGeometryForDetection,
-                        settings.UseNormalizedPackedColourProposalMask,
-                        packedClusterImageEdgeMargin = settings.PackedClusterImageEdgeMargin
-                    }
+                    DiagnosticAblations = diagnosticAblations
                 }
-                : normalizedProposalAblation
-                ? new
-                {
-                    Algorithm = algorithm,
-                    Settings = productionSettings,
-                    DiagnosticAblations = new
-                    {
-                        settings.UseNormalizedGeometryForDetection,
-                        settings.UseNormalizedPackedColourProposalMask
-                    }
-                }
-                : edgeMarginAblation
-                    ? new
-                    {
-                        Algorithm = algorithm,
-                        Settings = productionSettings,
-                        DiagnosticAblations = new { packedClusterImageEdgeMargin = settings.PackedClusterImageEdgeMargin }
-                    }
                 : new { Algorithm = algorithm, Settings = productionSettings };
             return System.Text.Json.JsonSerializer.Serialize(identity);
         }
