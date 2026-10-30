@@ -7,6 +7,7 @@ param(
     [double]$PocketRadius = 55,
     [double]$BoundarySupport = 0.75,
     [double]$SparseColourSupport = 0.75,
+    [double]$PackedColourBoundarySearchExtent = 0.65,
     [double]$SparseBlackSearchExtent = 0.4,
     [double]$SparseBlackSupport = 0.7,
     [int]$SparseBlackCandidateLimit = 12,
@@ -23,6 +24,7 @@ if ($EdgeMargin -lt 0 -or $EdgeMargin -gt 100) { throw 'EdgeMargin must be betwe
 if ($PocketRadius -le 0 -or $PocketRadius -gt 80) { throw 'PocketRadius must be greater than 0 and at most 80 pixels at width 1000.' }
 if ($BoundarySupport -lt 0.5625 -or $BoundarySupport -gt 1) { throw 'BoundarySupport must be between 0.5625 and 1.' }
 if ($SparseColourSupport -lt 0.5625 -or $SparseColourSupport -gt 1) { throw 'SparseColourSupport must be between 0.5625 and 1.' }
+if ($PackedColourBoundarySearchExtent -lt 0.2 -or $PackedColourBoundarySearchExtent -gt 0.8) { throw 'PackedColourBoundarySearchExtent must be between 0.2 and 0.8 ball radii.' }
 if ($SparseBlackSearchExtent -lt 0.2 -or $SparseBlackSearchExtent -gt 1.5) { throw 'SparseBlackSearchExtent must be between 0.2 and 1.5 ball radii.' }
 if ($SparseBlackSupport -lt 0.5625 -or $SparseBlackSupport -gt 1) { throw 'SparseBlackSupport must be between 0.5625 and 1.' }
 if ($SparseBlackCandidateLimit -lt 1 -or $SparseBlackCandidateLimit -gt 64) { throw 'SparseBlackCandidateLimit must be between 1 and 64.' }
@@ -118,6 +120,7 @@ $instrumentArguments = @('shell', 'am', 'instrument', '-w', '-e', 'run', $run,
     '-e', 'audit', '1', '-e', 'edgeMargin', "$EdgeMargin",
     '-e', 'pocketRadius', "$PocketRadius", '-e', 'boundarySupport', "$BoundarySupport",
     '-e', 'sparseColourSupport', "$SparseColourSupport",
+    '-e', 'boundaryExtent', "$PackedColourBoundarySearchExtent",
     '-e', 'sparseBlackExtent', "$SparseBlackSearchExtent", '-e', 'sparseBlackSupport', "$SparseBlackSupport",
     '-e', 'sparseBlackLimit', "$SparseBlackCandidateLimit")
 if ($SparseBlackRankByRadius) { $instrumentArguments += @('-e', 'sparseBlackRadiusRank', '1') }
@@ -197,6 +200,7 @@ $manifest = [pscustomobject]@{
     pocketExclusionRadius = $PocketRadius
     minimumHoughBoundarySupport = $BoundarySupport
     minimumSparseColourBoundarySupport = $SparseColourSupport
+    packedColourBoundarySearchExtentFraction = $PackedColourBoundarySearchExtent
     sparseBlackBoundarySearchExtentFraction = $SparseBlackSearchExtent
     minimumSparseBlackBoundarySupport = $SparseBlackSupport
     sparseBlackCandidateLimit = $SparseBlackCandidateLimit
