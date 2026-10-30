@@ -14,7 +14,7 @@ At the safe boundary, Home **End session** stopped capture. Camera `/status` ver
 
 The exact-source follow-up is recorded below. It confirms the top-left red/yellow misses directly and localizes two different rejection paths. The obstruction seen in the earlier Live Detect run remains unattributed; the exact-source verifier frames themselves were unobstructed.
 
-**Next:** investigate why the top-left yellow seed cannot obtain a boundary fit at a pocket, and how to use partial but sufficient red boundary evidence without accepting unsupported extras. Do not change production gates from the partial 0.6875-support improvement. Validate any candidate against the clear-rack and black-absent controls, then the current pocket-lip fixture; keep the separate cushion-only holdout separate. The reliable inventory/readiness goal remains open.
+The top-left yellow failure and the red support gate are addressed by the measured follow-up below. The remaining work is center stability at pocket mouths, the independent pocket-colour review warning, and an independent spread-layout negative before device installation. Keep the separate cushion-only holdout separate. The reliable inventory/readiness goal remains open.
 
 ### Exact-source pocket-lip capture and candidate replay
 
@@ -25,6 +25,18 @@ Exact replay `code61exact-221454` at 800px found 13 balls (6R/6Y/cue) in each of
 Two offline probes did not produce a safe correction. Sparse-colour support 0.6875 (`code61exactsup6875-222021`) raised the 800px count to 14 in only two of four frames and left all results uncertain; width 1000 remained at 12–13. A packed-colour boundary search extent of 0.8 (`code61exactextent80-222246`) still could not fit the top-left yellow in any frame and reduced one frame's yellow count. No production detector threshold changed. The replay runner now exposes this extent as `-PackedColourBoundarySearchExtent` in [`Run-PocketLipBoundaryAudit.ps1`](../scripts/Run-PocketLipBoundaryAudit.ps1).
 
 Camera stayed stopped throughout offline replay. Final `/status` was `Stopped`, revision 61, battery 100%, 134 clips, zero viewers; Pixel 11 Home showed **Start live session**. No Cast/TV or camera-package action occurred.
+
+### Edge-adjacent colour fit follow-up — 30 October 2026
+
+The exact-source candidate trace showed why the top-left yellow could not be fitted: at the warped image edge, only 23 of the 32 background samples were in bounds, below the colour refiner's fixed 24-sample minimum. `BallBoundaryRefiner` now accepts 17/32 background samples for recognized red/yellow fits only; non-colour fits retain 24/32. With that correction, the yellow was recovered in all four exact frames.
+
+The top-left red fit repeatedly had 21/32 supported sectors. The sparse-colour admission gate is now 21/32 (`0.65625`) in production defaults; the independent `PocketColourNeedsReview` arc/explanation gate remains at 24/32 (`0.75`). This produced the labelled 15-ball inventory (7 red, 7 yellow, cue) in all four 800px exact-source frames in `code61v20bg17-225419`. At 1000px the same frames still returned only 13–14 balls. Seven retained controls at the same threshold added no circles: three all-lights full racks, one mid-light full rack, one lights-off full rack, one clear-rack control and one synthetic black-absent control. Both widths returned the exact 16-ball inventory for the six real rack images; the synthetic negative returned 15 and did not invent a black, while remaining uncertain as intended.
+
+The pocket-mouth result is still not ready: every exact frame is `uncertain` and `layoutUncertain`, with three of six pocket regions retaining unexplained red pixels. Lowering the separate pocket review gate in an offline probe did not clear those warnings, so that gate was restored. Nearest same-colour matching across the four 800px reads gives mean centre shifts of 0.62, 0.78 and 1.19px, but one red shifts 7.86px on frame 512 despite the unchanged source layout. This is a new localization/stillness defect to investigate; the four-frame count success does not prove stable centres or physical readiness.
+
+The source change and replay identity are committed as `c2b289b`, `13b1a3a`, and `80ea63a`; replay audit instrumentation is committed as `273c22d`. Android VisionChecks Release build succeeded with 23 existing warnings and zero errors. Only the isolated `uk.co.skyeye.visionchecks` package was used for the replay; Production remains code61 and was not updated. Camera `/status` stayed `Stopped`, revision 61, battery 100%, `clipCount=134`, zero viewers; no Cast/TV or camera-package action occurred. Reports are under `work/production/evidence/live-detect-pocket-lip-20261030/device-replays/` (`code61v20bg17-225419` and controls `code61s65625all-224451`, `code61s65625mid-224512`, `code61s65625off-224523`, `code61s65625rack-223930`, `code61s65625black-223941`).
+
+**Next:** investigate the 7.86px red-centre outlier and why the independent pocket audit cannot explain the visible mouth pixels, then validate the 21/32 sparse gate on an independent spread-table negative. Preserve the pocket warning and uncertain state until those checks support a narrower rule. Do not treat this replay as Live Detect acceptance.
 
 ## Code60 uncertain-layout motion retest — 30 October 2026
 

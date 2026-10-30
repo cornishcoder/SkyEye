@@ -22,6 +22,18 @@ Offline support `0.6875` recovered one extra red in only two of four frames (`co
 
 The isolated `uk.co.skyeye.visionchecks` replay package only was installed on Pixel 11. The mounted camera remained `Stopped`, revision 61, battery 100%, `clipCount=134`, zero viewers. Home shows **Start live session**. Production app data and saved clips were preserved; no Cast/TV or camera-package action occurred.
 
+### Edge-adjacent colour fit replay — 30 October 2026
+
+The exact-source trace found that the upper-left yellow's warped background ring had 23 valid samples, one below the colour fitter's 24-sample minimum. `BallBoundaryRefiner` now accepts 17/32 background samples for red/yellow fits; cue, black and unknown fits retain 24/32. The yellow appears in all four exact source frames after this change.
+
+The upper-left red's partial fit reached 21/32 supported sectors. The sparse-colour admission default is now 21/32 (`0.65625`), while the separate pocket-colour explanation gate remains 24/32 (`0.75`). Current-default replay `code61v20bg17-225419` returned the labelled 7-red/7-yellow/cue inventory (15 balls) in all four 800px exact frames. At 1000px it returned 13–14 balls, and every frame remained uncertain/layout-uncertain. The pocket audit still flags three of six mouths per frame because large red-pixel regions remain unexplained; lowering the pocket explanation gate in an offline probe did not remove those flags, so it was not kept.
+
+Seven comparison controls at the same 21/32 sparse threshold produced no additional circles: three retained all-lights racks, one mid-light rack, one lights-off rack, the clear-rack control and the synthetic black-absent control. The six real rack images returned 16/16 at both widths; the synthetic negative returned 15 and did not hallucinate a black. All seven controls are development samples rather than blind holdouts.
+
+The labelled pocket-lip centers are not fully stable: nearest same-colour matching against frame 412 has mean shifts 0.62px at frame 446, 0.78px at frame 482 and 1.19px at frame 512, with one red displaced 7.86px in frame 512. No settled baseline/readiness was accepted. This replay improves inventory but does not pass physical Live Detect acceptance. Evidence and exact receipts are under `work/production/evidence/live-detect-pocket-lip-20261030/device-replays/`; the input PNGs are under `work/production/evidence/code61-edge-margin-install/exact-source-capture/40a0329ab5104130af89a98d52474da7/`.
+
+Android VisionChecks Release build succeeded with 23 existing warnings and zero errors. Only the isolated `uk.co.skyeye.visionchecks` package was installed/replayed; Production remains code61, and the mounted camera app was untouched. Camera `/status` stayed `Stopped`, revision 61, battery 100%, `clipCount=134`, zero viewers. No Cast/TV action occurred. Commits: `c2b289b` (edge background sampling), `273c22d` (pocket audit in replay reports), `13b1a3a` (measured sparse-colour default and replay identity), and `80ea63a` (strict-majority colour background floor).
+
 ## Production code60 uncertain-layout motion retest — 30 October 2026
 
 Production companion `0.8.52` / code60 was installed in place on Pixel 11; the guarded update retained UID/private storage and saved rollback APK `work/production/backups/20261030-213913/before.apk`. The Release build succeeded with 13 warnings and zero errors. The focused check suite had passed before installation: `dotnet run --project tests/SkyEye.Checks -- --game-tracking`.
