@@ -76,7 +76,7 @@ public sealed partial class ShellSession : IDisposable
     public Task<bool> NavigateFromControlAsync(string screen) => MainThread.InvokeOnMainThreadAsync(() =>
     {
         var normalized = (screen ?? "").Trim().ToLowerInvariant();
-        if (normalized is not ("home" or "settings" or "clips" or "match")) throw new ArgumentException("Choose home, settings, clips, or match.");
+        if (normalized is not ("home" or "settings" or "clips" or "match" or "live-detect-log")) throw new ArgumentException("Choose home, settings, clips, match, or live-detect-log.");
         if (NavigationRequested is null) return false;
         NavigationRequested.Invoke(normalized);
         return true;
@@ -84,7 +84,7 @@ public sealed partial class ShellSession : IDisposable
 
     public void SetUiScreen(string screen)
     {
-        if (screen is "home" or "settings" or "clips" or "match") UiScreen = screen;
+        if (screen is "home" or "settings" or "clips" or "match" or "live-detect-log") UiScreen = screen;
     }
 
     public ShellSession()

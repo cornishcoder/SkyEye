@@ -104,7 +104,7 @@ summary { min-height: 48px; font-size: 13px; color: #a6babc; cursor: pointer; }
 .home-heading, .screen-heading { display: flex; align-items: center; gap: 12px; }
 .home-heading { justify-content: space-between; min-height: 36px; }
 .home-heading > div { min-width: 0; flex: 1 1 auto; }
-.home-menu-pin { flex: 0 0 auto; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 6px 9px; border: 1px solid #293e40; border-radius: 14px; background: #152527; color: #b5c8ca; font-size: 10px; line-height: 1; }
+.home-menu-pin { flex: 0 0 auto; min-height: 48px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 7px 9px; border: 1px solid #293e40; border-radius: 14px; background: #152527; color: #b5c8ca; font-size: 10px; line-height: 1; }
 .home-menu-pin svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.8; }
 .home-menu-pin.is-pinned { border-color: #467d70; background: #15312c; color: #9de8d1; }
 .home-menu-pin span { white-space: nowrap; }
@@ -117,24 +117,24 @@ summary { min-height: 48px; font-size: 13px; color: #a6babc; cursor: pointer; }
 .screen-heading { position: sticky; top: -18px; z-index: 2; margin: -18px -18px 4px; padding: 12px 18px; border-bottom: 1px solid #263a3b; background: #0d191b; }
 .screen-heading h1 { margin-top: 1px; }
 .settings-physics { margin-left: auto; max-width: 42%; color: #a6babc; font-size: 11px; line-height: 1.4; text-align: right; }
-.home-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
-@media (min-width: 380px) { .home-actions { grid-template-columns: repeat(5, minmax(0, 1fr)); } }
-.home-icon-button { width: 100%; min-width: 0; min-height: 76px; max-height: 104px; aspect-ratio: 1.15; display: grid; place-items: center; padding: 10px; border: 1px solid #293e40; border-radius: 20px; background: #152527; color: #91e4d1; }
-.home-icon-button svg { width: 36px; height: 36px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
+.home-actions { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.home-icon-button { width: 100%; min-width: 0; min-height: 56px; display: grid; grid-template-rows: 20px auto; row-gap: 2px; place-items: center; padding: 5px 4px; border: 1px solid #293e40; border-radius: 15px; background: #152527; color: #91e4d1; }
+.home-icon-button svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; stroke-width: 1.7; }
 .home-icon-button:active { background: #203536; transform: scale(.97); }
-.home-action-label { color: currentColor; font-size: 11px; line-height: 1; font-weight: 700; white-space: nowrap; }
-.candidate-shortcut { grid-template-rows: 30px auto; row-gap: 4px; color: #88e0cd; }
-.candidate-shortcut svg { width: 28px; height: 28px; }
-.capture-verifier-shortcut { grid-template-rows: 30px auto; row-gap: 4px; color: #9dd7ff; }
-.capture-verifier-shortcut svg { width: 28px; height: 28px; }
-.live-detect-shortcut { grid-template-rows: 30px auto; row-gap: 4px; color: #b9d88d; }
-.live-detect-shortcut svg { width: 28px; height: 28px; }
+.home-action-label { min-width: 0; color: currentColor; font-size: 10px; line-height: 1.05; font-weight: 700; text-align: center; white-space: normal; overflow-wrap: anywhere; }
+.candidate-shortcut { color: #88e0cd; }
+.capture-verifier-shortcut { color: #9dd7ff; }
+.live-detect-shortcut { color: #b9d88d; }
+.live-detect-log-shortcut { color: #f1cf9b; }
 .live-detect-shortcut.selected { border-color: #a8d06f; background: #26351b; color: #d0f39f; box-shadow: inset 0 0 0 1px #a8d06f55; }
 .home-candidate-status { margin: 0; color: #a6babc; font-size: 12px; line-height: 1.35; }
 .home-live-detect { display: grid; gap: 2px; color: #bed0c0; font-size: 11px; line-height: 1.25; }
 .home-live-detect p { margin: 0; }
 .live-detect-inventory { color: #dce8d5; }
-.live-detect-events { color: #ffdb9c; }
+.live-detect-events-heading { margin: 20px 0 8px; }
+.live-detect-event-list { display: grid; gap: 7px; margin: 0; padding-left: 1.4em; color: #ffdb9c; font-size: 13px; line-height: 1.4; }
+.live-detect-event-list li { padding: 7px 9px; border: 1px solid #3b3430; border-radius: 10px; background: #191c1b; }
+.live-detect-log-status { overflow-wrap: anywhere; }
 .settings-home-button { color: #c9d7d8; }
 .settings-home-button svg { fill: currentColor; stroke-width: 0; }
 .sky-button.selected { border-color: #75dfb9; background: #17312d; color: #a8f2d2; box-shadow: inset 0 0 0 1px #75dfb955; }
@@ -167,13 +167,11 @@ summary { min-height: 48px; font-size: 13px; color: #a6babc; cursor: pointer; }
     .app-shell { padding-inline: 8px; }
     .home-panel, .screen-panel { padding-inline: 12px; border-radius: 22px; }
     .home-panel { padding: 12px; gap: 7px; }
-    .home-icon-button { min-height: 68px; border-radius: 17px; }
-    .home-icon-button svg { width: 32px; height: 32px; }
+    .home-icon-button { min-height: 52px; border-radius: 14px; }
     .screen-heading { margin-inline: -12px; padding-inline: 12px; }
 }
 @media (max-height: 760px) {
     .home-panel { gap: 7px; padding-block: 10px; }
     .home-actions { gap: 6px; }
-    .home-icon-button { min-height: 64px; aspect-ratio: 1.35; border-radius: 16px; }
-    .home-icon-button svg { width: 30px; height: 30px; }
+    .home-icon-button { min-height: 52px; border-radius: 14px; }
 }
