@@ -52,6 +52,7 @@ $sourceRoot = if ([IO.Path]::IsPathRooted($SourceRelativePath)) {
 $apk = Join-Path $repoRoot 'tests/SkyEye.Vision.Device/bin/Release/net10.0-android/android-arm64/uk.co.skyeye.visionchecks-Signed.apk'
 $cameraStatusUri = 'http://192.168.1.124:8765/status'
 $run = "$RunPrefix-$(Get-Date -Format 'HHmmss')"
+if ($run.Length -gt 32) { throw 'RunPrefix is too long; the timestamped replay name must be at most 32 characters.' }
 $remoteFilesRoot = "/sdcard/Android/data/$package/files"
 $remoteRunDirectory = "$remoteFilesRoot/o08-replay-$run"
 $evidenceRoot = Join-Path $repoRoot 'work/production/evidence/live-detect-pocket-lip-20261030/device-replays'
@@ -74,16 +75,28 @@ if ($packageResult.ExitCode -ne 0 -or ($packageResult.Output -join "`n") -notmat
 
 $inputs = foreach ($frame in $frames) {
     $jsonPath = Join-Path $sourceRoot "$frame.json"
-    $pngPath = Join-Path $sourceRoot "$frame.png"
-    if (-not (Test-Path -LiteralPath $jsonPath) -or -not (Test-Path -LiteralPath $pngPath)) {
+    if (-not (Test-Path -LiteralPath $jsonPath)) {
         throw "Missing captured source frame $frame."
     }
     $receipt = Get-Content -LiteralPath $jsonPath -Raw | ConvertFrom-Json
-    $actualHash = (Get-FileHash -LiteralPath $pngPath -Algorithm SHA256).Hash.ToLowerInvariant()
+    $pixelFile = [string]$receipt.indexedFrame.pixelFile
+    if ([string]::IsNullOrWhiteSpace($pixelFile) -or $pixelFile -ne [IO.Path]::GetFileName($pixelFile)) {
+        throw "Frame $frame receipt has an invalid pixelFile name."
+    }
+    $pixelPath = Join-Path $sourceRoot $pixelFile
+    if (-not (Test-Path -LiteralPath $pixelPath)) { throw "Missing source pixel asset $pixelFile for frame $frame." }
+    $actualHash = (Get-FileHash -LiteralPath $pixelPath -Algorithm SHA256).Hash.ToLowerInvariant()
     if ($actualHash -ne [string]$receipt.indexedFrame.pixelSha256) {
         throw "Source frame $frame does not match its receipt hash."
     }
-    [pscustomobject]@{ Frame = $frame; JsonPath = $jsonPath; PngPath = $pngPath; Hash = $actualHash; Receipt = $receipt }
+    [pscustomobject]@{ Frame = $frame; JsonPath = $jsonPath; PixelPath = $pixelPath; Hash = $actualHash; Receipt = $receipt }
+}
+for ($i = 1; $i -lt $inputs.Count; $i++) {
+    $previous = $inputs[$i - 1].Receipt.indexedFrame
+    $current = $inputs[$i].Receipt.indexedFrame
+    if ([long]$current.frameId -le [long]$previous.frameId -or [long]$current.sourceTimeUs -le [long]$previous.sourceTimeUs) {
+        throw 'Replay inputs must have strictly increasing frame IDs and source timestamps.'
+    }
 }
 
 New-Item -ItemType Directory -Path $runDirectory -Force | Out-Null
@@ -94,7 +107,7 @@ if ($installResult.ExitCode -ne 0 -or ($installResult.Output -join "`n") -notmat
 $mkdirResult = Invoke-Adb @('-s', $serial, 'shell', 'mkdir', '-p', $remoteRunDirectory)
 if ($mkdirResult.ExitCode -ne 0) { throw "Could not create isolated replay folder: $($mkdirResult.Output -join ' ')" }
 foreach ($input in $inputs) {
-    foreach ($file in @($input.JsonPath, $input.PngPath)) {
+    foreach ($file in @($input.JsonPath, $input.PixelPath)) {
         $pushResult = Invoke-Adb @('-s', $serial, 'push', $file, "$remoteRunDirectory/$([IO.Path]::GetFileName($file))")
         if ($pushResult.ExitCode -ne 0) { throw "Transfer failed for $file`: $($pushResult.Output -join ' ')" }
     }
@@ -113,6 +126,9 @@ $instrumentArguments += $instrumentation
 $instrumentResult = Invoke-Adb (@('-s', $serial) + $instrumentArguments)
 $instrumentResult.Output | Set-Content -LiteralPath (Join-Path $runDirectory 'instrumentation.log')
 if ($instrumentResult.ExitCode -ne 0) { throw "Boundary audit instrumentation failed: $($instrumentResult.Output -join ' ')" }
+if (($instrumentResult.Output -join "`n") -match 'shortMsg=Process crashed') {
+    throw "Boundary audit instrumentation process crashed: $($instrumentResult.Output -join ' ')"
+}
 
 $reportSuffix = if ($TraceBlackMask) { '-blacktrace' } else { '' }
 $reportName = "o08-replay-proof-$run$reportSuffix.json"
@@ -121,7 +137,8 @@ $pullResult = Invoke-Adb @('-s', $serial, 'pull', "$remoteFilesRoot/$reportName"
 if ($pullResult.ExitCode -ne 0) { throw "Could not retrieve the replay report: $($pullResult.Output -join ' ')" }
 $report = Get-Content -LiteralPath $localReport -Raw | ConvertFrom-Json
 if (-not $report.completed -or @($report.samples).Count -ne $frames.Count) {
-    throw "Replay report is incomplete: $localReport"
+    $reason = if ([string]::IsNullOrWhiteSpace([string]$report.error)) { 'sample count or completion flag mismatch' } else { [string]$report.error }
+    throw "Replay report is incomplete ($reason): $localReport"
 }
 $maskArtifacts = @()
 $blackMaskArtifacts = @()
@@ -182,7 +199,7 @@ $manifest = [pscustomobject]@{
     sparseBlackCandidateLimit = $SparseBlackCandidateLimit
     sparseBlackRankByRadius = [bool]$SparseBlackRankByRadius
     sourceFrames = $inputs | ForEach-Object {
-        [pscustomobject]@{ frameId = $_.Receipt.indexedFrame.frameId; png = [IO.Path]::GetFileName($_.PngPath); receipt = [IO.Path]::GetFileName($_.JsonPath); sha256 = $_.Hash }
+        [pscustomobject]@{ frameId = $_.Receipt.indexedFrame.frameId; pixelFile = [IO.Path]::GetFileName($_.PixelPath); receipt = [IO.Path]::GetFileName($_.JsonPath); sha256 = $_.Hash }
     }
     report = $reportName
     reportSha256 = (Get-FileHash -LiteralPath $localReport -Algorithm SHA256).Hash.ToLowerInvariant()
