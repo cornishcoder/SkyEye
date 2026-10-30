@@ -159,10 +159,10 @@
                         { <p class="live-detect-inventory">@Session.LiveDetectInventory · analyzed @Session.LiveDetectReadAt</p> }
                         <p class="hint">@Session.LiveDetectClipStatus</p>
                         <p class="hint live-detect-log-status">@Session.LiveDetectLogStatus</p>
-                        <h2 class="live-detect-events-heading">Recent inventory events</h2>
+                        <h2 class="live-detect-events-heading">Recent table events</h2>
                         @if (Session.LiveDetectEvents.Count == 0)
                         {
-                            <p class="hint" role="status">No inventory events recorded during this Live Detect run.</p>
+                            <p class="hint" role="status">No table events recorded during this Live Detect run.</p>
                         }
                         else
                         {
