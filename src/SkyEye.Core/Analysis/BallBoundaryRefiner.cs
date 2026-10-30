@@ -19,6 +19,8 @@ public static class BallBoundaryRefiner
 {
     const double MinimumColourMaskEdgeContrast = 8;
     const double MinimumColourMaskFineEdgeContrast = 3;
+    const int MinimumNonColourBackgroundSamples = 24;
+    const int MinimumColourBackgroundSamples = 16;
     // A fitted, partially occluded edge can shift slightly from its dark seed.
     // Allow a narrow measured tolerance when relating failed edge sectors to
     // independently fitted neighboring ball centres.
@@ -44,7 +46,7 @@ public static class BallBoundaryRefiner
             var surrounding = directions.Select(d => (X: (int)Math.Round(proposal.X + d.X * expectedRadius * 1.7), Y: (int)Math.Round(proposal.Y + d.Y * expectedRadius * 1.7)))
                 .Where(p => p.X >= 0 && p.X < width && p.Y >= 0 && p.Y < height)
                 .Select(p => bgr[(p.Y * width + p.X) * 3 + channel]).Order().ToArray();
-            if (surrounding.Length < 24) return [];
+            if (surrounding.Length < MinimumBackgroundSamples(expectedKind)) return [];
             background[channel] = surrounding[surrounding.Length / 2];
         }
 
@@ -134,7 +136,7 @@ public static class BallBoundaryRefiner
             var surrounding = directions.Select(d => (X: (int)Math.Round(proposal.X + d.X * expectedRadius * 1.7), Y: (int)Math.Round(proposal.Y + d.Y * expectedRadius * 1.7)))
                 .Where(p => p.X >= 0 && p.X < width && p.Y >= 0 && p.Y < height)
                 .Select(p => bgr[(p.Y * width + p.X) * 3 + channel]).Order().ToArray();
-            if (surrounding.Length < 24) return null;
+            if (surrounding.Length < MinimumBackgroundSamples(expectedKind)) return null;
             background[channel] = surrounding[surrounding.Length / 2];
         }
         BallBoundary? best = null, supportedBest = null, proposalFit = null;
@@ -214,6 +216,13 @@ public static class BallBoundaryRefiner
             && Math.Round(x + radius + offset) < width
             && Math.Round(y + radius + offset) < height;
     }
+
+    static int MinimumBackgroundSamples(string? expectedKind)
+        // A ball next to the warped table edge can lose several background
+        // directions even though its visible colour boundary is usable. Keep
+        // the stricter contrast baseline for non-colour fits; a colour fit's
+        // median only needs a strict majority of the 32 background samples.
+        => expectedKind is "red" or "yellow" ? MinimumColourBackgroundSamples : MinimumNonColourBackgroundSamples;
 
     static bool IsColourMaskTransitionSupport(string? expectedKind, bool exteriorRejected,
         double edgeContrast, double fineEdgeContrast)
