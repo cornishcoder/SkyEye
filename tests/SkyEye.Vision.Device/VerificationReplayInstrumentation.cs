@@ -13,7 +13,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
     public VerificationReplayInstrumentation() { }
     public VerificationReplayInstrumentation(IntPtr handle, global::Android.Runtime.JniHandleOwnership ownership) : base(handle, ownership) { }
     bool refinement, dump, boundaryAudit, traceDarkMask, normalizedGeometry, normalizedPackedProposalMask, boundaryExtentAblation,
-        edgeMarginAblation, continueCalibrationMismatch, obstructionMaskTrace;
+        edgeMarginAblation, continueCalibrationMismatch, obstructionMaskTrace, localIlluminationNormalization;
     int fastWidth, darkBodyCeiling = 40, packedClusterImageEdgeMargin = 65, manualBlackImageX = 1282, manualBlackImageY = 536;
     double boundaryExtentFraction = .65, pocketExclusionRadius = 55, minimumBoundarySupport = .75,
         minimumSparseColourBoundarySupport = .75, sparseBlackSearchExtentFraction = .4,
@@ -24,6 +24,13 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         refinement = args?.GetString("refine") == "1"; dump = args?.GetString("dump") == "1";
         boundaryAudit = args?.GetString("audit") == "1"; traceDarkMask = args?.GetString("trace") == "1";
         obstructionMaskTrace = args?.GetString("obstructionMaskTrace") == "1";
+        var requestedIlluminationNormalization = args?.GetString("illuminationNormalization");
+        if (!string.IsNullOrWhiteSpace(requestedIlluminationNormalization))
+        {
+            if (requestedIlluminationNormalization is not "0" and not "1")
+                throw new ArgumentOutOfRangeException(nameof(requestedIlluminationNormalization), "Illumination normalization must be 0 or 1.");
+            localIlluminationNormalization = requestedIlluminationNormalization == "1";
+        }
         var requestedBlackLabelX = args?.GetString("blackLabelX");
         var requestedBlackLabelY = args?.GetString("blackLabelY");
         if (!string.IsNullOrWhiteSpace(requestedBlackLabelX) || !string.IsNullOrWhiteSpace(requestedBlackLabelY))
@@ -111,6 +118,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 bool useNormalizedGeometry = false, bool useNormalizedProposalMask = false)
                 => new(Width: width, PocketExclusionRadius: pocketExclusionRadius)
                 {
+                    LocalIlluminationNormalization = localIlluminationNormalization,
                     VerificationBodyRefinement = refinement,
                     DarkBodyValueCeiling = darkBodyCeiling,
                     MinimumHoughBoundarySupport = minimumBoundarySupport,
@@ -493,6 +501,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             var analysisConsensus1000 = VerificationConsensus.Resolve(analyses1000, out var analysisConflict1000);
             report = new { completed = true, configuration = ObservationPolicy.VerificationConfiguration, bodyRefinement = refinement, boundaryAudit,
                 obstructionMaskTrace, darkBodyValueCeiling = darkBodyCeiling,
+                localIlluminationNormalization,
                 pocketExclusionRadius, minimumHoughBoundarySupport = minimumBoundarySupport,
                 minimumSparseColourBoundarySupport,
                 sparseBlackSearchExtentFraction, minimumSparseBlackBoundarySupport,

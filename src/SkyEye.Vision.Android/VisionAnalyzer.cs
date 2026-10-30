@@ -558,6 +558,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             var value = circles.Value.Get(circles.Value.Rows() == 1 ? 0 : i, circles.Value.Rows() == 1 ? i : 0);
             if (value is null || value.Length < 3) continue;
             var c = new Circle(value[0], value[1], value[2]); double margin = 23 * scale;
+            string? fittedKind = null;
+            double? fittedSupport = null;
             if (c.X < margin || c.Y < margin || c.X > coordinates.Width - margin || c.Y > coordinates.Height - margin)
             { Audit("hough", "unknown", i, c, "rejected-margin"); continue; }
             // An opening is not a ball; ball-adjacent uncertain cases remain visible through review.
@@ -594,12 +596,13 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 if (fit is null || fit.SupportedSectors < settings.MinimumHoughBoundarySupport)
                 { Audit("hough", "unknown", i, c, fit is null ? "rejected-no-boundary-fit" : "rejected-insufficient-boundary-support", fit?.Centre, fit?.Radius, fit?.SupportedSectors); continue; }
                 c = new(fit.Centre.X, fit.Centre.Y, fit.Radius);
+                fittedSupport = fit.SupportedSectors;
                 // The proposal can be outside a pocket's exclusion radius while
                 // its fitted centre drifts into the opening. Recheck the fitted
                 // geometry so a pocket edge cannot become a coloured ball.
                 if (PocketCentres().Any(p => (new Point(c.X, c.Y) - p).Length < settings.PocketExclusionRadius * scale))
                 { Audit("hough", "unknown", i, c, "rejected-pocket-exclusion-after-fit", new(c.X, c.Y), c.Radius, fit.SupportedSectors); continue; }
-                string fittedKind = Classify(c, pixels, inspectRim: true).Kind;
+                fittedKind = Classify(c, pixels, inspectRim: true).Kind;
                 if (HasNearbyDuplicate(c, fittedKind))
                 { Audit("hough", "unknown", i, c, "rejected-duplicate-after-fit", new(c.X, c.Y), c.Radius, fit.SupportedSectors); continue; }
                 // A fit near a neighbouring edge can move off the initial
@@ -608,7 +611,9 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 { Audit("hough", "unknown", i, c, "rejected-fitted-cloth-body", new(c.X, c.Y), c.Radius, fit.SupportedSectors); continue; }
             }
             result.Add(c);
-            Audit("hough", "unknown", i, c, "accepted", new(c.X, c.Y), c.Radius);
+            if (fittedKind is null && candidateAudits is not null)
+                fittedKind = Classify(c, pixels, inspectRim: true).Kind;
+            Audit("hough", "unknown", i, c, "accepted", new(c.X, c.Y), c.Radius, fittedSupport, fittedKind);
         }
         if (!prioritizeBodies) AddColourBodies(hsv, pixels, result, scale);
         if (refineGeometry) RefineBodyGeometry(mask.Value, result, scale);
@@ -616,10 +621,10 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         return result.ToArray();
 
         void Audit(string stage, string kind, int index, Circle proposal, string decision,
-            Point? fitCentre = null, double? fitRadius = null, double? support = null)
+            Point? fitCentre = null, double? fitRadius = null, double? support = null, string? classifiedKind = null)
         {
             candidateAudits?.Add(new(pass, stage, kind, index, new(proposal.X, proposal.Y), proposal.Radius,
-                fitCentre, fitRadius, support, null, decision));
+                fitCentre, fitRadius, support, classifiedKind, decision));
         }
 
         bool HasNearbyDuplicate(Circle candidate, string candidateKind)

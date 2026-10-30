@@ -6,7 +6,12 @@ public sealed record VisionSettings(int Width = 1000, double MinimumRadius = 18,
     double Separation = 45, int MorphologyKernel = 5, double HoughDp = 1.3, double EdgeThreshold = 150,
     double InitialVotes = 15, double NormalizedVotes = 14, int HueBand = 7, double PocketExclusionRadius = 55)
 {
-    public bool LocalIlluminationNormalization { get; init; } = true;
+    // Default to source pixels. A retained all-lights black-removal control
+    // produced a false neutral Hough body after normalization; disabling the
+    // correction removed it while preserving all 11 replayed rack frames across
+    // daylight/all-lights/mid/lights-off and the physical hand obstruction control.
+    // Keep normalization available for explicit replay comparison.
+    public bool LocalIlluminationNormalization { get; init; }
     public int IlluminationKernelWidth { get; init; } = 151;
     // Negative diagnostic ablation: code34 four-light replay reduced clear
     // full-rack reads from 23/24 to 20/24. Keep disabled unless new evidence

@@ -11,6 +11,7 @@ param(
     [double]$SparseBlackSupport = 0.7,
     [int]$SparseBlackCandidateLimit = 12,
     [switch]$SparseBlackRankByRadius,
+    [switch]$EnableIlluminationNormalization,
     [switch]$ObstructionMaskTrace,
     [switch]$TraceBlackMask,
     [int]$BlackLabelX = 1282,
@@ -120,6 +121,7 @@ $instrumentArguments = @('shell', 'am', 'instrument', '-w', '-e', 'run', $run,
     '-e', 'sparseBlackExtent', "$SparseBlackSearchExtent", '-e', 'sparseBlackSupport', "$SparseBlackSupport",
     '-e', 'sparseBlackLimit', "$SparseBlackCandidateLimit")
 if ($SparseBlackRankByRadius) { $instrumentArguments += @('-e', 'sparseBlackRadiusRank', '1') }
+if ($EnableIlluminationNormalization) { $instrumentArguments += @('-e', 'illuminationNormalization', '1') }
 if ($ObstructionMaskTrace) { $instrumentArguments += @('-e', 'obstructionMaskTrace', '1') }
 if ($TraceBlackMask) { $instrumentArguments += @('-e', 'trace', '1', '-e', 'blackLabelX', "$BlackLabelX", '-e', 'blackLabelY', "$BlackLabelY") }
 $instrumentArguments += $instrumentation
@@ -184,6 +186,7 @@ $manifest = [pscustomobject]@{
     package = $package
     apkSha256 = (Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash.ToLowerInvariant()
     run = $run
+    localIlluminationNormalization = [bool]$EnableIlluminationNormalization
     auditEnabled = $true
     obstructionMaskTrace = [bool]$ObstructionMaskTrace
     obstructionMasks = $maskArtifacts

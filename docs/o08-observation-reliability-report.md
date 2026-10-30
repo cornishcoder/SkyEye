@@ -2,7 +2,19 @@
 
 7 October 2026. Baseline `5453d0b`. **Runtime foundation implemented; O08 reliability/release acceptance is incomplete.** Do not mark the mission complete or describe automatic advice as dependable. [Small evidence summary](evidence/o08-runtime-smoke.json); large media, raw receipts and retained APKs are under `work/o08`.
 
-## Latest exact-source offline replay — 29 October 2026
+## Latest exact-source offline replay — 30 October 2026
+
+The local illumination-normalization source default is now off. This uses raw pixels for ordinary analysis while retaining normalization as an explicit replay comparison. The evidence is a matched all-lights positive and synthetic black-removal pair, plus a user-labelled physical hand-over-rack control. The Release isolated Vision Device package built successfully with 23 existing warnings and zero errors; only `uk.co.skyeye.visionchecks` was updated on Pixel 11. Production and the mounted camera remained unchanged.
+
+With the new default recorded as `localIlluminationNormalization=false`, the positive produced the expected 16 clear balls (cue, seven reds, seven yellows, black) at 800px and 1000px. The synthetic sampled-cloth removal produced 15 candidates, no black and no unknown at the former black centre at both widths. Its result remained uncertain/layout-uncertain because it is a synthetic 15-ball scene. The real hand control remained uncertain and obstructed. Candidate audit shows the normalized synthetic run had accepted a generic Hough circle at the removed-black location; the source-pixel run no longer does. This is bounded matched-control evidence, not a reason to suppress generic Hough globally.
+
+The 11 reused saved rack frames from daylight (six), all-lights (three), mid-light (one) and lights-off (one) were also replayed with normalization disabled. Each returned a clear, unobstructed 16-ball inventory at both widths; the corresponding normalization-enabled replays had the same outcome. These are development samples, not a session-separated holdout, and the result does not measure centre error or current production/live behavior. Exact current reports are `finalRawPos-205814` (`25c6c60b3eb245d751251fac96814150abaf4c0025e4595e6bc21c05b6a1ef8f`), `finalRawNeg-205823` (`7f4cd1274014133a33ddc371bf2d962ba812e23a5e7cb6fe849844a456be6b63`) and `finalRawHand-205832` (`c1d4c598fcadd025670db3d8d98a14eac15ad6890bc76d2d7cfabc32aa7b4909`) under `work/production/evidence/live-detect-pocket-lip-20261030/device-replays/`. The multi-light replays are `allRaw-205121`, `dayRaw-205259`, `midRaw-204947` and `offRaw-205014` in the same folder. Camera `/status` remained `Stopped`, revision 41, battery 100%, 134 clips and zero viewers; no Cast/TV action occurred.
+
+The explicit opt-in replay path was checked after the default changed: `finalNormPos-210004` records normalization enabled and returns the same clear 16-ball positive at both widths (report SHA-256 `10408fdff4010c5935a6230f762a9158b95efbe77a81455f58b608613572927d`).
+
+The user confirmed that their “top-left side cushion” label corresponds to the camera-view lower-left long rail, near source point `(480,900)`. This fixes orientation for future labels, but the side-cushion static replay is still uncertain and does not establish full-inventory acceptance.
+
+## Previous exact-source offline replay — 29 October 2026
 
 The rebuilt Pixel 11 analyzer (`o08-provisional-v21`, APK SHA-256 `43036c6da9bd792833a31058b3aec63073184373b995819d915d08989d369172`) replayed six saved frames from each of the lights-off, mid-light, all-lights and daylight clips. Across both 800px and 1000px analysis widths, all 48 frame/width runs returned a clear 16-ball inventory (7 red, 7 yellow, black and cue), with no uncertainty, layout uncertainty or obstruction. Each 2.5-second sequence had an `Unknown` bootstrap followed by five `Still` intervals with valid coverage; maximum source gap was about 501ms.
 
