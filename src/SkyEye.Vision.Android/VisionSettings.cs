@@ -24,9 +24,11 @@ public sealed record VisionSettings(int Width = 1000, double MinimumRadius = 18,
     // Wider bounded packed-colour fitting recovered the daylight rack black,
     // preserved 38 positive/negative controls, and improved one reviewed spread frame.
     public double PackedColourBoundarySearchExtentFraction { get; init; } = .65;
-    // Diagnostic ablation for packed-colour and sparse-black proposal centres near
-    // the analysis image edge. The default preserves the existing detector.
-    public int PackedClusterImageEdgeMargin { get; init; } = 65;
+    // Receipt-checked pocket/cushion replays showed the 65px margin rejected
+    // real edge-ball proposals; 23px recovered four more labelled balls with
+    // no extras in the pocket layout and retained a clear 16-ball rack control.
+    // Incomplete edge layouts remain uncertain and cannot establish readiness.
+    public int PackedClusterImageEdgeMargin { get; init; } = 23;
     // Controlled replay ablation for fresh neutral-body / geometry recovery.
     public bool FreshCueBallRecovery { get; init; } = true;
     // Separately replay the whole-table proposal fix against the v2 cue branch.

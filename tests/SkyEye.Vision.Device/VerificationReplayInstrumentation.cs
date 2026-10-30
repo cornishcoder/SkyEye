@@ -14,7 +14,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
     public VerificationReplayInstrumentation(IntPtr handle, global::Android.Runtime.JniHandleOwnership ownership) : base(handle, ownership) { }
     bool refinement, dump, boundaryAudit, traceDarkMask, normalizedGeometry, normalizedPackedProposalMask, boundaryExtentAblation,
         edgeMarginAblation, continueCalibrationMismatch, obstructionMaskTrace, localIlluminationNormalization;
-    int fastWidth, darkBodyCeiling = 40, packedClusterImageEdgeMargin = 65, manualBlackImageX = 1282, manualBlackImageY = 536;
+    int fastWidth, darkBodyCeiling = 40, packedClusterImageEdgeMargin = 23, manualBlackImageX = 1282, manualBlackImageY = 536;
     double boundaryExtentFraction = .65, pocketExclusionRadius = 55, minimumBoundarySupport = .75,
         minimumSparseColourBoundarySupport = .75, sparseBlackSearchExtentFraction = .4,
         minimumSparseBlackBoundarySupport = .7;
@@ -57,7 +57,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             if (!int.TryParse(requestedEdgeMargin, NumberStyles.Integer, CultureInfo.InvariantCulture, out packedClusterImageEdgeMargin)
                 || packedClusterImageEdgeMargin is < 0 or > 100)
                 throw new ArgumentOutOfRangeException(nameof(packedClusterImageEdgeMargin), "Packed-cluster image edge margin must be between 0 and 100 pixels at width 1000.");
-            edgeMarginAblation = packedClusterImageEdgeMargin != 65;
+            edgeMarginAblation = packedClusterImageEdgeMargin != 23;
         }
         var requestedPocketRadius = args?.GetString("pocketRadius");
         if (!string.IsNullOrWhiteSpace(requestedPocketRadius)
@@ -114,7 +114,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             var recordedConfiguration = firstMetadata.TryGetProperty("analyzerConfigurationIdentity", out var configurationElement)
                 ? configurationElement.GetString() : null;
             var calibration = new TableCalibration(corners);
-            VisionSettings ReplaySettings(int width, int edgeMargin = 65, double boundaryExtent = .65,
+            VisionSettings ReplaySettings(int width, int edgeMargin = 23, double boundaryExtent = .65,
                 bool useNormalizedGeometry = false, bool useNormalizedProposalMask = false)
                 => new(Width: width, PocketExclusionRadius: pocketExclusionRadius)
                 {

@@ -3,7 +3,7 @@ param(
     [int[]]$Frames = @(399, 433),
     [string]$RunPrefix = 'pocketlip30',
     [string]$Purpose = 'Current-code exact-frame candidate and boundary audit for the Oct 30 pocket-lip fixture.',
-    [int]$EdgeMargin = 65,
+    [int]$EdgeMargin = 23,
     [double]$PocketRadius = 55,
     [double]$BoundarySupport = 0.75,
     [double]$SparseColourSupport = 0.75,

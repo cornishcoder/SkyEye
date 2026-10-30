@@ -16,6 +16,7 @@ internal static class PackedBlackMaskTrace
     const int ManualImageX = 1282;
     const int ManualImageY = 536;
     const int DarkValueCeiling = 40;
+    const int PackedClusterImageEdgeMargin = 23;
 
     readonly record struct Peak(int ComponentIndex, double X, double Y, double Radius, int Area, double DistanceFromLabel,
         bool PassesMargin, bool PassesMinimumRadius, bool InSearchWindow);
@@ -56,10 +57,10 @@ internal static class PackedBlackMaskTrace
             var selectedCentres = vision.CandidateAudits.Where(a => a.Pass == "initial" && a.Stage == "packed-window" && a.Decision == "selected")
                 .Select(a => a.ProposalCentre * auditScale).ToArray();
             bool hasPackedWindow = selectedCentres.Length >= 12;
-            double left = hasPackedWindow ? selectedCentres.Min(p => p.X) - 55 * scale : 65 * scale;
-            double right = hasPackedWindow ? selectedCentres.Max(p => p.X) + 55 * scale : width - 65 * scale;
-            double top = hasPackedWindow ? selectedCentres.Min(p => p.Y) - 55 * scale : 65 * scale;
-            double bottom = hasPackedWindow ? selectedCentres.Max(p => p.Y) + 55 * scale : 2 * width - 65 * scale;
+            double left = hasPackedWindow ? selectedCentres.Min(p => p.X) - 55 * scale : PackedClusterImageEdgeMargin * scale;
+            double right = hasPackedWindow ? selectedCentres.Max(p => p.X) + 55 * scale : width - PackedClusterImageEdgeMargin * scale;
+            double top = hasPackedWindow ? selectedCentres.Min(p => p.Y) - 55 * scale : PackedClusterImageEdgeMargin * scale;
+            double bottom = hasPackedWindow ? selectedCentres.Max(p => p.Y) + 55 * scale : 2 * width - PackedClusterImageEdgeMargin * scale;
             string searchWindowSource = hasPackedWindow ? "packed-cluster" : "full-table-sparse-black";
 
             using var distance = new Mat(); Imgproc.DistanceTransform(openedMask, distance, Imgproc.DistL2, 3);
@@ -79,7 +80,7 @@ internal static class PackedBlackMaskTrace
                 double x = nearbyCentres.Get(i, 0)![0], y = nearbyCentres.Get(i, 1)![0];
                 double radius = distance.Get((int)Math.Round(y), (int)Math.Round(x))![0];
                 double fromLabel = Math.Sqrt(Math.Pow(x - label.X, 2) + Math.Pow(y - label.Y, 2));
-                bool passesMargin = x >= 65 * scale && y >= 65 * scale && x < width - 65 * scale && y < 2 * width - 65 * scale;
+                bool passesMargin = x >= PackedClusterImageEdgeMargin * scale && y >= PackedClusterImageEdgeMargin * scale && x < width - PackedClusterImageEdgeMargin * scale && y < 2 * width - PackedClusterImageEdgeMargin * scale;
                 bool passesMinimumRadius = radius >= minimumPeakRadius;
                 bool inWindow = x >= left && x <= right && y >= top && y <= bottom;
                 var peak = new Peak(i, x, y, radius, (int)nearbyStats.Get(i, Imgproc.CcStatArea)![0], fromLabel,
@@ -108,7 +109,7 @@ internal static class PackedBlackMaskTrace
                 double x = globalPeakCentres.Get(i, 0)![0], y = globalPeakCentres.Get(i, 1)![0];
                 double radius = distance.Get((int)Math.Round(y), (int)Math.Round(x))![0];
                 double fromLabel = Math.Sqrt(Math.Pow(x - label.X, 2) + Math.Pow(y - label.Y, 2));
-                bool passesMargin = x >= 65 * scale && y >= 65 * scale && x < width - 65 * scale && y < 2 * width - 65 * scale;
+                bool passesMargin = x >= PackedClusterImageEdgeMargin * scale && y >= PackedClusterImageEdgeMargin * scale && x < width - PackedClusterImageEdgeMargin * scale && y < 2 * width - PackedClusterImageEdgeMargin * scale;
                 bool inWindow = x >= left && x <= right && y >= top && y <= bottom;
                 var seed = new Peak(i, x, y, radius, (int)globalPeakStats.Get(i, Imgproc.CcStatArea)![0],
                     fromLabel, passesMargin, true, inWindow);
@@ -119,7 +120,7 @@ internal static class PackedBlackMaskTrace
             {
                 double x = productionPeakCentres.Get(i, 0)![0] + searchLeft;
                 double y = productionPeakCentres.Get(i, 1)![0] + searchTop;
-                if (x < 65 * scale || y < 65 * scale || x >= width - 65 * scale || y >= 2 * width - 65 * scale) continue;
+                if (x < PackedClusterImageEdgeMargin * scale || y < PackedClusterImageEdgeMargin * scale || x >= width - PackedClusterImageEdgeMargin * scale || y >= 2 * width - PackedClusterImageEdgeMargin * scale) continue;
                 double radius = distance.Get((int)Math.Round(y), (int)Math.Round(x))![0];
                 if (radius < minimumPeakRadius) continue;
                 double fromLabel = Math.Sqrt(Math.Pow(x - label.X, 2) + Math.Pow(y - label.Y, 2));
