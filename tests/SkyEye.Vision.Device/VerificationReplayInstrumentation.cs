@@ -12,7 +12,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
 {
     public VerificationReplayInstrumentation() { }
     public VerificationReplayInstrumentation(IntPtr handle, global::Android.Runtime.JniHandleOwnership ownership) : base(handle, ownership) { }
-    bool refinement, dump, boundaryAudit, traceDarkMask, normalizedGeometry, normalizedPackedProposalMask, boundaryExtentAblation,
+    bool refinement, dump, boundaryAudit, traceDarkMask, tracePackedColourFits, normalizedGeometry, normalizedPackedProposalMask, boundaryExtentAblation,
         edgeMarginAblation, continueCalibrationMismatch, obstructionMaskTrace, localIlluminationNormalization;
     int fastWidth, darkBodyCeiling = 40, packedClusterImageEdgeMargin = 23, manualBlackImageX = 1282, manualBlackImageY = 536;
     double boundaryExtentFraction = .65, pocketExclusionRadius = 55, minimumBoundarySupport = .75,
@@ -23,6 +23,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
     {
         refinement = args?.GetString("refine") == "1"; dump = args?.GetString("dump") == "1";
         boundaryAudit = args?.GetString("audit") == "1"; traceDarkMask = args?.GetString("trace") == "1";
+        tracePackedColourFits = args?.GetString("tracePackedColourFits") == "1";
         obstructionMaskTrace = args?.GetString("obstructionMaskTrace") == "1";
         var requestedIlluminationNormalization = args?.GetString("illuminationNormalization");
         if (!string.IsNullOrWhiteSpace(requestedIlluminationNormalization))
@@ -457,6 +458,11 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                         width1000 = new { metrics = normalizedPackedProposalMask1000Metrics, analysis = Summarize(normalizedPackedProposalMask1000!, 1000),
                             comparison = Compare(baseline1000, normalizedPackedProposalMask1000!, 1000, 1000) }
                     } : null,
+                    packedColourBoundaryFitTrace = tracePackedColourFits ? new
+                    {
+                        width800 = AuditPackedColourBoundaryFits(bytes, calibration, 800, baseline800),
+                        width1000 = AuditPackedColourBoundaryFits(bytes, calibration, 1000, baseline1000)
+                    } : null,
                     packedColourBoundarySearchAblation = boundaryExtentAblation ? new
                     {
                         extentFraction = boundaryExtentFraction,
@@ -859,6 +865,51 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                             sector.ExteriorContrast, sector.OuterPoint, hue, saturation, value, red, yellow };
                     })
                 }
+            };
+        }).ToArray();
+    }
+    static object[] AuditPackedColourBoundaryFits(byte[] encodedImage, TableCalibration calibration, int width, VisionResult vision)
+    {
+        var seeds = vision.CandidateAudits.Where(a => a.Pass == "initial"
+            && a.Stage is "packed-red" or "packed-yellow"
+            && a.Decision == "rejected-no-boundary-fit").ToArray();
+        if (seeds.Length == 0) return [];
+        var pixels = WarpRawPixels(encodedImage, calibration, width);
+        var hsv = WarpRawPixels(encodedImage, calibration, width, toHsv: true);
+        var colourMask = BoundaryColourMask.FromHsvPixels(hsv);
+        double expectedRadius = PoolGeometry.Radius * width;
+        double[] extents = [.65, .8, 1.0, 1.2, 1.5];
+        return seeds.Select(seed =>
+        {
+            var seedSectors = BallBoundaryRefiner.Inspect(pixels, width, width * 2, seed.ProposalCentre,
+                expectedRadius, seed.ProposalCentre, expectedRadius, seed.Kind);
+            var sweeps = extents.Select(extent =>
+            {
+                var fit = BallBoundaryRefiner.Refine(pixels, width, width * 2, seed.ProposalCentre,
+                    expectedRadius, .5, collectSectorEvidence: true, expectedKind: seed.Kind,
+                    colourMask: colourMask, maximumCentreOffsetFraction: extent);
+                return new
+                {
+                    maximumCentreOffsetFraction = extent,
+                    found = fit is not null,
+                    centre = fit?.Centre,
+                    radius = fit?.Radius,
+                    supportedSectors = fit is null ? 0 : (int)Math.Round(fit.SupportedSectors * 32),
+                    proposalSupportedSectors = fit?.ProposalFit is null ? (int?)null : (int)Math.Round(fit.ProposalFit.SupportedSectors * 32),
+                    supportedSectorIndexes = fit?.SectorEvidence.Where(sector => sector.Supported).Select(sector => sector.Index).ToArray() ?? [],
+                    exteriorRejectedSectorIndexes = fit?.SectorEvidence.Where(sector => sector.ExteriorRejected).Select(sector => sector.Index).ToArray() ?? []
+                };
+            }).ToArray();
+            return (object)new
+            {
+                seed.Kind,
+                seed.ProposalCentre,
+                seed.ProposalRadius,
+                seed.Decision,
+                seedGeometrySupportedSectors = seedSectors.Count(sector => sector.Supported),
+                seedGeometrySupportedSectorIndexes = seedSectors.Where(sector => sector.Supported).Select(sector => sector.Index).ToArray(),
+                seedGeometryExteriorRejectedSectorIndexes = seedSectors.Where(sector => sector.ExteriorRejected).Select(sector => sector.Index).ToArray(),
+                sweeps
             };
         }).ToArray();
     }
