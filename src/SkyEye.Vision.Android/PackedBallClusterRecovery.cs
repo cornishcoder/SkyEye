@@ -209,10 +209,10 @@ public sealed partial class VisionAnalyzer
                     .Min(ball => (new Point(ball.Body.X, ball.Body.Y) - seed.Centre).Length)))
             .OrderBy(candidate => candidate.ColourDistance)
             .ThenByDescending(candidate => candidate.Seed.Radius)
-            .Take(12).ToArray();
+            .Take(settings.SparseBlackCandidateLimit).ToArray();
         candidateAudits?.Add(new(pass, "sparse-black-search", "black", seeds.Length,
             new((bounds.Left + bounds.Right) / 2, (bounds.Top + bounds.Bottom) / 2), 0, null, null, null, null,
-            $"ball-sized-full-table-seeds={seeds.Length};colour-proximity-ranked={rankedSeeds.Length};fit-cap=12"));
+            $"ball-sized-full-table-seeds={seeds.Length};colour-proximity-ranked={rankedSeeds.Length};fit-cap={settings.SparseBlackCandidateLimit}"));
         double expectedRadius = PoolGeometry.Radius * coordinates.Width;
         for (int i = 0; i < rankedSeeds.Length; i++)
         {
@@ -222,14 +222,15 @@ public sealed partial class VisionAnalyzer
             if (circles.Any(c => Classify(c, rawPixels, inspectRim: true).Kind == "black"))
             { Audit("rejected-black-already-present"); return; }
             var fit = BallBoundaryRefiner.Refine(rawBgrPixels, coordinates.Width, coordinates.Height,
-                seed.Centre, expectedRadius, .5625);
+                seed.Centre, expectedRadius, .5625,
+                maximumCentreOffsetFraction: settings.SparseBlackBoundarySearchExtentFraction);
             if (fit is null)
             { Audit("rejected-no-boundary-fit"); continue; }
             string? occlusionEvidence = null;
-            bool occlusionExplained = fit.SupportedSectors < .7
+            bool occlusionExplained = fit.SupportedSectors < settings.MinimumSparseBlackBoundarySupport
                 && HasOcclusionExplainedBlackBoundary(fit, seed.Centre, expectedRadius, rawBgrPixels,
                     colourBalls, out occlusionEvidence);
-            if (fit.SupportedSectors < .7 && !occlusionExplained)
+            if (fit.SupportedSectors < settings.MinimumSparseBlackBoundarySupport && !occlusionExplained)
             { Audit("rejected-insufficient-boundary-support", fit, fit.SupportedSectors, evidence: occlusionEvidence); continue; }
             var body = new Circle(fit.Centre.X, fit.Centre.Y, fit.Radius);
             var classification = Classify(body, rawPixels, inspectRim: true);

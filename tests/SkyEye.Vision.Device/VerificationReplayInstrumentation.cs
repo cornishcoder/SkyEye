@@ -16,7 +16,9 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         edgeMarginAblation, continueCalibrationMismatch, obstructionMaskTrace;
     int fastWidth, darkBodyCeiling = 40, packedClusterImageEdgeMargin = 65, manualBlackImageX = 1282, manualBlackImageY = 536;
     double boundaryExtentFraction = .65, pocketExclusionRadius = 55, minimumBoundarySupport = .75,
-        minimumSparseColourBoundarySupport = .75; string run = "";
+        minimumSparseColourBoundarySupport = .75, sparseBlackSearchExtentFraction = .4,
+        minimumSparseBlackBoundarySupport = .7;
+    int sparseBlackCandidateLimit = 12; string run = "";
     public override void OnCreate(global::Android.OS.Bundle? args)
     {
         refinement = args?.GetString("refine") == "1"; dump = args?.GetString("dump") == "1";
@@ -65,6 +67,21 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             && (!double.TryParse(requestedSparseColourSupport, NumberStyles.Float, CultureInfo.InvariantCulture, out minimumSparseColourBoundarySupport)
                 || !double.IsFinite(minimumSparseColourBoundarySupport) || minimumSparseColourBoundarySupport is < .5625 or > 1))
             throw new ArgumentOutOfRangeException(nameof(minimumSparseColourBoundarySupport), "Minimum sparse-colour boundary support must be between 0.5625 and 1.");
+        var requestedSparseBlackExtent = args?.GetString("sparseBlackExtent");
+        if (!string.IsNullOrWhiteSpace(requestedSparseBlackExtent)
+            && (!double.TryParse(requestedSparseBlackExtent, NumberStyles.Float, CultureInfo.InvariantCulture, out sparseBlackSearchExtentFraction)
+                || !double.IsFinite(sparseBlackSearchExtentFraction) || sparseBlackSearchExtentFraction is < .2 or > 1.5))
+            throw new ArgumentOutOfRangeException(nameof(sparseBlackSearchExtentFraction), "Sparse-black search extent must be between 0.2 and 1.5 ball radii.");
+        var requestedSparseBlackSupport = args?.GetString("sparseBlackSupport");
+        if (!string.IsNullOrWhiteSpace(requestedSparseBlackSupport)
+            && (!double.TryParse(requestedSparseBlackSupport, NumberStyles.Float, CultureInfo.InvariantCulture, out minimumSparseBlackBoundarySupport)
+                || !double.IsFinite(minimumSparseBlackBoundarySupport) || minimumSparseBlackBoundarySupport is < .5625 or > 1))
+            throw new ArgumentOutOfRangeException(nameof(minimumSparseBlackBoundarySupport), "Minimum sparse-black boundary support must be between 0.5625 and 1.");
+        var requestedSparseBlackLimit = args?.GetString("sparseBlackLimit");
+        if (!string.IsNullOrWhiteSpace(requestedSparseBlackLimit)
+            && (!int.TryParse(requestedSparseBlackLimit, NumberStyles.Integer, CultureInfo.InvariantCulture, out sparseBlackCandidateLimit)
+                || sparseBlackCandidateLimit is < 1 or > 64))
+            throw new ArgumentOutOfRangeException(nameof(sparseBlackCandidateLimit), "Sparse-black candidate limit must be between 1 and 64.");
         run = args?.GetString("run") ?? "";
         fastWidth = int.TryParse(args?.GetString("fastWidth"), out var requestedWidth) ? requestedWidth : 0;
         if (int.TryParse(args?.GetString("darkCeiling"), out var requestedDarkCeiling)) darkBodyCeiling = requestedDarkCeiling;
@@ -97,6 +114,9 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     DarkBodyValueCeiling = darkBodyCeiling,
                     MinimumHoughBoundarySupport = minimumBoundarySupport,
                     MinimumSparseColourBoundarySupport = minimumSparseColourBoundarySupport,
+                    SparseBlackBoundarySearchExtentFraction = sparseBlackSearchExtentFraction,
+                    MinimumSparseBlackBoundarySupport = minimumSparseBlackBoundarySupport,
+                    SparseBlackCandidateLimit = sparseBlackCandidateLimit,
                     PackedClusterImageEdgeMargin = edgeMargin,
                     PackedColourBoundarySearchExtentFraction = boundaryExtent,
                     UseNormalizedGeometryForDetection = useNormalizedGeometry,
@@ -473,6 +493,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 obstructionMaskTrace, darkBodyValueCeiling = darkBodyCeiling,
                 pocketExclusionRadius, minimumHoughBoundarySupport = minimumBoundarySupport,
                 minimumSparseColourBoundarySupport,
+                sparseBlackSearchExtentFraction, minimumSparseBlackBoundarySupport,
+                sparseBlackCandidateLimit,
                 normalizedGeometryAblation = normalizedGeometry,
                 normalizedPackedProposalMaskAblation = normalizedPackedProposalMask,
                 packedColourBoundarySearchExtentFraction = boundaryExtentAblation ? boundaryExtentFraction : (double?)null,

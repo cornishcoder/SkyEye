@@ -181,6 +181,65 @@ internal static class PackedBlackMaskTrace
 
             Directory.CreateDirectory(outputDirectory);
             byte[] bgrBytes = new byte[width * width * 2 * 3]; warped.Get(0, 0, bgrBytes);
+            // Diagnostic-only oracle probe: give the boundary refiner the
+            // manually labelled black centre once, to distinguish a missing
+            // dark-mask seed from a boundary that cannot be fitted. This point
+            // is never passed into VisionAnalyzer or a table-state decision.
+            var manualCentreProbe = BallBoundaryRefiner.Refine(bgrBytes, width, width * 2, label,
+                ballRadius, minimumSupportedFraction: .5, collectSectorEvidence: true, expectedKind: "black");
+            static object? FitSummary(BallBoundary? fit, Point reference) => fit is null ? null : new
+            {
+                centre = fit.Centre,
+                radius = fit.Radius,
+                distanceFromLabel = (fit.Centre - reference).Length,
+                supportFraction = fit.SupportedSectors,
+                supportedSectorCount = fit.SectorEvidence.Count(sector => sector.Supported),
+                supportedSectorIndices = fit.SectorEvidence.Where(sector => sector.Supported).Select(sector => sector.Index).ToArray(),
+                score = fit.Score
+            };
+            var nearestMarginSeed = nearbyPeaks.Where(peak => peak.PassesMargin && peak.PassesMinimumRadius)
+                .OrderBy(peak => peak.DistanceFromLabel).FirstOrDefault();
+            bool hasNearestMarginSeed = nearestMarginSeed.PassesMargin && nearestMarginSeed.PassesMinimumRadius;
+            Point nearestSeedCentre = new(nearestMarginSeed.X, nearestMarginSeed.Y);
+            var nearestSeedProbe08 = hasNearestMarginSeed
+                ? BallBoundaryRefiner.Refine(bgrBytes, width, width * 2, nearestSeedCentre, ballRadius,
+                    minimumSupportedFraction: .5, collectSectorEvidence: true, expectedKind: "black",
+                    maximumCentreOffsetFraction: .8)
+                : null;
+            var nearestSeedProbe13 = hasNearestMarginSeed
+                ? BallBoundaryRefiner.Refine(bgrBytes, width, width * 2, nearestSeedCentre, ballRadius,
+                    minimumSupportedFraction: .5, collectSectorEvidence: true, expectedKind: "black",
+                    maximumCentreOffsetFraction: 1.3)
+                : null;
+            var productionLikeSeedProbe04 = hasNearestMarginSeed
+                ? BallBoundaryRefiner.Refine(bgrBytes, width, width * 2, nearestSeedCentre, ballRadius,
+                    minimumSupportedFraction: ObservationPolicy.MinimumSupportedBoundaryFraction,
+                    collectSectorEvidence: true, maximumCentreOffsetFraction: .4)
+                : null;
+            var productionLikeSeedProbe13 = hasNearestMarginSeed
+                ? BallBoundaryRefiner.Refine(bgrBytes, width, width * 2, nearestSeedCentre, ballRadius,
+                    minimumSupportedFraction: ObservationPolicy.MinimumSupportedBoundaryFraction,
+                    collectSectorEvidence: true, maximumCentreOffsetFraction: 1.3)
+                : null;
+            var manualCentreProbeReport = new
+            {
+                evaluationOnly = true,
+                expectedRadius = ballRadius,
+                probeSupportFloor = .5,
+                selectedFit = FitSummary(manualCentreProbe, label),
+                exactProposalFit = FitSummary(manualCentreProbe?.ProposalFit, label),
+                nearestDarkSeed = hasNearestMarginSeed ? new
+                {
+                    centre = nearestSeedCentre,
+                    radius = nearestMarginSeed.Radius,
+                    distanceFromLabel = nearestMarginSeed.DistanceFromLabel,
+                    source = "nearest threshold-mask local maximum inside the production image margin"
+                } : null,
+                nearestSeedFit08 = FitSummary(nearestSeedProbe08, label),
+                nearestSeedFit13 = FitSummary(nearestSeedProbe13, label),
+                productionLikeNearestSeedFit04 = FitSummary(productionLikeSeedProbe04, label),
+                productionLikeNearestSeedFit13 = FitSummary(productionLikeSeedProbe13, label)
+            };
             for (int i = 0; i < openedBytes.Length; i++)
                 if (openedBytes[i] != 0)
                 {
@@ -260,6 +319,7 @@ internal static class PackedBlackMaskTrace
                     thresholdMaskPixelsBeforeOpen = rawDarkPixelsInExpectedBall, thresholdMaskPixelsAfterOpen = openedDarkPixelsInExpectedBall,
                     maximumDistanceWithinExpectedBall = maxDistanceWithinExpectedBall, maximumDistanceWithin1_5BallRadii = maxDistanceWithin1_5BallRadii,
                     minimumPeakRadius },
+                manualCentreProbe = manualCentreProbeReport,
                 nearbyComponents = nearbyComponents.ToArray(), nearbyLocalMaxima = nearbyPeaks,
                 peakComponentCounts = new { positiveLocalMaximumComponents = nearbyPeakCount - 1,
                     minimumRadiusQualifiedComponents = globalPeakCount - 1, croppedMinimumRadiusQualifiedComponents = croppedQualifiedSeedCount,

@@ -69,6 +69,12 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 diagnosticAblations["packedClusterImageEdgeMargin"] = settings.PackedClusterImageEdgeMargin;
             if (sparseColourSupportAblation)
                 diagnosticAblations["minimumSparseColourBoundarySupport"] = settings.MinimumSparseColourBoundarySupport;
+            if (settings.SparseBlackBoundarySearchExtentFraction != .4)
+                diagnosticAblations["sparseBlackBoundarySearchExtentFraction"] = settings.SparseBlackBoundarySearchExtentFraction;
+            if (settings.MinimumSparseBlackBoundarySupport != .7)
+                diagnosticAblations["minimumSparseBlackBoundarySupport"] = settings.MinimumSparseBlackBoundarySupport;
+            if (settings.SparseBlackCandidateLimit != 12)
+                diagnosticAblations["sparseBlackCandidateLimit"] = settings.SparseBlackCandidateLimit;
             object identity = diagnosticAblations.Count > 0
                 ? new
                 {

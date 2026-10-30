@@ -7,6 +7,9 @@ param(
     [double]$PocketRadius = 55,
     [double]$BoundarySupport = 0.75,
     [double]$SparseColourSupport = 0.75,
+    [double]$SparseBlackSearchExtent = 0.4,
+    [double]$SparseBlackSupport = 0.7,
+    [int]$SparseBlackCandidateLimit = 12,
     [switch]$ObstructionMaskTrace,
     [switch]$TraceBlackMask,
     [int]$BlackLabelX = 1282,
@@ -18,6 +21,9 @@ if ($EdgeMargin -lt 0 -or $EdgeMargin -gt 100) { throw 'EdgeMargin must be betwe
 if ($PocketRadius -le 0 -or $PocketRadius -gt 80) { throw 'PocketRadius must be greater than 0 and at most 80 pixels at width 1000.' }
 if ($BoundarySupport -lt 0.5625 -or $BoundarySupport -gt 1) { throw 'BoundarySupport must be between 0.5625 and 1.' }
 if ($SparseColourSupport -lt 0.5625 -or $SparseColourSupport -gt 1) { throw 'SparseColourSupport must be between 0.5625 and 1.' }
+if ($SparseBlackSearchExtent -lt 0.2 -or $SparseBlackSearchExtent -gt 1.5) { throw 'SparseBlackSearchExtent must be between 0.2 and 1.5 ball radii.' }
+if ($SparseBlackSupport -lt 0.5625 -or $SparseBlackSupport -gt 1) { throw 'SparseBlackSupport must be between 0.5625 and 1.' }
+if ($SparseBlackCandidateLimit -lt 1 -or $SparseBlackCandidateLimit -gt 64) { throw 'SparseBlackCandidateLimit must be between 1 and 64.' }
 if ($BlackLabelX -lt 0 -or $BlackLabelY -lt 0) { throw 'Black label coordinates must be non-negative source-image pixels.' }
 
 $adb = 'C:\Program Files (x86)\Android\android-sdk\platform-tools\adb.exe'
@@ -96,7 +102,9 @@ foreach ($input in $inputs) {
 $instrumentArguments = @('shell', 'am', 'instrument', '-w', '-e', 'run', $run,
     '-e', 'audit', '1', '-e', 'edgeMargin', "$EdgeMargin",
     '-e', 'pocketRadius', "$PocketRadius", '-e', 'boundarySupport', "$BoundarySupport",
-    '-e', 'sparseColourSupport', "$SparseColourSupport")
+    '-e', 'sparseColourSupport', "$SparseColourSupport",
+    '-e', 'sparseBlackExtent', "$SparseBlackSearchExtent", '-e', 'sparseBlackSupport', "$SparseBlackSupport",
+    '-e', 'sparseBlackLimit', "$SparseBlackCandidateLimit")
 if ($ObstructionMaskTrace) { $instrumentArguments += @('-e', 'obstructionMaskTrace', '1') }
 if ($TraceBlackMask) { $instrumentArguments += @('-e', 'trace', '1', '-e', 'blackLabelX', "$BlackLabelX", '-e', 'blackLabelY', "$BlackLabelY") }
 $instrumentArguments += $instrumentation
@@ -167,6 +175,9 @@ $manifest = [pscustomobject]@{
     pocketExclusionRadius = $PocketRadius
     minimumHoughBoundarySupport = $BoundarySupport
     minimumSparseColourBoundarySupport = $SparseColourSupport
+    sparseBlackBoundarySearchExtentFraction = $SparseBlackSearchExtent
+    minimumSparseBlackBoundarySupport = $SparseBlackSupport
+    sparseBlackCandidateLimit = $SparseBlackCandidateLimit
     sourceFrames = $inputs | ForEach-Object {
         [pscustomobject]@{ frameId = $_.Receipt.indexedFrame.frameId; png = [IO.Path]::GetFileName($_.PngPath); receipt = [IO.Path]::GetFileName($_.JsonPath); sha256 = $_.Hash }
     }

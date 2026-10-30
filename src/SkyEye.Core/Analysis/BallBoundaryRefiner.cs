@@ -125,7 +125,7 @@ public static class BallBoundaryRefiner
             || !double.IsFinite(expectedRadius) || expectedRadius < 5 || expectedRadius > 100
             || !double.IsFinite(proposal.X) || !double.IsFinite(proposal.Y)
             || !double.IsFinite(minimumSupportedFraction) || minimumSupportedFraction is < .5 or > 1
-            || !double.IsFinite(maximumCentreOffsetFraction) || maximumCentreOffsetFraction is < .2 or > .8)
+            || !double.IsFinite(maximumCentreOffsetFraction) || maximumCentreOffsetFraction is < .2 or > 1.5)
             throw new ArgumentException("Invalid boundary image or proposal.");
         double step = Math.Max(1.5, expectedRadius / 9), extent = expectedRadius * maximumCentreOffsetFraction;
         var background = new double[3];
