@@ -22,8 +22,8 @@
   <PropertyGroup Condition="'$(SkyEyeProduction)' == 'true'">
     <ApplicationTitle>SkyEye</ApplicationTitle>
     <ApplicationId>uk.co.skyeye.companion</ApplicationId>
-    <ApplicationDisplayVersion>0.8.52</ApplicationDisplayVersion>
-    <ApplicationVersion>60</ApplicationVersion>
+    <ApplicationDisplayVersion>0.8.53</ApplicationDisplayVersion>
+    <ApplicationVersion>61</ApplicationVersion>
     <DefineConstants>$(DefineConstants);SKYEYE_HYBRID_PRODUCTION</DefineConstants>
     <AndroidManifestPlaceholders>skyeyeFileProvider=$(ApplicationId).files</AndroidManifestPlaceholders>
   </PropertyGroup>
