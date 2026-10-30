@@ -28,6 +28,14 @@ public sealed class SceneProjection
         double left = (viewportWidth - width) / 2, top = (viewportHeight - height) / 2;
         return new(left, top, width, height, [0, -width, left + width, height, 0, top, 0, 0, 1], fallback: fallback);
     }
+    public static SceneProjection Landscape(double viewportWidth, double viewportHeight, double imageWidth, double imageHeight, string? fallback = null)
+    {
+        if (!ValidSize(viewportWidth, viewportHeight) || !ValidSize(imageWidth, imageHeight)) throw new ArgumentException("The video size is unavailable.");
+        double scale = Math.Min(viewportWidth / imageWidth, viewportHeight / imageHeight);
+        double width = imageWidth * scale, height = imageHeight * scale;
+        double left = (viewportWidth - width) / 2, top = (viewportHeight - height) / 2;
+        return new(left, top, width, height, [width, 0, left, 0, height, top, 0, 0, 1], fallback: fallback);
+    }
     public static SceneProjection Table(double viewportWidth, double viewportHeight, double imageWidth, double imageHeight, TableCalibration calibration)
     {
         if (!ValidSize(viewportWidth, viewportHeight) || !ValidSize(imageWidth, imageHeight)) throw new ArgumentException("The video size is unavailable.");

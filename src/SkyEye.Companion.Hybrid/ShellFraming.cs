@@ -37,8 +37,11 @@ public sealed partial class ShellSession
             if (videoWidth <= 0 || videoHeight <= 0) return;
             EnsurePocketLoop();
             var calibration = table.State.Calibration;
-            var projection = FrameTableRequested && CanFrameTable && calibration is not null ? SceneProjection.Pockets(width, height, videoWidth, videoHeight, calibration)
-                : SceneProjection.Portrait(width, height, videoWidth, videoHeight);
+            bool portrait = !MenuPanelPinned;
+            var projection = FrameTableRequested && CanFrameTable && calibration is not null
+                ? SceneProjection.Pockets(width, height, videoWidth, videoHeight, calibration, portrait)
+                : portrait ? SceneProjection.Portrait(width, height, videoWidth, videoHeight)
+                    : SceneProjection.Landscape(width, height, videoWidth, videoHeight);
             var guides = FrameGuides && CanFrameTable && calibration is not null ? PoolGeometry.Pockets.Select(p => calibration.Unmap(p)).Select(p => new[] { p.X, p.Y }).ToArray() : [];
             var pockets = projection.Framed ? calibration!.Corners.Select(p => new[] { p.X, p.Y }).ToArray() : [];
             scene = JsonSerializer.Serialize(new { width, height, values = projection.Values, clip = new[] { projection.Left, projection.Top, projection.Left + projection.Width, projection.Top + projection.Height }, framed = projection.Framed, guides, pockets });

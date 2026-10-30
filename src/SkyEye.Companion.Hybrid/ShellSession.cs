@@ -66,7 +66,7 @@ public sealed partial class ShellSession : IDisposable
     public double DockHeight => (ControlsVisible
         ? LiveDetectFeedbackVisible ? NeedsAttention ? 460 : 410 : NeedsAttention ? 360 : 320
         : 80) * FontScale;
-    public string Message { get; private set; } = "Your table. Every shot.";
+    public string Message { get; private set; } = "";
     public string Playback { get; private set; } = "Waiting for your table";
     public bool Playing { get; private set; }
     public bool HasSource => selection.Source is not null;
@@ -132,6 +132,7 @@ public sealed partial class ShellSession : IDisposable
         chrome.SetPinned(!chrome.Pinned);
         Android.App.Application.Context.GetSharedPreferences("skyeye", Android.Content.FileCreationMode.Private)!
             .Edit()!.PutBoolean("menu-panel-pinned", chrome.Pinned)!.Apply();
+        UpdateVideoOrientation();
         Changed?.Invoke();
     }
     public void RevealControls() { chrome.Reveal(); Changed?.Invoke(); }
@@ -143,7 +144,7 @@ public sealed partial class ShellSession : IDisposable
     }
     public void Attach(Bridge.PlayerBridge player, Bridge.CastBridge cast)
     {
-        this.player = player; this.cast = cast; player.SetPortrait(true);
+        this.player = player; this.cast = cast; UpdateVideoOrientation();
         player.SetDiagnostics(SkyEye.Core.Analysis.PipelineDiagnostics.Enabled);
         lastScene = null;
         Android.Util.Log.Info("SkyEyeShell", "Native media handler attached");
@@ -245,13 +246,14 @@ public sealed partial class ShellSession : IDisposable
         StopPocketFraming();
         StopShotScenes();
         ClearSceneCheck();
-        player.SetPortrait(selection.Kind != ViewingSource.LocalClip);
+        UpdateVideoOrientation();
         player.SetMuted(selection.Kind != ViewingSource.LocalClip); player.Play(source);
         Android.Util.Log.Info("SkyEyeShell", "Native playback started: " + selection.Kind);
         selection.Started();
         if (!TvReplaySelected && BackgroundTvService.Instance is null) cast?.Configure("", true);
         EnsureShotLoop();
     }
+    void UpdateVideoOrientation() => player?.SetPortrait(selection.Kind != ViewingSource.LocalClip && !MenuPanelPinned);
     public void Stop()
     {
         if (!MainThread.IsMainThread) { MainThread.BeginInvokeOnMainThread(Stop); return; }

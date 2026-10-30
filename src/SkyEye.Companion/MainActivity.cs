@@ -50,7 +50,7 @@ public sealed partial class MainActivity : AndroidX.AppCompat.App.AppCompatActiv
         base.OnCreate(savedInstanceState); MigrationAudit.Report(this); InitializeApp();
         var root = new LinearLayout(this) { Orientation = Orientation.Vertical }; root.SetPadding(20, 24, 20, 20); root.SetBackgroundColor(Color.Rgb(10, 19, 28));
         var scroll = new ScrollView(this); scroll.AddView(root); SetContentView(scroll);
-        root.AddView(Label(AppTitle, 30)); root.AddView(Label("Your table. Every shot.", 15));
+        root.AddView(Label(AppTitle, 30));
 #if SKYEYE_HYBRID_PRODUCTION
         Add(root, "Return to table view", Finish);
         root.AddView(Label("Save recent recording, candidate shots and voice are available here while the new table controls are completed.", 14));

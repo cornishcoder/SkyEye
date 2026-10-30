@@ -17,7 +17,6 @@ public sealed class NativeMediaHandler : ViewHandler<NativeMediaView, FrameLayou
     CastListener? castListener;
     NativeMediaProbe? probe;
     ShellSession? session;
-    Android.Widget.TextView? placeholder;
     Android.Widget.TextView? title;
     Android.Widget.TextView? cameraBatteryText;
     Android.Widget.ProgressBar? cameraBatteryGauge;
@@ -40,10 +39,6 @@ public sealed class NativeMediaHandler : ViewHandler<NativeMediaView, FrameLayou
             (activity.GetSystemService(Android.Content.Context.AccessibilityService) as Android.Views.Accessibility.AccessibilityManager)?.IsTouchExplorationEnabled == true);
         var videoLayout = new FrameLayout.LayoutParams(-1, -1) { TopMargin = (int)(64 * density), BottomMargin = (int)(160 * density) };
         container.AddView(player.View, videoLayout);
-        placeholder = new(activity) { Text = "Your table.\nEvery shot.", Gravity = GravityFlags.Center, TextSize = 27 };
-        placeholder.SetTextColor(Android.Graphics.Color.Rgb(172, 192, 196));
-        placeholder.ImportantForAccessibility = ImportantForAccessibility.Yes;
-        container.AddView(placeholder, new FrameLayout.LayoutParams(-1, -1) { TopMargin = videoLayout.TopMargin, BottomMargin = videoLayout.BottomMargin });
         frozen = new(activity, session) { Clickable = true, Focusable = true, Visibility = ViewStates.Gone };
         container.AddView(frozen, new FrameLayout.LayoutParams(-1, -1) { TopMargin = videoLayout.TopMargin, BottomMargin = videoLayout.BottomMargin });
         title = new Android.Widget.TextView(activity) { Text = "SKYEYE", TextSize = 15, Gravity = GravityFlags.CenterVertical };
@@ -84,7 +79,6 @@ public sealed class NativeMediaHandler : ViewHandler<NativeMediaView, FrameLayou
         if (session is not null) { session.Changed -= Update; if (player is not null) session.Detach(player); }
         if (player is not null) { player.View!.Click -= Reveal; player.View.LayoutChange -= SceneLayoutChanged; player.View.SetOnTouchListener(null); }
         probe?.Detach(); player?.Release(); cast?.Release();
-        placeholder = null;
         title = cameraBatteryText = null; cameraBatteryGauge = null; cameraBatteryBadge = null;
         container = null; touchListener?.Dispose(); touchListener = null;
         frozen?.Dispose(); frozen = null;
@@ -93,7 +87,6 @@ public sealed class NativeMediaHandler : ViewHandler<NativeMediaView, FrameLayou
     }
     void Update() => MainThread.BeginInvokeOnMainThread(() =>
     {
-        if (placeholder is not null) placeholder.Visibility = session?.HasSource == true ? ViewStates.Gone : ViewStates.Visible;
         if (session is not null && container is not null && player is not null)
         {
             int top = session.ControlsVisible ? (int)(64 * density) : 0;
