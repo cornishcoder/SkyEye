@@ -42,8 +42,8 @@ public sealed class TableScene
     {
         if (version <= 0 || mediaGeneration <= 0 || tableVersion < 0) throw new ArgumentException("Invalid scene scope.");
         if (lifetime <= TimeSpan.Zero || lifetime > TimeSpan.FromMinutes(1)) throw new ArgumentException("Scene lifetime must be at most one minute.");
-        Paths = paths.Take(17).ToImmutableArray(); Markers = markers.Take(33).ToImmutableArray(); Annotations = annotations.Take(9).ToImmutableArray();
-        if (Paths.Length > 16 || Markers.Length > 32 || Annotations.Length > 8) throw new ArgumentException("Scene is too large.");
+        Paths = paths.Take(17).ToImmutableArray(); Markers = markers.Take(33).ToImmutableArray(); Annotations = annotations.Take(25).ToImmutableArray();
+        if (Paths.Length > 16 || Markers.Length > 32 || Annotations.Length > 24) throw new ArgumentException("Scene is too large.");
         Corridors = (corridors ?? []).Take(5).ToImmutableArray();
         if (Corridors.Length > 4) throw new ArgumentException("Too many aim corridors.");
         foreach (var corridor in Corridors)

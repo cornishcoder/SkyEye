@@ -17,7 +17,7 @@ final class TableSceneOverlay {
             if(version<=revision||value.getLong("mediaGeneration")!=generation||value.getLong("tableVersion")<0||expires<=now||expires>now+60000)return false;
             text(value.getString("caption"),96);
             int schema=value.optInt("schema",1);if(schema!=1&&schema!=2)return false;
-            JSONArray paths=array(value,"paths",16),markers=array(value,"markers",32),annotations=array(value,"annotations",8);
+            JSONArray paths=array(value,"paths",16),markers=array(value,"markers",32),annotations=array(value,"annotations",24);
             boolean projected=false;
             for(int i=0;i<paths.length();i++){JSONObject p=paths.getJSONObject(i);ink(p.getInt("ink"));int role=p.optInt("role",0);if(role<0||role>3||schema==1&&role!=0)return false;projected|=role==3;JSONArray points=array(p,"points",32);if(points.length()<2)return false;for(int j=0;j<points.length();j++)point(points.getJSONObject(j));}
             for(int i=0;i<markers.length();i++){JSONObject m=markers.getJSONObject(i);point(m.getJSONObject("point"));ink(m.getInt("ink"));double r=m.getDouble("radius");int kind=m.getInt("kind");if(!Double.isFinite(r)||r<.001||r>.1||kind<0||kind>(schema==1?2:4))return false;}

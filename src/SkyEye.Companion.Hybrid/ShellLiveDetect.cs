@@ -81,6 +81,7 @@ public sealed partial class ShellSession
         {
             liveDetectStopReason = "Live Detect stopped.";
             current.Cancel();
+            ResetIdentifyBallsOverlay(notify: false);
             Changed?.Invoke();
             return;
         }
@@ -145,6 +146,7 @@ public sealed partial class ShellSession
         liveDetectLastSettledAt = null;
         liveDetectEvents.Clear();
         liveDetectHasResult = false;
+        ResetIdentifyBallsOverlay(notify: false);
         Changed?.Invoke();
         liveDetectTask = RunLiveDetectAsync(operation, runId, snapshot.Source, snapshot.Calibration,
             snapshot.CalibrationId, resumeDiagnostics);
@@ -155,6 +157,7 @@ public sealed partial class ShellSession
         if (liveDetectCancellation is not { IsCancellationRequested: false } current) return;
         liveDetectStopReason = reason;
         current.Cancel();
+        ResetIdentifyBallsOverlay(notify: false);
     }
 
     async Task StopLiveDetectAndWaitAsync(string reason)
@@ -229,6 +232,7 @@ public sealed partial class ShellSession
                     await MainThread.InvokeOnMainThreadAsync(() =>
                     {
                         if (!ReferenceEquals(liveDetectCancellation, operation) || cancellation.IsCancellationRequested) return;
+                        InvalidateIdentifyBallsFrame();
                         liveDetectStatus = $"Live Detect waiting · fresh camera frame unavailable ({error.Code}); retrying.";
                         liveDetectInventory = UnknownLiveDetectInventory("fresh camera frame unavailable", DateTimeOffset.UtcNow);
                         Changed?.Invoke();
@@ -281,6 +285,7 @@ public sealed partial class ShellSession
                     {
                         if (ReferenceEquals(liveDetectCancellation, operation) && !cancellation.IsCancellationRequested)
                         {
+                            InvalidateIdentifyBallsFrame();
                             liveDetectStatus = "Live Detect running · waiting for a newer paired camera frame.";
                             liveDetectInventory = UnknownLiveDetectInventory("fresh camera frame unavailable", DateTimeOffset.UtcNow);
                             Changed?.Invoke();
@@ -389,6 +394,8 @@ public sealed partial class ShellSession
                 await MainThread.InvokeOnMainThreadAsync(() =>
                 {
                     if (!ReferenceEquals(liveDetectCancellation, operation) || cancellation.IsCancellationRequested) return;
+                    UpdateIdentifyBallsFrame(new(vision.Balls.ToArray(), vision.HasUncertainLayout, vision.Obstructed,
+                        receipt.MediaGeneration, state.Table?.Version ?? 0, receipt.FrameId, observation.CapturedAt, calibration));
                     liveDetectHasResult = true;
                     liveDetectReadAt = observation.CapturedAt;
                     liveDetectStatus = $"Live Detect running · full pass {vision.ElapsedMs / 1000:0.0}s.";
@@ -434,6 +441,7 @@ public sealed partial class ShellSession
             {
                 if (ReferenceEquals(liveDetectCancellation, operation))
                 {
+                    ResetIdentifyBallsOverlay(notify: false);
                     liveDetectCancellation = null;
                     liveDetectRunId = null;
                     liveDetectStatus = liveDetectStopReason ?? "Live Detect stopped.";

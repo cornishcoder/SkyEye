@@ -74,6 +74,19 @@
                         <span class="home-action-label">@Session.LiveDetectTileText</span>
                     </button>
 
+                    @if (Session.LiveDetectRunning)
+                    {
+                        <button class="home-icon-button identify-balls-shortcut @(Session.IdentifyBallsEnabled ? "selected" : "")"
+                            disabled="@(busy || !Session.CanToggleIdentifyBalls)"
+                            @onclick="ToggleIdentifyBalls"
+                            aria-label="@Session.IdentifyBallsShortcutLabel"
+                            aria-pressed="@Session.IdentifyBallsEnabled"
+                            title="@Session.IdentifyBallsShortcutLabel">
+                            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.8" /><path d="M4.2 7.5h15.6M4.2 16.5h15.6M12 3.2v17.6" /><circle cx="12" cy="12" r="2.2" /></svg>
+                            <span class="home-action-label">@Session.IdentifyBallsTileText</span>
+                        </button>
+                    }
+
                     <button class="home-icon-button live-detect-log-shortcut" @onclick="OpenLiveDetectLog"
                         aria-label="Open Live Detect log" title="Open Live Detect log">
                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 5.5h14M5 10h14M5 14.5h14M5 19h14" /><circle cx="2.5" cy="5.5" r=".7" /><circle cx="2.5" cy="10" r=".7" /><circle cx="2.5" cy="14.5" r=".7" /><circle cx="2.5" cy="19" r=".7" /></svg>
@@ -130,6 +143,8 @@
                         <p role="status" aria-live="polite">@Session.LiveDetectStatus</p>
                         @if (Session.LiveDetectInventory.Length > 0)
                         { <p class="live-detect-inventory">@Session.LiveDetectInventory · analyzed @Session.LiveDetectReadAt</p> }
+                        @if (Session.LiveDetectRunning && Session.IdentifyBallsEnabled)
+                        { <p class="identify-balls-status" role="status" aria-live="polite">@Session.IdentifyBallsOverlayStatus</p> }
                     </section>
                 }
                 <p class="physics-status" role="status"><span class="status-dot @(Session.PhysicsAvailable ? "ready" : "off")"></span>@HomePhysicsStatus</p>
@@ -323,6 +338,7 @@
     async Task Control(CameraControlRequest request) => await Run(() => Session.ControlCameraAsync(request));
     async Task ToggleCandidateShortcut() => await Run(Session.ToggleCandidateShortcutAsync);
     async Task ToggleLiveDetect() => await Run(Session.ToggleLiveDetectAsync);
+    async Task ToggleIdentifyBalls() => await Run(Session.ToggleIdentifyBallsAsync);
     async Task CaptureAdvisoryFrame()
     {
         if (Session.VisionDiagnosticLabelFrame is not null) { Navigate(Screen.Advisory); return; }

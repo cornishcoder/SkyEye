@@ -125,12 +125,15 @@ summary { min-height: 48px; font-size: 13px; color: #a6babc; cursor: pointer; }
 .candidate-shortcut { color: #88e0cd; }
 .capture-verifier-shortcut { color: #9dd7ff; }
 .live-detect-shortcut { color: #b9d88d; }
+.identify-balls-shortcut { color: #8adcf0; }
+.identify-balls-shortcut.selected { border-color: #65cfe8; background: #17343a; color: #a9edfa; box-shadow: inset 0 0 0 1px #65cfe855; }
 .live-detect-log-shortcut { color: #f1cf9b; }
 .live-detect-shortcut.selected { border-color: #a8d06f; background: #26351b; color: #d0f39f; box-shadow: inset 0 0 0 1px #a8d06f55; }
 .home-candidate-status { margin: 0; color: #a6babc; font-size: 12px; line-height: 1.35; }
 .home-live-detect { display: grid; gap: 2px; color: #bed0c0; font-size: 11px; line-height: 1.25; }
 .home-live-detect p { margin: 0; }
 .live-detect-inventory { color: #dce8d5; }
+.identify-balls-status { color: #a9edfa; }
 .live-detect-events-heading { margin: 20px 0 8px; }
 .live-detect-event-list { display: grid; gap: 7px; margin: 0; padding-left: 1.4em; color: #ffdb9c; font-size: 13px; line-height: 1.4; }
 .live-detect-event-list li { padding: 7px 9px; border: 1px solid #3b3430; border-radius: 10px; background: #191c1b; }

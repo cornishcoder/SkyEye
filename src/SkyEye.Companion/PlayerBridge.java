@@ -29,7 +29,7 @@ public final class PlayerBridge {
     public String decodedCopyMetrics(){try{return new JSONObject().put("failures",new JSONObject(copyFailures)).put("beforeNs",copyBefore)
         .put("afterNs",copyAfter).put("newestReleaseNs",decodedLedger.newestRelease()).put("ledgerSize",decodedLedger.size()).toString();}catch(Exception ignored){return "{}";}}
     private final ExoPlayer player;private final TextureView texture;private final Listener listener;
-    private final FrameLayout container;private final View overlay;private final CandidateOverlay drawing=new CandidateOverlay();private final TableSceneOverlay tableDrawing=new TableSceneOverlay(),tvDrawing=new TableSceneOverlay();
+    private final FrameLayout container;private final View overlay;private final CandidateOverlay drawing=new CandidateOverlay();private final TableSceneOverlay tableDrawing=new TableSceneOverlay(),tvDrawing=new TableSceneOverlay(),identityDrawing=new TableSceneOverlay();
     private volatile String phoneScene="{}",phoneFraming="{}";
     private final android.os.Handler retry=new android.os.Handler(android.os.Looper.getMainLooper());private volatile long generation;private String activeUrl="";private boolean released;
     private int rotation;private int videoWidth=1920,videoHeight=1080;private org.json.JSONObject scene,tvScene;private boolean sceneApplied;private Bitmap captureScratch;private final android.graphics.Paint videoPaint=new android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG|android.graphics.Paint.FILTER_BITMAP_FLAG|android.graphics.Paint.DITHER_FLAG);
@@ -50,7 +50,7 @@ public final class PlayerBridge {
             .setPrioritizeTimeOverSizeThresholdsForStreaming(true).build();
         player=new ExoPlayer.Builder(context).setLoadControl(buffering).build();player.setVideoTextureView(texture);player.setVolume(0);
         container=new FrameLayout(context);container.setBackgroundColor(android.graphics.Color.BLACK);container.addView(texture,new FrameLayout.LayoutParams(-1,-1));
-        overlay=new View(context){protected void onDraw(Canvas canvas){super.onDraw(canvas);org.json.JSONObject snapshot=tableDrawing.snapshot(System.currentTimeMillis());Matrix matrix=texture.getTransform(new Matrix());canvas.save();if(sceneApplied)clipScene(canvas);canvas.concat(matrix);drawing.draw(canvas,getWidth(),getHeight());tableDrawing.geometry(canvas,getWidth(),getHeight(),videoWidth/(float)videoHeight,snapshot);if(sceneApplied)drawGuides(canvas,getWidth(),getHeight());canvas.restore();tableDrawing.textLayer(canvas,getWidth(),getHeight(),matrix,snapshot);phoneScene=tableDrawing.metrics(snapshot,generation,player.getCurrentPosition()).toString();phoneFraming=calculateFramingMetrics();annotationRecorder.drawn(snapshot,scene==null?"":scene.toString(),false,generation);if(liveUrl(activeUrl))WatermarkRenderer.draw(context,canvas,getWidth(),getHeight());}};
+        overlay=new View(context){protected void onDraw(Canvas canvas){super.onDraw(canvas);long now=System.currentTimeMillis();org.json.JSONObject snapshot=tableDrawing.snapshot(now),identity=identityDrawing.snapshot(now);Matrix matrix=texture.getTransform(new Matrix());canvas.save();if(sceneApplied)clipScene(canvas);canvas.concat(matrix);drawing.draw(canvas,getWidth(),getHeight());tableDrawing.geometry(canvas,getWidth(),getHeight(),videoWidth/(float)videoHeight,snapshot);identityDrawing.geometry(canvas,getWidth(),getHeight(),videoWidth/(float)videoHeight,identity);if(sceneApplied)drawGuides(canvas,getWidth(),getHeight());canvas.restore();tableDrawing.textLayer(canvas,getWidth(),getHeight(),matrix,snapshot);identityDrawing.textLayer(canvas,getWidth(),getHeight(),matrix,identity);phoneScene=tableDrawing.metrics(snapshot,generation,player.getCurrentPosition()).toString();phoneFraming=calculateFramingMetrics();annotationRecorder.drawn(snapshot,scene==null?"":scene.toString(),false,generation);if(liveUrl(activeUrl))WatermarkRenderer.draw(context,canvas,getWidth(),getHeight());}};
         overlay.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);container.addView(overlay,new FrameLayout.LayoutParams(-1,-1));
         retry.post(new Runnable(){public void run(){if(released)return;overlay.invalidate();retry.postDelayed(this,200);}});
         texture.addOnLayoutChangeListener((v,l,t,r,b,ol,ot,or,ob)->transform());
@@ -70,6 +70,9 @@ public final class PlayerBridge {
     public void setOverlay(String json){tableDrawing.clear();tvDrawing.clear();drawing.set(json);overlay.invalidate();}
     public boolean setTableScene(String json){return setTableSceneForTarget(json,false)&&setTableSceneForTarget(json,true);}
     public boolean setTableSceneForTarget(String json,boolean tv){boolean accepted=(tv?tvDrawing:tableDrawing).set(json,generation);if(accepted){drawing.set("{}");overlay.invalidate();}return accepted;}
+    /** An independent additive layer for current Live Detect identities and calibrated table context. */
+    public boolean setIdentityScene(String json){boolean accepted=identityDrawing.set(json,generation);if(accepted)overlay.invalidate();return accepted;}
+    public void clearIdentityScene(){identityDrawing.clear();overlay.invalidate();}
     public void clearTableScene(){tableDrawing.clear();tvDrawing.clear();overlay.invalidate();}
     public void clearTableSceneForTarget(boolean tv){(tv?tvDrawing:tableDrawing).clear();overlay.invalidate();}
     public void setRecordingClock(String timeline,long sourceUs,long mediaGeneration){annotationRecorder.clock(timeline,sourceUs,mediaGeneration);}
@@ -201,7 +204,7 @@ public final class PlayerBridge {
             decodedLedger.frame(frameGeneration,pts,release,format.width,format.height);annotationRecorder.frame(pts,release);
             if(diagnostics){decodedFrames++;lastReleaseNs=release;}
         });
-        tableDrawing.reset();tvDrawing.reset();drawing.set("{}");phoneScene="{}";activeUrl=url;if(url.contains(".m3u8")){
+        tableDrawing.reset();tvDrawing.reset();identityDrawing.reset();drawing.set("{}");phoneScene="{}";activeUrl=url;if(url.contains(".m3u8")){
             long expectedGeneration=generation;
             androidx.media3.exoplayer.hls.DefaultHlsExtractorFactory delegate=new androidx.media3.exoplayer.hls.DefaultHlsExtractorFactory();
             androidx.media3.exoplayer.hls.HlsExtractorFactory factory=(uri,format,captions,adjuster,headers,input,id)->{
@@ -220,7 +223,7 @@ public final class PlayerBridge {
             player.setMediaSource(new androidx.media3.exoplayer.source.ProgressiveMediaSource.Factory(new androidx.media3.datasource.DefaultDataSource.Factory(container.getContext()),extractors)
                 .setContinueLoadingCheckIntervalBytes(16384).createMediaSource(new MediaItem.Builder().setUri(url).setMimeType(MimeTypes.VIDEO_MP2T).build()));
         }else player.setMediaItem(MediaItem.fromUri(url));player.prepare();player.play();}
-    public void stop(){generation++;annotationRecorder.reset(generation);decodedLedger.reset(generation);tableDrawing.reset();tvDrawing.reset();drawing.set("{}");phoneScene="{}";activeUrl="";player.stop();player.clearMediaItems();
+    public void stop(){generation++;annotationRecorder.reset(generation);decodedLedger.reset(generation);tableDrawing.reset();tvDrawing.reset();identityDrawing.reset();drawing.set("{}");phoneScene="{}";activeUrl="";player.stop();player.clearMediaItems();
         // TextureView keeps its last decoded buffer after ExoPlayer stops. Hide it until a new source is played so a disconnected camera is not shown as live.
         texture.setVisibility(View.INVISIBLE);}
     public void setMuted(boolean muted){player.setVolume(muted?0:1);}
