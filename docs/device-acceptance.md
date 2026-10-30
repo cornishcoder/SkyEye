@@ -1,5 +1,15 @@
 # Physical-device acceptance
 
+## Production code61 pocket-lip Live Detect check — 30 October 2026
+
+Production companion `0.8.53` / code61 was installed in place on Pixel 11. It includes the packed-cluster edge-margin change from 65px to 23px. Before installation, offline replay improved the matched pocket-lip frames but still did not produce a clear inventory. The guarded install preserved the existing app data. No camera package was updated.
+
+The user confirmed the black 8-ball had been removed and the table still held 7 reds, 7 yellows and the cue ball. The phone screenshot `work/production/evidence/code61-edge-margin-install/pixel11-current.png` visibly matches that 15-ball layout. Live Detect run `b9a3826d-ad26-4eba-bab0-cb16281e4021` logged 389 frames between 22:02:57.186 and 22:05:21.412 UTC. All frames were uncertain; 173 were `layout_uncertain` and 216 were `obstructed`. Counts ranged from 10 to 14, usually 12 or 13, with one cue detected and zero black detected as expected. Every frame carried a pocket-colour review warning. No settled baseline, table event or event-clip receipt was recorded, and camera `clipCount` remained 134. The fixture therefore fails complete inventory and readiness.
+
+The obstruction cause is unresolved. The first audited component had zero ball centres and zero ball-body coverage, but the retained log has no source pixels and subsequent component bounds varied. The UI showed no person or hand over the table in the saved screenshot, but this does not identify which image region caused the audit. Treat the warning as unclassified evidence; do not call it a hand or relax the obstruction gate.
+
+At stop, camera `/status` returned `Stopped`, revision 59, battery 100%, 134 clips and zero viewers. Pixel 11 Home showed **Start live session**; screenshot `work/production/evidence/code61-edge-margin-install/pixel11-stopped.png`. The Home's “Last check (historical)” refers to a prior verifier result and not this run. No Cast/TV or match action occurred. Retained log: `work/production/evidence/code61-edge-margin-install/live-detect-final.jsonl`. The next measurement needs exact camera-source pixels matched to Live Detect frame ID/source PTS so remaining pocket-edge candidate misses and the obstruction mask can be reviewed directly.
+
 ## Production code60 uncertain-layout motion retest — 30 October 2026
 
 Production companion `0.8.52` / code60 was installed in place on Pixel 11; the guarded update retained UID/private storage and saved rollback APK `work/production/backups/20261030-213913/before.apk`. The Release build succeeded with 13 warnings and zero errors. The focused check suite had passed before installation: `dotnet run --project tests/SkyEye.Checks -- --game-tracking`.

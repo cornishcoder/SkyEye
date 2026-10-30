@@ -1,5 +1,17 @@
 # Live Detect delivery plan
 
+## Code61 pocket-lip live check — 30 October 2026
+
+Production companion `0.8.53` / code61 is installed on Pixel 11. The build contains the measured packed-cluster image-edge margin change (65px to 23px); the focused offline replay before installation improved the saved pocket-lip frames but remained uncertain. The guarded in-place install retained the existing app identity and private storage. No camera package was updated.
+
+The user prepared balls at the six pocket mouths and confirmed the black 8-ball had been removed. The visible layout in `work/production/evidence/code61-edge-margin-install/pixel11-current.png` is 7 reds, 7 yellows and the cue ball (15); no black is expected. Live Detect run `b9a3826d-ad26-4eba-bab0-cb16281e4021` recorded 389 analyses from 22:02:57.186 to 22:05:21.412 UTC (source frame IDs 1009–5335). The detector returned 10–14 balls, usually 12 or 13 (commonly 6R/5Y/cue or 6R/6Y/cue), and never produced a clear inventory or settled baseline. All 389 frames carried the pocket-colour review warning; 388 reviewed three pocket regions and one reviewed four. 216 frames were also marked obstructed. There were no table events or event-clip receipts. Camera clipCount remained 134.
+
+This is a failed physical pocket-lip inventory check, despite the code61 edge-margin improvement on offline frames. The source-frame pixels were not retained in the Live Detect log, so the exact missed-ball proposals and the obstruction cause are not yet attributable. The first obstruction audit component had zero detected ball centres and zero supported ball-body coverage; later component bounds varied substantially. This is consistent with a segmentation/obstruction issue around the edge fixture, but does not prove a false obstruction or identify its physical cause. Do not weaken the obstruction or uncertainty gates based on this run.
+
+At the safe boundary, Home **End session** stopped capture. Camera `/status` verified `Stopped`, revision 59, battery 100%, 134 clips and zero viewers; Home shows **Start live session** in `pixel11-stopped.png`. No Cast/TV or match action occurred. The stopped Home screen's “Last check (historical)” is a previous verifier result, not this Live Detect run. The retained log and screenshots are under `work/production/evidence/code61-edge-margin-install/`.
+
+**Next:** preserve one or more exact camera-source PNGs with frame ID, source PTS and pixel hash from this same hands-clear pocket-lip layout, then replay those exact frames with candidate-stage tracing. Compare misses against the user's visible 7R/7Y/cue labels before changing any detector threshold. Keep the cushion-only holdout separate. The reliable inventory/readiness goal remains open.
+
 ## Code60 uncertain-layout motion retest — 30 October 2026
 
 The uncertain-layout motion gate fix from `5b9f4dc` is built into Production `0.8.52` / code60 and installed on Pixel 11. Release build succeeded with 13 warnings and zero errors. The guarded installer confirmed the signing certificate and retained UID/private storage; rollback APK is `work/production/backups/20261030-213913/before.apk`.

@@ -2,7 +2,11 @@
 
 Use this guide to operate the Hybrid Production companion on the Pixel 11 and inspect the mounted camera without guessing at screen coordinates or changing match state. Prefer the current accessibility label and a fresh screenshot/UI tree; layout bounds move as the video and Settings panel scroll.
 
-## Current stopped state after the code60 live check — 30 October 2026
+## Current stopped state after the code61 pocket-lip check — 30 October 2026
+
+Production companion `0.8.53` / code61 is installed on Pixel 11. The bounded pocket-lip Live Detect run found 10–14 of the 15 visible balls (7 reds, 7 yellows and cue; the user had removed the black), with no clear inventory, settled baseline, table event or event-clip receipt. Every frame was uncertain and the camera was stopped at the first safe boundary. Camera `/status`: `Stopped`, revision 59, battery 100%, `clipCount=134`, zero viewers. Pixel 11 Home shows **Start live session**. Screenshots and the retained log are under `work/production/evidence/code61-edge-margin-install/`. No Cast/TV action occurred. The Home “Last check (historical)” is an older verifier run; use the run ID in the JSONL, `b9a3826d-ad26-4eba-bab0-cb16281e4021`, for this Live Detect check. See the [code61 acceptance record](device-acceptance.md#production-code61-pocket-lip-live-detect-check--30-october-2026) and [current plan](live-detect-plan.md#code61-pocket-lip-live-check--30-october-2026).
+
+## Previous stopped state after the code60 live check — 30 October 2026
 
 Production companion `0.8.52` / code60 is installed on Pixel 11. Its bounded uncertain-layout motion retest produced two `Unsettled (TimedOut)` verifier runs; both remained layout-uncertain with 8–9 of 15 visible balls detected. Motion stayed `Unknown / InsufficientEvidence`, including a detector-centre shift above the movement threshold, so the false `Moving` result was prevented while inventory readiness remained unresolved. The user stopped the session at the next safe boundary. Latest camera `/status`: `Stopped`, revision 55, battery 100%, `clipCount=134`, zero viewers. Pixel 11 Home shows **Start live session**. Screenshot: `work/production/evidence/code60-uncertain-motion-recheck/pixel11-final-home.png`. No Cast/TV or mounted-camera package action occurred. See the [code60 acceptance record](device-acceptance.md#production-code60-uncertain-layout-motion-retest--30-october-2026) and [current plan](live-detect-plan.md#code60-uncertain-layout-motion-retest--30-october-2026).
 
