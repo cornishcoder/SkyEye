@@ -13,12 +13,23 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
     public VerificationReplayInstrumentation() { }
     public VerificationReplayInstrumentation(IntPtr handle, global::Android.Runtime.JniHandleOwnership ownership) : base(handle, ownership) { }
     bool refinement, dump, boundaryAudit, traceDarkMask, normalizedGeometry, normalizedPackedProposalMask, boundaryExtentAblation,
-        edgeMarginAblation, continueCalibrationMismatch;
-    int fastWidth, darkBodyCeiling = 40, packedClusterImageEdgeMargin = 65; double boundaryExtentFraction = .65; string run = "";
+        edgeMarginAblation, continueCalibrationMismatch, obstructionMaskTrace;
+    int fastWidth, darkBodyCeiling = 40, packedClusterImageEdgeMargin = 65, manualBlackImageX = 1282, manualBlackImageY = 536;
+    double boundaryExtentFraction = .65; string run = "";
     public override void OnCreate(global::Android.OS.Bundle? args)
     {
         refinement = args?.GetString("refine") == "1"; dump = args?.GetString("dump") == "1";
         boundaryAudit = args?.GetString("audit") == "1"; traceDarkMask = args?.GetString("trace") == "1";
+        obstructionMaskTrace = args?.GetString("obstructionMaskTrace") == "1";
+        var requestedBlackLabelX = args?.GetString("blackLabelX");
+        var requestedBlackLabelY = args?.GetString("blackLabelY");
+        if (!string.IsNullOrWhiteSpace(requestedBlackLabelX) || !string.IsNullOrWhiteSpace(requestedBlackLabelY))
+        {
+            if (!int.TryParse(requestedBlackLabelX, NumberStyles.Integer, CultureInfo.InvariantCulture, out manualBlackImageX)
+                || !int.TryParse(requestedBlackLabelY, NumberStyles.Integer, CultureInfo.InvariantCulture, out manualBlackImageY)
+                || manualBlackImageX < 0 || manualBlackImageY < 0)
+                throw new ArgumentOutOfRangeException(nameof(manualBlackImageX), "Manual black label requires non-negative source-image X and Y pixel coordinates.");
+        }
         normalizedGeometry = args?.GetString("normGeometry") == "1";
         normalizedPackedProposalMask = args?.GetString("normPackedProposalMask") == "1";
         continueCalibrationMismatch = args?.GetString("continueCalibrationMismatch") == "1";
@@ -62,8 +73,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             var recordedConfiguration = firstMetadata.TryGetProperty("analyzerConfigurationIdentity", out var configurationElement)
                 ? configurationElement.GetString() : null;
             var calibration = new TableCalibration(corners);
-            var analyzer800 = new VisionAnalyzer(new VisionSettings(Width: 800) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling }, boundaryAudit, boundaryAudit);
-            var analyzer1000 = new VisionAnalyzer(new VisionSettings(Width: 1000) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling }, boundaryAudit, boundaryAudit);
+            var analyzer800 = new VisionAnalyzer(new VisionSettings(Width: 800) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling }, boundaryAudit, boundaryAudit, obstructionMaskTrace);
+            var analyzer1000 = new VisionAnalyzer(new VisionSettings(Width: 1000) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling }, boundaryAudit, boundaryAudit, obstructionMaskTrace);
             var fastAnalyzer = fastWidth > 0 ? new VisionAnalyzer(new VisionSettings(Width: fastWidth) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling }) : null;
             var normalizedGeometryAnalyzer800 = normalizedGeometry
                 ? new VisionAnalyzer(new VisionSettings(Width: 800) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling, UseNormalizedGeometryForDetection = true }, boundaryAudit, boundaryAudit)
@@ -149,6 +160,18 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     ? detectionElement.GetBoolean() : true;
                 var baseline800 = Measure(() => analyzer800.Analyze(bytes, calibration), out var analysis800Metrics);
                 var baseline1000 = Measure(() => analyzer1000.Analyze(bytes, calibration), out var analysis1000Metrics);
+                string? obstructionMask800 = null, obstructionMask1000 = null;
+                if (obstructionMaskTrace)
+                {
+                    var mask800 = analyzer800.TakeObstructionMaskDiagnosticPng()
+                        ?? throw new IOException("The width-800 obstruction mask diagnostic was not captured.");
+                    var mask1000 = analyzer1000.TakeObstructionMaskDiagnosticPng()
+                        ?? throw new IOException("The width-1000 obstruction mask diagnostic was not captured.");
+                    obstructionMask800 = $"{frameId}-config800-obstruction-mask.png";
+                    obstructionMask1000 = $"{frameId}-config1000-obstruction-mask.png";
+                    File.WriteAllBytes(Path.Combine(root, obstructionMask800), mask800);
+                    File.WriteAllBytes(Path.Combine(root, obstructionMask1000), mask1000);
+                }
                 VisionResult? normalizedGeometry800 = null, normalizedGeometry1000 = null;
                 object? normalizedGeometry800Metrics = null, normalizedGeometry1000Metrics = null;
                 if (normalizedGeometryAnalyzer800 is not null)
@@ -360,6 +383,13 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                             verification1000.SupportedBodies, verification1000.MaximumBodyDisplacement }
                     } : null,
                     analysis800Metrics, analysis1000Metrics, verification800Metrics, verification1000Metrics,
+                    obstructionMaskTrace = obstructionMaskTrace ? new
+                    {
+                        configuredWidth800 = obstructionMask800,
+                        actualWidth800 = baseline800.ObstructionAudit?.AnalysisWidth,
+                        configuredWidth1000 = obstructionMask1000,
+                        actualWidth1000 = baseline1000.ObstructionAudit?.AnalysisWidth
+                    } : null,
                     normalizedGeometryAblation = normalizedGeometry ? new
                     {
                         width800 = new { metrics = normalizedGeometry800Metrics, analysis = Summarize(normalizedGeometry800!, 800),
@@ -402,10 +432,10 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     replayObstructionMaximumNormalizedBoundsDelta = auditComparison.MaximumNormalizedBoundsDelta,
                     replayObstructionDecisionMatchesCapture = auditComparison.DecisionMatches,
                     width800 = new { blackSeedRecovered = blackSeedRecovered800, analysis = Summarize(baseline800, 800), verification = Summarize(verification800, 800),
-                        darkMaskTrace = traceDarkMask ? PackedBlackMaskTrace.Capture(bytes, calibration, 800, baseline800, Path.Combine(root, "o08-black-trace-" + run), receipt.GetProperty("frameId").GetInt64().ToString()) : null,
+                        darkMaskTrace = traceDarkMask ? PackedBlackMaskTrace.Capture(bytes, calibration, 800, baseline800, Path.Combine(root, "o08-black-trace-" + run), receipt.GetProperty("frameId").GetInt64().ToString(), manualBlackImageX, manualBlackImageY) : null,
                         packedBlackBoundaryTrace = boundaryAudit ? AuditPackedBlackBoundaries(bytes, calibration, 800, baseline800) : null },
                     width1000 = new { blackSeedRecovered = blackSeedRecovered1000, analysis = Summarize(baseline1000, 1000), verification = Summarize(verification1000, 1000),
-                        darkMaskTrace = traceDarkMask ? PackedBlackMaskTrace.Capture(bytes, calibration, 1000, baseline1000, Path.Combine(root, "o08-black-trace-" + run), frameId.ToString()) : null,
+                        darkMaskTrace = traceDarkMask ? PackedBlackMaskTrace.Capture(bytes, calibration, 1000, baseline1000, Path.Combine(root, "o08-black-trace-" + run), frameId.ToString(), manualBlackImageX, manualBlackImageY) : null,
                         packedBlackBoundaryTrace = boundaryAudit ? AuditPackedBlackBoundaries(bytes, calibration, 1000, baseline1000) : null },
                     analysisWidthComparison = Compare(baseline800, baseline1000, 800, 1000),
                     widthComparison = verification800.Vision is null || verification1000.Vision is null
@@ -416,7 +446,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             var consensus1000 = VerificationConsensus.Resolve(measurements1000.Where(m => m.Vision is not null).Select(m => m.Vision!).ToArray(), out var conflict1000);
             var analysisConsensus800 = VerificationConsensus.Resolve(analyses800, out var analysisConflict800);
             var analysisConsensus1000 = VerificationConsensus.Resolve(analyses1000, out var analysisConflict1000);
-            report = new { completed = true, configuration = ObservationPolicy.VerificationConfiguration, bodyRefinement = refinement, boundaryAudit, darkBodyValueCeiling = darkBodyCeiling,
+            report = new { completed = true, configuration = ObservationPolicy.VerificationConfiguration, bodyRefinement = refinement, boundaryAudit,
+                obstructionMaskTrace, darkBodyValueCeiling = darkBodyCeiling,
                 normalizedGeometryAblation = normalizedGeometry,
                 normalizedPackedProposalMaskAblation = normalizedPackedProposalMask,
                 packedColourBoundarySearchExtentFraction = boundaryExtentAblation ? boundaryExtentFraction : (double?)null,

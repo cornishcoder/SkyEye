@@ -3,13 +3,30 @@ param(
     [int[]]$Frames = @(399, 433),
     [string]$RunPrefix = 'pocketlip30',
     [string]$Purpose = 'Current-code exact-frame candidate and boundary audit for the Oct 30 pocket-lip fixture.',
-    [int]$EdgeMargin = 65
+    [int]$EdgeMargin = 65,
+    [switch]$ObstructionMaskTrace,
+    [switch]$TraceBlackMask,
+    [int]$BlackLabelX = 1282,
+    [int]$BlackLabelY = 536
 )
 
 $ErrorActionPreference = 'Stop'
 if ($EdgeMargin -lt 0 -or $EdgeMargin -gt 100) { throw 'EdgeMargin must be between 0 and 100 pixels at width 1000.' }
+if ($BlackLabelX -lt 0 -or $BlackLabelY -lt 0) { throw 'Black label coordinates must be non-negative source-image pixels.' }
 
 $adb = 'C:\Program Files (x86)\Android\android-sdk\platform-tools\adb.exe'
+function Invoke-Adb([string[]]$Arguments) {
+    $previousPreference = $ErrorActionPreference
+    try {
+        $ErrorActionPreference = 'Continue'
+        $output = @(& $adb @Arguments 2>&1)
+        $exitCode = $LASTEXITCODE
+    } finally {
+        $ErrorActionPreference = $previousPreference
+    }
+    [pscustomobject]@{ ExitCode = $exitCode; Output = $output }
+}
+
 $serial = '66181FDDV001HS'
 $package = 'uk.co.skyeye.visionchecks'
 $instrumentation = "$package/uk.co.skyeye.visionchecks.VerificationReplayInstrumentation"
@@ -32,12 +49,13 @@ if (-not (Test-Path -LiteralPath $apk)) { throw "Replay APK was not found at $ap
 $cameraBefore = Invoke-RestMethod -Uri $cameraStatusUri -TimeoutSec 5
 if ($cameraBefore.state -ne 'Stopped') { throw "Mounted camera must be stopped; state is $($cameraBefore.state)." }
 
-$devices = @(& $adb devices -l | Where-Object { $_ -match '^\S+\s+device\s+.*model:Pixel_11_Pro_XL(?:\s|$)' })
-if ($LASTEXITCODE -ne 0 -or $devices.Count -ne 1 -or ($devices[0] -split '\s+')[0] -ne $serial) {
+$deviceResult = Invoke-Adb @('devices', '-l')
+$devices = @($deviceResult.Output | Where-Object { $_ -match '^\S+\s+device\s+.*model:Pixel_11_Pro_XL(?:\s|$)' })
+if ($deviceResult.ExitCode -ne 0 -or $devices.Count -ne 1 -or ($devices[0] -split '\s+')[0] -ne $serial) {
     throw 'Expected the already-connected Pixel 11 Pro XL with serial 66181FDDV001HS.'
 }
-$packagePath = & $adb -s $serial shell pm path $package 2>&1
-if ($LASTEXITCODE -ne 0 -or ($packagePath -join "`n") -notmatch 'package:') {
+$packageResult = Invoke-Adb @('-s', $serial, 'shell', 'pm', 'path', $package)
+if ($packageResult.ExitCode -ne 0 -or ($packageResult.Output -join "`n") -notmatch 'package:') {
     throw 'The isolated Vision Device package is not installed; Production and camera packages were not targeted.'
 }
 
@@ -56,31 +74,69 @@ $inputs = foreach ($frame in $frames) {
 }
 
 New-Item -ItemType Directory -Path $runDirectory -Force | Out-Null
-$installOutput = & $adb -s $serial install -r $apk 2>&1
-if ($LASTEXITCODE -ne 0 -or ($installOutput -join "`n") -notmatch 'Success') {
-    throw "Could not update the isolated Vision Device package in place: $($installOutput -join ' ')"
+$installResult = Invoke-Adb @('-s', $serial, 'install', '-r', $apk)
+if ($installResult.ExitCode -ne 0 -or ($installResult.Output -join "`n") -notmatch 'Success') {
+    throw "Could not update the isolated Vision Device package in place: $($installResult.Output -join ' ')"
 }
-$mkdirOutput = & $adb -s $serial shell mkdir -p $remoteRunDirectory 2>&1
-if ($LASTEXITCODE -ne 0) { throw "Could not create isolated replay folder: $mkdirOutput" }
+$mkdirResult = Invoke-Adb @('-s', $serial, 'shell', 'mkdir', '-p', $remoteRunDirectory)
+if ($mkdirResult.ExitCode -ne 0) { throw "Could not create isolated replay folder: $($mkdirResult.Output -join ' ')" }
 foreach ($input in $inputs) {
     foreach ($file in @($input.JsonPath, $input.PngPath)) {
-        $pushOutput = & $adb -s $serial push $file "$remoteRunDirectory/$([IO.Path]::GetFileName($file))" 2>&1
-        if ($LASTEXITCODE -ne 0) { throw "Transfer failed for $file`: $pushOutput" }
+        $pushResult = Invoke-Adb @('-s', $serial, 'push', $file, "$remoteRunDirectory/$([IO.Path]::GetFileName($file))")
+        if ($pushResult.ExitCode -ne 0) { throw "Transfer failed for $file`: $($pushResult.Output -join ' ')" }
     }
 }
 
-$instrumentOutput = & $adb -s $serial shell am instrument -w -e run $run -e audit 1 -e edgeMargin $EdgeMargin $instrumentation 2>&1
-$instrumentExit = $LASTEXITCODE
-$instrumentOutput | Set-Content -LiteralPath (Join-Path $runDirectory 'instrumentation.log')
-if ($instrumentExit -ne 0) { throw "Boundary audit instrumentation failed: $($instrumentOutput -join ' ')" }
+$instrumentArguments = @('shell', 'am', 'instrument', '-w', '-e', 'run', $run, '-e', 'audit', '1', '-e', 'edgeMargin', "$EdgeMargin")
+if ($ObstructionMaskTrace) { $instrumentArguments += @('-e', 'obstructionMaskTrace', '1') }
+if ($TraceBlackMask) { $instrumentArguments += @('-e', 'trace', '1', '-e', 'blackLabelX', "$BlackLabelX", '-e', 'blackLabelY', "$BlackLabelY") }
+$instrumentArguments += $instrumentation
+$instrumentResult = Invoke-Adb (@('-s', $serial) + $instrumentArguments)
+$instrumentResult.Output | Set-Content -LiteralPath (Join-Path $runDirectory 'instrumentation.log')
+if ($instrumentResult.ExitCode -ne 0) { throw "Boundary audit instrumentation failed: $($instrumentResult.Output -join ' ')" }
 
-$reportName = "o08-replay-proof-$run.json"
+$reportSuffix = if ($TraceBlackMask) { '-blacktrace' } else { '' }
+$reportName = "o08-replay-proof-$run$reportSuffix.json"
 $localReport = Join-Path $runDirectory $reportName
-$pullOutput = & $adb -s $serial pull "$remoteFilesRoot/$reportName" $localReport 2>&1
-if ($LASTEXITCODE -ne 0) { throw "Could not retrieve the replay report: $pullOutput" }
+$pullResult = Invoke-Adb @('-s', $serial, 'pull', "$remoteFilesRoot/$reportName", $localReport)
+if ($pullResult.ExitCode -ne 0) { throw "Could not retrieve the replay report: $($pullResult.Output -join ' ')" }
 $report = Get-Content -LiteralPath $localReport -Raw | ConvertFrom-Json
 if (-not $report.completed -or @($report.samples).Count -ne $frames.Count) {
     throw "Replay report is incomplete: $localReport"
+}
+$maskArtifacts = @()
+$blackMaskArtifacts = @()
+if ($ObstructionMaskTrace) {
+    foreach ($frame in $frames) {
+        foreach ($width in @(800, 1000)) {
+            $name = "$frame-config$width-obstruction-mask.png"
+            $remoteMask = "$remoteRunDirectory/$name"
+            $localMask = Join-Path $runDirectory $name
+            $pullMaskResult = Invoke-Adb @('-s', $serial, 'pull', $remoteMask, $localMask)
+            if ($pullMaskResult.ExitCode -ne 0) { throw "Could not retrieve obstruction mask $name`: $($pullMaskResult.Output -join ' ')" }
+            $maskArtifacts += [pscustomobject]@{
+                frameId = $frame; configuredWidth = $width; file = $name
+                sha256 = (Get-FileHash -LiteralPath $localMask -Algorithm SHA256).Hash.ToLowerInvariant()
+            }
+        }
+    }
+}
+if ($TraceBlackMask) {
+    $traceRoot = "$remoteRunDirectory/o08-black-trace-$run"
+    foreach ($sample in $report.samples) {
+        foreach ($widthName in @('width800', 'width1000')) {
+            $trace = $sample.$widthName.darkMaskTrace
+            foreach ($name in $trace.overlays) {
+                $localTrace = Join-Path $runDirectory $name
+                $pullTraceResult = Invoke-Adb @('-s', $serial, 'pull', "$traceRoot/$name", $localTrace)
+                if ($pullTraceResult.ExitCode -ne 0) { throw "Could not retrieve black mask trace $name`: $($pullTraceResult.Output -join ' ')" }
+                $blackMaskArtifacts += [pscustomobject]@{
+                    frameId = $sample.frameId; configuredWidth = $trace.analysisWidth; file = $name
+                    sha256 = (Get-FileHash -LiteralPath $localTrace -Algorithm SHA256).Hash.ToLowerInvariant()
+                }
+            }
+        }
+    }
 }
 $cameraAfter = Invoke-RestMethod -Uri $cameraStatusUri -TimeoutSec 5
 if ($cameraAfter.state -ne 'Stopped') { throw "Mounted camera changed state during offline replay: $($cameraAfter.state)." }
@@ -93,6 +149,11 @@ $manifest = [pscustomobject]@{
     apkSha256 = (Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash.ToLowerInvariant()
     run = $run
     auditEnabled = $true
+    obstructionMaskTrace = [bool]$ObstructionMaskTrace
+    obstructionMasks = $maskArtifacts
+    traceBlackMask = [bool]$TraceBlackMask
+    manualBlackLabelSourcePixel = if ($TraceBlackMask) { [pscustomobject]@{ x = $BlackLabelX; y = $BlackLabelY } } else { $null }
+    blackMaskTraces = $blackMaskArtifacts
     packedClusterImageEdgeMargin = $EdgeMargin
     sourceFrames = $inputs | ForEach-Object {
         [pscustomobject]@{ frameId = $_.Receipt.indexedFrame.frameId; png = [IO.Path]::GetFileName($_.PngPath); receipt = [IO.Path]::GetFileName($_.JsonPath); sha256 = $_.Hash }

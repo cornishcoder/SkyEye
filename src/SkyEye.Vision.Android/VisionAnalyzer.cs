@@ -20,11 +20,24 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     readonly VisionSettings settings;
     readonly bool boundaryDiagnostics;
     readonly bool candidateDiagnostics;
+    readonly bool obstructionMaskDiagnostics;
+    byte[]? lastObstructionMaskDiagnosticPng;
     readonly record struct Circle(double X, double Y, double Radius);
     readonly record struct PackedClusterEvidence(bool Detected, int RedCentres, int YellowCentres, bool BlackCentre);
     public VisionAnalyzer(int width = 1000) : this(new VisionSettings(Width: width)) { }
-    public VisionAnalyzer(VisionSettings settings, bool includeBoundaryDiagnostics = false, bool includeCandidateDiagnostics = false)
-    { settings.Validate(); this.settings = settings; boundaryDiagnostics = includeBoundaryDiagnostics; candidateDiagnostics = includeCandidateDiagnostics; coordinates = new(settings.Width); }
+    public VisionAnalyzer(VisionSettings settings, bool includeBoundaryDiagnostics = false, bool includeCandidateDiagnostics = false,
+        bool includeObstructionMaskDiagnostics = false)
+    {
+        settings.Validate(); this.settings = settings; boundaryDiagnostics = includeBoundaryDiagnostics;
+        candidateDiagnostics = includeCandidateDiagnostics; obstructionMaskDiagnostics = includeObstructionMaskDiagnostics;
+        coordinates = new(settings.Width);
+    }
+    public byte[]? TakeObstructionMaskDiagnosticPng()
+    {
+        var result = lastObstructionMaskDiagnosticPng;
+        lastObstructionMaskDiagnosticPng = null;
+        return result;
+    }
     public string ConfigurationIdentity
     {
         get
@@ -110,11 +123,14 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             primary.PackedCluster is not { Detected: true, Complete: false }) return primary;
 
         cancellation.ThrowIfCancellationRequested();
-        var fallbackAnalyzer = new VisionAnalyzer(settings with { Width = 1000 }, boundaryDiagnostics, candidateDiagnostics);
+        var fallbackAnalyzer = new VisionAnalyzer(settings with { Width = 1000 }, boundaryDiagnostics, candidateDiagnostics,
+            obstructionMaskDiagnostics);
         var fallback = fallbackAnalyzer.AnalyzePixelsCore(source, calibration, cancellation, appearance);
         bool fallbackComplete = fallback.PackedCluster?.Complete == true;
         bool useFallback = fallbackComplete || fallback.CircleCount > primary.CircleCount;
         var chosen = useFallback ? fallback : primary;
+        if (useFallback && obstructionMaskDiagnostics)
+            lastObstructionMaskDiagnosticPng = fallbackAnalyzer.TakeObstructionMaskDiagnosticPng();
         bool remainsUnresolved = !fallbackComplete && primary.PackedCluster is { Detected: true, Complete: false };
         string[] warnings = remainsUnresolved
             ? primary.Warnings.Concat(fallback.Warnings).Append("Packed colour cluster still has unresolved visible balls; review it before using advice.").Distinct().ToArray()
@@ -766,6 +782,13 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         for (int y = 0; y < coordinates.Height; y++) for (int x = 0; x < coordinates.Width; x++)
             if (x < border || y < border || x >= coordinates.Width - border || y >= coordinates.Height - border) interior[y * coordinates.Width + x] = 0;
         mask.Value.Put(0, 0, interior);
+        if (obstructionMaskDiagnostics)
+        {
+            using var encodedMask = new MatOfByte();
+            if (!Imgcodecs.Imencode(".png", mask.Value, encodedMask))
+                throw new IOException("Could not encode the opt-in obstruction mask diagnostic.");
+            lastObstructionMaskDiagnosticPng = encodedMask.ToArray();
+        }
         using var labels = new MatLease(new Mat()); using var stats = new MatLease(new Mat()); using var centres = new MatLease(new Mat());
         int count = Imgproc.ConnectedComponentsWithStats(mask.Value, labels.Value, stats.Value, centres.Value);
         using var ballBodyMask = new MatLease(new Mat(coordinates.Height, coordinates.Width, CvType.Cv8uc1));

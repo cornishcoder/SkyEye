@@ -21,10 +21,13 @@ internal static class PackedBlackMaskTrace
         bool PassesMargin, bool PassesMinimumRadius, bool InSearchWindow);
 
     public static object Capture(byte[] encodedImage, TableCalibration calibration, int width, VisionResult vision,
-        string outputDirectory, string frameId)
+        string outputDirectory, string frameId, int manualImageX = ManualImageX, int manualImageY = ManualImageY)
     {
         using var encoded = new MatOfByte(encodedImage);
         using var source = Imgcodecs.Imdecode(encoded, Imgcodecs.ImreadColor);
+        if (manualImageX < 0 || manualImageX >= source.Cols() || manualImageY < 0 || manualImageY >= source.Rows())
+            throw new ArgumentOutOfRangeException(nameof(manualImageX),
+                $"Manual source label ({manualImageX},{manualImageY}) is outside the {source.Cols()}x{source.Rows()} replay image.");
         CvPoint[] original = calibration.Corners.Select(p => new CvPoint(p.X * source.Cols(), p.Y * source.Rows())).ToArray();
         CvPoint[] portrait = [new(width, 0), new(width, width * 2), new(0, width * 2), new(0, 0)];
         try
@@ -40,7 +43,7 @@ internal static class PackedBlackMaskTrace
             using var cleanupSize = new Size(3, 3); using var cleanupKernel = Imgproc.GetStructuringElement(Imgproc.MorphEllipse, cleanupSize);
             Imgproc.MorphologyEx(openedMask, openedMask, Imgproc.MorphOpen, cleanupKernel);
 
-            var labelTablePoint = calibration.Map(new Point(ManualImageX / (double)source.Cols(), ManualImageY / (double)source.Rows()));
+            var labelTablePoint = calibration.Map(new Point(manualImageX / (double)source.Cols(), manualImageY / (double)source.Rows()));
             var label = new AnalysisCoordinates(width).FromTable(labelTablePoint);
             double scale = width / 1000d;
             double ballRadius = PoolGeometry.Radius * width;
@@ -240,7 +243,7 @@ internal static class PackedBlackMaskTrace
             return new
             {
                 frameId, analysisWidth = width, candidateAuditGeometryWidth,
-                manualBlackLabel = new { sourcePixel = new { x = ManualImageX, y = ManualImageY }, analysisPixel = label,
+                manualBlackLabel = new { sourcePixel = new { x = manualImageX, y = manualImageY }, analysisPixel = label,
                     note = "Manually inspected black-ball interior point in the saved frame; evaluation-only and never supplied to analyzer decisions." },
                 darkThreshold = new { minimumH = 0, maximumH = 179, minimumS = 0, maximumS = 255, minimumV = 0, maximumV = DarkValueCeiling, openKernel = "3x3 ellipse" },
                 analysisSearchWindow = new { source = searchWindowSource, left, top, right, bottom, selectedColourCentres = selectedCentres.Length,
