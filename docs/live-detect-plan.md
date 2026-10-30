@@ -56,7 +56,7 @@ Evidence: `work/production/evidence/code52-poststop/live-detect.jsonl`, `event-c
 
 Updated: 30 October 2026. Goal active; end-to-end event and current-inventory acceptance is incomplete.
 
-Current device checkpoint: Production 0.8.50 / code58 is installed on Pixel 11. Camera `/status` reports `Stopped`, revision 7, battery 48%, 134 clips, and zero viewers; Pixel 11 Home shows `Start live session`. The 30 October labeled red-break run matched the user's one-red report and saved one linked, covered settled-pot clip. The earlier transient count-increase/return suppression edge still needs a dedicated reproduction. Keep capture stopped outside the next bounded evidence step; Cast/TV remains untouched.
+Current device checkpoint: Production 0.8.50 / code58 is installed on Pixel 11; the Home and Live Detect log UI change is built and installed in place with private storage retained. The 30 October labeled red-break run matched the user's one-red report and saved one linked, covered settled-pot clip. The navigation-only Live Detect log shortcut was tapped successfully over live video and did not start analysis. Camera `/status` is `Stopped`, revision 11, battery 51%, 134 clips, and zero viewers; Home shows `Start live session`. The earlier transient count-increase/return suppression edge still needs a dedicated reproduction. Keep capture stopped outside the next bounded evidence step; Cast/TV remains untouched.
 
 ### Fresh-frame latency audit and code50 change
 
