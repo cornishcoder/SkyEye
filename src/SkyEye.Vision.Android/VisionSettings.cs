@@ -39,14 +39,18 @@ public sealed record VisionSettings(int Width = 1000, double MinimumRadius = 18,
     // pocket-colour review retains its stricter support gate.
     public const double DefaultMinimumSparseColourBoundarySupport = 21d / 32;
     public double MinimumSparseColourBoundarySupport { get; init; } = DefaultMinimumSparseColourBoundarySupport;
-    // Keep isolated dark-body recovery conservative unless replay evidence
-    // supports a wider seed search or lower support gate.
-    public double SparseBlackBoundarySearchExtentFraction { get; init; } = .4;
-    public double MinimumSparseBlackBoundarySupport { get; init; } = .7;
+    // The labelled spread/pocket/cushion holdout hid the black among many
+    // cloth-mask peaks. Radius-first ranking recovered it within the existing
+    // 12-fit cap at both widths. A 21/32 boundary fit recovered every sampled
+    // black; the clear-rack positive and synthetic black-absent negative stayed
+    // correct. Incomplete colour layouts still remain uncertain.
+    public const double DefaultSparseBlackBoundarySearchExtentFraction = 1.3;
+    public const double DefaultMinimumSparseBlackBoundarySupport = 21d / 32;
+    public const bool DefaultSparseBlackRankByRadius = true;
+    public double SparseBlackBoundarySearchExtentFraction { get; init; } = DefaultSparseBlackBoundarySearchExtentFraction;
+    public double MinimumSparseBlackBoundarySupport { get; init; } = DefaultMinimumSparseBlackBoundarySupport;
     public int SparseBlackCandidateLimit { get; init; } = 12;
-    // Diagnostic ranking experiment: consider larger dark interiors before
-    // painted-ball proximity; production keeps the current order by default.
-    public bool SparseBlackRankByRadius { get; init; }
+    public bool SparseBlackRankByRadius { get; init; } = DefaultSparseBlackRankByRadius;
     // Keep the conservative default: source-time-paired brighter footage replayed
     // at 55 lost the black at 1000px in three of six frames; 40 retained all 16.
     public int DarkBodyValueCeiling { get; init; } = 40;

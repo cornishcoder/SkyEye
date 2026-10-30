@@ -53,10 +53,12 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 settings.LocalIlluminationNormalization, settings.IlluminationKernelWidth,
                 settings.FreshCueBallRecovery, settings.BodyProposalPriority, settings.MinimumHoughBoundarySupport,
                 settings.MinimumSparseColourBoundarySupport,
+                settings.SparseBlackBoundarySearchExtentFraction, settings.MinimumSparseBlackBoundarySupport,
+                settings.SparseBlackRankByRadius,
                 settings.DarkBodyValueCeiling, settings.VerificationBodyRefinement, settings.PackedClusterImageEdgeMargin,
                 settings.PackedColourBoundarySearchExtentFraction
             };
-            const string algorithm = "body-priority-packed-colour-peaks-v20-edge23-sparse21-pocketreview75";
+            const string algorithm = "body-priority-packed-colour-peaks-v21-edge23-sparse21-pocketreview75-black-radius13-support21";
             bool normalizedProposalAblation = settings.UseNormalizedGeometryForDetection || settings.UseNormalizedPackedColourProposalMask;
             bool edgeMarginAblation = settings.PackedClusterImageEdgeMargin != 23;
             bool sparseColourSupportAblation = settings.MinimumSparseColourBoundarySupport
@@ -71,14 +73,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 diagnosticAblations["packedClusterImageEdgeMargin"] = settings.PackedClusterImageEdgeMargin;
             if (sparseColourSupportAblation)
                 diagnosticAblations["minimumSparseColourBoundarySupport"] = settings.MinimumSparseColourBoundarySupport;
-            if (settings.SparseBlackBoundarySearchExtentFraction != .4)
-                diagnosticAblations["sparseBlackBoundarySearchExtentFraction"] = settings.SparseBlackBoundarySearchExtentFraction;
-            if (settings.MinimumSparseBlackBoundarySupport != .7)
-                diagnosticAblations["minimumSparseBlackBoundarySupport"] = settings.MinimumSparseBlackBoundarySupport;
             if (settings.SparseBlackCandidateLimit != 12)
                 diagnosticAblations["sparseBlackCandidateLimit"] = settings.SparseBlackCandidateLimit;
-            if (settings.SparseBlackRankByRadius)
-                diagnosticAblations["sparseBlackRankByRadius"] = true;
             object identity = diagnosticAblations.Count > 0
                 ? new
                 {

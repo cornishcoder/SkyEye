@@ -8,10 +8,10 @@ param(
     [double]$BoundarySupport = 0.75,
     [double]$SparseColourSupport = 0.65625,
     [double]$PackedColourBoundarySearchExtent = 0.65,
-    [double]$SparseBlackSearchExtent = 0.4,
-    [double]$SparseBlackSupport = 0.7,
+    [double]$SparseBlackSearchExtent = 1.3,
+    [double]$SparseBlackSupport = 0.65625,
     [int]$SparseBlackCandidateLimit = 12,
-    [switch]$SparseBlackRankByRadius,
+    [bool]$SparseBlackRankByRadius = $true,
     [switch]$EnableIlluminationNormalization,
     [switch]$TracePackedColourFits,
     [switch]$ObstructionMaskTrace,
@@ -124,7 +124,8 @@ $instrumentArguments = @('shell', 'am', 'instrument', '-w', '-e', 'run', $run,
     '-e', 'boundaryExtent', "$PackedColourBoundarySearchExtent",
     '-e', 'sparseBlackExtent', "$SparseBlackSearchExtent", '-e', 'sparseBlackSupport', "$SparseBlackSupport",
     '-e', 'sparseBlackLimit', "$SparseBlackCandidateLimit")
-if ($SparseBlackRankByRadius) { $instrumentArguments += @('-e', 'sparseBlackRadiusRank', '1') }
+$sparseBlackRankArgument = if ($SparseBlackRankByRadius) { '1' } else { '0' }
+$instrumentArguments += @('-e', 'sparseBlackRadiusRank', $sparseBlackRankArgument)
 if ($EnableIlluminationNormalization) { $instrumentArguments += @('-e', 'illuminationNormalization', '1') }
 if ($TracePackedColourFits) { $instrumentArguments += @('-e', 'tracePackedColourFits', '1') }
 if ($ObstructionMaskTrace) { $instrumentArguments += @('-e', 'obstructionMaskTrace', '1') }

@@ -17,9 +17,11 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
     int fastWidth, darkBodyCeiling = 40, packedClusterImageEdgeMargin = 23, manualBlackImageX = 1282, manualBlackImageY = 536;
     double boundaryExtentFraction = .65, pocketExclusionRadius = 55, minimumBoundarySupport = .75,
         minimumSparseColourBoundarySupport = VisionSettings.DefaultMinimumSparseColourBoundarySupport,
-        sparseBlackSearchExtentFraction = .4,
-        minimumSparseBlackBoundarySupport = .7;
-    int sparseBlackCandidateLimit = 12; bool sparseBlackRankByRadius; string run = "";
+        sparseBlackSearchExtentFraction = VisionSettings.DefaultSparseBlackBoundarySearchExtentFraction,
+        minimumSparseBlackBoundarySupport = VisionSettings.DefaultMinimumSparseBlackBoundarySupport;
+    int sparseBlackCandidateLimit = 12;
+    bool sparseBlackRankByRadius = VisionSettings.DefaultSparseBlackRankByRadius;
+    string run = "";
     public override void OnCreate(global::Android.OS.Bundle? args)
     {
         refinement = args?.GetString("refine") == "1"; dump = args?.GetString("dump") == "1";

@@ -34,6 +34,16 @@ The labelled pocket-lip centers are not fully stable: nearest same-colour matchi
 
 Android VisionChecks Release build succeeded with 23 existing warnings and zero errors. Only the isolated `uk.co.skyeye.visionchecks` package was installed/replayed; Production remains code61, and the mounted camera app was untouched. Camera `/status` stayed `Stopped`, revision 61, battery 100%, `clipCount=134`, zero viewers. No Cast/TV action occurred. Commits: `c2b289b` (edge background sampling), `273c22d` (pocket audit in replay reports), `13b1a3a` (measured sparse-colour default and replay identity), and `80ea63a` (strict-majority colour background floor).
 
+### Radius-first sparse-black replay on a still spread layout — 30 October 2026
+
+The retained user-declared still layout is a positive 16-ball spread/pocket/cushion sample, including the black; it is not an absent-black image. A manually labelled dark-mask trace showed the black's nearest useful seed could fall outside the first 64 local-maximum components, while a nearby seed supported a 22/32 edge fit. The old colour-proximity-first ranking therefore missed it.
+
+Source defaults now rank dark seeds by radius before painted-ball proximity, retain the 12-fit cap, search to 1.3 radii, and require 21/32 black-edge sectors. Current-default replay `code62defaultspread-231053` found the black in all six width/frame combinations for frames 525, 548 and 562. It still missed a coloured ball in each read, returning 14–15/16 and remaining `uncertain`/`layoutUncertain`; this does not pass readiness. The isolated VisionChecks Release build succeeded with 26 existing warnings and zero errors.
+
+Controls: the clear-rack positive `code62defaultrack-231123` remained 16/16, clear, and unobstructed at both widths; the synthetic black-absent negative `code62defaultabsent-231113` remained 15/15 with no black or unknown circle; and three all-lights positives `code61r12b656call-230803` remained 16/16 at both widths. A diagnostic colour gate of 20/32 helped two 800px spread reads but none at 1000px, so sparse-colour production support stays at 21/32. The associated 20/32 controls added no circles, but the setting was not promoted without a 1000px gain.
+
+Only the isolated VisionChecks package was installed for replay. Production remains code61; the mounted camera stayed `Stopped`, revision 61, battery 100%, 134 clips and zero viewers. No Cast/TV or camera-package action occurred. Reports are under `work/production/evidence/live-detect-pocket-lip-20261030/device-replays/`.
+
 ## Production code60 uncertain-layout motion retest — 30 October 2026
 
 Production companion `0.8.52` / code60 was installed in place on Pixel 11; the guarded update retained UID/private storage and saved rollback APK `work/production/backups/20261030-213913/before.apk`. The Release build succeeded with 13 warnings and zero errors. The focused check suite had passed before installation: `dotnet run --project tests/SkyEye.Checks -- --game-tracking`.
