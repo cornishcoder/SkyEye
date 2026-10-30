@@ -34,9 +34,11 @@ public sealed record VisionSettings(int Width = 1000, double MinimumRadius = 18,
     // Separately replay the whole-table proposal fix against the v2 cue branch.
     public bool BodyProposalPriority { get; init; } = true;
     public double MinimumHoughBoundarySupport { get; init; } = .75;
-    // Diagnostic-only threshold for admitting isolated packed-colour proposals;
-    // the production default remains the conservative 24/32-sector gate.
-    public double MinimumSparseColourBoundarySupport { get; init; } = .75;
+    // Four exact pocket-lip frames recovered the labelled red at 21/32 sectors;
+    // seven clean-rack/black-absent controls added no circles. The independent
+    // pocket-colour review retains its stricter support gate.
+    public const double DefaultMinimumSparseColourBoundarySupport = 21d / 32;
+    public double MinimumSparseColourBoundarySupport { get; init; } = DefaultMinimumSparseColourBoundarySupport;
     // Keep isolated dark-body recovery conservative unless replay evidence
     // supports a wider seed search or lower support gate.
     public double SparseBlackBoundarySearchExtentFraction { get; init; } = .4;
