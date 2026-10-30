@@ -37,12 +37,15 @@ public enum ObservationReason
     ClockUntrusted, SourceChanged, SampleGap, Cancelled, TimedOut, AnalysisFailed, CaptureFailed
 }
 
-/// <summary>Positive motion evidence from repeated, edge-supported ball centres.
-/// It may establish movement; absence or weak support never establishes stillness.</summary>
+/// <summary>Positive motion evidence from repeated, edge-supported ball centres
+/// in clear layouts. Ambiguous associations may not establish movement, and absence
+/// or weak support never establishes stillness.</summary>
 public static class VerificationObjectMotion
 {
-    public static bool IsReliablePositiveEvidence(VisionResult? current, double? displacement, double minimumDisplacement) =>
-        current is { Obstructed: false }
+    public static bool IsReliablePositiveEvidence(VisionResult? previous, VisionResult? current,
+        double? displacement, double minimumDisplacement) =>
+        previous is { Obstructed: false, HasUncertainLayout: false }
+        && current is { Obstructed: false, HasUncertainLayout: false }
         && displacement is { } pixels
         && double.IsFinite(pixels)
         && double.IsFinite(minimumDisplacement)

@@ -150,10 +150,10 @@ public sealed partial class VisionAnalyzer
                 else { anchorColour = colour; bodies = vision?.Circles ?? []; }
                 // A poor or obstructed layout can shift the same-colour matching
                 // assignment when a packed ball is missing, fabricating a large
-                // displacement between two different balls. Keep that evidence
-                // inconclusive until the current detection is unobstructed.
+                // displacement between two different balls. Require clear detections
+                // at both ends before trusting detector-centre motion.
                 if (!templatesShowNoMotion
-                    && VerificationObjectMotion.IsReliablePositiveEvidence(vision, detectedDisplacement,
+                    && VerificationObjectMotion.IsReliablePositiveEvidence(anchorVision, vision, detectedDisplacement,
                         Math.Max(5, owner.coordinates.Width * ObservationPolicy.MinimumDetectedBallMotionFraction)))
                     measured = measured with { Motion = TableMotion.Moving, Reason = ObservationReason.Moving };
                 previousColour = colour;
