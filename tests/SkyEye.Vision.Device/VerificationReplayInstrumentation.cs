@@ -754,6 +754,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         vision.Recognition,
         vision.PackedCluster, vision.PackedClusterFallback,
         vision.ObstructionAudit,
+        vision.PocketColourAudit,
         boundaryAudits = vision.BoundaryAudits,
         candidateAudits = vision.CandidateAudits,
         circles = vision.Circles.Select(c => new
