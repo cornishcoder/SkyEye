@@ -2,7 +2,11 @@
 
 Use this guide to operate the Hybrid Production companion on the Pixel 11 and inspect the mounted camera without guessing at screen coordinates or changing match state. Prefer the current accessibility label and a fresh screenshot/UI tree; layout bounds move as the video and Settings panel scroll.
 
-## Current stopped state after the code59 live check — 30 October 2026
+## Current stopped state after the code60 live check — 30 October 2026
+
+Production companion `0.8.52` / code60 is installed on Pixel 11. Its bounded uncertain-layout motion retest produced two `Unsettled (TimedOut)` verifier runs; both remained layout-uncertain with 8–9 of 15 visible balls detected. Motion stayed `Unknown / InsufficientEvidence`, including a detector-centre shift above the movement threshold, so the false `Moving` result was prevented while inventory readiness remained unresolved. The user stopped the session at the next safe boundary. Latest camera `/status`: `Stopped`, revision 55, battery 100%, `clipCount=134`, zero viewers. Pixel 11 Home shows **Start live session**. Screenshot: `work/production/evidence/code60-uncertain-motion-recheck/pixel11-final-home.png`. No Cast/TV or mounted-camera package action occurred. See the [code60 acceptance record](device-acceptance.md#production-code60-uncertain-layout-motion-retest--30-october-2026) and [current plan](live-detect-plan.md#code60-uncertain-layout-motion-retest--30-october-2026).
+
+## Earlier stopped state after the code59 live check — 30 October 2026
 
 Production companion `0.8.51` / code59 is installed on Pixel 11. It was built from the raw-pixel default change in commit `5078bdf`. The in-place update retained UID and private storage; rollback APK: `work/production/backups/20261030-210356/before.apk`. Release build succeeded with 13 warnings and zero errors. Installed APK SHA-256: `80266694C627F540FDFCD71AC33CFA7E5FA10EADF425B83DFAFA1D570B38B364`.
 
