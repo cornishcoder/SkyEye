@@ -2,7 +2,7 @@
     <div class="clips-heading"><div><h2>Camera clips</h2><p class="hint" role="status">@Session.ClipStatus</p></div>
         <button class="icon-button refresh-button" disabled="@(Busy || Session.LoadingClips || !Session.CanLoadClips)" @onclick="Session.LoadClipsAsync" aria-label="Refresh camera clips" title="Refresh">↻</button>
     </div>
-    <p class="hint">Watch or download a clip, share it, or save a corrected full-table copy to this phone’s Movies/SkyEye folder for Google Photos.</p>
+    <p class="hint">Watch or download a clip, share it, or save a corrected portrait copy to this phone’s Movies/SkyEye folder for Google Photos.</p>
     @if (Session.TransferringClip) { <button class="quiet" @onclick="Session.CancelClipTransfer">Cancel download</button> }
     @foreach (var clip in Session.RemoteClips)
     {

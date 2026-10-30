@@ -128,8 +128,8 @@ public sealed partial class ShellSession
         {
             var corrected = await correctedClips.LocalAsync(id, cancellation.Token);
             if (disposed || cancellation.IsCancellationRequested) return;
-            await photos.PublishAsync(corrected.Landscape, corrected.Manifest.Clip, cancellation.Token);
-            if (!disposed) ClipStatus = "Saved to this phone · Movies/SkyEye. Open Google Photos → Collections → On this device → SkyEye.";
+            await photos.PublishAsync(corrected.Portrait, corrected.Manifest.Clip, cancellation.Token);
+            if (!disposed) ClipStatus = "Saved portrait copy to this phone · Movies/SkyEye. Open Google Photos → Collections → On this device → SkyEye.";
         }
         catch (OperationCanceledException) { if (!disposed) ClipStatus = "Save cancelled. The camera clip is unchanged."; }
         catch (Exception)

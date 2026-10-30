@@ -139,6 +139,8 @@ public sealed class AndroidGalleryClipPublisher(Context context)
         var stem = new string(clip.Name.Select(character => char.IsLetterOrDigit(character) || character is ' ' or '-' or '_' ? character : '_').ToArray()).Trim();
         if (stem.Length > 64) stem = stem[..64].Trim();
         if (stem.Length == 0) stem = "Camera clip";
-        return $"{clip.CreatedAt.LocalDateTime:yyyy-MM-dd HH-mm-ss} {stem} {clip.Id[..8]}.mp4";
+        // Keep a new portrait export distinct from older landscape Photos copies
+        // of the same clip. The stable name still makes repeat saves idempotent.
+        return $"{clip.CreatedAt.LocalDateTime:yyyy-MM-dd HH-mm-ss} {stem} {clip.Id[..8]} portrait.mp4";
     }
 }
