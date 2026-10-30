@@ -21,15 +21,18 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     readonly bool boundaryDiagnostics;
     readonly bool candidateDiagnostics;
     readonly bool obstructionMaskDiagnostics;
+    readonly (int Hue, int SaturationFloor, int ValueFloor, int MedianValue)? diagnosticObstructionClothRangeOverride;
     byte[]? lastObstructionMaskDiagnosticPng;
     readonly record struct Circle(double X, double Y, double Radius);
     readonly record struct PackedClusterEvidence(bool Detected, int RedCentres, int YellowCentres, bool BlackCentre);
     public VisionAnalyzer(int width = 1000) : this(new VisionSettings(Width: width)) { }
     public VisionAnalyzer(VisionSettings settings, bool includeBoundaryDiagnostics = false, bool includeCandidateDiagnostics = false,
-        bool includeObstructionMaskDiagnostics = false)
+        bool includeObstructionMaskDiagnostics = false,
+        (int Hue, int SaturationFloor, int ValueFloor, int MedianValue)? diagnosticObstructionClothRangeOverride = null)
     {
         settings.Validate(); this.settings = settings; boundaryDiagnostics = includeBoundaryDiagnostics;
         candidateDiagnostics = includeCandidateDiagnostics; obstructionMaskDiagnostics = includeObstructionMaskDiagnostics;
+        this.diagnosticObstructionClothRangeOverride = diagnosticObstructionClothRangeOverride;
         coordinates = new(settings.Width);
     }
     public byte[]? TakeObstructionMaskDiagnosticPng()
@@ -75,6 +78,11 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 diagnosticAblations["minimumSparseColourBoundarySupport"] = settings.MinimumSparseColourBoundarySupport;
             if (settings.SparseBlackCandidateLimit != 12)
                 diagnosticAblations["sparseBlackCandidateLimit"] = settings.SparseBlackCandidateLimit;
+            if (diagnosticObstructionClothRangeOverride is { } clothRange)
+                diagnosticAblations["obstructionClothRangeOverride"] = new
+                {
+                    clothRange.Hue, clothRange.SaturationFloor, clothRange.ValueFloor, clothRange.MedianValue
+                };
             object identity = diagnosticAblations.Count > 0
                 ? new
                 {
@@ -721,9 +729,10 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         return (hue, (int)Math.Clamp(Median(cloth.Select(p => p.S)) * .45, 8, 60),
             (int)Math.Clamp(medianValue * .45, 15, 60), (int)Math.Round(medianValue));
     }
-    MatLease ClothMask(Mat hsv, byte[] pixels, bool separateBalls = true)
+    MatLease ClothMask(Mat hsv, byte[] pixels, bool separateBalls = true,
+        (int Hue, int SaturationFloor, int ValueFloor, int MedianValue)? rangeOverride = null)
     {
-        int w = coordinates.Width; var range = ClothRange(pixels); int hue = range.Hue;
+        int w = coordinates.Width; var range = rangeOverride ?? ClothRange(pixels); int hue = range.Hue;
         int band = separateBalls ? settings.HueBand : Math.Max(12, settings.HueBand);
         var mask = new MatLease(new Mat());
         try
@@ -761,8 +770,9 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         // ordinary neutral fallback has a fixed upper ceiling to protect white
         // ball classification; use a cloth-relative range here so dim or bright
         // neutral felt is not mistaken for one connected obstruction.
-        var clothRange = ClothRange(pixels);
-        using var mask = ClothMask(hsv, pixels, separateBalls: false);
+        var sampledClothRange = ClothRange(pixels);
+        var clothRange = diagnosticObstructionClothRangeOverride ?? sampledClothRange;
+        using var mask = ClothMask(hsv, pixels, separateBalls: false, rangeOverride: clothRange);
         if (clothRange.MedianValue > 0)
         {
             int minimumNeutralValue = (int)Math.Floor(clothRange.MedianValue * .25);
@@ -879,10 +889,14 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             PackedClusterMinimumBallBodyCoverageFraction = packedClusterMinimumBallBodyCoverageFraction,
             BallGroupExemptionMinimumCentres = ballGroupExemptionMinimumCentres,
             BallGroupExemptionMinimumBallBodyCoverageFraction = ballGroupExemptionMinimumBodyCoverageFraction,
-            DiagnosticClothHue = obstructionMaskDiagnostics ? clothRange.Hue : null,
-            DiagnosticClothSaturationFloor = obstructionMaskDiagnostics ? clothRange.SaturationFloor : null,
-            DiagnosticClothValueFloor = obstructionMaskDiagnostics ? clothRange.ValueFloor : null,
-            DiagnosticClothMedianValue = obstructionMaskDiagnostics ? clothRange.MedianValue : null,
+            DiagnosticClothHue = obstructionMaskDiagnostics ? sampledClothRange.Hue : null,
+            DiagnosticClothSaturationFloor = obstructionMaskDiagnostics ? sampledClothRange.SaturationFloor : null,
+            DiagnosticClothValueFloor = obstructionMaskDiagnostics ? sampledClothRange.ValueFloor : null,
+            DiagnosticClothMedianValue = obstructionMaskDiagnostics ? sampledClothRange.MedianValue : null,
+            DiagnosticAppliedClothHue = obstructionMaskDiagnostics ? clothRange.Hue : null,
+            DiagnosticAppliedClothSaturationFloor = obstructionMaskDiagnostics ? clothRange.SaturationFloor : null,
+            DiagnosticAppliedClothValueFloor = obstructionMaskDiagnostics ? clothRange.ValueFloor : null,
+            DiagnosticAppliedClothMedianValue = obstructionMaskDiagnostics ? clothRange.MedianValue : null,
         };
         return triggeringComponents > 0;
     }

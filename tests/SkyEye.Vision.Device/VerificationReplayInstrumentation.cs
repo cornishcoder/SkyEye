@@ -21,6 +21,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         minimumSparseBlackBoundarySupport = VisionSettings.DefaultMinimumSparseBlackBoundarySupport;
     int sparseBlackCandidateLimit = 12;
     bool sparseBlackRankByRadius = VisionSettings.DefaultSparseBlackRankByRadius;
+    (int Hue, int SaturationFloor, int ValueFloor, int MedianValue)? diagnosticObstructionClothRangeOverride;
     string run = "";
     public override void OnCreate(global::Android.OS.Bundle? args)
     {
@@ -94,6 +95,26 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 || sparseBlackCandidateLimit is < 1 or > 64))
             throw new ArgumentOutOfRangeException(nameof(sparseBlackCandidateLimit), "Sparse-black candidate limit must be between 1 and 64.");
         sparseBlackRankByRadius = args?.GetString("sparseBlackRadiusRank") is "1" or "true";
+        var requestedObstructionHue = args?.GetString("obstructionClothHue");
+        var requestedObstructionSaturationFloor = args?.GetString("obstructionClothSaturationFloor");
+        var requestedObstructionValueFloor = args?.GetString("obstructionClothValueFloor");
+        var requestedObstructionMedianValue = args?.GetString("obstructionClothMedianValue");
+        string?[] requestedClothRange = [requestedObstructionHue, requestedObstructionSaturationFloor,
+            requestedObstructionValueFloor, requestedObstructionMedianValue];
+        int requestedClothRangeCount = requestedClothRange.Count(value => !string.IsNullOrWhiteSpace(value));
+        if (requestedClothRangeCount is > 0 and < 4 || requestedClothRangeCount == 4 && !obstructionMaskTrace)
+            throw new ArgumentException("A diagnostic obstruction cloth range needs all four values and obstruction-mask tracing.");
+        if (requestedClothRangeCount == 4)
+        {
+            if (!int.TryParse(requestedObstructionHue, NumberStyles.Integer, CultureInfo.InvariantCulture, out int hue)
+                || !int.TryParse(requestedObstructionSaturationFloor, NumberStyles.Integer, CultureInfo.InvariantCulture, out int saturationFloor)
+                || !int.TryParse(requestedObstructionValueFloor, NumberStyles.Integer, CultureInfo.InvariantCulture, out int valueFloor)
+                || !int.TryParse(requestedObstructionMedianValue, NumberStyles.Integer, CultureInfo.InvariantCulture, out int medianValue)
+                || hue is < 0 or > 179 || saturationFloor is < 0 or > 255
+                || valueFloor is < 0 or > 255 || medianValue is < 1 or > 255)
+                throw new ArgumentOutOfRangeException(nameof(requestedObstructionHue), "Diagnostic obstruction cloth range values are outside HSV bounds.");
+            diagnosticObstructionClothRangeOverride = (hue, saturationFloor, valueFloor, medianValue);
+        }
         run = args?.GetString("run") ?? "";
         fastWidth = int.TryParse(args?.GetString("fastWidth"), out var requestedWidth) ? requestedWidth : 0;
         if (int.TryParse(args?.GetString("darkCeiling"), out var requestedDarkCeiling)) darkBodyCeiling = requestedDarkCeiling;
@@ -136,8 +157,10 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     UseNormalizedGeometryForDetection = useNormalizedGeometry,
                     UseNormalizedPackedColourProposalMask = useNormalizedProposalMask
                 };
-            var analyzer800 = new VisionAnalyzer(ReplaySettings(800), boundaryAudit, boundaryAudit, obstructionMaskTrace);
-            var analyzer1000 = new VisionAnalyzer(ReplaySettings(1000), boundaryAudit, boundaryAudit, obstructionMaskTrace);
+            var analyzer800 = new VisionAnalyzer(ReplaySettings(800), boundaryAudit, boundaryAudit, obstructionMaskTrace,
+                diagnosticObstructionClothRangeOverride);
+            var analyzer1000 = new VisionAnalyzer(ReplaySettings(1000), boundaryAudit, boundaryAudit, obstructionMaskTrace,
+                diagnosticObstructionClothRangeOverride);
             var fastAnalyzer = fastWidth > 0 ? new VisionAnalyzer(ReplaySettings(fastWidth)) : null;
             var normalizedGeometryAnalyzer800 = normalizedGeometry
                 ? new VisionAnalyzer(ReplaySettings(800, useNormalizedGeometry: true), boundaryAudit, boundaryAudit)
@@ -509,7 +532,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             var analysisConsensus800 = VerificationConsensus.Resolve(analyses800, out var analysisConflict800);
             var analysisConsensus1000 = VerificationConsensus.Resolve(analyses1000, out var analysisConflict1000);
             report = new { completed = true, configuration = ObservationPolicy.VerificationConfiguration, bodyRefinement = refinement, boundaryAudit,
-                obstructionMaskTrace, darkBodyValueCeiling = darkBodyCeiling,
+                obstructionMaskTrace, diagnosticObstructionClothRangeOverride, darkBodyValueCeiling = darkBodyCeiling,
                 localIlluminationNormalization,
                 pocketExclusionRadius, minimumHoughBoundarySupport = minimumBoundarySupport,
                 minimumSparseColourBoundarySupport,

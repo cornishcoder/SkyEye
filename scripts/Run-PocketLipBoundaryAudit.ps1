@@ -17,7 +17,11 @@ param(
     [switch]$ObstructionMaskTrace,
     [switch]$TraceBlackMask,
     [int]$BlackLabelX = 1282,
-    [int]$BlackLabelY = 536
+    [int]$BlackLabelY = 536,
+    [int]$ObstructionClothHue = -1,
+    [int]$ObstructionClothSaturationFloor = -1,
+    [int]$ObstructionClothValueFloor = -1,
+    [int]$ObstructionClothMedianValue = -1
 )
 
 $ErrorActionPreference = 'Stop'
@@ -30,6 +34,16 @@ if ($SparseBlackSearchExtent -lt 0.2 -or $SparseBlackSearchExtent -gt 1.5) { thr
 if ($SparseBlackSupport -lt 0.5625 -or $SparseBlackSupport -gt 1) { throw 'SparseBlackSupport must be between 0.5625 and 1.' }
 if ($SparseBlackCandidateLimit -lt 1 -or $SparseBlackCandidateLimit -gt 64) { throw 'SparseBlackCandidateLimit must be between 1 and 64.' }
 if ($BlackLabelX -lt 0 -or $BlackLabelY -lt 0) { throw 'Black label coordinates must be non-negative source-image pixels.' }
+$obstructionClothRange = @($ObstructionClothHue, $ObstructionClothSaturationFloor, $ObstructionClothValueFloor, $ObstructionClothMedianValue)
+$specifiedObstructionClothRange = @($obstructionClothRange | Where-Object { $_ -ge 0 }).Count
+if ($specifiedObstructionClothRange -notin @(0, 4)) { throw 'Obstruction cloth range override requires all four HSV values.' }
+if ($specifiedObstructionClothRange -eq 4) {
+    if (-not $ObstructionMaskTrace) { throw 'Obstruction cloth range override requires -ObstructionMaskTrace.' }
+    if (($ObstructionClothHue -gt 179) -or ($ObstructionClothSaturationFloor -gt 255) -or
+        ($ObstructionClothValueFloor -gt 255) -or ($ObstructionClothMedianValue -lt 1) -or ($ObstructionClothMedianValue -gt 255)) {
+        throw 'Obstruction cloth hue must be 0–179; saturation/value floors 0–255; median value 1–255.'
+    }
+}
 
 $adb = 'C:\Program Files (x86)\Android\android-sdk\platform-tools\adb.exe'
 function Invoke-Adb([string[]]$Arguments) {
@@ -129,6 +143,12 @@ $instrumentArguments += @('-e', 'sparseBlackRadiusRank', $sparseBlackRankArgumen
 if ($EnableIlluminationNormalization) { $instrumentArguments += @('-e', 'illuminationNormalization', '1') }
 if ($TracePackedColourFits) { $instrumentArguments += @('-e', 'tracePackedColourFits', '1') }
 if ($ObstructionMaskTrace) { $instrumentArguments += @('-e', 'obstructionMaskTrace', '1') }
+if ($specifiedObstructionClothRange -eq 4) {
+    $instrumentArguments += @('-e', 'obstructionClothHue', "$ObstructionClothHue",
+        '-e', 'obstructionClothSaturationFloor', "$ObstructionClothSaturationFloor",
+        '-e', 'obstructionClothValueFloor', "$ObstructionClothValueFloor",
+        '-e', 'obstructionClothMedianValue', "$ObstructionClothMedianValue")
+}
 if ($TraceBlackMask) { $instrumentArguments += @('-e', 'trace', '1', '-e', 'blackLabelX', "$BlackLabelX", '-e', 'blackLabelY', "$BlackLabelY") }
 $instrumentArguments += $instrumentation
 $instrumentResult = Invoke-Adb (@('-s', $serial) + $instrumentArguments)
@@ -196,6 +216,9 @@ $manifest = [pscustomobject]@{
     tracePackedColourFits = [bool]$TracePackedColourFits
     auditEnabled = $true
     obstructionMaskTrace = [bool]$ObstructionMaskTrace
+    diagnosticObstructionClothRangeOverride = if ($specifiedObstructionClothRange -eq 4) {
+        [pscustomobject]@{ hue = $ObstructionClothHue; saturationFloor = $ObstructionClothSaturationFloor; valueFloor = $ObstructionClothValueFloor; medianValue = $ObstructionClothMedianValue }
+    } else { $null }
     obstructionMasks = $maskArtifacts
     traceBlackMask = [bool]$TraceBlackMask
     manualBlackLabelSourcePixel = if ($TraceBlackMask) { [pscustomobject]@{ x = $BlackLabelX; y = $BlackLabelY } } else { $null }
