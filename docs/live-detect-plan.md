@@ -1,5 +1,13 @@
 # Live Detect delivery plan
 
+## Code59 live inventory check — 30 October 2026
+
+Production `0.8.51` / code59 is installed. The source default for local illumination normalization is off, and the offline matched positive/negative/obstruction checks support that change. The subsequent physical run did **not** produce a usable table inventory: all 397 frames were uncertain/layout-uncertain, counts varied from 7–10, black was never found, and there were no settled-baseline matches, table events, or clips. This is not evidence that the raw-pixel default caused the live failure; code58 was not run against the same live fixture as a matched control.
+
+The next step is exact-frame diagnosis of this run, not another threshold change. For representative frames, inspect the raw source bitmap, six pocket/rail geometry, candidate generation and rejection reasons, packed-cluster association, and the explicit pocket-opening warning. Compare the raw-pixel live path to exact-frame offline replay with both normalization settings, using the exact captured pixels and matching calibration/settings. Determine whether the missing black and low counts come from image content/registration, pocket exclusion, candidate support, or live/offline path divergence. Preserve the uncertain result until a clear fresh inventory is justified. Evidence: `work/production/evidence/code59-install/live-detect-final.jsonl`; full device/build result is in [physical acceptance](device-acceptance.md#production-code59-raw-pixel-live-check--30-october-2026).
+
+Camera is verified stopped (revision 47, battery 100%, 134 clips, zero viewers); Pixel 11 Home shows **Start live session** and **Pinned**. Do not repeat the Home session tile after stop confirmation: its label has toggled back to the start action. No Cast/TV interaction occurred.
+
 ## Code58 settled-pot clip recovery and code57 run audit — 30 October 2026
 
 Commit `f54c3d3` preserves the review clip for a settled `possible_pot_settled` event even when a transient count-increase/return candidate previously suppressed clips for that activity. Other return and re-rack suppression remains. Focused checks and the Agent UI suite passed; Production Release built with 13 warnings and zero errors. Production `0.8.50` / code58 is installed on Pixel 11. A bounded labeled red-break run now confirms a settled 7→6 red result and a linked, covered 10.437-second clip. The specific transient count-increase/return suppression edge was not exercised, so that regression case remains open.

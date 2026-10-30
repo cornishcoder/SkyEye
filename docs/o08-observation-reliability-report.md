@@ -2,6 +2,12 @@
 
 7 October 2026. Baseline `5453d0b`. **Runtime foundation implemented; O08 reliability/release acceptance is incomplete.** Do not mark the mission complete or describe automatic advice as dependable. [Small evidence summary](evidence/o08-runtime-smoke.json); large media, raw receipts and retained APKs are under `work/o08`.
 
+## Latest physical live inventory — code59 — 30 October 2026
+
+Production companion `0.8.51` / code59 ran Live Detect for 137.7 seconds and logged 397 frames. Every frame remained uncertain/layout-uncertain; detected counts ranged from 7 to 10, black was absent from every read, and there were zero obstructions, settled-baseline matches, table events or event clips. Full detection latency was median 342ms (p95 421ms, max 486ms); source age was median 829ms (p95 916ms, max 964ms). The live acceptance result is a failure: no dependable inventory was established. The matched offline replay evidence below supports changing the normalization default but cannot explain this physical/live result, and code58 was not rerun on the same fixture as a live control.
+
+The JSONL is `work/production/evidence/code59-install/live-detect-final.jsonl` (SHA-256 `50E9F69EFAEE398E2963F281938281EC20349AFCC91EEC2814A748D9A145640D`). Camera was finally verified stopped, revision 47, battery 100%, 134 clips and zero viewers; Home showed **Start live session**. No Cast/TV action occurred. The stop guide now records that the session tile must not be tapped again after that confirmation.
+
 ## Latest exact-source offline replay — 30 October 2026
 
 The local illumination-normalization source default is now off. This uses raw pixels for ordinary analysis while retaining normalization as an explicit replay comparison. The evidence is a matched all-lights positive and synthetic black-removal pair, plus a user-labelled physical hand-over-rack control. The Release isolated Vision Device package built successfully with 23 existing warnings and zero errors; only `uk.co.skyeye.visionchecks` was updated on Pixel 11. Production and the mounted camera remained unchanged.

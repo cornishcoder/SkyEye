@@ -1,5 +1,15 @@
 # Physical-device acceptance
 
+## Production code59 raw-pixel live check — 30 October 2026
+
+Production companion `0.8.51` / code59 was built successfully (13 existing warnings, zero errors) and installed in place on Pixel 11. The guarded install preserved the app UID and private storage; rollback APK: `work/production/backups/20261030-210356/before.apk`. Installed APK SHA-256: `80266694C627F540FDFCD71AC33CFA7E5FA10EADF425B83DFAFA1D570B38B364`. The isolated Vision Device package used for offline replay was not installed during this deployment.
+
+The bounded physical Live Detect run `2e887ca1-5fce-4112-95d3-ff6ffeb80db6` covered 397 frames from 21:06:02 to 21:08:20 UTC (137.7 seconds). All 397 were `uncertain` and `layoutUncertain`; counts ranged from 7 to 10, black was detected in zero frames, obstruction was reported in zero frames, and no frame matched a settled baseline. The log recorded zero table events and zero clip saves. Detection time was median 342ms, p95 421ms, maximum 486ms; source-frame age was median 829ms, p95 916ms, maximum 964ms. Thus the live inventory failed on the current physical setup. This run does not establish whether the new raw-pixel default changed live behavior relative to code58.
+
+The evidence log is `work/production/evidence/code59-install/live-detect-final.jsonl` (SHA-256 `50E9F69EFAEE398E2963F281938281EC20349AFCC91EEC2814A748D9A145640D`). Final screenshot `pixel11-home-stopped.png` (SHA-256 `D5B5B34F149ED3746A90A4F1D2849DA7DCD3D2786A8DD047169777FB59636AC3`) shows Home with **Camera ready**, **Start live session**, and **Pinned**. Camera `/status` was verified `Stopped`, revision 47, battery 100%, 134 clips and zero viewers. No Cast/TV action occurred.
+
+During the stop flow, after the first successful stop the same tile changed to **Start live session**. A repeated tap restarted capture; it was immediately stopped and the endpoint read back as stopped again. Future operation must verify `/status` and Home after one stop, then avoid tapping the tile again. This was an operator error, not a camera or app state claim.
+
 ## Production code58 settled-pot clip recovery and code57 run audit — 30 October 2026
 
 The follow-up code57 run `11fdc464-1e02-4457-ba2c-cd931a916992` contains 612 frame checks from 18:24:04–18:27:53 UTC. Its first settled detector baseline was 2 reds, 5 yellows, black and no cue. Outcomes included 220 `clear_unchanged`, 174 `obstructed`, 61 `layout_uncertain`, 18 `movement_observed`, 51 `inventory_change_pending`, 39 `layout_change_pending`, 5 `no_pot_observed`, and 9 `possible_pot_settled`. No shot-by-shot ground truth was collected, so these event labels are not physical pot/miss acceptance and must not be used to infer match state.
