@@ -19,6 +19,9 @@ public sealed record VisionSettings(int Width = 1000, double MinimumRadius = 18,
     // Wider bounded packed-colour fitting recovered the daylight rack black,
     // preserved 38 positive/negative controls, and improved one reviewed spread frame.
     public double PackedColourBoundarySearchExtentFraction { get; init; } = .65;
+    // Diagnostic ablation for packed-colour and sparse-black proposal centres near
+    // the analysis image edge. The default preserves the existing detector.
+    public int PackedClusterImageEdgeMargin { get; init; } = 65;
     // Controlled replay ablation for fresh neutral-body / geometry recovery.
     public bool FreshCueBallRecovery { get; init; } = true;
     // Separately replay the whole-table proposal fix against the v2 cue branch.
@@ -41,6 +44,8 @@ public sealed record VisionSettings(int Width = 1000, double MinimumRadius = 18,
             throw new ArgumentException("Invalid Hough body boundary support.");
         if (!double.IsFinite(PackedColourBoundarySearchExtentFraction) || PackedColourBoundarySearchExtentFraction is < .2 or > .8)
             throw new ArgumentException("Invalid packed-colour boundary search extent.");
+        if (PackedClusterImageEdgeMargin is < 0 or > 100)
+            throw new ArgumentException("Invalid packed-cluster image edge margin.");
         if (DarkBodyValueCeiling is < 10 or > 55) throw new ArgumentException("Invalid dark body ceiling.");
     }
 }

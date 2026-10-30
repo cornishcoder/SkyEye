@@ -43,7 +43,21 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 settings.PackedColourBoundarySearchExtentFraction
             };
             const string algorithm = "body-priority-packed-colour-peaks-v18-supported-pocket-bodies";
-            object identity = settings.UseNormalizedGeometryForDetection || settings.UseNormalizedPackedColourProposalMask
+            bool normalizedProposalAblation = settings.UseNormalizedGeometryForDetection || settings.UseNormalizedPackedColourProposalMask;
+            bool edgeMarginAblation = settings.PackedClusterImageEdgeMargin != 65;
+            object identity = normalizedProposalAblation && edgeMarginAblation
+                ? new
+                {
+                    Algorithm = algorithm,
+                    Settings = productionSettings,
+                    DiagnosticAblations = new
+                    {
+                        settings.UseNormalizedGeometryForDetection,
+                        settings.UseNormalizedPackedColourProposalMask,
+                        packedClusterImageEdgeMargin = settings.PackedClusterImageEdgeMargin
+                    }
+                }
+                : normalizedProposalAblation
                 ? new
                 {
                     Algorithm = algorithm,
@@ -54,6 +68,13 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                         settings.UseNormalizedPackedColourProposalMask
                     }
                 }
+                : edgeMarginAblation
+                    ? new
+                    {
+                        Algorithm = algorithm,
+                        Settings = productionSettings,
+                        DiagnosticAblations = new { packedClusterImageEdgeMargin = settings.PackedClusterImageEdgeMargin }
+                    }
                 : new { Algorithm = algorithm, Settings = productionSettings };
             return System.Text.Json.JsonSerializer.Serialize(identity);
         }

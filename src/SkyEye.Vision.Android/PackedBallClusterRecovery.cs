@@ -197,8 +197,9 @@ public sealed partial class VisionAnalyzer
         using var cleanupSize = new Size(3, 3);
         using var cleanupKernel = new MatLease(Imgproc.GetStructuringElement(Imgproc.MorphEllipse, cleanupSize));
         Imgproc.MorphologyEx(dark.Value, dark.Value, Imgproc.MorphOpen, cleanupKernel.Value);
-        var bounds = (Left: 65 * scale, Right: coordinates.Width - 65 * scale,
-            Top: 65 * scale, Bottom: coordinates.Height - 65 * scale);
+        double edgeMargin = settings.PackedClusterImageEdgeMargin * scale;
+        var bounds = (Left: edgeMargin, Right: coordinates.Width - edgeMargin,
+            Top: edgeMargin, Bottom: coordinates.Height - edgeMargin);
         var seeds = FindPeakSeeds(dark.Value, scale, 8 * scale, bounds)
             .Where(seed => seed.Radius <= settings.MaximumRadius * scale).ToArray();
         // Prefer peaks near already supported painted bodies, then larger dark
@@ -317,7 +318,7 @@ public sealed partial class VisionAnalyzer
         Cv.Bitwise_and(peaks.Value, aboveMinimum.Value, peaks.Value);
         using var labels = new MatLease(new Mat()); using var stats = new MatLease(new Mat()); using var centres = new MatLease(new Mat());
         int count = Imgproc.ConnectedComponentsWithStats(peaks.Value, labels.Value, stats.Value, centres.Value);
-        double margin = 65 * scale;
+        double margin = settings.PackedClusterImageEdgeMargin * scale;
         for (int i = 1; i < count && candidates.Count < 32; i++)
         {
             double x = centres.Value.Get(i, 0)![0], y = centres.Value.Get(i, 1)![0];
@@ -406,7 +407,8 @@ public sealed partial class VisionAnalyzer
         for (int i = 1; i < count && i <= 64; i++)
         {
             double x = centres.Value.Get(i, 0)![0] + left, y = centres.Value.Get(i, 1)![0] + top;
-            if (x < 65 * scale || y < 65 * scale || x >= coordinates.Width - 65 * scale || y >= coordinates.Height - 65 * scale) continue;
+            double edgeMargin = settings.PackedClusterImageEdgeMargin * scale;
+            if (x < edgeMargin || y < edgeMargin || x >= coordinates.Width - edgeMargin || y >= coordinates.Height - edgeMargin) continue;
             double radius = distance.Value.Get((int)Math.Round(y), (int)Math.Round(x))![0];
             if (radius >= minimumPeakRadius) yield return (new(x, y), radius);
         }

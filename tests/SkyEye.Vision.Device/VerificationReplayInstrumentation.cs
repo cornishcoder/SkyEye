@@ -13,8 +13,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
     public VerificationReplayInstrumentation() { }
     public VerificationReplayInstrumentation(IntPtr handle, global::Android.Runtime.JniHandleOwnership ownership) : base(handle, ownership) { }
     bool refinement, dump, boundaryAudit, traceDarkMask, normalizedGeometry, normalizedPackedProposalMask, boundaryExtentAblation,
-        continueCalibrationMismatch;
-    int fastWidth, darkBodyCeiling = 40; double boundaryExtentFraction = .65; string run = "";
+        edgeMarginAblation, continueCalibrationMismatch;
+    int fastWidth, darkBodyCeiling = 40, packedClusterImageEdgeMargin = 65; double boundaryExtentFraction = .65; string run = "";
     public override void OnCreate(global::Android.OS.Bundle? args)
     {
         refinement = args?.GetString("refine") == "1"; dump = args?.GetString("dump") == "1";
@@ -29,6 +29,14 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 || !double.IsFinite(boundaryExtentFraction) || boundaryExtentFraction is < .2 or > .8)
                 throw new ArgumentOutOfRangeException(nameof(boundaryExtentFraction), "Packed-colour boundary extent must be between 0.2 and 0.8.");
             boundaryExtentAblation = boundaryExtentFraction != .65;
+        }
+        var requestedEdgeMargin = args?.GetString("edgeMargin");
+        if (!string.IsNullOrWhiteSpace(requestedEdgeMargin))
+        {
+            if (!int.TryParse(requestedEdgeMargin, NumberStyles.Integer, CultureInfo.InvariantCulture, out packedClusterImageEdgeMargin)
+                || packedClusterImageEdgeMargin is < 0 or > 100)
+                throw new ArgumentOutOfRangeException(nameof(packedClusterImageEdgeMargin), "Packed-cluster image edge margin must be between 0 and 100 pixels at width 1000.");
+            edgeMarginAblation = packedClusterImageEdgeMargin != 65;
         }
         run = args?.GetString("run") ?? "";
         fastWidth = int.TryParse(args?.GetString("fastWidth"), out var requestedWidth) ? requestedWidth : 0;
@@ -78,6 +86,14 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             var boundaryExtentAnalyzer1000 = boundaryExtentAblation
                 ? new VisionAnalyzer(new VisionSettings(Width: 1000) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling,
                     PackedColourBoundarySearchExtentFraction = boundaryExtentFraction }, boundaryAudit, boundaryAudit)
+                : null;
+            var edgeMarginAnalyzer800 = edgeMarginAblation
+                ? new VisionAnalyzer(new VisionSettings(Width: 800) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling,
+                    PackedClusterImageEdgeMargin = packedClusterImageEdgeMargin }, boundaryAudit, boundaryAudit)
+                : null;
+            var edgeMarginAnalyzer1000 = edgeMarginAblation
+                ? new VisionAnalyzer(new VisionSettings(Width: 1000) { VerificationBodyRefinement = refinement, DarkBodyValueCeiling = darkBodyCeiling,
+                    PackedClusterImageEdgeMargin = packedClusterImageEdgeMargin }, boundaryAudit, boundaryAudit)
                 : null;
             string replayConfiguration = analyzer800.ConfigurationIdentity;
             bool? configurationMatchesPrimary = recordedConfiguration is null
@@ -151,6 +167,12 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     boundaryExtent800 = Measure(() => boundaryExtentAnalyzer800.Analyze(bytes, calibration), out boundaryExtent800Metrics);
                 if (boundaryExtentAnalyzer1000 is not null)
                     boundaryExtent1000 = Measure(() => boundaryExtentAnalyzer1000.Analyze(bytes, calibration), out boundaryExtent1000Metrics);
+                VisionResult? edgeMargin800 = null, edgeMargin1000 = null;
+                object? edgeMargin800Metrics = null, edgeMargin1000Metrics = null;
+                if (edgeMarginAnalyzer800 is not null)
+                    edgeMargin800 = Measure(() => edgeMarginAnalyzer800.Analyze(bytes, calibration), out edgeMargin800Metrics);
+                if (edgeMarginAnalyzer1000 is not null)
+                    edgeMargin1000 = Measure(() => edgeMarginAnalyzer1000.Analyze(bytes, calibration), out edgeMargin1000Metrics);
                 VisionResult? fastAnalysis = null; object? fastAnalysisMetrics = null;
                 if (fastAnalyzer is not null)
                     fastAnalysis = Measure(() => fastAnalyzer.Analyze(bytes, calibration), out fastAnalysisMetrics);
@@ -360,6 +382,14 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                         width1000 = new { metrics = boundaryExtent1000Metrics, analysis = Summarize(boundaryExtent1000!, 1000),
                             comparison = Compare(baseline1000, boundaryExtent1000!, 1000, 1000) }
                     } : null,
+                    packedClusterImageEdgeMarginAblation = edgeMarginAblation ? new
+                    {
+                        edgeMarginAtWidth1000 = packedClusterImageEdgeMargin,
+                        width800 = new { metrics = edgeMargin800Metrics, analysis = Summarize(edgeMargin800!, 800),
+                            comparison = Compare(baseline800, edgeMargin800!, 800, 800) },
+                        width1000 = new { metrics = edgeMargin1000Metrics, analysis = Summarize(edgeMargin1000!, 1000),
+                            comparison = Compare(baseline1000, edgeMargin1000!, 1000, 1000) }
+                    } : null,
                     fastWidth = fastAnalyzer is null ? null : new
                     {
                         configuredWidth = fastWidth,
@@ -390,6 +420,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 normalizedGeometryAblation = normalizedGeometry,
                 normalizedPackedProposalMaskAblation = normalizedPackedProposalMask,
                 packedColourBoundarySearchExtentFraction = boundaryExtentAblation ? boundaryExtentFraction : (double?)null,
+                packedClusterImageEdgeMargin = edgeMarginAblation ? packedClusterImageEdgeMargin : (int?)null,
                 fastWidth = fastWidth > 0 ? fastWidth : (int?)null,
                 pipelineDiagnostics = PipelineDiagnostics.Snapshot(),
                 recordedAnalyzerConfigurationIdentity = recordedConfiguration,

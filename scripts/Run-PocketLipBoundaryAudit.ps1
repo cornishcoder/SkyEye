@@ -2,10 +2,12 @@ param(
     [string]$SourceRelativePath = 'work/production/evidence/live-detect-pocket-lip-20261030/o08-capture',
     [int[]]$Frames = @(399, 433),
     [string]$RunPrefix = 'pocketlip30',
-    [string]$Purpose = 'Current-code exact-frame candidate and boundary audit for the Oct 30 pocket-lip fixture.'
+    [string]$Purpose = 'Current-code exact-frame candidate and boundary audit for the Oct 30 pocket-lip fixture.',
+    [int]$EdgeMargin = 65
 )
 
 $ErrorActionPreference = 'Stop'
+if ($EdgeMargin -lt 0 -or $EdgeMargin -gt 100) { throw 'EdgeMargin must be between 0 and 100 pixels at width 1000.' }
 
 $adb = 'C:\Program Files (x86)\Android\android-sdk\platform-tools\adb.exe'
 $serial = '66181FDDV001HS'
@@ -67,7 +69,7 @@ foreach ($input in $inputs) {
     }
 }
 
-$instrumentOutput = & $adb -s $serial shell am instrument -w -e run $run -e audit 1 $instrumentation 2>&1
+$instrumentOutput = & $adb -s $serial shell am instrument -w -e run $run -e audit 1 -e edgeMargin $EdgeMargin $instrumentation 2>&1
 $instrumentExit = $LASTEXITCODE
 $instrumentOutput | Set-Content -LiteralPath (Join-Path $runDirectory 'instrumentation.log')
 if ($instrumentExit -ne 0) { throw "Boundary audit instrumentation failed: $($instrumentOutput -join ' ')" }
@@ -91,6 +93,7 @@ $manifest = [pscustomobject]@{
     apkSha256 = (Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash.ToLowerInvariant()
     run = $run
     auditEnabled = $true
+    packedClusterImageEdgeMargin = $EdgeMargin
     sourceFrames = $inputs | ForEach-Object {
         [pscustomobject]@{ frameId = $_.Receipt.indexedFrame.frameId; png = [IO.Path]::GetFileName($_.PngPath); receipt = [IO.Path]::GetFileName($_.JsonPath); sha256 = $_.Hash }
     }
