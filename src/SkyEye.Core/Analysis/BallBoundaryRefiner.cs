@@ -20,7 +20,7 @@ public static class BallBoundaryRefiner
     const double MinimumColourMaskEdgeContrast = 8;
     const double MinimumColourMaskFineEdgeContrast = 3;
     const int MinimumNonColourBackgroundSamples = 24;
-    const int MinimumColourBackgroundSamples = 16;
+    const int MinimumColourBackgroundSamples = 17;
     // A fitted, partially occluded edge can shift slightly from its dark seed.
     // Allow a narrow measured tolerance when relating failed edge sectors to
     // independently fitted neighboring ball centres.
