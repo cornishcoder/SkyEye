@@ -4,7 +4,7 @@ param(
     [string]$RunPrefix = 'pocketlip30',
     [string]$Purpose = 'Current-code exact-frame candidate and boundary audit for the Oct 30 pocket-lip fixture.',
     [int]$EdgeMargin = 23,
-    [double]$PocketRadius = 55,
+    [double]$PocketRadius = 48,
     [double]$BoundarySupport = 0.75,
     [double]$SparseColourSupport = 0.65625,
     [double]$PackedColourBoundarySearchExtent = 0.65,

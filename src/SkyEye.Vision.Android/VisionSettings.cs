@@ -4,8 +4,13 @@ namespace SkyEye.Vision.Android;
 /// the analyzer scales spatial parameters together for other resolutions.</summary>
 public sealed record VisionSettings(int Width = 1000, double MinimumRadius = 18, double MaximumRadius = 35,
     double Separation = 45, int MorphologyKernel = 5, double HoughDp = 1.3, double EdgeThreshold = 150,
-    double InitialVotes = 15, double NormalizedVotes = 14, int HueBand = 7, double PocketExclusionRadius = 55)
+    double InitialVotes = 15, double NormalizedVotes = 14, int HueBand = 7,
+    double PocketExclusionRadius = 48)
 {
+    // The labelled spread table and two separate pocket/cushion captures
+    // recovered edge balls at 48px while clear-rack and absent-black controls
+    // stayed clean. The independent pocket-colour review still reports risk.
+    public const double DefaultPocketExclusionRadius = 48;
     // Default to source pixels. A retained all-lights black-removal control
     // produced a false neutral Hough body after normalization; disabling the
     // correction removed it while preserving all 11 replayed rack frames across

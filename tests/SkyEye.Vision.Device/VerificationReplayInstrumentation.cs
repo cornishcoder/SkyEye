@@ -15,7 +15,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
     bool refinement, dump, boundaryAudit, traceDarkMask, tracePackedColourFits, normalizedGeometry, normalizedPackedProposalMask, boundaryExtentAblation,
         edgeMarginAblation, continueCalibrationMismatch, obstructionMaskTrace, localIlluminationNormalization;
     int fastWidth, darkBodyCeiling = 40, packedClusterImageEdgeMargin = 23, manualBlackImageX = 1282, manualBlackImageY = 536;
-    double boundaryExtentFraction = .65, pocketExclusionRadius = 55, minimumBoundarySupport = .75,
+    double boundaryExtentFraction = .65, pocketExclusionRadius = VisionSettings.DefaultPocketExclusionRadius, minimumBoundarySupport = .75,
         minimumSparseColourBoundarySupport = VisionSettings.DefaultMinimumSparseColourBoundarySupport,
         sparseBlackSearchExtentFraction = VisionSettings.DefaultSparseBlackBoundarySearchExtentFraction,
         minimumSparseBlackBoundarySupport = VisionSettings.DefaultMinimumSparseBlackBoundarySupport;

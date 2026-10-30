@@ -58,7 +58,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 settings.DarkBodyValueCeiling, settings.VerificationBodyRefinement, settings.PackedClusterImageEdgeMargin,
                 settings.PackedColourBoundarySearchExtentFraction
             };
-            const string algorithm = "body-priority-packed-colour-peaks-v21-edge23-sparse21-pocketreview75-black-radius13-support21";
+            const string algorithm = "body-priority-packed-colour-peaks-v23-edge23-pocket48-sparse21-review75-redyellow-black-radius13-support21";
             bool normalizedProposalAblation = settings.UseNormalizedGeometryForDetection || settings.UseNormalizedPackedColourProposalMask;
             bool edgeMarginAblation = settings.PackedClusterImageEdgeMargin != 23;
             bool sparseColourSupportAblation = settings.MinimumSparseColourBoundarySupport
@@ -905,15 +905,15 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 pockets.Add(new(pocket, coloured, 0, coloured, 0, false));
                 continue;
             }
-            // A detected ball outside the exclusion can still paint pixels inside
-            // it. Explain only an accepted red's inner body, with independent
+            // A detected red or yellow outside the exclusion can still paint
+            // pixels inside it. Explain only its inner body after independent
             // raw-image boundary support, including the arc facing the opening.
             // Hidden/partial bodies and unexplained colour retain the old guard.
             var supported = new List<Circle>();
             for (int n = 0; n < circles.Length; n++)
             {
                 var circle = circles[n]; string kind = labels[n].Kind;
-                if (kind != "red") continue;
+                if (kind is not "red" and not "yellow") continue;
                 var centre = new Point(circle.X, circle.Y); double distance = (centre - pocket).Length;
                 if (distance < radius || distance >= radius + circle.Radius) continue;
                 raw ??= Read(rawImage);
