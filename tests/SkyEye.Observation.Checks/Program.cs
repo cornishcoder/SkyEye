@@ -163,14 +163,23 @@ try
     foreach (var f in frames.Take(2))
     {
         File.Copy(Path.Combine(root, f.PixelFile), Path.Combine(captureFolder, f.PixelFile));
-        File.WriteAllText(Path.Combine(captureFolder, f.SampleId + ".json"), JsonSerializer.Serialize(new { indexedFrame = f }, CorpusJson.Options));
+        object indexed = f.FrameId == 1
+            ? new { f.SampleId, f.FrameId, f.SourceTimeUs, f.Scope, f.PixelFile, f.PixelSha256, f.Encoding, f.Width, f.Height,
+                f.EmbeddedFrameId, analyzerPixelSource = "decoded-bitmap-lossless" }
+            : f; // Also retain coverage for older receipts without the extra field.
+        File.WriteAllText(Path.Combine(captureFolder, f.SampleId + ".json"), JsonSerializer.Serialize(new { indexedFrame = indexed }, CorpusJson.Options));
     }
     var importedPath = VerificationCaptureImport.Import(Path.Combine(root, "capture"), Path.Combine(root, "imported"));
     var imported = CorpusJson.Read<CorpusManifest>(importedPath);
     var importedAudit = CorpusValidation.Validate(imported, new CorpusFiles(Path.Combine(root, "imported")));
     Check(importedAudit.HeldOutVerificationSequences == 0 && imported.Sequences[0].Session == scope.Timeline,
         "Imported paired snapshots stay unreviewed development material; related windows retain a common session");
+    Check(File.ReadAllText(Path.Combine(root, "imported", "window", "start.receipt.json")).Contains("decoded-bitmap-lossless"),
+        "Current capture pixel-source provenance stays in the copied receipt without becoming a reviewed label");
     Throws<IOException>(() => VerificationCaptureImport.Import(Path.Combine(root, "capture"), Path.Combine(root, "imported")));
+    var captureReceipt = Path.Combine(captureFolder, "start.json");
+    File.WriteAllText(captureReceipt, File.ReadAllText(captureReceipt).Replace("analyzerPixelSource", "unexpectedCaptureField"));
+    Throws<JsonException>(() => VerificationCaptureImport.Import(Path.Combine(root, "capture"), Path.Combine(root, "invalid-import")));
     // Minimal SOF fixture checks the dimension contract without image decoding or CV.
     var jpeg = new byte[] { 0xff,0xd8,0xff,0xc0,0,11,8,0,8,0,8,1,1,0x11,0,0xff,0xd9 };
     var jpegFrame = frames[0] with { Encoding = PixelEncoding.Jpeg, EmbeddedFrameId = false };

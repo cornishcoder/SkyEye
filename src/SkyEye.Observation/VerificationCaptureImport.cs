@@ -7,6 +7,17 @@ namespace SkyEye.Observation;
 /// Human labels and a session split must be supplied before O08 evaluation.</summary>
 public static class VerificationCaptureImport
 {
+    // The capture receipt may include analyzer-specific provenance that is not
+    // part of the frozen corpus index. Keep it in the copied original receipt,
+    // while accepting only the known capture shape at this boundary.
+    sealed record CapturedIndexedFrame(string SampleId, long FrameId, long? SourceTimeUs, FrameScope Scope,
+        string PixelFile, string PixelSha256, PixelEncoding Encoding, int Width, int Height,
+        bool EmbeddedFrameId = false, string? AnalyzerPixelSource = null)
+    {
+        public IndexedFrame ToIndex() => new(SampleId, FrameId, SourceTimeUs, Scope, PixelFile, PixelSha256,
+            Encoding, Width, Height, EmbeddedFrameId);
+    }
+
     public static string Import(string captureRoot, string outputRoot)
     {
         if (Directory.Exists(outputRoot)) throw new IOException("Choose a new corpus output directory to preserve earlier evidence.");
@@ -17,7 +28,9 @@ public static class VerificationCaptureImport
         {
             if (new FileInfo(p).Length > 512 * 1024) throw new InvalidDataException("Capture metadata exceeds bounds.");
             using var json = JsonDocument.Parse(File.ReadAllBytes(p));
-            var frame = json.RootElement.GetProperty("indexedFrame").Deserialize<IndexedFrame>(CorpusJson.Options) ?? throw new InvalidDataException("Missing paired receipt.");
+            var captured = json.RootElement.GetProperty("indexedFrame").Deserialize<CapturedIndexedFrame>(CorpusJson.Options)
+                ?? throw new InvalidDataException("Missing paired receipt.");
+            var frame = captured.ToIndex();
             var path = Path.GetRelativePath(captureRoot, Path.Combine(Path.GetDirectoryName(p)!, frame.PixelFile));
             var pixels = input.Verified(path, frame.PixelSha256); PixelDimensions.Verify(frame, pixels);
             return (Frame: frame with { PixelFile = path.Replace('\\', '/') }, Pixels: pixels, ReceiptPath: p);
