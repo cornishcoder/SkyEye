@@ -4,6 +4,9 @@ param(
     [switch]$ScreenOnly,
     [switch]$ProbeOnly,
     [switch]$PocketArcProbeOnly,
+    [switch]$PocketArcSweepOnly,
+    [string[]]$PocketArcAnchor = @(),
+    [string]$PocketArcAnchorManifest,
     [switch]$RawProposalReplay,
     [string]$RawProposalDirectory,
     [string]$RunPrefix = 'pocketlip30',
@@ -45,13 +48,13 @@ param(
 $ErrorActionPreference = 'Stop'
 $totalTimer = [Diagnostics.Stopwatch]::StartNew()
 $stageTimings = [ordered]@{}
-$maximumFrames = if ($ScreenOnly) { 24 } elseif ($ProbeOnly -or $PocketArcProbeOnly -or $RawProposalReplay) { 12 } else { 6 }
+$maximumFrames = if ($ScreenOnly) { 24 } elseif ($ProbeOnly -or $PocketArcProbeOnly -or $PocketArcSweepOnly -or $RawProposalReplay) { 12 } else { 6 }
 $selectedModeCount = 0
-foreach ($selectedMode in @($ScreenOnly, $ProbeOnly, $PocketArcProbeOnly, $RawProposalReplay)) {
+foreach ($selectedMode in @($ScreenOnly, $ProbeOnly, $PocketArcProbeOnly, $PocketArcSweepOnly, $RawProposalReplay)) {
     if ($selectedMode) { $selectedModeCount++ }
 }
 if ($selectedModeCount -gt 1) {
-    throw 'Choose only one replay mode: -ScreenOnly, -ProbeOnly, -PocketArcProbeOnly, or -RawProposalReplay.'
+    throw 'Choose only one replay mode: -ScreenOnly, -ProbeOnly, -PocketArcProbeOnly, -PocketArcSweepOnly, or -RawProposalReplay.'
 }
 if ($Frames.Count -lt 1 -or $Frames.Count -gt $maximumFrames) {
     throw "This run mode accepts 1 to $maximumFrames frames."
@@ -70,8 +73,34 @@ if ($ProbeOnly -and ($EnableIlluminationNormalization -or $TracePackedColourFits
 if ($PocketArcProbeOnly -and (-not $PSBoundParameters.ContainsKey('BlackLabelX') -or -not $PSBoundParameters.ContainsKey('BlackLabelY'))) {
     throw 'Pocket-arc probe-only mode requires explicit -BlackLabelX and -BlackLabelY values for the selected labelled frame.'
 }
-if ($BlackPointSource -ne 'reviewed-label' -and -not $PocketArcProbeOnly) {
-    throw '-BlackPointSource unreviewed-model-proposal is supported only with -PocketArcProbeOnly.'
+if ($PocketArcSweepOnly -and ($PocketArcAnchor.Count -lt 2 -or $PocketArcAnchor.Count -gt 12)) {
+    if ([string]::IsNullOrWhiteSpace($PocketArcAnchorManifest)) {
+        throw 'Pocket-arc sweep mode requires 2 to 12 -PocketArcAnchor values for one frame, or -PocketArcAnchorManifest for per-frame anchors.'
+    }
+}
+if (-not $PocketArcSweepOnly -and ($PocketArcAnchor.Count -gt 0 -or -not [string]::IsNullOrWhiteSpace($PocketArcAnchorManifest))) {
+    throw '-PocketArcAnchor and -PocketArcAnchorManifest are supported only with -PocketArcSweepOnly.'
+}
+if ($PocketArcSweepOnly) {
+    if (-not [string]::IsNullOrWhiteSpace($PocketArcAnchorManifest) -and $PocketArcAnchor.Count -gt 0) {
+        throw 'Use either -PocketArcAnchorManifest or -PocketArcAnchor, not both.'
+    }
+    if ([string]::IsNullOrWhiteSpace($PocketArcAnchorManifest) -and $Frames.Count -ne 1) {
+        throw 'A shared -PocketArcAnchor list is limited to one frame. Use -PocketArcAnchorManifest for a multi-frame sweep.'
+    }
+    $anchorNames = @()
+    foreach ($anchor in $PocketArcAnchor) {
+        if ($anchor -notmatch '^(?<name>[A-Za-z0-9_-]+)=(?<x>\d+),(?<y>\d+)$') {
+            throw "Invalid pocket-arc anchor '$anchor'; expected name=x,y with non-negative integer pixels."
+        }
+        $anchorNames += $Matches.name.ToLowerInvariant()
+    }
+    if (@($anchorNames | Select-Object -Unique).Count -ne $anchorNames.Count) {
+        throw 'Pocket-arc anchor names must be unique, case-insensitively.'
+    }
+}
+if ($BlackPointSource -ne 'reviewed-label' -and -not ($PocketArcProbeOnly -or $PocketArcSweepOnly)) {
+    throw '-BlackPointSource unreviewed-model-proposal is supported only with a pocket-arc probe or sweep.'
 }
 if ($RawProposalReplay -and [string]::IsNullOrWhiteSpace($RawProposalDirectory)) {
     throw 'Raw-proposal replay requires -RawProposalDirectory containing one hash-matched local-model JSON file per frame.'
@@ -83,14 +112,14 @@ if (-not [double]::IsFinite($PocketArcTargetFitAcceptanceRadiusInBallRadii) -or
     $PocketArcTargetFitAcceptanceRadiusInBallRadii -lt 0 -or $PocketArcTargetFitAcceptanceRadiusInBallRadii -gt 5) {
     throw 'PocketArcTargetFitAcceptanceRadiusInBallRadii must be 0 (disabled) or between 0 and 5 ball radii.'
 }
-if ($PocketArcTargetFitAcceptanceRadiusInBallRadii -gt 0 -and -not $PocketArcProbeOnly) {
-    throw 'Targeted label-reach pruning is evaluation-only and may be used only with -PocketArcProbeOnly.'
+if ($PocketArcTargetFitAcceptanceRadiusInBallRadii -gt 0 -and -not ($PocketArcProbeOnly -or $PocketArcSweepOnly)) {
+    throw 'Targeted label-reach pruning is evaluation-only and may be used only with a pocket-arc probe or sweep.'
 }
-if ($PocketArcProbeOnly -and ($EnableIlluminationNormalization -or $TracePackedColourFits -or $ObstructionMaskTrace -or $TraceBlackMask -or
+if (($PocketArcProbeOnly -or $PocketArcSweepOnly) -and ($EnableIlluminationNormalization -or $TracePackedColourFits -or $ObstructionMaskTrace -or $TraceBlackMask -or
     $NeutralCueProbeX800 -ne -1 -or $NeutralCueProbeY800 -ne -1 -or
     $ObstructionClothHue -ge 0 -or $ObstructionClothSaturationFloor -ge 0 -or $ObstructionClothValueFloor -ge 0 -or $ObstructionClothMedianValue -ge 0 -or
     $ObstructionNeutralMinimum -ge 0 -or $ObstructionNeutralMaximum -ge 0)) {
-    throw 'Pocket-arc probe-only mode captures only the width-1000 packed-black trace; remove unrelated ablations and trace options.'
+    throw 'Pocket-arc probe and sweep modes capture only width-1000 packed-black traces; remove unrelated ablations and trace options.'
 }
 if ($RawProposalReplay -and ($EnableIlluminationNormalization -or $TracePackedColourFits -or $ObstructionMaskTrace -or $TraceBlackMask -or
     $NeutralCueProbeX800 -ne -1 -or $NeutralCueProbeY800 -ne -1 -or
@@ -248,6 +277,63 @@ for ($i = 1; $i -lt $inputs.Count; $i++) {
 $stageTimer.Stop()
 $stageTimings.inputHashAndOrderValidationMs = [Math]::Round($stageTimer.Elapsed.TotalMilliseconds, 1)
 
+$normalizedPocketArcAnchorManifest = $null
+$pocketArcAnchorManifestBase64 = $null
+if (-not [string]::IsNullOrWhiteSpace($PocketArcAnchorManifest)) {
+    $anchorManifestPath = if ([IO.Path]::IsPathRooted($PocketArcAnchorManifest)) {
+        $PocketArcAnchorManifest
+    } else {
+        Join-Path $repoRoot $PocketArcAnchorManifest
+    }
+    if (-not (Test-Path -LiteralPath $anchorManifestPath -PathType Leaf)) {
+        throw "Pocket-arc anchor manifest was not found: $anchorManifestPath"
+    }
+    $anchorManifest = Get-Content -LiteralPath $anchorManifestPath -Raw | ConvertFrom-Json
+    if ([int]$anchorManifest.version -ne 1 -or @($anchorManifest.frames).Count -ne $inputs.Count) {
+        throw 'Pocket-arc anchor manifest must use version 1 and contain exactly one frame entry per selected source frame.'
+    }
+    $manifestFrames = @{}
+    foreach ($entry in $anchorManifest.frames) {
+        $frameId = [long]$entry.frameId
+        if ($manifestFrames.ContainsKey($frameId)) { throw "Pocket-arc anchor manifest repeats frame $frameId." }
+        $manifestFrames[$frameId] = $entry
+    }
+    $normalizedFrames = @()
+    foreach ($input in $inputs) {
+        $frameId = [long]$input.Receipt.indexedFrame.frameId
+        if (-not $manifestFrames.ContainsKey($frameId)) { throw "Pocket-arc anchor manifest is missing selected frame $frameId." }
+        $entry = $manifestFrames[$frameId]
+        $manifestHash = ([string]$entry.pixelSha256).ToLowerInvariant()
+        if ($manifestHash -notmatch '^[0-9a-f]{64}$' -or $manifestHash -ne $input.Hash) {
+            throw "Pocket-arc anchors for frame $frameId do not match its exact source pixel SHA-256."
+        }
+        $anchors = @($entry.anchors)
+        if ($anchors.Count -lt 2 -or $anchors.Count -gt 12) {
+            throw "Pocket-arc anchor manifest frame $frameId must have 2 to 12 anchors."
+        }
+        $seenAnchorNames = @{}
+        $normalizedAnchors = @()
+        foreach ($anchor in $anchors) {
+            $name = [string]$anchor.name
+            $x = [int]$anchor.x
+            $y = [int]$anchor.y
+            if ($name -notmatch '^[A-Za-z0-9_-]+$') { throw "Frame $frameId has invalid pocket-arc anchor name '$name'." }
+            if ($seenAnchorNames.ContainsKey($name.ToLowerInvariant())) { throw "Frame $frameId repeats pocket-arc anchor '$name'." }
+            $seenAnchorNames[$name.ToLowerInvariant()] = $true
+            if ($x -lt 0 -or $y -lt 0 -or $x -ge [int]$input.Receipt.indexedFrame.width -or $y -ge [int]$input.Receipt.indexedFrame.height) {
+                throw "Frame $frameId anchor '$name' is outside the recorded source image dimensions."
+            }
+            $normalizedAnchors += [pscustomobject]@{ name = $name; x = $x; y = $y }
+        }
+        $normalizedFrames += [pscustomobject]@{
+            frameId = $frameId; pixelSha256 = $manifestHash; anchors = $normalizedAnchors
+        }
+    }
+    $normalizedPocketArcAnchorManifest = [pscustomobject]@{ version = 1; frames = $normalizedFrames }
+    $normalizedManifestJson = $normalizedPocketArcAnchorManifest | ConvertTo-Json -Depth 8 -Compress
+    $pocketArcAnchorManifestBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($normalizedManifestJson))
+}
+
 New-Item -ItemType Directory -Path $runDirectory -Force | Out-Null
 $stageTimer = [Diagnostics.Stopwatch]::StartNew()
 $installResult = Invoke-Adb @('-s', $serial, 'install', '-r', $apk)
@@ -277,10 +363,12 @@ $stageTimings.inputTransferMs = [Math]::Round($stageTimer.Elapsed.TotalMilliseco
 $screenOnlyArgument = if ($ScreenOnly) { '1' } else { '0' }
 $probeOnlyArgument = if ($ProbeOnly) { '1' } else { '0' }
 $pocketArcProbeOnlyArgument = if ($PocketArcProbeOnly) { '1' } else { '0' }
+$pocketArcSweepOnlyArgument = if ($PocketArcSweepOnly) { '1' } else { '0' }
 $rawProposalReplayArgument = if ($RawProposalReplay) { '1' } else { '0' }
 $auditArgument = if ($ScreenOnly) { '0' } else { '1' }
 $instrumentArguments = @('shell', 'am', 'instrument', '-w', '-e', 'run', $run,
     '-e', 'screenOnly', $screenOnlyArgument, '-e', 'probeOnly', $probeOnlyArgument, '-e', 'pocketArcProbeOnly', $pocketArcProbeOnlyArgument,
+    '-e', 'pocketArcSweepOnly', $pocketArcSweepOnlyArgument,
     '-e', 'rawProposalReplay', $rawProposalReplayArgument,
     '-e', 'audit', $auditArgument, '-e', 'edgeMargin', "$EdgeMargin",
     '-e', 'pocketRadius', "$PocketRadius", '-e', 'boundarySupport', "$BoundarySupport",
@@ -318,6 +406,20 @@ if ($TraceBlackMask) {
         $targetFitAcceptanceRadiusArgument = $PocketArcTargetFitAcceptanceRadiusInBallRadii.ToString('R', [Globalization.CultureInfo]::InvariantCulture)
         $instrumentArguments += @('-e', 'pocketArcTargetFitAcceptanceRadiusRadii', $targetFitAcceptanceRadiusArgument)
     }
+} elseif ($PocketArcSweepOnly) {
+    if ($normalizedPocketArcAnchorManifest) {
+        $manifestCopy = Join-Path $runDirectory 'pocket-arc-anchor-manifest.json'
+        $normalizedPocketArcAnchorManifest | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $manifestCopy -Encoding utf8
+        $instrumentArguments += @('-e', 'pocketArcAnchorManifestB64', $pocketArcAnchorManifestBase64)
+    } else {
+        # Colon is a shell-safe anchor separator; semicolons are parsed as remote-shell command delimiters by adb shell.
+        $instrumentArguments += @('-e', 'pocketArcAnchors', ($PocketArcAnchor -join ':'))
+    }
+    $instrumentArguments += @('-e', 'blackPointSource', $BlackPointSource)
+    if ($PocketArcTargetFitAcceptanceRadiusInBallRadii -gt 0) {
+        $targetFitAcceptanceRadiusArgument = $PocketArcTargetFitAcceptanceRadiusInBallRadii.ToString('R', [Globalization.CultureInfo]::InvariantCulture)
+        $instrumentArguments += @('-e', 'pocketArcTargetFitAcceptanceRadiusRadii', $targetFitAcceptanceRadiusArgument)
+    }
 }
 if ($specifiedNeutralCueProbeCoordinates -eq 2) {
     $probeXArgument = $NeutralCueProbeX800.ToString('R', [Globalization.CultureInfo]::InvariantCulture)
@@ -331,13 +433,13 @@ $instrumentResult = Invoke-Adb (@('-s', $serial) + $instrumentArguments)
 $stageTimer.Stop()
 $stageTimings.instrumentationMs = [Math]::Round($stageTimer.Elapsed.TotalMilliseconds, 1)
 $instrumentResult.Output | Set-Content -LiteralPath (Join-Path $runDirectory 'instrumentation.log')
-$instrumentKind = if ($RawProposalReplay) { 'Raw-proposal replay' } elseif ($PocketArcProbeOnly) { 'Pocket-arc replay' } else { 'Boundary audit' }
+$instrumentKind = if ($RawProposalReplay) { 'Raw-proposal replay' } elseif ($PocketArcSweepOnly) { 'Pocket-arc sweep' } elseif ($PocketArcProbeOnly) { 'Pocket-arc replay' } else { 'Boundary audit' }
 if ($instrumentResult.ExitCode -ne 0) { throw "$instrumentKind instrumentation failed: $($instrumentResult.Output -join ' ')" }
 if (($instrumentResult.Output -join "`n") -match 'shortMsg=Process crashed') {
     throw "$instrumentKind instrumentation process crashed: $($instrumentResult.Output -join ' ')"
 }
 
-$reportSuffix = if ($RawProposalReplay) { '-rawproposals' } elseif ($PocketArcProbeOnly) { '-pocketarc' } elseif ($TraceBlackMask) { '-blacktrace' } else { '' }
+$reportSuffix = if ($RawProposalReplay) { '-rawproposals' } elseif ($PocketArcSweepOnly) { '-pocketarcsweep' } elseif ($PocketArcProbeOnly) { '-pocketarc' } elseif ($TraceBlackMask) { '-blacktrace' } else { '' }
 $reportName = "o08-replay-proof-$run$reportSuffix.json"
 $localReport = Join-Path $runDirectory $reportName
 $stageTimer = [Diagnostics.Stopwatch]::StartNew()
@@ -351,6 +453,7 @@ if (-not $report.completed -or @($report.samples).Count -ne $frames.Count) {
 $maskArtifacts = @()
 $blackMaskArtifacts = @()
 $pocketArcTraceArtifacts = @()
+$pocketArcAnchorRows = @()
 if ($ObstructionMaskTrace) {
     foreach ($frame in $frames) {
         foreach ($width in @(800, 1000)) {
@@ -383,33 +486,87 @@ if ($TraceBlackMask) {
         }
     }
 }
-if ($PocketArcProbeOnly) {
+if ($PocketArcProbeOnly -or $PocketArcSweepOnly) {
     $traceRoot = "$remoteRunDirectory/o08-pocket-arc-trace-$run"
     foreach ($sample in $report.samples) {
         if (-not $sample.detectionRequested) {
-            if ($null -ne $sample.width1000.darkMaskTrace) {
+            $traceCount = if ($PocketArcSweepOnly) { @($sample.width1000.darkMaskTraces).Count } else { [int]($null -ne $sample.width1000.darkMaskTrace) }
+            if ($traceCount -gt 0) {
                 throw "Detection-disabled frame $($sample.frameId) unexpectedly contains a pocket-arc trace."
             }
             continue
         }
-        $trace = $sample.width1000.darkMaskTrace
-        if ($null -eq $trace -or $trace.analysisWidth -ne 1000) {
-            throw "Pocket-arc trace is missing for width-1000 frame $($sample.frameId)."
+        $traces = if ($PocketArcSweepOnly) { @($sample.width1000.darkMaskTraces) } else { @([pscustomobject]@{ name = 'single'; darkMaskTrace = $sample.width1000.darkMaskTrace }) }
+        $expectedAnchors = if ($normalizedPocketArcAnchorManifest) {
+            @($normalizedPocketArcAnchorManifest.frames | Where-Object { [long]$_.frameId -eq [long]$sample.frameId } | Select-Object -ExpandProperty anchors)
+        } else {
+            @($PocketArcAnchor | ForEach-Object {
+                if ($_ -match '^(?<name>[A-Za-z0-9_-]+)=(?<x>\d+),(?<y>\d+)$') {
+                    [pscustomobject]@{ name = $Matches.name; x = [int]$Matches.x; y = [int]$Matches.y }
+                }
+            })
         }
-        $overlayNames = @($trace.overlays)
-        if ($overlayNames.Count -eq 0) { throw "Pocket-arc trace contains no overlays for frame $($sample.frameId)." }
-        foreach ($name in $overlayNames) {
-            if ([string]::IsNullOrWhiteSpace([string]$name) -or $name -ne [IO.Path]::GetFileName([string]$name)) {
-                throw "Pocket-arc trace contains an invalid artifact name for frame $($sample.frameId)."
+        if ($PocketArcSweepOnly -and $traces.Count -ne $expectedAnchors.Count) {
+            throw "Pocket-arc sweep returned $($traces.Count) traces for $($expectedAnchors.Count) expected anchors on frame $($sample.frameId)."
+        }
+        foreach ($anchorTrace in $traces) {
+            $expectedAnchor = @($expectedAnchors | Where-Object { [string]$_.name -ceq [string]$anchorTrace.name }) | Select-Object -First 1
+            if ($PocketArcSweepOnly -and $null -eq $expectedAnchor) {
+                throw "Pocket-arc sweep returned unexpected anchor '$($anchorTrace.name)' on frame $($sample.frameId)."
             }
-            $localTrace = Join-Path $runDirectory $name
-            $pullTraceResult = Invoke-Adb @('-s', $serial, 'pull', "$traceRoot/$name", $localTrace)
-            if ($pullTraceResult.ExitCode -ne 0) { throw "Could not retrieve pocket-arc trace $name`: $($pullTraceResult.Output -join ' ')" }
-            $pocketArcTraceArtifacts += [pscustomobject]@{
-                frameId = $sample.frameId; configuredWidth = $trace.analysisWidth; file = $name
-                sha256 = (Get-FileHash -LiteralPath $localTrace -Algorithm SHA256).Hash.ToLowerInvariant()
+            if ($PocketArcSweepOnly -and ([int]$anchorTrace.sourcePixel.x -ne [int]$expectedAnchor.x -or [int]$anchorTrace.sourcePixel.y -ne [int]$expectedAnchor.y)) {
+                throw "Pocket-arc sweep returned the wrong source coordinates for anchor '$($anchorTrace.name)' on frame $($sample.frameId)."
+            }
+            $trace = $anchorTrace.darkMaskTrace
+            if ($null -eq $trace -or $trace.analysisWidth -ne 1000) {
+                throw "Pocket-arc trace is missing for width-1000 frame $($sample.frameId), anchor $($anchorTrace.name)."
+            }
+            $overlayNames = @($trace.overlays)
+            if ($overlayNames.Count -eq 0) { throw "Pocket-arc trace contains no overlays for frame $($sample.frameId), anchor $($anchorTrace.name)." }
+            $pocketArcAnchorRows += [pscustomobject]@{
+                frameId = [long]$sample.frameId; sourceTimeUs = [long]$sample.sourceTimeUs
+                pixelSha256 = [string]$sample.pixelSha256; anchor = [string]$anchorTrace.name
+                pointSource = [string]$anchorTrace.pointSource; sourceX = [int]$anchorTrace.sourcePixel.x
+                sourceY = [int]$anchorTrace.sourcePixel.y; diagnosticArcPass = [bool]$trace.manualCentreProbe.pocketAwarePartialArcExperiment.candidate.diagnosticArcChecksPass
+                supportedVisibleSectors = [int]$trace.manualCentreProbe.pocketAwarePartialArcExperiment.candidate.supportedVisibleSectorCount
+                visibleSectors = [int]$trace.manualCentreProbe.pocketAwarePartialArcExperiment.candidate.visibleSectorCount
+                contiguousRun = [int]$trace.manualCentreProbe.pocketAwarePartialArcExperiment.candidate.longestContiguousSupportedRun
+                arcSpanDegrees = [double]$trace.manualCentreProbe.pocketAwarePartialArcExperiment.candidate.supportedArcSpanDegrees
+                candidateOffsetPx = [double]$trace.manualCentreProbe.pocketAwarePartialArcExperiment.candidate.candidateToProposalOffset
+                classifier = [string]$trace.manualCentreProbe.pocketAwarePartialArcExperiment.candidateColourClassifier.evidence.kind
+                overlays = $overlayNames -join ';'
+            }
+            foreach ($name in $overlayNames) {
+                if ([string]::IsNullOrWhiteSpace([string]$name) -or $name -ne [IO.Path]::GetFileName([string]$name)) {
+                    throw "Pocket-arc trace contains an invalid artifact name for frame $($sample.frameId)."
+                }
+                $pocketArcTraceArtifacts += [pscustomobject]@{
+                    frameId = $sample.frameId; anchor = $anchorTrace.name; configuredWidth = $trace.analysisWidth; file = $name
+                }
             }
         }
+    }
+    if ($pocketArcTraceArtifacts.Count -gt 0) {
+        $localTraceRoot = Join-Path $runDirectory 'pulled-pocket-arc-traces'
+        New-Item -ItemType Directory -Path $localTraceRoot -Force | Out-Null
+        $pullTraceResult = Invoke-Adb @('-s', $serial, 'pull', $traceRoot, $localTraceRoot)
+        if ($pullTraceResult.ExitCode -ne 0) { throw "Could not retrieve pocket-arc trace directory: $($pullTraceResult.Output -join ' ')" }
+        $pulledTraceFiles = @(Get-ChildItem -LiteralPath $localTraceRoot -Recurse -File)
+        $expectedTraceNames = @($pocketArcTraceArtifacts | Select-Object -ExpandProperty file | Sort-Object -Unique)
+        $pulledTraceNames = @($pulledTraceFiles | ForEach-Object { $_.Name } | Sort-Object -Unique)
+        if (($expectedTraceNames -join "`n") -ne ($pulledTraceNames -join "`n")) {
+            throw "Bulk pocket-arc trace pull did not match the report-listed artifact set. Expected [$($expectedTraceNames -join ', ')], found [$($pulledTraceNames -join ', ')]"
+        }
+        foreach ($artifact in $pocketArcTraceArtifacts) {
+            $matches = @($pulledTraceFiles | Where-Object { $_.Name -ceq [string]$artifact.file })
+            if ($matches.Count -ne 1) { throw "Bulk pocket-arc pull found $($matches.Count) copies of $($artifact.file)." }
+            $localTrace = Join-Path $runDirectory ([string]$artifact.file)
+            Copy-Item -LiteralPath $matches[0].FullName -Destination $localTrace -Force
+            $artifact | Add-Member -MemberType NoteProperty -Name sha256 -Value (Get-FileHash -LiteralPath $localTrace -Algorithm SHA256).Hash.ToLowerInvariant()
+        }
+    }
+    if ($pocketArcAnchorRows.Count -gt 0) {
+        $pocketArcAnchorRows | Export-Csv -NoTypeInformation -Encoding utf8 -LiteralPath (Join-Path $runDirectory 'pocket-arc-anchor-summary.csv')
     }
 }
 $stageTimer.Stop()
@@ -425,7 +582,7 @@ $manifest = [pscustomobject]@{
     package = $package
     apkSha256 = (Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash.ToLowerInvariant()
     run = $run
-    mode = if ($ScreenOnly) { 'screen-only' } elseif ($ProbeOnly) { 'probe-only' } elseif ($PocketArcProbeOnly) { 'pocket-arc-probe-only' } elseif ($RawProposalReplay) { 'raw-proposal-replay' } else { 'full-audit' }
+    mode = if ($ScreenOnly) { 'screen-only' } elseif ($ProbeOnly) { 'probe-only' } elseif ($PocketArcSweepOnly) { 'pocket-arc-sweep-only' } elseif ($PocketArcProbeOnly) { 'pocket-arc-probe-only' } elseif ($RawProposalReplay) { 'raw-proposal-replay' } else { 'full-audit' }
     timingsMs = [pscustomobject]@{
         inputHashAndOrderValidation = $stageTimings.inputHashAndOrderValidationMs
         apkInstall = $stageTimings.apkInstallMs
@@ -494,7 +651,7 @@ $manifest = [pscustomobject]@{
     sourceFrames = $inputs | ForEach-Object {
         [pscustomobject]@{ frameId = $_.Receipt.indexedFrame.frameId; pixelFile = [IO.Path]::GetFileName($_.PixelPath); receipt = [IO.Path]::GetFileName($_.JsonPath); sha256 = $_.Hash }
     }
-    pocketArcPointSource = if ($PocketArcProbeOnly) { $BlackPointSource } else { $null }
+    pocketArcPointSource = if ($PocketArcProbeOnly -or $PocketArcSweepOnly) { $BlackPointSource } else { $null }
     rawModelProposalFiles = if ($RawProposalReplay) { $inputs | ForEach-Object {
         $copiedProposal = Join-Path $runDirectory "local-proposals-$($_.Frame).json"
         [pscustomobject]@{ frameId = $_.Frame; file = [IO.Path]::GetFileName($copiedProposal); sha256 = (Get-FileHash -LiteralPath $copiedProposal -Algorithm SHA256).Hash.ToLowerInvariant(); sourcePixelSha256 = $_.Hash }
@@ -510,7 +667,14 @@ if ($PocketArcProbeOnly) {
     $manifest | Add-Member -MemberType NoteProperty -Name pocketArcTraceArtifacts -Value $pocketArcTraceArtifacts
     $manifest | Add-Member -MemberType NoteProperty -Name pocketArcTargetFitAcceptanceRadiusInBallRadii -Value $(if ($PocketArcTargetFitAcceptanceRadiusInBallRadii -gt 0) { $PocketArcTargetFitAcceptanceRadiusInBallRadii } else { $null })
 }
+if ($PocketArcSweepOnly) {
+    $manifest | Add-Member -MemberType NoteProperty -Name pocketArcSweepOnly -Value $true
+    $manifest | Add-Member -MemberType NoteProperty -Name pocketArcAnchors -Value $(if ($normalizedPocketArcAnchorManifest) { $normalizedPocketArcAnchorManifest.frames } else { @($PocketArcAnchor) })
+    $manifest | Add-Member -MemberType NoteProperty -Name pocketArcAnchorSummaryCsv -Value $(if ($pocketArcAnchorRows.Count -gt 0) { 'pocket-arc-anchor-summary.csv' } else { $null })
+    $manifest | Add-Member -MemberType NoteProperty -Name pocketArcTraceArtifacts -Value $pocketArcTraceArtifacts
+    $manifest | Add-Member -MemberType NoteProperty -Name pocketArcTargetFitAcceptanceRadiusInBallRadii -Value $(if ($PocketArcTargetFitAcceptanceRadiusInBallRadii -gt 0) { $PocketArcTargetFitAcceptanceRadiusInBallRadii } else { $null })
+}
 $manifest | ConvertTo-Json -Depth 16 | Set-Content -LiteralPath (Join-Path $runDirectory 'manifest.json')
 $timingSummary = $stageTimings.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)ms" }
-$runKind = if ($ScreenOnly) { 'Detector screen' } elseif ($ProbeOnly) { 'Candidate probe' } elseif ($PocketArcProbeOnly) { 'Pocket-arc probe' } elseif ($RawProposalReplay) { 'Raw-proposal replay' } else { 'Boundary audit' }
+$runKind = if ($ScreenOnly) { 'Detector screen' } elseif ($ProbeOnly) { 'Candidate probe' } elseif ($PocketArcSweepOnly) { 'Pocket-arc sweep' } elseif ($PocketArcProbeOnly) { 'Pocket-arc probe' } elseif ($RawProposalReplay) { 'Raw-proposal replay' } else { 'Boundary audit' }
 Write-Output "$runKind saved under $runDirectory (total=$([Math]::Round($totalTimer.Elapsed.TotalMilliseconds, 1))ms; $($timingSummary -join ', '))"

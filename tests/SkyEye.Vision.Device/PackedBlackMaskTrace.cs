@@ -215,8 +215,14 @@ internal static class PackedBlackMaskTrace
                 allowDarkBodyEdgeTransitions: true, darkBodyValueCeiling: DarkValueCeiling);
             var normalFixedCentreSectors = BallBoundaryRefiner.Inspect(bgrBytes, width, width * 2,
                 label, ballRadius, label, ballRadius, expectedKind: "black");
-            var pocketOccludedAtLabel = BallBoundaryRefiner.GetPocketOccludedSectorIndexes(
-                normalFixedCentreSectors, calibratedPocketCentres, pocketOcclusionRadius).ToHashSet();
+            // A reference point can lie too close to a frame edge or have too
+            // little usable exterior context, in which case Inspect returns no
+            // sectors. Preserve that as an unavailable measurement instead of
+            // aborting the entire multi-anchor replay.
+            var pocketOccludedAtLabel = normalFixedCentreSectors.Length == 32
+                ? BallBoundaryRefiner.GetPocketOccludedSectorIndexes(
+                    normalFixedCentreSectors, calibratedPocketCentres, pocketOcclusionRadius).ToHashSet()
+                : new HashSet<int>();
             var visibleAtLabel = normalFixedCentreSectors.Where(sector => !pocketOccludedAtLabel.Contains(sector.Index)).ToArray();
             var supportedVisibleAtLabel = visibleAtLabel.Where(sector => sector.Supported).ToArray();
             var fixedCentreEvidence = new
@@ -225,6 +231,8 @@ internal static class PackedBlackMaskTrace
                 centre = label,
                 radius = ballRadius,
                 measuredSectorCount = fixedCentreSectors.Length,
+                normalMeasuredSectorCount = normalFixedCentreSectors.Length,
+                pocketOcclusionMeasurementAvailable = normalFixedCentreSectors.Length == 32,
                 normalSupportedSectorIndices = fixedCentreSectors.Where(sector => sector.Supported
                     && !sector.DarkBodyTransitionUsed).Select(sector => sector.Index).ToArray(),
                 darkTransitionSectorIndices = fixedCentreSectors.Where(sector => sector.DarkBodyTransitionUsed)

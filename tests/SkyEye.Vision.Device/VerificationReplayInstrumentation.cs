@@ -12,7 +12,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
 {
     public VerificationReplayInstrumentation() { }
     public VerificationReplayInstrumentation(IntPtr handle, global::Android.Runtime.JniHandleOwnership ownership) : base(handle, ownership) { }
-    bool refinement, dump, boundaryAudit, screenOnly, probeOnly, pocketArcProbeOnly, rawProposalReplay, traceDarkMask, tracePackedColourFits, normalizedGeometry, normalizedPackedProposalMask, boundaryExtentAblation,
+    bool refinement, dump, boundaryAudit, screenOnly, probeOnly, pocketArcProbeOnly, pocketArcSweepOnly, rawProposalReplay, traceDarkMask, tracePackedColourFits, normalizedGeometry, normalizedPackedProposalMask, boundaryExtentAblation,
         edgeMarginAblation, continueCalibrationMismatch, obstructionMaskTrace, localIlluminationNormalization;
     int fastWidth, darkBodyCeiling = 40, packedClusterImageEdgeMargin = 23, manualBlackImageX = 1282, manualBlackImageY = 536;
     double? neutralCueProbeX800, neutralCueProbeY800;
@@ -29,6 +29,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
     (int Minimum, int Maximum)? diagnosticObstructionNeutralValueRangeOverride;
     string run = "";
     string pocketArcPointSource = "reviewed-label";
+    readonly List<(string Name, int X, int Y)> pocketArcAnchors = [];
+    readonly Dictionary<long, (string PixelSha256, List<(string Name, int X, int Y)> Anchors)> pocketArcAnchorsByFrame = [];
     public override void OnCreate(global::Android.OS.Bundle? args)
     {
         refinement = args?.GetString("refine") == "1"; dump = args?.GetString("dump") == "1";
@@ -159,8 +161,83 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         run = args?.GetString("run") ?? "";
         screenOnly = args?.GetString("screenOnly") == "1";
         probeOnly = args?.GetString("probeOnly") == "1";
-        pocketArcProbeOnly = args?.GetString("pocketArcProbeOnly") == "1";
+        pocketArcSweepOnly = args?.GetString("pocketArcSweepOnly") == "1";
+        pocketArcProbeOnly = args?.GetString("pocketArcProbeOnly") == "1" || pocketArcSweepOnly;
         rawProposalReplay = args?.GetString("rawProposalReplay") == "1";
+        var requestedPocketArcAnchors = args?.GetString("pocketArcAnchors");
+        if (!string.IsNullOrWhiteSpace(requestedPocketArcAnchors))
+        {
+            foreach (var entry in requestedPocketArcAnchors.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                var equals = entry.IndexOf('=');
+                var comma = entry.IndexOf(',', equals + 1);
+                if (equals <= 0 || comma <= equals + 1 || comma == entry.Length - 1)
+                    throw new FormatException("Pocket-arc anchors must use name=x,y;name=x,y syntax.");
+                var name = entry[..equals];
+                if (name.Any(character => !char.IsAsciiLetterOrDigit(character) && character is not '_' and not '-'))
+                    throw new FormatException("Pocket-arc anchor names may contain only ASCII letters, digits, underscore, and hyphen.");
+                if (!int.TryParse(entry.AsSpan(equals + 1, comma - equals - 1), NumberStyles.Integer, CultureInfo.InvariantCulture, out int x)
+                    || !int.TryParse(entry.AsSpan(comma + 1), NumberStyles.Integer, CultureInfo.InvariantCulture, out int y)
+                    || x < 0 || y < 0)
+                    throw new FormatException("Pocket-arc anchor source coordinates must be non-negative integer pixels.");
+                if (pocketArcAnchors.Any(anchor => string.Equals(anchor.Name, name, StringComparison.OrdinalIgnoreCase)))
+                    throw new ArgumentException($"Pocket-arc anchor name '{name}' is duplicated.");
+                pocketArcAnchors.Add((name, x, y));
+            }
+        }
+        if (pocketArcSweepOnly && pocketArcAnchors.Count is < 2 or > 12)
+        {
+            if (string.IsNullOrWhiteSpace(args?.GetString("pocketArcAnchorManifestB64")))
+                throw new ArgumentOutOfRangeException(nameof(requestedPocketArcAnchors), "Pocket-arc sweep mode requires 2 to 12 named anchors or a per-frame anchor manifest.");
+        }
+        var requestedPocketArcAnchorManifest = args?.GetString("pocketArcAnchorManifestB64");
+        if (!string.IsNullOrWhiteSpace(requestedPocketArcAnchorManifest))
+        {
+            if (!pocketArcSweepOnly || pocketArcAnchors.Count > 0)
+                throw new ArgumentException("A per-frame pocket-arc anchor manifest requires sweep-only mode and cannot be combined with shared anchors.");
+            try
+            {
+                var manifestBytes = Convert.FromBase64String(requestedPocketArcAnchorManifest);
+                using var manifestDocument = JsonDocument.Parse(new System.Text.UTF8Encoding(false, true).GetString(manifestBytes));
+                var manifestRoot = manifestDocument.RootElement;
+                if (manifestRoot.GetProperty("version").GetInt32() != 1)
+                    throw new FormatException("Pocket-arc anchor manifest version must be 1.");
+                var frameEntries = manifestRoot.GetProperty("frames").EnumerateArray().ToArray();
+                if (frameEntries.Length is < 1 or > 12)
+                    throw new FormatException("Pocket-arc anchor manifest must contain 1 to 12 frames.");
+                foreach (var frameEntry in frameEntries)
+                {
+                    var frameId = frameEntry.GetProperty("frameId").GetInt64();
+                    var pixelSha256 = frameEntry.GetProperty("pixelSha256").GetString() ?? "";
+                    if (frameId <= 0 || pixelSha256.Length != 64 || pixelSha256.Any(character => !Uri.IsHexDigit(character)))
+                        throw new FormatException("Pocket-arc anchor manifest has an invalid frame ID or pixel SHA-256.");
+                    var frameAnchors = new List<(string Name, int X, int Y)>();
+                    foreach (var anchorElement in frameEntry.GetProperty("anchors").EnumerateArray())
+                    {
+                        var name = anchorElement.GetProperty("name").GetString() ?? "";
+                        var x = anchorElement.GetProperty("x").GetInt32();
+                        var y = anchorElement.GetProperty("y").GetInt32();
+                        if (name.Length == 0 || name.Any(character => !char.IsAsciiLetterOrDigit(character) && character is not '_' and not '-'))
+                            throw new FormatException("Pocket-arc anchor names may contain only ASCII letters, digits, underscore, and hyphen.");
+                        if (x < 0 || y < 0 || frameAnchors.Any(anchor => string.Equals(anchor.Name, name, StringComparison.OrdinalIgnoreCase)))
+                            throw new FormatException("Pocket-arc manifest anchor coordinates must be non-negative and names unique within each frame.");
+                        frameAnchors.Add((name, x, y));
+                    }
+                    if (frameAnchors.Count is < 2 or > 12)
+                        throw new FormatException($"Pocket-arc manifest frame {frameId} must contain 2 to 12 anchors.");
+                    if (!pocketArcAnchorsByFrame.TryAdd(frameId, (pixelSha256.ToLowerInvariant(), frameAnchors)))
+                        throw new FormatException($"Pocket-arc anchor manifest repeats frame {frameId}.");
+                }
+            }
+            catch (Exception exception) when (exception is FormatException or JsonException or KeyNotFoundException or InvalidOperationException or OverflowException)
+            {
+                throw new ArgumentException("Pocket-arc anchor manifest is invalid.", nameof(requestedPocketArcAnchorManifest), exception);
+            }
+        }
+        if (!pocketArcSweepOnly && pocketArcAnchors.Count > 0)
+            throw new ArgumentException("Named pocket-arc anchors require pocket-arc sweep-only mode.");
+        if (!pocketArcSweepOnly && pocketArcAnchorsByFrame.Count > 0)
+            throw new ArgumentException("Per-frame pocket-arc anchors require pocket-arc sweep-only mode.");
         var requestedPocketArcPointSource = args?.GetString("blackPointSource");
         if (!string.IsNullOrWhiteSpace(requestedPocketArcPointSource))
         {
@@ -180,7 +257,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 "Targeted pocket-arc fit acceptance radius must be greater than 0 and at most 5 ball radii.");
         if (pocketArcTargetFitAcceptanceRadiusInBallRadii > 0 && !pocketArcProbeOnly)
             throw new ArgumentException("Targeted label-reach pruning is supported only in pocket-arc probe-only mode.");
-        if (pocketArcProbeOnly && (string.IsNullOrWhiteSpace(requestedBlackLabelX) || string.IsNullOrWhiteSpace(requestedBlackLabelY)))
+        if (pocketArcProbeOnly && !pocketArcSweepOnly
+            && (string.IsNullOrWhiteSpace(requestedBlackLabelX) || string.IsNullOrWhiteSpace(requestedBlackLabelY)))
             throw new ArgumentException("Pocket-arc probe-only mode requires explicit blackLabelX and blackLabelY values.");
         if ((screenOnly ? 1 : 0) + (probeOnly ? 1 : 0) + (pocketArcProbeOnly ? 1 : 0) + (rawProposalReplay ? 1 : 0) > 1)
             throw new ArgumentException("Screen-only, probe-only, pocket-arc, and raw-proposal replay modes are mutually exclusive.");
@@ -213,6 +291,30 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             int maximumFrames = screenOnly ? 24 : probeOnly || pocketArcProbeOnly || rawProposalReplay ? 12 : 6;
             if (paths.Length < 1 || paths.Length > maximumFrames)
                 throw new IOException($"Replay 1 to {maximumFrames} captured development snapshots in {(screenOnly ? "screening" : probeOnly ? "probe-only" : pocketArcProbeOnly ? "pocket-arc probe-only" : rawProposalReplay ? "raw-proposal replay" : "full audit")} mode.");
+            if (pocketArcSweepOnly)
+            {
+                if (pocketArcAnchorsByFrame.Count == 0 && paths.Length != 1)
+                    throw new IOException("Shared pocket-arc anchors are limited to one frame; provide a hash-checked per-frame manifest for batch sweeps.");
+                if (pocketArcAnchorsByFrame.Count > 0)
+                {
+                    if (pocketArcAnchorsByFrame.Count != paths.Length)
+                        throw new IOException("Pocket-arc anchor manifest frame count does not match the replay input set.");
+                    foreach (var path in paths)
+                    {
+                        using var metadata = JsonDocument.Parse(File.ReadAllBytes(path));
+                        var receipt = metadata.RootElement.GetProperty("indexedFrame");
+                        var frameId = receipt.GetProperty("frameId").GetInt64();
+                        var receiptHash = receipt.GetProperty("pixelSha256").GetString();
+                        var width = receipt.GetProperty("width").GetInt32();
+                        var height = receipt.GetProperty("height").GetInt32();
+                        if (!pocketArcAnchorsByFrame.TryGetValue(frameId, out var entry)
+                            || !string.Equals(entry.PixelSha256, receiptHash, StringComparison.OrdinalIgnoreCase))
+                            throw new IOException($"Pocket-arc anchor manifest does not match frame {frameId} and its receipt pixel hash.");
+                        if (width <= 0 || height <= 0 || entry.Anchors.Any(anchor => anchor.X >= width || anchor.Y >= height))
+                            throw new IOException($"Pocket-arc anchor manifest contains coordinates outside frame {frameId}.");
+                    }
+                }
+            }
             using var first = JsonDocument.Parse(File.ReadAllBytes(paths[0]));
             var firstMetadata = first.RootElement;
             var corners = firstMetadata.GetProperty("calibrationCorners").EnumerateArray().Select(p => new Point(p.GetProperty("x").GetDouble(), p.GetProperty("y").GetDouble())).ToArray();
@@ -306,6 +408,14 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 if (sha != receipt.GetProperty("pixelSha256").GetString()) throw new IOException("Captured pixel asset hash mismatch.");
                 var frameId = receipt.GetProperty("frameId").GetInt64();
                 var sourceTimeUs = receipt.GetProperty("sourceTimeUs").GetInt64();
+                var anchorsForFrame = pocketArcAnchors;
+                if (pocketArcSweepOnly && pocketArcAnchorsByFrame.Count > 0)
+                {
+                    if (!pocketArcAnchorsByFrame.TryGetValue(frameId, out var frameAnchorEntry)
+                        || !string.Equals(frameAnchorEntry.PixelSha256, sha, StringComparison.OrdinalIgnoreCase))
+                        throw new IOException($"Pocket-arc anchor manifest hash mismatch at replay frame {frameId}.");
+                    anchorsForFrame = frameAnchorEntry.Anchors;
+                }
                 var frameTimeline = receipt.GetProperty("scope").GetProperty("timeline").GetString()!;
                 if (frameId <= priorFrameId || sourceTimeUs <= priorSourceTimeUs)
                     throw new IOException("Replay frames must preserve strictly increasing frame IDs and source PTS.");
@@ -403,6 +513,33 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     var arcBaseline1000 = Measure(() => analyzer1000.Analyze(bytes, calibration), out var arcAnalysis1000Metrics);
                     if (pocketArcClassifierPixels is null)
                         throw new IOException("The width-1000 classifier pixels were not captured from the pocket-arc baseline analysis.");
+                    if (pocketArcSweepOnly)
+                    {
+                        var anchorTraces = new List<object>(anchorsForFrame.Count);
+                        foreach (var anchor in anchorsForFrame)
+                        {
+                            var anchorDarkMaskTrace = PackedBlackMaskTrace.Capture(bytes, calibration, 1000, arcBaseline1000,
+                                Path.Combine(root, "o08-pocket-arc-trace-" + run), $"{frameId}-{anchor.Name}", anchor.X, anchor.Y,
+                                sparseBlackMinimumPeakRadiusFactor, pocketExclusionRadius, analyzer1000, pocketArcClassifierPixels,
+                                pocketArcTargetFitAcceptanceRadiusInBallRadii, pocketArcPointSource);
+                            anchorTraces.Add(new
+                            {
+                                anchor.Name,
+                                sourcePixel = new { x = anchor.X, y = anchor.Y },
+                                pointSource = pocketArcPointSource,
+                                darkMaskTrace = anchorDarkMaskTrace
+                            });
+                        }
+                        samples.Add(new
+                        {
+                            frameId, pixelSha256 = sha, sourceTimeUs,
+                            capturedAt = metadataRoot.TryGetProperty("capturedAt", out var pocketArcSweepCapturedAt)
+                                ? pocketArcSweepCapturedAt.GetDateTimeOffset() : DateTimeOffset.UtcNow,
+                            detectionRequested, configurationMatchesPrimary, analysis1000Metrics = arcAnalysis1000Metrics,
+                            width1000 = new { analysis = Summarize(arcBaseline1000, 1000), darkMaskTraces = anchorTraces }
+                        });
+                        continue;
+                    }
                     var darkMaskTrace = PackedBlackMaskTrace.Capture(bytes, calibration, 1000, arcBaseline1000,
                         Path.Combine(root, "o08-pocket-arc-trace-" + run), frameId.ToString(), manualBlackImageX, manualBlackImageY,
                         sparseBlackMinimumPeakRadiusFactor, pocketExclusionRadius, analyzer1000, pocketArcClassifierPixels,
@@ -758,9 +895,19 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 report = new
                 {
                     completed = true,
-                    mode = "pocket-arc-probe-only",
+                    mode = pocketArcSweepOnly ? "pocket-arc-sweep-only" : "pocket-arc-probe-only",
                     pocketArcProbeOnly = true,
+                    pocketArcSweepOnly,
                     pocketArcPointSource,
+                    pocketArcAnchors = pocketArcSweepOnly
+                        ? pocketArcAnchors.Select(anchor => new { name = anchor.Name, sourcePixel = new { x = anchor.X, y = anchor.Y } }).ToArray()
+                        : Array.Empty<object>(),
+                    pocketArcAnchorFrames = pocketArcAnchorsByFrame.OrderBy(entry => entry.Key).Select(entry => new
+                    {
+                        frameId = entry.Key,
+                        pixelSha256 = entry.Value.PixelSha256,
+                        anchors = entry.Value.Anchors.Select(anchor => new { name = anchor.Name, sourcePixel = new { x = anchor.X, y = anchor.Y } }).ToArray()
+                    }).ToArray(),
                     configuration = ObservationPolicy.VerificationConfiguration,
                     boundaryAudit,
                     darkBodyValueCeiling = darkBodyCeiling,
@@ -791,7 +938,9 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     pocketArcMaximumSeedDistanceFromLabelRadii = pocketArcTargetFitAcceptanceRadiusInBallRadii > 0
                         ? pocketArcTargetFitAcceptanceRadiusInBallRadii + BallBoundaryRefiner.MaximumPocketArcCandidateOffsetFraction
                         : (double?)null,
-                    scope = pocketArcTargetFitAcceptanceRadiusInBallRadii > 0
+                    scope = pocketArcSweepOnly
+                        ? "Each detection-requested frame gets one width-1000 VisionAnalyzer pass and exact classifier-pixel capture, followed by one independent PackedBlackMaskTrace per named source-image anchor. All anchors share the same immutable source pixels and baseline classifier buffer; traces are diagnostic-only and do not alter detector, readiness, or game-state output."
+                        : pocketArcTargetFitAcceptanceRadiusInBallRadii > 0
                         ? "Each detection-requested receipt/frame gets one width-1000 VisionAnalyzer pass and exact classifier-pixel capture, followed only by the targeted diagnostic trace. Candidate-seeded arc search is skipped only when the seed cannot reach the configured label-fit acceptance radius under the probe's maximum seed-to-fit offset. Skipped seed ranks and distances remain in the report. Diagnostic-only; no detector, readiness, or game-state effect; not live acceptance."
                         : "Each detection-requested receipt/frame gets one width-1000 VisionAnalyzer pass and exact classifier-pixel capture, followed only by PackedBlackMaskTrace.Capture at width 1000. Frames with detection disabled are reported as skipped. No width-800 analysis, verification workers, width comparison, or unrelated trace artifacts. Evaluation-only; not live acceptance.",
                     samples
@@ -845,7 +994,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         catch (Exception error) { report = new { completed = false, error = error.ToString() }; }
         var json = JsonSerializer.Serialize(report, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });
         var reportName = run.Length > 0
-            ? $"o08-replay-proof-{run}{(rawProposalReplay ? "-rawproposals" : pocketArcProbeOnly ? "-pocketarc" : traceDarkMask ? "-blacktrace" : "")}.json"
+            ? $"o08-replay-proof-{run}{(rawProposalReplay ? "-rawproposals" : pocketArcSweepOnly ? "-pocketarcsweep" : pocketArcProbeOnly ? "-pocketarc" : traceDarkMask ? "-blacktrace" : "")}.json"
             : "o08-replay-proof.json";
         File.WriteAllText(Path.Combine(TargetContext!.GetExternalFilesDir(null)!.AbsolutePath, reportName), json);
         using var bundle = new global::Android.OS.Bundle(); bundle.PutString("result", "O08 development replay written"); Finish(global::Android.App.Result.Ok, bundle);

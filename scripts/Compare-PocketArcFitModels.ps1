@@ -269,6 +269,11 @@ foreach ($frameId in $frameIds) {
         }
         $arcVisibleIndices = Convert-SectorIndexSet -Value $arcSeed.visibleSectorIndices -Context "Frame $frameId rank $rank pocket-arc visible sectors"
         $arcSupportedIndices = Convert-SectorIndexSet -Value $arcSeed.supportedVisibleSectorIndices -Context "Frame $frameId rank $rank pocket-arc supported visible sectors"
+        $arcUnexplainedIndices = Convert-SectorIndexSet -Value $arcSeed.unexplainedVisibleSectorIndices -Context "Frame $frameId rank $rank pocket-arc unexplained sectors"
+        $arcUnexplainedCount = Get-Value -InputObject $arcSeed -Name 'unexplainedVisibleSectorCount'
+        if ($arcUnexplainedCount.Found -and $null -ne $arcUnexplainedIndices -and [int]$arcUnexplainedCount.Value -ne $arcUnexplainedIndices.Count) {
+            throw "Frame $frameId rank $rank unexplained sector count does not match its indices."
+        }
         if ($null -ne $arcVisibleIndices -and $null -ne $arcSupportedIndices) {
             $arcVisibleSet = [System.Collections.Generic.HashSet[int]]::new([int[]]$arcVisibleIndices)
             foreach ($sector in $arcSupportedIndices) { if (-not $arcVisibleSet.Contains($sector)) { throw "Frame $frameId rank $rank pocket-arc supported sector $sector is not visible." } }
@@ -285,6 +290,19 @@ foreach ($frameId in $frameIds) {
             $sectorOverlapJaccard = if ($unionCount -gt 0) { [double]$intersection.Count / $unionCount } else { $null }
         }
         $arcClass = Get-PathValue -InputObject $arcSeed -Path 'classifier.evidence.kind'
+        $pocketCentresResult = Get-PathValue -InputObject $arcSample -Path 'width1000.darkMaskTrace.manualCentreProbe.pocketAwarePartialArcExperiment.geometry.pocketCentres'
+        $nearestPocket = $null
+        if ($arcFitAvailable -and $pocketCentresResult.Found) {
+            foreach ($pocket in @($pocketCentresResult.Value)) {
+                if ($null -eq $pocket.x -or $null -eq $pocket.y) { continue }
+                $pocketDx = [double]$arcCentre.Value.x - [double]$pocket.x
+                $pocketDy = [double]$arcCentre.Value.y - [double]$pocket.y
+                $pocketDistance = [Math]::Sqrt(($pocketDx * $pocketDx) + ($pocketDy * $pocketDy))
+                if ($null -eq $nearestPocket -or $pocketDistance -lt $nearestPocket.distancePx) {
+                    $nearestPocket = [pscustomobject]@{ x = [double]$pocket.x; y = [double]$pocket.y; distancePx = $pocketDistance }
+                }
+            }
+        }
         $targetStatus = if ($null -eq $targetProbe) { 'not-supplied' } elseif ($targetProbe.probeExecuted) { 'executed-label-conditioned' } else { 'skipped-label-conditioned' }
         $row = [pscustomobject][ordered]@{
             CaseLabel = $CaseLabel; FrameId = [long]$frameId; SourceTimeUs = [long]$regularSample.sourceTimeUs; PixelSha256 = [string]$regularSample.pixelSha256
@@ -301,6 +319,13 @@ foreach ($frameId in $frameIds) {
             PocketArcFitRadiusPx = if ($arcSeed.arcFitRadius -ne $null) { [double]$arcSeed.arcFitRadius } else { $null }; PocketArcClassifiedKind = if ($arcClass.Found) { [string]$arcClass.Value } else { $null }
             PocketArcDiagnosticChecksPass = [bool]$arcSeed.diagnosticArcChecksPass; PocketArcVisibleSectorCount = $arcSeed.visibleSectorCount
             PocketArcSupportedVisibleSectorCount = $arcSeed.supportedVisibleSectorCount; PocketArcGlobalSupportedSectorCount = $arcSeed.globalSupportedSectorCount
+            PocketArcUnexplainedVisibleSectorCount = if ($arcUnexplainedCount.Found) { [int]$arcUnexplainedCount.Value } else { $null }
+            PocketArcUnexplainedVisibleSectorIndices = Get-SortedSectorCsv -Indices $arcUnexplainedIndices
+            PocketArcPocketOccludedSectorCount = if ($null -ne $arcVisibleIndices) { [Math]::Max(0, 32 - $arcVisibleIndices.Count) } else { $null }
+            PocketArcNearestPocketX = if ($null -ne $nearestPocket) { $nearestPocket.x } else { $null }
+            PocketArcNearestPocketY = if ($null -ne $nearestPocket) { $nearestPocket.y } else { $null }
+            PocketArcNearestPocketDistancePx = if ($null -ne $nearestPocket) { $nearestPocket.distancePx } else { $null }
+            PocketArcNearestPocketDistanceBallRadii = if ($null -ne $nearestPocket -and $null -ne $expectedRadius -and $expectedRadius -gt 0) { $nearestPocket.distancePx / $expectedRadius } else { $null }
             PocketArcVisibleSectorIndices = Get-SortedSectorCsv -Indices $arcVisibleIndices
             PocketArcSupportedVisibleSectorIndices = (@($arcSeed.supportedVisibleSectorIndices) -join ';')
             CenterDriftPx = $driftPx; CenterDriftBallRadii = $driftRadii
