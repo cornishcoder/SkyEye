@@ -88,6 +88,42 @@ try
     var positiveScore = VerificationEvaluation.Score(manifest with { Sequences = [positiveSequence] }, files, [positiveRequest]).Single();
     Check(positiveScore.ValidProof && positiveScore.CorrectLayout == true && !positiveScore.FalseReady,
         "Complete safe proof scores matching reviewed final geometry in the shared coordinate space");
+    // Synthetic contract data exercises report plumbing, not detector accuracy.
+    var comparisonManifest = manifest with { Sequences = [positiveSequence] };
+    var comparisonManifestPath = Path.Combine(root, "comparison-manifest.json");
+    File.WriteAllText(comparisonManifestPath, CorpusJson.Write(comparisonManifest));
+    CorpusValidation.Validate(comparisonManifest, files);
+    var comparisonLock = SplitLock.Freeze(comparisonManifest, files, comparisonManifestPath);
+    var comparisonDetections = positiveFrames.Select((f, i) => new StoredDetection(f.SampleId, f.PixelSha256,
+        "table-2x1", "fixture-v1", "synthetic contract", i == 2,
+        i == 2 ? [new("extra", "red", 1.8, .9, null)] : [new("cue", "cue", 1, .5, null)])).ToImmutableArray();
+    var comparisonCandidates = new[] {
+        new O09CandidateInput("current", new string('a', 64), comparisonDetections),
+        new O09CandidateInput("candidate", new string('b', 64), comparisonDetections),
+        new O09CandidateInput("control", new string('c', 64), comparisonDetections) };
+    var comparison = O09Comparison.Compare(comparisonManifest, comparisonLock, files, CorpusSplit.Holdout, comparisonCandidates, .027);
+    var comparisonFrames = comparison.Candidates[0].Frames;
+    Check(comparison.SchemaVersion == 2 && comparisonFrames.Length == positiveFrames.Length
+        && comparisonFrames[0].FrameId == positiveFrames[0].FrameId && comparisonFrames[0].SourceTimeUs == positiveFrames[0].SourceTimeUs
+        && comparisonFrames[0].Scope == positiveFrames[0].Scope && comparisonFrames[0].PixelSha256 == positiveFrames[0].PixelSha256,
+        "Comparison retains every reviewed frame's exact source receipt");
+    Check(comparisonFrames[2].Score is { Uncertain: true, FalsePositives: 1, MissedVisible: 1 }
+        && comparisonFrames[0].Score is { FalsePositives: 0, MissedVisible: 0 }
+        && comparison.Candidates[0].FailureSamples.Length == 1,
+        "Comparison retains successful and uncertain failed frame scores alongside failure summaries");
+    var reorderedCandidates = comparisonCandidates.Select(c => c with { Detections = c.Detections.Reverse().ToImmutableArray() }).ToArray();
+    Check(CorpusJson.Write(comparison) == CorpusJson.Write(O09Comparison.Compare(comparisonManifest, comparisonLock, files,
+        CorpusSplit.Holdout, reorderedCandidates, .027)), "Per-frame comparison is deterministic across detection ordering");
+    Throws<InvalidDataException>(() => O09Comparison.Compare(comparisonManifest, comparisonLock, files, CorpusSplit.Holdout,
+        [comparisonCandidates[0] with { Detections = comparisonDetections.RemoveAt(0) }, comparisonCandidates[1], comparisonCandidates[2]], .027));
+    File.WriteAllText(Path.Combine(root, "positive-labels.json"), CorpusJson.Write(positiveLabels with { Reviewed = false }));
+    Throws<InvalidDataException>(() => O09Comparison.Compare(comparisonManifest, comparisonLock, files, CorpusSplit.Holdout, comparisonCandidates, .027));
+    File.WriteAllText(Path.Combine(root, "positive-labels.json"), CorpusJson.Write(positiveLabels));
+    var mismatchedIndex = Path.Combine(root, "mismatched-index.jsonl");
+    File.WriteAllLines(mismatchedIndex, positiveFrames.Select((f, i) => JsonSerializer.Serialize(i == 0 ? f with { PixelSha256 = new string('0', 64) } : f,
+        new JsonSerializerOptions(CorpusJson.Options) { WriteIndented = false })));
+    Throws<InvalidDataException>(() => O09Comparison.Compare(comparisonManifest with { Sequences = [positiveSequence with { IndexFile = "mismatched-index.jsonl" }] },
+        comparisonLock, files, CorpusSplit.Holdout, comparisonCandidates, .027));
     Check(VerificationEvaluation.Score(manifest with { Sequences = [positiveSequence] }, files,
         [positiveRequest with { Result = observed }]).Single().FalseReady,
         "A safe-window Ready without proof remains in the false Ready denominator");

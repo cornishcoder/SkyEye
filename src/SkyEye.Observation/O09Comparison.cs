@@ -20,9 +20,11 @@ public sealed record O09SliceResult(string Kind, string Value, O09MetricSummary 
 public sealed record O09FailureSample(string SampleId, string SequenceId, string Session, ImmutableArray<string> Tags,
     int VisibleLabels, int SpatialMatches, int FalsePositives, int MissedVisible, int WrongColours,
     int UnknownColourMatches, bool Uncertain, ImmutableArray<string> MissedIds, ImmutableArray<string> ExtraIds);
+public sealed record O09FrameScore(string SequenceId, string Session, ImmutableArray<string> Tags,
+    long FrameId, long? SourceTimeUs, FrameScope Scope, string PixelSha256, BaselineScore Score);
 public sealed record O09CandidateResult(string Name, string DetectionSha256, ImmutableArray<string> Models,
     ImmutableArray<string> Provenances, O09MetricSummary Overall, ImmutableArray<O09SliceResult> ByLightingOrSceneTag,
-    ImmutableArray<O09FailureSample> FailureSamples);
+    ImmutableArray<O09FailureSample> FailureSamples, ImmutableArray<O09FrameScore> Frames);
 public sealed record O09ComparisonReport(int SchemaVersion, string CorpusId, string Split, string ManifestSha256,
     double Tolerance, int BootstrapReplicates, string UncertaintyMethod, string PublicationLimit,
     ImmutableArray<O09CandidateResult> Candidates);
@@ -33,7 +35,7 @@ public static class O09Comparison
     const int BootstrapCount = 2000;
     const int MaximumSamples = 100_000;
 
-    sealed record SampleContext(string SequenceId, string Session, ImmutableArray<string> Tags, FrameLabels Labels);
+    sealed record SampleContext(string SequenceId, string Session, ImmutableArray<string> Tags, FrameLabels Labels, IndexedFrame Frame);
     sealed record ScoredSample(SampleContext Context, StoredDetection Detection, BaselineScore Score);
 
     public static O09ComparisonReport Compare(CorpusManifest manifest, FrozenCorpus frozen, CorpusFiles files,
@@ -57,14 +59,17 @@ public static class O09Comparison
             var labels = CorpusJson.Read<SequenceLabels>(files.Resolve(sequence.LabelsFile));
             if (!labels.Reviewed || labels.Frames.IsDefaultOrEmpty)
                 throw new InvalidDataException("Every selected O09 sequence must have reviewed frame labels: " + sequence.Id);
+            var index = files.Index(sequence.IndexFile).ToDictionary(f => f.SampleId, StringComparer.Ordinal);
             foreach (var frame in labels.Frames)
             {
                 if (expected.Count >= MaximumSamples) throw new InvalidDataException("O09 comparison exceeds the 100,000-sample report bound.");
+                if (!index.TryGetValue(frame.SampleId, out var receipt) || receipt.PixelSha256 != frame.PixelSha256)
+                    throw new InvalidDataException("O09 labelled frame is missing its matching indexed receipt: " + frame.SampleId);
                 var tags = (sequence.Tags.IsDefault ? ImmutableArray<string>.Empty : sequence.Tags)
                     .AddRange(frame.Tags.IsDefault ? ImmutableArray<string>.Empty : frame.Tags)
                     .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToImmutableArray();
                 if (!expected.TryAdd(frame.SampleId, new(sequence.Id, sequence.Session,
-                    tags, frame)))
+                    tags, frame, receipt)))
                     throw new InvalidDataException("O09 sample IDs must be unique across selected sequences.");
             }
         }
@@ -104,13 +109,16 @@ public static class O09Comparison
                 .Select(s => Failure(s, detections[s.Context.Labels.SampleId]))
                 .ToImmutableArray();
             var allSlices = ImmutableArray.Create(new O09SliceResult("all", "all", allMetrics, bySession)).AddRange(slices);
+            var frames = scored.Select(s => new O09FrameScore(s.Context.SequenceId, s.Context.Session, s.Context.Tags,
+                s.Context.Frame.FrameId, s.Context.Frame.SourceTimeUs, s.Context.Frame.Scope, s.Context.Frame.PixelSha256, s.Score))
+                .ToImmutableArray();
             results.Add(new(candidate.Name, candidate.DetectionSha256,
                 candidate.Detections.Select(d => d.Model).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToImmutableArray(),
                 candidate.Detections.Select(d => d.Provenance).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToImmutableArray(),
-                allMetrics, allSlices, failures));
+                allMetrics, allSlices, failures, frames));
         }
 
-        return new(1, manifest.Id, split.ToString(), frozen.ManifestSha256, tolerance, BootstrapCount,
+        return new(2, manifest.Id, split.ToString(), frozen.ManifestSha256, tolerance, BootstrapCount,
             "Deterministic cluster bootstrap resampling recording sessions; per-session counts are retained. Intervals are null when fewer than two sessions contribute or the rate denominator is empty.",
             "Per-frame ball metrics do not establish safe table readiness. Use the O08 verification scorer for false-ready and current-layout gates.",
             results.ToImmutable());
