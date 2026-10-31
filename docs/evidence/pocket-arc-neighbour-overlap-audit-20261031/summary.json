@@ -1,0 +1,297 @@
+{
+  "schemaVersion": 1,
+  "tool": "Audit-PocketArcNeighbourOverlap",
+  "diagnosticOnly": true,
+  "expectedRadiusPx": 27.0,
+  "truePositiveDefinition": "positive-set black-classified arc candidate passing the saved diagnostic rule and within one expected ball radius (27px) of the draft interior point",
+  "negativeDefinition": "every black-classified arc candidate passing the saved diagnostic rule in the black-absent control is a false candidate",
+  "thresholdSemantics": "reject when candidate centre is closer than the listed multiple of the expected 27px radius to any already accepted ball centre",
+  "overlapSemantics": "reject when fitted candidate radius plus already accepted circle radius exceeds their centre separation; no extra tolerance",
+  "inputs": {
+    "positive": {
+      "csvPath": "work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\pocket-arc-holdout\\seed75fullarc\\positive-probes.csv",
+      "csvSha256": "abc6ea3e6e87245a03e0f330ef168549786186a85a0fa4643721ec6462009f8e",
+      "sourceFrames": {
+        "1365": {
+          "pngSha256": "602e00c4eb9fc92f3b124106137d8ca7c56f932e107f995f1f2c7d824dd25de4",
+          "receiptSha256": "0ca2daa12e7f0618825b85d0478f0ce490e961644f4f71adb4eaea2fb63fe931"
+        },
+        "1425": {
+          "pngSha256": "549cfd6b050ca3375fb17e04f4c51eb0b3bc9c47c0fab6885190dd37fe5d34f3",
+          "receiptSha256": "c81fb5b1b3dd4d24cd84a0c547bfcd4fd500f836e6233b644fd525b43919427f"
+        },
+        "1457": {
+          "pngSha256": "e678231096c838d088b29f791676995f35fea0c2987775047c33b2d3166ab899",
+          "receiptSha256": "678a9e99964d6c08695fc400057ab1ae3639d6365c3a886ad955fe02b08c84e2"
+        },
+        "1555": {
+          "pngSha256": "127d20a300931243ef859cdbbf39c5616c3f6219b667f1e48ce8c10361351294",
+          "receiptSha256": "45b53fb737cede20f13f4a7c27f159701bc8388798b7b3fbbb99596810a03cc9"
+        },
+        "1645": {
+          "pngSha256": "bd5723eb979f58c912a07763dc830623e3491a7b002b8c9d8115390d75a0fde9",
+          "receiptSha256": "ae04eaf1bbf018c8aa1eb6d454ab263876a52e6b8a9a6a85770eac401655280e"
+        },
+        "1736": {
+          "pngSha256": "d677a5df0ecbd79eb2f56f76f75130915c036a78601551efa4f8298345ba06bb",
+          "receiptSha256": "2803f4dea6e2304daa9b7ee2694f0287eafee7e84e0db33321549bab5dd22cc2"
+        }
+      },
+      "proofReports": {
+        "work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\pocket-arc-holdout\\seed75fullarc\\seed75fullarcpos-133220\\o08-replay-proof-seed75fullarcpos-133220-pocketarc.json": "03e2f9f41c3103138b80f92cf47a746637ea4e951dc5e0dc91961f88aafd369d"
+      },
+      "inputRows": 153,
+      "passingBlackArcCandidates": 128
+    },
+    "negative": {
+      "csvPath": "work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\pocket-arc-holdout\\seed75fullarc\\negative-probes.csv",
+      "csvSha256": "ac16e5553feecdebc2651e73f803d670e66194210f7827932d62ed4054feb5fa",
+      "sourceFrames": {
+        "978": {
+          "pngSha256": "b368348c63d924f5c7834e8e849b7287225ab525b470bdc3b85f7a8278cbbe70",
+          "receiptSha256": "653e1ea4bc6c927ba592ad796a6c084e49103c27003d13e5d23d0c98a3144034"
+        },
+        "1072": {
+          "pngSha256": "e398d50ff10d521060a8a460dde4d6b4196d94fde3cf893fb21d975efdd531e8",
+          "receiptSha256": "ea4ce6b0c206d74b557398b8f051d38edd376d341479c54686fc3a911957d44d"
+        },
+        "1105": {
+          "pngSha256": "e6f733f4f5e7e06fb97b700515fbe9bfb2a98f709a11a18ee9ae7b0b748936ef",
+          "receiptSha256": "68fe8e1653888831ca95e52da0e2893154fb7a23d6427b30402136aca9af58fd"
+        },
+        "1150": {
+          "pngSha256": "e4531ab11b7c74910770aa0f046994bb0babbe8597cf6df4387a0780d6643eda",
+          "receiptSha256": "177884273991ffec2a64b4a8f1a446140485bf807f2c6b71a1cb5909c9a34f65"
+        },
+        "1179": {
+          "pngSha256": "0ce1efbdfdb940d04c0021356a527ab5ce45312334aa8bf988eb84362fac7301",
+          "receiptSha256": "fca4a67f270caba01d04af620d40beb84eaae7ed69a10e772b86bbba5a8c00ca"
+        },
+        "1198": {
+          "pngSha256": "e74e17f41921769b32b0b3de8492df8074fa4b720e542122496aed2e47fca634",
+          "receiptSha256": "69d51814cc5b8620af88448bac8295a469d5863bdde22a2cb895fcb88e7ea4c3"
+        }
+      },
+      "proofReports": {
+        "work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\pocket-arc-holdout\\seed75fullarc\\seed75fullarcneg-133415\\o08-replay-proof-seed75fullarcneg-133415-pocketarc.json": "f8bf4dfb23750a355fea2c77f07ca9ccd0336df3aeaa81ea62e7a3451bcebad1"
+      },
+      "inputRows": 192,
+      "passingBlackArcCandidates": 53
+    }
+  },
+  "positive": {
+    "case": "positive",
+    "frameCount": 6,
+    "candidateCount": 128,
+    "framesWithPassingTargetCandidateBeforeVeto": 5,
+    "passingTargetCandidatesBeforeVeto": 6,
+    "centerDistance1.5R": {
+      "positiveTargetCandidatesRetained": 6,
+      "positiveFramesRetained": 5,
+      "negativeFalseCandidatesRetained": 0,
+      "negativeFramesWithAnyFalseCandidateRetained": 0
+    },
+    "centerDistance1.75R": {
+      "positiveTargetCandidatesRetained": 6,
+      "positiveFramesRetained": 5,
+      "negativeFalseCandidatesRetained": 0,
+      "negativeFramesWithAnyFalseCandidateRetained": 0
+    },
+    "centerDistance1.85R": {
+      "positiveTargetCandidatesRetained": 6,
+      "positiveFramesRetained": 5,
+      "negativeFalseCandidatesRetained": 0,
+      "negativeFramesWithAnyFalseCandidateRetained": 0
+    },
+    "centerDistance2.0R": {
+      "positiveTargetCandidatesRetained": 4,
+      "positiveFramesRetained": 4,
+      "negativeFalseCandidatesRetained": 0,
+      "negativeFramesWithAnyFalseCandidateRetained": 0
+    },
+    "circleOverlap": {
+      "positiveTargetCandidatesRetained": 3,
+      "positiveFramesRetained": 3
+    },
+    "perFrame": [
+      {
+        "frameId": "1365",
+        "passingCandidates": 20,
+        "targetCandidates": 1,
+        "closestTargetDistance": 9.600557462085105,
+        "targetSurvives1.5R": true,
+        "targetSurvives1.75R": true,
+        "targetSurvives1.85R": true,
+        "targetSurvives2.0R": true,
+        "targetSurvivesCircleOverlapVeto": false
+      },
+      {
+        "frameId": "1425",
+        "passingCandidates": 22,
+        "targetCandidates": 0,
+        "closestTargetDistance": 153.8762447156877,
+        "targetSurvives1.5R": false,
+        "targetSurvives1.75R": false,
+        "targetSurvives1.85R": false,
+        "targetSurvives2.0R": false,
+        "targetSurvivesCircleOverlapVeto": false
+      },
+      {
+        "frameId": "1457",
+        "passingCandidates": 26,
+        "targetCandidates": 1,
+        "closestTargetDistance": 12.802801359923329,
+        "targetSurvives1.5R": true,
+        "targetSurvives1.75R": true,
+        "targetSurvives1.85R": true,
+        "targetSurvives2.0R": false,
+        "targetSurvivesCircleOverlapVeto": true
+      },
+      {
+        "frameId": "1555",
+        "passingCandidates": 19,
+        "targetCandidates": 1,
+        "closestTargetDistance": 11.525517903551378,
+        "targetSurvives1.5R": true,
+        "targetSurvives1.75R": true,
+        "targetSurvives1.85R": true,
+        "targetSurvives2.0R": true,
+        "targetSurvivesCircleOverlapVeto": true
+      },
+      {
+        "frameId": "1645",
+        "passingCandidates": 21,
+        "targetCandidates": 2,
+        "closestTargetDistance": 6.3329197533033215,
+        "targetSurvives1.5R": true,
+        "targetSurvives1.75R": true,
+        "targetSurvives1.85R": true,
+        "targetSurvives2.0R": true,
+        "targetSurvivesCircleOverlapVeto": true
+      },
+      {
+        "frameId": "1736",
+        "passingCandidates": 20,
+        "targetCandidates": 1,
+        "closestTargetDistance": 9.600557462085105,
+        "targetSurvives1.5R": true,
+        "targetSurvives1.75R": true,
+        "targetSurvives1.85R": true,
+        "targetSurvives2.0R": true,
+        "targetSurvivesCircleOverlapVeto": false
+      }
+    ]
+  },
+  "negative": {
+    "case": "negative",
+    "frameCount": 6,
+    "candidateCount": 53,
+    "framesWithPassingTargetCandidateBeforeVeto": 0,
+    "passingTargetCandidatesBeforeVeto": 0,
+    "centerDistance1.5R": {
+      "positiveTargetCandidatesRetained": 0,
+      "positiveFramesRetained": 0,
+      "negativeFalseCandidatesRetained": 53,
+      "negativeFramesWithAnyFalseCandidateRetained": 6
+    },
+    "centerDistance1.75R": {
+      "positiveTargetCandidatesRetained": 0,
+      "positiveFramesRetained": 0,
+      "negativeFalseCandidatesRetained": 50,
+      "negativeFramesWithAnyFalseCandidateRetained": 6
+    },
+    "centerDistance1.85R": {
+      "positiveTargetCandidatesRetained": 0,
+      "positiveFramesRetained": 0,
+      "negativeFalseCandidatesRetained": 50,
+      "negativeFramesWithAnyFalseCandidateRetained": 6
+    },
+    "centerDistance2.0R": {
+      "positiveTargetCandidatesRetained": 0,
+      "positiveFramesRetained": 0,
+      "negativeFalseCandidatesRetained": 50,
+      "negativeFramesWithAnyFalseCandidateRetained": 6
+    },
+    "circleOverlap": {
+      "falseCandidatesRetained": 50,
+      "framesWithAnyFalseCandidateRetained": 6,
+      "falseCandidatesRejected": 3
+    },
+    "perFrame": [
+      {
+        "frameId": "978",
+        "passingCandidates": 9,
+        "targetCandidates": 0,
+        "closestTargetDistance": 454.7685721956776,
+        "falseCandidatesRetainedAt1.5R": 9,
+        "falseCandidatesRetainedAt1.75R": 9,
+        "falseCandidatesRetainedAt1.85R": 9,
+        "falseCandidatesRetainedAt2.0R": 9,
+        "falseCandidatesRetainedAfterCircleOverlapVeto": 9
+      },
+      {
+        "frameId": "1072",
+        "passingCandidates": 6,
+        "targetCandidates": 0,
+        "closestTargetDistance": 626.4352977697998,
+        "falseCandidatesRetainedAt1.5R": 6,
+        "falseCandidatesRetainedAt1.75R": 6,
+        "falseCandidatesRetainedAt1.85R": 6,
+        "falseCandidatesRetainedAt2.0R": 6,
+        "falseCandidatesRetainedAfterCircleOverlapVeto": 6
+      },
+      {
+        "frameId": "1105",
+        "passingCandidates": 9,
+        "targetCandidates": 0,
+        "closestTargetDistance": 99.76908136171114,
+        "falseCandidatesRetainedAt1.5R": 9,
+        "falseCandidatesRetainedAt1.75R": 8,
+        "falseCandidatesRetainedAt1.85R": 8,
+        "falseCandidatesRetainedAt2.0R": 8,
+        "falseCandidatesRetainedAfterCircleOverlapVeto": 8
+      },
+      {
+        "frameId": "1150",
+        "passingCandidates": 11,
+        "targetCandidates": 0,
+        "closestTargetDistance": 942.290688511567,
+        "falseCandidatesRetainedAt1.5R": 11,
+        "falseCandidatesRetainedAt1.75R": 11,
+        "falseCandidatesRetainedAt1.85R": 11,
+        "falseCandidatesRetainedAt2.0R": 11,
+        "falseCandidatesRetainedAfterCircleOverlapVeto": 11
+      },
+      {
+        "frameId": "1179",
+        "passingCandidates": 12,
+        "targetCandidates": 0,
+        "closestTargetDistance": 454.2685722311924,
+        "falseCandidatesRetainedAt1.5R": 12,
+        "falseCandidatesRetainedAt1.75R": 10,
+        "falseCandidatesRetainedAt1.85R": 10,
+        "falseCandidatesRetainedAt2.0R": 10,
+        "falseCandidatesRetainedAfterCircleOverlapVeto": 10
+      },
+      {
+        "frameId": "1198",
+        "passingCandidates": 6,
+        "targetCandidates": 0,
+        "closestTargetDistance": 919.6124825399792,
+        "falseCandidatesRetainedAt1.5R": 6,
+        "falseCandidatesRetainedAt1.75R": 6,
+        "falseCandidatesRetainedAt1.85R": 6,
+        "falseCandidatesRetainedAt2.0R": 6,
+        "falseCandidatesRetainedAfterCircleOverlapVeto": 6
+      }
+    ]
+  },
+  "caveats": [
+    "Positive and negative frames are from separate capture timelines and different lighting conditions; they are not matched-light or session-separated acceptance data.",
+    "Frames are repeated views of fixed layouts, not independent trials.",
+    "Positive draft labels are interior reference points, not reviewed ball centres; one-radius proximity is a diagnostic matching tolerance.",
+    "The arc candidates and their sector tests are diagnostic outputs, not detector results or game-state assertions.",
+    "Neighbour circles come from the unchanged width-1000 analyzer output whose configuration does not match the capture configuration.",
+    "The overlap rule uses the fitted partial-arc radius, which may be biased low when most of a ball is occluded."
+  ]
+}
