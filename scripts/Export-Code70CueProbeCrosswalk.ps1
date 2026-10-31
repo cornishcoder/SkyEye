@@ -2,7 +2,8 @@
 param(
     [string]$RepositoryRoot = (Join-Path $PSScriptRoot '..'),
     [string]$EvidenceRelativePath = 'work/production/evidence/code70-daylight-pocket-capture-20261031',
-    [string]$OutputRelativePath = 'docs/evidence/code70-exact-frame-stage-crosswalk-20261031/code70-cue-stage-crosswalk.csv'
+    [string]$OutputRelativePath = 'docs/evidence/code70-exact-frame-stage-crosswalk-20261031/code70-cue-stage-crosswalk.csv',
+    [string]$CandidateOutputRelativePath = 'docs/evidence/code70-exact-frame-stage-crosswalk-20261031/code70-cue-candidate-trace.csv'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -39,6 +40,7 @@ if (-not $report.completed -or $samples.Count -ne $manifest.sourceFrames.Count -
 
 $liveRows = @(Get-Content -LiteralPath $livePath | ForEach-Object { $_ | ConvertFrom-Json })
 $crosswalk = [System.Collections.Generic.List[object]]::new()
+$candidateTrace = [System.Collections.Generic.List[object]]::new()
 $captureRunId = $null
 $sourceScope = $null
 
@@ -95,6 +97,65 @@ for ($i = 0; $i -lt $samples.Count; $i++) {
         throw "Physical log scope differs from the receipt for frame $($sample.frameId)."
     }
     $cueRecovery = $observation.recognition.cueBallRecovery
+    for ($auditIndex = 0; $auditIndex -lt $audits.Count; $auditIndex++) {
+        $audit = $audits[$auditIndex]
+        $proposalX = $null; $proposalY = $null
+        if ($null -ne $audit.proposalCentre) {
+            $proposalX = $audit.proposalCentre.x
+            $proposalY = $audit.proposalCentre.y
+        }
+        $fittedX = $null; $fittedY = $null
+        if ($null -ne $audit.fittedCentre) {
+            $fittedX = $audit.fittedCentre.x
+            $fittedY = $audit.fittedCentre.y
+        }
+        $candidateTrace.Add([pscustomobject]@{
+            CaptureRunId = $sampleCaptureRunId
+            FrameId = $sample.frameId
+            SourceTimeUs = $sample.sourceTimeUs
+            PixelSha256 = $sample.pixelSha256
+            Timeline = $frame.timeline
+            Generation = $frame.mediaGeneration
+            CalibrationId = $frame.calibrationId
+            ReplayObservationIndex = $i
+            ReplayCandidateAuditIndex = $auditIndex
+            ReplayReportSha256 = $reportSha256
+            ReplayMode = $manifest.mode
+            ReplayConfigurationMatchesPrimary = $report.configurationMatchesPrimaryWidth
+            ReplayConfigurationSettingsMatchPrimary = $report.configurationSettingsMatchPrimaryWidth
+            ReplayConfiguredWidth = $observation.configuredWidth
+            ReplayGeometryWidth = $observation.geometryWidth
+            ReplayCandidateAuditCount = $audits.Count
+            ReplayLocalIlluminationNormalization = $report.localIlluminationNormalization
+            ReplayPocketExclusionRadius = $report.pocketExclusionRadius
+            ReplayMinimumHoughBoundarySupport = $report.minimumHoughBoundarySupport
+            ReplayMinimumSparseColourBoundarySupport = $report.minimumSparseColourBoundarySupport
+            ReplayPackedColourBoundarySearchExtentFraction = $report.packedColourBoundarySearchExtentFraction
+            ReplaySparseBlackSearchExtentFraction = $report.sparseBlackSearchExtentFraction
+            ReplayMinimumSparseBlackBoundarySupport = $report.minimumSparseBlackBoundarySupport
+            ReplaySparseBlackCandidateLimit = $report.sparseBlackCandidateLimit
+            LiveBallCount = $frame.ballCount
+            LiveUncertain = $frame.uncertain
+            LiveLayoutUncertain = $frame.layoutUncertain
+            ReplayBallCount = $observation.circleCount
+            ReplayUncertain = $observation.uncertain
+            ReplayLayoutUncertain = $observation.layoutUncertain
+            ReplayObstructed = $observation.obstructed
+            Stage = $audit.stage
+            Kind = $audit.kind
+            CandidateIndex = $audit.index
+            ProposalX = $proposalX
+            ProposalY = $proposalY
+            ProposalRadius = $audit.proposalRadius
+            FittedX = $fittedX
+            FittedY = $fittedY
+            FittedRadius = $audit.fittedRadius
+            BoundarySupport = $audit.boundarySupport
+            ClassifiedKind = $audit.classifiedKind
+            Decision = $audit.decision
+            Evidence = $audit.evidence
+        })
+    }
     $crosswalk.Add([pscustomobject]@{
         CaptureRunId = $sampleCaptureRunId
         SampleId = $indexed.sampleId
@@ -179,4 +240,9 @@ $outputDirectory = [System.IO.Path]::GetDirectoryName($outputPath)
 [System.IO.Directory]::CreateDirectory($outputDirectory) | Out-Null
 $crosswalk | Export-Csv -LiteralPath $outputPath -NoTypeInformation -Encoding utf8
 Write-Output "Wrote $outputPath"
+$candidateOutputPath = [System.IO.Path]::GetFullPath((Join-Path $root $CandidateOutputRelativePath))
+$candidateOutputDirectory = [System.IO.Path]::GetDirectoryName($candidateOutputPath)
+[System.IO.Directory]::CreateDirectory($candidateOutputDirectory) | Out-Null
+$candidateTrace | Export-Csv -LiteralPath $candidateOutputPath -NoTypeInformation -Encoding utf8
+Write-Output "Wrote $candidateOutputPath ($($candidateTrace.Count) candidate-stage records)"
 Write-Output "Replay report SHA-256: $reportSha256"
