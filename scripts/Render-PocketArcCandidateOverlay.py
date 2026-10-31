@@ -117,9 +117,54 @@ def get_candidate_audits(analysis: dict[str, Any], trace: dict[str, Any], frame_
     return rows
 
 
-def verify_and_prepare(run_dir: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+def resolve_source_input_directory(run_dir: Path, manifest: dict[str, Any], requested: Path | None) -> Path:
+    if requested is not None:
+        return requested.resolve()
+
+    source_frames = manifest.get("sourceFrames")
+    if not isinstance(source_frames, list) or not source_frames:
+        fail("Run manifest has no source frames for exact input verification.")
+    candidates: set[Path] = set()
+    candidates.add((run_dir.parent.parent / "exact-replay-input").resolve())
+    evidence_root = next((parent for parent in run_dir.parents if parent.name.lower() == "evidence"), None)
+    if evidence_root is not None:
+        try:
+            candidates.update(path.resolve() for path in evidence_root.rglob("exact-replay-input") if path.is_dir())
+        except OSError as exc:
+            fail(f"Cannot search evidence folders for exact replay inputs: {exc}")
+
+    matching: list[Path] = []
+    for candidate_dir in sorted(candidates):
+        if not candidate_dir.is_dir():
+            continue
+        matches_all = True
+        for source in source_frames:
+            if not isinstance(source, dict):
+                fail("Run manifest contains an invalid source frame record.")
+            pixel_file = source.get("pixelFile")
+            expected_hash = source.get("sha256")
+            if (not isinstance(pixel_file, str) or Path(pixel_file).name != pixel_file
+                    or not isinstance(expected_hash, str) or len(expected_hash) != 64):
+                fail("Run manifest contains an invalid source pixel reference or hash.")
+            pixel_path = candidate_dir / pixel_file
+            if not pixel_path.is_file() or sha256(pixel_path) != expected_hash.lower():
+                matches_all = False
+                break
+        if matches_all:
+            matching.append(candidate_dir)
+
+    if not matching:
+        fail("No exact-replay-input directory contains every source frame with the manifest SHA-256; supply --source-input-directory.")
+    if len(matching) > 1:
+        fail(f"Multiple exact-replay-input directories match all source hashes; supply --source-input-directory: {matching}")
+    return matching[0]
+
+
+def verify_and_prepare(run_dir: Path, source_dir: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     if not run_dir.is_dir():
         fail(f"Replay run directory not found: {run_dir}")
+    if not source_dir.is_dir():
+        fail(f"Source replay input directory not found: {source_dir}")
 
     manifest_path = run_dir / "manifest.json"
     manifest = read_json(manifest_path)
@@ -166,6 +211,45 @@ def verify_and_prepare(run_dir: Path) -> tuple[dict[str, Any], list[dict[str, An
             if not isinstance(reference, str) or Path(reference).name != reference:
                 fail(f"Frame {frame_id}: source {ref_name} reference is missing or unsafe.")
         source_by_id[frame_id] = source
+
+    source_evidence: dict[str, dict[str, Any]] = {}
+    for frame_id, source in source_by_id.items():
+        pixel_path = source_dir / source["pixelFile"]
+        receipt_path = source_dir / source["receipt"]
+        if not pixel_path.is_file():
+            fail(f"Frame {frame_id}: source pixel file is missing: {pixel_path}")
+        if not receipt_path.is_file():
+            fail(f"Frame {frame_id}: source receipt is missing: {receipt_path}")
+        source_pixel_hash = sha256(pixel_path)
+        if source_pixel_hash != source["sha256"].lower():
+            fail(f"Frame {frame_id}: source pixel file hash does not match the manifest.")
+        receipt = read_json(receipt_path)
+        indexed = receipt.get("indexedFrame")
+        if not isinstance(indexed, dict):
+            fail(f"Frame {frame_id}: source receipt has no indexedFrame record.")
+        if str(indexed.get("frameId")) != frame_id or indexed.get("pixelFile") != source["pixelFile"]:
+            fail(f"Frame {frame_id}: source receipt frame id or pixel file reference does not match.")
+        if str(indexed.get("pixelSha256", "")).lower() != source_pixel_hash:
+            fail(f"Frame {frame_id}: source receipt pixel hash does not match the source file.")
+        width = indexed.get("width")
+        height = indexed.get("height")
+        if isinstance(width, bool) or not isinstance(width, int) or width <= 0:
+            fail(f"Frame {frame_id}: source receipt width is invalid.")
+        if isinstance(height, bool) or not isinstance(height, int) or height <= 0:
+            fail(f"Frame {frame_id}: source receipt height is invalid.")
+        try:
+            with Image.open(pixel_path) as source_image:
+                if source_image.size != (width, height):
+                    fail(f"Frame {frame_id}: source PNG size {source_image.size} does not match its receipt.")
+                source_image.verify()
+        except OSError as exc:
+            fail(f"Frame {frame_id}: cannot decode source pixel PNG: {exc}")
+        source_evidence[frame_id] = {
+            "pixel_path": pixel_path,
+            "receipt_path": receipt_path,
+            "receipt_sha256": sha256(receipt_path),
+            "dimensions": {"width": width, "height": height},
+        }
 
     artifact_by_key: dict[tuple[str, int, str], dict[str, Any]] = {}
     for artifact in artifacts:
@@ -264,6 +348,7 @@ def verify_and_prepare(run_dir: Path) -> tuple[dict[str, Any], list[dict[str, An
             "frame_id": frame_id,
             "pixel_hash": sample_hash.lower(),
             "source_frame": source_by_id[frame_id],
+            "source_evidence": source_evidence[frame_id],
             "overlay_name": overlay_name,
             "overlay_sha256": str(artifact["sha256"]).lower(),
             "manual_source_pixel": label["sourcePixel"],
@@ -352,6 +437,8 @@ def frame_report(item: dict[str, Any]) -> dict[str, Any]:
             "pixelFile": item["source_frame"]["pixelFile"],
             "receipt": item["source_frame"]["receipt"],
             "pixelSha256": item["pixel_hash"],
+            "receiptSha256": item["source_evidence"]["receipt_sha256"],
+            "dimensions": item["source_evidence"]["dimensions"],
         },
         "darkMaskOverlay": {
             "file": item["overlay_name"],
@@ -477,8 +564,12 @@ def draw_frame(item: dict[str, Any], purpose_short: str) -> Image.Image:
     return tile
 
 
-def render(run_dir: Path, output: Path, report_output: Path, selected_frames: set[str] | None, columns: int) -> list[dict[str, Any]]:
-    manifest, frames = verify_and_prepare(run_dir)
+def render(run_dir: Path, output: Path, report_output: Path, source_dir: Path | None, selected_frames: set[str] | None, columns: int) -> list[dict[str, Any]]:
+    if not run_dir.is_dir():
+        fail(f"Replay run directory not found: {run_dir}")
+    manifest_seed = read_json(run_dir / "manifest.json")
+    source_dir = resolve_source_input_directory(run_dir, manifest_seed, source_dir)
+    manifest, frames = verify_and_prepare(run_dir, source_dir)
     if selected_frames is not None:
         known = {item["frame_id"] for item in frames}
         unknown = selected_frames - known
@@ -493,6 +584,8 @@ def render(run_dir: Path, output: Path, report_output: Path, selected_frames: se
         (run_dir / "manifest.json").resolve(),
         (run_dir / report_name).resolve(),
         *((run_dir / item["overlay_name"]).resolve() for item in frames),
+        *(item["source_evidence"]["pixel_path"].resolve() for item in frames),
+        *(item["source_evidence"]["receipt_path"].resolve() for item in frames),
     }
     if output.resolve() in protected_inputs or report_output.resolve() in protected_inputs:
         fail("Output path would overwrite verified input evidence.")
@@ -530,6 +623,7 @@ def render(run_dir: Path, output: Path, report_output: Path, selected_frames: se
         "mode": manifest.get("mode"),
         "diagnosticOnly": True,
         "sourceRunDirectory": str(run_dir.resolve()),
+        "sourceFrameDirectory": str(source_dir.resolve()),
         "sourceManifest": {"file": "manifest.json", "sha256": sha256(run_dir / "manifest.json")},
         "sourceReport": {"file": report_name, "sha256": str(manifest["reportSha256"]).lower()},
         "contactSheet": {
@@ -557,6 +651,7 @@ def render(run_dir: Path, output: Path, report_output: Path, selected_frames: se
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--run-directory", required=True, type=Path, help="PocketArcProbeOnly run directory.")
+    parser.add_argument("--source-input-directory", type=Path, help="Directory containing the exact replay PNGs and receipts; defaults to the run's sibling exact-replay-input directory.")
     parser.add_argument("--output", type=Path, help="Output PNG path; defaults to the run directory.")
     parser.add_argument("--report", type=Path, help="Output JSON provenance report; defaults to the run directory.")
     parser.add_argument("--frames", nargs="+", help="Optional frame ids to render after the full run is validated.")
@@ -569,7 +664,8 @@ def main() -> int:
     report_output = args.report or (args.run_directory / "pocket-arc-candidate-report.json")
     try:
         selected = {str(value) for value in args.frames} if args.frames else None
-        frames = render(args.run_directory.resolve(), output.resolve(), report_output.resolve(), selected, args.columns)
+        source_dir = args.source_input_directory.resolve() if args.source_input_directory is not None else None
+        frames = render(args.run_directory.resolve(), output.resolve(), report_output.resolve(), source_dir, selected, args.columns)
     except ValueError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
