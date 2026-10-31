@@ -1,0 +1,462 @@
+{
+  "schemaVersion": 1,
+  "purpose": "exploratory image-signal comparison only; this is not ball detection or detector-accuracy evidence",
+  "source": {
+    "file": "work/production/evidence/code70-daylight-pocket-capture-20261031/exact-replay-input/1365.png",
+    "sha256": "602e00c4eb9fc92f3b124106137d8ca7c56f932e107f995f1f2c7d824dd25de4",
+    "width": 1920,
+    "height": 1080,
+    "timeline": "76ec0f8c622045378494b0c250198ce6",
+    "sourceTimeUs": 80806601200,
+    "frameId": 1365
+  },
+  "labels": {
+    "file": "docs/evidence/pocket-cushion-centre-labels-20261031/positive/manual-labels-frame-1365-draft.json",
+    "status": "assistant draft; user review needed",
+    "method": "Centres estimated by visual inspection of the exact raw PNG, then checked against a 100-pixel full-frame and 10-pixel lower-left crop coordinate grid. No detector or model outputs were consulted for placement.",
+    "centresAreGroundTruth": false
+  },
+  "calibration": {
+    "file": "work/production/evidence/code70-daylight-pocket-capture-20261031/exact-replay-input/1365.json",
+    "calibrationName": "27a80900d5fb4cd983a91c6a367389f0",
+    "sourceCornersNormalized": [
+      [
+        0.029895832141240437,
+        0.14129628781919126
+      ],
+      [
+        0.880104128519694,
+        0.06351851710566768
+      ],
+      [
+        0.8873957951863607,
+        0.9061110885054977
+      ],
+      [
+        0.04010416666666667,
+        0.8775925812897859
+      ]
+    ],
+    "homographyMatchesVisionAnalyzerWarp": true
+  },
+  "comparison": {
+    "rectifiedSize": [
+      1000,
+      2000
+    ],
+    "interpolation": "OpenCV INTER_LINEAR",
+    "rectifiedBallRadiusPx": 27.0,
+    "sectorCount": 32,
+    "radialSearchOffsetsPx": [
+      -4,
+      4
+    ],
+    "occludedSectorRule": "expected contour point within radius+1.5px of another approximate labelled centre",
+    "visibleSectorCount": 476,
+    "excludedSectorCount": 4,
+    "rawGradientMedian": 17.166,
+    "rectifiedGradientMedian": 17.31,
+    "rawToRectifiedRatioMedian": 0.999,
+    "rawToRectifiedRatioP25": 0.965,
+    "rawToRectifiedRatioP75": 1.036,
+    "gradientDefinition": "absolute Sobel luma derivative along the expected radial normal, expressed per rectified pixel; peak selected within the shared +/-4px radius search"
+  },
+  "limitations": [
+    "Only one source frame and one lighting condition are measured.",
+    "Manual centres are approximate draft labels with stated uncertainty, not reviewed ground-truth centres.",
+    "The projected ball circles and occlusion mask inherit those centre and radius assumptions.",
+    "Gradient support is an image-signal diagnostic, not candidate recall, classification, accepted detection, or Live Detect performance.",
+    "Raw gradients are mapped through the local inverse-homography Jacobian; high-frequency noise and H.264 artifacts are not separated from useful ball-edge signal."
+  ],
+  "perBall": [
+    {
+      "ballId": "yellow-01",
+      "colour": "yellow",
+      "sourceCenterPx": [
+        85.0,
+        200.0
+      ],
+      "rectifiedCenterPx": [
+        939.09,
+        36.94
+      ],
+      "manualCenterUncertaintyPx": 4,
+      "projectedSourceScalePerRectifiedPixelSingularValues": [
+        0.80182,
+        0.71667
+      ],
+      "visibleSectors": 32,
+      "geometricallyOccludedSectors": 0,
+      "rawGradientMedian": 24.306,
+      "rawGradientP25": 5.026,
+      "rectifiedGradientMedian": 26.002,
+      "rectifiedGradientP25": 4.939,
+      "rawToRectifiedMedianRatio": 0.987,
+      "bestRadialOffsetMedianPx": 0.0
+    },
+    {
+      "ballId": "red-01",
+      "colour": "red",
+      "sourceCenterPx": [
+        125.0,
+        194.0
+      ],
+      "rectifiedCenterPx": [
+        944.2,
+        92.72
+      ],
+      "manualCenterUncertaintyPx": 4,
+      "projectedSourceScalePerRectifiedPixelSingularValues": [
+        0.80478,
+        0.72171
+      ],
+      "visibleSectors": 32,
+      "geometricallyOccludedSectors": 0,
+      "rawGradientMedian": 3.109,
+      "rawGradientP25": 1.65,
+      "rectifiedGradientMedian": 3.219,
+      "rectifiedGradientP25": 1.532,
+      "rawToRectifiedMedianRatio": 1.002,
+      "bestRadialOffsetMedianPx": 0.0
+    },
+    {
+      "ballId": "red-02",
+      "colour": "red",
+      "sourceCenterPx": [
+        785.0,
+        145.0
+      ],
+      "rectifiedCenterPx": [
+        964.94,
+        957.8
+      ],
+      "manualCenterUncertaintyPx": 3,
+      "projectedSourceScalePerRectifiedPixelSingularValues": [
+        0.85392,
+        0.80616
+      ],
+      "visibleSectors": 32,
+      "geometricallyOccludedSectors": 0,
+      "rawGradientMedian": 8.716,
+      "rawGradientP25": 4.944,
+      "rectifiedGradientMedian": 8.614,
+      "rectifiedGradientP25": 4.576,
+      "rawToRectifiedMedianRatio": 1.007,
+      "bestRadialOffsetMedianPx": 1.0
+    },
+    {
+      "ballId": "yellow-02",
+      "colour": "yellow",
+      "sourceCenterPx": [
+        847.0,
+        146.0
+      ],
+      "rectifiedCenterPx": [
+        960.22,
+        1034.06
+      ],
+      "manualCenterUncertaintyPx": 3,
+      "projectedSourceScalePerRectifiedPixelSingularValues": [
+        0.85861,
+        0.81417
+      ],
+      "visibleSectors": 32,
+      "geometricallyOccludedSectors": 0,
+      "rawGradientMedian": 27.482,
+      "rawGradientP25": 21.863,
+      "rectifiedGradientMedian": 27.912,
+      "rectifiedGradientP25": 21.046,
+      "rawToRectifiedMedianRatio": 0.988,
+      "bestRadialOffsetMedianPx": 0.0
+    },
+    {
+      "ballId": "red-03",
+      "colour": "red",
+      "sourceCenterPx": [
+        1627.0,
+        103.0
+      ],
+      "rectifiedCenterPx": [
+        965.78,
+        1931.92
+      ],
+      "manualCenterUncertaintyPx": 4,
+      "projectedSourceScalePerRectifiedPixelSingularValues": [
+        0.9359,
+        0.90136
+      ],
+      "visibleSectors": 30,
+      "geometricallyOccludedSectors": 2,
+      "rawGradientMedian": 8.774,
+      "rawGradientP25": 5.373,
+      "rectifiedGradientMedian": 8.988,
+      "rectifiedGradientP25": 5.17,
+      "rawToRectifiedMedianRatio": 1.012,
+      "bestRadialOffsetMedianPx": 1.0
+    },
+    {
+      "ballId": "yellow-03",
+      "colour": "yellow",
+      "sourceCenterPx": [
+        1638.0,
+        151.0
+      ],
+      "rectifiedCenterPx": [
+        912.5,
+        1942.98
+      ],
+      "manualCenterUncertaintyPx": 4,
+      "projectedSourceScalePerRectifiedPixelSingularValues": [
+        0.93535,
+        0.9033
+      ],
+      "visibleSectors": 30,
+      "geometricallyOccludedSectors": 2,
+      "rawGradientMedian": 27.954,
+      "rawGradientP25": 23.733,
+      "rectifiedGradientMedian": 27.155,
+      "rectifiedGradientP25": 23.579,
+      "rawToRectifiedMedianRatio": 1.006,
+      "bestRadialOffsetMedianPx": 1.0
+    },
+    {
+      "ballId": "red-04",
+      "colour": "red",
+      "sourceCenterPx": [
+        117.0,
+        510.0
+      ],
+      "rectifiedCenterPx": [
+        550.41,
+        70.96
+      ],
+      "manualCenterUncertaintyPx": 3,
+      "projectedSourceScalePerRectifiedPixelSingularValues": [
+        0.79993,
+        0.7192
+      ],
+      "visibleSectors": 32,
+      "geometricallyOccludedSectors": 0,
+      "rawGradientMedian": 5.486,
+      "rawGradientP25": 1.295,
+      "rectifiedGradientMedian": 5.198,
+      "rectifiedGradientP25": 1.255,
+      "rawToRectifiedMedianRatio": 1.018,
+      "bestRadialOffsetMedianPx": 1.5
+    },
+    {
+      "ballId": "yellow-04",
+      "colour": "yellow",
+      "sourceCenterPx": [
+        813.0,
+        534.0
+      ],
+      "rectifiedCenterPx": [
+        505.96,
+        982.57
+      ],
+      "manualCenterUncertaintyPx": 3,
+      "projectedSourceScalePerRectifiedPixelSingularValues": [
+        0.84861,
+        0.80987
+      ],
+      "visibleSectors": 32,
+      "geometricallyOccludedSectors": 0,
+      "rawGradientMedian": 14.872,
+      "rawGradientP25": 9.058,
+      "rectifiedGradientMedian": 14.446,
+      "rectifiedGradientP25": 9.085,
+      "rawToRectifiedMedianRatio": 0.979,
+      "bestRadialOffsetMedianPx": -1.0
+    },
+    {
+      "ballId": "yellow-05",
+      "colour": "yellow",
+      "sourceCenterPx": [
+        1631.0,
+        543.0
+      ],
+      "rectifiedCenterPx": [
+        481.05,
+        1928.75
+      ],
+      "manualCenterUncertaintyPx": 3,
+      "projectedSourceScalePerRectifiedPixelSingularValues": [
+        0.92359,
+        0.90593
+      ],
+      "visibleSectors": 32,
+      "geometricallyOccludedSectors": 0,
+      "rawGradientMedian": 28.102,
+      "rawGradientP25": 24.74,
+      "rectifiedGradientMedian": 26.943,
+      "rectifiedGradientP25": 23.411,
+      "rawToRectifiedMedianRatio": 1.018,
+      "bestRadialOffsetMedianPx": 0.0
+    },
+    {
+      "ballId": "red-05",
+      "colour": "red",
+      "sourceCenterPx": [
+        121.0,
+        862.0
+      ],
+      "rectifiedCenterPx": [
+        108.99,
+        64.58
+      ],
+      "manualCenterUncertaintyPx": 3,
+      "projectedSourceScalePerRectifiedPixelSingularValues": [
+        0.79851,
+        0.7153
+      ],
+      "visibleSectors": 32,
+      "geometricallyOccludedSectors": 0,
+      "rawGradientMedian": 11.0,
+      "rawGradientP25": 1.264,
+      "rectifiedGradientMedian": 11.282,
+      "rectifiedGradientP25": 1.118,
+      "rawToRectifiedMedianRatio": 0.99,
+      "bestRadialOffsetMedianPx": -0.5
+    },
+    {
+      "ballId": "cue-01",
+      "colour": "cue",
+      "sourceCenterPx": [
+        141.0,
+        903.0
+      ],
+      "rectifiedCenterPx": [
+        57.8,
+        91.05
+      ],
+      "manualCenterUncertaintyPx": 3,
+      "projectedSourceScalePerRectifiedPixelSingularValues": [
+        0.79995,
+        0.71711
+      ],
+      "visibleSectors": 32,
+      "geometricallyOccludedSectors": 0,
+      "rawGradientMedian": 24.391,
+      "rawGradientP25": 13.024,
+      "rectifiedGradientMedian": 25.112,
+      "rectifiedGradientP25": 12.197,
+      "rawToRectifiedMedianRatio": 0.978,
+      "bestRadialOffsetMedianPx": 1.5
+    },
+    {
+      "ballId": "yellow-06",
+      "colour": "yellow",
+      "sourceCenterPx": [
+        802.0,
+        930.0
+      ],
+      "rectifiedCenterPx": [
+        37.44,
+        958.9
+      ],
+      "manualCenterUncertaintyPx": 4,
+      "projectedSourceScalePerRectifiedPixelSingularValues": [
+        0.84866,
+        0.80054
+      ],
+      "visibleSectors": 32,
+      "geometricallyOccludedSectors": 0,
+      "rawGradientMedian": 27.45,
+      "rawGradientP25": 19.974,
+      "rectifiedGradientMedian": 27.481,
+      "rectifiedGradientP25": 20.669,
+      "rawToRectifiedMedianRatio": 1.0,
+      "bestRadialOffsetMedianPx": 1.0
+    },
+    {
+      "ballId": "red-06",
+      "colour": "red",
+      "sourceCenterPx": [
+        866.0,
+        931.0
+      ],
+      "rectifiedCenterPx": [
+        37.49,
+        1037.95
+      ],
+      "manualCenterUncertaintyPx": 4,
+      "projectedSourceScalePerRectifiedPixelSingularValues": [
+        0.85362,
+        0.80867
+      ],
+      "visibleSectors": 32,
+      "geometricallyOccludedSectors": 0,
+      "rawGradientMedian": 13.537,
+      "rawGradientP25": 1.46,
+      "rectifiedGradientMedian": 13.532,
+      "rectifiedGradientP25": 1.564,
+      "rawToRectifiedMedianRatio": 0.99,
+      "bestRadialOffsetMedianPx": -2.0
+    },
+    {
+      "ballId": "red-07",
+      "colour": "red",
+      "sourceCenterPx": [
+        1607.0,
+        929.0
+      ],
+      "rectifiedCenterPx": [
+        53.16,
+        1896.0
+      ],
+      "manualCenterUncertaintyPx": 4,
+      "projectedSourceScalePerRectifiedPixelSingularValues": [
+        0.9254,
+        0.89192
+      ],
+      "visibleSectors": 32,
+      "geometricallyOccludedSectors": 0,
+      "rawGradientMedian": 5.553,
+      "rawGradientP25": 3.367,
+      "rectifiedGradientMedian": 5.667,
+      "rectifiedGradientP25": 3.309,
+      "rawToRectifiedMedianRatio": 1.009,
+      "bestRadialOffsetMedianPx": 0.0
+    },
+    {
+      "ballId": "yellow-07",
+      "colour": "yellow",
+      "sourceCenterPx": [
+        1659.0,
+        909.0
+      ],
+      "rectifiedCenterPx": [
+        76.19,
+        1952.84
+      ],
+      "manualCenterUncertaintyPx": 4,
+      "projectedSourceScalePerRectifiedPixelSingularValues": [
+        0.93157,
+        0.89722
+      ],
+      "visibleSectors": 32,
+      "geometricallyOccludedSectors": 0,
+      "rawGradientMedian": 15.865,
+      "rawGradientP25": 9.084,
+      "rectifiedGradientMedian": 15.738,
+      "rectifiedGradientP25": 9.333,
+      "rawToRectifiedMedianRatio": 1.013,
+      "bestRadialOffsetMedianPx": 0.5
+    }
+  ],
+  "inputManifest": {
+    "image": {
+      "path": "work/production/evidence/code70-daylight-pocket-capture-20261031/exact-replay-input/1365.png",
+      "sha256": "602e00c4eb9fc92f3b124106137d8ca7c56f932e107f995f1f2c7d824dd25de4"
+    },
+    "receipt": {
+      "path": "work/production/evidence/code70-daylight-pocket-capture-20261031/exact-replay-input/1365.json",
+      "sha256": "0ca2daa12e7f0618825b85d0478f0ce490e961644f4f71adb4eaea2fb63fe931"
+    },
+    "labels": {
+      "path": "docs/evidence/pocket-cushion-centre-labels-20261031/positive/manual-labels-frame-1365-draft.json",
+      "sha256": "4573477fa1c197b1043a8eb7bf6c4873078632be6e8bb70457e0ab5c09c99e9e"
+    }
+  }
+}

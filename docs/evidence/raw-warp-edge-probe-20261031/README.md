@@ -32,6 +32,19 @@ python scripts/Compare-RawWarpBallEdgeSupport.py `
 
 The three explicit input paths are all required together. The script verifies the image SHA-256 against both the receipt and label file, and checks the labelled dimensions against the source image. Explicit-input summaries also include an `inputManifest` with each input path and SHA-256. `--evidence` continues to select the original default filenames; `--width` and `--radius` control the rectified raster and nominal ball radius.
 
+## Pocket and cushion samples
+
+The same probe was run on two additional exact frames with separate draft centre labels:
+
+| Frame | Layout | Timeline | Visible / excluded sectors | Raw median | Rectified median | Median ratio (raw / rectified) | Ratio P25 / P75 |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |
+| 1365 | Daylight; black, cue and red grouped by lower-left pocket | `76ec0f8c622045378494b0c250198ce6` | 476 / 4 | 17.166 | 17.310 | 0.999 | 0.965 / 1.036 |
+| 978 | Dimmer, black absent; balls near pocket mouths and cushions | `2ea48e0c35cd474eb627acf970a7eec5` | 474 / 6 | 14.190 | 13.886 | 1.000 | 0.965 / 1.044 |
+
+Frame 1365's black centre could not be defensibly placed because its body merges with the pocket/jaw and cue ball, so the probe has no black-boundary measurement. Both label sets are assistant drafts and need user review. Frame 978 is a separate, dimmer timeline, so these samples are not a matched-light positive/negative pair. Within each frame the raw and rectified boundary-gradient distributions are close; neither shows a useful aggregate gradient advantage for unwarped pixels at the labelled sectors.
+
+The explicit-run summaries, per-sector CSVs and overlays are in `pocket-positive-1365/` and `pocket-empty-978/`. Input and label hashes are embedded in each `summary.json`. Reproduce them with the exact frame, receipt and draft-label files recorded in the summary's `inputManifest`.
+
 ## Limits
 
 - There is one rack frame and one lighting condition.
@@ -40,4 +53,4 @@ The three explicit input paths are all required together. The script verifies th
 - The measure describes local luma-gradient signal. It does not measure candidate recall, classification, duplicate rejection, accepted table inventory, event correctness, or processing cost.
 - It does not distinguish useful edge detail from noise or H.264 artifacts.
 
-The production pipeline and detector settings are unchanged. Extend this comparison to reviewed pocket/cushion positives and matched empty-pocket controls before using it to choose a detector architecture.
+The production pipeline and detector settings are unchanged. These additional samples improve coverage of pocket/cushion locations, but draft labels, unmatched conditions and a local image-gradient metric are not grounds to choose or reject a detector architecture. Review the centres and obtain a defensible black-present centre before scoring detector proposals or deciding whether a raw-space branch helps.
