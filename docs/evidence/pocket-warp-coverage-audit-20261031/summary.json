@@ -1,0 +1,98 @@
+{
+  "schemaVersion": 1,
+  "purpose": "geometry/crop review around one pocket; not ball detection or detector accuracy",
+  "warp": {
+    "implementation": "VisionAnalyzer.Warp source corners to [W,0], [W,2W], [0,2W], [0,0], then cv2.warpPerspective to W x 2W",
+    "outputWidth": 1000,
+    "outputHeight": 2000,
+    "displayRotation": "90 degrees counter-clockwise back to landscape for the contact sheet"
+  },
+  "positiveFrame": {
+    "frameId": 1365,
+    "sourceSha256": "602e00c4eb9fc92f3b124106137d8ca7c56f932e107f995f1f2c7d824dd25de4",
+    "timeline": "76ec0f8c622045378494b0c250198ce6",
+    "calibrationId": "27a80900d5fb4cd983a91c6a367389f0",
+    "calibrationCornersNormalized": [
+      [
+        0.029895832141240437,
+        0.14129628781919126
+      ],
+      [
+        0.880104128519694,
+        0.06351851710566768
+      ],
+      [
+        0.8873957951863607,
+        0.9061110885054977
+      ],
+      [
+        0.04010416666666667,
+        0.8775925812897859
+      ]
+    ],
+    "blackInteriorReferenceSourcePixel": [
+      102.0,
+      903.0
+    ],
+    "referenceSemantics": "approximate user-reviewed black-ball interior point; not a ball centre",
+    "pointInsideCalibrationQuadrilateral": true,
+    "pointToSourceQuadEdgeDistancesPx": [
+      751.7,
+      1600.447,
+      45.265,
+      26.096
+    ],
+    "mappedRectifiedPortraitPixel": [
+      57.071,
+      36.631
+    ],
+    "mappedRectifiedLandscapePixel": [
+      36.631,
+      942.929
+    ],
+    "pointToRectifiedOutputEdgeDistancesPx": [
+      57.071,
+      942.929,
+      36.631,
+      1963.369
+    ],
+    "doesNotQuantifyBallClipping": "The reference is an interior point, not a centre. No black-ball boundary/body fraction is computed."
+  },
+  "emptyMouthControl": {
+    "frameId": 978,
+    "sourceSha256": "b368348c63d924f5c7834e8e849b7287225ab525b470bdc3b85f7a8278cbbe70",
+    "timeline": "2ea48e0c35cd474eb627acf970a7eec5",
+    "calibrationId": "6d304dd864f84c8486ee30844fe685b1",
+    "calibrationCorners": [
+      [
+        57.39999771118164,
+        152.59999084472656
+      ],
+      [
+        1689.7999267578125,
+        68.5999984741211
+      ],
+      [
+        1703.7999267578125,
+        978.5999755859375
+      ],
+      [
+        77.0,
+        947.7999877929688
+      ]
+    ],
+    "sourceQuadAndRectifiedTargetAreMappedExactly": true
+  },
+  "controlCaveat": {
+    "calibrationCornersMatchExactly": true,
+    "lightingAndTimelineMatch": false,
+    "note": "The empty-mouth frame is from a separate earlier, dimmer capture timeline. It is a spatial visual control only, not a matched-light or same-session comparison."
+  },
+  "limitations": [
+    "The black-ball reference is an approximate interior pixel and is explicitly not a centre label.",
+    "No ball body/area clipping fraction can be computed without an independently reviewed centre and boundary.",
+    "The calibration quadrilateral is the saved playable-table crop; the overlay shows its relation to the pocket, not a verified physical ball contour.",
+    "The control uses a separate, dimmer capture timeline despite identical saved calibration corners.",
+    "This is a geometry visualization, not evidence of detection accuracy or proof that warp causes the miss."
+  ]
+}
