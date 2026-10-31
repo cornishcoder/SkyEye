@@ -135,7 +135,8 @@
           },
           "note": "Manually inspected black-ball interior point in the saved frame; evaluation-only and never supplied to analyzer decisions."
         },
-        "status": "conflicting/provisional references; preserve both and make no accuracy claim",
+        "status": "regular reference invalid for black localization; arc reference is only an approximate interior point, not a centre label",
+        "labelDistanceClaimsUsingRegularReference": "void",
         "use": "review-only; not used to select pairs, candidates, or sectors"
       },
       "sourceImagePath": "C:\\code\\SkyEye\\work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\exact-replay-input\\1365.png",
@@ -3582,7 +3583,8 @@
           },
           "note": "Manually inspected black-ball interior point in the saved frame; evaluation-only and never supplied to analyzer decisions."
         },
-        "status": "conflicting/provisional references; preserve both and make no accuracy claim",
+        "status": "regular reference invalid for black localization; arc reference is only an approximate interior point, not a centre label",
+        "labelDistanceClaimsUsingRegularReference": "void",
         "use": "review-only; not used to select pairs, candidates, or sectors"
       },
       "sourceImagePath": "C:\\code\\SkyEye\\work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\exact-replay-input\\1365.png",
@@ -7036,7 +7038,8 @@
           },
           "note": "Manually inspected black-ball interior point in the saved frame; evaluation-only and never supplied to analyzer decisions."
         },
-        "status": "conflicting/provisional references; preserve both and make no accuracy claim",
+        "status": "regular reference invalid for black localization; arc reference is only an approximate interior point, not a centre label",
+        "labelDistanceClaimsUsingRegularReference": "void",
         "use": "review-only; not used to select pairs, candidates, or sectors"
       },
       "sourceImagePath": "C:\\code\\SkyEye\\work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\exact-replay-input\\1365.png",
@@ -10481,7 +10484,8 @@
           },
           "note": "Manually inspected black-ball interior point in the saved frame; evaluation-only and never supplied to analyzer decisions."
         },
-        "status": "conflicting/provisional references; preserve both and make no accuracy claim",
+        "status": "regular reference invalid for black localization; arc reference is only an approximate interior point, not a centre label",
+        "labelDistanceClaimsUsingRegularReference": "void",
         "use": "review-only; not used to select pairs, candidates, or sectors"
       },
       "sourceImagePath": "C:\\code\\SkyEye\\work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\exact-replay-input\\1425.png",
@@ -13928,7 +13932,8 @@
           },
           "note": "Manually inspected black-ball interior point in the saved frame; evaluation-only and never supplied to analyzer decisions."
         },
-        "status": "conflicting/provisional references; preserve both and make no accuracy claim",
+        "status": "regular reference invalid for black localization; arc reference is only an approximate interior point, not a centre label",
+        "labelDistanceClaimsUsingRegularReference": "void",
         "use": "review-only; not used to select pairs, candidates, or sectors"
       },
       "sourceImagePath": "C:\\code\\SkyEye\\work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\exact-replay-input\\1425.png",
@@ -17385,7 +17390,8 @@
           },
           "note": "Manually inspected black-ball interior point in the saved frame; evaluation-only and never supplied to analyzer decisions."
         },
-        "status": "conflicting/provisional references; preserve both and make no accuracy claim",
+        "status": "regular reference invalid for black localization; arc reference is only an approximate interior point, not a centre label",
+        "labelDistanceClaimsUsingRegularReference": "void",
         "use": "review-only; not used to select pairs, candidates, or sectors"
       },
       "sourceImagePath": "C:\\code\\SkyEye\\work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\exact-replay-input\\1425.png",
@@ -20838,7 +20844,8 @@
           },
           "note": "Manually inspected black-ball interior point in the saved frame; evaluation-only and never supplied to analyzer decisions."
         },
-        "status": "conflicting/provisional references; preserve both and make no accuracy claim",
+        "status": "regular reference invalid for black localization; arc reference is only an approximate interior point, not a centre label",
+        "labelDistanceClaimsUsingRegularReference": "void",
         "use": "review-only; not used to select pairs, candidates, or sectors"
       },
       "sourceImagePath": "C:\\code\\SkyEye\\work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\exact-replay-input\\1425.png",
@@ -24289,7 +24296,8 @@
           },
           "note": "Manually inspected black-ball interior point in the saved frame; evaluation-only and never supplied to analyzer decisions."
         },
-        "status": "conflicting/provisional references; preserve both and make no accuracy claim",
+        "status": "regular reference invalid for black localization; arc reference is only an approximate interior point, not a centre label",
+        "labelDistanceClaimsUsingRegularReference": "void",
         "use": "review-only; not used to select pairs, candidates, or sectors"
       },
       "sourceImagePath": "C:\\code\\SkyEye\\work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\exact-replay-input\\1457.png",
@@ -27745,7 +27753,8 @@
           },
           "note": "Manually inspected black-ball interior point in the saved frame; evaluation-only and never supplied to analyzer decisions."
         },
-        "status": "conflicting/provisional references; preserve both and make no accuracy claim",
+        "status": "regular reference invalid for black localization; arc reference is only an approximate interior point, not a centre label",
+        "labelDistanceClaimsUsingRegularReference": "void",
         "use": "review-only; not used to select pairs, candidates, or sectors"
       },
       "sourceImagePath": "C:\\code\\SkyEye\\work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\exact-replay-input\\1457.png",
@@ -31203,7 +31212,8 @@
           },
           "note": "Manually inspected black-ball interior point in the saved frame; evaluation-only and never supplied to analyzer decisions."
         },
-        "status": "conflicting/provisional references; preserve both and make no accuracy claim",
+        "status": "regular reference invalid for black localization; arc reference is only an approximate interior point, not a centre label",
+        "labelDistanceClaimsUsingRegularReference": "void",
         "use": "review-only; not used to select pairs, candidates, or sectors"
       },
       "sourceImagePath": "C:\\code\\SkyEye\\work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\exact-replay-input\\1555.png",
@@ -34658,7 +34668,8 @@
           },
           "note": "Manually inspected black-ball interior point in the saved frame; evaluation-only and never supplied to analyzer decisions."
         },
-        "status": "conflicting/provisional references; preserve both and make no accuracy claim",
+        "status": "regular reference invalid for black localization; arc reference is only an approximate interior point, not a centre label",
+        "labelDistanceClaimsUsingRegularReference": "void",
         "use": "review-only; not used to select pairs, candidates, or sectors"
       },
       "sourceImagePath": "C:\\code\\SkyEye\\work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\exact-replay-input\\1555.png",
@@ -38102,7 +38113,8 @@
           },
           "note": "Manually inspected black-ball interior point in the saved frame; evaluation-only and never supplied to analyzer decisions."
         },
-        "status": "conflicting/provisional references; preserve both and make no accuracy claim",
+        "status": "regular reference invalid for black localization; arc reference is only an approximate interior point, not a centre label",
+        "labelDistanceClaimsUsingRegularReference": "void",
         "use": "review-only; not used to select pairs, candidates, or sectors"
       },
       "sourceImagePath": "C:\\code\\SkyEye\\work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\exact-replay-input\\1645.png",
@@ -41549,7 +41561,8 @@
           },
           "note": "Manually inspected black-ball interior point in the saved frame; evaluation-only and never supplied to analyzer decisions."
         },
-        "status": "conflicting/provisional references; preserve both and make no accuracy claim",
+        "status": "regular reference invalid for black localization; arc reference is only an approximate interior point, not a centre label",
+        "labelDistanceClaimsUsingRegularReference": "void",
         "use": "review-only; not used to select pairs, candidates, or sectors"
       },
       "sourceImagePath": "C:\\code\\SkyEye\\work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\exact-replay-input\\1645.png",
@@ -45005,7 +45018,8 @@
           },
           "note": "Manually inspected black-ball interior point in the saved frame; evaluation-only and never supplied to analyzer decisions."
         },
-        "status": "conflicting/provisional references; preserve both and make no accuracy claim",
+        "status": "regular reference invalid for black localization; arc reference is only an approximate interior point, not a centre label",
+        "labelDistanceClaimsUsingRegularReference": "void",
         "use": "review-only; not used to select pairs, candidates, or sectors"
       },
       "sourceImagePath": "C:\\code\\SkyEye\\work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\exact-replay-input\\1645.png",
@@ -48452,7 +48466,8 @@
           },
           "note": "Manually inspected black-ball interior point in the saved frame; evaluation-only and never supplied to analyzer decisions."
         },
-        "status": "conflicting/provisional references; preserve both and make no accuracy claim",
+        "status": "regular reference invalid for black localization; arc reference is only an approximate interior point, not a centre label",
+        "labelDistanceClaimsUsingRegularReference": "void",
         "use": "review-only; not used to select pairs, candidates, or sectors"
       },
       "sourceImagePath": "C:\\code\\SkyEye\\work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\exact-replay-input\\1645.png",
@@ -51896,7 +51911,8 @@
           },
           "note": "Manually inspected black-ball interior point in the saved frame; evaluation-only and never supplied to analyzer decisions."
         },
-        "status": "conflicting/provisional references; preserve both and make no accuracy claim",
+        "status": "regular reference invalid for black localization; arc reference is only an approximate interior point, not a centre label",
+        "labelDistanceClaimsUsingRegularReference": "void",
         "use": "review-only; not used to select pairs, candidates, or sectors"
       },
       "sourceImagePath": "C:\\code\\SkyEye\\work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\exact-replay-input\\1645.png",
@@ -55341,7 +55357,8 @@
           },
           "note": "Manually inspected black-ball interior point in the saved frame; evaluation-only and never supplied to analyzer decisions."
         },
-        "status": "conflicting/provisional references; preserve both and make no accuracy claim",
+        "status": "regular reference invalid for black localization; arc reference is only an approximate interior point, not a centre label",
+        "labelDistanceClaimsUsingRegularReference": "void",
         "use": "review-only; not used to select pairs, candidates, or sectors"
       },
       "sourceImagePath": "C:\\code\\SkyEye\\work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\exact-replay-input\\1736.png",
@@ -58787,7 +58804,8 @@
           },
           "note": "Manually inspected black-ball interior point in the saved frame; evaluation-only and never supplied to analyzer decisions."
         },
-        "status": "conflicting/provisional references; preserve both and make no accuracy claim",
+        "status": "regular reference invalid for black localization; arc reference is only an approximate interior point, not a centre label",
+        "labelDistanceClaimsUsingRegularReference": "void",
         "use": "review-only; not used to select pairs, candidates, or sectors"
       },
       "sourceImagePath": "C:\\code\\SkyEye\\work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\exact-replay-input\\1736.png",
@@ -62240,7 +62258,8 @@
           },
           "note": "Manually inspected black-ball interior point in the saved frame; evaluation-only and never supplied to analyzer decisions."
         },
-        "status": "conflicting/provisional references; preserve both and make no accuracy claim",
+        "status": "regular reference invalid for black localization; arc reference is only an approximate interior point, not a centre label",
+        "labelDistanceClaimsUsingRegularReference": "void",
         "use": "review-only; not used to select pairs, candidates, or sectors"
       },
       "sourceImagePath": "C:\\code\\SkyEye\\work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\exact-replay-input\\1736.png",
@@ -65691,7 +65710,8 @@
           },
           "note": "Manually inspected black-ball interior point in the saved frame; evaluation-only and never supplied to analyzer decisions."
         },
-        "status": "conflicting/provisional references; preserve both and make no accuracy claim",
+        "status": "regular reference invalid for black localization; arc reference is only an approximate interior point, not a centre label",
+        "labelDistanceClaimsUsingRegularReference": "void",
         "use": "review-only; not used to select pairs, candidates, or sectors"
       },
       "sourceImagePath": "C:\\code\\SkyEye\\work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\exact-replay-input\\1736.png",
@@ -69144,7 +69164,8 @@
           },
           "note": "Manually inspected black-ball interior point in the saved frame; evaluation-only and never supplied to analyzer decisions."
         },
-        "status": "conflicting/provisional references; preserve both and make no accuracy claim",
+        "status": "regular reference invalid for black localization; arc reference is only an approximate interior point, not a centre label",
+        "labelDistanceClaimsUsingRegularReference": "void",
         "use": "review-only; not used to select pairs, candidates, or sectors"
       },
       "sourceImagePath": "C:\\code\\SkyEye\\work\\production\\evidence\\code65-source-frame-check-20261031\\exact-replay-input\\1072.png",
@@ -72598,7 +72619,8 @@
           },
           "note": "Manually inspected black-ball interior point in the saved frame; evaluation-only and never supplied to analyzer decisions."
         },
-        "status": "conflicting/provisional references; preserve both and make no accuracy claim",
+        "status": "regular reference invalid for black localization; arc reference is only an approximate interior point, not a centre label",
+        "labelDistanceClaimsUsingRegularReference": "void",
         "use": "review-only; not used to select pairs, candidates, or sectors"
       },
       "sourceImagePath": "C:\\code\\SkyEye\\work\\production\\evidence\\code65-source-frame-check-20261031\\exact-replay-input\\1179.png",
@@ -76056,7 +76078,8 @@
           },
           "note": "Manually inspected black-ball interior point in the saved frame; evaluation-only and never supplied to analyzer decisions."
         },
-        "status": "conflicting/provisional references; preserve both and make no accuracy claim",
+        "status": "regular reference invalid for black localization; arc reference is only an approximate interior point, not a centre label",
+        "labelDistanceClaimsUsingRegularReference": "void",
         "use": "review-only; not used to select pairs, candidates, or sectors"
       },
       "sourceImagePath": "C:\\code\\SkyEye\\work\\production\\evidence\\code65-source-frame-check-20261031\\exact-replay-input\\1179.png",
@@ -79393,7 +79416,8 @@
     }
   ],
   "limitations": [
-    "The two reports' evaluation references conflict in the source frame and are provisional; this export preserves both and makes no accuracy claim.",
+    "The regular O08 evaluation reference at source pixel (1282,536) lands on empty cloth in the exact source frames and is invalid for black localization; all label-distance or accuracy claims using that point are void.",
+    "The pocket-arc reference at source pixel (102,903) lies in the lower-left pocket ball cluster but is only an approximate interior point, not a centre label; do not infer centre error or accuracy from it.",
     "Evaluation references are not proposal inputs and must not be used to select or tune candidates.",
     "Arc support is visible-sector support; regular support is generic fit support. Pixel coordinates expose the actual sampled points, but model visibility rules remain distinct."
   ]

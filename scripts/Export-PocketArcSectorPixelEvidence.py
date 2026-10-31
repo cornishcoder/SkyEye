@@ -203,7 +203,8 @@ def matched_pairs(evidence: Path) -> tuple[list[dict[str, Any]], dict[str, Any]]
                 "evaluationReferences": {
                     "regularReport": source_label(regular_sample),
                     "pocketArcReport": source_label(arc_sample),
-                    "status": "conflicting/provisional references; preserve both and make no accuracy claim",
+                    "status": "regular reference invalid for black localization; arc reference is only an approximate interior point, not a centre label",
+                    "labelDistanceClaimsUsingRegularReference": "void",
                     "use": "review-only; not used to select pairs, candidates, or sectors",
                 },
                 "receipt": receipt,
@@ -368,7 +369,7 @@ def contact_sheet(evidence: Path, output_path: Path, pairs: list[dict[str, Any]]
     sheet = Image.new("RGB", (1200, 1434), (30,30,30))
     for i, card in enumerate(cards): sheet.paste(card, ((i%2)*600, (i//2)*692))
     footer = ImageDraw.Draw(sheet)
-    footer.text((10, 1392), "Conflicting/provisional eval refs only: regular (1282,536)->(494.9,1540.2); arc (102,903)->(57.1,36.6). No accuracy claim.", fill=(255,255,255))
+    footer.text((10, 1392), "Eval refs only: regular (1282,536) is empty cloth/invalid; arc (102,903) is approximate interior, not centre. No label-distance accuracy claim.", fill=(255,255,255))
     sheet.save(output_path)
 
 
@@ -398,7 +399,7 @@ def main() -> None:
         "pairCounts": expected_counts,
         "sampleRowCount": len(flat),
         "pairs": enriched,
-        "limitations": ["The two reports' evaluation references conflict in the source frame and are provisional; this export preserves both and makes no accuracy claim.", "Evaluation references are not proposal inputs and must not be used to select or tune candidates.", "Arc support is visible-sector support; regular support is generic fit support. Pixel coordinates expose the actual sampled points, but model visibility rules remain distinct."],
+        "limitations": ["The regular O08 evaluation reference at source pixel (1282,536) lands on empty cloth in the exact source frames and is invalid for black localization; all label-distance or accuracy claims using that point are void.", "The pocket-arc reference at source pixel (102,903) lies in the lower-left pocket ball cluster but is only an approximate interior point, not a centre label; do not infer centre error or accuracy from it.", "Evaluation references are not proposal inputs and must not be used to select or tune candidates.", "Arc support is visible-sector support; regular support is generic fit support. Pixel coordinates expose the actual sampled points, but model visibility rules remain distinct."],
     }, indent=2, default=json_default), encoding="utf-8")
     contact_path = output / "sector-pixel-contact-sheet.png"
     contact_sheet(evidence, contact_path, pairs)
