@@ -204,7 +204,7 @@ public sealed partial class VisionAnalyzer
             using var cleanupSize = new Size(3, 3);
             using var cleanupKernel = new MatLease(Imgproc.GetStructuringElement(Imgproc.MorphEllipse, cleanupSize));
             Imgproc.MorphologyEx(dark.Value, dark.Value, Imgproc.MorphOpen, cleanupKernel.Value);
-            seeds = FindPeakSeeds(dark.Value, scale, 8 * scale, bounds)
+            seeds = FindPeakSeeds(dark.Value, scale, settings.SparseBlackMinimumPeakRadiusFactor * scale, bounds)
                 .Where(seed => seed.Radius <= settings.MaximumRadius * scale).ToArray();
         }
         PipelineDiagnostics.Sample("sparseBlackAvailableSeedCount", seeds.Length);

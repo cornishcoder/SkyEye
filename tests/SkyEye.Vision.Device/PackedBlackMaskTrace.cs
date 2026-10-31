@@ -22,7 +22,8 @@ internal static class PackedBlackMaskTrace
         bool PassesMargin, bool PassesMinimumRadius, bool InSearchWindow);
 
     public static object Capture(byte[] encodedImage, TableCalibration calibration, int width, VisionResult vision,
-        string outputDirectory, string frameId, int manualImageX = ManualImageX, int manualImageY = ManualImageY)
+        string outputDirectory, string frameId, int manualImageX = ManualImageX, int manualImageY = ManualImageY,
+        double minimumPeakRadiusFactor = 8)
     {
         using var encoded = new MatOfByte(encodedImage);
         using var source = Imgcodecs.Imdecode(encoded, Imgcodecs.ImreadColor);
@@ -48,7 +49,7 @@ internal static class PackedBlackMaskTrace
             var label = new AnalysisCoordinates(width).FromTable(labelTablePoint);
             double scale = width / 1000d;
             double ballRadius = PoolGeometry.Radius * width;
-            double minimumPeakRadius = 8 * scale;
+            double minimumPeakRadius = minimumPeakRadiusFactor * scale;
             int candidateAuditGeometryWidth = width;
             if (vision.PackedClusterFallback is { Attempted: true } fallback &&
                 (fallback.Recovered || fallback.FallbackBallCount > fallback.PrimaryBallCount))
@@ -352,7 +353,7 @@ internal static class PackedBlackMaskTrace
                     valueMax = valuesInExpectedBall.Count == 0 ? (int?)null : valuesInExpectedBall[^1],
                     thresholdMaskPixelsBeforeOpen = rawDarkPixelsInExpectedBall, thresholdMaskPixelsAfterOpen = openedDarkPixelsInExpectedBall,
                     maximumDistanceWithinExpectedBall = maxDistanceWithinExpectedBall, maximumDistanceWithin1_5BallRadii = maxDistanceWithin1_5BallRadii,
-                    minimumPeakRadius },
+                    minimumPeakRadiusFactor, minimumPeakRadius },
                 manualCentreProbe = manualCentreProbeReport,
                 nearbyComponents = nearbyComponents.ToArray(), nearbyLocalMaxima = nearbyPeaks,
                 peakComponentCounts = new { positiveLocalMaximumComponents = nearbyPeakCount - 1,

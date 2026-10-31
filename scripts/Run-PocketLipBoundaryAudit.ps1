@@ -16,6 +16,7 @@ param(
     [double]$SparseBlackSupport = 0.65625,
     [int]$SparseBlackCandidateLimit = 12,
     [bool]$SparseBlackRankByRadius = $true,
+    [double]$SparseBlackMinimumPeakRadiusFactor = 8,
     [switch]$EnableIlluminationNormalization,
     [switch]$TracePackedColourFits,
     [switch]$ObstructionMaskTrace,
@@ -60,6 +61,7 @@ if ($PackedColourBoundarySearchExtent -lt 0.2 -or $PackedColourBoundarySearchExt
 if ($SparseBlackSearchExtent -lt 0.2 -or $SparseBlackSearchExtent -gt 1.5) { throw 'SparseBlackSearchExtent must be between 0.2 and 1.5 ball radii.' }
 if ($SparseBlackSupport -lt 0.5625 -or $SparseBlackSupport -gt 1) { throw 'SparseBlackSupport must be between 0.5625 and 1.' }
 if ($SparseBlackCandidateLimit -lt 1 -or $SparseBlackCandidateLimit -gt 64) { throw 'SparseBlackCandidateLimit must be between 1 and 64.' }
+if (-not [double]::IsFinite($SparseBlackMinimumPeakRadiusFactor) -or $SparseBlackMinimumPeakRadiusFactor -lt 1 -or $SparseBlackMinimumPeakRadiusFactor -gt 12) { throw 'SparseBlackMinimumPeakRadiusFactor must be between 1 and 12.' }
 if ($BlackLabelX -lt 0 -or $BlackLabelY -lt 0) { throw 'Black label coordinates must be non-negative source-image pixels.' }
 $specifiedNeutralCueProbeCoordinates = 0
 if ($NeutralCueProbeX800 -ne -1 -or $NeutralCueProbeY800 -ne -1) {
@@ -197,6 +199,7 @@ $instrumentArguments = @('shell', 'am', 'instrument', '-w', '-e', 'run', $run,
     '-e', 'production800BoundaryExtent', "$Production800BoundarySearchExtent",
     '-e', 'boundaryExtent', "$PackedColourBoundarySearchExtent",
     '-e', 'sparseBlackExtent', "$SparseBlackSearchExtent", '-e', 'sparseBlackSupport', "$SparseBlackSupport",
+    '-e', 'sparseBlackMinimumPeakRadius', "$SparseBlackMinimumPeakRadiusFactor",
     '-e', 'sparseBlackLimit', "$SparseBlackCandidateLimit")
 $sparseBlackRankArgument = if ($SparseBlackRankByRadius) { '1' } else { '0' }
 $instrumentArguments += @('-e', 'sparseBlackRadiusRank', $sparseBlackRankArgument)
@@ -322,6 +325,7 @@ $manifest = [pscustomobject]@{
     sparseBlackBoundarySearchExtentFraction = $SparseBlackSearchExtent
     minimumSparseBlackBoundarySupport = $SparseBlackSupport
     sparseBlackCandidateLimit = $SparseBlackCandidateLimit
+    sparseBlackMinimumPeakRadiusFactor = $SparseBlackMinimumPeakRadiusFactor
     sparseBlackRankByRadius = [bool]$SparseBlackRankByRadius
     sourceFrames = $inputs | ForEach-Object {
         [pscustomobject]@{ frameId = $_.Receipt.indexedFrame.frameId; pixelFile = [IO.Path]::GetFileName($_.PixelPath); receipt = [IO.Path]::GetFileName($_.JsonPath); sha256 = $_.Hash }

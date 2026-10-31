@@ -20,7 +20,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         pocketExclusionRadius = VisionSettings.DefaultPocketExclusionRadius, minimumBoundarySupport = .75,
         minimumSparseColourBoundarySupport = VisionSettings.DefaultMinimumSparseColourBoundarySupport,
         sparseBlackSearchExtentFraction = VisionSettings.DefaultSparseBlackBoundarySearchExtentFraction,
-        minimumSparseBlackBoundarySupport = VisionSettings.DefaultMinimumSparseBlackBoundarySupport;
+        minimumSparseBlackBoundarySupport = VisionSettings.DefaultMinimumSparseBlackBoundarySupport,
+        sparseBlackMinimumPeakRadiusFactor = VisionSettings.DefaultSparseBlackMinimumPeakRadiusFactor;
     int sparseBlackCandidateLimit = 12;
     bool sparseBlackRankByRadius = VisionSettings.DefaultSparseBlackRankByRadius;
     (int Hue, int SaturationFloor, int ValueFloor, int MedianValue)? diagnosticObstructionClothRangeOverride;
@@ -108,6 +109,11 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             && (!double.TryParse(requestedSparseBlackSupport, NumberStyles.Float, CultureInfo.InvariantCulture, out minimumSparseBlackBoundarySupport)
                 || !double.IsFinite(minimumSparseBlackBoundarySupport) || minimumSparseBlackBoundarySupport is < .5625 or > 1))
             throw new ArgumentOutOfRangeException(nameof(minimumSparseBlackBoundarySupport), "Minimum sparse-black boundary support must be between 0.5625 and 1.");
+        var requestedSparseBlackMinimumPeakRadius = args?.GetString("sparseBlackMinimumPeakRadius");
+        if (!string.IsNullOrWhiteSpace(requestedSparseBlackMinimumPeakRadius)
+            && (!double.TryParse(requestedSparseBlackMinimumPeakRadius, NumberStyles.Float, CultureInfo.InvariantCulture, out sparseBlackMinimumPeakRadiusFactor)
+                || !double.IsFinite(sparseBlackMinimumPeakRadiusFactor) || sparseBlackMinimumPeakRadiusFactor is < 1 or > 12))
+            throw new ArgumentOutOfRangeException(nameof(sparseBlackMinimumPeakRadiusFactor), "Sparse-black minimum peak radius factor must be between 1 and 12.");
         var requestedSparseBlackLimit = args?.GetString("sparseBlackLimit");
         if (!string.IsNullOrWhiteSpace(requestedSparseBlackLimit)
             && (!int.TryParse(requestedSparseBlackLimit, NumberStyles.Integer, CultureInfo.InvariantCulture, out sparseBlackCandidateLimit)
@@ -190,6 +196,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     MinimumSparseBlackBoundarySupport = minimumSparseBlackBoundarySupport,
                     SparseBlackCandidateLimit = sparseBlackCandidateLimit,
                     SparseBlackRankByRadius = sparseBlackRankByRadius,
+                    SparseBlackMinimumPeakRadiusFactor = sparseBlackMinimumPeakRadiusFactor,
                     PackedClusterImageEdgeMargin = edgeMargin,
                     PackedColourBoundarySearchExtentFraction = boundaryExtent,
                     UseNormalizedGeometryForDetection = useNormalizedGeometry,
@@ -577,10 +584,10 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     replayObstructionMaximumNormalizedBoundsDelta = auditComparison.MaximumNormalizedBoundsDelta,
                     replayObstructionDecisionMatchesCapture = auditComparison.DecisionMatches,
                     width800 = new { blackSeedRecovered = blackSeedRecovered800, analysis = Summarize(baseline800, 800), verification = Summarize(verification800, 800),
-                        darkMaskTrace = traceDarkMask ? PackedBlackMaskTrace.Capture(bytes, calibration, 800, baseline800, Path.Combine(root, "o08-black-trace-" + run), receipt.GetProperty("frameId").GetInt64().ToString(), manualBlackImageX, manualBlackImageY) : null,
+                        darkMaskTrace = traceDarkMask ? PackedBlackMaskTrace.Capture(bytes, calibration, 800, baseline800, Path.Combine(root, "o08-black-trace-" + run), receipt.GetProperty("frameId").GetInt64().ToString(), manualBlackImageX, manualBlackImageY, sparseBlackMinimumPeakRadiusFactor) : null,
                         packedBlackBoundaryTrace = boundaryAudit ? AuditPackedBlackBoundaries(bytes, calibration, 800, baseline800) : null },
                     width1000 = new { blackSeedRecovered = blackSeedRecovered1000, analysis = Summarize(baseline1000, 1000), verification = Summarize(verification1000, 1000),
-                        darkMaskTrace = traceDarkMask ? PackedBlackMaskTrace.Capture(bytes, calibration, 1000, baseline1000, Path.Combine(root, "o08-black-trace-" + run), frameId.ToString(), manualBlackImageX, manualBlackImageY) : null,
+                        darkMaskTrace = traceDarkMask ? PackedBlackMaskTrace.Capture(bytes, calibration, 1000, baseline1000, Path.Combine(root, "o08-black-trace-" + run), frameId.ToString(), manualBlackImageX, manualBlackImageY, sparseBlackMinimumPeakRadiusFactor) : null,
                         packedBlackBoundaryTrace = boundaryAudit ? AuditPackedBlackBoundaries(bytes, calibration, 1000, baseline1000) : null },
                     analysisWidthComparison = Compare(baseline800, baseline1000, 800, 1000),
                     widthComparison = verification800.Vision is null || verification1000.Vision is null

@@ -85,6 +85,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 diagnosticAblations["minimumSparseColourBoundarySupport"] = settings.MinimumSparseColourBoundarySupport;
             if (settings.SparseBlackCandidateLimit != 12)
                 diagnosticAblations["sparseBlackCandidateLimit"] = settings.SparseBlackCandidateLimit;
+            if (settings.SparseBlackMinimumPeakRadiusFactor != VisionSettings.DefaultSparseBlackMinimumPeakRadiusFactor)
+                diagnosticAblations["sparseBlackMinimumPeakRadiusFactor"] = settings.SparseBlackMinimumPeakRadiusFactor;
             if (diagnosticObstructionClothRangeOverride is { } clothRange)
                 diagnosticAblations["obstructionClothRangeOverride"] = new
                 {

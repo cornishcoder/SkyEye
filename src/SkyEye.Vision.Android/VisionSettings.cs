@@ -57,10 +57,16 @@ public sealed record VisionSettings(int Width = 1000, double MinimumRadius = 18,
     public const double DefaultSparseBlackBoundarySearchExtentFraction = 1.3;
     public const double DefaultMinimumSparseBlackBoundarySupport = 21d / 32;
     public const bool DefaultSparseBlackRankByRadius = true;
+    // Ball-sized dark peaks are normally required before a seed enters the
+    // expensive sparse-black fit. Keep the cutoff configurable for exact-frame
+    // replay: a daylight pocket-positive sample had a nearby 6.14px peak just
+    // below the default 6.4px width-800 cutoff.
+    public const double DefaultSparseBlackMinimumPeakRadiusFactor = 8;
     public double SparseBlackBoundarySearchExtentFraction { get; init; } = DefaultSparseBlackBoundarySearchExtentFraction;
     public double MinimumSparseBlackBoundarySupport { get; init; } = DefaultMinimumSparseBlackBoundarySupport;
     public int SparseBlackCandidateLimit { get; init; } = 12;
     public bool SparseBlackRankByRadius { get; init; } = DefaultSparseBlackRankByRadius;
+    public double SparseBlackMinimumPeakRadiusFactor { get; init; } = DefaultSparseBlackMinimumPeakRadiusFactor;
     // Keep the conservative default: source-time-paired brighter footage replayed
     // at 55 lost the black at 1000px in three of six frames; 40 retained all 16.
     public int DarkBodyValueCeiling { get; init; } = 40;
@@ -82,6 +88,8 @@ public sealed record VisionSettings(int Width = 1000, double MinimumRadius = 18,
             throw new ArgumentException("Invalid sparse-black boundary search extent.");
         if (!double.IsFinite(MinimumSparseBlackBoundarySupport) || MinimumSparseBlackBoundarySupport is < .5625 or > 1)
             throw new ArgumentException("Invalid sparse-black body boundary support.");
+        if (!double.IsFinite(SparseBlackMinimumPeakRadiusFactor) || SparseBlackMinimumPeakRadiusFactor is < 1 or > 12)
+            throw new ArgumentException("Invalid sparse-black minimum seed radius factor.");
         if (SparseBlackCandidateLimit is < 1 or > 64)
             throw new ArgumentException("Invalid sparse-black candidate limit.");
         if (!double.IsFinite(PackedColourBoundarySearchExtentFraction) || PackedColourBoundarySearchExtentFraction is < .2 or > .8)
