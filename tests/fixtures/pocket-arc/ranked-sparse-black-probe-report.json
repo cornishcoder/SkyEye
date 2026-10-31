@@ -1,0 +1,88 @@
+{
+  "completed": true,
+  "mode": "pocket-arc-probe-only",
+  "samples": [
+    {
+      "frameId": 42,
+      "pixelSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sourceTimeUs": 42000,
+      "width1000": {
+        "analysis": {
+          "circleCount": 15,
+          "counts": { "cue": 1, "red": 6, "yellow": 7, "black": 1 },
+          "uncertain": true,
+          "obstructed": false
+        },
+        "darkMaskTrace": {
+          "manualBlackLabel": { "sourcePixel": { "x": 102, "y": 903 } },
+          "labelledBallRegion": { "expectedRadius": 27 },
+          "rankedSparseBlackPocketArcProbes": [
+            {
+              "candidateRank": 3,
+              "decision": "rejected-insufficient-boundary-support",
+              "classifiedKindFromProductionAudit": null,
+              "seedCentre": { "x": 100, "y": 901 },
+              "seedRadius": 10.5,
+              "distanceFromLabel": 2.8,
+              "arcFitAvailable": true,
+              "arcFitCentre": { "x": 101, "y": 902 },
+              "arcFitRadius": 21.25,
+              "arcFitDistanceFromLabel": 1.4,
+              "candidateToSeedOffset": 1.4,
+              "candidateToSeedOffsetFraction": 0.05,
+              "visibleSectorCount": 20,
+              "supportedVisibleSectorCount": 15,
+              "globalSupportedSectorCount": 22,
+              "globalSupportFraction": 0.6875,
+              "longestContiguousSupportedRun": 7,
+              "supportedArcSpanDegrees": 78,
+              "diagnosticArcChecksPass": false,
+              "classifier": {
+                "available": true,
+                "unavailableReason": null,
+                "evidence": {
+                  "kind": "black",
+                  "pattern": "solid-dark",
+                  "quality": 0.9,
+                  "qualityIsProbability": false,
+                  "bodySampleCount": 512,
+                  "usableBodySampleCount": 500,
+                  "rimSampleCount": 96,
+                  "usableRimSampleCount": 90,
+                  "bodyDarkFraction": 0.98,
+                  "rimDarkFraction": 0.82
+                }
+              }
+            },
+            {
+              "candidateRank": 4,
+              "decision": "rejected-insufficient-boundary-support",
+              "classifiedKindFromProductionAudit": null,
+              "seedCentre": { "x": 130, "y": 900 },
+              "seedRadius": 8.5,
+              "distanceFromLabel": 28.1,
+              "arcFitAvailable": false,
+              "arcFitCentre": null,
+              "arcFitRadius": null,
+              "arcFitDistanceFromLabel": null,
+              "candidateToSeedOffset": null,
+              "candidateToSeedOffsetFraction": null,
+              "visibleSectorCount": 32,
+              "supportedVisibleSectorCount": 4,
+              "globalSupportedSectorCount": null,
+              "globalSupportFraction": null,
+              "longestContiguousSupportedRun": 2,
+              "supportedArcSpanDegrees": 11.25,
+              "diagnosticArcChecksPass": false,
+              "classifier": {
+                "available": false,
+                "unavailableReason": "The candidate-seeded pocket-aware partial-arc probe returned no fit.",
+                "evidence": null
+              }
+            }
+          ]
+        }
+      }
+    }
+  ]
+}

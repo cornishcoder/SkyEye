@@ -202,6 +202,11 @@ foreach ($run in $runs) {
             $seed = Get-Value -InputObject $probe -Name 'seedCentre'
             $fit = Get-Value -InputObject $probe -Name 'arcFitCentre'
             $classifier = Get-Value -InputObject $probe -Name 'classifier'
+            $classifierEvidence = Get-Value -InputObject $classifier.Value -Name 'evidence'
+            # O08 stores the classified kind and sampling evidence under
+            # classifier.evidence. Retain compatibility with early reports
+            # that wrote those fields directly below classifier.
+            $classifierFields = if ($classifierEvidence.Found) { $classifierEvidence.Value } else { $classifier.Value }
             $rows.Add([pscustomobject][ordered]@{
                 CaseLabel = $CaseLabel; RunId = $run.RunId; RunDirectory = $run.Directory; ReportPath = $run.ReportPath
                 FrameId = if ($frameId.Found) { $frameId.Value } else { $null }
@@ -240,12 +245,12 @@ foreach ($run in $runs) {
                 SupportedArcSpanDegrees = Get-FieldValue $probe 'supportedArcSpanDegrees'
                 DiagnosticArcChecksPass = Get-FieldValue $probe 'diagnosticArcChecksPass'
                 ClassifierAvailable = Get-FieldValue $classifier.Value 'available'
-                ClassifierKind = Get-FieldValue $classifier.Value 'kind'
-                ClassifierPattern = Get-FieldValue $classifier.Value 'pattern'
-                ClassifierQuality = Get-FieldValue $classifier.Value 'quality'
-                ClassifierQualityIsProbability = Get-FieldValue $classifier.Value 'qualityIsProbability'
-                UsableBodySampleCount = Get-FieldValue $classifier.Value 'usableBodySampleCount'
-                UsableRimSampleCount = Get-FieldValue $classifier.Value 'usableRimSampleCount'
+                ClassifierKind = Get-FieldValue $classifierFields 'kind'
+                ClassifierPattern = Get-FieldValue $classifierFields 'pattern'
+                ClassifierQuality = Get-FieldValue $classifierFields 'quality'
+                ClassifierQualityIsProbability = Get-FieldValue $classifierFields 'qualityIsProbability'
+                UsableBodySampleCount = Get-FieldValue $classifierFields 'usableBodySampleCount'
+                UsableRimSampleCount = Get-FieldValue $classifierFields 'usableRimSampleCount'
             })
         }
     }
