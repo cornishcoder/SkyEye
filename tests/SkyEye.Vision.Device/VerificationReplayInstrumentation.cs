@@ -350,7 +350,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 var detectedPocketCorners = detectedPocketLayout?.Corners.ToArray();
                 var pocketCornerDeltas = detectedPocketCorners?.Select(corner =>
                     calibration.Corners.Min(saved => (saved - corner).Length)).ToArray();
-                var fallbackCorners = analyzer800.FindCorners(bytes);
+                var fallbackCorners = analyzer800.FindCorners(bytes, detectedPocketLayout, CancellationToken.None);
                 var fallbackCornerDeltas = fallbackCorners?.Select(corner =>
                     calibration.Corners.Min(saved => (saved - corner).Length)).ToArray();
                 object? detectedPocketGeometry = null;
