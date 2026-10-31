@@ -467,14 +467,66 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     }).ToArray();
                     var baseline = Measure(() => analyzer1000.Analyze(bytes, calibration), out var baselineMetrics);
                     byte[]? classifierPixels = null;
+                    byte[]? boundaryPixels = null;
                     analyzer1000.ObserveNextClassifierPixels(pixels => classifierPixels = pixels);
+                    analyzer1000.ObserveNextBoundaryPixels(pixels => boundaryPixels = pixels);
                     var withRawProposals = Measure(() => analyzer1000.AnalyzeWithDiagnosticRawProposals(bytes, calibration,
                         proposals, sourceWidth, sourceHeight), out var rawProposalMetrics);
-                    if (classifierPixels is null)
-                        throw new IOException($"Exact width-1000 classifier pixels were not captured for frame {frameId}.");
+                    if (classifierPixels is null || boundaryPixels is null)
+                        throw new IOException($"Exact width-1000 classifier and boundary pixels were not captured for frame {frameId}.");
                     var rawProposalAudits = withRawProposals.CandidateAudits
                         .Where(a => a.Pass == "initial" && a.Stage == "local-model-raw")
                         .OrderBy(a => a.Index).ToArray();
+                    var jointOcclusionDiagnostics = proposals.Select((proposal, index) =>
+                    {
+                        var audit = rawProposalAudits.SingleOrDefault(a => a.Index == index);
+                        if (proposal.Kind is not ("cue" or "black") || audit?.FittedCentre is not { } fittedCentre
+                            || audit.FittedRadius is not { } fittedRadius)
+                            return (object)new { proposalId = proposal.Id, proposal.Kind, available = false,
+                                reason = "no-cue-or-black-boundary-fit" };
+
+                        const double expectedRadius = 27;
+                        var sectors = BallBoundaryRefiner.Inspect(boundaryPixels, 1000, 2000,
+                            audit.ProposalCentre, expectedRadius, fittedCentre, fittedRadius, proposal.Kind,
+                            allowDarkBodyEdgeTransitions: proposal.Kind == "black");
+                        var neighbours = withRawProposals.Circles;
+                        const double neighbourRadius = BallBoundaryRefiner.ConservativeOcclusionNeighborRadius;
+                        double minimumDistinctDistance = expectedRadius * 1.1;
+                        double maximumOuterPointDistance = expectedRadius * neighbourRadius;
+                        var sectorRows = sectors.Select(sector =>
+                        {
+                            var explaining = sector.Supported || !sector.ExteriorRejected ? null : neighbours.FirstOrDefault(ball =>
+                                (ball.Centre - fittedCentre).Length >= minimumDistinctDistance
+                                && (sector.OuterPoint - ball.Centre).Length <= maximumOuterPointDistance);
+                            return new
+                            {
+                                sector.Index, sector.Supported, sector.ExteriorRejected,
+                                innerPoint = sector.InnerPoint, outerPoint = sector.OuterPoint,
+                                explainedByAcceptedBall = explaining is not null,
+                                explainingBallId = explaining?.BallId,
+                                explainingBallCentre = explaining?.Centre,
+                                explainingBallRadius = explaining?.Radius
+                            };
+                        }).ToArray();
+                        int supported = sectorRows.Count(sector => sector.Supported);
+                        int explained = sectorRows.Count(sector => !sector.Supported && sector.explainedByAcceptedBall);
+                        int unexplained = sectorRows.Count(sector => !sector.Supported && !sector.explainedByAcceptedBall);
+                        var neighbourCentres = neighbours.Select(ball => ball.Centre).ToArray();
+                        return (object)new
+                        {
+                            proposalId = proposal.Id, proposal.Kind, available = sectors.Length == 32,
+                            expectedRadius, proposalCentre = audit.ProposalCentre, fittedCentre, fittedRadius,
+                            supportedSectorCount = supported, explainedUnsupportedSectorCount = explained,
+                            unexplainedUnsupportedSectorCount = unexplained,
+                            combinedCoverageCount = supported + explained,
+                            minimumVisibleSectorCount = (int)Math.Floor(.7 * 32),
+                            minimumCombinedCoverageCount = (int)Math.Ceiling(.7 * 32),
+                            hasConservativeOcclusionCoverage = BallBoundaryRefiner.HasConservativeOcclusionCoverage(
+                                sectors, fittedCentre, expectedRadius, neighbourCentres),
+                            neighbours = neighbours.Select(ball => new { ball.BallId, ball.Centre, ball.Radius }),
+                            sectors = sectorRows
+                        };
+                    }).ToArray();
                     samples.Add(new
                     {
                         frameId, pixelSha256 = sha, sourceTimeUs,
@@ -485,6 +537,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                         baselineMetrics, rawProposalMetrics,
                         baseline = Summarize(baseline, 1000),
                         withRawProposals = Summarize(withRawProposals, 1000),
+                        jointOcclusionDiagnostics,
                         proposals = proposals.Select((proposal, index) => new
                         {
                             proposal.Id, proposal.Kind, proposal.Source, proposal.Confidence,

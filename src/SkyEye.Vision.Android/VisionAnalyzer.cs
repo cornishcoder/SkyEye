@@ -28,6 +28,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     readonly (int Minimum, int Maximum)? diagnosticObstructionNeutralValueRangeOverride;
     byte[]? lastObstructionMaskDiagnosticPng;
     Action<byte[]>? nextClassifierPixelsObserver;
+    Action<byte[]>? nextBoundaryPixelsObserver;
     readonly record struct Circle(double X, double Y, double Radius);
     readonly record struct PackedClusterEvidence(bool Detected, int RedCentres, int YellowCentres, bool BlackCentre);
     internal sealed record DiagnosticClassifierEvidence(BallClassification Classification,
@@ -58,6 +59,12 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         ArgumentNullException.ThrowIfNull(observer);
         if (Interlocked.CompareExchange(ref nextClassifierPixelsObserver, observer, null) is not null)
             throw new InvalidOperationException("A classifier-pixel observer is already registered.");
+    }
+    internal void ObserveNextBoundaryPixels(Action<byte[]> observer)
+    {
+        ArgumentNullException.ThrowIfNull(observer);
+        if (Interlocked.CompareExchange(ref nextBoundaryPixelsObserver, observer, null) is not null)
+            throw new InvalidOperationException("A boundary-pixel observer is already registered.");
     }
     internal DiagnosticClassifierEvidence ClassifyDiagnosticCandidate(Point centre, double radius, byte[] hsvPixels)
     {
@@ -250,6 +257,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     {
         cancellation.ThrowIfCancellationRequested(); var watch = Stopwatch.StartNew(); var warnings = new List<string>();
         using var rawWarped = Warp(source, calibration);
+        Interlocked.Exchange(ref nextBoundaryPixelsObserver, null)?.Invoke(Read(rawWarped.Value));
         using var rawHsv = new MatLease(new Mat()); Imgproc.CvtColor(rawWarped.Value, rawHsv.Value, Imgproc.ColorBgr2hsv);
         byte[] rawHsvPixels = Read(rawHsv.Value);
         var boundaryColourMask = BoundaryColourMask.FromHsvPixels(rawHsvPixels);
