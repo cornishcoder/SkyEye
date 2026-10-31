@@ -514,6 +514,10 @@ Update this tracker after each concrete implementation or evidence result. Commi
 
 ## Latest verification
 
+### 31 Oct code70 offline pocket-lip fit comparison
+
+The exact six daylight black-present frames and six empty-mouth controls were replayed with matching source hashes, timestamps, seed ranks/coordinates and analyzer configuration. Regular full-circle fits were found for 20 of 153 positive seeds (3 met the unchanged 21/32 support gate) and 3 of 192 negative seeds (2 met the gate). Among shared regular/arc fits, median centre drift was 45.1px (1.67 ball radii) on positives and 38.4px (1.42 radii) on negatives. Directional sector-index Jaccard was nearly the same (.388 vs .385) and is not pixel overlap because the two fits have different centres. The target-free arc classifier remains nonselective (54/192 negative candidates pass its diagnostic checks); no production behavior or threshold changed. Next export the actual sampled source-image coordinates/support evidence for the 23 matched fit pairs, inspect duplicate groups, then run a target-free sweep across all six pockets and cushion/interior controls. This is offline detector evidence, not Live Detect acceptance; mounted-camera status remained Stopped and Cast/TV were untouched. See the [full fit comparison report](o08-observation-reliability-report.md#regular-and-pocket-aware-fit-comparison--31-october-2026).
+
 ### 31 Oct code67 side-daylight pocket-cluster recheck
 
 Production code67 (`0.8.59`) was installed in place after the camera was confirmed stopped. On the user-held 16-ball layout, the red, cue ball and black 8-ball remained together over the lower-left pocket in side daylight. The camera image showed the cluster and source timestamps advanced, but the Live Detect status never left unknown/uncertain with no settled baseline or clear inventory. The final read at 08:25:25 UTC was still unknown. The log screen reported no table events for this run and no settled event ready for a clip. This confirms the baseline guard prevents an uncertain initial observation from becoming a trusted count; it does not make the pocket detector recognize all 16 balls.
