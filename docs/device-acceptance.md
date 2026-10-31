@@ -1,5 +1,13 @@
 # Physical-device acceptance
 
+## Production v0.8.56 / code64 static verifier recheck — 31 October 2026
+
+Commit `9c7e625` installed in place on Pixel 11 with the production updater. The updater verified the signer and retained UID/private storage; rollback APK: `work/production/backups/20261031-012425/before.apk`. No camera package update or Cast action occurred.
+
+On the user-confirmed unchanged, hands-clear pocket-lip layout, the bounded verifier saved seven lossless frame/receipt pairs under run `0a8a25ad-1ae9-4c75-8ae4-16f8884a464e` at `work/production/evidence/code64-static-pocket-lip-20261031/0a8a25ad1ae94c758ae416f8884a464e/`. Four detection frames each found the visible 7 reds, 7 yellows and cue ball (15 circles); the black remains intentionally removed. All four readings carried the generic uncertain-count warning, and the verifier ended `Unsettled (TimedOut)`. Per-frame verification remained `Unknown / InsufficientEvidence`; none reported `Moving`. This is a physical false-motion negative only, not settled-table readiness. Missing the black is consistent with the uncertainty, but this run does not isolate every timeout predicate.
+
+The camera was stopped at the safe boundary: `/status` `Stopped`, revision 77, battery 100%, 139 clips and zero viewers. Pixel 11 Home shows **Start live session**, Live Detect is off, and Cast is disconnected. A host lease may remain while stopped; it does not mean capture is active.
+
 ## Production v0.8.55 / code63 static pocket-lip check and motion diagnosis — 31 October 2026
 
 The guarded in-place Production update to `0.8.55` / code63 preserved the companion UID and private data. On the user-confirmed unchanged, hands-clear pocket-lip layout, Live Detect ran for 40 seconds and wrote 100 fresh analyses (`b3ad94b6-0564-4c41-bd1b-06f5e5f4ef82`). Ninety-nine frames detected the expected visible 15 balls (7 reds, 7 yellows and cue; black intentionally absent); one obstructed frame detected 14. Outcomes were 67 `clear_unchanged`, 19 obstructed, six layout-uncertain, two baseline-pending and one settled baseline. The reducer replay emitted no movement, pot, returned-ball or event-clip candidate. It did emit seven obstruction starts, eight clear returns, six activity starts, five `activity_ended_without_layout_change` events and two layout-uncertain events. This verifies the static negative against false shot outcomes, but the intermittent obstruction classification still blocks reliable readiness. The log contains no source pixels for those obstruction events, so their exact visual cause remains open.

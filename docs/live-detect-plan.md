@@ -1,5 +1,13 @@
 # Live Detect delivery plan
 
+## Code64 false-motion fix: bounded static recheck — 31 October 2026
+
+Production `0.8.56` / code64 is installed in place (commit `9c7e625`); the signed update retained the Pixel 11 UID and private storage. The user-confirmed unchanged, hands-clear pocket-lip layout produced seven verifier receipts, four with a detector analysis. Each analysis found 7 reds, 7 yellows and cue (15 circles); black remains intentionally off the table and the detector still marks the counts uncertain. The check ended `Unsettled (TimedOut)`, with per-frame motion `Unknown / InsufficientEvidence` and no `Moving` result. This is not readiness and does not validate positive motion; it is a physical static negative that no longer makes a motion claim.
+
+The verifier receipts are at `work/production/evidence/code64-static-pocket-lip-20261031/0a8a25ad1ae94c758ae416f8884a464e/0a8a25ad1ae94c758ae416f8884a464e/`. The camera is now `/status` `Stopped`, revision 77, 100% battery, 139 clips, zero viewers; Pixel 11 Home shows **Start live session**. No Cast or match action occurred.
+
+**Next:** get the black back onto the cloth for a complete 16-ball baseline, then run one clearly labelled moving-ball check to ensure template corroboration still detects real motion. Separately, reproduce Live Detect's intermittent obstruction labels while saving frame-matched source pixels and masks. Keep readiness unknown until the complete table is detected and adequately covered across the bounded samples. Do not infer a pot or event from this static verifier run.
+
 ## Code63 static reducer result and pocket-edge false motion — 31 October 2026
 
 Production code63 (`0.8.55`) ran Live Detect on the same 15-ball pocket-lip layout for 100 analyses over 40 seconds. It found 15 balls in 99 frames, with one obstructed frame at 14. It wrote no movement, pot/return or clip candidates on this unchanged-table negative. The reducer change therefore addresses the code62 false shot outcomes. Nineteen frames were obstructed and six were layout-uncertain; the visual cause of these labels was not recorded in the Live Detect log.
