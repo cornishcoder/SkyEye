@@ -225,6 +225,9 @@ public sealed partial class VisionAnalyzer
             new((bounds.Left + bounds.Right) / 2, (bounds.Top + bounds.Bottom) / 2), 0, null, null, null, null,
             $"ball-sized-full-table-seeds={seeds.Length};ranking={(settings.SparseBlackRankByRadius ? "dark-radius-then-colour-proximity" : "colour-proximity-then-dark-radius")};ranked={rankedSeeds.Length};fit-cap={settings.SparseBlackCandidateLimit}"));
         double expectedRadius = PoolGeometry.Radius * coordinates.Width;
+        // Rejected seeds leave circles unchanged; a successful black addition returns immediately.
+        // Reuse this invariant result instead of reclassifying every existing ball for each seed.
+        bool? blackAlreadyPresent = null;
         using (PipelineDiagnostics.Measure("sparseBlackFitAndClassifyMs"))
         for (int i = 0; i < rankedSeeds.Length; i++)
         {
@@ -253,7 +256,8 @@ public sealed partial class VisionAnalyzer
             }
             if (PocketCentres().Any(p => (seed.Centre - p).Length < settings.PocketExclusionRadius * scale))
             { Audit("rejected-pocket-exclusion"); continue; }
-            if (circles.Any(c => Classify(c, rawPixels, inspectRim: true).Kind == "black"))
+            blackAlreadyPresent ??= circles.Any(c => Classify(c, rawPixels, inspectRim: true).Kind == "black");
+            if (blackAlreadyPresent.Value)
             { Audit("rejected-black-already-present"); return; }
             PipelineDiagnostics.Count("sparseBlackBoundaryRefineCalls");
             var fit = BallBoundaryRefiner.Refine(rawBgrPixels, coordinates.Width, coordinates.Height,
