@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """Export pixel-addressable boundary-sector evidence for exact matched fits.
 
-Reads saved regular/arc replay reports and source frames only. It recreates the
-1000x2000 calibrated perspective warp, validates the source PNG hashes and
-frame receipts, then emits one row per model sector with warped coordinates,
-sampled BGR values, contrast and support. Evaluation labels are copied as
-references and never used to select candidates.
+Reads saved replay reports and source frames only. It recreates the 1000x2000
+calibrated perspective warp, validates source PNG hashes and receipts, then
+emits pixel-addressable model-fit sectors or fixed-centre probes. Evaluation
+labels are copied as references and never used to select candidates.
 
 Requires Python packages cv2, numpy and Pillow.
 """
@@ -373,13 +372,234 @@ def contact_sheet(evidence: Path, output_path: Path, pairs: list[dict[str, Any]]
     sheet.save(output_path)
 
 
+def fixed_anchor_evidence(evidence: Path, manifest_path: Path, output: Path) -> None:
+    """Export exact fixed-centre sectors for hash-bound source-pixel or warped-pixel anchors."""
+    manifest = read_json(manifest_path)
+    if manifest.get("version") != 1 or not isinstance(manifest.get("frames"), list):
+        raise ValueError("Fixed-anchor manifest must be version 1 with a frames array")
+    flat: list[dict[str, Any]] = []
+    cards: list[tuple[int, str, str, str, np.ndarray, tuple[float, float], float, list[dict[str, Any]]]] = []
+    frame_receipts: list[dict[str, Any]] = []
+    seen_frames: set[str] = set()
+    for frame_entry in manifest["frames"]:
+        frame_id = str(frame_entry["frameId"])
+        if frame_id in seen_frames:
+            raise ValueError(f"Duplicate frame id in fixed-anchor manifest: {frame_id}")
+        seen_frames.add(frame_id)
+        expected_hash = str(frame_entry["pixelSha256"]).lower()
+        image_path, receipt_path = source_frame_paths(evidence, frame_id, expected_hash)
+        receipt = read_json(receipt_path)
+        if str(receipt["indexedFrame"]["sourceTimeUs"]) != str(frame_entry["sourceTimeUs"]):
+            raise ValueError(f"Source timestamp mismatch for frame {frame_id}")
+        source_scope = receipt["indexedFrame"].get("scope", {})
+        actual_timeline = source_scope.get("timeline")
+        if frame_entry.get("sourceTimeline") and actual_timeline != frame_entry["sourceTimeline"]:
+            raise ValueError(f"Source timeline mismatch for frame {frame_id}")
+        actual_calibration = receipt.get("calibrationId")
+        if frame_entry.get("calibrationId") and actual_calibration != frame_entry["calibrationId"]:
+            raise ValueError(f"Calibration ID mismatch for frame {frame_id}")
+        warped = warp_source(image_path, receipt)
+        source_h, source_w = int(receipt["indexedFrame"]["height"]), int(receipt["indexedFrame"]["width"])
+        corners = receipt["calibrationCorners"]
+        source_corners = np.float32([[c["x"] * source_w, c["y"] * source_h] for c in corners])
+        target_corners = np.float32([[WIDTH, 0], [WIDTH, HEIGHT], [0, HEIGHT], [0, 0]])
+        transform = cv2.getPerspectiveTransform(source_corners, target_corners)
+        expected_radius = float(frame_entry.get("expectedRadiusPx", 27.0))
+        if not math.isfinite(expected_radius) or expected_radius <= 0:
+            raise ValueError(f"Invalid expectedRadiusPx for frame {frame_id}")
+        anchor_names: set[str] = set()
+        frame_receipts.append({
+            "frameId": int(frame_id), "sourceTimeUs": int(frame_entry["sourceTimeUs"]),
+            "pixelSha256": expected_hash, "sourceImage": str(image_path),
+            "receipt": str(receipt_path), "sourceTimeline": actual_timeline,
+            "sourceGeneration": source_scope.get("generation"),
+            "calibrationId": actual_calibration, "expectedRadiusPx": expected_radius,
+        })
+        for anchor in frame_entry.get("anchors", []):
+            name = str(anchor["name"])
+            folded = name.casefold()
+            if not name or folded in anchor_names:
+                raise ValueError(f"Empty or duplicate anchor name in frame {frame_id}: {name!r}")
+            anchor_names.add(folded)
+            x, y = float(anchor["x"]), float(anchor["y"])
+            space = str(anchor.get("coordinateSpace", "sourcePixel"))
+            if not math.isfinite(x) or not math.isfinite(y):
+                raise ValueError(f"Non-finite fixed anchor {frame_id}/{name}")
+            if space == "sourcePixel":
+                if not (0 <= x < source_w and 0 <= y < source_h):
+                    raise ValueError(f"Source anchor {frame_id}/{name} lies outside the source image")
+                mapped = cv2.perspectiveTransform(np.float32([[[x, y]]]), transform)[0, 0]
+                centre = (float(mapped[0]), float(mapped[1]))
+            elif space == "warpedPixel":
+                centre = (x, y)
+            else:
+                raise ValueError(f"Unsupported coordinateSpace {space!r}; use sourcePixel or warpedPixel")
+            if not (0 <= centre[0] < WIDTH and 0 <= centre[1] < HEIGHT):
+                raise ValueError(f"Warped anchor {frame_id}/{name} lies outside the analysis image")
+            sectors = []
+            for index in range(32):
+                row = sample_sector(warped, centre, expected_radius, centre, expected_radius, index)
+                inner_v = max(row["innerPixel"])
+                outer_v = max(row["outerPixel"])
+                dark_transition = inner_v <= 40 and outer_v > 40 and row["edgeContrast"] >= 16.0
+                row.update({
+                    "innerValue": inner_v, "outerValue": outer_v,
+                    "darkBodyTransitionUsed": dark_transition,
+                    "combinedSupport": row["supported"] or dark_transition,
+                    "coordinateSpace": space,
+                    "anchorNote": str(anchor.get("note", "")),
+                    "fixedCentreOnly": True,
+                })
+                sectors.append(row)
+                flat.append({
+                    "frameId": frame_id, "sourceTimeUs": frame_entry["sourceTimeUs"],
+                    "pixelSha256": expected_hash, "anchor": name, "coordinateSpace": space,
+                    "anchorNote": str(anchor.get("note", "")),
+                    "inputX": x, "inputY": y, "centreX": centre[0], "centreY": centre[1],
+                    "expectedRadiusPx": expected_radius, "sectorIndex": index,
+                    "angleDegrees": row["angleDegrees"],
+                    "innerBgr": ",".join(map(str, row["innerPixel"])),
+                    "outerBgr": ",".join(map(str, row["outerPixel"])),
+                    "backgroundBgr": ",".join(map(str, row["backgroundPixel"])),
+                    "edgeContrast": row["edgeContrast"], "exteriorContrast": row["exteriorContrast"],
+                    "fineEdgeContrast": row["fineEdgeContrast"],
+                    "normalSupported": row["supported"],
+                    "darkBodyTransitionUsed": dark_transition,
+                    "combinedSupport": row["supported"] or dark_transition,
+                    "exteriorRejected": row["exteriorRejected"],
+                })
+            title = f"frame {frame_id} · {name} · ({centre[0]:.1f},{centre[1]:.1f})"
+            cards.append((int(frame_id), name, str(anchor.get("note", "")), title, warped, centre, expected_radius, sectors))
+
+    if not cards:
+        raise ValueError("Fixed-anchor manifest contains no anchors")
+    anchor_series = []
+    series_rows = []
+    for name in sorted({card[1] for card in cards}, key=str.casefold):
+        frames = [card for card in cards if card[1] == name]
+        persistence_threshold = max(1, math.ceil(len(frames) * 2 / 3))
+        frequencies = {}
+        for field, source_key in (
+            ("normal", "supported"),
+            ("darkTransition", "darkBodyTransitionUsed"),
+            ("combined", "combinedSupport"),
+        ):
+            frequencies[field] = [
+                sum(any(sector["index"] == index and sector[source_key] for sector in frame[7])
+                    for frame in frames)
+                for index in range(32)
+            ]
+        persistent = {
+            field: [index for index, count in enumerate(counts) if count >= persistence_threshold]
+            for field, counts in frequencies.items()
+        }
+        means = {
+            "normal": sum(sum(sector["supported"] for sector in frame[7]) for frame in frames) / len(frames),
+            "darkTransition": sum(sum(sector["darkBodyTransitionUsed"] for sector in frame[7]) for frame in frames) / len(frames),
+            "combined": sum(sum(sector["combinedSupport"] for sector in frame[7]) for frame in frames) / len(frames),
+        }
+        anchor_series.append({
+            "name": name,
+            "frameIds": [frame[0] for frame in frames],
+            "frameCount": len(frames),
+            "persistenceThresholdFrames": persistence_threshold,
+            "meanSupportedSectors": means,
+            "persistentSectorIndices": persistent,
+            "sectorFrameFrequencies": frequencies,
+        })
+        series_rows.append({
+            "anchor": name,
+            "frameCount": len(frames),
+            "persistenceThresholdFrames": persistence_threshold,
+            "meanNormalSupportedSectors": means["normal"],
+            "meanDarkTransitionSectors": means["darkTransition"],
+            "meanCombinedSectors": means["combined"],
+            "persistentNormalSectorCount": len(persistent["normal"]),
+            "persistentNormalSectorIndices": ";".join(map(str, persistent["normal"])),
+            "persistentDarkTransitionSectorCount": len(persistent["darkTransition"]),
+            "persistentDarkTransitionSectorIndices": ";".join(map(str, persistent["darkTransition"])),
+            "persistentCombinedSectorCount": len(persistent["combined"]),
+            "persistentCombinedSectorIndices": ";".join(map(str, persistent["combined"])),
+        })
+    output.mkdir(parents=True, exist_ok=True)
+    csv_path = output / "fixed-anchor-sector-evidence.csv"
+    with csv_path.open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=list(flat[0]))
+        writer.writeheader(); writer.writerows(flat)
+    series_csv_path = output / "fixed-anchor-series-summary.csv"
+    with series_csv_path.open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.DictWriter(stream, fieldnames=list(series_rows[0]))
+        writer.writeheader(); writer.writerows(series_rows)
+    json_path = output / "fixed-anchor-sector-evidence.json"
+    json_path.write_text(json.dumps({
+        "schemaVersion": 1, "tool": "Export-PocketArcSectorPixelEvidence.fixedAnchors",
+        "diagnosticOnly": True, "usedToSelectOrAcceptDetectorCandidates": False,
+        "coordinateSystem": {"source": "receipt-calibrated perspective warp", "width": WIDTH,
+            "height": HEIGHT, "sectorZeroDegrees": "right", "positiveAngle": "clockwise in image coordinates"},
+        "method": "Fixed centre and expected radius; no fitting or candidate search. Normal support is recomputed from exact source-warped BGR using the existing generic boundary rule. Dark transition is dark inner V<=40, non-dark outer V>40 and edge contrast>=16.",
+        "frames": frame_receipts,
+        "anchors": [{"frameId": card[0], "name": card[1], "note": card[2], "title": card[3],
+            "centre": {"x": card[5][0], "y": card[5][1]}, "radius": card[6], "sectors": card[7],
+            "normalSupportedCount": sum(s["supported"] for s in card[7]),
+            "darkBodyTransitionCount": sum(s["darkBodyTransitionUsed"] for s in card[7]),
+            "combinedSupportCount": sum(s["combinedSupport"] for s in card[7]),
+            "overlappingNormalAndDarkCount": sum(s["supported"] and s["darkBodyTransitionUsed"] for s in card[7])} for card in cards],
+        "anchorSeries": anchor_series,
+        "limitations": ["Anchor names and notes describe evaluation references only; coordinates may be unreviewed proposals or interior references and are not necessarily centres.", "The fixed circles are diagnostic probes and are never detector output or a centre-accuracy claim.", "A dark transition sector is edge evidence only; it does not prove that the sample belongs to a ball boundary.", "Frames from separate source timelines or lighting conditions are not matched trials."],
+    }, indent=2, default=json_default), encoding="utf-8")
+
+    card_w, card_h, header_h = 420, 450, 44
+    cols = 2
+    rows_count = math.ceil(len(cards) / cols)
+    sheet = Image.new("RGB", (cols * card_w, rows_count * card_h), (24, 24, 24))
+    for index, (_, _, _, title, warped, centre, radius, sectors) in enumerate(cards):
+        left = max(0, int(centre[0] - radius - 12)); right = min(WIDTH, int(centre[0] + radius + 12))
+        top = max(0, int(centre[1] - radius - 12)); bottom = min(HEIGHT, int(centre[1] + radius + 12))
+        crop = cv2.cvtColor(warped[top:bottom, left:right], cv2.COLOR_BGR2RGB)
+        panel = Image.new("RGB", (card_w, card_h), (22, 22, 22))
+        header = ImageDraw.Draw(panel)
+        header.text((8, 5), title[:60], fill=(255, 255, 255))
+        scale = min(card_w / (right - left), (card_h - header_h) / (bottom - top))
+        resized = Image.fromarray(crop).resize((max(1, int((right - left) * scale)),
+            max(1, int((bottom - top) * scale))), Image.Resampling.BILINEAR)
+        xoff = (card_w - resized.width) // 2; yoff = header_h + (card_h - header_h - resized.height) // 2
+        panel.paste(resized, (xoff, yoff))
+        draw = ImageDraw.Draw(panel)
+        def display(point: tuple[float, float]) -> tuple[int, int]:
+            return (xoff + int((point[0] - left) * scale), yoff + int((point[1] - top) * scale))
+        centre_px = display(centre); radius_px = max(1, int(radius * scale))
+        draw.ellipse((centre_px[0] - radius_px, centre_px[1] - radius_px,
+            centre_px[0] + radius_px, centre_px[1] + radius_px), outline=(50, 210, 255), width=2)
+        draw.line((centre_px[0] - 5, centre_px[1], centre_px[0] + 5, centre_px[1]), fill=(50, 210, 255), width=2)
+        draw.line((centre_px[0], centre_px[1] - 5, centre_px[0], centre_px[1] + 5), fill=(50, 210, 255), width=2)
+        for sector in sectors:
+            colour = (60, 235, 90) if sector["supported"] else (220, 60, 255) if sector["darkBodyTransitionUsed"] else (245, 70, 70)
+            draw.line((display(sector["inner"]), display(sector["outer"])), fill=colour, width=2)
+        normal_count = sum(s["supported"] for s in sectors)
+        dark_count = sum(s["darkBodyTransitionUsed"] for s in sectors)
+        combined_count = sum(s["combinedSupport"] for s in sectors)
+        draw.text((8, card_h - 18),
+            f"normal={normal_count} dark={dark_count} union={combined_count}  green=normal magenta=dark red=neither",
+            fill=(235, 235, 235))
+        sheet.paste(panel, ((index % cols) * card_w, (index // cols) * card_h))
+    contact_path = output / "fixed-anchor-sector-contact.png"
+    sheet.save(contact_path)
+    print(f"anchors={len(cards)} sectors={len(flat)} csv={csv_path} summary={series_csv_path} json={json_path} contact={contact_path}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--evidence-directory", type=Path, default=DEFAULT_EVIDENCE)
     parser.add_argument("--output-directory", type=Path)
+    parser.add_argument("--fixed-anchor-manifest", type=Path,
+        help="Export diagnostic fixed-centre sectors from a version-1 hash-bound anchor manifest instead of matched fit pairs.")
     args = parser.parse_args()
     evidence = args.evidence_directory.resolve()
-    output = args.output_directory.resolve() if args.output_directory else (evidence / OUT_DIR).resolve()
+    default_output = "fixed-anchor-sectors" if args.fixed_anchor_manifest is not None else OUT_DIR
+    output = args.output_directory.resolve() if args.output_directory else (evidence / default_output).resolve()
+    if args.fixed_anchor_manifest is not None:
+        fixed_anchor_evidence(evidence, args.fixed_anchor_manifest.resolve(), output)
+        return
     output.mkdir(parents=True, exist_ok=True)
     pairs, expected_counts = matched_pairs(evidence)
     flat, enriched = emit_pair_evidence(evidence, output, pairs)

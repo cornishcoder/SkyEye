@@ -1,0 +1,149 @@
+{
+  "version": 1,
+  "frames": [
+    {
+      "frameId": 554,
+      "sourceTimeUs": 71298295155,
+      "pixelSha256": "f159966b194cfedb32a7afd56b7552715804e0039661aa67293e9f1f459d8449",
+      "sourceTimeline": "cd17a3fa0a654f7fac57d2d122ba30e2",
+      "calibrationId": "0a1efcbe91884d1d83aed015be87c410",
+      "expectedRadiusPx": 27,
+      "anchors": [
+        {
+          "name": "model-proposal-point",
+          "coordinateSpace": "sourcePixel",
+          "x": 99,
+          "y": 897,
+          "note": "Unreviewed local-model black proposal, held fixed across this source timeline; not a reviewed centre."
+        },
+        {
+          "name": "black-interior-reference",
+          "coordinateSpace": "sourcePixel",
+          "x": 104,
+          "y": 896,
+          "note": "Manually inspected black-ball interior point from the saved frame; evaluation-only, not a reviewed centre."
+        }
+      ]
+    },
+    {
+      "frameId": 635,
+      "sourceTimeUs": 71300995544,
+      "pixelSha256": "2125df051904fd51360f3afc5a397f87f6998e13f03e9c7df94c2453e1916067",
+      "sourceTimeline": "cd17a3fa0a654f7fac57d2d122ba30e2",
+      "calibrationId": "0a1efcbe91884d1d83aed015be87c410",
+      "expectedRadiusPx": 27,
+      "anchors": [
+        {
+          "name": "model-proposal-point",
+          "coordinateSpace": "sourcePixel",
+          "x": 99,
+          "y": 897,
+          "note": "Unreviewed local-model black proposal, held fixed across this source timeline; not a reviewed centre."
+        },
+        {
+          "name": "black-interior-reference",
+          "coordinateSpace": "sourcePixel",
+          "x": 104,
+          "y": 896,
+          "note": "Manually inspected black-ball interior point from the saved frame; evaluation-only, not a reviewed centre."
+        }
+      ]
+    },
+    {
+      "frameId": 676,
+      "sourceTimeUs": 71302362166,
+      "pixelSha256": "e5f8481d5da9e274942cf704ab0225194adfe5c8facf3e27c7084f9a8bbb5c23",
+      "sourceTimeline": "cd17a3fa0a654f7fac57d2d122ba30e2",
+      "calibrationId": "0a1efcbe91884d1d83aed015be87c410",
+      "expectedRadiusPx": 27,
+      "anchors": [
+        {
+          "name": "model-proposal-point",
+          "coordinateSpace": "sourcePixel",
+          "x": 99,
+          "y": 897,
+          "note": "Unreviewed local-model black proposal, held fixed across this source timeline; not a reviewed centre."
+        },
+        {
+          "name": "black-interior-reference",
+          "coordinateSpace": "sourcePixel",
+          "x": 104,
+          "y": 896,
+          "note": "Manually inspected black-ball interior point from the saved frame; evaluation-only, not a reviewed centre."
+        }
+      ]
+    },
+    {
+      "frameId": 713,
+      "sourceTimeUs": 71303593788,
+      "pixelSha256": "84558e52b59a0c9f7589e388abc9e6e4ed9b2d8dcd7e1483c704e6763499614b",
+      "sourceTimeline": "cd17a3fa0a654f7fac57d2d122ba30e2",
+      "calibrationId": "0a1efcbe91884d1d83aed015be87c410",
+      "expectedRadiusPx": 27,
+      "anchors": [
+        {
+          "name": "model-proposal-point",
+          "coordinateSpace": "sourcePixel",
+          "x": 99,
+          "y": 897,
+          "note": "Unreviewed local-model black proposal, held fixed across this source timeline; not a reviewed centre."
+        },
+        {
+          "name": "black-interior-reference",
+          "coordinateSpace": "sourcePixel",
+          "x": 104,
+          "y": 896,
+          "note": "Manually inspected black-ball interior point from the saved frame; evaluation-only, not a reviewed centre."
+        }
+      ]
+    },
+    {
+      "frameId": 748,
+      "sourceTimeUs": 71304762566,
+      "pixelSha256": "946a1f5105c52c62c2d5c94116305e069d6c8181f1fc24aa7281d33cfafa2a6d",
+      "sourceTimeline": "cd17a3fa0a654f7fac57d2d122ba30e2",
+      "calibrationId": "0a1efcbe91884d1d83aed015be87c410",
+      "expectedRadiusPx": 27,
+      "anchors": [
+        {
+          "name": "model-proposal-point",
+          "coordinateSpace": "sourcePixel",
+          "x": 99,
+          "y": 897,
+          "note": "Unreviewed local-model black proposal, held fixed across this source timeline; not a reviewed centre."
+        },
+        {
+          "name": "black-interior-reference",
+          "coordinateSpace": "sourcePixel",
+          "x": 104,
+          "y": 896,
+          "note": "Manually inspected black-ball interior point from the saved frame; evaluation-only, not a reviewed centre."
+        }
+      ]
+    },
+    {
+      "frameId": 789,
+      "sourceTimeUs": 71306129188,
+      "pixelSha256": "f8b10c295e8c7bc2f430ee9f48bf3e930df74a65b1ac29f1da36ab3ad4cc93ee",
+      "sourceTimeline": "cd17a3fa0a654f7fac57d2d122ba30e2",
+      "calibrationId": "0a1efcbe91884d1d83aed015be87c410",
+      "expectedRadiusPx": 27,
+      "anchors": [
+        {
+          "name": "model-proposal-point",
+          "coordinateSpace": "sourcePixel",
+          "x": 99,
+          "y": 897,
+          "note": "Unreviewed local-model black proposal, held fixed across this source timeline; not a reviewed centre."
+        },
+        {
+          "name": "black-interior-reference",
+          "coordinateSpace": "sourcePixel",
+          "x": 104,
+          "y": 896,
+          "note": "Manually inspected black-ball interior point from the saved frame; evaluation-only, not a reviewed centre."
+        }
+      ]
+    }
+  ]
+}
