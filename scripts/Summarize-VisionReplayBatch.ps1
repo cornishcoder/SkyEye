@@ -118,7 +118,7 @@ function Get-AnalysisForWidth {
     param(
         [AllowNull()] [object] $Sample,
         [AllowNull()] [object] $Report,
-        [int] $Index,
+        [int] $ObservationIndex,
         [int] $Width
     )
 
@@ -131,7 +131,7 @@ function Get-AnalysisForWidth {
     # observations array while samples hold only frame identity and timings.
     $fullAnalysis = Get-ObjectValue -InputObject $Report -Name "fullAnalysis$Width"
     $observations = Get-ObjectValue -InputObject $fullAnalysis -Name 'observations'
-    $analysis = Get-ArrayItem -Collection $observations -Index $Index
+    $analysis = Get-ArrayItem -Collection $observations -Index $ObservationIndex
     if ($null -ne $analysis) { return $analysis }
 
     $direct = Get-ObjectValue -InputObject $Sample -Name "analysis$Width"
@@ -142,6 +142,44 @@ function Get-AnalysisForWidth {
         if ($null -ne (Get-ObjectValue -InputObject $sampleWidth -Name $field)) { return $sampleWidth }
     }
     return $null
+}
+
+function Get-ObservationIndexes {
+    param([AllowNull()] [object] $Samples, [AllowNull()] [object] $Observations, [AllowNull()] [object] $Mode, [string] $Context)
+
+    $indexes = @{}
+    $observationsArray = @()
+    if ($null -ne $Observations) { $observationsArray = @($Observations) }
+    if ($observationsArray.Count -eq 0) { return $indexes }
+    $samplesArray = @()
+    if ($null -ne $Samples) { $samplesArray = @($Samples) }
+    if (@($observationsArray | Where-Object { $null -eq $_ }).Count -gt 0 -or
+        @($samplesArray | Where-Object { $null -eq $_ }).Count -gt 0) {
+        Write-Warning "$Context has a null sample or observation; report-level observations will not be attributed."
+        return $indexes
+    }
+    $sourceIndexes = [System.Collections.Generic.List[int]]::new()
+    if ($Mode -eq 'full-audit') {
+        for ($i = 0; $i -lt $samplesArray.Count; $i++) { $sourceIndexes.Add($i) }
+    } elseif ($Mode -in @('screening', 'probe-only')) {
+        for ($i = 0; $i -lt $samplesArray.Count; $i++) {
+            $requested = Get-ObjectValue -InputObject $samplesArray[$i] -Name 'detectionRequested'
+            if ($requested -isnot [bool]) {
+                Write-Warning "$Context has observations but an unknown detectionRequested value; report-level observations will not be attributed."
+                return $indexes
+            }
+            if ($requested) { $sourceIndexes.Add($i) }
+        }
+    } else {
+        Write-Warning "$Context has observations with an unrecognized report mode; report-level observations will not be attributed."
+        return $indexes
+    }
+    if ($sourceIndexes.Count -ne $observationsArray.Count) {
+        Write-Warning "$Context observation count does not match the report mode and samples; report-level observations will not be attributed."
+        return $indexes
+    }
+    for ($i = 0; $i -lt $sourceIndexes.Count; $i++) { $indexes[$sourceIndexes[$i]] = $i }
+    return $indexes
 }
 
 function Get-CountValue {
@@ -335,6 +373,12 @@ foreach ($reportFile in $reportFiles) {
     $samples = Get-ObjectValue -InputObject $report -Name 'samples'
     $observations800 = Get-ObjectValue -InputObject (Get-ObjectValue -InputObject $report -Name 'fullAnalysis800') -Name 'observations'
     $observations1000 = Get-ObjectValue -InputObject (Get-ObjectValue -InputObject $report -Name 'fullAnalysis1000') -Name 'observations'
+    # Screening/probe reports append only requested detections, whereas full
+    # audits append an analysis for every sample, including detection-disabled
+    # verifier samples. Do not guess when the mode or counts cannot prove the mapping.
+    $reportMode = Get-ObjectValue -InputObject $report -Name 'mode'
+    $observationIndexes800 = Get-ObservationIndexes -Samples $samples -Observations $observations800 -Mode $reportMode -Context "$($reportFile.Name) width 800"
+    $observationIndexes1000 = Get-ObservationIndexes -Samples $samples -Observations $observations1000 -Mode $reportMode -Context "$($reportFile.Name) width 1000"
 
     $frameCount = 0
     if ($null -ne $samples) { $frameCount = [Math]::Max($frameCount, $samples.Count) }
@@ -362,8 +406,10 @@ foreach ($reportFile in $reportFiles) {
     foreach ($index in $rowIndexes) {
         $sample = if ($index -ge 0) { Get-ArrayItem -Collection $samples -Index $index } else { $null }
         $manifestFrame = if ($index -ge 0) { Get-ArrayItem -Collection $manifestFrames -Index $index } else { $null }
-        $analysis800 = if ($index -ge 0) { Get-AnalysisForWidth -Sample $sample -Report $report -Index $index -Width 800 } else { $null }
-        $analysis1000 = if ($index -ge 0) { Get-AnalysisForWidth -Sample $sample -Report $report -Index $index -Width 1000 } else { $null }
+        $observationIndex800 = if ($observationIndexes800.ContainsKey($index)) { $observationIndexes800[$index] } else { -1 }
+        $observationIndex1000 = if ($observationIndexes1000.ContainsKey($index)) { $observationIndexes1000[$index] } else { -1 }
+        $analysis800 = if ($index -ge 0) { Get-AnalysisForWidth -Sample $sample -Report $report -ObservationIndex $observationIndex800 -Width 800 } else { $null }
+        $analysis1000 = if ($index -ge 0) { Get-AnalysisForWidth -Sample $sample -Report $report -ObservationIndex $observationIndex1000 -Width 1000 } else { $null }
 
         $frameId = Get-FirstObjectValue -InputObject $sample -Names @('frameId', 'frameID', 'id')
         if ($null -eq $frameId) { $frameId = Get-FirstObjectValue -InputObject $manifestFrame -Names @('frameId', 'frameID', 'id') }
