@@ -779,7 +779,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         // ordinary neutral fallback has a fixed upper ceiling to protect white
         // ball classification; use a cloth-relative range here so dim or bright
         // neutral felt is not mistaken for one connected obstruction.
-        var sampledClothRange = ClothRange(pixels);
+        var sampledClothRange = ObstructionClothRange(pixels, balls);
         var clothRange = diagnosticObstructionClothRangeOverride ?? sampledClothRange;
         using var mask = ClothMask(hsv, pixels, separateBalls: false, rangeOverride: clothRange);
         (int Minimum, int Maximum)? sampledNeutralValueRange = sampledClothRange.MedianValue > 0
@@ -919,6 +919,59 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             DiagnosticAppliedNeutralMaximumValue = obstructionMaskDiagnostics ? appliedNeutralValueRange?.Maximum : null,
         };
         return triggeringComponents > 0;
+    }
+    (int Hue, int SaturationFloor, int ValueFloor, int MedianValue) ObstructionClothRange(
+        byte[] pixels, IReadOnlyCollection<Circle> balls)
+    {
+        // The cloth is low saturation. A hue histogram of saturated pixels is
+        // dominated by balls and shadows, so its winning hue can jump between
+        // otherwise identical live frames and turn a large patch of felt into
+        // an apparent obstruction. Estimate this mask's range only from low-
+        // saturation pixels, excluding the recognized ball bodies.
+        int w = coordinates.Width, h = coordinates.Height;
+        int step = Math.Max(4, (int)Math.Round(10 * w / 1000d));
+        var cloth = new List<HsvPixel>();
+        foreach (var (x, y) in Grid(w / 10, w * 9 / 10, step, h / 10, h * 9 / 10, step))
+        {
+            bool onBall = false;
+            foreach (var ball in balls)
+            {
+                double radius = Math.Max(ball.Radius * 1.5, PoolGeometry.Radius * w * 1.2);
+                double dx = x - ball.X, dy = y - ball.Y;
+                if (dx * dx + dy * dy <= radius * radius) { onBall = true; break; }
+            }
+            if (onBall) continue;
+            int offset = (y * w + x) * 3;
+            var pixel = new HsvPixel(pixels[offset], pixels[offset + 1], pixels[offset + 2]);
+            if (pixel.S <= 70 && pixel.V > 15) cloth.Add(pixel);
+        }
+        if (cloth.Count < 20) return ClothRange(pixels);
+
+        double Median(IEnumerable<double> values)
+        {
+            var sorted = values.Order().ToArray();
+            return sorted[sorted.Length / 2];
+        }
+        double medianSaturation = Median(cloth.Select(pixel => pixel.S));
+        double medianValue = Median(cloth.Select(pixel => pixel.V));
+        double hueX = 0, hueY = 0;
+        foreach (var pixel in cloth.Where(pixel => pixel.S >= 8))
+        {
+            double angle = pixel.H * Math.PI / 90;
+            hueX += Math.Cos(angle) * pixel.S;
+            hueY += Math.Sin(angle) * pixel.S;
+        }
+        int hue = Math.Abs(hueX) + Math.Abs(hueY) < 1
+            ? ClothRange(pixels).Hue
+            : (int)Math.Round(Math.Atan2(hueY, hueX) * 90 / Math.PI + 180) % 180;
+        return (hue, (int)Math.Clamp(medianSaturation * .45, 8, 60),
+            (int)Math.Clamp(medianValue * .45, 15, 60), (int)Math.Round(medianValue));
+    }
+    static IEnumerable<(int X, int Y)> Grid(int startX, int endX, int stepX, int startY, int endY, int stepY)
+    {
+        for (int y = startY; y < endY; y += stepY)
+            for (int x = startX; x < endX; x += stepX)
+                yield return (x, y);
     }
     Point[] PocketCentres() => [new(0, 0), new(coordinates.Width, 0), new(0, coordinates.Width), new(coordinates.Width, coordinates.Width), new(0, coordinates.Height), new(coordinates.Width, coordinates.Height)];
     bool PocketColourNeedsReview(byte[] pixels, Mat rawImage, Circle[] circles, BallClassification[] labels,

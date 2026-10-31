@@ -3,10 +3,12 @@ param(
     [int[]]$Frames = @(399, 433),
     [string]$RunPrefix = 'pocketlip30',
     [string]$Purpose = 'Current-code exact-frame candidate and boundary audit for the Oct 30 pocket-lip fixture.',
+    [string]$EvidenceRelativePath = 'work/production/evidence/live-detect-pocket-lip-20261030/device-replays',
     [int]$EdgeMargin = 23,
     [double]$PocketRadius = 48,
     [double]$BoundarySupport = 0.75,
     [double]$SparseColourSupport = 0.625,
+    [double]$Production800BoundarySearchExtent = 0.65,
     [double]$PackedColourBoundarySearchExtent = 0.65,
     [double]$SparseBlackSearchExtent = 1.3,
     [double]$SparseBlackSupport = 0.65625,
@@ -31,6 +33,7 @@ if ($EdgeMargin -lt 0 -or $EdgeMargin -gt 100) { throw 'EdgeMargin must be betwe
 if ($PocketRadius -le 0 -or $PocketRadius -gt 80) { throw 'PocketRadius must be greater than 0 and at most 80 pixels at width 1000.' }
 if ($BoundarySupport -lt 0.5625 -or $BoundarySupport -gt 1) { throw 'BoundarySupport must be between 0.5625 and 1.' }
 if ($SparseColourSupport -lt 0.5625 -or $SparseColourSupport -gt 1) { throw 'SparseColourSupport must be between 0.5625 and 1.' }
+if ($Production800BoundarySearchExtent -lt 0.2 -or $Production800BoundarySearchExtent -gt 0.8) { throw 'Production800BoundarySearchExtent must be between 0.2 and 0.8 ball radii.' }
 if ($PackedColourBoundarySearchExtent -lt 0.2 -or $PackedColourBoundarySearchExtent -gt 0.8) { throw 'PackedColourBoundarySearchExtent must be between 0.2 and 0.8 ball radii.' }
 if ($SparseBlackSearchExtent -lt 0.2 -or $SparseBlackSearchExtent -gt 1.5) { throw 'SparseBlackSearchExtent must be between 0.2 and 1.5 ball radii.' }
 if ($SparseBlackSupport -lt 0.5625 -or $SparseBlackSupport -gt 1) { throw 'SparseBlackSupport must be between 0.5625 and 1.' }
@@ -85,7 +88,7 @@ $run = "$RunPrefix-$(Get-Date -Format 'HHmmss')"
 if ($run.Length -gt 32) { throw 'RunPrefix is too long; the timestamped replay name must be at most 32 characters.' }
 $remoteFilesRoot = "/sdcard/Android/data/$package/files"
 $remoteRunDirectory = "$remoteFilesRoot/o08-replay-$run"
-$evidenceRoot = Join-Path $repoRoot 'work/production/evidence/live-detect-pocket-lip-20261030/device-replays'
+$evidenceRoot = if ([IO.Path]::IsPathRooted($EvidenceRelativePath)) { $EvidenceRelativePath } else { Join-Path $repoRoot $EvidenceRelativePath }
 $runDirectory = Join-Path $evidenceRoot $run
 
 if (-not (Test-Path -LiteralPath $adb)) { throw "ADB was not found at $adb." }
@@ -147,6 +150,7 @@ $instrumentArguments = @('shell', 'am', 'instrument', '-w', '-e', 'run', $run,
     '-e', 'audit', '1', '-e', 'edgeMargin', "$EdgeMargin",
     '-e', 'pocketRadius', "$PocketRadius", '-e', 'boundarySupport', "$BoundarySupport",
     '-e', 'sparseColourSupport', "$SparseColourSupport",
+    '-e', 'production800BoundaryExtent', "$Production800BoundarySearchExtent",
     '-e', 'boundaryExtent', "$PackedColourBoundarySearchExtent",
     '-e', 'sparseBlackExtent', "$SparseBlackSearchExtent", '-e', 'sparseBlackSupport', "$SparseBlackSupport",
     '-e', 'sparseBlackLimit', "$SparseBlackCandidateLimit")
@@ -247,6 +251,7 @@ $manifest = [pscustomobject]@{
     minimumHoughBoundarySupport = $BoundarySupport
     minimumSparseColourBoundarySupport = $SparseColourSupport
     packedColourBoundarySearchExtentFraction = $PackedColourBoundarySearchExtent
+    production800BoundarySearchExtentFraction = $Production800BoundarySearchExtent
     sparseBlackBoundarySearchExtentFraction = $SparseBlackSearchExtent
     minimumSparseBlackBoundarySupport = $SparseBlackSupport
     sparseBlackCandidateLimit = $SparseBlackCandidateLimit

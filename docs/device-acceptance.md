@@ -1,10 +1,12 @@
 # Physical-device acceptance
 
-## Production v0.8.57 / code65 source-frame evidence — pending device check
+## Production v0.8.57 / code65 exact-source pocket-lip check — 31 October 2026
 
-The Production Release build succeeds with 13 existing Android binding, interop and native-library warnings and zero errors. Focused `SkyEye.AgentUi.Checks` pass. The full `SkyEye.Checks` executable passed its table-session/frame-observer section but terminated later in `RecentReplayChecks` when its sparse-file stress fixture exceeded the remaining disk space; no detector or observer assertion failed. The mounted Pixel 10 reports `Stopped`, revision 77, battery 100%, `clipCount=139`, zero viewers. Pixel 11 is connected and code64 is still installed at this checkpoint. No Cast or camera package action occurred.
+Code65 added schema-13 frame-linked PNG/JPEG sidecars and a read-only evidence route. Its Production Release build succeeded with 13 existing Android binding, interop and native-library warnings and zero errors. Focused `SkyEye.AgentUi.Checks` passed. The full `SkyEye.Checks` executable passed its table-session/frame-observer section but later stopped in `RecentReplayChecks` when the sparse-file stress fixture exhausted remaining disk space; no detector or observer assertion failed. Pixel 11 UID/private storage was preserved by the in-place install.
 
-Code65 adds schema-13 frame-linked PNG/JPEG sidecars and a read-only evidence download route; no vision threshold or canonical state change is included. Next: perform the guarded in-place Pixel 11 update, run the user-authorized short hands-clear pocket-lip check, compare saved source frames to frame IDs/PTS and detection logs, then stop capture and confirm Home `Start live session`.
+The user confirmed the unchanged layout and clear hands before capture. Live Detect run `6cdb8824-464f-43c4-82e4-ddc07f79b280` recorded 103 full checks over 42.5 seconds. With the black intentionally removed, the visible ground-truth inventory was 15 (7 reds, 7 yellows and cue). Five retained exact frames reported 15; frame 1179 reported 14 by missing one red, then frame 1198 returned to 15. Two of the six exact source images were marked obstructed despite no hand or person in view. The physical run therefore fails reliable inventory/readiness; no table change was reported.
+
+The six PNGs, receipts, matching JSONL and screenshots are under `work/production/evidence/code65-source-frame-check-20261031/`. Replay details and the code66 candidate results are in the [live-detect plan](live-detect-plan.md#code66-pocket-lip-and-obstruction-candidates--31-october-2026). Pixel 11 Production is still code65; code66 (`0.8.58`) has not been installed. Camera `/status` is `Stopped`, revision 81, 139 clips, zero viewers; Home shows **Start live session**. Chromecast was not used, and the mounted camera package was not updated.
 
 ## Production v0.8.56 / code64 static verifier recheck — 31 October 2026
 
