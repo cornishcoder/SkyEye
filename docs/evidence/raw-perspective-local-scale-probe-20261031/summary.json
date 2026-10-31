@@ -1,0 +1,3810 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Diagnostic local projected-radius filter for raw-perspective Hough proposals.",
+  "method": {
+    "expectedRawRadius": "27 rectified pixels mapped locally through the inverse homography Jacobian; geometric-mean ellipse radius",
+    "radiusFilter": "retain raw Hough proposals whose observed circle radius is within the requested relative tolerance of the local expected radius",
+    "matching": "one-to-one geometry match in rectified coordinates; colour is not used",
+    "limitations": [
+      "The Hough candidate generator and cloth mask are approximate and do not invoke production detector stages.",
+      "The local scale models a table-plane circle; ball-height parallax and non-circular raw projections are not corrected.",
+      "A tolerance sweep on draft-labelled frames is exploratory, not held-out accuracy or a false-positive rate.",
+      "Unmatched proposals are not confirmed false balls because labels are incomplete and the black centre is unresolved.",
+      "This does not run the production classifier, boundary refiner, duplicate checks or uncertainty gates."
+    ]
+  },
+  "opencvVersion": "4.12.0",
+  "ballRadiusRectifiedPx": 27.0,
+  "votes": [
+    9.0,
+    12.0,
+    15.0
+  ],
+  "relativeRadiusTolerances": [
+    0.2,
+    0.35,
+    0.5
+  ],
+  "cases": [
+    {
+      "case": "daylight",
+      "manifest": {
+        "image": {
+          "path": "work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\exact-replay-input\\1365.png",
+          "sha256": "602e00c4eb9fc92f3b124106137d8ca7c56f932e107f995f1f2c7d824dd25de4"
+        },
+        "receipt": {
+          "path": "work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\exact-replay-input\\1365.json",
+          "sha256": "0ca2daa12e7f0618825b85d0478f0ce490e961644f4f71adb4eaea2fb63fe931"
+        },
+        "labels": {
+          "path": "docs\\evidence\\pocket-cushion-centre-labels-20261031\\positive\\manual-labels-frame-1365-draft.json",
+          "sha256": "4573477fa1c197b1043a8eb7bf6c4873078632be6e8bb70457e0ab5c09c99e9e",
+          "status": "assistant draft; user review needed"
+        },
+        "frameId": 1365,
+        "timeline": "76ec0f8c622045378494b0c250198ce6",
+        "sourceTimeUs": 80806601200
+      },
+      "labelStatus": "assistant draft; user review needed",
+      "rectifiedBaseline": [
+        {
+          "votes": 9.0,
+          "candidateCount": 161,
+          "labelCount": 15,
+          "matchedCount": 14,
+          "recall": 0.9333,
+          "unmatchedCandidateCount": 147,
+          "unmatchedLabelIds": [
+            "yellow-01"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 7.256,
+          "maximumMatchedCentreErrorRectifiedPx": 23.965,
+          "matches": [
+            {
+              "candidateIndex": 6,
+              "labelId": "yellow-03",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 2.34,
+              "centreErrorBallDiameters": 0.0433,
+              "dxRectifiedPx": -1.852,
+              "dyRectifiedPx": -1.43
+            },
+            {
+              "candidateIndex": 0,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 2.46,
+              "centreErrorBallDiameters": 0.0456,
+              "dxRectifiedPx": -0.991,
+              "dyRectifiedPx": 2.251
+            },
+            {
+              "candidateIndex": 71,
+              "labelId": "red-07",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 3.129,
+              "centreErrorBallDiameters": 0.058,
+              "dxRectifiedPx": -1.809,
+              "dyRectifiedPx": -2.553
+            },
+            {
+              "candidateIndex": 10,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 3.535,
+              "centreErrorBallDiameters": 0.0655,
+              "dxRectifiedPx": 3.202,
+              "dyRectifiedPx": -1.497
+            },
+            {
+              "candidateIndex": 11,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 4.073,
+              "centreErrorBallDiameters": 0.0754,
+              "dxRectifiedPx": -4.072,
+              "dyRectifiedPx": 0.093
+            },
+            {
+              "candidateIndex": 12,
+              "labelId": "red-03",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 4.495,
+              "centreErrorBallDiameters": 0.0832,
+              "dxRectifiedPx": -4.429,
+              "dyRectifiedPx": -0.768
+            },
+            {
+              "candidateIndex": 60,
+              "labelId": "yellow-07",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 6.858,
+              "centreErrorBallDiameters": 0.127,
+              "dxRectifiedPx": -6.643,
+              "dyRectifiedPx": 1.706
+            },
+            {
+              "candidateIndex": 38,
+              "labelId": "red-01",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 7.654,
+              "centreErrorBallDiameters": 0.1417,
+              "dxRectifiedPx": -3.653,
+              "dyRectifiedPx": 6.725
+            },
+            {
+              "candidateIndex": 43,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 11.274,
+              "centreErrorBallDiameters": 0.2088,
+              "dxRectifiedPx": 9.492,
+              "dyRectifiedPx": 6.083
+            },
+            {
+              "candidateIndex": 13,
+              "labelId": "red-04",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 14.82,
+              "centreErrorBallDiameters": 0.2744,
+              "dxRectifiedPx": 9.236,
+              "dyRectifiedPx": 11.59
+            },
+            {
+              "candidateIndex": 28,
+              "labelId": "red-05",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 17.909,
+              "centreErrorBallDiameters": 0.3316,
+              "dxRectifiedPx": 12.559,
+              "dyRectifiedPx": 12.767
+            },
+            {
+              "candidateIndex": 30,
+              "labelId": "red-06",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 19.619,
+              "centreErrorBallDiameters": 0.3633,
+              "dxRectifiedPx": 0.863,
+              "dyRectifiedPx": 19.6
+            },
+            {
+              "candidateIndex": 72,
+              "labelId": "cue-01",
+              "labelColour": "cue",
+              "centreErrorRectifiedPx": 22.383,
+              "centreErrorBallDiameters": 0.4145,
+              "dxRectifiedPx": 6.547,
+              "dyRectifiedPx": 21.404
+            },
+            {
+              "candidateIndex": 80,
+              "labelId": "yellow-06",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 23.965,
+              "centreErrorBallDiameters": 0.4438,
+              "dxRectifiedPx": 19.115,
+              "dyRectifiedPx": -14.455
+            }
+          ]
+        },
+        {
+          "votes": 12.0,
+          "candidateCount": 82,
+          "labelCount": 15,
+          "matchedCount": 8,
+          "recall": 0.5333,
+          "unmatchedCandidateCount": 74,
+          "unmatchedLabelIds": [
+            "cue-01",
+            "red-03",
+            "red-06",
+            "red-07",
+            "yellow-01",
+            "yellow-04",
+            "yellow-06"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 5.499,
+          "maximumMatchedCentreErrorRectifiedPx": 23.85,
+          "matches": [
+            {
+              "candidateIndex": 0,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 2.46,
+              "centreErrorBallDiameters": 0.0456,
+              "dxRectifiedPx": -0.991,
+              "dyRectifiedPx": 2.251
+            },
+            {
+              "candidateIndex": 15,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 3.102,
+              "centreErrorBallDiameters": 0.0574,
+              "dxRectifiedPx": -2.772,
+              "dyRectifiedPx": 1.393
+            },
+            {
+              "candidateIndex": 64,
+              "labelId": "red-01",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 3.66,
+              "centreErrorBallDiameters": 0.0678,
+              "dxRectifiedPx": -3.653,
+              "dyRectifiedPx": 0.225
+            },
+            {
+              "candidateIndex": 8,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 4.141,
+              "centreErrorBallDiameters": 0.0767,
+              "dxRectifiedPx": 0.602,
+              "dyRectifiedPx": -4.097
+            },
+            {
+              "candidateIndex": 36,
+              "labelId": "yellow-07",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 6.858,
+              "centreErrorBallDiameters": 0.127,
+              "dxRectifiedPx": -6.643,
+              "dyRectifiedPx": 1.706
+            },
+            {
+              "candidateIndex": 47,
+              "labelId": "yellow-03",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 12.18,
+              "centreErrorBallDiameters": 0.2256,
+              "dxRectifiedPx": -10.952,
+              "dyRectifiedPx": -5.33
+            },
+            {
+              "candidateIndex": 17,
+              "labelId": "red-05",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 17.909,
+              "centreErrorBallDiameters": 0.3316,
+              "dxRectifiedPx": 12.559,
+              "dyRectifiedPx": 12.767
+            },
+            {
+              "candidateIndex": 35,
+              "labelId": "red-04",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 23.85,
+              "centreErrorBallDiameters": 0.4417,
+              "dxRectifiedPx": 9.236,
+              "dyRectifiedPx": 21.99
+            }
+          ]
+        },
+        {
+          "votes": 15.0,
+          "candidateCount": 48,
+          "labelCount": 15,
+          "matchedCount": 2,
+          "recall": 0.1333,
+          "unmatchedCandidateCount": 46,
+          "unmatchedLabelIds": [
+            "cue-01",
+            "red-01",
+            "red-03",
+            "red-04",
+            "red-05",
+            "red-06",
+            "red-07",
+            "yellow-01",
+            "yellow-02",
+            "yellow-03",
+            "yellow-04",
+            "yellow-06",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 3.276,
+          "maximumMatchedCentreErrorRectifiedPx": 6.087,
+          "matches": [
+            {
+              "candidateIndex": 17,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 0.466,
+              "centreErrorBallDiameters": 0.0086,
+              "dxRectifiedPx": 0.309,
+              "dyRectifiedPx": -0.349
+            },
+            {
+              "candidateIndex": 15,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 6.087,
+              "centreErrorBallDiameters": 0.1127,
+              "dxRectifiedPx": 4.502,
+              "dyRectifiedPx": -4.097
+            }
+          ]
+        }
+      ],
+      "rawUnfiltered": [
+        {
+          "votes": 9.0,
+          "scaledRawVotes": 7.534365512120215,
+          "candidateCount": 161,
+          "labelCount": 15,
+          "matchedCount": 12,
+          "recall": 0.8,
+          "unmatchedCandidateCount": 149,
+          "unmatchedLabelIds": [
+            "red-07",
+            "yellow-01",
+            "yellow-06"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 7.204,
+          "maximumMatchedCentreErrorRectifiedPx": 22.514,
+          "matches": [
+            {
+              "candidateIndex": 53,
+              "labelId": "yellow-03",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 0.87,
+              "centreErrorBallDiameters": 0.0161,
+              "dxRectifiedPx": -0.526,
+              "dyRectifiedPx": 0.693
+            },
+            {
+              "candidateIndex": 47,
+              "labelId": "yellow-07",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 1.878,
+              "centreErrorBallDiameters": 0.0348,
+              "dxRectifiedPx": -1.821,
+              "dyRectifiedPx": 0.459
+            },
+            {
+              "candidateIndex": 33,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 2.402,
+              "centreErrorBallDiameters": 0.0445,
+              "dxRectifiedPx": -1.883,
+              "dyRectifiedPx": 1.492
+            },
+            {
+              "candidateIndex": 37,
+              "labelId": "red-01",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 4.451,
+              "centreErrorBallDiameters": 0.0824,
+              "dxRectifiedPx": 4.389,
+              "dyRectifiedPx": 0.742
+            },
+            {
+              "candidateIndex": 3,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 4.518,
+              "centreErrorBallDiameters": 0.0837,
+              "dxRectifiedPx": 1.388,
+              "dyRectifiedPx": 4.299
+            },
+            {
+              "candidateIndex": 8,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 6.046,
+              "centreErrorBallDiameters": 0.112,
+              "dxRectifiedPx": 1.8,
+              "dyRectifiedPx": -5.772
+            },
+            {
+              "candidateIndex": 61,
+              "labelId": "red-03",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 8.362,
+              "centreErrorBallDiameters": 0.1548,
+              "dxRectifiedPx": 8.255,
+              "dyRectifiedPx": -1.332
+            },
+            {
+              "candidateIndex": 24,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 11.296,
+              "centreErrorBallDiameters": 0.2092,
+              "dxRectifiedPx": 11.112,
+              "dyRectifiedPx": 2.029
+            },
+            {
+              "candidateIndex": 26,
+              "labelId": "red-05",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 13.516,
+              "centreErrorBallDiameters": 0.2503,
+              "dxRectifiedPx": 1.079,
+              "dyRectifiedPx": 13.473
+            },
+            {
+              "candidateIndex": 18,
+              "labelId": "red-04",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 13.772,
+              "centreErrorBallDiameters": 0.255,
+              "dxRectifiedPx": 9.261,
+              "dyRectifiedPx": 10.194
+            },
+            {
+              "candidateIndex": 88,
+              "labelId": "cue-01",
+              "labelColour": "cue",
+              "centreErrorRectifiedPx": 14.704,
+              "centreErrorBallDiameters": 0.2723,
+              "dxRectifiedPx": 2.014,
+              "dyRectifiedPx": 14.565
+            },
+            {
+              "candidateIndex": 22,
+              "labelId": "red-06",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 22.514,
+              "centreErrorBallDiameters": 0.4169,
+              "dxRectifiedPx": 10.509,
+              "dyRectifiedPx": 19.911
+            }
+          ],
+          "medianLocalAnisotropy": 1.0483
+        },
+        {
+          "votes": 12.0,
+          "scaledRawVotes": 10.045820682826953,
+          "candidateCount": 106,
+          "labelCount": 15,
+          "matchedCount": 10,
+          "recall": 0.6667,
+          "unmatchedCandidateCount": 96,
+          "unmatchedLabelIds": [
+            "cue-01",
+            "red-03",
+            "red-06",
+            "red-07",
+            "yellow-01"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 8.994,
+          "maximumMatchedCentreErrorRectifiedPx": 25.165,
+          "matches": [
+            {
+              "candidateIndex": 39,
+              "labelId": "yellow-03",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 0.87,
+              "centreErrorBallDiameters": 0.0161,
+              "dxRectifiedPx": -0.526,
+              "dyRectifiedPx": 0.693
+            },
+            {
+              "candidateIndex": 21,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 3.036,
+              "centreErrorBallDiameters": 0.0562,
+              "dxRectifiedPx": -2.971,
+              "dyRectifiedPx": -0.622
+            },
+            {
+              "candidateIndex": 30,
+              "labelId": "red-01",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 4.451,
+              "centreErrorBallDiameters": 0.0824,
+              "dxRectifiedPx": 4.389,
+              "dyRectifiedPx": 0.742
+            },
+            {
+              "candidateIndex": 6,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 6.046,
+              "centreErrorBallDiameters": 0.112,
+              "dxRectifiedPx": 1.8,
+              "dyRectifiedPx": -5.772
+            },
+            {
+              "candidateIndex": 88,
+              "labelId": "yellow-07",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 6.573,
+              "centreErrorBallDiameters": 0.1217,
+              "dxRectifiedPx": -0.479,
+              "dyRectifiedPx": -6.555
+            },
+            {
+              "candidateIndex": 20,
+              "labelId": "red-04",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 11.415,
+              "centreErrorBallDiameters": 0.2114,
+              "dxRectifiedPx": 9.327,
+              "dyRectifiedPx": 6.582
+            },
+            {
+              "candidateIndex": 19,
+              "labelId": "red-05",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 13.516,
+              "centreErrorBallDiameters": 0.2503,
+              "dxRectifiedPx": 1.079,
+              "dyRectifiedPx": 13.473
+            },
+            {
+              "candidateIndex": 48,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 14.605,
+              "centreErrorBallDiameters": 0.2705,
+              "dxRectifiedPx": 6.332,
+              "dyRectifiedPx": 13.161
+            },
+            {
+              "candidateIndex": 75,
+              "labelId": "yellow-06",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 21.337,
+              "centreErrorBallDiameters": 0.3951,
+              "dxRectifiedPx": 13.463,
+              "dyRectifiedPx": -16.553
+            },
+            {
+              "candidateIndex": 96,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 25.165,
+              "centreErrorBallDiameters": 0.466,
+              "dxRectifiedPx": 7.708,
+              "dyRectifiedPx": 23.956
+            }
+          ],
+          "medianLocalAnisotropy": 1.0497
+        },
+        {
+          "votes": 15.0,
+          "scaledRawVotes": 12.557275853533692,
+          "candidateCount": 45,
+          "labelCount": 15,
+          "matchedCount": 5,
+          "recall": 0.3333,
+          "unmatchedCandidateCount": 40,
+          "unmatchedLabelIds": [
+            "cue-01",
+            "red-01",
+            "red-03",
+            "red-04",
+            "red-06",
+            "red-07",
+            "yellow-01",
+            "yellow-02",
+            "yellow-06",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 13.7,
+          "maximumMatchedCentreErrorRectifiedPx": 26.93,
+          "matches": [
+            {
+              "candidateIndex": 13,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 3.036,
+              "centreErrorBallDiameters": 0.0562,
+              "dxRectifiedPx": -2.971,
+              "dyRectifiedPx": -0.622
+            },
+            {
+              "candidateIndex": 12,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 8.36,
+              "centreErrorBallDiameters": 0.1548,
+              "dxRectifiedPx": 6.11,
+              "dyRectifiedPx": -5.706
+            },
+            {
+              "candidateIndex": 36,
+              "labelId": "yellow-03",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 13.7,
+              "centreErrorBallDiameters": 0.2537,
+              "dxRectifiedPx": -10.073,
+              "dyRectifiedPx": -9.286
+            },
+            {
+              "candidateIndex": 29,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 14.605,
+              "centreErrorBallDiameters": 0.2705,
+              "dxRectifiedPx": 6.332,
+              "dyRectifiedPx": 13.161
+            },
+            {
+              "candidateIndex": 24,
+              "labelId": "red-05",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 26.93,
+              "centreErrorBallDiameters": 0.4987,
+              "dxRectifiedPx": 10.98,
+              "dyRectifiedPx": 24.59
+            }
+          ],
+          "medianLocalAnisotropy": 1.0509
+        }
+      ],
+      "rawLocalRadiusFilters": [
+        {
+          "votes": 9.0,
+          "relativeTolerance": 0.2,
+          "unfilteredCandidateCount": 161,
+          "candidateCount": 87,
+          "labelCount": 15,
+          "matchedCount": 8,
+          "recall": 0.5333,
+          "unmatchedCandidateCount": 79,
+          "unmatchedLabelIds": [
+            "red-01",
+            "red-02",
+            "red-05",
+            "red-07",
+            "yellow-01",
+            "yellow-04",
+            "yellow-06"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 7.204,
+          "maximumMatchedCentreErrorRectifiedPx": 22.514,
+          "matches": [
+            {
+              "candidateIndex": 24,
+              "labelId": "yellow-03",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 0.87,
+              "centreErrorBallDiameters": 0.0161,
+              "dxRectifiedPx": -0.526,
+              "dyRectifiedPx": 0.693
+            },
+            {
+              "candidateIndex": 18,
+              "labelId": "yellow-07",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 1.878,
+              "centreErrorBallDiameters": 0.0348,
+              "dxRectifiedPx": -1.821,
+              "dyRectifiedPx": 0.459
+            },
+            {
+              "candidateIndex": 12,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 2.402,
+              "centreErrorBallDiameters": 0.0445,
+              "dxRectifiedPx": -1.883,
+              "dyRectifiedPx": 1.492
+            },
+            {
+              "candidateIndex": 1,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 6.046,
+              "centreErrorBallDiameters": 0.112,
+              "dxRectifiedPx": 1.8,
+              "dyRectifiedPx": -5.772
+            },
+            {
+              "candidateIndex": 29,
+              "labelId": "red-03",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 8.362,
+              "centreErrorBallDiameters": 0.1548,
+              "dxRectifiedPx": 8.255,
+              "dyRectifiedPx": -1.332
+            },
+            {
+              "candidateIndex": 5,
+              "labelId": "red-04",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 13.772,
+              "centreErrorBallDiameters": 0.255,
+              "dxRectifiedPx": 9.261,
+              "dyRectifiedPx": 10.194
+            },
+            {
+              "candidateIndex": 47,
+              "labelId": "cue-01",
+              "labelColour": "cue",
+              "centreErrorRectifiedPx": 14.704,
+              "centreErrorBallDiameters": 0.2723,
+              "dxRectifiedPx": 2.014,
+              "dyRectifiedPx": 14.565
+            },
+            {
+              "candidateIndex": 8,
+              "labelId": "red-06",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 22.514,
+              "centreErrorBallDiameters": 0.4169,
+              "dxRectifiedPx": 10.509,
+              "dyRectifiedPx": 19.911
+            }
+          ]
+        },
+        {
+          "votes": 9.0,
+          "relativeTolerance": 0.35,
+          "unfilteredCandidateCount": 161,
+          "candidateCount": 141,
+          "labelCount": 15,
+          "matchedCount": 10,
+          "recall": 0.6667,
+          "unmatchedCandidateCount": 131,
+          "unmatchedLabelIds": [
+            "red-01",
+            "red-05",
+            "red-07",
+            "yellow-01",
+            "yellow-06"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 7.204,
+          "maximumMatchedCentreErrorRectifiedPx": 22.514,
+          "matches": [
+            {
+              "candidateIndex": 41,
+              "labelId": "yellow-03",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 0.87,
+              "centreErrorBallDiameters": 0.0161,
+              "dxRectifiedPx": -0.526,
+              "dyRectifiedPx": 0.693
+            },
+            {
+              "candidateIndex": 35,
+              "labelId": "yellow-07",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 1.878,
+              "centreErrorBallDiameters": 0.0348,
+              "dxRectifiedPx": -1.821,
+              "dyRectifiedPx": 0.459
+            },
+            {
+              "candidateIndex": 26,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 2.402,
+              "centreErrorBallDiameters": 0.0445,
+              "dxRectifiedPx": -1.883,
+              "dyRectifiedPx": 1.492
+            },
+            {
+              "candidateIndex": 2,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 4.518,
+              "centreErrorBallDiameters": 0.0837,
+              "dxRectifiedPx": 1.388,
+              "dyRectifiedPx": 4.299
+            },
+            {
+              "candidateIndex": 7,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 6.046,
+              "centreErrorBallDiameters": 0.112,
+              "dxRectifiedPx": 1.8,
+              "dyRectifiedPx": -5.772
+            },
+            {
+              "candidateIndex": 47,
+              "labelId": "red-03",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 8.362,
+              "centreErrorBallDiameters": 0.1548,
+              "dxRectifiedPx": 8.255,
+              "dyRectifiedPx": -1.332
+            },
+            {
+              "candidateIndex": 19,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 11.296,
+              "centreErrorBallDiameters": 0.2092,
+              "dxRectifiedPx": 11.112,
+              "dyRectifiedPx": 2.029
+            },
+            {
+              "candidateIndex": 14,
+              "labelId": "red-04",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 13.772,
+              "centreErrorBallDiameters": 0.255,
+              "dxRectifiedPx": 9.261,
+              "dyRectifiedPx": 10.194
+            },
+            {
+              "candidateIndex": 72,
+              "labelId": "cue-01",
+              "labelColour": "cue",
+              "centreErrorRectifiedPx": 14.704,
+              "centreErrorBallDiameters": 0.2723,
+              "dxRectifiedPx": 2.014,
+              "dyRectifiedPx": 14.565
+            },
+            {
+              "candidateIndex": 18,
+              "labelId": "red-06",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 22.514,
+              "centreErrorBallDiameters": 0.4169,
+              "dxRectifiedPx": 10.509,
+              "dyRectifiedPx": 19.911
+            }
+          ]
+        },
+        {
+          "votes": 9.0,
+          "relativeTolerance": 0.5,
+          "unfilteredCandidateCount": 161,
+          "candidateCount": 161,
+          "labelCount": 15,
+          "matchedCount": 12,
+          "recall": 0.8,
+          "unmatchedCandidateCount": 149,
+          "unmatchedLabelIds": [
+            "red-07",
+            "yellow-01",
+            "yellow-06"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 7.204,
+          "maximumMatchedCentreErrorRectifiedPx": 22.514,
+          "matches": [
+            {
+              "candidateIndex": 53,
+              "labelId": "yellow-03",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 0.87,
+              "centreErrorBallDiameters": 0.0161,
+              "dxRectifiedPx": -0.526,
+              "dyRectifiedPx": 0.693
+            },
+            {
+              "candidateIndex": 47,
+              "labelId": "yellow-07",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 1.878,
+              "centreErrorBallDiameters": 0.0348,
+              "dxRectifiedPx": -1.821,
+              "dyRectifiedPx": 0.459
+            },
+            {
+              "candidateIndex": 33,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 2.402,
+              "centreErrorBallDiameters": 0.0445,
+              "dxRectifiedPx": -1.883,
+              "dyRectifiedPx": 1.492
+            },
+            {
+              "candidateIndex": 37,
+              "labelId": "red-01",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 4.451,
+              "centreErrorBallDiameters": 0.0824,
+              "dxRectifiedPx": 4.389,
+              "dyRectifiedPx": 0.742
+            },
+            {
+              "candidateIndex": 3,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 4.518,
+              "centreErrorBallDiameters": 0.0837,
+              "dxRectifiedPx": 1.388,
+              "dyRectifiedPx": 4.299
+            },
+            {
+              "candidateIndex": 8,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 6.046,
+              "centreErrorBallDiameters": 0.112,
+              "dxRectifiedPx": 1.8,
+              "dyRectifiedPx": -5.772
+            },
+            {
+              "candidateIndex": 61,
+              "labelId": "red-03",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 8.362,
+              "centreErrorBallDiameters": 0.1548,
+              "dxRectifiedPx": 8.255,
+              "dyRectifiedPx": -1.332
+            },
+            {
+              "candidateIndex": 24,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 11.296,
+              "centreErrorBallDiameters": 0.2092,
+              "dxRectifiedPx": 11.112,
+              "dyRectifiedPx": 2.029
+            },
+            {
+              "candidateIndex": 26,
+              "labelId": "red-05",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 13.516,
+              "centreErrorBallDiameters": 0.2503,
+              "dxRectifiedPx": 1.079,
+              "dyRectifiedPx": 13.473
+            },
+            {
+              "candidateIndex": 18,
+              "labelId": "red-04",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 13.772,
+              "centreErrorBallDiameters": 0.255,
+              "dxRectifiedPx": 9.261,
+              "dyRectifiedPx": 10.194
+            },
+            {
+              "candidateIndex": 88,
+              "labelId": "cue-01",
+              "labelColour": "cue",
+              "centreErrorRectifiedPx": 14.704,
+              "centreErrorBallDiameters": 0.2723,
+              "dxRectifiedPx": 2.014,
+              "dyRectifiedPx": 14.565
+            },
+            {
+              "candidateIndex": 22,
+              "labelId": "red-06",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 22.514,
+              "centreErrorBallDiameters": 0.4169,
+              "dxRectifiedPx": 10.509,
+              "dyRectifiedPx": 19.911
+            }
+          ]
+        },
+        {
+          "votes": 12.0,
+          "relativeTolerance": 0.2,
+          "unfilteredCandidateCount": 106,
+          "candidateCount": 54,
+          "labelCount": 15,
+          "matchedCount": 7,
+          "recall": 0.4667,
+          "unmatchedCandidateCount": 47,
+          "unmatchedLabelIds": [
+            "cue-01",
+            "red-01",
+            "red-03",
+            "red-04",
+            "red-05",
+            "red-06",
+            "red-07",
+            "yellow-01"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 6.573,
+          "maximumMatchedCentreErrorRectifiedPx": 25.165,
+          "matches": [
+            {
+              "candidateIndex": 17,
+              "labelId": "yellow-03",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 0.87,
+              "centreErrorBallDiameters": 0.0161,
+              "dxRectifiedPx": -0.526,
+              "dyRectifiedPx": 0.693
+            },
+            {
+              "candidateIndex": 7,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 3.036,
+              "centreErrorBallDiameters": 0.0562,
+              "dxRectifiedPx": -2.971,
+              "dyRectifiedPx": -0.622
+            },
+            {
+              "candidateIndex": 0,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 6.046,
+              "centreErrorBallDiameters": 0.112,
+              "dxRectifiedPx": 1.8,
+              "dyRectifiedPx": -5.772
+            },
+            {
+              "candidateIndex": 42,
+              "labelId": "yellow-07",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 6.573,
+              "centreErrorBallDiameters": 0.1217,
+              "dxRectifiedPx": -0.479,
+              "dyRectifiedPx": -6.555
+            },
+            {
+              "candidateIndex": 23,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 14.605,
+              "centreErrorBallDiameters": 0.2705,
+              "dxRectifiedPx": 6.332,
+              "dyRectifiedPx": 13.161
+            },
+            {
+              "candidateIndex": 37,
+              "labelId": "yellow-06",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 21.337,
+              "centreErrorBallDiameters": 0.3951,
+              "dxRectifiedPx": 13.463,
+              "dyRectifiedPx": -16.553
+            },
+            {
+              "candidateIndex": 49,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 25.165,
+              "centreErrorBallDiameters": 0.466,
+              "dxRectifiedPx": 7.708,
+              "dyRectifiedPx": 23.956
+            }
+          ]
+        },
+        {
+          "votes": 12.0,
+          "relativeTolerance": 0.35,
+          "unfilteredCandidateCount": 106,
+          "candidateCount": 92,
+          "labelCount": 15,
+          "matchedCount": 8,
+          "recall": 0.5333,
+          "unmatchedCandidateCount": 84,
+          "unmatchedLabelIds": [
+            "cue-01",
+            "red-01",
+            "red-03",
+            "red-05",
+            "red-06",
+            "red-07",
+            "yellow-01"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 8.994,
+          "maximumMatchedCentreErrorRectifiedPx": 25.165,
+          "matches": [
+            {
+              "candidateIndex": 31,
+              "labelId": "yellow-03",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 0.87,
+              "centreErrorBallDiameters": 0.0161,
+              "dxRectifiedPx": -0.526,
+              "dyRectifiedPx": 0.693
+            },
+            {
+              "candidateIndex": 17,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 3.036,
+              "centreErrorBallDiameters": 0.0562,
+              "dxRectifiedPx": -2.971,
+              "dyRectifiedPx": -0.622
+            },
+            {
+              "candidateIndex": 5,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 6.046,
+              "centreErrorBallDiameters": 0.112,
+              "dxRectifiedPx": 1.8,
+              "dyRectifiedPx": -5.772
+            },
+            {
+              "candidateIndex": 74,
+              "labelId": "yellow-07",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 6.573,
+              "centreErrorBallDiameters": 0.1217,
+              "dxRectifiedPx": -0.479,
+              "dyRectifiedPx": -6.555
+            },
+            {
+              "candidateIndex": 16,
+              "labelId": "red-04",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 11.415,
+              "centreErrorBallDiameters": 0.2114,
+              "dxRectifiedPx": 9.327,
+              "dyRectifiedPx": 6.582
+            },
+            {
+              "candidateIndex": 38,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 14.605,
+              "centreErrorBallDiameters": 0.2705,
+              "dxRectifiedPx": 6.332,
+              "dyRectifiedPx": 13.161
+            },
+            {
+              "candidateIndex": 62,
+              "labelId": "yellow-06",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 21.337,
+              "centreErrorBallDiameters": 0.3951,
+              "dxRectifiedPx": 13.463,
+              "dyRectifiedPx": -16.553
+            },
+            {
+              "candidateIndex": 82,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 25.165,
+              "centreErrorBallDiameters": 0.466,
+              "dxRectifiedPx": 7.708,
+              "dyRectifiedPx": 23.956
+            }
+          ]
+        },
+        {
+          "votes": 12.0,
+          "relativeTolerance": 0.5,
+          "unfilteredCandidateCount": 106,
+          "candidateCount": 106,
+          "labelCount": 15,
+          "matchedCount": 10,
+          "recall": 0.6667,
+          "unmatchedCandidateCount": 96,
+          "unmatchedLabelIds": [
+            "cue-01",
+            "red-03",
+            "red-06",
+            "red-07",
+            "yellow-01"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 8.994,
+          "maximumMatchedCentreErrorRectifiedPx": 25.165,
+          "matches": [
+            {
+              "candidateIndex": 39,
+              "labelId": "yellow-03",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 0.87,
+              "centreErrorBallDiameters": 0.0161,
+              "dxRectifiedPx": -0.526,
+              "dyRectifiedPx": 0.693
+            },
+            {
+              "candidateIndex": 21,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 3.036,
+              "centreErrorBallDiameters": 0.0562,
+              "dxRectifiedPx": -2.971,
+              "dyRectifiedPx": -0.622
+            },
+            {
+              "candidateIndex": 30,
+              "labelId": "red-01",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 4.451,
+              "centreErrorBallDiameters": 0.0824,
+              "dxRectifiedPx": 4.389,
+              "dyRectifiedPx": 0.742
+            },
+            {
+              "candidateIndex": 6,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 6.046,
+              "centreErrorBallDiameters": 0.112,
+              "dxRectifiedPx": 1.8,
+              "dyRectifiedPx": -5.772
+            },
+            {
+              "candidateIndex": 88,
+              "labelId": "yellow-07",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 6.573,
+              "centreErrorBallDiameters": 0.1217,
+              "dxRectifiedPx": -0.479,
+              "dyRectifiedPx": -6.555
+            },
+            {
+              "candidateIndex": 20,
+              "labelId": "red-04",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 11.415,
+              "centreErrorBallDiameters": 0.2114,
+              "dxRectifiedPx": 9.327,
+              "dyRectifiedPx": 6.582
+            },
+            {
+              "candidateIndex": 19,
+              "labelId": "red-05",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 13.516,
+              "centreErrorBallDiameters": 0.2503,
+              "dxRectifiedPx": 1.079,
+              "dyRectifiedPx": 13.473
+            },
+            {
+              "candidateIndex": 48,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 14.605,
+              "centreErrorBallDiameters": 0.2705,
+              "dxRectifiedPx": 6.332,
+              "dyRectifiedPx": 13.161
+            },
+            {
+              "candidateIndex": 75,
+              "labelId": "yellow-06",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 21.337,
+              "centreErrorBallDiameters": 0.3951,
+              "dxRectifiedPx": 13.463,
+              "dyRectifiedPx": -16.553
+            },
+            {
+              "candidateIndex": 96,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 25.165,
+              "centreErrorBallDiameters": 0.466,
+              "dxRectifiedPx": 7.708,
+              "dyRectifiedPx": 23.956
+            }
+          ]
+        },
+        {
+          "votes": 15.0,
+          "relativeTolerance": 0.2,
+          "unfilteredCandidateCount": 45,
+          "candidateCount": 27,
+          "labelCount": 15,
+          "matchedCount": 5,
+          "recall": 0.3333,
+          "unmatchedCandidateCount": 22,
+          "unmatchedLabelIds": [
+            "cue-01",
+            "red-01",
+            "red-03",
+            "red-04",
+            "red-06",
+            "red-07",
+            "yellow-01",
+            "yellow-02",
+            "yellow-06",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 13.7,
+          "maximumMatchedCentreErrorRectifiedPx": 26.93,
+          "matches": [
+            {
+              "candidateIndex": 4,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 3.036,
+              "centreErrorBallDiameters": 0.0562,
+              "dxRectifiedPx": -2.971,
+              "dyRectifiedPx": -0.622
+            },
+            {
+              "candidateIndex": 3,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 8.36,
+              "centreErrorBallDiameters": 0.1548,
+              "dxRectifiedPx": 6.11,
+              "dyRectifiedPx": -5.706
+            },
+            {
+              "candidateIndex": 20,
+              "labelId": "yellow-03",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 13.7,
+              "centreErrorBallDiameters": 0.2537,
+              "dxRectifiedPx": -10.073,
+              "dyRectifiedPx": -9.286
+            },
+            {
+              "candidateIndex": 15,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 14.605,
+              "centreErrorBallDiameters": 0.2705,
+              "dxRectifiedPx": 6.332,
+              "dyRectifiedPx": 13.161
+            },
+            {
+              "candidateIndex": 12,
+              "labelId": "red-05",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 26.93,
+              "centreErrorBallDiameters": 0.4987,
+              "dxRectifiedPx": 10.98,
+              "dyRectifiedPx": 24.59
+            }
+          ]
+        },
+        {
+          "votes": 15.0,
+          "relativeTolerance": 0.35,
+          "unfilteredCandidateCount": 45,
+          "candidateCount": 39,
+          "labelCount": 15,
+          "matchedCount": 5,
+          "recall": 0.3333,
+          "unmatchedCandidateCount": 34,
+          "unmatchedLabelIds": [
+            "cue-01",
+            "red-01",
+            "red-03",
+            "red-04",
+            "red-06",
+            "red-07",
+            "yellow-01",
+            "yellow-02",
+            "yellow-06",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 13.7,
+          "maximumMatchedCentreErrorRectifiedPx": 26.93,
+          "matches": [
+            {
+              "candidateIndex": 13,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 3.036,
+              "centreErrorBallDiameters": 0.0562,
+              "dxRectifiedPx": -2.971,
+              "dyRectifiedPx": -0.622
+            },
+            {
+              "candidateIndex": 12,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 8.36,
+              "centreErrorBallDiameters": 0.1548,
+              "dxRectifiedPx": 6.11,
+              "dyRectifiedPx": -5.706
+            },
+            {
+              "candidateIndex": 31,
+              "labelId": "yellow-03",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 13.7,
+              "centreErrorBallDiameters": 0.2537,
+              "dxRectifiedPx": -10.073,
+              "dyRectifiedPx": -9.286
+            },
+            {
+              "candidateIndex": 25,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 14.605,
+              "centreErrorBallDiameters": 0.2705,
+              "dxRectifiedPx": 6.332,
+              "dyRectifiedPx": 13.161
+            },
+            {
+              "candidateIndex": 21,
+              "labelId": "red-05",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 26.93,
+              "centreErrorBallDiameters": 0.4987,
+              "dxRectifiedPx": 10.98,
+              "dyRectifiedPx": 24.59
+            }
+          ]
+        },
+        {
+          "votes": 15.0,
+          "relativeTolerance": 0.5,
+          "unfilteredCandidateCount": 45,
+          "candidateCount": 45,
+          "labelCount": 15,
+          "matchedCount": 5,
+          "recall": 0.3333,
+          "unmatchedCandidateCount": 40,
+          "unmatchedLabelIds": [
+            "cue-01",
+            "red-01",
+            "red-03",
+            "red-04",
+            "red-06",
+            "red-07",
+            "yellow-01",
+            "yellow-02",
+            "yellow-06",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 13.7,
+          "maximumMatchedCentreErrorRectifiedPx": 26.93,
+          "matches": [
+            {
+              "candidateIndex": 13,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 3.036,
+              "centreErrorBallDiameters": 0.0562,
+              "dxRectifiedPx": -2.971,
+              "dyRectifiedPx": -0.622
+            },
+            {
+              "candidateIndex": 12,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 8.36,
+              "centreErrorBallDiameters": 0.1548,
+              "dxRectifiedPx": 6.11,
+              "dyRectifiedPx": -5.706
+            },
+            {
+              "candidateIndex": 36,
+              "labelId": "yellow-03",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 13.7,
+              "centreErrorBallDiameters": 0.2537,
+              "dxRectifiedPx": -10.073,
+              "dyRectifiedPx": -9.286
+            },
+            {
+              "candidateIndex": 29,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 14.605,
+              "centreErrorBallDiameters": 0.2705,
+              "dxRectifiedPx": 6.332,
+              "dyRectifiedPx": 13.161
+            },
+            {
+              "candidateIndex": 24,
+              "labelId": "red-05",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 26.93,
+              "centreErrorBallDiameters": 0.4987,
+              "dxRectifiedPx": 10.98,
+              "dyRectifiedPx": 24.59
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case": "dim-pocket-control",
+      "manifest": {
+        "image": {
+          "path": "work\\production\\evidence\\code65-source-frame-check-20261031\\exact-replay-input\\978.png",
+          "sha256": "b368348c63d924f5c7834e8e849b7287225ab525b470bdc3b85f7a8278cbbe70"
+        },
+        "receipt": {
+          "path": "work\\production\\evidence\\code65-source-frame-check-20261031\\exact-replay-input\\978.json",
+          "sha256": "653e1ea4bc6c927ba592ad796a6c084e49103c27003d13e5d23d0c98a3144034"
+        },
+        "labels": {
+          "path": "docs\\evidence\\pocket-cushion-centre-labels-20261031\\negative\\manual-centres-frame-978-draft.json",
+          "sha256": "08130aefb6d6eed81366d44274e35cc733b79df14b840e56464e46ce536fc251",
+          "status": "assistant draft; user review needed"
+        },
+        "frameId": 978,
+        "timeline": "2ea48e0c35cd474eb627acf970a7eec5",
+        "sourceTimeUs": 48922017388
+      },
+      "labelStatus": "assistant draft; user review needed",
+      "rectifiedBaseline": [
+        {
+          "votes": 9.0,
+          "candidateCount": 216,
+          "labelCount": 15,
+          "matchedCount": 9,
+          "recall": 0.6,
+          "unmatchedCandidateCount": 207,
+          "unmatchedLabelIds": [
+            "cue-01",
+            "red-01",
+            "red-05",
+            "yellow-01",
+            "yellow-03",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 5.553,
+          "maximumMatchedCentreErrorRectifiedPx": 23.978,
+          "matches": [
+            {
+              "candidateIndex": 0,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 1.815,
+              "centreErrorBallDiameters": 0.0336,
+              "dxRectifiedPx": 1.572,
+              "dyRectifiedPx": 0.908
+            },
+            {
+              "candidateIndex": 2,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 4.371,
+              "centreErrorBallDiameters": 0.0809,
+              "dxRectifiedPx": 3.597,
+              "dyRectifiedPx": -2.483
+            },
+            {
+              "candidateIndex": 1,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 4.572,
+              "centreErrorBallDiameters": 0.0847,
+              "dxRectifiedPx": 4.486,
+              "dyRectifiedPx": 0.886
+            },
+            {
+              "candidateIndex": 152,
+              "labelId": "red-07",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 4.663,
+              "centreErrorBallDiameters": 0.0864,
+              "dxRectifiedPx": 1.494,
+              "dyRectifiedPx": 4.417
+            },
+            {
+              "candidateIndex": 5,
+              "labelId": "yellow-06",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 5.553,
+              "centreErrorBallDiameters": 0.1028,
+              "dxRectifiedPx": -5.546,
+              "dyRectifiedPx": -0.27
+            },
+            {
+              "candidateIndex": 11,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 6.96,
+              "centreErrorBallDiameters": 0.1289,
+              "dxRectifiedPx": -6.316,
+              "dyRectifiedPx": -2.923
+            },
+            {
+              "candidateIndex": 29,
+              "labelId": "red-03",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 15.792,
+              "centreErrorBallDiameters": 0.2924,
+              "dxRectifiedPx": -4.833,
+              "dyRectifiedPx": -15.034
+            },
+            {
+              "candidateIndex": 96,
+              "labelId": "red-04",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 18.607,
+              "centreErrorBallDiameters": 0.3446,
+              "dxRectifiedPx": 2.761,
+              "dyRectifiedPx": -18.401
+            },
+            {
+              "candidateIndex": 31,
+              "labelId": "red-06",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 23.978,
+              "centreErrorBallDiameters": 0.444,
+              "dxRectifiedPx": 4.882,
+              "dyRectifiedPx": 23.475
+            }
+          ]
+        },
+        {
+          "votes": 12.0,
+          "candidateCount": 111,
+          "labelCount": 15,
+          "matchedCount": 8,
+          "recall": 0.5333,
+          "unmatchedCandidateCount": 103,
+          "unmatchedLabelIds": [
+            "cue-01",
+            "red-01",
+            "red-04",
+            "red-05",
+            "red-07",
+            "yellow-01",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 7.67,
+          "maximumMatchedCentreErrorRectifiedPx": 23.978,
+          "matches": [
+            {
+              "candidateIndex": 0,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 1.815,
+              "centreErrorBallDiameters": 0.0336,
+              "dxRectifiedPx": 1.572,
+              "dyRectifiedPx": 0.908
+            },
+            {
+              "candidateIndex": 4,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 2.14,
+              "centreErrorBallDiameters": 0.0396,
+              "dxRectifiedPx": -1.603,
+              "dyRectifiedPx": 1.417
+            },
+            {
+              "candidateIndex": 1,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 4.572,
+              "centreErrorBallDiameters": 0.0847,
+              "dxRectifiedPx": 4.486,
+              "dyRectifiedPx": 0.886
+            },
+            {
+              "candidateIndex": 69,
+              "labelId": "yellow-03",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 6.865,
+              "centreErrorBallDiameters": 0.1271,
+              "dxRectifiedPx": -4.604,
+              "dyRectifiedPx": -5.091
+            },
+            {
+              "candidateIndex": 10,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 8.475,
+              "centreErrorBallDiameters": 0.1569,
+              "dxRectifiedPx": -2.416,
+              "dyRectifiedPx": -8.123
+            },
+            {
+              "candidateIndex": 52,
+              "labelId": "yellow-06",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 10.713,
+              "centreErrorBallDiameters": 0.1984,
+              "dxRectifiedPx": 0.954,
+              "dyRectifiedPx": -10.67
+            },
+            {
+              "candidateIndex": 61,
+              "labelId": "red-03",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 17.447,
+              "centreErrorBallDiameters": 0.3231,
+              "dxRectifiedPx": -6.133,
+              "dyRectifiedPx": -16.334
+            },
+            {
+              "candidateIndex": 18,
+              "labelId": "red-06",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 23.978,
+              "centreErrorBallDiameters": 0.444,
+              "dxRectifiedPx": 4.882,
+              "dyRectifiedPx": 23.475
+            }
+          ]
+        },
+        {
+          "votes": 15.0,
+          "candidateCount": 64,
+          "labelCount": 15,
+          "matchedCount": 5,
+          "recall": 0.3333,
+          "unmatchedCandidateCount": 59,
+          "unmatchedLabelIds": [
+            "cue-01",
+            "red-01",
+            "red-04",
+            "red-05",
+            "red-06",
+            "red-07",
+            "yellow-01",
+            "yellow-03",
+            "yellow-06",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 4.572,
+          "maximumMatchedCentreErrorRectifiedPx": 17.447,
+          "matches": [
+            {
+              "candidateIndex": 25,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 1.162,
+              "centreErrorBallDiameters": 0.0215,
+              "dxRectifiedPx": -1.116,
+              "dyRectifiedPx": -0.323
+            },
+            {
+              "candidateIndex": 0,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 1.815,
+              "centreErrorBallDiameters": 0.0336,
+              "dxRectifiedPx": 1.572,
+              "dyRectifiedPx": 0.908
+            },
+            {
+              "candidateIndex": 1,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 4.572,
+              "centreErrorBallDiameters": 0.0847,
+              "dxRectifiedPx": 4.486,
+              "dyRectifiedPx": 0.886
+            },
+            {
+              "candidateIndex": 47,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 11.87,
+              "centreErrorBallDiameters": 0.2198,
+              "dxRectifiedPx": -5.503,
+              "dyRectifiedPx": 10.517
+            },
+            {
+              "candidateIndex": 38,
+              "labelId": "red-03",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 17.447,
+              "centreErrorBallDiameters": 0.3231,
+              "dxRectifiedPx": -6.133,
+              "dyRectifiedPx": -16.334
+            }
+          ]
+        }
+      ],
+      "rawUnfiltered": [
+        {
+          "votes": 9.0,
+          "scaledRawVotes": 7.534365512120215,
+          "candidateCount": 266,
+          "labelCount": 15,
+          "matchedCount": 10,
+          "recall": 0.6667,
+          "unmatchedCandidateCount": 256,
+          "unmatchedLabelIds": [
+            "cue-01",
+            "red-01",
+            "red-05",
+            "yellow-03",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 11.578,
+          "maximumMatchedCentreErrorRectifiedPx": 26.047,
+          "matches": [
+            {
+              "candidateIndex": 30,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 2.163,
+              "centreErrorBallDiameters": 0.04,
+              "dxRectifiedPx": -2.16,
+              "dyRectifiedPx": -0.107
+            },
+            {
+              "candidateIndex": 0,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 2.403,
+              "centreErrorBallDiameters": 0.0445,
+              "dxRectifiedPx": 1.564,
+              "dyRectifiedPx": 1.825
+            },
+            {
+              "candidateIndex": 5,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 2.932,
+              "centreErrorBallDiameters": 0.0543,
+              "dxRectifiedPx": 2.713,
+              "dyRectifiedPx": 1.111
+            },
+            {
+              "candidateIndex": 4,
+              "labelId": "yellow-06",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 3.265,
+              "centreErrorBallDiameters": 0.0605,
+              "dxRectifiedPx": -3.262,
+              "dyRectifiedPx": 0.117
+            },
+            {
+              "candidateIndex": 193,
+              "labelId": "yellow-01",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 9.567,
+              "centreErrorBallDiameters": 0.1772,
+              "dxRectifiedPx": -9.525,
+              "dyRectifiedPx": -0.889
+            },
+            {
+              "candidateIndex": 242,
+              "labelId": "red-07",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 13.588,
+              "centreErrorBallDiameters": 0.2516,
+              "dxRectifiedPx": 9.134,
+              "dyRectifiedPx": -10.06
+            },
+            {
+              "candidateIndex": 26,
+              "labelId": "red-04",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 16.793,
+              "centreErrorBallDiameters": 0.311,
+              "dxRectifiedPx": -13.495,
+              "dyRectifiedPx": 9.994
+            },
+            {
+              "candidateIndex": 219,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 21.038,
+              "centreErrorBallDiameters": 0.3896,
+              "dxRectifiedPx": 15.85,
+              "dyRectifiedPx": 13.834
+            },
+            {
+              "candidateIndex": 50,
+              "labelId": "red-03",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 21.843,
+              "centreErrorBallDiameters": 0.4045,
+              "dxRectifiedPx": 5.725,
+              "dyRectifiedPx": -21.079
+            },
+            {
+              "candidateIndex": 134,
+              "labelId": "red-06",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 26.047,
+              "centreErrorBallDiameters": 0.4824,
+              "dxRectifiedPx": 23.011,
+              "dyRectifiedPx": 12.204
+            }
+          ],
+          "medianLocalAnisotropy": 1.0344
+        },
+        {
+          "votes": 12.0,
+          "scaledRawVotes": 10.045820682826953,
+          "candidateCount": 192,
+          "labelCount": 15,
+          "matchedCount": 8,
+          "recall": 0.5333,
+          "unmatchedCandidateCount": 184,
+          "unmatchedLabelIds": [
+            "cue-01",
+            "red-01",
+            "red-05",
+            "red-07",
+            "yellow-01",
+            "yellow-03",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 16.677,
+          "maximumMatchedCentreErrorRectifiedPx": 26.335,
+          "matches": [
+            {
+              "candidateIndex": 0,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 2.403,
+              "centreErrorBallDiameters": 0.0445,
+              "dxRectifiedPx": 1.564,
+              "dyRectifiedPx": 1.825
+            },
+            {
+              "candidateIndex": 4,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 4.34,
+              "centreErrorBallDiameters": 0.0804,
+              "dxRectifiedPx": 4.315,
+              "dyRectifiedPx": -0.464
+            },
+            {
+              "candidateIndex": 2,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 5.016,
+              "centreErrorBallDiameters": 0.0929,
+              "dxRectifiedPx": 1.784,
+              "dyRectifiedPx": -4.689
+            },
+            {
+              "candidateIndex": 22,
+              "labelId": "yellow-06",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 14.533,
+              "centreErrorBallDiameters": 0.2691,
+              "dxRectifiedPx": -1.947,
+              "dyRectifiedPx": -14.401
+            },
+            {
+              "candidateIndex": 169,
+              "labelId": "red-04",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 18.82,
+              "centreErrorBallDiameters": 0.3485,
+              "dxRectifiedPx": -13.098,
+              "dyRectifiedPx": -13.514
+            },
+            {
+              "candidateIndex": 74,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 22.06,
+              "centreErrorBallDiameters": 0.4085,
+              "dxRectifiedPx": -20.76,
+              "dyRectifiedPx": 7.461
+            },
+            {
+              "candidateIndex": 139,
+              "labelId": "red-06",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 23.649,
+              "centreErrorBallDiameters": 0.4379,
+              "dxRectifiedPx": 22.921,
+              "dyRectifiedPx": 5.822
+            },
+            {
+              "candidateIndex": 108,
+              "labelId": "red-03",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 26.335,
+              "centreErrorBallDiameters": 0.4877,
+              "dxRectifiedPx": 7.366,
+              "dyRectifiedPx": -25.284
+            }
+          ],
+          "medianLocalAnisotropy": 1.0317
+        },
+        {
+          "votes": 15.0,
+          "scaledRawVotes": 12.557275853533692,
+          "candidateCount": 94,
+          "labelCount": 15,
+          "matchedCount": 4,
+          "recall": 0.2667,
+          "unmatchedCandidateCount": 90,
+          "unmatchedLabelIds": [
+            "cue-01",
+            "red-01",
+            "red-02",
+            "red-04",
+            "red-05",
+            "red-06",
+            "red-07",
+            "yellow-01",
+            "yellow-02",
+            "yellow-03",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 9.774,
+          "maximumMatchedCentreErrorRectifiedPx": 17.318,
+          "matches": [
+            {
+              "candidateIndex": 0,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 2.403,
+              "centreErrorBallDiameters": 0.0445,
+              "dxRectifiedPx": 1.564,
+              "dyRectifiedPx": 1.825
+            },
+            {
+              "candidateIndex": 1,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 5.016,
+              "centreErrorBallDiameters": 0.0929,
+              "dxRectifiedPx": 1.784,
+              "dyRectifiedPx": -4.689
+            },
+            {
+              "candidateIndex": 11,
+              "labelId": "yellow-06",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 14.533,
+              "centreErrorBallDiameters": 0.2691,
+              "dxRectifiedPx": -1.947,
+              "dyRectifiedPx": -14.401
+            },
+            {
+              "candidateIndex": 61,
+              "labelId": "red-03",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 17.318,
+              "centreErrorBallDiameters": 0.3207,
+              "dxRectifiedPx": -7.42,
+              "dyRectifiedPx": -15.648
+            }
+          ],
+          "medianLocalAnisotropy": 1.0279
+        }
+      ],
+      "rawLocalRadiusFilters": [
+        {
+          "votes": 9.0,
+          "relativeTolerance": 0.2,
+          "unfilteredCandidateCount": 266,
+          "candidateCount": 180,
+          "labelCount": 15,
+          "matchedCount": 7,
+          "recall": 0.4667,
+          "unmatchedCandidateCount": 173,
+          "unmatchedLabelIds": [
+            "cue-01",
+            "red-01",
+            "red-02",
+            "red-04",
+            "red-05",
+            "red-07",
+            "yellow-03",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 9.567,
+          "maximumMatchedCentreErrorRectifiedPx": 26.047,
+          "matches": [
+            {
+              "candidateIndex": 20,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 2.163,
+              "centreErrorBallDiameters": 0.04,
+              "dxRectifiedPx": -2.16,
+              "dyRectifiedPx": -0.107
+            },
+            {
+              "candidateIndex": 0,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 2.403,
+              "centreErrorBallDiameters": 0.0445,
+              "dxRectifiedPx": 1.564,
+              "dyRectifiedPx": 1.825
+            },
+            {
+              "candidateIndex": 3,
+              "labelId": "yellow-06",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 3.265,
+              "centreErrorBallDiameters": 0.0605,
+              "dxRectifiedPx": -3.262,
+              "dyRectifiedPx": 0.117
+            },
+            {
+              "candidateIndex": 127,
+              "labelId": "yellow-01",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 9.567,
+              "centreErrorBallDiameters": 0.1772,
+              "dxRectifiedPx": -9.525,
+              "dyRectifiedPx": -0.889
+            },
+            {
+              "candidateIndex": 147,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 21.038,
+              "centreErrorBallDiameters": 0.3896,
+              "dxRectifiedPx": 15.85,
+              "dyRectifiedPx": 13.834
+            },
+            {
+              "candidateIndex": 35,
+              "labelId": "red-03",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 21.843,
+              "centreErrorBallDiameters": 0.4045,
+              "dxRectifiedPx": 5.725,
+              "dyRectifiedPx": -21.079
+            },
+            {
+              "candidateIndex": 91,
+              "labelId": "red-06",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 26.047,
+              "centreErrorBallDiameters": 0.4824,
+              "dxRectifiedPx": 23.011,
+              "dyRectifiedPx": 12.204
+            }
+          ]
+        },
+        {
+          "votes": 9.0,
+          "relativeTolerance": 0.35,
+          "unfilteredCandidateCount": 266,
+          "candidateCount": 258,
+          "labelCount": 15,
+          "matchedCount": 9,
+          "recall": 0.6,
+          "unmatchedCandidateCount": 249,
+          "unmatchedLabelIds": [
+            "cue-01",
+            "red-01",
+            "red-04",
+            "red-05",
+            "yellow-03",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 9.567,
+          "maximumMatchedCentreErrorRectifiedPx": 26.047,
+          "matches": [
+            {
+              "candidateIndex": 27,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 2.163,
+              "centreErrorBallDiameters": 0.04,
+              "dxRectifiedPx": -2.16,
+              "dyRectifiedPx": -0.107
+            },
+            {
+              "candidateIndex": 0,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 2.403,
+              "centreErrorBallDiameters": 0.0445,
+              "dxRectifiedPx": 1.564,
+              "dyRectifiedPx": 1.825
+            },
+            {
+              "candidateIndex": 4,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 2.932,
+              "centreErrorBallDiameters": 0.0543,
+              "dxRectifiedPx": 2.713,
+              "dyRectifiedPx": 1.111
+            },
+            {
+              "candidateIndex": 3,
+              "labelId": "yellow-06",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 3.265,
+              "centreErrorBallDiameters": 0.0605,
+              "dxRectifiedPx": -3.262,
+              "dyRectifiedPx": 0.117
+            },
+            {
+              "candidateIndex": 187,
+              "labelId": "yellow-01",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 9.567,
+              "centreErrorBallDiameters": 0.1772,
+              "dxRectifiedPx": -9.525,
+              "dyRectifiedPx": -0.889
+            },
+            {
+              "candidateIndex": 234,
+              "labelId": "red-07",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 13.588,
+              "centreErrorBallDiameters": 0.2516,
+              "dxRectifiedPx": 9.134,
+              "dyRectifiedPx": -10.06
+            },
+            {
+              "candidateIndex": 212,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 21.038,
+              "centreErrorBallDiameters": 0.3896,
+              "dxRectifiedPx": 15.85,
+              "dyRectifiedPx": 13.834
+            },
+            {
+              "candidateIndex": 47,
+              "labelId": "red-03",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 21.843,
+              "centreErrorBallDiameters": 0.4045,
+              "dxRectifiedPx": 5.725,
+              "dyRectifiedPx": -21.079
+            },
+            {
+              "candidateIndex": 130,
+              "labelId": "red-06",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 26.047,
+              "centreErrorBallDiameters": 0.4824,
+              "dxRectifiedPx": 23.011,
+              "dyRectifiedPx": 12.204
+            }
+          ]
+        },
+        {
+          "votes": 9.0,
+          "relativeTolerance": 0.5,
+          "unfilteredCandidateCount": 266,
+          "candidateCount": 266,
+          "labelCount": 15,
+          "matchedCount": 10,
+          "recall": 0.6667,
+          "unmatchedCandidateCount": 256,
+          "unmatchedLabelIds": [
+            "cue-01",
+            "red-01",
+            "red-05",
+            "yellow-03",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 11.578,
+          "maximumMatchedCentreErrorRectifiedPx": 26.047,
+          "matches": [
+            {
+              "candidateIndex": 30,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 2.163,
+              "centreErrorBallDiameters": 0.04,
+              "dxRectifiedPx": -2.16,
+              "dyRectifiedPx": -0.107
+            },
+            {
+              "candidateIndex": 0,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 2.403,
+              "centreErrorBallDiameters": 0.0445,
+              "dxRectifiedPx": 1.564,
+              "dyRectifiedPx": 1.825
+            },
+            {
+              "candidateIndex": 5,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 2.932,
+              "centreErrorBallDiameters": 0.0543,
+              "dxRectifiedPx": 2.713,
+              "dyRectifiedPx": 1.111
+            },
+            {
+              "candidateIndex": 4,
+              "labelId": "yellow-06",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 3.265,
+              "centreErrorBallDiameters": 0.0605,
+              "dxRectifiedPx": -3.262,
+              "dyRectifiedPx": 0.117
+            },
+            {
+              "candidateIndex": 193,
+              "labelId": "yellow-01",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 9.567,
+              "centreErrorBallDiameters": 0.1772,
+              "dxRectifiedPx": -9.525,
+              "dyRectifiedPx": -0.889
+            },
+            {
+              "candidateIndex": 242,
+              "labelId": "red-07",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 13.588,
+              "centreErrorBallDiameters": 0.2516,
+              "dxRectifiedPx": 9.134,
+              "dyRectifiedPx": -10.06
+            },
+            {
+              "candidateIndex": 26,
+              "labelId": "red-04",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 16.793,
+              "centreErrorBallDiameters": 0.311,
+              "dxRectifiedPx": -13.495,
+              "dyRectifiedPx": 9.994
+            },
+            {
+              "candidateIndex": 219,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 21.038,
+              "centreErrorBallDiameters": 0.3896,
+              "dxRectifiedPx": 15.85,
+              "dyRectifiedPx": 13.834
+            },
+            {
+              "candidateIndex": 50,
+              "labelId": "red-03",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 21.843,
+              "centreErrorBallDiameters": 0.4045,
+              "dxRectifiedPx": 5.725,
+              "dyRectifiedPx": -21.079
+            },
+            {
+              "candidateIndex": 134,
+              "labelId": "red-06",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 26.047,
+              "centreErrorBallDiameters": 0.4824,
+              "dxRectifiedPx": 23.011,
+              "dyRectifiedPx": 12.204
+            }
+          ]
+        },
+        {
+          "votes": 12.0,
+          "relativeTolerance": 0.2,
+          "unfilteredCandidateCount": 192,
+          "candidateCount": 133,
+          "labelCount": 15,
+          "matchedCount": 6,
+          "recall": 0.4,
+          "unmatchedCandidateCount": 127,
+          "unmatchedLabelIds": [
+            "cue-01",
+            "red-01",
+            "red-02",
+            "red-05",
+            "red-07",
+            "yellow-01",
+            "yellow-03",
+            "yellow-06",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 20.44,
+          "maximumMatchedCentreErrorRectifiedPx": 26.335,
+          "matches": [
+            {
+              "candidateIndex": 0,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 2.403,
+              "centreErrorBallDiameters": 0.0445,
+              "dxRectifiedPx": 1.564,
+              "dyRectifiedPx": 1.825
+            },
+            {
+              "candidateIndex": 1,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 5.016,
+              "centreErrorBallDiameters": 0.0929,
+              "dxRectifiedPx": 1.784,
+              "dyRectifiedPx": -4.689
+            },
+            {
+              "candidateIndex": 118,
+              "labelId": "red-04",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 18.82,
+              "centreErrorBallDiameters": 0.3485,
+              "dxRectifiedPx": -13.098,
+              "dyRectifiedPx": -13.514
+            },
+            {
+              "candidateIndex": 45,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 22.06,
+              "centreErrorBallDiameters": 0.4085,
+              "dxRectifiedPx": -20.76,
+              "dyRectifiedPx": 7.461
+            },
+            {
+              "candidateIndex": 94,
+              "labelId": "red-06",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 23.649,
+              "centreErrorBallDiameters": 0.4379,
+              "dxRectifiedPx": 22.921,
+              "dyRectifiedPx": 5.822
+            },
+            {
+              "candidateIndex": 72,
+              "labelId": "red-03",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 26.335,
+              "centreErrorBallDiameters": 0.4877,
+              "dxRectifiedPx": 7.366,
+              "dyRectifiedPx": -25.284
+            }
+          ]
+        },
+        {
+          "votes": 12.0,
+          "relativeTolerance": 0.35,
+          "unfilteredCandidateCount": 192,
+          "candidateCount": 190,
+          "labelCount": 15,
+          "matchedCount": 8,
+          "recall": 0.5333,
+          "unmatchedCandidateCount": 182,
+          "unmatchedLabelIds": [
+            "cue-01",
+            "red-01",
+            "red-05",
+            "red-07",
+            "yellow-01",
+            "yellow-03",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 16.677,
+          "maximumMatchedCentreErrorRectifiedPx": 26.335,
+          "matches": [
+            {
+              "candidateIndex": 0,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 2.403,
+              "centreErrorBallDiameters": 0.0445,
+              "dxRectifiedPx": 1.564,
+              "dyRectifiedPx": 1.825
+            },
+            {
+              "candidateIndex": 3,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 4.34,
+              "centreErrorBallDiameters": 0.0804,
+              "dxRectifiedPx": 4.315,
+              "dyRectifiedPx": -0.464
+            },
+            {
+              "candidateIndex": 1,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 5.016,
+              "centreErrorBallDiameters": 0.0929,
+              "dxRectifiedPx": 1.784,
+              "dyRectifiedPx": -4.689
+            },
+            {
+              "candidateIndex": 21,
+              "labelId": "yellow-06",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 14.533,
+              "centreErrorBallDiameters": 0.2691,
+              "dxRectifiedPx": -1.947,
+              "dyRectifiedPx": -14.401
+            },
+            {
+              "candidateIndex": 167,
+              "labelId": "red-04",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 18.82,
+              "centreErrorBallDiameters": 0.3485,
+              "dxRectifiedPx": -13.098,
+              "dyRectifiedPx": -13.514
+            },
+            {
+              "candidateIndex": 73,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 22.06,
+              "centreErrorBallDiameters": 0.4085,
+              "dxRectifiedPx": -20.76,
+              "dyRectifiedPx": 7.461
+            },
+            {
+              "candidateIndex": 137,
+              "labelId": "red-06",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 23.649,
+              "centreErrorBallDiameters": 0.4379,
+              "dxRectifiedPx": 22.921,
+              "dyRectifiedPx": 5.822
+            },
+            {
+              "candidateIndex": 107,
+              "labelId": "red-03",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 26.335,
+              "centreErrorBallDiameters": 0.4877,
+              "dxRectifiedPx": 7.366,
+              "dyRectifiedPx": -25.284
+            }
+          ]
+        },
+        {
+          "votes": 12.0,
+          "relativeTolerance": 0.5,
+          "unfilteredCandidateCount": 192,
+          "candidateCount": 192,
+          "labelCount": 15,
+          "matchedCount": 8,
+          "recall": 0.5333,
+          "unmatchedCandidateCount": 184,
+          "unmatchedLabelIds": [
+            "cue-01",
+            "red-01",
+            "red-05",
+            "red-07",
+            "yellow-01",
+            "yellow-03",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 16.677,
+          "maximumMatchedCentreErrorRectifiedPx": 26.335,
+          "matches": [
+            {
+              "candidateIndex": 0,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 2.403,
+              "centreErrorBallDiameters": 0.0445,
+              "dxRectifiedPx": 1.564,
+              "dyRectifiedPx": 1.825
+            },
+            {
+              "candidateIndex": 4,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 4.34,
+              "centreErrorBallDiameters": 0.0804,
+              "dxRectifiedPx": 4.315,
+              "dyRectifiedPx": -0.464
+            },
+            {
+              "candidateIndex": 2,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 5.016,
+              "centreErrorBallDiameters": 0.0929,
+              "dxRectifiedPx": 1.784,
+              "dyRectifiedPx": -4.689
+            },
+            {
+              "candidateIndex": 22,
+              "labelId": "yellow-06",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 14.533,
+              "centreErrorBallDiameters": 0.2691,
+              "dxRectifiedPx": -1.947,
+              "dyRectifiedPx": -14.401
+            },
+            {
+              "candidateIndex": 169,
+              "labelId": "red-04",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 18.82,
+              "centreErrorBallDiameters": 0.3485,
+              "dxRectifiedPx": -13.098,
+              "dyRectifiedPx": -13.514
+            },
+            {
+              "candidateIndex": 74,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 22.06,
+              "centreErrorBallDiameters": 0.4085,
+              "dxRectifiedPx": -20.76,
+              "dyRectifiedPx": 7.461
+            },
+            {
+              "candidateIndex": 139,
+              "labelId": "red-06",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 23.649,
+              "centreErrorBallDiameters": 0.4379,
+              "dxRectifiedPx": 22.921,
+              "dyRectifiedPx": 5.822
+            },
+            {
+              "candidateIndex": 108,
+              "labelId": "red-03",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 26.335,
+              "centreErrorBallDiameters": 0.4877,
+              "dxRectifiedPx": 7.366,
+              "dyRectifiedPx": -25.284
+            }
+          ]
+        },
+        {
+          "votes": 15.0,
+          "relativeTolerance": 0.2,
+          "unfilteredCandidateCount": 94,
+          "candidateCount": 60,
+          "labelCount": 15,
+          "matchedCount": 3,
+          "recall": 0.2,
+          "unmatchedCandidateCount": 57,
+          "unmatchedLabelIds": [
+            "cue-01",
+            "red-01",
+            "red-02",
+            "red-04",
+            "red-05",
+            "red-06",
+            "red-07",
+            "yellow-01",
+            "yellow-02",
+            "yellow-03",
+            "yellow-06",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 5.016,
+          "maximumMatchedCentreErrorRectifiedPx": 17.318,
+          "matches": [
+            {
+              "candidateIndex": 0,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 2.403,
+              "centreErrorBallDiameters": 0.0445,
+              "dxRectifiedPx": 1.564,
+              "dyRectifiedPx": 1.825
+            },
+            {
+              "candidateIndex": 1,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 5.016,
+              "centreErrorBallDiameters": 0.0929,
+              "dxRectifiedPx": 1.784,
+              "dyRectifiedPx": -4.689
+            },
+            {
+              "candidateIndex": 39,
+              "labelId": "red-03",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 17.318,
+              "centreErrorBallDiameters": 0.3207,
+              "dxRectifiedPx": -7.42,
+              "dyRectifiedPx": -15.648
+            }
+          ]
+        },
+        {
+          "votes": 15.0,
+          "relativeTolerance": 0.35,
+          "unfilteredCandidateCount": 94,
+          "candidateCount": 93,
+          "labelCount": 15,
+          "matchedCount": 4,
+          "recall": 0.2667,
+          "unmatchedCandidateCount": 89,
+          "unmatchedLabelIds": [
+            "cue-01",
+            "red-01",
+            "red-02",
+            "red-04",
+            "red-05",
+            "red-06",
+            "red-07",
+            "yellow-01",
+            "yellow-02",
+            "yellow-03",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 9.774,
+          "maximumMatchedCentreErrorRectifiedPx": 17.318,
+          "matches": [
+            {
+              "candidateIndex": 0,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 2.403,
+              "centreErrorBallDiameters": 0.0445,
+              "dxRectifiedPx": 1.564,
+              "dyRectifiedPx": 1.825
+            },
+            {
+              "candidateIndex": 1,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 5.016,
+              "centreErrorBallDiameters": 0.0929,
+              "dxRectifiedPx": 1.784,
+              "dyRectifiedPx": -4.689
+            },
+            {
+              "candidateIndex": 11,
+              "labelId": "yellow-06",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 14.533,
+              "centreErrorBallDiameters": 0.2691,
+              "dxRectifiedPx": -1.947,
+              "dyRectifiedPx": -14.401
+            },
+            {
+              "candidateIndex": 60,
+              "labelId": "red-03",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 17.318,
+              "centreErrorBallDiameters": 0.3207,
+              "dxRectifiedPx": -7.42,
+              "dyRectifiedPx": -15.648
+            }
+          ]
+        },
+        {
+          "votes": 15.0,
+          "relativeTolerance": 0.5,
+          "unfilteredCandidateCount": 94,
+          "candidateCount": 94,
+          "labelCount": 15,
+          "matchedCount": 4,
+          "recall": 0.2667,
+          "unmatchedCandidateCount": 90,
+          "unmatchedLabelIds": [
+            "cue-01",
+            "red-01",
+            "red-02",
+            "red-04",
+            "red-05",
+            "red-06",
+            "red-07",
+            "yellow-01",
+            "yellow-02",
+            "yellow-03",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 9.774,
+          "maximumMatchedCentreErrorRectifiedPx": 17.318,
+          "matches": [
+            {
+              "candidateIndex": 0,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 2.403,
+              "centreErrorBallDiameters": 0.0445,
+              "dxRectifiedPx": 1.564,
+              "dyRectifiedPx": 1.825
+            },
+            {
+              "candidateIndex": 1,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 5.016,
+              "centreErrorBallDiameters": 0.0929,
+              "dxRectifiedPx": 1.784,
+              "dyRectifiedPx": -4.689
+            },
+            {
+              "candidateIndex": 11,
+              "labelId": "yellow-06",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 14.533,
+              "centreErrorBallDiameters": 0.2691,
+              "dxRectifiedPx": -1.947,
+              "dyRectifiedPx": -14.401
+            },
+            {
+              "candidateIndex": 61,
+              "labelId": "red-03",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 17.318,
+              "centreErrorBallDiameters": 0.3207,
+              "dxRectifiedPx": -7.42,
+              "dyRectifiedPx": -15.648
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "case": "packed-rack",
+      "manifest": {
+        "image": {
+          "path": "work\\production\\evidence\\o08-holdout-20261029\\raw-session-e3c02bb9dc4542948c829a512630041a\\frame-01.png",
+          "sha256": "daa8dfdf70492e7338dfd0b3bdc0c51bfd028b969db276aac1aed4de6dfedcb4"
+        },
+        "receipt": {
+          "path": "work\\production\\evidence\\o08-holdout-20261029\\raw-session-e3c02bb9dc4542948c829a512630041a\\01.json",
+          "sha256": "bca0fdc69527374b6adc6bb41b70d78a06b8e500358d24362c7fe07e9b3b7506"
+        },
+        "labels": {
+          "path": "work\\production\\evidence\\o08-holdout-20261029\\raw-session-e3c02bb9dc4542948c829a512630041a\\manual-labels-frame-01.json",
+          "sha256": "6f420945c83e92d412565ce7c17a287f6854084d623d23ee1b5f94dd9f55e062",
+          "status": "manual draft; user independent review pending"
+        },
+        "frameId": 1,
+        "timeline": "e3c02bb9dc4542948c829a512630041a",
+        "sourceTimeUs": 0
+      },
+      "labelStatus": "manual draft; user independent review pending",
+      "rectifiedBaseline": [
+        {
+          "votes": 9.0,
+          "candidateCount": 71,
+          "labelCount": 16,
+          "matchedCount": 8,
+          "recall": 0.5,
+          "unmatchedCandidateCount": 63,
+          "unmatchedLabelIds": [
+            "black-01",
+            "red-02",
+            "red-04",
+            "red-05",
+            "red-06",
+            "yellow-03",
+            "yellow-06",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 4.992,
+          "maximumMatchedCentreErrorRectifiedPx": 7.658,
+          "matches": [
+            {
+              "candidateIndex": 11,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 2.375,
+              "centreErrorBallDiameters": 0.044,
+              "dxRectifiedPx": 0.228,
+              "dyRectifiedPx": -2.364
+            },
+            {
+              "candidateIndex": 7,
+              "labelId": "yellow-01",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 3.544,
+              "centreErrorBallDiameters": 0.0656,
+              "dxRectifiedPx": -2.857,
+              "dyRectifiedPx": -2.098
+            },
+            {
+              "candidateIndex": 0,
+              "labelId": "red-01",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 3.998,
+              "centreErrorBallDiameters": 0.074,
+              "dxRectifiedPx": 3.793,
+              "dyRectifiedPx": 1.267
+            },
+            {
+              "candidateIndex": 1,
+              "labelId": "cue-01",
+              "labelColour": "cue",
+              "centreErrorRectifiedPx": 4.288,
+              "centreErrorBallDiameters": 0.0794,
+              "dxRectifiedPx": -3.759,
+              "dyRectifiedPx": -2.062
+            },
+            {
+              "candidateIndex": 8,
+              "labelId": "red-03",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 5.695,
+              "centreErrorBallDiameters": 0.1055,
+              "dxRectifiedPx": 5.617,
+              "dyRectifiedPx": -0.939
+            },
+            {
+              "candidateIndex": 2,
+              "labelId": "red-07",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 7.193,
+              "centreErrorBallDiameters": 0.1332,
+              "dxRectifiedPx": 5.944,
+              "dyRectifiedPx": -4.05
+            },
+            {
+              "candidateIndex": 48,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 7.643,
+              "centreErrorBallDiameters": 0.1415,
+              "dxRectifiedPx": 4.666,
+              "dyRectifiedPx": -6.054
+            },
+            {
+              "candidateIndex": 39,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 7.658,
+              "centreErrorBallDiameters": 0.1418,
+              "dxRectifiedPx": -1.59,
+              "dyRectifiedPx": -7.491
+            }
+          ]
+        },
+        {
+          "votes": 12.0,
+          "candidateCount": 23,
+          "labelCount": 16,
+          "matchedCount": 3,
+          "recall": 0.1875,
+          "unmatchedCandidateCount": 20,
+          "unmatchedLabelIds": [
+            "black-01",
+            "red-02",
+            "red-04",
+            "red-05",
+            "red-06",
+            "red-07",
+            "yellow-01",
+            "yellow-02",
+            "yellow-03",
+            "yellow-04",
+            "yellow-05",
+            "yellow-06",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 4.288,
+          "maximumMatchedCentreErrorRectifiedPx": 5.695,
+          "matches": [
+            {
+              "candidateIndex": 0,
+              "labelId": "red-01",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 3.998,
+              "centreErrorBallDiameters": 0.074,
+              "dxRectifiedPx": 3.793,
+              "dyRectifiedPx": 1.267
+            },
+            {
+              "candidateIndex": 1,
+              "labelId": "cue-01",
+              "labelColour": "cue",
+              "centreErrorRectifiedPx": 4.288,
+              "centreErrorBallDiameters": 0.0794,
+              "dxRectifiedPx": -3.759,
+              "dyRectifiedPx": -2.062
+            },
+            {
+              "candidateIndex": 3,
+              "labelId": "red-03",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 5.695,
+              "centreErrorBallDiameters": 0.1055,
+              "dxRectifiedPx": 5.617,
+              "dyRectifiedPx": -0.939
+            }
+          ]
+        },
+        {
+          "votes": 15.0,
+          "candidateCount": 10,
+          "labelCount": 16,
+          "matchedCount": 2,
+          "recall": 0.125,
+          "unmatchedCandidateCount": 8,
+          "unmatchedLabelIds": [
+            "black-01",
+            "red-02",
+            "red-03",
+            "red-04",
+            "red-05",
+            "red-06",
+            "red-07",
+            "yellow-01",
+            "yellow-02",
+            "yellow-03",
+            "yellow-04",
+            "yellow-05",
+            "yellow-06",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 4.143,
+          "maximumMatchedCentreErrorRectifiedPx": 4.288,
+          "matches": [
+            {
+              "candidateIndex": 0,
+              "labelId": "red-01",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 3.998,
+              "centreErrorBallDiameters": 0.074,
+              "dxRectifiedPx": 3.793,
+              "dyRectifiedPx": 1.267
+            },
+            {
+              "candidateIndex": 1,
+              "labelId": "cue-01",
+              "labelColour": "cue",
+              "centreErrorRectifiedPx": 4.288,
+              "centreErrorBallDiameters": 0.0794,
+              "dxRectifiedPx": -3.759,
+              "dyRectifiedPx": -2.062
+            }
+          ]
+        }
+      ],
+      "rawUnfiltered": [
+        {
+          "votes": 9.0,
+          "scaledRawVotes": 7.4143340391016395,
+          "candidateCount": 130,
+          "labelCount": 16,
+          "matchedCount": 9,
+          "recall": 0.5625,
+          "unmatchedCandidateCount": 121,
+          "unmatchedLabelIds": [
+            "black-01",
+            "red-05",
+            "red-06",
+            "yellow-03",
+            "yellow-04",
+            "yellow-06",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 6.399,
+          "maximumMatchedCentreErrorRectifiedPx": 9.883,
+          "matches": [
+            {
+              "candidateIndex": 2,
+              "labelId": "cue-01",
+              "labelColour": "cue",
+              "centreErrorRectifiedPx": 0.828,
+              "centreErrorBallDiameters": 0.0153,
+              "dxRectifiedPx": -0.685,
+              "dyRectifiedPx": 0.465
+            },
+            {
+              "candidateIndex": 3,
+              "labelId": "red-01",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 2.883,
+              "centreErrorBallDiameters": 0.0534,
+              "dxRectifiedPx": 2.818,
+              "dyRectifiedPx": -0.61
+            },
+            {
+              "candidateIndex": 35,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 4.449,
+              "centreErrorBallDiameters": 0.0824,
+              "dxRectifiedPx": 1.818,
+              "dyRectifiedPx": -4.061
+            },
+            {
+              "candidateIndex": 112,
+              "labelId": "red-04",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 6.333,
+              "centreErrorBallDiameters": 0.1173,
+              "dxRectifiedPx": 6.281,
+              "dyRectifiedPx": 0.808
+            },
+            {
+              "candidateIndex": 73,
+              "labelId": "red-03",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 6.399,
+              "centreErrorBallDiameters": 0.1185,
+              "dxRectifiedPx": 4.972,
+              "dyRectifiedPx": -4.028
+            },
+            {
+              "candidateIndex": 123,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 6.559,
+              "centreErrorBallDiameters": 0.1215,
+              "dxRectifiedPx": -1.703,
+              "dyRectifiedPx": -6.335
+            },
+            {
+              "candidateIndex": 60,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 7.154,
+              "centreErrorBallDiameters": 0.1325,
+              "dxRectifiedPx": 6.107,
+              "dyRectifiedPx": -3.726
+            },
+            {
+              "candidateIndex": 82,
+              "labelId": "yellow-01",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 8.717,
+              "centreErrorBallDiameters": 0.1614,
+              "dxRectifiedPx": -8.51,
+              "dyRectifiedPx": -1.89
+            },
+            {
+              "candidateIndex": 90,
+              "labelId": "red-07",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 9.883,
+              "centreErrorBallDiameters": 0.183,
+              "dxRectifiedPx": -1.877,
+              "dyRectifiedPx": -9.703
+            }
+          ],
+          "medianLocalAnisotropy": 1.0511
+        },
+        {
+          "votes": 12.0,
+          "scaledRawVotes": 9.885778718802186,
+          "candidateCount": 68,
+          "labelCount": 16,
+          "matchedCount": 3,
+          "recall": 0.1875,
+          "unmatchedCandidateCount": 65,
+          "unmatchedLabelIds": [
+            "black-01",
+            "red-02",
+            "red-03",
+            "red-05",
+            "red-06",
+            "red-07",
+            "yellow-01",
+            "yellow-02",
+            "yellow-03",
+            "yellow-04",
+            "yellow-05",
+            "yellow-06",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 2.883,
+          "maximumMatchedCentreErrorRectifiedPx": 6.333,
+          "matches": [
+            {
+              "candidateIndex": 1,
+              "labelId": "cue-01",
+              "labelColour": "cue",
+              "centreErrorRectifiedPx": 0.828,
+              "centreErrorBallDiameters": 0.0153,
+              "dxRectifiedPx": -0.685,
+              "dyRectifiedPx": 0.465
+            },
+            {
+              "candidateIndex": 3,
+              "labelId": "red-01",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 2.883,
+              "centreErrorBallDiameters": 0.0534,
+              "dxRectifiedPx": 2.818,
+              "dyRectifiedPx": -0.61
+            },
+            {
+              "candidateIndex": 58,
+              "labelId": "red-04",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 6.333,
+              "centreErrorBallDiameters": 0.1173,
+              "dxRectifiedPx": 6.281,
+              "dyRectifiedPx": 0.808
+            }
+          ],
+          "medianLocalAnisotropy": 1.054
+        },
+        {
+          "votes": 15.0,
+          "scaledRawVotes": 12.357223398502732,
+          "candidateCount": 29,
+          "labelCount": 16,
+          "matchedCount": 2,
+          "recall": 0.125,
+          "unmatchedCandidateCount": 27,
+          "unmatchedLabelIds": [
+            "black-01",
+            "red-02",
+            "red-03",
+            "red-04",
+            "red-05",
+            "red-06",
+            "red-07",
+            "yellow-01",
+            "yellow-02",
+            "yellow-03",
+            "yellow-04",
+            "yellow-05",
+            "yellow-06",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 1.855,
+          "maximumMatchedCentreErrorRectifiedPx": 2.883,
+          "matches": [
+            {
+              "candidateIndex": 1,
+              "labelId": "cue-01",
+              "labelColour": "cue",
+              "centreErrorRectifiedPx": 0.828,
+              "centreErrorBallDiameters": 0.0153,
+              "dxRectifiedPx": -0.685,
+              "dyRectifiedPx": 0.465
+            },
+            {
+              "candidateIndex": 2,
+              "labelId": "red-01",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 2.883,
+              "centreErrorBallDiameters": 0.0534,
+              "dxRectifiedPx": 2.818,
+              "dyRectifiedPx": -0.61
+            }
+          ],
+          "medianLocalAnisotropy": 1.0583
+        }
+      ],
+      "rawLocalRadiusFilters": [
+        {
+          "votes": 9.0,
+          "relativeTolerance": 0.2,
+          "unfilteredCandidateCount": 130,
+          "candidateCount": 77,
+          "labelCount": 16,
+          "matchedCount": 5,
+          "recall": 0.3125,
+          "unmatchedCandidateCount": 72,
+          "unmatchedLabelIds": [
+            "black-01",
+            "red-02",
+            "red-04",
+            "red-05",
+            "red-06",
+            "red-07",
+            "yellow-01",
+            "yellow-03",
+            "yellow-04",
+            "yellow-06",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 4.449,
+          "maximumMatchedCentreErrorRectifiedPx": 7.154,
+          "matches": [
+            {
+              "candidateIndex": 0,
+              "labelId": "cue-01",
+              "labelColour": "cue",
+              "centreErrorRectifiedPx": 0.828,
+              "centreErrorBallDiameters": 0.0153,
+              "dxRectifiedPx": -0.685,
+              "dyRectifiedPx": 0.465
+            },
+            {
+              "candidateIndex": 1,
+              "labelId": "red-01",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 2.883,
+              "centreErrorBallDiameters": 0.0534,
+              "dxRectifiedPx": 2.818,
+              "dyRectifiedPx": -0.61
+            },
+            {
+              "candidateIndex": 22,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 4.449,
+              "centreErrorBallDiameters": 0.0824,
+              "dxRectifiedPx": 1.818,
+              "dyRectifiedPx": -4.061
+            },
+            {
+              "candidateIndex": 45,
+              "labelId": "red-03",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 6.399,
+              "centreErrorBallDiameters": 0.1185,
+              "dxRectifiedPx": 4.972,
+              "dyRectifiedPx": -4.028
+            },
+            {
+              "candidateIndex": 38,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 7.154,
+              "centreErrorBallDiameters": 0.1325,
+              "dxRectifiedPx": 6.107,
+              "dyRectifiedPx": -3.726
+            }
+          ]
+        },
+        {
+          "votes": 9.0,
+          "relativeTolerance": 0.35,
+          "unfilteredCandidateCount": 130,
+          "candidateCount": 115,
+          "labelCount": 16,
+          "matchedCount": 9,
+          "recall": 0.5625,
+          "unmatchedCandidateCount": 106,
+          "unmatchedLabelIds": [
+            "black-01",
+            "red-05",
+            "red-06",
+            "yellow-03",
+            "yellow-04",
+            "yellow-06",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 6.399,
+          "maximumMatchedCentreErrorRectifiedPx": 9.883,
+          "matches": [
+            {
+              "candidateIndex": 0,
+              "labelId": "cue-01",
+              "labelColour": "cue",
+              "centreErrorRectifiedPx": 0.828,
+              "centreErrorBallDiameters": 0.0153,
+              "dxRectifiedPx": -0.685,
+              "dyRectifiedPx": 0.465
+            },
+            {
+              "candidateIndex": 1,
+              "labelId": "red-01",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 2.883,
+              "centreErrorBallDiameters": 0.0534,
+              "dxRectifiedPx": 2.818,
+              "dyRectifiedPx": -0.61
+            },
+            {
+              "candidateIndex": 29,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 4.449,
+              "centreErrorBallDiameters": 0.0824,
+              "dxRectifiedPx": 1.818,
+              "dyRectifiedPx": -4.061
+            },
+            {
+              "candidateIndex": 99,
+              "labelId": "red-04",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 6.333,
+              "centreErrorBallDiameters": 0.1173,
+              "dxRectifiedPx": 6.281,
+              "dyRectifiedPx": 0.808
+            },
+            {
+              "candidateIndex": 61,
+              "labelId": "red-03",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 6.399,
+              "centreErrorBallDiameters": 0.1185,
+              "dxRectifiedPx": 4.972,
+              "dyRectifiedPx": -4.028
+            },
+            {
+              "candidateIndex": 109,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 6.559,
+              "centreErrorBallDiameters": 0.1215,
+              "dxRectifiedPx": -1.703,
+              "dyRectifiedPx": -6.335
+            },
+            {
+              "candidateIndex": 51,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 7.154,
+              "centreErrorBallDiameters": 0.1325,
+              "dxRectifiedPx": 6.107,
+              "dyRectifiedPx": -3.726
+            },
+            {
+              "candidateIndex": 70,
+              "labelId": "yellow-01",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 8.717,
+              "centreErrorBallDiameters": 0.1614,
+              "dxRectifiedPx": -8.51,
+              "dyRectifiedPx": -1.89
+            },
+            {
+              "candidateIndex": 77,
+              "labelId": "red-07",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 9.883,
+              "centreErrorBallDiameters": 0.183,
+              "dxRectifiedPx": -1.877,
+              "dyRectifiedPx": -9.703
+            }
+          ]
+        },
+        {
+          "votes": 9.0,
+          "relativeTolerance": 0.5,
+          "unfilteredCandidateCount": 130,
+          "candidateCount": 130,
+          "labelCount": 16,
+          "matchedCount": 9,
+          "recall": 0.5625,
+          "unmatchedCandidateCount": 121,
+          "unmatchedLabelIds": [
+            "black-01",
+            "red-05",
+            "red-06",
+            "yellow-03",
+            "yellow-04",
+            "yellow-06",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 6.399,
+          "maximumMatchedCentreErrorRectifiedPx": 9.883,
+          "matches": [
+            {
+              "candidateIndex": 2,
+              "labelId": "cue-01",
+              "labelColour": "cue",
+              "centreErrorRectifiedPx": 0.828,
+              "centreErrorBallDiameters": 0.0153,
+              "dxRectifiedPx": -0.685,
+              "dyRectifiedPx": 0.465
+            },
+            {
+              "candidateIndex": 3,
+              "labelId": "red-01",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 2.883,
+              "centreErrorBallDiameters": 0.0534,
+              "dxRectifiedPx": 2.818,
+              "dyRectifiedPx": -0.61
+            },
+            {
+              "candidateIndex": 35,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 4.449,
+              "centreErrorBallDiameters": 0.0824,
+              "dxRectifiedPx": 1.818,
+              "dyRectifiedPx": -4.061
+            },
+            {
+              "candidateIndex": 112,
+              "labelId": "red-04",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 6.333,
+              "centreErrorBallDiameters": 0.1173,
+              "dxRectifiedPx": 6.281,
+              "dyRectifiedPx": 0.808
+            },
+            {
+              "candidateIndex": 73,
+              "labelId": "red-03",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 6.399,
+              "centreErrorBallDiameters": 0.1185,
+              "dxRectifiedPx": 4.972,
+              "dyRectifiedPx": -4.028
+            },
+            {
+              "candidateIndex": 123,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 6.559,
+              "centreErrorBallDiameters": 0.1215,
+              "dxRectifiedPx": -1.703,
+              "dyRectifiedPx": -6.335
+            },
+            {
+              "candidateIndex": 60,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 7.154,
+              "centreErrorBallDiameters": 0.1325,
+              "dxRectifiedPx": 6.107,
+              "dyRectifiedPx": -3.726
+            },
+            {
+              "candidateIndex": 82,
+              "labelId": "yellow-01",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 8.717,
+              "centreErrorBallDiameters": 0.1614,
+              "dxRectifiedPx": -8.51,
+              "dyRectifiedPx": -1.89
+            },
+            {
+              "candidateIndex": 90,
+              "labelId": "red-07",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 9.883,
+              "centreErrorBallDiameters": 0.183,
+              "dxRectifiedPx": -1.877,
+              "dyRectifiedPx": -9.703
+            }
+          ]
+        },
+        {
+          "votes": 12.0,
+          "relativeTolerance": 0.2,
+          "unfilteredCandidateCount": 68,
+          "candidateCount": 43,
+          "labelCount": 16,
+          "matchedCount": 2,
+          "recall": 0.125,
+          "unmatchedCandidateCount": 41,
+          "unmatchedLabelIds": [
+            "black-01",
+            "red-02",
+            "red-03",
+            "red-04",
+            "red-05",
+            "red-06",
+            "red-07",
+            "yellow-01",
+            "yellow-02",
+            "yellow-03",
+            "yellow-04",
+            "yellow-05",
+            "yellow-06",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 1.855,
+          "maximumMatchedCentreErrorRectifiedPx": 2.883,
+          "matches": [
+            {
+              "candidateIndex": 0,
+              "labelId": "cue-01",
+              "labelColour": "cue",
+              "centreErrorRectifiedPx": 0.828,
+              "centreErrorBallDiameters": 0.0153,
+              "dxRectifiedPx": -0.685,
+              "dyRectifiedPx": 0.465
+            },
+            {
+              "candidateIndex": 1,
+              "labelId": "red-01",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 2.883,
+              "centreErrorBallDiameters": 0.0534,
+              "dxRectifiedPx": 2.818,
+              "dyRectifiedPx": -0.61
+            }
+          ]
+        },
+        {
+          "votes": 12.0,
+          "relativeTolerance": 0.35,
+          "unfilteredCandidateCount": 68,
+          "candidateCount": 66,
+          "labelCount": 16,
+          "matchedCount": 3,
+          "recall": 0.1875,
+          "unmatchedCandidateCount": 63,
+          "unmatchedLabelIds": [
+            "black-01",
+            "red-02",
+            "red-03",
+            "red-05",
+            "red-06",
+            "red-07",
+            "yellow-01",
+            "yellow-02",
+            "yellow-03",
+            "yellow-04",
+            "yellow-05",
+            "yellow-06",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 2.883,
+          "maximumMatchedCentreErrorRectifiedPx": 6.333,
+          "matches": [
+            {
+              "candidateIndex": 0,
+              "labelId": "cue-01",
+              "labelColour": "cue",
+              "centreErrorRectifiedPx": 0.828,
+              "centreErrorBallDiameters": 0.0153,
+              "dxRectifiedPx": -0.685,
+              "dyRectifiedPx": 0.465
+            },
+            {
+              "candidateIndex": 1,
+              "labelId": "red-01",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 2.883,
+              "centreErrorBallDiameters": 0.0534,
+              "dxRectifiedPx": 2.818,
+              "dyRectifiedPx": -0.61
+            },
+            {
+              "candidateIndex": 56,
+              "labelId": "red-04",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 6.333,
+              "centreErrorBallDiameters": 0.1173,
+              "dxRectifiedPx": 6.281,
+              "dyRectifiedPx": 0.808
+            }
+          ]
+        },
+        {
+          "votes": 12.0,
+          "relativeTolerance": 0.5,
+          "unfilteredCandidateCount": 68,
+          "candidateCount": 68,
+          "labelCount": 16,
+          "matchedCount": 3,
+          "recall": 0.1875,
+          "unmatchedCandidateCount": 65,
+          "unmatchedLabelIds": [
+            "black-01",
+            "red-02",
+            "red-03",
+            "red-05",
+            "red-06",
+            "red-07",
+            "yellow-01",
+            "yellow-02",
+            "yellow-03",
+            "yellow-04",
+            "yellow-05",
+            "yellow-06",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 2.883,
+          "maximumMatchedCentreErrorRectifiedPx": 6.333,
+          "matches": [
+            {
+              "candidateIndex": 1,
+              "labelId": "cue-01",
+              "labelColour": "cue",
+              "centreErrorRectifiedPx": 0.828,
+              "centreErrorBallDiameters": 0.0153,
+              "dxRectifiedPx": -0.685,
+              "dyRectifiedPx": 0.465
+            },
+            {
+              "candidateIndex": 3,
+              "labelId": "red-01",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 2.883,
+              "centreErrorBallDiameters": 0.0534,
+              "dxRectifiedPx": 2.818,
+              "dyRectifiedPx": -0.61
+            },
+            {
+              "candidateIndex": 58,
+              "labelId": "red-04",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 6.333,
+              "centreErrorBallDiameters": 0.1173,
+              "dxRectifiedPx": 6.281,
+              "dyRectifiedPx": 0.808
+            }
+          ]
+        },
+        {
+          "votes": 15.0,
+          "relativeTolerance": 0.2,
+          "unfilteredCandidateCount": 29,
+          "candidateCount": 20,
+          "labelCount": 16,
+          "matchedCount": 2,
+          "recall": 0.125,
+          "unmatchedCandidateCount": 18,
+          "unmatchedLabelIds": [
+            "black-01",
+            "red-02",
+            "red-03",
+            "red-04",
+            "red-05",
+            "red-06",
+            "red-07",
+            "yellow-01",
+            "yellow-02",
+            "yellow-03",
+            "yellow-04",
+            "yellow-05",
+            "yellow-06",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 1.855,
+          "maximumMatchedCentreErrorRectifiedPx": 2.883,
+          "matches": [
+            {
+              "candidateIndex": 0,
+              "labelId": "cue-01",
+              "labelColour": "cue",
+              "centreErrorRectifiedPx": 0.828,
+              "centreErrorBallDiameters": 0.0153,
+              "dxRectifiedPx": -0.685,
+              "dyRectifiedPx": 0.465
+            },
+            {
+              "candidateIndex": 1,
+              "labelId": "red-01",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 2.883,
+              "centreErrorBallDiameters": 0.0534,
+              "dxRectifiedPx": 2.818,
+              "dyRectifiedPx": -0.61
+            }
+          ]
+        },
+        {
+          "votes": 15.0,
+          "relativeTolerance": 0.35,
+          "unfilteredCandidateCount": 29,
+          "candidateCount": 27,
+          "labelCount": 16,
+          "matchedCount": 2,
+          "recall": 0.125,
+          "unmatchedCandidateCount": 25,
+          "unmatchedLabelIds": [
+            "black-01",
+            "red-02",
+            "red-03",
+            "red-04",
+            "red-05",
+            "red-06",
+            "red-07",
+            "yellow-01",
+            "yellow-02",
+            "yellow-03",
+            "yellow-04",
+            "yellow-05",
+            "yellow-06",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 1.855,
+          "maximumMatchedCentreErrorRectifiedPx": 2.883,
+          "matches": [
+            {
+              "candidateIndex": 0,
+              "labelId": "cue-01",
+              "labelColour": "cue",
+              "centreErrorRectifiedPx": 0.828,
+              "centreErrorBallDiameters": 0.0153,
+              "dxRectifiedPx": -0.685,
+              "dyRectifiedPx": 0.465
+            },
+            {
+              "candidateIndex": 1,
+              "labelId": "red-01",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 2.883,
+              "centreErrorBallDiameters": 0.0534,
+              "dxRectifiedPx": 2.818,
+              "dyRectifiedPx": -0.61
+            }
+          ]
+        },
+        {
+          "votes": 15.0,
+          "relativeTolerance": 0.5,
+          "unfilteredCandidateCount": 29,
+          "candidateCount": 29,
+          "labelCount": 16,
+          "matchedCount": 2,
+          "recall": 0.125,
+          "unmatchedCandidateCount": 27,
+          "unmatchedLabelIds": [
+            "black-01",
+            "red-02",
+            "red-03",
+            "red-04",
+            "red-05",
+            "red-06",
+            "red-07",
+            "yellow-01",
+            "yellow-02",
+            "yellow-03",
+            "yellow-04",
+            "yellow-05",
+            "yellow-06",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 1.855,
+          "maximumMatchedCentreErrorRectifiedPx": 2.883,
+          "matches": [
+            {
+              "candidateIndex": 1,
+              "labelId": "cue-01",
+              "labelColour": "cue",
+              "centreErrorRectifiedPx": 0.828,
+              "centreErrorBallDiameters": 0.0153,
+              "dxRectifiedPx": -0.685,
+              "dyRectifiedPx": 0.465
+            },
+            {
+              "candidateIndex": 2,
+              "labelId": "red-01",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 2.883,
+              "centreErrorBallDiameters": 0.0534,
+              "dxRectifiedPx": 2.818,
+              "dyRectifiedPx": -0.61
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
