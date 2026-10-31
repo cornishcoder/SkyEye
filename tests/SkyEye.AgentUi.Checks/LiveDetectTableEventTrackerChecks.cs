@@ -23,7 +23,51 @@ internal static class LiveDetectTableEventTrackerChecks
         DecoderRecoveryInterruptsActivityWithBoundedReviewClip();
         UnobservedActivityInterruptionDoesNotCreateReviewClip();
         OldInterruptedActivityDoesNotCreateOversizedClip();
+        TransientInventoryDropoutDoesNotBecomeMovement();
+        CumulativePositionChangeStartsMovementActivity();
         Console.WriteLine("PASS Live Detect table event reducer handles baseline, activity, decoder recovery, no-pot, pot and re-rack sequences");
+    }
+
+    static void TransientInventoryDropoutDoesNotBecomeMovement()
+    {
+        var tracker = NewBaseline();
+        var missingRed = ImmutableArray.Create(new SettledBallPosition(BallColour.Cue, .8, .7));
+        var firstDrop = tracker.Observe(Sample(4, new(0, 0, 0, 1, 0), missingRed));
+        var secondDrop = tracker.Observe(Sample(5, new(0, 0, 0, 1, 0), missingRed));
+        var recovered = tracker.Observe(Sample(6, BaseCounts, BaseLayout));
+        Require(firstDrop.TableEvents.All(e => e.Type != "movement_observed")
+            && secondDrop.TableEvents.All(e => e.Type != "movement_observed")
+            && recovered.TableEvents.All(e => e.Type is not ("movement_observed" or "possible_pot" or "possible_pot_settled"))
+            && recovered.ClipActivity is null,
+            "a two-frame missing red at the same layout is neither movement, a pot, nor a clip");
+        Require(SettledLayoutReconciler.PositionsCompatible(BaseLayout, missingRed),
+            "position compatibility ignores the single missing circle while matching the unchanged cue ball");
+        var jittered = ImmutableArray.Create(
+            new SettledBallPosition(BallColour.Red, .217, .3),
+            new SettledBallPosition(BallColour.Cue, .8, .7));
+        var displaced = ImmutableArray.Create(
+            new SettledBallPosition(BallColour.Red, .219, .3),
+            new SettledBallPosition(BallColour.Cue, .8, .7));
+        Require(SettledLayoutReconciler.PositionsCompatible(BaseLayout, jittered)
+            && !SettledLayoutReconciler.PositionsCompatible(BaseLayout, displaced),
+            "measured static jitter remains compatible while a larger position change is surfaced");
+    }
+
+    static void CumulativePositionChangeStartsMovementActivity()
+    {
+        var tracker = NewBaseline();
+        var drifted = ImmutableArray.Create(
+            new SettledBallPosition(BallColour.Red, .235, .3),
+            new SettledBallPosition(BallColour.Cue, .8, .7));
+        var first = tracker.Observe(Sample(4, BaseCounts, drifted));
+        Require(first.TableEvents.Any(e => e.Type == "movement_observed"),
+            "movement is detected against the stable baseline even when the adjacent-frame signal is absent");
+        tracker.Observe(Sample(5, BaseCounts, drifted));
+        var settled = tracker.Observe(Sample(6, BaseCounts, drifted));
+        Require(settled.TableEvents.Any(e => e.Type == "no_pot_observed")
+            && settled.ClipEventType == "no_pot_observed"
+            && settled.ClipActivity is { MovementObserved: true },
+            "a real same-inventory displacement still settles as a no-pot activity with a clip window");
     }
 
     static void BaselineAndMissedShotProduceEventsAndClipCandidate()
@@ -105,11 +149,11 @@ internal static class LiveDetectTableEventTrackerChecks
         rack.Add(new(BallColour.Cue, .8, .7));
 
         tracker.Observe(Sample(4, rackCounts, rack.ToImmutable(), movementObserved: true, packedRack: true));
-        var candidate = tracker.Observe(Sample(5, rackCounts, rack.ToImmutable(), packedRack: true));
+        tracker.Observe(Sample(5, rackCounts, rack.ToImmutable(), packedRack: true));
         var settled = tracker.Observe(Sample(6, rackCounts, rack.ToImmutable(), packedRack: true));
-        Require(candidate.TableEvents.Any(e => e.Type == "rack_detected")
+        Require(settled.TableEvents.Any(e => e.Type == "rack_detected")
             && settled.TableEvents.Any(e => e.Type == "rack_layout_settled"),
-            "repeated packed-rack evidence reports the new frame baseline");
+            "three supported packed-rack observations report and settle the new frame baseline");
         Require(settled.ClipActivity is null,
             "re-racking updates the table baseline without saving a shot clip");
     }
@@ -127,10 +171,10 @@ internal static class LiveDetectTableEventTrackerChecks
         var withCue = BaseCounts;
         var withCueLayout = BaseLayout;
         tracker.Observe(Sample(8, withCue, withCueLayout, movementObserved: true, sourceGeneration: 2));
-        var returnedCandidate = tracker.Observe(Sample(9, withCue, withCueLayout, sourceGeneration: 2));
+        tracker.Observe(Sample(9, withCue, withCueLayout, sourceGeneration: 2));
+        var returnedCandidate = tracker.Observe(Sample(10, withCue, withCueLayout, sourceGeneration: 2));
         Require(returnedCandidate.TableEvents.Any(e => e.Type == "balls_returned_candidate"),
             "a count increase during activity is recorded as a returned-ball candidate");
-        tracker.Observe(Sample(10, withCue, withCueLayout, sourceGeneration: 2));
         tracker.Observe(Sample(11, withCue, withCueLayout, sourceGeneration: 2));
         var ended = tracker.Observe(Sample(12, withCue, withCueLayout, sourceGeneration: 2));
         Require(ended.TableEvents.Any(e => e.Type == "activity_ended")
@@ -153,16 +197,17 @@ internal static class LiveDetectTableEventTrackerChecks
             new SettledBallPosition(BallColour.Red, .52, .48),
             new SettledBallPosition(BallColour.Cue, .75, .64));
         tracker.Observe(Sample(5, transientCounts, transientLayout));
-        var returnedCandidate = tracker.Observe(Sample(6, transientCounts, transientLayout));
+        tracker.Observe(Sample(6, transientCounts, transientLayout));
+        var returnedCandidate = tracker.Observe(Sample(7, transientCounts, transientLayout));
         Require(returnedCandidate.TableEvents.Any(e => e.Type == "balls_returned_candidate"),
             "a repeated transient extra-ball reading remains visible as a returned-ball candidate");
 
         var afterPotCounts = new LiveDetectCounts(1, 0, 0, 0, 0);
         var afterPotLayout = ImmutableArray.Create(
             new SettledBallPosition(BallColour.Red, .34, .39));
-        tracker.Observe(Sample(7, afterPotCounts, afterPotLayout, movementObserved: true));
-        tracker.Observe(Sample(8, afterPotCounts, afterPotLayout));
-        var settled = tracker.Observe(Sample(9, afterPotCounts, afterPotLayout));
+        tracker.Observe(Sample(8, afterPotCounts, afterPotLayout, movementObserved: true));
+        tracker.Observe(Sample(9, afterPotCounts, afterPotLayout));
+        var settled = tracker.Observe(Sample(10, afterPotCounts, afterPotLayout));
 
         Require(settled.TableEvents.Any(e => e.Type == "possible_pot_settled"),
             "a clear stable decrease supersedes the transient increase candidate");
@@ -293,9 +338,8 @@ internal static class LiveDetectTableEventTrackerChecks
             previousTimeline = frame.Timeline;
 
             bool clear = !frame.Obstructed && !frame.LayoutUncertain && frame.Other == 0;
-            bool movementObserved = frame.SpatiallyCompatible is { } compatible
-                ? !compatible
-                : clear && previousClear is { Length: > 0 } && !SpatiallyCompatible(previousClear, frame.Balls);
+            bool movementObserved = clear && previousClear is { Length: > 0 }
+                && !SettledLayoutReconciler.PositionsCompatible(CaptureLayout(previousClear), CaptureLayout(frame.Balls));
             if (clear) previousClear = frame.Balls;
 
             var layout = CaptureLayout(frame.Balls);
@@ -341,28 +385,6 @@ internal static class LiveDetectTableEventTrackerChecks
             result.Add(new(colour, x, ball.Y));
         }
         return result.ToImmutable();
-    }
-
-    static bool SpatiallyCompatible(LiveDetectLoggedBall[] before, LiveDetectLoggedBall[] after)
-    {
-        if (before.Length != after.Length) return false;
-        var remaining = after.Select(ball => (ball.X, ball.Y)).ToList();
-        foreach (var ball in before)
-        {
-            if (remaining.Count == 0) return false;
-            int nearest = 0;
-            double nearestSquared = double.PositiveInfinity;
-            for (int index = 0; index < remaining.Count; index++)
-            {
-                double dx = remaining[index].X - ball.X, dy = remaining[index].Y - ball.Y;
-                double squared = dx * dx + dy * dy;
-                if (squared < nearestSquared) { nearest = index; nearestSquared = squared; }
-            }
-            var matched = remaining[nearest];
-            remaining.RemoveAt(nearest);
-            if (Math.Sqrt(nearestSquared) > .015) return false;
-        }
-        return remaining.Count == 0;
     }
 
     static void Require(bool condition, string name)

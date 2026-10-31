@@ -183,6 +183,39 @@ public static class SettledLayoutReconciler
 {
     public const double MovementThreshold = .018;
     public const double StableLayoutTolerance = .010;
+    public const double LivePositionNoiseTolerance = MovementThreshold;
+
+    /// <summary>
+    /// Returns whether every position in the smaller view has a nearby counterpart
+    /// in the larger view. Inventory count is deliberately evaluated separately;
+    /// missing or extra detections are not themselves evidence that balls moved.
+    /// </summary>
+    public static bool PositionsCompatible(ImmutableArray<SettledBallPosition> first,
+        ImmutableArray<SettledBallPosition> second, double tolerance = LivePositionNoiseTolerance)
+    {
+        if (first.IsDefaultOrEmpty || second.IsDefaultOrEmpty
+            || !double.IsFinite(tolerance) || tolerance < 0) return false;
+
+        var smaller = first.Length <= second.Length ? first : second;
+        var remaining = (first.Length <= second.Length ? second : first)
+            .Select(ball => (ball.X, ball.Y)).ToList();
+        foreach (var ball in smaller)
+        {
+            if (remaining.Count == 0) return false;
+            int nearest = 0;
+            double nearestSquared = double.PositiveInfinity;
+            for (int index = 0; index < remaining.Count; index++)
+            {
+                double dx = remaining[index].X - ball.X;
+                double dy = remaining[index].Y - ball.Y;
+                double squared = dx * dx + dy * dy;
+                if (squared < nearestSquared) { nearest = index; nearestSquared = squared; }
+            }
+            if (Math.Sqrt(nearestSquared) > tolerance) return false;
+            remaining.RemoveAt(nearest);
+        }
+        return true;
+    }
 
     public static SettledLayoutDifference Compare(ImmutableArray<SettledBallPosition> before,
         ImmutableArray<SettledBallPosition> after, double threshold = MovementThreshold)

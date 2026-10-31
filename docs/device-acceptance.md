@@ -1,5 +1,15 @@
 # Physical-device acceptance
 
+## Production v0.8.54 / code62 static pocket-lip Live Detect check — 31 October 2026
+
+The user confirmed that the previously reviewed 15-ball pocket-lip layout was unchanged and hands were clear. Production companion `0.8.54` / code62 ran Live Detect for 76 seconds and recorded 189 full passes. Of these, 119 were clear 15-ball inventories (7 reds, 7 yellows, cue, black absent) and 12 clear passes dropped one red to 14; the remaining 58 were marked obstructed or layout-uncertain. The top-left pocket red remained visible in the saved clip frames. No table change was reported by the player.
+
+The production run emitted 18 obstruction starts and 24 clear-return events, nine `movement_observed` events, two `possible_pot` candidates and two returned-ball candidates. Five event clips were saved despite the unchanged layout; their source ranges did not overlap. Exact clips 3 and 4 were downloaded read-only, hash-matched to the camera receipts, and visually reviewed: ball positions remain unchanged. This is a failed physical Live Detect check. It does not support a pot, ball return or true obstruction, and it does not pass table readiness.
+
+An offline replay of the same logged detector output with the current source changes requires three consecutive eligible count samples and compares shared ball positions independently of inventory count, using the measured live position-noise tolerance. It produced no movement, pot/return candidate or clip-candidate events on this static run. This confirms the reducer change against this saved negative sequence only; vision was not rerun, and the change is not installed on Pixel 11. The replay still reports 18 obstruction starts, 24 clear returns and six uncertain-view transitions, so the false obstruction source remains open. Focused Agent UI checks pass for two-frame dropout suppression, sustained count-change confirmation, one-circle position dropout and movement from the stable layout anchor.
+
+At stop, camera `/status` was `Stopped`, revision 67, battery 100%, 139 clips and zero viewers; Pixel 11 Home showed **Start live session**. All camera clips were preserved. No match, Cast/TV or camera-package action occurred. Full log and replay are under `work/production/evidence/code62-pocket-lip-20261031/`. The reducer source change is not installed on the phone.
+
 ## Production code61 pocket-lip Live Detect check — 30 October 2026
 
 Production companion `0.8.53` / code61 was installed in place on Pixel 11. It includes the packed-cluster edge-margin change from 65px to 23px. Before installation, offline replay improved the matched pocket-lip frames but still did not produce a clear inventory. The guarded install preserved the existing app data. No camera package was updated.

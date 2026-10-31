@@ -25,20 +25,25 @@ internal static class LiveDetectCountCandidateChecks
 
         var initialRack = new LiveDetectCountCandidateTracker();
         Require(initialRack.Observe(1_000_000, Full, true, packedRack: true) is null
-            && initialRack.Observe(2_000_000, Full, true, packedRack: true) is { Kind: LiveDetectChangeKind.Racked },
-            "initial rack is reported only after two supported packed-rack observations");
-        initialRack.Observe(3_000_000, OneYellowDown, true);
+            && initialRack.Observe(2_000_000, Full, true, packedRack: true) is null
+            && initialRack.Observe(3_000_000, Full, true, packedRack: true) is { Kind: LiveDetectChangeKind.Racked },
+            "initial rack is reported only after three supported packed-rack observations");
         initialRack.Observe(4_000_000, OneYellowDown, true);
+        initialRack.Observe(5_000_000, OneYellowDown, true);
+        Require(initialRack.Observe(6_000_000, OneYellowDown, true) is { Kind: LiveDetectChangeKind.Decrease },
+            "a sustained inventory decrease becomes the current baseline before the long obstruction");
         initialRack.Observe(20_000_000, OneYellowDown, false);
         Require(initialRack.Observe(21_000_000, Full, true, packedRack: true) is null
-            && initialRack.Observe(22_000_000, Full, true, packedRack: true) is { Kind: LiveDetectChangeKind.Racked },
+            && initialRack.Observe(22_000_000, Full, true, packedRack: true) is null
+            && initialRack.Observe(23_000_000, Full, true, packedRack: true) is { Kind: LiveDetectChangeKind.Racked },
             "a long obstructed re-rack can establish and report a fresh rack while retaining the last clear inventory");
 
         var recovered = new LiveDetectCountCandidateTracker();
         Require(recovered.Observe(1_000_000, Full, true) is null, "first clear inventory establishes baseline");
         Require(recovered.Observe(2_400_000, OneYellowDown, false) is null, "uncertain decrease is ignored");
         Require(recovered.Observe(3_800_000, OneYellowDown, true) is null, "first recovered clear decrease is only pending");
-        var candidate = recovered.Observe(5_200_000, OneYellowDown, true);
+        Require(recovered.Observe(5_200_000, OneYellowDown, true) is null, "second recovered decrease is still pending");
+        var candidate = recovered.Observe(6_600_000, OneYellowDown, true);
         Require(candidate is { Before: var before, After: var after } && before == Full && after == OneYellowDown,
             "repeated clear decrease across brief uncertainty becomes a candidate from the trusted baseline");
 
@@ -49,6 +54,17 @@ internal static class LiveDetectCountCandidateChecks
             && transient.Observe(5_200_000, Full, true) is null,
             "transient uncertain loss that recovers creates no candidate");
 
+        var twoFrameDropout = new LiveDetectCountCandidateTracker();
+        twoFrameDropout.Observe(1_000_000, Full, true);
+        Require(twoFrameDropout.Observe(1_400_000, OneYellowDown, true) is null
+            && twoFrameDropout.Observe(1_800_000, OneYellowDown, true) is null
+            && twoFrameDropout.Observe(2_200_000, Full, true) is null,
+            "a two-frame pocket-edge miss that returns to the trusted inventory creates no pot candidate");
+        twoFrameDropout.Observe(2_600_000, OneYellowDown, true);
+        Require(twoFrameDropout.Observe(3_000_000, OneYellowDown, true) is null
+            && twoFrameDropout.Observe(3_400_000, OneYellowDown, true) is { Kind: LiveDetectChangeKind.Decrease },
+            "a sustained clear inventory change remains detectable after three samples");
+
         var adviceUnavailable = new LiveDetectCountCandidateTracker();
         adviceUnavailable.Observe(1_000_000, Full, true);
         var noCue = new LiveDetectCounts(7, 6, 1, 0, 0);
@@ -56,11 +72,13 @@ internal static class LiveDetectCountCandidateChecks
             && adviceUnavailable.Observe(3_800_000, noCue, false) is null,
             "an uncertain cue-absent layout cannot establish a candidate");
         adviceUnavailable.Observe(5_200_000, noCue, true);
-        Require(adviceUnavailable.Observe(6_600_000, noCue, true) is { Kind: LiveDetectChangeKind.Decrease,
+        Require(adviceUnavailable.Observe(6_600_000, noCue, true) is null
+            && adviceUnavailable.Observe(8_000_000, noCue, true) is { Kind: LiveDetectChangeKind.Decrease,
             Before.Cue: 1, After.Cue: 0, Before.Yellows: 7, After.Yellows: 6 },
             "repeated clear cue-absent layout reports cue and colour loss from the pre-motion inventory");
-        adviceUnavailable.Observe(8_000_000, OneYellowDown, true);
-        Require(adviceUnavailable.Observe(9_400_000, OneYellowDown, true) is { Kind: LiveDetectChangeKind.Increase,
+        adviceUnavailable.Observe(9_400_000, OneYellowDown, true);
+        Require(adviceUnavailable.Observe(10_800_000, OneYellowDown, true) is null
+            && adviceUnavailable.Observe(12_200_000, OneYellowDown, true) is { Kind: LiveDetectChangeKind.Increase,
             Before.Cue: 0, After.Cue: 1 }, "cue return is reported after cue-absent play without restarting");
 
         var changing = new LiveDetectCountCandidateTracker();
@@ -68,8 +86,9 @@ internal static class LiveDetectCountCandidateChecks
         changing.Observe(2_400_000, OneYellowDown, true);
         var mixedIncrease = new LiveDetectCounts(8, 6, 1, 1, 0);
         Require(changing.Observe(3_800_000, mixedIncrease, true) is null
-            && changing.Observe(5_200_000, mixedIncrease, true) is null,
-            "mixed count increase and decrease resets the baseline without a pot candidate");
+            && changing.Observe(5_200_000, mixedIncrease, true) is null
+            && changing.Observe(6_600_000, mixedIncrease, true) is null,
+            "an unsupported mixed increase and decrease cannot replace the valid baseline");
 
         var unknown = new LiveDetectCountCandidateTracker();
         unknown.Observe(1_000_000, Full, true);
@@ -82,7 +101,8 @@ internal static class LiveDetectCountCandidateChecks
         longObstruction.Observe(1_000_000, Full, true);
         longObstruction.Observe(17_000_001, OneYellowDown, false);
         Require(longObstruction.Observe(17_100_000, OneYellowDown, true) is null
-            && longObstruction.Observe(18_500_000, OneYellowDown, true) is { Kind: LiveDetectChangeKind.Decrease,
+            && longObstruction.Observe(18_500_000, OneYellowDown, true) is null
+            && longObstruction.Observe(19_900_000, OneYellowDown, true) is { Kind: LiveDetectChangeKind.Decrease,
                 Before: var beforeLongGap, After: var afterLongGap }
             && beforeLongGap == Full && afterLongGap == OneYellowDown,
             "a stable named count decrease after a long obstruction is compared with the last clear inventory");
@@ -91,7 +111,8 @@ internal static class LiveDetectCountCandidateChecks
         confirmation.Observe(1_000_000, Full, true);
         confirmation.Observe(2_400_000, OneYellowDown, true);
         Require(confirmation.Observe(8_000_001, OneYellowDown, true) is null
-            && confirmation.Observe(9_400_001, OneYellowDown, true) is not null,
+            && confirmation.Observe(9_400_001, OneYellowDown, true) is null
+            && confirmation.Observe(10_800_001, OneYellowDown, true) is not null,
             "a stale pending sample needs a fresh repeated clear confirmation");
 
         var cumulative = new LiveDetectCountCandidateTracker();
@@ -100,7 +121,9 @@ internal static class LiveDetectCountCandidateChecks
         cumulative.Observe(2_400_000, OneYellowDown, true);
         Require(cumulative.Observe(3_800_000, yellowAndCueDown, true) is null,
             "additional decrease replaces the pending target without discarding its baseline");
-        var confirmedCumulative = cumulative.Observe(5_200_000, yellowAndCueDown, true);
+        Require(cumulative.Observe(5_200_000, yellowAndCueDown, true) is null,
+            "the new cumulative target still needs three clear samples");
+        var confirmedCumulative = cumulative.Observe(6_600_000, yellowAndCueDown, true);
         Require(confirmedCumulative is { Before: var cumulativeBefore, After: var cumulativeAfter }
             && cumulativeBefore == Full && cumulativeAfter == yellowAndCueDown,
             "repeated cumulative decrease reports all changes from the pre-motion inventory");
@@ -112,34 +135,40 @@ internal static class LiveDetectCountCandidateChecks
             && returns.Observe(4_000_000, OneYellowDown, true) is null,
             "one false extra ball followed by its disappearance cannot create a false pot");
         returns.Observe(5_000_000, Full, true);
-        Require(returns.Observe(6_000_000, Full, true) is { Kind: LiveDetectChangeKind.Increase },
+        Require(returns.Observe(6_000_000, Full, true) is null
+            && returns.Observe(7_000_000, Full, true) is { Kind: LiveDetectChangeKind.Increase },
             "a repeated return is reported without inventing a rack from counts alone");
-        returns.Observe(7_000_000, Full, true, packedRack: true);
-        Require(returns.Observe(8_000_000, Full, true, packedRack: true) is { Kind: LiveDetectChangeKind.Racked },
+        returns.Observe(8_000_000, Full, true, packedRack: true);
+        Require(returns.Observe(9_000_000, Full, true, packedRack: true) is null
+            && returns.Observe(10_000_000, Full, true, packedRack: true) is { Kind: LiveDetectChangeKind.Racked },
             "a full spread inventory becoming a supported packed rack is reported");
-        Require(returns.Observe(9_000_000, Full, true, packedRack: true) is null,
+        Require(returns.Observe(11_000_000, Full, true, packedRack: true) is null,
             "same rack is not announced again");
-        returns.Observe(10_000_000, Full, true, packedRack: false);
-        Require(returns.Observe(11_000_000, Full, true, packedRack: true) is null
-            && returns.Observe(12_000_000, Full, true, packedRack: true) is null,
+        returns.Observe(12_000_000, Full, true, packedRack: false);
+        Require(returns.Observe(13_000_000, Full, true, packedRack: true) is null
+            && returns.Observe(14_000_000, Full, true, packedRack: true) is null,
             "one packed-rack telemetry flicker cannot announce a new rack");
-        returns.Observe(13_000_000, Full, true, packedRack: false);
-        returns.Observe(14_000_000, Full, true, packedRack: false);
-        returns.Observe(15_000_000, OneYellowDown, true);
-        Require(returns.Observe(16_000_000, OneYellowDown, true) is { Kind: LiveDetectChangeKind.Decrease },
+        returns.Observe(15_000_000, Full, true, packedRack: false);
+        returns.Observe(16_000_000, Full, true, packedRack: false);
+        returns.Observe(17_000_000, OneYellowDown, true);
+        Require(returns.Observe(18_000_000, OneYellowDown, true) is null
+            && returns.Observe(19_000_000, OneYellowDown, true) is { Kind: LiveDetectChangeKind.Decrease },
             "pot candidates continue after the rack is opened without restarting the tracker");
-        returns.Observe(17_000_000, Full, true, packedRack: true);
-        Require(returns.Observe(18_000_000, Full, true, packedRack: true) is { Kind: LiveDetectChangeKind.Racked },
+        returns.Observe(20_000_000, Full, true, packedRack: true);
+        Require(returns.Observe(21_000_000, Full, true, packedRack: true) is null
+            && returns.Observe(22_000_000, Full, true, packedRack: true) is { Kind: LiveDetectChangeKind.Racked },
             "re-rack after a pot creates a new supported baseline in the same run");
-        returns.Observe(19_000_000, OneYellowDown, true);
-        Require(returns.Observe(20_000_000, OneYellowDown, true) is { Kind: LiveDetectChangeKind.Decrease },
+        returns.Observe(23_000_000, OneYellowDown, true);
+        Require(returns.Observe(24_000_000, OneYellowDown, true) is null
+            && returns.Observe(25_000_000, OneYellowDown, true) is { Kind: LiveDetectChangeKind.Decrease },
             "a fresh decrease compares with the new rack rather than the previous frame's baseline");
 
         var relabel = new LiveDetectCountCandidateTracker();
         relabel.Observe(1_000_000, OneYellowDown, true);
         var mixedValid = new LiveDetectCounts(6, 7, 1, 1, 0);
         relabel.Observe(2_000_000, mixedValid, true);
-        Require(relabel.Observe(3_000_000, mixedValid, true) is { Kind: LiveDetectChangeKind.Changed },
+        Require(relabel.Observe(3_000_000, mixedValid, true) is null
+            && relabel.Observe(4_000_000, mixedValid, true) is { Kind: LiveDetectChangeKind.Changed },
             "a repeated mixed change is reported as inventory change rather than a pot");
 
         Console.WriteLine("PASS Live Detect repeats inventory changes, rejects transient extras, retains clear history, and handles returns and re-racks");

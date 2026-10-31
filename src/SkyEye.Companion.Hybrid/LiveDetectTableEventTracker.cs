@@ -157,10 +157,14 @@ internal sealed class LiveDetectTableEventTracker
                 activity.Id, after: sample.Counts);
         }
 
+        bool baselinePositionMoved = stableBaselineEstablished && stableSampleEligible
+            && !SettledLayoutReconciler.PositionsCompatible(baselineLayout, sample.Layout);
+        bool observedMovement = sample.MovementObserved || baselinePositionMoved;
+
         // The first frame of a restarted decoder has no spatial continuity with the
         // prior generation. It may still establish a fresh layout, but that jump is
         // not evidence that balls moved.
-        if (stableBaselineEstablished && stableSampleEligible && sample.MovementObserved
+        if (stableBaselineEstablished && stableSampleEligible && observedMovement
             && !mediaGenerationChanged)
         {
             StartActivity("ball positions or inventory changed");

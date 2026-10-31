@@ -47,10 +47,12 @@ internal readonly record struct LiveDetectCountCandidate(LiveDetectCounts Before
 internal sealed class LiveDetectCountCandidateTracker
 {
     internal const long MaximumConfirmationGapUs = 5_000_000;
+    internal const int RequiredConfirmationSamples = 3;
 
     LiveDetectCounts? baseline;
     LiveDetectCounts? pending;
     long pendingSourceTimeUs;
+    int pendingSamples;
     long lastSourceTimeUs = long.MinValue;
     bool baselinePackedRack, pendingPackedRack;
 
@@ -67,7 +69,7 @@ internal sealed class LiveDetectCountCandidateTracker
         if (!candidateEligible || counts.Reds is < 0 or > 7 || counts.Yellows is < 0 or > 7
             || counts.Black is < 0 or > 1 || counts.Cue is < 0 or > 1 || counts.Other != 0)
         {
-            pending = null;
+            ClearPending();
             return null;
         }
         packedRack = packedRack && counts == new LiveDetectCounts(7, 7, 1, 1, 0);
@@ -79,14 +81,14 @@ internal sealed class LiveDetectCountCandidateTracker
             SetBaseline(counts, packedRack: false);
             if (packedRack)
             {
-                pending = counts; pendingSourceTimeUs = sourceTimeUs; pendingPackedRack = true;
+                pending = counts; pendingSourceTimeUs = sourceTimeUs; pendingSamples = 1; pendingPackedRack = true;
             }
             return null;
         }
 
         if (counts == trusted && packedRack == baselinePackedRack)
         {
-            pending = null;
+            ClearPending();
             baselinePackedRack = packedRack;
             return null;
         }
@@ -95,6 +97,8 @@ internal sealed class LiveDetectCountCandidateTracker
             && packedRack == pendingPackedRack
             && sourceTimeUs - pendingSourceTimeUs <= MaximumConfirmationGapUs)
         {
+            pendingSamples++;
+            if (pendingSamples < RequiredConfirmationSamples) return null;
             if (counts == trusted && !packedRack)
             {
                 SetBaseline(counts, packedRack);
@@ -113,6 +117,7 @@ internal sealed class LiveDetectCountCandidateTracker
         // not replace the baseline and make its disappearance look like a pot.
         pending = counts;
         pendingSourceTimeUs = sourceTimeUs;
+        pendingSamples = 1;
         pendingPackedRack = packedRack;
         return null;
     }
@@ -126,16 +131,23 @@ internal sealed class LiveDetectCountCandidateTracker
     void SetBaseline(LiveDetectCounts counts, bool packedRack)
     {
         baseline = counts;
-        pending = null;
+        ClearPending();
         baselinePackedRack = packedRack;
+    }
+
+    void ClearPending()
+    {
+        pending = null;
+        pendingSourceTimeUs = 0;
+        pendingSamples = 0;
+        pendingPackedRack = false;
     }
 
     void ClearBaseline()
     {
         baseline = null;
-        pending = null;
-        pendingSourceTimeUs = 0;
-        baselinePackedRack = pendingPackedRack = false;
+        ClearPending();
+        baselinePackedRack = false;
     }
 
     static bool IsNamedCountDecrease(LiveDetectCounts before, LiveDetectCounts after) =>

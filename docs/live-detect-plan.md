@@ -1,5 +1,13 @@
 # Live Detect delivery plan
 
+## Code62 static-run regression findings and reducer follow-up — 31 October 2026
+
+Production `0.8.54` / code62 repeated the unchanged 15-ball pocket-lip check. In 189 logged passes, 119 clear readings found the expected 15 balls, 12 clear readings briefly missed the same top-left red, and the remainder were obstructed or uncertain. The unchanged table nevertheless produced nine false movement events, two false pot candidates, two false return candidates and five saved event clips. See the [device-acceptance record](device-acceptance.md) and raw log under `work/production/evidence/code62-pocket-lip-20261031/`.
+
+Source now requires three consecutive clear count samples for an inventory candidate. Position continuity is evaluated separately from inventory count and tolerates missing circles while comparing shared centres; Live Detect also checks current positions against its stable layout anchor so small adjacent shifts can accumulate into movement. Focused Agent UI checks pass. Replaying the saved detector output with these changes suppresses all movement, inventory-candidate and clip-candidate events in this static negative sequence. This is offline reducer evidence, not a detector replay or physical check of the uninstalled change. Exact full-inventory readiness remains unchanged.
+
+**Next:** inspect the source pixels and mask for the false obstruction components before changing any obstruction threshold. Then run the same still pocket-lip layout on a build with the reducer changes, followed by a labelled, controlled shot before claiming reliable Live Detect events. Preserve the current separated fixture results and retain the separate cushion-only holdout.
+
 ## Code61 pocket-lip live check and exact-source follow-up — 30 October 2026
 
 Production companion `0.8.53` / code61 is installed on Pixel 11. The build contains the measured packed-cluster image-edge margin change (65px to 23px); the focused offline replay before installation improved the saved pocket-lip frames but remained uncertain. The guarded in-place install retained the existing app identity and private storage. No camera package was updated.

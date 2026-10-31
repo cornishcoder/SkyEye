@@ -1,3 +1,4 @@
+using System.Collections.Immutable;
 using System.Globalization;
 using SkyEye.Core.Application;
 
@@ -260,8 +261,13 @@ public sealed partial class TableAnalysisSession(ITableFrameSource frames, ITabl
         catch (Exception e) { ClearFailedAnalysis(admitted.Generation); completed.TrySetException(e); }
         finally { lock (gate) { if (active == linked) active = null; } linked.Dispose(); }
     }
-    static bool SpatiallyCompatible(Ball[] before, Ball[] after) => TableTracker.SameLayout(
-        before.Select(b => b with { Kind = "unknown" }).ToArray(), after.Select(b => b with { Kind = "unknown" }).ToArray());
+    static bool SpatiallyCompatible(Ball[] before, Ball[] after) =>
+        SkyEye.GameState.SettledLayoutReconciler.PositionsCompatible(CapturePositions(before), CapturePositions(after));
+
+    static ImmutableArray<SkyEye.GameState.SettledBallPosition> CapturePositions(Ball[] balls) => balls
+        .Select(ball => new SkyEye.GameState.SettledBallPosition(SkyEye.GameState.BallColour.Unknown,
+            ball.Position.X / 2d, ball.Position.Y))
+        .ToImmutableArray();
     void ClearFailedAnalysis(long generation)
     {
         lock (gate) { if (!disposed && state.Generation == generation) InvalidateLocked(); }
