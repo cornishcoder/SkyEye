@@ -5,6 +5,7 @@ using SkyEye.Core.Application;
 static class VerificationChecks
 {
     static void Check(bool yes, string reason) { if (!yes) throw new Exception(reason); }
+    public static void RunBoundaryChecksForVerification() => BoundaryChecks();
     static VisionResult Vision(Ball[]? balls = null, bool uncertain = false) => new(balls ?? [new("cue", "cue", new(1.8, .5), 1), new("red", "red", new(1, .5), 1), new("black", "black", new(.2, .8), 1)], uncertain, [], 1, 3, true, "fixture", [1, 1, 1], 100, false, []);
     public static async Task Run()
     {
@@ -400,6 +401,22 @@ static class VerificationChecks
             && left.SectorEvidence.SequenceEqual(right.SectorEvidence)
             && SameBoundaryResult(left.ProposalFit, right.ProposalFit);
 
+    static (BallBoundary? Result, int PrunedCandidates, int SkippedSectors) RunBoundaryRefinementMode(byte[] bgr,
+        int width, int height, Point proposal, double expectedRadius,
+        double minimumSupportedFraction = ObservationPolicy.MinimumSupportedBoundaryFraction,
+        bool collectSectorEvidence = false, string? expectedKind = null,
+        BoundaryColourMask? colourMask = null, double maximumCentreOffsetFraction = .4,
+        bool allowDarkBodyEdgeTransitions = false, int darkBodyValueCeiling = 40,
+        bool enableScoreUpperBound = true, bool useGlobalBestForVerification = false)
+    {
+        var result = BallBoundaryRefiner.RefineForVerification(bgr, width, height, proposal,
+            expectedRadius, minimumSupportedFraction, collectSectorEvidence, expectedKind, colourMask,
+            maximumCentreOffsetFraction, allowDarkBodyEdgeTransitions, darkBodyValueCeiling,
+            enableScoreUpperBound, useGlobalBestForVerification,
+            out int prunedCandidates, out int skippedSectors);
+        return (result, prunedCandidates, skippedSectors);
+    }
+
     static (int PrunedCandidates, int SkippedSectors) CheckBoundaryRefinementModes(byte[] bgr,
         int width, int height, Point proposal, double expectedRadius,
         double minimumSupportedFraction = ObservationPolicy.MinimumSupportedBoundaryFraction,
@@ -407,17 +424,16 @@ static class VerificationChecks
         BoundaryColourMask? colourMask = null, double maximumCentreOffsetFraction = .4,
         bool allowDarkBodyEdgeTransitions = false, int darkBodyValueCeiling = 40)
     {
-        var reference = BallBoundaryRefiner.RefineForVerification(bgr, width, height, proposal,
-            expectedRadius, minimumSupportedFraction, collectSectorEvidence, expectedKind, colourMask,
+        var reference = RunBoundaryRefinementMode(bgr, width, height, proposal, expectedRadius,
+            minimumSupportedFraction, collectSectorEvidence, expectedKind, colourMask,
             maximumCentreOffsetFraction, allowDarkBodyEdgeTransitions, darkBodyValueCeiling,
-            enableScoreUpperBound: false, out _, out _);
-        var optimized = BallBoundaryRefiner.RefineForVerification(bgr, width, height, proposal,
-            expectedRadius, minimumSupportedFraction, collectSectorEvidence, expectedKind, colourMask,
-            maximumCentreOffsetFraction, allowDarkBodyEdgeTransitions, darkBodyValueCeiling,
-            enableScoreUpperBound: true, out int prunedCandidates, out int skippedSectors);
-        Check(SameBoundaryResult(reference, optimized),
+            enableScoreUpperBound: false);
+        var optimized = RunBoundaryRefinementMode(bgr, width, height, proposal, expectedRadius,
+            minimumSupportedFraction, collectSectorEvidence, expectedKind, colourMask,
+            maximumCentreOffsetFraction, allowDarkBodyEdgeTransitions, darkBodyValueCeiling);
+        Check(SameBoundaryResult(reference.Result, optimized.Result),
             "Score upper bound returns exactly the same fit, support, score and retained sector evidence as a complete scan");
-        return (prunedCandidates, skippedSectors);
+        return (optimized.PrunedCandidates, optimized.SkippedSectors);
     }
 
     static void BoundaryChecks()
@@ -469,6 +485,32 @@ static class VerificationChecks
             collectSectorEvidence: true);
         Check(evidencePruneWork.PrunedCandidates == 0 && evidencePruneWork.SkippedSectors == 0,
             "Evidence collection keeps the full candidate scan for identical sector and proposal diagnostics");
+        var splitWinnerImage = Enumerable.Repeat((byte)110, width * height * 3).ToArray();
+        foreach (var (cx, cy, radius, value) in new (int X, int Y, int Radius, byte Value)[]
+        {
+            (87, 88, 23, (byte)55), (82, 80, 36, (byte)230), (74, 71, 37, (byte)55),
+            (85, 85, 28, (byte)130), (83, 74, 21, (byte)230), (87, 73, 24, (byte)90),
+            (89, 87, 30, (byte)90)
+        })
+            for (int py = Math.Max(0, cy - radius); py <= Math.Min(height - 1, cy + radius); py++)
+                for (int px = Math.Max(0, cx - radius); px <= Math.Min(width - 1, cx + radius); px++)
+                    if ((px - cx) * (px - cx) + (py - cy) * (py - cy) <= radius * radius)
+                    {
+                        int at = (py * width + px) * 3;
+                        splitWinnerImage[at] = splitWinnerImage[at + 1] = splitWinnerImage[at + 2] = value;
+                    }
+        var splitWinnerFull = RunBoundaryRefinementMode(splitWinnerImage, width, height, new(80, 80), 27,
+            enableScoreUpperBound: false);
+        var splitWinnerUnsafe = RunBoundaryRefinementMode(splitWinnerImage, width, height, new(80, 80), 27,
+            useGlobalBestForVerification: true);
+        var splitWinnerOptimized = RunBoundaryRefinementMode(splitWinnerImage, width, height, new(80, 80), 27);
+        Check(splitWinnerFull.Result is { SupportedSectors: >= ObservationPolicy.MinimumSupportedBoundaryFraction }
+            && splitWinnerUnsafe.Result is not null
+            && splitWinnerUnsafe.Result.SupportedSectors < ObservationPolicy.MinimumSupportedBoundaryFraction
+            && splitWinnerUnsafe.Result.Score > splitWinnerFull.Result.Score
+            && SameBoundaryResult(splitWinnerFull.Result, splitWinnerOptimized.Result),
+            "Supported winner survives a later candidate whose bound is below an unsupported global best");
+        Console.WriteLine($"INFO split-winner regression: exhaustive/optimized support={splitWinnerFull.Result?.SupportedSectors}; legacy global-best support={splitWinnerUnsafe.Result?.SupportedSectors}; optimized pruned {splitWinnerOptimized.PrunedCandidates} candidates / skipped {splitWinnerOptimized.SkippedSectors} sectors");
         var auditedFit = BallBoundaryRefiner.Refine(image, width, height, new(84, 77), 27,
             collectSectorEvidence: true);
         Check(auditedFit is not null && auditedFit.SectorEvidence.Length == 32

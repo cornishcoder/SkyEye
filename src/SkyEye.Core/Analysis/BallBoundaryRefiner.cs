@@ -306,7 +306,8 @@ public static class BallBoundaryRefiner
         int darkBodyValueCeiling = 40)
         => RefineCore(bgr, width, height, proposal, expectedRadius, minimumSupportedFraction,
             collectSectorEvidence, expectedKind, colourMask, maximumCentreOffsetFraction,
-            allowDarkBodyEdgeTransitions, darkBodyValueCeiling, enableScoreUpperBound: true, pruneStats: null);
+            allowDarkBodyEdgeTransitions, darkBodyValueCeiling, enableScoreUpperBound: true,
+            useGlobalBestForVerification: false, pruneStats: null);
 
     // Differential verification entry point. Kept internal so normal callers
     // always use the optimized path; tests compare it with the original full scan.
@@ -314,12 +315,14 @@ public static class BallBoundaryRefiner
         double expectedRadius, double minimumSupportedFraction, bool collectSectorEvidence,
         string? expectedKind, BoundaryColourMask? colourMask, double maximumCentreOffsetFraction,
         bool allowDarkBodyEdgeTransitions, int darkBodyValueCeiling, bool enableScoreUpperBound,
+        bool useGlobalBestForVerification,
         out int prunedCandidates, out int skippedSectors)
     {
         var stats = new RefinementPruneStats();
         var result = RefineCore(bgr, width, height, proposal, expectedRadius, minimumSupportedFraction,
             collectSectorEvidence, expectedKind, colourMask, maximumCentreOffsetFraction,
-            allowDarkBodyEdgeTransitions, darkBodyValueCeiling, enableScoreUpperBound, stats);
+            allowDarkBodyEdgeTransitions, darkBodyValueCeiling, enableScoreUpperBound,
+            useGlobalBestForVerification, stats);
         prunedCandidates = stats.PrunedCandidates;
         skippedSectors = stats.SkippedSectors;
         return result;
@@ -329,7 +332,8 @@ public static class BallBoundaryRefiner
         double minimumSupportedFraction, bool collectSectorEvidence, string? expectedKind,
         BoundaryColourMask? colourMask, double maximumCentreOffsetFraction,
         bool allowDarkBodyEdgeTransitions, int darkBodyValueCeiling,
-        bool enableScoreUpperBound, RefinementPruneStats? pruneStats)
+        bool enableScoreUpperBound, bool useGlobalBestForVerification,
+        RefinementPruneStats? pruneStats)
     {
         PipelineDiagnostics.Count("boundaryRefineCalls");
         using var scoringTiming = PipelineDiagnostics.Enabled ? PipelineDiagnostics.Measure("boundaryScoringMs") : null;
@@ -410,10 +414,11 @@ public static class BallBoundaryRefiner
                 score += Math.Min(60, fineEdge) + .1 * Math.Min(60, edge);
 
                 // Every remaining sector can add at most two support points and
-                // 60 + 0.1*60 = 66 edge-score points. If even that optimistic
-                // completion cannot beat the current best, the candidate cannot
-                // become either `best` or `supportedBest`. Keep the exact seed
-                // and evidence-collection paths exhaustive so ProposalFit and
+                // 60 + 0.1*60 = 66 edge-score points. Preserve the separate
+                // supported winner: if this candidate can still reach its gate,
+                // only an existing supportedBest is a valid cutoff. Otherwise
+                // compare against the global best. Keep the exact seed and
+                // evidence-collection paths exhaustive so ProposalFit and
                 // per-sector diagnostics remain unchanged.
                 if (enableScoreUpperBound && !reference && !collectSectorEvidence && best is not null)
                 {
@@ -421,7 +426,13 @@ public static class BallBoundaryRefiner
                     double maximumPossibleScore = 2d * (supported + remaining)
                         + (score + 66d * remaining) / directions.Length
                         - .1 * Math.Abs(radius - expectedRadius);
-                    if (maximumPossibleScore + 1e-9 < best.Score)
+                    bool canReachSupportGate = supported + remaining
+                        >= minimumSupportedFraction * directions.Length;
+                    double? scoreToBeat = useGlobalBestForVerification
+                        ? best.Score
+                        : canReachSupportGate ? supportedBest?.Score : best.Score;
+                    if (scoreToBeat is double winningScore
+                        && maximumPossibleScore + 1e-9 < winningScore)
                     {
                         if (pruneStats is not null)
                         {

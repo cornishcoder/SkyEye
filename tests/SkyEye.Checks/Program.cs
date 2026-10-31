@@ -16,6 +16,13 @@ if (args.SequenceEqual(["--shot-samples"]))
     return;
 }
 
+if (args.SequenceEqual(["--boundary-only"]))
+{
+    VerificationChecks.RunBoundaryChecksForVerification();
+    Console.WriteLine("PASS isolated boundary refinement checks");
+    return;
+}
+
 await GptTableAdvisoryChecks.Run();
 
 if (args.SequenceEqual(["--game-tracking"]))
