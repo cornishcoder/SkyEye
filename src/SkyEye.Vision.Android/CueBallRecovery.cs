@@ -61,7 +61,7 @@ public sealed partial class VisionAnalyzer
         Dictionary<Circle, BallBoundary> boundaries, Dictionary<Circle, BallClassification> classifications,
         CancellationToken cancellation,
         out int candidateCount, out int recoveredCount, out NeutralCueCandidateTelemetry[] candidateAudits,
-        bool auditCandidates)
+        out NeutralCueMaskTelemetry? maskTelemetry, bool auditCandidates)
     {
         int width = coordinates.Width, height = coordinates.Height;
         double scale = width / 1000d, expectedRadius = PoolGeometry.Radius * width;
@@ -89,23 +89,43 @@ public sealed partial class VisionAnalyzer
         using var kernelSize = new Size(3, 3);
         using var kernel = new MatLease(Imgproc.GetStructuringElement(Imgproc.MorphEllipse, kernelSize));
         Imgproc.MorphologyEx(value.Value, value.Value, Imgproc.MorphOpen, kernel.Value);
+        int maskPixels = auditCandidates ? Read(value.Value).Count(pixel => pixel != 0) : 0;
         using var labels = new MatLease(new Mat()); using var stats = new MatLease(new Mat()); using var centres = new MatLease(new Mat());
         int count = Imgproc.ConnectedComponentsWithStats(value.Value, labels.Value, stats.Value, centres.Value);
         var candidates = new List<Circle>();
+        var filterCounts = auditCandidates ? new Dictionary<string, int>(StringComparer.Ordinal) : null;
+        var nearPocketComponents = auditCandidates ? new List<NeutralCueMaskComponentTelemetry>() : null;
+        const int maximumNearPocketComponents = 128;
+        double traceDistance = expectedRadius * 6;
+        var pockets = PocketCentres();
         for (int i = 1; i < count; i++)
         {
             cancellation.ThrowIfCancellationRequested();
             double w = stats.Value.Get(i, Imgproc.CcStatWidth)![0], h = stats.Value.Get(i, Imgproc.CcStatHeight)![0];
             double area = stats.Value.Get(i, Imgproc.CcStatArea)![0], radius = (w + h) / 4;
-            if (radius < expectedRadius * .65 || radius > expectedRadius * 1.3
-                || w / h is < .75 or > 1.33 || area / (w * h) < .6) continue;
-            var c = new Circle(centres.Value.Get(i, 0)![0], centres.Value.Get(i, 1)![0], radius);
-            double margin = settings.PocketExclusionRadius * scale;
-            if (c.X < expectedRadius * 1.7 || c.Y < expectedRadius * 1.7
-                || c.X > width - expectedRadius * 1.7 || c.Y > height - expectedRadius * 1.7
-                || PocketCentres().Any(p => (new Point(c.X, c.Y) - p).Length < margin)) continue;
-            candidates.Add(c);
+            double x = centres.Value.Get(i, 0)![0], y = centres.Value.Get(i, 1)![0];
+            double fill = w * h <= 0 ? 0 : area / (w * h);
+            double pocketDistance = pockets.Min(p => (new Point(x, y) - p).Length);
+            string decision = radius < expectedRadius * .65 || radius > expectedRadius * 1.3
+                ? "rejected-radius"
+                : w / h is < .75 or > 1.33 ? "rejected-aspect"
+                : fill < .6 ? "rejected-fill"
+                : x < expectedRadius * 1.7 || y < expectedRadius * 1.7
+                    || x > width - expectedRadius * 1.7 || y > height - expectedRadius * 1.7
+                    ? "rejected-image-edge"
+                : pocketDistance < settings.PocketExclusionRadius * scale
+                    ? "rejected-pocket-exclusion"
+                : "candidate";
+            if (decision == "candidate") candidates.Add(new(x, y, radius));
+            if (!auditCandidates) continue;
+            var counts = filterCounts!;
+            counts[decision] = counts.GetValueOrDefault(decision) + 1;
+            if (pocketDistance <= traceDistance && nearPocketComponents!.Count < maximumNearPocketComponents)
+                nearPocketComponents.Add(new(i, x, y, (int)w, (int)h, (int)area, radius, fill, pocketDistance, decision));
         }
+        maskTelemetry = auditCandidates
+            ? new(maskPixels, count - 1, filterCounts!, nearPocketComponents!.ToArray())
+            : null;
         candidateCount = candidates.Count; recoveredCount = 0;
         var audits = auditCandidates ? new List<NeutralCueCandidateTelemetry>(Math.Min(4, candidates.Count)) : null;
         candidateAudits = [];

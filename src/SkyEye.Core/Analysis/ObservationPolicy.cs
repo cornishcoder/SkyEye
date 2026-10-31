@@ -107,7 +107,13 @@ public sealed record CueBallRecoveryTelemetry(int InitialCueBallCount, int Befor
     public int RejectedInitialCueBodies { get; init; }
     public int RejectedNormalizedCueBodies { get; init; }
     public NeutralCueCandidateTelemetry[] NeutralCandidateAudits { get; init; } = [];
+    public NeutralCueMaskTelemetry? NeutralMaskTelemetry { get; init; }
 }
+public sealed record NeutralCueMaskTelemetry(int MaskPixels, int ConnectedComponents,
+    Dictionary<string, int> FilterCounts, NeutralCueMaskComponentTelemetry[] NearPocketComponents);
+public sealed record NeutralCueMaskComponentTelemetry(int Label, double CentreX, double CentreY,
+    int Width, int Height, int Area, double Radius, double FillFraction,
+    double NearestPocketDistance, string Decision);
 public sealed record NeutralCueCandidateTelemetry(double ProposalX, double ProposalY, double ProposalRadius,
     double? FittedX, double? FittedY, double? FittedRadius, double? BoundarySupport,
     string? Classification, bool? LocalContrast, string Decision)
