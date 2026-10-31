@@ -18,6 +18,8 @@ internal static class PackedBlackMaskTrace
     const int DarkValueCeiling = 40;
     const int PackedClusterImageEdgeMargin = 23;
     const int MaximumRankedSparseBlackPocketArcProbes = 32;
+    const double RadialBoundaryProbeExtentFraction = 1.3;
+    const double RadialBoundaryProbeMinimumSupport = 21d / 32;
 
     internal readonly record struct Peak(int ComponentIndex, double X, double Y, double Radius, int Area, double DistanceFromLabel,
         bool PassesMargin, bool PassesMinimumRadius, bool InSearchWindow);
@@ -370,6 +372,110 @@ internal static class PackedBlackMaskTrace
                     combinedSupportedSectorIndices = sectors.Where(sector => sector.Supported).Select(sector => sector.Index).ToArray()
                 };
             }).ToArray();
+            var radialOffsetComparison = width == 1000
+                ? BuildRadialOffsetComparison()
+                : null;
+
+            object BuildRadialOffsetComparison()
+            {
+                Point FromSource(Point sourcePixel)
+                {
+                    var tablePoint = calibration.Map(new(sourcePixel.X / prepared.SourceWidth,
+                        sourcePixel.Y / prepared.SourceHeight));
+                    return new AnalysisCoordinates(width).FromTable(tablePoint);
+                }
+
+                object Compare(string name, Point proposal, Point? sourcePixel = null)
+                {
+                    var squareFit = BallBoundaryRefiner.Refine(bgrBytes, width, width * 2,
+                        proposal, ballRadius, RadialBoundaryProbeMinimumSupport,
+                        maximumCentreOffsetFraction: RadialBoundaryProbeExtentFraction);
+                    var radialFit = BallBoundaryRefiner.RefineWithRadialCentreOffsetForDiagnostic(
+                        bgrBytes, width, width * 2, proposal, ballRadius,
+                        RadialBoundaryProbeMinimumSupport,
+                        maximumCentreOffsetFraction: RadialBoundaryProbeExtentFraction);
+                    object? Classify(BallBoundary? fit)
+                    {
+                        if (fit is null || classifierAnalyzer is null || classifierPixels is null) return null;
+                        var evidence = classifierAnalyzer.ClassifyDiagnosticCandidate(fit.Centre,
+                            fit.Radius, classifierPixels);
+                        return new
+                        {
+                            kind = evidence.Classification.Kind,
+                            pattern = evidence.Classification.Pattern,
+                            quality = evidence.Classification.Quality,
+                            bodyDarkFraction = evidence.Classification.BodyDarkFraction,
+                            rimDarkFraction = evidence.Classification.RimDarkFraction,
+                            bodySampleCount = evidence.BodySampleCount,
+                            usableBodySampleCount = evidence.UsableBodySampleCount,
+                            rimSampleCount = evidence.RimSampleCount,
+                            usableRimSampleCount = evidence.UsableRimSampleCount
+                        };
+                    }
+                    object? Fit(BallBoundary? fit) => fit is null ? null : new
+                    {
+                        centre = fit.Centre,
+                        radius = fit.Radius,
+                        proposalOffsetPx = (fit.Centre - proposal).Length,
+                        proposalOffsetBallRadii = (fit.Centre - proposal).Length / ballRadius,
+                        supportedSectors = (int)Math.Round(fit.SupportedSectors * 32),
+                        supportFraction = fit.SupportedSectors,
+                        meetsSparseBlackSupportGate = fit.SupportedSectors >= RadialBoundaryProbeMinimumSupport,
+                        score = fit.Score,
+                        classification = Classify(fit)
+                    };
+                    return new
+                    {
+                        name,
+                        proposalSourcePixel = sourcePixel,
+                        proposalAnalysisPixel = proposal,
+                        expectedRadius = ballRadius,
+                        maximumCentreOffsetFraction = RadialBoundaryProbeExtentFraction,
+                        maximumRadialOffsetPx = ballRadius * RadialBoundaryProbeExtentFraction,
+                        minimumSupportFraction = RadialBoundaryProbeMinimumSupport,
+                        squareExtentFit = Fit(squareFit),
+                        radialBoundedFit = Fit(radialFit)
+                    };
+                }
+
+                double scale = width / 1000d;
+                var cases = new List<object>
+                {
+                    Compare("positive-black-model-proposal", label,
+                        new Point(manualImageX, manualImageY)),
+                    Compare("positive-frame-known-rail-shadow-seed",
+                        new Point(587.5 * scale, 56 * scale))
+                };
+                if (long.TryParse(frameId, out long parsedFrameId) && parsedFrameId == 1365)
+                {
+                    var interiorYellowSource = new Point(816.3, 533.7);
+                    cases.Add(Compare("positive-frame-interior-yellow-proposal",
+                        FromSource(interiorYellowSource), interiorYellowSource));
+                }
+                return new
+                {
+                    diagnosticOnly = true,
+                    productionOutputChanged = false,
+                    feedsDetectorCandidates = false,
+                    feedsVisionResult = false,
+                    feedsGameState = false,
+                    rasterSource = "captured width-1000 BGR and HSV bytes from the exact replay analyzer invocation",
+                    candidateSources = new
+                    {
+                        positiveBlack = "source pixel (99,897) from hash-matched frame-1365 local-model proposal; frame-978 run reuses the same source pixel and maps it with that frame's own receipt calibration",
+                        railShadow = "saved frame-1365 sparse-black rank-0 seed (587.5,56) at analysis width 1000",
+                        interiorPositive = "source pixel (816.3,533.7), the interior yellow proposal in the hash-matched frame-1365 local-model output"
+                    },
+                    fitterComparison = new
+                    {
+                        squareExtent = "unchanged production Refine search and fine-search behavior",
+                        radialBound = "same fitter/grid/score; candidate centres beyond Euclidean 1.3R are skipped",
+                        extentFraction = RadialBoundaryProbeExtentFraction,
+                        minimumSupportFraction = RadialBoundaryProbeMinimumSupport
+                    },
+                    cases
+                };
+            }
             static object? FitSummary(BallBoundary? fit, Point reference) => fit is null ? null : new
             {
                 centre = fit.Centre,
@@ -757,6 +863,7 @@ internal static class PackedBlackMaskTrace
                     maximumDistanceWithinExpectedBall = maxDistanceWithinExpectedBall, maximumDistanceWithin1_5BallRadii = maxDistanceWithin1_5BallRadii,
                     minimumPeakRadiusFactor, minimumPeakRadius },
                 manualCentreProbe = manualCentreProbeReport,
+                radialOffsetComparison,
                 rankedSparseBlackPocketArcProbeCount = rankedSparseBlackPocketArcProbes.Length,
                 rankedSparseBlackPocketArcProbeCap = MaximumRankedSparseBlackPocketArcProbes,
                 rankedSparseBlackPocketArcProbeExecutedCount = rankedSparseBlackPocketArcProbes.Count(probe => probe.probeExecuted),

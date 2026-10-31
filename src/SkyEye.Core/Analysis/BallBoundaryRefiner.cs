@@ -307,7 +307,22 @@ public static class BallBoundaryRefiner
         => RefineCore(bgr, width, height, proposal, expectedRadius, minimumSupportedFraction,
             collectSectorEvidence, expectedKind, colourMask, maximumCentreOffsetFraction,
             allowDarkBodyEdgeTransitions, darkBodyValueCeiling, enableScoreUpperBound: true,
-            useGlobalBestForVerification: false, pruneStats: null);
+            useGlobalBestForVerification: false, pruneStats: null, maximumRadialCentreOffset: null);
+
+    /// <summary>Diagnostic-only counterpart to <see cref="Refine"/> that applies
+    /// the same centre-offset fraction as a Euclidean radius. The ordinary
+    /// production entry point remains unchanged.</summary>
+    internal static BallBoundary? RefineWithRadialCentreOffsetForDiagnostic(byte[] bgr, int width, int height,
+        Point proposal, double expectedRadius,
+        double minimumSupportedFraction = ObservationPolicy.MinimumSupportedBoundaryFraction,
+        bool collectSectorEvidence = false, string? expectedKind = null, BoundaryColourMask? colourMask = null,
+        double maximumCentreOffsetFraction = .4, bool allowDarkBodyEdgeTransitions = false,
+        int darkBodyValueCeiling = 40)
+        => RefineCore(bgr, width, height, proposal, expectedRadius, minimumSupportedFraction,
+            collectSectorEvidence, expectedKind, colourMask, maximumCentreOffsetFraction,
+            allowDarkBodyEdgeTransitions, darkBodyValueCeiling, enableScoreUpperBound: true,
+            useGlobalBestForVerification: false, pruneStats: null,
+            maximumRadialCentreOffset: expectedRadius * maximumCentreOffsetFraction);
 
     // Differential verification entry point. Kept internal so normal callers
     // always use the optimized path; tests compare it with the original full scan.
@@ -322,7 +337,7 @@ public static class BallBoundaryRefiner
         var result = RefineCore(bgr, width, height, proposal, expectedRadius, minimumSupportedFraction,
             collectSectorEvidence, expectedKind, colourMask, maximumCentreOffsetFraction,
             allowDarkBodyEdgeTransitions, darkBodyValueCeiling, enableScoreUpperBound,
-            useGlobalBestForVerification, stats);
+            useGlobalBestForVerification, stats, maximumRadialCentreOffset: null);
         prunedCandidates = stats.PrunedCandidates;
         skippedSectors = stats.SkippedSectors;
         return result;
@@ -333,7 +348,7 @@ public static class BallBoundaryRefiner
         BoundaryColourMask? colourMask, double maximumCentreOffsetFraction,
         bool allowDarkBodyEdgeTransitions, int darkBodyValueCeiling,
         bool enableScoreUpperBound, bool useGlobalBestForVerification,
-        RefinementPruneStats? pruneStats)
+        RefinementPruneStats? pruneStats, double? maximumRadialCentreOffset)
     {
         PipelineDiagnostics.Count("boundaryRefineCalls");
         using var scoringTiming = PipelineDiagnostics.Enabled ? PipelineDiagnostics.Measure("boundaryScoringMs") : null;
@@ -375,6 +390,8 @@ public static class BallBoundaryRefiner
 
         void Consider(double x, double y, double radius, bool reference = false)
         {
+            if (maximumRadialCentreOffset is { } radialLimit
+                && (new Point(x, y) - proposal).Length > radialLimit + 1e-9) return;
             double offset = Math.Max(2, expectedRadius * .12);
             if (!FitsSampleBounds(x, y, radius, offset, width, height)) return;
             int supported = 0; double score = 0;
