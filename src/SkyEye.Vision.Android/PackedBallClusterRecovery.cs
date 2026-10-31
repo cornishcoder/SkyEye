@@ -222,8 +222,12 @@ public sealed partial class VisionAnalyzer
         {
             var seed = rankedSeeds[i].Seed;
             double nearestPocketRadius = PocketCentres().Min(pocket => (seed.Centre - pocket).Length) / expectedRadius;
-            if (candidateAudits is not null && nearestPocketRadius <= 3.5)
+            if (candidateAudits is not null)
             {
+                // Offline only: inspect every seed within the already bounded
+                // candidate budget. A far shadow can win the fit even when the
+                // actual black is pocket-adjacent, so pocket-local probes alone
+                // cannot compare their appearance evidence.
                 var seedCentredBody = new Circle(seed.Centre.X, seed.Centre.Y, expectedRadius);
                 var seedClassification = Classify(seedCentredBody, rawPixels, inspectRim: true);
                 bool localValueContrast = HasLocalBodyValueContrast(seedCentredBody, rawPixels);
