@@ -39,10 +39,15 @@ public sealed record VisionSettings(int Width = 1000, double MinimumRadius = 18,
     // Separately replay the whole-table proposal fix against the v2 cue branch.
     public bool BodyProposalPriority { get; init; } = true;
     public double MinimumHoughBoundarySupport { get; init; } = .75;
-    // Four exact pocket-lip frames recovered the labelled red at 21/32 sectors;
-    // seven clean-rack/black-absent controls added no circles. The independent
-    // pocket-colour review retains its stricter support gate.
-    public const double DefaultMinimumSparseColourBoundarySupport = 21d / 32;
+    // A fresh six-frame pocket-lip holdout recovered a fitted top-left red with
+    // 20/32 supported sectors; the separate pocket-colour review retains its
+    // stricter support gate. Clear-rack, black-absent and obstruction controls
+    // remained clean at this sparse-colour-only threshold.
+    // This gate applies to isolated sparse colour bodies only. A matched red
+    // at a pocket lip can lose twelve sectors to the pocket while retaining a
+    // fitted, correctly classified ball body; boundary, colour and separation
+    // checks remain required.
+    public const double DefaultMinimumSparseColourBoundarySupport = 20d / 32;
     public double MinimumSparseColourBoundarySupport { get; init; } = DefaultMinimumSparseColourBoundarySupport;
     // The labelled spread/pocket/cushion holdout hid the black among many
     // cloth-mask peaks. Radius-first ranking recovered it within the existing

@@ -15,6 +15,7 @@ namespace SkyEye.Vision.Android;
 /// pocket masks, cue-reference normalization and bounded C# colour clustering.</summary>
 public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationAnalyzer, ITableAnalyzerMetadata
 {
+    const int MinimumObstructionNeutralValueCeiling = 94;
     static readonly object loadGate = new(); static bool loaded;
     readonly AnalysisCoordinates coordinates;
     readonly VisionSettings settings;
@@ -64,7 +65,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 settings.DarkBodyValueCeiling, settings.VerificationBodyRefinement, settings.PackedClusterImageEdgeMargin,
                 settings.PackedColourBoundarySearchExtentFraction
             };
-            const string algorithm = "body-priority-packed-colour-peaks-v23-edge23-pocket48-sparse21-review75-redyellow-black-radius13-support21";
+            const string algorithm = "body-priority-packed-colour-peaks-v25-neutralceiling94-edge23-pocket48-sparse20-review75-redyellow-black-radius13-support21";
             bool normalizedProposalAblation = settings.UseNormalizedGeometryForDetection || settings.UseNormalizedPackedColourProposalMask;
             bool edgeMarginAblation = settings.PackedClusterImageEdgeMargin != 23;
             bool sparseColourSupportAblation = settings.MinimumSparseColourBoundarySupport
@@ -782,10 +783,12 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         var clothRange = diagnosticObstructionClothRangeOverride ?? sampledClothRange;
         using var mask = ClothMask(hsv, pixels, separateBalls: false, rangeOverride: clothRange);
         (int Minimum, int Maximum)? sampledNeutralValueRange = sampledClothRange.MedianValue > 0
-            ? ((int)Math.Floor(sampledClothRange.MedianValue * .25), (int)Math.Ceiling(sampledClothRange.MedianValue * 1.8))
+            ? ((int)Math.Floor(sampledClothRange.MedianValue * .25), Math.Min(255,
+                Math.Max(MinimumObstructionNeutralValueCeiling, (int)Math.Ceiling(sampledClothRange.MedianValue * 1.8))))
             : null;
         (int Minimum, int Maximum)? clothRangeNeutralValueRange = clothRange.MedianValue > 0
-            ? ((int)Math.Floor(clothRange.MedianValue * .25), (int)Math.Ceiling(clothRange.MedianValue * 1.8))
+            ? ((int)Math.Floor(clothRange.MedianValue * .25), Math.Min(255,
+                Math.Max(MinimumObstructionNeutralValueCeiling, (int)Math.Ceiling(clothRange.MedianValue * 1.8))))
             : null;
         var appliedNeutralValueRange = diagnosticObstructionNeutralValueRangeOverride ?? clothRangeNeutralValueRange;
         if (appliedNeutralValueRange is { } neutralRange)

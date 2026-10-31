@@ -6,7 +6,7 @@ param(
     [int]$EdgeMargin = 23,
     [double]$PocketRadius = 48,
     [double]$BoundarySupport = 0.75,
-    [double]$SparseColourSupport = 0.65625,
+    [double]$SparseColourSupport = 0.625,
     [double]$PackedColourBoundarySearchExtent = 0.65,
     [double]$SparseBlackSearchExtent = 1.3,
     [double]$SparseBlackSupport = 0.65625,
