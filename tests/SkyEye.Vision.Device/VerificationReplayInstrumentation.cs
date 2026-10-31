@@ -15,7 +15,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
     bool refinement, dump, boundaryAudit, traceDarkMask, tracePackedColourFits, normalizedGeometry, normalizedPackedProposalMask, boundaryExtentAblation,
         edgeMarginAblation, continueCalibrationMismatch, obstructionMaskTrace, localIlluminationNormalization;
     int fastWidth, darkBodyCeiling = 40, packedClusterImageEdgeMargin = 23, manualBlackImageX = 1282, manualBlackImageY = 536;
-    double boundaryExtentFraction = .65, pocketExclusionRadius = VisionSettings.DefaultPocketExclusionRadius, minimumBoundarySupport = .75,
+    double boundaryExtentFraction = .65, production800BoundaryExtent = .65,
+        pocketExclusionRadius = VisionSettings.DefaultPocketExclusionRadius, minimumBoundarySupport = .75,
         minimumSparseColourBoundarySupport = VisionSettings.DefaultMinimumSparseColourBoundarySupport,
         sparseBlackSearchExtentFraction = VisionSettings.DefaultSparseBlackBoundarySearchExtentFraction,
         minimumSparseBlackBoundarySupport = VisionSettings.DefaultMinimumSparseBlackBoundarySupport;
@@ -57,6 +58,11 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 throw new ArgumentOutOfRangeException(nameof(boundaryExtentFraction), "Packed-colour boundary extent must be between 0.2 and 0.8.");
             boundaryExtentAblation = boundaryExtentFraction != .65;
         }
+        var requestedProduction800Extent = args?.GetString("production800BoundaryExtent");
+        if (!string.IsNullOrWhiteSpace(requestedProduction800Extent)
+            && (!double.TryParse(requestedProduction800Extent, NumberStyles.Float, CultureInfo.InvariantCulture, out production800BoundaryExtent)
+                || !double.IsFinite(production800BoundaryExtent) || production800BoundaryExtent is < .2 or > .8))
+            throw new ArgumentOutOfRangeException(nameof(production800BoundaryExtent), "Primary width-800 packed-colour boundary extent must be between 0.2 and 0.8.");
         var requestedEdgeMargin = args?.GetString("edgeMargin");
         if (!string.IsNullOrWhiteSpace(requestedEdgeMargin))
         {
@@ -172,7 +178,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     UseNormalizedGeometryForDetection = useNormalizedGeometry,
                     UseNormalizedPackedColourProposalMask = useNormalizedProposalMask
                 };
-            var analyzer800 = new VisionAnalyzer(ReplaySettings(800), boundaryAudit, boundaryAudit, obstructionMaskTrace,
+            var analyzer800 = new VisionAnalyzer(ReplaySettings(800, boundaryExtent: production800BoundaryExtent), boundaryAudit, boundaryAudit, obstructionMaskTrace,
                 diagnosticObstructionClothRangeOverride, diagnosticObstructionNeutralValueRangeOverride);
             var analyzer1000 = new VisionAnalyzer(ReplaySettings(1000), boundaryAudit, boundaryAudit, obstructionMaskTrace,
                 diagnosticObstructionClothRangeOverride, diagnosticObstructionNeutralValueRangeOverride);
@@ -556,6 +562,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 sparseBlackCandidateLimit, sparseBlackRankByRadius,
                 normalizedGeometryAblation = normalizedGeometry,
                 normalizedPackedProposalMaskAblation = normalizedPackedProposalMask,
+                production800BoundaryExtent,
                 packedColourBoundarySearchExtentFraction = boundaryExtentAblation ? boundaryExtentFraction : (double?)null,
                 packedClusterImageEdgeMargin = edgeMarginAblation ? packedClusterImageEdgeMargin : (int?)null,
                 fastWidth = fastWidth > 0 ? fastWidth : (int?)null,

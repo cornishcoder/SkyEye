@@ -154,7 +154,8 @@ public sealed partial class VisionAnalyzer
                 // at both ends before trusting detector-centre motion.
                 if (!templatesShowNoMotion
                     && VerificationObjectMotion.IsReliablePositiveEvidence(anchorVision, vision, detectedDisplacement,
-                        Math.Max(5, owner.coordinates.Width * ObservationPolicy.MinimumDetectedBallMotionFraction)))
+                        Math.Max(5, owner.coordinates.Width * ObservationPolicy.MinimumDetectedBallMotionFraction),
+                        maximum, ObservationPolicy.MinimumTemplateBallMotionPixels))
                     measured = measured with { Motion = TableMotion.Moving, Reason = ObservationReason.Moving };
                 previousColour = colour;
                 return vision?.VerificationReason is { } reason ? measured with { Reason = reason } : measured;

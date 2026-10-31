@@ -667,18 +667,20 @@ static class VerificationChecks
         Check(VerificationObjectMotion.MaximumSupportedDisplacement(motionAnchor, unsupportedRoll) is < 6,
             "Unsupported geometry cannot establish object motion");
         var good = Vision();
-        Check(VerificationObjectMotion.IsReliablePositiveEvidence(good, good, 6.1, 6),
-            "Clear detections before and after can establish positive movement");
-        Check(!VerificationObjectMotion.IsReliablePositiveEvidence(good, good, 5.9, 6),
+        Check(VerificationObjectMotion.IsReliablePositiveEvidence(good, good, 6.1, 6, 1.2, 1),
+            "Clear detections and corroborating local template motion establish positive movement");
+        Check(!VerificationObjectMotion.IsReliablePositiveEvidence(good, good, 5.9, 6, 1.2, 1),
             "Sub-threshold detector displacement cannot establish movement");
-        Check(!VerificationObjectMotion.IsReliablePositiveEvidence(good, good with { Obstructed = true }, 56.08, 6),
+        Check(!VerificationObjectMotion.IsReliablePositiveEvidence(good, good with { Obstructed = true }, 56.08, 6, 1.2, 1),
             "An obstructed packed-table detection cannot turn a missing-ball association into movement");
-        Check(!VerificationObjectMotion.IsReliablePositiveEvidence(good, null, 56.08, 6),
+        Check(!VerificationObjectMotion.IsReliablePositiveEvidence(good, null, 56.08, 6, 1.2, 1),
             "Missing detections cannot establish positive movement");
-        Check(!VerificationObjectMotion.IsReliablePositiveEvidence(good with { LayoutUncertain = true }, good, 7.53, 6),
+        Check(!VerificationObjectMotion.IsReliablePositiveEvidence(good with { LayoutUncertain = true }, good, 7.53, 6, 1.2, 1),
             "A detector-centre shift from an uncertain baseline cannot establish table movement");
-        Check(!VerificationObjectMotion.IsReliablePositiveEvidence(good, good with { LayoutUncertain = true }, 7.53, 6),
+        Check(!VerificationObjectMotion.IsReliablePositiveEvidence(good, good with { LayoutUncertain = true }, 7.53, 6, 1.2, 1),
             "A detector-centre shift from an uncertain current layout cannot establish table movement");
+        Check(!VerificationObjectMotion.IsReliablePositiveEvidence(good, good, 9.126, 5, .297, 1),
+            "Pocket-boundary centre jitter without local template motion cannot establish movement");
         var supported = good with { Circles = good.Balls.Select(b => new CircleObservation(b.Id, new(100, 100), 27, "solid", [])
             { ProposalRadius = 27, BoundarySupport = 1 }).ToArray() };
         var bad = supported with { Circles = supported.Circles.Select(c => c with { Radius = 18, BoundarySupport = null }).ToArray(), Uncertain = true };

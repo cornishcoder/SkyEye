@@ -38,19 +38,25 @@ public enum ObservationReason
 }
 
 /// <summary>Positive motion evidence from repeated, edge-supported ball centres
-/// in clear layouts. Ambiguous associations may not establish movement, and absence
-/// or weak support never establishes stillness.</summary>
+/// corroborated by local image-template motion. Ambiguous associations may not establish
+/// movement, and absence or weak support never establishes stillness.</summary>
 public static class VerificationObjectMotion
 {
     public static bool IsReliablePositiveEvidence(VisionResult? previous, VisionResult? current,
-        double? displacement, double minimumDisplacement) =>
+        double? displacement, double minimumDisplacement,
+        double? templateDisplacement, double minimumTemplateDisplacement) =>
         previous is { Obstructed: false, HasUncertainLayout: false }
         && current is { Obstructed: false, HasUncertainLayout: false }
         && displacement is { } pixels
         && double.IsFinite(pixels)
         && double.IsFinite(minimumDisplacement)
         && minimumDisplacement >= 0
-        && pixels >= minimumDisplacement;
+        && pixels >= minimumDisplacement
+        && templateDisplacement is { } templatePixels
+        && double.IsFinite(templatePixels)
+        && double.IsFinite(minimumTemplateDisplacement)
+        && minimumTemplateDisplacement >= 0
+        && templatePixels > minimumTemplateDisplacement;
 
     public static double? MaximumSupportedDisplacement(IReadOnlyList<CircleObservation> before,
         IReadOnlyList<CircleObservation> after, double minimumBoundarySupport = ObservationPolicy.MinimumSupportedBoundaryFraction)
