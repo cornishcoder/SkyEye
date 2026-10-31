@@ -72,7 +72,14 @@ public sealed partial class ShellSession
             token => MainThread.InvokeOnMainThreadAsync(() => RefreshAsync(token))),
             // At 800x1600 a standard ball still spans about 43 pixels, while
             // reducing the per-frame pixel work by more than a third.
-            new VisionAnalyzer(new VisionSettings(Width: 800)),
+            // On the 800px live path, a 0.4-radius colour-boundary search kept
+            // the pocket-lip red centred within 1.2px over six still frames and
+            // recovered a second held-out frame; keep the generic 1000px fit
+            // extent unchanged because that wider replay regressed one sample.
+            new VisionAnalyzer(new VisionSettings(Width: 800)
+            {
+                PackedColourBoundarySearchExtentFraction = .4
+            }),
             new CameraCalibrationStore(Android.App.Application.Context, () => client.Address, GeometryKey));
         table.VisionDiagnosticsChanged += OnVisionDiagnosticsChanged;
     }

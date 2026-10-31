@@ -915,7 +915,9 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
     {
         var seeds = vision.CandidateAudits.Where(a => a.Pass == "initial"
             && a.Stage is "packed-red" or "packed-yellow"
-            && a.Decision == "rejected-no-boundary-fit").ToArray();
+            && (a.Decision == "rejected-no-boundary-fit"
+                || a.Kind == "red" && a.Decision == "accepted-colour-peak"
+                    && a.ProposalCentre.X >= width * .85 && a.ProposalCentre.Y <= width * .15)).ToArray();
         if (seeds.Length == 0) return [];
         var pixels = WarpRawPixels(encodedImage, calibration, width);
         var hsv = WarpRawPixels(encodedImage, calibration, width, toHsv: true);
@@ -949,6 +951,9 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 seed.ProposalCentre,
                 seed.ProposalRadius,
                 seed.Decision,
+                recordedFitCentre = seed.FittedCentre,
+                recordedFitRadius = seed.FittedRadius,
+                recordedBoundarySupport = seed.BoundarySupport,
                 seedGeometrySupportedSectors = seedSectors.Count(sector => sector.Supported),
                 seedGeometrySupportedSectorIndexes = seedSectors.Where(sector => sector.Supported).Select(sector => sector.Index).ToArray(),
                 seedGeometryExteriorRejectedSectorIndexes = seedSectors.Where(sector => sector.ExteriorRejected).Select(sector => sector.Index).ToArray(),
