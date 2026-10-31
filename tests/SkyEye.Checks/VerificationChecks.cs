@@ -391,6 +391,35 @@ static class VerificationChecks
         chromatic.Measure(sameGray, true, null, before);
         Check(chromatic.Measure(sameGray, true, null, after).Motion != TableMotion.Still, "Colour-only change cannot disappear in grayscale conversion");
     }
+    static bool SameBoundaryResult(BallBoundary? left, BallBoundary? right)
+        => left is null ? right is null : right is not null
+            && left.Centre == right.Centre
+            && left.Radius.Equals(right.Radius)
+            && left.SupportedSectors.Equals(right.SupportedSectors)
+            && left.Score.Equals(right.Score)
+            && left.SectorEvidence.SequenceEqual(right.SectorEvidence)
+            && SameBoundaryResult(left.ProposalFit, right.ProposalFit);
+
+    static (int PrunedCandidates, int SkippedSectors) CheckBoundaryRefinementModes(byte[] bgr,
+        int width, int height, Point proposal, double expectedRadius,
+        double minimumSupportedFraction = ObservationPolicy.MinimumSupportedBoundaryFraction,
+        bool collectSectorEvidence = false, string? expectedKind = null,
+        BoundaryColourMask? colourMask = null, double maximumCentreOffsetFraction = .4,
+        bool allowDarkBodyEdgeTransitions = false, int darkBodyValueCeiling = 40)
+    {
+        var reference = BallBoundaryRefiner.RefineForVerification(bgr, width, height, proposal,
+            expectedRadius, minimumSupportedFraction, collectSectorEvidence, expectedKind, colourMask,
+            maximumCentreOffsetFraction, allowDarkBodyEdgeTransitions, darkBodyValueCeiling,
+            enableScoreUpperBound: false, out _, out _);
+        var optimized = BallBoundaryRefiner.RefineForVerification(bgr, width, height, proposal,
+            expectedRadius, minimumSupportedFraction, collectSectorEvidence, expectedKind, colourMask,
+            maximumCentreOffsetFraction, allowDarkBodyEdgeTransitions, darkBodyValueCeiling,
+            enableScoreUpperBound: true, out int prunedCandidates, out int skippedSectors);
+        Check(SameBoundaryResult(reference, optimized),
+            "Score upper bound returns exactly the same fit, support, score and retained sector evidence as a complete scan");
+        return (prunedCandidates, skippedSectors);
+    }
+
     static void BoundaryChecks()
     {
         var hsvMask = BoundaryColourMask.FromHsvPixels([
@@ -430,8 +459,16 @@ static class VerificationChecks
             for (int c = 0; c < 3; c++) image[(y * width + x) * 3 + c] = cream ? (byte)230 : body ? (byte)20 : (byte)110;
         }
         var fit = BallBoundaryRefiner.Refine(image, width, height, new(84, 77), 27);
+        var pruneWork = CheckBoundaryRefinementModes(image, width, height, new(84, 77), 27);
+        Console.WriteLine($"INFO boundary upper-bound differential: exact fit; pruned {pruneWork.PrunedCandidates} losing candidates and skipped {pruneWork.SkippedSectors} of their remaining sector evaluations");
+        Check(pruneWork.PrunedCandidates > 0 && pruneWork.SkippedSectors > 0,
+            $"Score upper bound preserves the exact fit while skipping {pruneWork.SkippedSectors} sector evaluations across {pruneWork.PrunedCandidates} losing candidates");
         Check(fit is not null && (fit.Centre - new Point(80, 80)).Length < 2 && Math.Abs(fit.Radius - 27) < 2,
             "Current outer boundary recovers a displaced proposal without fitting the cream patch");
+        var evidencePruneWork = CheckBoundaryRefinementModes(image, width, height, new(84, 77), 27,
+            collectSectorEvidence: true);
+        Check(evidencePruneWork.PrunedCandidates == 0 && evidencePruneWork.SkippedSectors == 0,
+            "Evidence collection keeps the full candidate scan for identical sector and proposal diagnostics");
         var auditedFit = BallBoundaryRefiner.Refine(image, width, height, new(84, 77), 27,
             collectSectorEvidence: true);
         Check(auditedFit is not null && auditedFit.SectorEvidence.Length == 32
@@ -451,6 +488,8 @@ static class VerificationChecks
             shadowedRed[at] = blue; shadowedRed[at + 1] = green; shadowedRed[at + 2] = red;
         }
         var shadowFit = BallBoundaryRefiner.Refine(shadowedRed, width, height, new(80, 80), 22,
+            expectedKind: "red");
+        CheckBoundaryRefinementModes(shadowedRed, width, height, new(80, 80), 22,
             expectedKind: "red");
         Check(shadowFit is { SupportedSectors: >= ObservationPolicy.MinimumSupportedBoundaryFraction }
             && Math.Abs(shadowFit.Radius - 22) < 1.5,

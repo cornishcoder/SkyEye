@@ -304,6 +304,32 @@ public static class BallBoundaryRefiner
         bool collectSectorEvidence = false, string? expectedKind = null, BoundaryColourMask? colourMask = null,
         double maximumCentreOffsetFraction = .4, bool allowDarkBodyEdgeTransitions = false,
         int darkBodyValueCeiling = 40)
+        => RefineCore(bgr, width, height, proposal, expectedRadius, minimumSupportedFraction,
+            collectSectorEvidence, expectedKind, colourMask, maximumCentreOffsetFraction,
+            allowDarkBodyEdgeTransitions, darkBodyValueCeiling, enableScoreUpperBound: true, pruneStats: null);
+
+    // Differential verification entry point. Kept internal so normal callers
+    // always use the optimized path; tests compare it with the original full scan.
+    internal static BallBoundary? RefineForVerification(byte[] bgr, int width, int height, Point proposal,
+        double expectedRadius, double minimumSupportedFraction, bool collectSectorEvidence,
+        string? expectedKind, BoundaryColourMask? colourMask, double maximumCentreOffsetFraction,
+        bool allowDarkBodyEdgeTransitions, int darkBodyValueCeiling, bool enableScoreUpperBound,
+        out int prunedCandidates, out int skippedSectors)
+    {
+        var stats = new RefinementPruneStats();
+        var result = RefineCore(bgr, width, height, proposal, expectedRadius, minimumSupportedFraction,
+            collectSectorEvidence, expectedKind, colourMask, maximumCentreOffsetFraction,
+            allowDarkBodyEdgeTransitions, darkBodyValueCeiling, enableScoreUpperBound, stats);
+        prunedCandidates = stats.PrunedCandidates;
+        skippedSectors = stats.SkippedSectors;
+        return result;
+    }
+
+    static BallBoundary? RefineCore(byte[] bgr, int width, int height, Point proposal, double expectedRadius,
+        double minimumSupportedFraction, bool collectSectorEvidence, string? expectedKind,
+        BoundaryColourMask? colourMask, double maximumCentreOffsetFraction,
+        bool allowDarkBodyEdgeTransitions, int darkBodyValueCeiling,
+        bool enableScoreUpperBound, RefinementPruneStats? pruneStats)
     {
         PipelineDiagnostics.Count("boundaryRefineCalls");
         using var scoringTiming = PipelineDiagnostics.Enabled ? PipelineDiagnostics.Measure("boundaryScoringMs") : null;
@@ -382,6 +408,29 @@ public static class BallBoundaryRefiner
                     { ColourMaskTransitionUsed = colourMaskTransitionUsed, DarkBodyTransitionUsed = darkBodyTransitionUsed };
                 // Cap strong highlights so a few patch/shadow edges cannot dominate.
                 score += Math.Min(60, fineEdge) + .1 * Math.Min(60, edge);
+
+                // Every remaining sector can add at most two support points and
+                // 60 + 0.1*60 = 66 edge-score points. If even that optimistic
+                // completion cannot beat the current best, the candidate cannot
+                // become either `best` or `supportedBest`. Keep the exact seed
+                // and evidence-collection paths exhaustive so ProposalFit and
+                // per-sector diagnostics remain unchanged.
+                if (enableScoreUpperBound && !reference && !collectSectorEvidence && best is not null)
+                {
+                    int remaining = directions.Length - i - 1;
+                    double maximumPossibleScore = 2d * (supported + remaining)
+                        + (score + 66d * remaining) / directions.Length
+                        - .1 * Math.Abs(radius - expectedRadius);
+                    if (maximumPossibleScore + 1e-9 < best.Score)
+                    {
+                        if (pruneStats is not null)
+                        {
+                            pruneStats.PrunedCandidates++;
+                            pruneStats.SkippedSectors += remaining;
+                        }
+                        return;
+                    }
+                }
             }
             // Coarse candidates need not already meet the final support gate;
             // otherwise grid quantization can prevent subpixel refinement entirely.
@@ -394,6 +443,12 @@ public static class BallBoundaryRefiner
             if (supported >= minimumSupportedFraction * directions.Length
                 && (supportedBest is null || score > supportedBest.Score)) supportedBest = candidate;
         }
+    }
+
+    sealed class RefinementPruneStats
+    {
+        public int PrunedCandidates { get; set; }
+        public int SkippedSectors { get; set; }
     }
 
     static bool FitsSampleBounds(double x, double y, double radius, double offset, int width, int height)

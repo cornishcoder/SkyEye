@@ -1,1 +1,1 @@
-<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup><ItemGroup><ProjectReference Include="../SkyEye.GameState/SkyEye.GameState.csproj"/></ItemGroup></Project>
+<Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup><ItemGroup><ProjectReference Include="../SkyEye.GameState/SkyEye.GameState.csproj"/><InternalsVisibleTo Include="SkyEye.Checks" /></ItemGroup></Project>
