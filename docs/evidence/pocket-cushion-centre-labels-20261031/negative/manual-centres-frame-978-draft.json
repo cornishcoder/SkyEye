@@ -1,0 +1,52 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "independent-manual-visual-centres-before-detector-review",
+  "reviewer": "Luna subagent visual review",
+  "status": "assistant draft; user review needed",
+  "source": {
+    "file": "work/production/evidence/code65-source-frame-check-20261031/exact-replay-input/978.png",
+    "receipt": "work/production/evidence/code65-source-frame-check-20261031/exact-replay-input/978.json",
+    "sha256": "b368348c63d924f5c7834e8e849b7287225ab525b470bdc3b85f7a8278cbbe70",
+    "receiptSha256": "653e1ea4bc6c927ba592ad796a6c084e49103c27003d13e5d23d0c98a3144034",
+    "width": 1920,
+    "height": 1080,
+    "frameId": 978,
+    "sourceTimeUs": 48922017388,
+    "timeline": "2ea48e0c35cd474eb627acf970a7eec5",
+    "lighting": "dimmer than code70 daylight sample; not measured",
+    "calibrationId": "6d304dd864f84c8486ee30844fe685b1",
+    "calibrationCornersCopiedFromReceipt": true
+  },
+  "method": "Centers estimated by visual inspection of the unmarked decoded source image with a 50-pixel coordinate grid. No detector, candidate, local-model or prior annotation output was consulted while placing centres. Values are provisional pixel estimates, not ground truth.",
+  "expectedInventory": {
+    "cue": 1,
+    "red": 7,
+    "yellow": 7,
+    "black": 0,
+    "total": 15
+  },
+  "balls": [
+    { "id": "cue-01", "colour": "cue", "xPx": 141, "yPx": 906, "uncertaintyPx": 7, "visibility": "partly constrained by lower-left pocket jaw" },
+    { "id": "red-01", "colour": "red", "xPx": 124, "yPx": 193, "uncertaintyPx": 6, "visibility": "near upper-left pocket and cushion" },
+    { "id": "red-02", "colour": "red", "xPx": 785, "yPx": 146, "uncertaintyPx": 6, "visibility": "near upper-middle pocket and cushion" },
+    { "id": "red-03", "colour": "red", "xPx": 1627, "yPx": 105, "uncertaintyPx": 6, "visibility": "near upper-right pocket and cushion" },
+    { "id": "red-04", "colour": "red", "xPx": 118, "yPx": 510, "uncertaintyPx": 5, "visibility": "touching left cushion" },
+    { "id": "red-05", "colour": "red", "xPx": 123, "yPx": 861, "uncertaintyPx": 7, "visibility": "near lower-left pocket and cushion" },
+    { "id": "red-06", "colour": "red", "xPx": 866, "yPx": 930, "uncertaintyPx": 6, "visibility": "near lower-middle pocket and cushion" },
+    { "id": "red-07", "colour": "red", "xPx": 1609, "yPx": 932, "uncertaintyPx": 6, "visibility": "near lower-right pocket and cushion" },
+    { "id": "yellow-01", "colour": "yellow", "xPx": 83, "yPx": 201, "uncertaintyPx": 6, "visibility": "near upper-left pocket and cushion" },
+    { "id": "yellow-02", "colour": "yellow", "xPx": 847, "yPx": 147, "uncertaintyPx": 6, "visibility": "near upper-middle pocket and cushion" },
+    { "id": "yellow-03", "colour": "yellow", "xPx": 1639, "yPx": 152, "uncertaintyPx": 6, "visibility": "near upper-right pocket and cushion" },
+    { "id": "yellow-04", "colour": "yellow", "xPx": 813, "yPx": 535, "uncertaintyPx": 4, "visibility": "clear" },
+    { "id": "yellow-05", "colour": "yellow", "xPx": 1630, "yPx": 543, "uncertaintyPx": 5, "visibility": "touching right cushion" },
+    { "id": "yellow-06", "colour": "yellow", "xPx": 800, "yPx": 930, "uncertaintyPx": 6, "visibility": "near lower-middle pocket and cushion" },
+    { "id": "yellow-07", "colour": "yellow", "xPx": 1657, "yPx": 914, "uncertaintyPx": 6, "visibility": "near lower-right pocket and cushion" }
+  ],
+  "controlCaveat": "This frame is an empty-mouth black-absent spatial control from a separate, dimmer timeline than code70 frame 1365. It is not a matched-light or same-session comparison.",
+  "limitations": [
+    "All centres are visual estimates from one full-frame view and require user review before any centre-error score.",
+    "Several balls touch cushions or pocket jaws; their visible outlines do not fully determine their centres.",
+    "The source image and calibration receipt hashes are checked, but calibration was carried forward from the same fixed mount rather than recorded in this code65 sidecar.",
+    "These labels are not detector acceptance evidence and must not be used to relax pocket, boundary-support, obstruction or uncertainty gates."
+  ]
+}
