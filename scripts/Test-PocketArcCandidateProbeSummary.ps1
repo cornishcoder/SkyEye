@@ -33,9 +33,10 @@ $summaryCsv = Join-Path $tempRoot 'summary.csv'
 
 $probeRows = @(Import-Csv -LiteralPath $probeCsv)
 $summaryRows = @(Import-Csv -LiteralPath $summaryCsv)
-if ($probeRows.Count -ne 2) { throw "Expected two flattened candidate rows, found $($probeRows.Count)." }
+if ($probeRows.Count -ne 3) { throw "Expected three flattened candidate rows, found $($probeRows.Count)." }
 $blackRow = $probeRows | Where-Object CandidateRank -eq '3'
 $noFitRow = $probeRows | Where-Object CandidateRank -eq '4'
+$skippedRow = $probeRows | Where-Object CandidateRank -eq '5'
 if ($blackRow.ClassifierKind -ne 'black' -or $blackRow.ClassifierPattern -ne 'solid-dark' -or
     $blackRow.ClassifierQuality -ne '0.9' -or $blackRow.ClassifierQualityIsProbability -ne 'False' -or
     $blackRow.UsableBodySampleCount -ne '500' -or $blackRow.UsableRimSampleCount -ne '90') {
@@ -44,7 +45,12 @@ if ($blackRow.ClassifierKind -ne 'black' -or $blackRow.ClassifierPattern -ne 'so
 if ($noFitRow.ClassifierAvailable -ne 'False' -or -not [string]::IsNullOrWhiteSpace($noFitRow.ClassifierKind)) {
     throw 'Unavailable nested classifier evidence was incorrectly reported as a classification.'
 }
-if ($summaryRows.Count -ne 1 -or $summaryRows[0].RankedCandidateProbeCount -ne '2' -or
+if ($skippedRow.ProbeStatus -ne 'target-reach-skipped' -or $skippedRow.ProbeExecuted -ne 'False' -or
+    $skippedRow.MaximumSeedToFitOffsetFraction -ne '0.8' -or $skippedRow.MaximumSeedDistanceFromLabelRadii -ne '1.8') {
+    throw 'Target-reach skip provenance or bound was not preserved.'
+}
+if ($summaryRows.Count -ne 1 -or $summaryRows[0].RankedCandidateProbeCount -ne '3' -or
+    $summaryRows[0].ExecutedCandidateProbeCount -ne '2' -or $summaryRows[0].TargetReachSkippedSeedCount -ne '1' -or
     $summaryRows[0].ArcFitCount -ne '1' -or $summaryRows[0].ClassifierBlackCount -ne '1') {
     throw 'Run summary did not count the one available black classification correctly.'
 }

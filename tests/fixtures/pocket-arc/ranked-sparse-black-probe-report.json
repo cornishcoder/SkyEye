@@ -79,6 +79,37 @@
                 "unavailableReason": "The candidate-seeded pocket-aware partial-arc probe returned no fit.",
                 "evidence": null
               }
+            },
+            {
+              "candidateRank": 5,
+              "decision": "candidate-not-added",
+              "classifiedKindFromProductionAudit": null,
+              "seedCentre": { "x": 520, "y": 220 },
+              "seedRadius": 10,
+              "distanceFromLabel": 500,
+              "probeExecuted": false,
+              "probeSkipReason": "seed-outside-target-fit-reach",
+              "targetFitAcceptanceRadiusInBallRadii": 1,
+              "maximumSeedToFitOffsetFraction": 0.8,
+              "maximumSeedDistanceFromLabelRadii": 1.8,
+              "arcFitAvailable": null,
+              "arcFitCentre": null,
+              "arcFitRadius": null,
+              "arcFitDistanceFromLabel": null,
+              "candidateToSeedOffset": null,
+              "candidateToSeedOffsetFraction": null,
+              "visibleSectorCount": null,
+              "supportedVisibleSectorCount": null,
+              "globalSupportedSectorCount": null,
+              "globalSupportFraction": null,
+              "longestContiguousSupportedRun": null,
+              "supportedArcSpanDegrees": null,
+              "diagnosticArcChecksPass": null,
+              "classifier": {
+                "available": false,
+                "unavailableReason": "Skipped: this seed cannot reach the configured label-fit acceptance radius under the probe's maximum seed-to-fit offset.",
+                "evidence": null
+              }
             }
           ]
         }

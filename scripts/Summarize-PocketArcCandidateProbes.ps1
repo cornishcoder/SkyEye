@@ -185,6 +185,9 @@ foreach ($run in $runs) {
                 LabelY = if ($label.Found) { Get-FieldValue $label.Value 'y' } else { $null }
                 ExpectedRadius = if ($expectedRadius.Found) { $expectedRadius.Value } else { $null }
                 ProbeStatus = $probeStatus
+                ProbeExecuted = $null; ProbeSkipReason = $null
+                TargetFitAcceptanceRadiusInBallRadii = $null; MaximumSeedToFitOffsetFraction = $null
+                MaximumSeedDistanceFromLabelRadii = $null
                 CandidateRank = $null; CandidateDecision = $null; ProductionAuditKind = $null
                 SeedX = $null; SeedY = $null; SeedRadius = $null; SeedDistanceFromLabel = $null
                 ArcFitAvailable = $null; FitX = $null; FitY = $null; FitRadius = $null; FitDistanceFromLabel = $null
@@ -202,6 +205,8 @@ foreach ($run in $runs) {
             $seed = Get-Value -InputObject $probe -Name 'seedCentre'
             $fit = Get-Value -InputObject $probe -Name 'arcFitCentre'
             $classifier = Get-Value -InputObject $probe -Name 'classifier'
+            $probeExecuted = Get-Value -InputObject $probe -Name 'probeExecuted'
+            $probeWasSkipped = $probeExecuted.Found -and $probeExecuted.Value -eq $false
             $classifierEvidence = Get-Value -InputObject $classifier.Value -Name 'evidence'
             # O08 stores the classified kind and sampling evidence under
             # classifier.evidence. Retain compatibility with early reports
@@ -222,7 +227,12 @@ foreach ($run in $runs) {
                 LabelX = if ($label.Found) { Get-FieldValue $label.Value 'x' } else { $null }
                 LabelY = if ($label.Found) { Get-FieldValue $label.Value 'y' } else { $null }
                 ExpectedRadius = if ($expectedRadius.Found) { $expectedRadius.Value } else { $null }
-                ProbeStatus = 'ranked-candidate-probe'
+                ProbeStatus = if ($probeWasSkipped) { 'target-reach-skipped' } else { 'ranked-candidate-probe' }
+                ProbeExecuted = if ($probeExecuted.Found) { $probeExecuted.Value } else { $true }
+                ProbeSkipReason = Get-FieldValue $probe 'probeSkipReason'
+                TargetFitAcceptanceRadiusInBallRadii = Get-FieldValue $probe 'targetFitAcceptanceRadiusInBallRadii'
+                MaximumSeedToFitOffsetFraction = Get-FieldValue $probe 'maximumSeedToFitOffsetFraction'
+                MaximumSeedDistanceFromLabelRadii = Get-FieldValue $probe 'maximumSeedDistanceFromLabelRadii'
                 CandidateRank = Get-FieldValue $probe 'candidateRank'
                 CandidateDecision = Get-FieldValue $probe 'decision'
                 ProductionAuditKind = Get-FieldValue $probe 'classifiedKindFromProductionAudit'
@@ -259,7 +269,9 @@ foreach ($run in $runs) {
 $probeRows = @($rows.ToArray())
 $runSummary = foreach ($run in $runs) {
     $runRows = @($probeRows | Where-Object { $_.RunDirectory -eq $run.Directory })
-    $actualProbes = @($runRows | Where-Object { $_.ProbeStatus -eq 'ranked-candidate-probe' })
+    $candidateRows = @($runRows | Where-Object { $_.ProbeStatus -in @('ranked-candidate-probe', 'target-reach-skipped') })
+    $actualProbes = @($candidateRows | Where-Object { $_.ProbeStatus -eq 'ranked-candidate-probe' })
+    $skippedProbes = @($candidateRows | Where-Object { $_.ProbeStatus -eq 'target-reach-skipped' })
     [pscustomobject][ordered]@{
         CaseLabel = $CaseLabel
         RunId = $run.RunId
@@ -268,7 +280,9 @@ $runSummary = foreach ($run in $runs) {
         FrameCount = @($run.Report.samples).Count
         FramesWithRankedProbeField = @($runRows | Where-Object { $_.ProbeStatus -ne 'ranked-probe-field-unavailable' } | Select-Object -ExpandProperty FrameId -Unique).Count
         FramesWithoutRankedProbeField = @($runRows | Where-Object ProbeStatus -eq 'ranked-probe-field-unavailable').Count
-        RankedCandidateProbeCount = $actualProbes.Count
+        RankedCandidateProbeCount = $candidateRows.Count
+        ExecutedCandidateProbeCount = $actualProbes.Count
+        TargetReachSkippedSeedCount = $skippedProbes.Count
         ArcFitCount = @($actualProbes | Where-Object ArcFitAvailable -eq $true).Count
         DiagnosticArcPassCount = @($actualProbes | Where-Object DiagnosticArcChecksPass -eq $true).Count
         ClassifierBlackCount = @($actualProbes | Where-Object { $_.ClassifierAvailable -eq $true -and [string]::Equals([string]$_.ClassifierKind, 'black', [System.StringComparison]::OrdinalIgnoreCase) }).Count
@@ -289,7 +303,8 @@ if ($Format -eq 'Json') {
 }
 
 foreach ($summary in $runSummary) {
-    Write-Host ("{0}: {1}; frames={2}; ranked-seeds={3}; fits={4}; arc-passes={5}; classifier-black={6}; diagnostic only" -f
+    Write-Host ("{0}: {1}; frames={2}; ranked-seeds={3}; executed={4}; reach-skipped={5}; fits={6}; arc-passes={7}; classifier-black={8}; diagnostic only" -f
         $summary.RunId, $CaseLabel, $summary.FrameCount, $summary.RankedCandidateProbeCount,
+        $summary.ExecutedCandidateProbeCount, $summary.TargetReachSkippedSeedCount,
         $summary.ArcFitCount, $summary.DiagnosticArcPassCount, $summary.ClassifierBlackCount)
 }

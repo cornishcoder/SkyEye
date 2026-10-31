@@ -41,6 +41,8 @@ public static class BallBoundaryRefiner
     public const double ConservativeOcclusionNeighborRadius = 1.25;
     static readonly (double X, double Y)[] directions = Enumerable.Range(0, 32)
         .Select(i => (Math.Cos(i * Math.PI / 16), Math.Sin(i * Math.PI / 16))).ToArray();
+    /// <summary>Maximum distance a pocket-aware diagnostic fit can move from its seed.</summary>
+    public const double MaximumPocketArcCandidateOffsetFraction = .8;
 
     /// <summary>Measure the same 32 radial boundary sectors at one selected
     /// fit. This is useful for explaining a rejected fit without retaining
@@ -165,8 +167,6 @@ public static class BallBoundaryRefiner
         const int minimumSupportedVisibleSectors = 8;
         const int minimumContiguousSupportedRun = 5;
         const double minimumSupportedArcSpanDegrees = 45;
-        const double maximumCandidateToProposalOffsetFraction = .8;
-
         if (width <= 0 || height <= 0 || bgr.Length != checked(width * height * 3)
             || !double.IsFinite(expectedRadius) || expectedRadius < 5 || expectedRadius > 100
             || !double.IsFinite(proposal.X) || !double.IsFinite(proposal.Y)
@@ -178,7 +178,7 @@ public static class BallBoundaryRefiner
 
         double step = Math.Max(1.5, expectedRadius / 9);
         double extent = expectedRadius * maximumCentreOffsetFraction;
-        double maximumCandidateToProposalOffset = expectedRadius * maximumCandidateToProposalOffsetFraction;
+        double maximumCandidateToProposalOffset = expectedRadius * MaximumPocketArcCandidateOffsetFraction;
         BallBoundary? best = null;
         bool bestPassesChecks = false;
         Consider(proposal.X, proposal.Y, expectedRadius);
@@ -202,7 +202,7 @@ public static class BallBoundaryRefiner
             return new(null, [], [], [], [], 0, 0, 0, 0,
                 minimumVisibleSectors, minimumSupportedVisibleSectors, minimumContiguousSupportedRun,
                 minimumSupportedArcSpanDegrees, null, null, maximumCandidateToProposalOffset,
-                maximumCandidateToProposalOffsetFraction, false);
+            MaximumPocketArcCandidateOffsetFraction, false);
 
         var selectedEvidence = best.SectorEvidence;
         var selectedOccluded = GetPocketOccludedSectorIndexes(selectedEvidence,
@@ -226,7 +226,7 @@ public static class BallBoundaryRefiner
             minimumVisibleSectors, minimumSupportedVisibleSectors, minimumContiguousSupportedRun,
             minimumSupportedArcSpanDegrees, candidateToProposalOffset,
             candidateToProposalOffset / expectedRadius, maximumCandidateToProposalOffset,
-            maximumCandidateToProposalOffsetFraction, checksPass);
+            MaximumPocketArcCandidateOffsetFraction, checksPass);
 
         void Consider(double x, double y, double radius)
         {

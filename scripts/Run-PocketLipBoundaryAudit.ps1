@@ -18,6 +18,7 @@ param(
     [int]$SparseBlackCandidateLimit = 12,
     [bool]$SparseBlackRankByRadius = $true,
     [double]$SparseBlackMinimumPeakRadiusFactor = 8,
+    [double]$PocketArcTargetFitAcceptanceRadiusInBallRadii = 0,
     [switch]$EnableIlluminationNormalization,
     [switch]$TracePackedColourFits,
     [switch]$ObstructionMaskTrace,
@@ -60,6 +61,13 @@ if ($ProbeOnly -and ($EnableIlluminationNormalization -or $TracePackedColourFits
 }
 if ($PocketArcProbeOnly -and (-not $PSBoundParameters.ContainsKey('BlackLabelX') -or -not $PSBoundParameters.ContainsKey('BlackLabelY'))) {
     throw 'Pocket-arc probe-only mode requires explicit -BlackLabelX and -BlackLabelY values for the selected labelled frame.'
+}
+if (-not [double]::IsFinite($PocketArcTargetFitAcceptanceRadiusInBallRadii) -or
+    $PocketArcTargetFitAcceptanceRadiusInBallRadii -lt 0 -or $PocketArcTargetFitAcceptanceRadiusInBallRadii -gt 5) {
+    throw 'PocketArcTargetFitAcceptanceRadiusInBallRadii must be 0 (disabled) or between 0 and 5 ball radii.'
+}
+if ($PocketArcTargetFitAcceptanceRadiusInBallRadii -gt 0 -and -not $PocketArcProbeOnly) {
+    throw 'Targeted label-reach pruning is evaluation-only and may be used only with -PocketArcProbeOnly.'
 }
 if ($PocketArcProbeOnly -and ($EnableIlluminationNormalization -or $TracePackedColourFits -or $ObstructionMaskTrace -or $TraceBlackMask -or
     $NeutralCueProbeX800 -ne -1 -or $NeutralCueProbeY800 -ne -1 -or
@@ -241,6 +249,10 @@ if ($TraceBlackMask) {
     $arcBlackLabelX = $BlackLabelX
     $arcBlackLabelY = $BlackLabelY
     $instrumentArguments += @('-e', 'blackLabelX', "$arcBlackLabelX", '-e', 'blackLabelY', "$arcBlackLabelY")
+    if ($PocketArcTargetFitAcceptanceRadiusInBallRadii -gt 0) {
+        $targetFitAcceptanceRadiusArgument = $PocketArcTargetFitAcceptanceRadiusInBallRadii.ToString('R', [Globalization.CultureInfo]::InvariantCulture)
+        $instrumentArguments += @('-e', 'pocketArcTargetFitAcceptanceRadiusRadii', $targetFitAcceptanceRadiusArgument)
+    }
 }
 if ($specifiedNeutralCueProbeCoordinates -eq 2) {
     $probeXArgument = $NeutralCueProbeX800.ToString('R', [Globalization.CultureInfo]::InvariantCulture)
@@ -426,6 +438,7 @@ if ($PocketArcProbeOnly) {
     $manifest | Add-Member -MemberType NoteProperty -Name pocketArcProbeOnly -Value $true
     $manifest | Add-Member -MemberType NoteProperty -Name pocketArcLabelSourcePixel -Value ([pscustomobject]@{ x = $arcBlackLabelX; y = $arcBlackLabelY })
     $manifest | Add-Member -MemberType NoteProperty -Name pocketArcTraceArtifacts -Value $pocketArcTraceArtifacts
+    $manifest | Add-Member -MemberType NoteProperty -Name pocketArcTargetFitAcceptanceRadiusInBallRadii -Value $(if ($PocketArcTargetFitAcceptanceRadiusInBallRadii -gt 0) { $PocketArcTargetFitAcceptanceRadiusInBallRadii } else { $null })
 }
 $manifest | ConvertTo-Json -Depth 16 | Set-Content -LiteralPath (Join-Path $runDirectory 'manifest.json')
 $timingSummary = $stageTimings.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)ms" }

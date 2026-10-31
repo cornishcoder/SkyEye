@@ -26,12 +26,17 @@ internal static class PackedBlackMaskTrace
         string outputDirectory, string frameId, int manualImageX = ManualImageX, int manualImageY = ManualImageY,
         double minimumPeakRadiusFactor = 8,
         double pocketExclusionRadiusAtWidth1000 = VisionSettings.DefaultPocketExclusionRadius,
-        VisionAnalyzer? classifierAnalyzer = null, byte[]? classifierPixels = null)
+        VisionAnalyzer? classifierAnalyzer = null, byte[]? classifierPixels = null,
+        double targetFitAcceptanceRadiusInBallRadii = 0)
     {
         if ((classifierAnalyzer is null) != (classifierPixels is null))
             throw new ArgumentException("The classifier analyzer and its captured pixel buffer must be supplied together.");
         if (classifierAnalyzer is not null && width != 1000)
             throw new ArgumentOutOfRangeException(nameof(width), "Exact pocket-arc classifier evidence is supported only at width 1000.");
+        if (!double.IsFinite(targetFitAcceptanceRadiusInBallRadii)
+            || targetFitAcceptanceRadiusInBallRadii < 0 || targetFitAcceptanceRadiusInBallRadii > 5)
+            throw new ArgumentOutOfRangeException(nameof(targetFitAcceptanceRadiusInBallRadii),
+                "Targeted pocket-arc fit acceptance radius must be between 0 and 5 ball radii.");
         using var encoded = new MatOfByte(encodedImage);
         using var source = Imgcodecs.Imdecode(encoded, Imgcodecs.ImreadColor);
         if (manualImageX < 0 || manualImageX >= source.Cols() || manualImageY < 0 || manualImageY >= source.Rows())
@@ -309,18 +314,26 @@ internal static class PackedBlackMaskTrace
                 .OrderBy(audit => audit.Index)
                 .Take(MaximumRankedSparseBlackPocketArcProbes)
                 .ToArray();
+            double targetMaximumSeedToFitOffsetFraction = BallBoundaryRefiner.MaximumPocketArcCandidateOffsetFraction;
+            double targetMaximumSeedDistanceFromLabelRadii = targetFitAcceptanceRadiusInBallRadii > 0
+                ? targetFitAcceptanceRadiusInBallRadii + targetMaximumSeedToFitOffsetFraction : 0;
             var rankedSparseBlackPocketArcProbes = rankedSparseBlackCandidateAudits.Select(audit =>
             {
                 Point seedCentre = audit.ProposalCentre * auditScale;
                 double seedRadius = audit.ProposalRadius * auditScale;
                 double seedDistanceToLabel = (seedCentre - label).Length;
-                var probe = BallBoundaryRefiner.ProbePocketAwarePartialArc(bgrBytes,
+                bool skippedOutsideTargetReach = targetFitAcceptanceRadiusInBallRadii > 0
+                    && seedDistanceToLabel > ballRadius * targetMaximumSeedDistanceFromLabelRadii;
+                var probe = skippedOutsideTargetReach ? null : BallBoundaryRefiner.ProbePocketAwarePartialArc(bgrBytes,
                     width, width * 2, seedCentre, ballRadius, calibratedPocketCentres,
-                    pocketOcclusionRadius, expectedKind: "black", maximumCentreOffsetFraction: .8);
+                    pocketOcclusionRadius, expectedKind: "black",
+                    maximumCentreOffsetFraction: targetMaximumSeedToFitOffsetFraction);
 
                 object? classifierEvidence = null;
-                string? classifierUnavailableReason = null;
-                if (probe.Candidate is { } fit
+                string? classifierUnavailableReason = skippedOutsideTargetReach
+                    ? "Skipped: this seed cannot reach the configured label-fit acceptance radius under the probe's maximum seed-to-fit offset."
+                    : null;
+                if (probe?.Candidate is { } fit
                     && classifierAnalyzer is not null && classifierPixels is not null)
                 {
                     var evidence = classifierAnalyzer.ClassifyDiagnosticCandidate(fit.Centre,
@@ -339,12 +352,12 @@ internal static class PackedBlackMaskTrace
                         rimDarkFraction = evidence.Classification.RimDarkFraction
                     };
                 }
-                else
-                    classifierUnavailableReason = probe.Candidate is null
+                else if (!skippedOutsideTargetReach)
+                    classifierUnavailableReason = probe!.Candidate is null
                         ? "The candidate-seeded pocket-aware partial-arc probe returned no fit."
                         : "The exact width-1000 analyzer pixels were not supplied for this trace.";
 
-                var arcFit = probe.Candidate;
+                var arcFit = probe?.Candidate;
                 return new
                 {
                     evaluationOnly = true,
@@ -362,32 +375,40 @@ internal static class PackedBlackMaskTrace
                     seedCentre,
                     seedRadius,
                     distanceFromLabel = seedDistanceToLabel,
+                    probeExecuted = !skippedOutsideTargetReach,
+                    probeSkipReason = skippedOutsideTargetReach ? "seed-outside-target-fit-reach" : null,
+                    targetFitAcceptanceRadiusInBallRadii = targetFitAcceptanceRadiusInBallRadii > 0
+                        ? targetFitAcceptanceRadiusInBallRadii : (double?)null,
+                    maximumSeedToFitOffsetFraction = targetFitAcceptanceRadiusInBallRadii > 0
+                        ? targetMaximumSeedToFitOffsetFraction : (double?)null,
+                    maximumSeedDistanceFromLabelRadii = targetFitAcceptanceRadiusInBallRadii > 0
+                        ? targetMaximumSeedDistanceFromLabelRadii : (double?)null,
                     candidateAuditCentreBeforeGeometryScale = audit.ProposalCentre,
                     candidateAuditRadiusBeforeGeometryScale = audit.ProposalRadius,
                     candidateAuditGeometryWidth,
-                    arcFitAvailable = arcFit is not null,
+                    arcFitAvailable = probe is null ? (bool?)null : arcFit is not null,
                     arcFitCentre = arcFit?.Centre,
                     arcFitRadius = arcFit?.Radius,
                     arcFitDistanceFromLabel = arcFit is null ? (double?)null : (arcFit.Centre - label).Length,
-                    candidateToSeedOffset = probe.CandidateToProposalOffset,
-                    candidateToSeedOffsetFraction = probe.CandidateToProposalOffsetFraction,
-                    maximumCandidateToSeedOffset = probe.MaximumCandidateToProposalOffset,
-                    maximumCandidateToSeedOffsetFraction = probe.MaximumCandidateToProposalOffsetFraction,
-                    visibleSectorCount = probe.VisibleSectorCount,
-                    visibleSectorIndices = probe.VisibleSectorIndices,
-                    supportedVisibleSectorCount = probe.SupportedVisibleSectorCount,
-                    supportedVisibleSectorIndices = probe.SupportedVisibleSectorIndices,
-                    unexplainedVisibleSectorCount = probe.UnexplainedVisibleSectorIndices.Length,
-                    unexplainedVisibleSectorIndices = probe.UnexplainedVisibleSectorIndices,
+                    candidateToSeedOffset = probe?.CandidateToProposalOffset,
+                    candidateToSeedOffsetFraction = probe?.CandidateToProposalOffsetFraction,
+                    maximumCandidateToSeedOffset = probe?.MaximumCandidateToProposalOffset,
+                    maximumCandidateToSeedOffsetFraction = probe?.MaximumCandidateToProposalOffsetFraction,
+                    visibleSectorCount = probe?.VisibleSectorCount,
+                    visibleSectorIndices = probe?.VisibleSectorIndices,
+                    supportedVisibleSectorCount = probe?.SupportedVisibleSectorCount,
+                    supportedVisibleSectorIndices = probe?.SupportedVisibleSectorIndices,
+                    unexplainedVisibleSectorCount = probe is null ? (int?)null : probe.UnexplainedVisibleSectorIndices.Length,
+                    unexplainedVisibleSectorIndices = probe?.UnexplainedVisibleSectorIndices,
                     globalSupportedSectorCount = arcFit?.SectorEvidence.Count(sector => sector.Supported),
                     globalSupportFraction = arcFit?.SupportedSectors,
-                    longestContiguousSupportedRun = probe.LongestContiguousSupportedRun,
-                    supportedArcSpanDegrees = probe.SupportedArcSpanDegrees,
-                    minimumVisibleSectors = probe.MinimumVisibleSectors,
-                    minimumSupportedVisibleSectors = probe.MinimumSupportedVisibleSectors,
-                    minimumContiguousSupportedRun = probe.MinimumContiguousSupportedRun,
-                    minimumSupportedArcSpanDegrees = probe.MinimumSupportedArcSpanDegrees,
-                    diagnosticArcChecksPass = probe.DiagnosticArcChecksPass,
+                    longestContiguousSupportedRun = probe?.LongestContiguousSupportedRun,
+                    supportedArcSpanDegrees = probe?.SupportedArcSpanDegrees,
+                    minimumVisibleSectors = probe?.MinimumVisibleSectors,
+                    minimumSupportedVisibleSectors = probe?.MinimumSupportedVisibleSectors,
+                    minimumContiguousSupportedRun = probe?.MinimumContiguousSupportedRun,
+                    minimumSupportedArcSpanDegrees = probe?.MinimumSupportedArcSpanDegrees,
+                    diagnosticArcChecksPass = probe is null ? (bool?)null : probe.DiagnosticArcChecksPass,
                     score = arcFit?.Score,
                     classifier = new
                     {
@@ -573,6 +594,12 @@ internal static class PackedBlackMaskTrace
                 frameId, analysisWidth = width, candidateAuditGeometryWidth,
                 manualBlackLabel = new { sourcePixel = new { x = manualImageX, y = manualImageY }, analysisPixel = label,
                     note = "Manually inspected black-ball interior point in the saved frame; evaluation-only and never supplied to analyzer decisions." },
+                targetFitAcceptanceRadiusInBallRadii = targetFitAcceptanceRadiusInBallRadii > 0
+                    ? targetFitAcceptanceRadiusInBallRadii : (double?)null,
+                maximumSeedToFitOffsetFraction = targetFitAcceptanceRadiusInBallRadii > 0
+                    ? targetMaximumSeedToFitOffsetFraction : (double?)null,
+                maximumSeedDistanceFromLabelRadii = targetFitAcceptanceRadiusInBallRadii > 0
+                    ? targetMaximumSeedDistanceFromLabelRadii : (double?)null,
                 darkThreshold = new { minimumH = 0, maximumH = 179, minimumS = 0, maximumS = 255, minimumV = 0, maximumV = DarkValueCeiling, openKernel = "3x3 ellipse" },
                 analysisSearchWindow = new { source = searchWindowSource, left, top, right, bottom, selectedColourCentres = selectedCentres.Length,
                     containsManualLabel = label.X >= left && label.X <= right && label.Y >= top && label.Y <= bottom },
@@ -591,6 +618,8 @@ internal static class PackedBlackMaskTrace
                 manualCentreProbe = manualCentreProbeReport,
                 rankedSparseBlackPocketArcProbeCount = rankedSparseBlackPocketArcProbes.Length,
                 rankedSparseBlackPocketArcProbeCap = MaximumRankedSparseBlackPocketArcProbes,
+                rankedSparseBlackPocketArcProbeExecutedCount = rankedSparseBlackPocketArcProbes.Count(probe => probe.probeExecuted),
+                rankedSparseBlackPocketArcProbeSkippedCount = rankedSparseBlackPocketArcProbes.Count(probe => !probe.probeExecuted),
                 rankedSparseBlackPocketArcProbes,
                 nearbyComponents = nearbyComponents.ToArray(), nearbyLocalMaxima = nearbyPeaks,
                 peakComponentCounts = new { positiveLocalMaximumComponents = nearbyPeakCount - 1,

@@ -21,7 +21,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         minimumSparseColourBoundarySupport = VisionSettings.DefaultMinimumSparseColourBoundarySupport,
         sparseBlackSearchExtentFraction = VisionSettings.DefaultSparseBlackBoundarySearchExtentFraction,
         minimumSparseBlackBoundarySupport = VisionSettings.DefaultMinimumSparseBlackBoundarySupport,
-        sparseBlackMinimumPeakRadiusFactor = VisionSettings.DefaultSparseBlackMinimumPeakRadiusFactor;
+        sparseBlackMinimumPeakRadiusFactor = VisionSettings.DefaultSparseBlackMinimumPeakRadiusFactor,
+        pocketArcTargetFitAcceptanceRadiusInBallRadii;
     int sparseBlackCandidateLimit = 12;
     bool sparseBlackRankByRadius = VisionSettings.DefaultSparseBlackRankByRadius;
     (int Hue, int SaturationFloor, int ValueFloor, int MedianValue)? diagnosticObstructionClothRangeOverride;
@@ -158,6 +159,16 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         screenOnly = args?.GetString("screenOnly") == "1";
         probeOnly = args?.GetString("probeOnly") == "1";
         pocketArcProbeOnly = args?.GetString("pocketArcProbeOnly") == "1";
+        var requestedPocketArcTargetFitAcceptanceRadius = args?.GetString("pocketArcTargetFitAcceptanceRadiusRadii");
+        if (!string.IsNullOrWhiteSpace(requestedPocketArcTargetFitAcceptanceRadius)
+            && (!double.TryParse(requestedPocketArcTargetFitAcceptanceRadius, NumberStyles.Float,
+                    CultureInfo.InvariantCulture, out pocketArcTargetFitAcceptanceRadiusInBallRadii)
+                || !double.IsFinite(pocketArcTargetFitAcceptanceRadiusInBallRadii)
+                || pocketArcTargetFitAcceptanceRadiusInBallRadii is <= 0 or > 5))
+            throw new ArgumentOutOfRangeException(nameof(pocketArcTargetFitAcceptanceRadiusInBallRadii),
+                "Targeted pocket-arc fit acceptance radius must be greater than 0 and at most 5 ball radii.");
+        if (pocketArcTargetFitAcceptanceRadiusInBallRadii > 0 && !pocketArcProbeOnly)
+            throw new ArgumentException("Targeted label-reach pruning is supported only in pocket-arc probe-only mode.");
         if (pocketArcProbeOnly && (string.IsNullOrWhiteSpace(requestedBlackLabelX) || string.IsNullOrWhiteSpace(requestedBlackLabelY)))
             throw new ArgumentException("Pocket-arc probe-only mode requires explicit blackLabelX and blackLabelY values.");
         if ((screenOnly ? 1 : 0) + (probeOnly ? 1 : 0) + (pocketArcProbeOnly ? 1 : 0) > 1)
@@ -314,7 +325,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                         throw new IOException("The width-1000 classifier pixels were not captured from the pocket-arc baseline analysis.");
                     var darkMaskTrace = PackedBlackMaskTrace.Capture(bytes, calibration, 1000, arcBaseline1000,
                         Path.Combine(root, "o08-pocket-arc-trace-" + run), frameId.ToString(), manualBlackImageX, manualBlackImageY,
-                        sparseBlackMinimumPeakRadiusFactor, pocketExclusionRadius, analyzer1000, pocketArcClassifierPixels);
+                        sparseBlackMinimumPeakRadiusFactor, pocketExclusionRadius, analyzer1000, pocketArcClassifierPixels,
+                        pocketArcTargetFitAcceptanceRadiusInBallRadii);
                     samples.Add(new
                     {
                         frameId, pixelSha256 = sha, sourceTimeUs,
@@ -669,7 +681,16 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                         : configurationSettingsMatchPrimary == true && configurationAlgorithmChangedSinceCapture == true
                             ? "settings-match; algorithm-revision-changed"
                             : recordedConfiguration is null ? "recorded-identity-unavailable" : "configuration-mismatch",
-                    scope = "Each detection-requested receipt/frame gets one width-1000 VisionAnalyzer pass and exact classifier-pixel capture, followed only by PackedBlackMaskTrace.Capture at width 1000. Frames with detection disabled are reported as skipped. No width-800 analysis, verification workers, width comparison, or unrelated trace artifacts. Evaluation-only; not live acceptance.",
+                    pocketArcTargetFitAcceptanceRadiusInBallRadii = pocketArcTargetFitAcceptanceRadiusInBallRadii > 0
+                        ? pocketArcTargetFitAcceptanceRadiusInBallRadii : (double?)null,
+                    pocketArcMaximumSeedToFitOffsetFraction = pocketArcTargetFitAcceptanceRadiusInBallRadii > 0
+                        ? BallBoundaryRefiner.MaximumPocketArcCandidateOffsetFraction : (double?)null,
+                    pocketArcMaximumSeedDistanceFromLabelRadii = pocketArcTargetFitAcceptanceRadiusInBallRadii > 0
+                        ? pocketArcTargetFitAcceptanceRadiusInBallRadii + BallBoundaryRefiner.MaximumPocketArcCandidateOffsetFraction
+                        : (double?)null,
+                    scope = pocketArcTargetFitAcceptanceRadiusInBallRadii > 0
+                        ? "Each detection-requested receipt/frame gets one width-1000 VisionAnalyzer pass and exact classifier-pixel capture, followed only by the targeted diagnostic trace. Candidate-seeded arc search is skipped only when the seed cannot reach the configured label-fit acceptance radius under the probe's maximum seed-to-fit offset. Skipped seed ranks and distances remain in the report. Diagnostic-only; no detector, readiness, or game-state effect; not live acceptance."
+                        : "Each detection-requested receipt/frame gets one width-1000 VisionAnalyzer pass and exact classifier-pixel capture, followed only by PackedBlackMaskTrace.Capture at width 1000. Frames with detection disabled are reported as skipped. No width-800 analysis, verification workers, width comparison, or unrelated trace artifacts. Evaluation-only; not live acceptance.",
                     samples
                 };
             }

@@ -16,6 +16,21 @@ Run the empty-pocket controls separately with their own label and output paths. 
 
 The values are evaluation-only. `DiagnosticArcChecksPass` and `ClassifierKind` do not alter detector candidates, `VisionResult`, readiness, or `SkyEye.GameState`; fit/classifier rates are not accuracy claims without reviewed labels and matched controls. Pixel 10 capture and Cast are not used by this summarizer. The underlying replay runner still requires its stopped-camera guard and uses the isolated Vision Device package on Pixel 11.
 
+For a labelled-target follow-up, `scripts/Run-PocketArcTargetedAudit.ps1` skips only candidate seeds that cannot reach the chosen fit acceptance radius. The bound is calculated from the actual probe maximum seed-to-fit offset plus the chosen fit-to-label acceptance radius. For example, a 1.0-ball-radius fit acceptance uses a 1.8-ball-radius seed reach when the probe offset is 0.8. Each skipped seed remains in JSON with rank, distance, bound, and skip reason. This is a targeted diagnostic; it does not measure global candidate false positives. Keep the full-sweep reports as the baseline and run both positive and empty-pocket controls with the same acceptance radius.
+
+```powershell
+./scripts/Run-PocketArcTargetedAudit.ps1 `
+  -SourceRelativePath 'work/production/evidence/code70-daylight-pocket-capture-20261031/exact-replay-input' `
+  -Frames 1365,1425,1457,1555,1645,1736 `
+  -TargetFitAcceptanceRadiusInBallRadii 1.0 `
+  -BlackLabelX 102 -BlackLabelY 903 `
+  -SparseBlackCandidateLimit 32 `
+  -RunPrefix 'pockettargetpos' `
+  -EvidenceRelativePath 'work/production/evidence/code70-daylight-pocket-capture-20261031/pocket-arc-holdout'
+```
+
+Use the same wrapper for negative controls with their exact source directory, frame IDs, and same label coordinates, changing only the case/run prefix and purpose. Reports show how many seeds were executed and skipped; the default full-sweep runner is unchanged.
+
 Run the nested O08 schema regression check offline with:
 
 ```powershell
