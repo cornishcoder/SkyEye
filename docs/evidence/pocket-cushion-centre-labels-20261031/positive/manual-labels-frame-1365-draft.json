@@ -1,0 +1,176 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "independent-manual-visual-labels-before-detector-review",
+  "reviewer": "assistant visual inspection of raw frame",
+  "status": "assistant draft; user review needed",
+  "source": {
+    "file": "1365.png",
+    "sha256": "602e00c4eb9fc92f3b124106137d8ca7c56f932e107f995f1f2c7d824dd25de4",
+    "width": 1920,
+    "height": 1080,
+    "sourceTimeline": "76ec0f8c622045378494b0c250198ce6",
+    "frameId": 1365,
+    "sourceTimeUs": 80806601200,
+    "calibrationId": "27a80900d5fb4cd983a91c6a367389f0"
+  },
+  "method": "Centres estimated by visual inspection of the exact raw PNG, then checked against a 100-pixel full-frame and 10-pixel lower-left crop coordinate grid. No detector or model outputs were consulted for placement.",
+  "expectedInventory": {
+    "cue": 1,
+    "red": 7,
+    "yellow": 7,
+    "black": 1,
+    "total": 16
+  },
+  "unresolvedBallCentres": [
+    {
+      "id": "black-01",
+      "colour": "black",
+      "reason": "The visible black body merges into the lower-left pocket/jaw and overlaps the cue ball; a centre cannot be placed from this frame without guessing."
+    }
+  ],
+  "calibrationCornersNormalized": [
+    [
+      0.029895832141240437,
+      0.14129628781919126
+    ],
+    [
+      0.880104128519694,
+      0.06351851710566768
+    ],
+    [
+      0.8873957951863607,
+      0.9061110885054977
+    ],
+    [
+      0.04010416666666667,
+      0.8775925812897859
+    ]
+  ],
+  "blackInteriorPoint": {
+    "xPx": 102,
+    "yPx": 903,
+    "semantics": "approximate interior point only; not used as centre"
+  },
+  "balls": [
+    {
+      "id": "yellow-01",
+      "colour": "yellow",
+      "xPx": 85,
+      "yPx": 200,
+      "uncertaintyPx": 4,
+      "confidence": "medium"
+    },
+    {
+      "id": "red-01",
+      "colour": "red",
+      "xPx": 125,
+      "yPx": 194,
+      "uncertaintyPx": 4,
+      "confidence": "medium"
+    },
+    {
+      "id": "red-02",
+      "colour": "red",
+      "xPx": 785,
+      "yPx": 145,
+      "uncertaintyPx": 3,
+      "confidence": "medium"
+    },
+    {
+      "id": "yellow-02",
+      "colour": "yellow",
+      "xPx": 847,
+      "yPx": 146,
+      "uncertaintyPx": 3,
+      "confidence": "medium"
+    },
+    {
+      "id": "red-03",
+      "colour": "red",
+      "xPx": 1627,
+      "yPx": 103,
+      "uncertaintyPx": 4,
+      "confidence": "medium"
+    },
+    {
+      "id": "yellow-03",
+      "colour": "yellow",
+      "xPx": 1638,
+      "yPx": 151,
+      "uncertaintyPx": 4,
+      "confidence": "medium"
+    },
+    {
+      "id": "red-04",
+      "colour": "red",
+      "xPx": 117,
+      "yPx": 510,
+      "uncertaintyPx": 3,
+      "confidence": "high"
+    },
+    {
+      "id": "yellow-04",
+      "colour": "yellow",
+      "xPx": 813,
+      "yPx": 534,
+      "uncertaintyPx": 3,
+      "confidence": "high"
+    },
+    {
+      "id": "yellow-05",
+      "colour": "yellow",
+      "xPx": 1631,
+      "yPx": 543,
+      "uncertaintyPx": 3,
+      "confidence": "high"
+    },
+    {
+      "id": "red-05",
+      "colour": "red",
+      "xPx": 121,
+      "yPx": 862,
+      "uncertaintyPx": 3,
+      "confidence": "medium"
+    },
+    {
+      "id": "cue-01",
+      "colour": "cue",
+      "xPx": 141,
+      "yPx": 903,
+      "uncertaintyPx": 3,
+      "confidence": "medium"
+    },
+    {
+      "id": "yellow-06",
+      "colour": "yellow",
+      "xPx": 802,
+      "yPx": 930,
+      "uncertaintyPx": 4,
+      "confidence": "medium"
+    },
+    {
+      "id": "red-06",
+      "colour": "red",
+      "xPx": 866,
+      "yPx": 931,
+      "uncertaintyPx": 4,
+      "confidence": "medium"
+    },
+    {
+      "id": "red-07",
+      "colour": "red",
+      "xPx": 1607,
+      "yPx": 929,
+      "uncertaintyPx": 4,
+      "confidence": "medium"
+    },
+    {
+      "id": "yellow-07",
+      "colour": "yellow",
+      "xPx": 1659,
+      "yPx": 909,
+      "uncertaintyPx": 4,
+      "confidence": "medium"
+    }
+  ]
+}
