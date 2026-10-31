@@ -19,33 +19,75 @@ internal static class PackedBlackMaskTrace
     const int PackedClusterImageEdgeMargin = 23;
     const int MaximumRankedSparseBlackPocketArcProbes = 32;
 
-    readonly record struct Peak(int ComponentIndex, double X, double Y, double Radius, int Area, double DistanceFromLabel,
+    internal readonly record struct Peak(int ComponentIndex, double X, double Y, double Radius, int Area, double DistanceFromLabel,
         bool PassesMargin, bool PassesMinimumRadius, bool InSearchWindow);
 
-    public static object Capture(byte[] encodedImage, TableCalibration calibration, int width, VisionResult vision,
-        string outputDirectory, string frameId, int manualImageX = ManualImageX, int manualImageY = ManualImageY,
-        double minimumPeakRadiusFactor = 8,
-        double pocketExclusionRadiusAtWidth1000 = VisionSettings.DefaultPocketExclusionRadius,
-        VisionAnalyzer? classifierAnalyzer = null, byte[]? classifierPixels = null,
-        double targetFitAcceptanceRadiusInBallRadii = 0,
-        string referencePointSource = "reviewed-label")
+    internal readonly record struct PreparedPeak(int ComponentIndex, double X, double Y, double Radius, int Area,
+        bool PassesMargin, bool PassesMinimumRadius, bool InSearchWindow)
     {
-        if (referencePointSource is not "reviewed-label" and not "unreviewed-model-proposal")
-            throw new ArgumentOutOfRangeException(nameof(referencePointSource), "Reference point source must be reviewed-label or unreviewed-model-proposal.");
-        if ((classifierAnalyzer is null) != (classifierPixels is null))
-            throw new ArgumentException("The classifier analyzer and its captured pixel buffer must be supplied together.");
-        if (classifierAnalyzer is not null && width != 1000)
-            throw new ArgumentOutOfRangeException(nameof(width), "Exact pocket-arc classifier evidence is supported only at width 1000.");
-        if (!double.IsFinite(targetFitAcceptanceRadiusInBallRadii)
-            || targetFitAcceptanceRadiusInBallRadii < 0 || targetFitAcceptanceRadiusInBallRadii > 5)
-            throw new ArgumentOutOfRangeException(nameof(targetFitAcceptanceRadiusInBallRadii),
-                "Targeted pocket-arc fit acceptance radius must be between 0 and 5 ball radii.");
+        public Peak At(Point label) => new(ComponentIndex, X, Y, Radius, Area,
+            Math.Sqrt(Math.Pow(X - label.X, 2) + Math.Pow(Y - label.Y, 2)),
+            PassesMargin, PassesMinimumRadius, InSearchWindow);
+    }
+
+    internal readonly record struct PreparedComponent(int X, int Y, int Width, int Height, int Area, double CentreX, double CentreY);
+
+    internal sealed class PreparedFrame
+    {
+        internal readonly int Width, SourceWidth, SourceHeight, CandidateAuditGeometryWidth;
+        internal readonly int NearbyPeakComponentCount, GlobalPeakComponentCount, CroppedQualifiedSeedCount;
+        internal readonly int WindowLeft, WindowRight, WindowTop, WindowBottom, WindowPixelCount;
+        internal readonly int RawDarkPixelsInWindow, OpenedDarkPixelsInWindow;
+        internal readonly double Scale, BallRadius, MinimumPeakRadius, MinimumPeakRadiusFactor;
+        internal readonly double AuditScale, PocketOcclusionRadius;
+        internal readonly double Left, Right, Top, Bottom;
+        internal readonly bool HasPackedWindow;
+        internal readonly string SearchWindowSource;
+        internal readonly Point[] SelectedCentres, CalibratedPocketCentres;
+        internal readonly PreparedPeak[] LocalMaxima, QualifiedSeeds, ProductionSeeds;
+        internal readonly PreparedComponent[] DarkComponents;
+        internal readonly HashSet<(int X, int Y)> LocalProductionSeedPixels;
+        internal readonly byte[] BgrBytes, HsvBytes, ThresholdMaskBytes, OpenedMaskBytes;
+        internal readonly float[] DistanceValues;
+
+        internal PreparedFrame(int width, int sourceWidth, int sourceHeight, int candidateAuditGeometryWidth,
+            int nearbyPeakComponentCount, int globalPeakComponentCount, int croppedQualifiedSeedCount,
+            int windowLeft, int windowRight, int windowTop, int windowBottom, int windowPixelCount,
+            int rawDarkPixelsInWindow, int openedDarkPixelsInWindow, double scale, double ballRadius,
+            double minimumPeakRadius, double minimumPeakRadiusFactor, double auditScale, double pocketOcclusionRadius,
+            double left, double right, double top, double bottom, bool hasPackedWindow, string searchWindowSource,
+            Point[] selectedCentres, Point[] calibratedPocketCentres, PreparedPeak[] localMaxima,
+            PreparedPeak[] qualifiedSeeds, PreparedPeak[] productionSeeds, PreparedComponent[] darkComponents,
+            HashSet<(int X, int Y)> localProductionSeedPixels, byte[] bgrBytes, byte[] hsvBytes,
+            byte[] thresholdMaskBytes, byte[] openedMaskBytes, float[] distanceValues)
+        {
+            Width = width; SourceWidth = sourceWidth; SourceHeight = sourceHeight;
+            CandidateAuditGeometryWidth = candidateAuditGeometryWidth;
+            NearbyPeakComponentCount = nearbyPeakComponentCount; GlobalPeakComponentCount = globalPeakComponentCount;
+            CroppedQualifiedSeedCount = croppedQualifiedSeedCount;
+            WindowLeft = windowLeft; WindowRight = windowRight; WindowTop = windowTop; WindowBottom = windowBottom;
+            WindowPixelCount = windowPixelCount; RawDarkPixelsInWindow = rawDarkPixelsInWindow;
+            OpenedDarkPixelsInWindow = openedDarkPixelsInWindow;
+            Scale = scale; BallRadius = ballRadius; MinimumPeakRadius = minimumPeakRadius;
+            MinimumPeakRadiusFactor = minimumPeakRadiusFactor; AuditScale = auditScale;
+            PocketOcclusionRadius = pocketOcclusionRadius; Left = left; Right = right; Top = top; Bottom = bottom;
+            HasPackedWindow = hasPackedWindow; SearchWindowSource = searchWindowSource;
+            SelectedCentres = selectedCentres; CalibratedPocketCentres = calibratedPocketCentres;
+            LocalMaxima = localMaxima; QualifiedSeeds = qualifiedSeeds; ProductionSeeds = productionSeeds;
+            DarkComponents = darkComponents; LocalProductionSeedPixels = localProductionSeedPixels;
+            BgrBytes = bgrBytes; HsvBytes = hsvBytes; ThresholdMaskBytes = thresholdMaskBytes;
+            OpenedMaskBytes = openedMaskBytes; DistanceValues = distanceValues;
+        }
+    }
+
+    public static PreparedFrame Prepare(byte[] encodedImage, TableCalibration calibration, int width, VisionResult vision,
+        double minimumPeakRadiusFactor = 8,
+        double pocketExclusionRadiusAtWidth1000 = VisionSettings.DefaultPocketExclusionRadius)
+    {
         using var encoded = new MatOfByte(encodedImage);
         using var source = Imgcodecs.Imdecode(encoded, Imgcodecs.ImreadColor);
-        if (manualImageX < 0 || manualImageX >= source.Cols() || manualImageY < 0 || manualImageY >= source.Rows())
-            throw new ArgumentOutOfRangeException(nameof(manualImageX),
-                $"Manual source label ({manualImageX},{manualImageY}) is outside the {source.Cols()}x{source.Rows()} replay image.");
-        CvPoint[] original = calibration.Corners.Select(p => new CvPoint(p.X * source.Cols(), p.Y * source.Rows())).ToArray();
+        int sourceWidth = source.Cols(), sourceHeight = source.Rows();
+        CvPoint[] original = calibration.Corners.Select(p => new CvPoint(p.X * sourceWidth, p.Y * sourceHeight)).ToArray();
         CvPoint[] portrait = [new(width, 0), new(width, width * 2), new(0, width * 2), new(0, 0)];
         try
         {
@@ -60,8 +102,6 @@ internal static class PackedBlackMaskTrace
             using var cleanupSize = new Size(3, 3); using var cleanupKernel = Imgproc.GetStructuringElement(Imgproc.MorphEllipse, cleanupSize);
             Imgproc.MorphologyEx(openedMask, openedMask, Imgproc.MorphOpen, cleanupKernel);
 
-            var labelTablePoint = calibration.Map(new Point(manualImageX / (double)source.Cols(), manualImageY / (double)source.Rows()));
-            var label = new AnalysisCoordinates(width).FromTable(labelTablePoint);
             double scale = width / 1000d;
             double ballRadius = PoolGeometry.Radius * width;
             double minimumPeakRadius = minimumPeakRadiusFactor * scale;
@@ -80,6 +120,9 @@ internal static class PackedBlackMaskTrace
             string searchWindowSource = hasPackedWindow ? "packed-cluster" : "full-table-sparse-black";
 
             using var distance = new Mat(); Imgproc.DistanceTransform(openedMask, distance, Imgproc.DistL2, 3);
+            float[] distanceValues = new float[width * width * 2];
+            if (distance.Get(0, 0, distanceValues) < distanceValues.Length)
+                throw new IOException("Could not read the prepared dark-mask distance transform.");
             int neighbourhood = Math.Max(5, (int)Math.Round(17 * scale) | 1);
             using var neighbourhoodSize = new Size(neighbourhood, neighbourhood);
             using var neighbourhoodKernel = Imgproc.GetStructuringElement(Imgproc.MorphRect, neighbourhoodSize);
@@ -90,18 +133,16 @@ internal static class PackedBlackMaskTrace
             using var visibleLocalMaxima = new Mat(); Cv.Bitwise_and(rawLocalMaxima, positiveDistance, visibleLocalMaxima);
             using var nearbyLabels = new Mat(); using var nearbyStats = new Mat(); using var nearbyCentres = new Mat();
             int nearbyPeakCount = Imgproc.ConnectedComponentsWithStats(visibleLocalMaxima, nearbyLabels, nearbyStats, nearbyCentres);
-            var nearbyPeaks = new List<Peak>();
+            var localMaxima = new PreparedPeak[Math.Max(0, nearbyPeakCount - 1)];
             for (int i = 1; i < nearbyPeakCount; i++)
             {
                 double x = nearbyCentres.Get(i, 0)![0], y = nearbyCentres.Get(i, 1)![0];
-                double radius = distance.Get((int)Math.Round(y), (int)Math.Round(x))![0];
-                double fromLabel = Math.Sqrt(Math.Pow(x - label.X, 2) + Math.Pow(y - label.Y, 2));
+                double radius = distanceValues[(int)Math.Round(y) * width + (int)Math.Round(x)];
                 bool passesMargin = x >= PackedClusterImageEdgeMargin * scale && y >= PackedClusterImageEdgeMargin * scale && x < width - PackedClusterImageEdgeMargin * scale && y < 2 * width - PackedClusterImageEdgeMargin * scale;
                 bool passesMinimumRadius = radius >= minimumPeakRadius;
                 bool inWindow = x >= left && x <= right && y >= top && y <= bottom;
-                var peak = new Peak(i, x, y, radius, (int)nearbyStats.Get(i, Imgproc.CcStatArea)![0], fromLabel,
+                localMaxima[i - 1] = new(i, x, y, radius, (int)nearbyStats.Get(i, Imgproc.CcStatArea)![0],
                     passesMargin, passesMinimumRadius, inWindow);
-                if (fromLabel <= 3 * ballRadius) nearbyPeaks.Add(peak);
             }
 
             using var aboveMinimum = new Mat(); using var minimum = new Scalar(minimumPeakRadius);
@@ -119,35 +160,125 @@ internal static class PackedBlackMaskTrace
             using var productionPeakLabels = new Mat(); using var productionPeakStats = new Mat(); using var productionPeakCentres = new Mat();
             int productionPeakCount = Imgproc.ConnectedComponentsWithStats(croppedPeakMap, productionPeakLabels,
                 productionPeakStats, productionPeakCentres);
-            var allQualifiedSeeds = new List<Peak>(); var productionSeeds = new List<Peak>();
+            var qualifiedSeeds = new PreparedPeak[Math.Max(0, globalPeakCount - 1)];
             for (int i = 1; i < globalPeakCount; i++)
             {
                 double x = globalPeakCentres.Get(i, 0)![0], y = globalPeakCentres.Get(i, 1)![0];
-                double radius = distance.Get((int)Math.Round(y), (int)Math.Round(x))![0];
-                double fromLabel = Math.Sqrt(Math.Pow(x - label.X, 2) + Math.Pow(y - label.Y, 2));
+                double radius = distanceValues[(int)Math.Round(y) * width + (int)Math.Round(x)];
                 bool passesMargin = x >= PackedClusterImageEdgeMargin * scale && y >= PackedClusterImageEdgeMargin * scale && x < width - PackedClusterImageEdgeMargin * scale && y < 2 * width - PackedClusterImageEdgeMargin * scale;
                 bool inWindow = x >= left && x <= right && y >= top && y <= bottom;
-                var seed = new Peak(i, x, y, radius, (int)globalPeakStats.Get(i, Imgproc.CcStatArea)![0],
-                    fromLabel, passesMargin, true, inWindow);
-                if (fromLabel <= 3 * ballRadius) allQualifiedSeeds.Add(seed);
+                qualifiedSeeds[i - 1] = new(i, x, y, radius,
+                    (int)globalPeakStats.Get(i, Imgproc.CcStatArea)![0], passesMargin, true, inWindow);
             }
             int croppedQualifiedSeedCount = productionPeakCount - 1;
+            var productionSeeds = new List<PreparedPeak>();
             for (int i = 1; i < productionPeakCount && i <= 64; i++)
             {
                 double x = productionPeakCentres.Get(i, 0)![0] + searchLeft;
                 double y = productionPeakCentres.Get(i, 1)![0] + searchTop;
                 if (x < PackedClusterImageEdgeMargin * scale || y < PackedClusterImageEdgeMargin * scale || x >= width - PackedClusterImageEdgeMargin * scale || y >= 2 * width - PackedClusterImageEdgeMargin * scale) continue;
-                double radius = distance.Get((int)Math.Round(y), (int)Math.Round(x))![0];
+                double radius = distanceValues[(int)Math.Round(y) * width + (int)Math.Round(x)];
                 if (radius < minimumPeakRadius) continue;
-                double fromLabel = Math.Sqrt(Math.Pow(x - label.X, 2) + Math.Pow(y - label.Y, 2));
                 productionSeeds.Add(new(i, x, y, radius,
-                    (int)productionPeakStats.Get(i, Imgproc.CcStatArea)![0], fromLabel, true, true, true));
+                    (int)productionPeakStats.Get(i, Imgproc.CcStatArea)![0], true, true, true));
             }
             var localProductionSeedPixels = productionSeeds.Select(p => ((int)Math.Round(p.X), (int)Math.Round(p.Y))).ToHashSet();
 
+            byte[] bgrBytes = new byte[width * width * 2 * 3]; warped.Get(0, 0, bgrBytes);
             byte[] hsvBytes = new byte[width * width * 2 * 3]; hsv.Get(0, 0, hsvBytes);
-            byte[] beforeBytes = new byte[width * width * 2]; thresholdMask.Get(0, 0, beforeBytes);
-            byte[] openedBytes = new byte[width * width * 2]; openedMask.Get(0, 0, openedBytes);
+            byte[] thresholdMaskBytes = new byte[width * width * 2]; thresholdMask.Get(0, 0, thresholdMaskBytes);
+            byte[] openedMaskBytes = new byte[width * width * 2]; openedMask.Get(0, 0, openedMaskBytes);
+            int windowLeft = Math.Clamp((int)Math.Floor(left), 0, width - 1);
+            int windowRight = Math.Clamp((int)Math.Ceiling(right), windowLeft, width - 1);
+            int windowTop = Math.Clamp((int)Math.Floor(top), 0, width * 2 - 1);
+            int windowBottom = Math.Clamp((int)Math.Ceiling(bottom), windowTop, width * 2 - 1);
+            int windowPixelCount = (windowRight - windowLeft + 1) * (windowBottom - windowTop + 1);
+            int rawDarkPixelsInWindow = 0, openedDarkPixelsInWindow = 0;
+            for (int y = windowTop; y <= windowBottom; y++)
+            for (int x = windowLeft; x <= windowRight; x++)
+            {
+                int pixel = y * width + x;
+                if (thresholdMaskBytes[pixel] != 0) rawDarkPixelsInWindow++;
+                if (openedMaskBytes[pixel] != 0) openedDarkPixelsInWindow++;
+            }
+
+            using var componentLabels = new Mat(); using var componentStats = new Mat(); using var componentCentres = new Mat();
+            int componentCount = Imgproc.ConnectedComponentsWithStats(openedMask, componentLabels, componentStats, componentCentres);
+            var darkComponents = new PreparedComponent[Math.Max(0, componentCount - 1)];
+            for (int i = 1; i < componentCount; i++)
+            {
+                darkComponents[i - 1] = new(
+                    (int)componentStats.Get(i, Imgproc.CcStatLeft)![0],
+                    (int)componentStats.Get(i, Imgproc.CcStatTop)![0],
+                    (int)componentStats.Get(i, Imgproc.CcStatWidth)![0],
+                    (int)componentStats.Get(i, Imgproc.CcStatHeight)![0],
+                    (int)componentStats.Get(i, Imgproc.CcStatArea)![0],
+                    componentCentres.Get(i, 0)![0], componentCentres.Get(i, 1)![0]);
+            }
+            Point[] calibratedPocketCentres =
+            [
+                new(0, 0), new(width, 0), new(0, width), new(width, width),
+                new(0, width * 2), new(width, width * 2)
+            ];
+            return new PreparedFrame(width, sourceWidth, sourceHeight, candidateAuditGeometryWidth,
+                nearbyPeakCount, globalPeakCount, croppedQualifiedSeedCount,
+                windowLeft, windowRight, windowTop, windowBottom, windowPixelCount,
+                rawDarkPixelsInWindow, openedDarkPixelsInWindow, scale, ballRadius, minimumPeakRadius,
+                minimumPeakRadiusFactor, auditScale, pocketExclusionRadiusAtWidth1000 * scale,
+                left, right, top, bottom, hasPackedWindow, searchWindowSource, selectedCentres,
+                calibratedPocketCentres, localMaxima, qualifiedSeeds, productionSeeds.ToArray(), darkComponents,
+                localProductionSeedPixels, bgrBytes, hsvBytes, thresholdMaskBytes, openedMaskBytes, distanceValues);
+        }
+        finally { foreach (var point in original.Concat(portrait)) point.Dispose(); }
+    }
+
+    public static object Capture(byte[] encodedImage, TableCalibration calibration, int width, VisionResult vision,
+        string outputDirectory, string frameId, int manualImageX = ManualImageX, int manualImageY = ManualImageY,
+        double minimumPeakRadiusFactor = 8,
+        double pocketExclusionRadiusAtWidth1000 = VisionSettings.DefaultPocketExclusionRadius,
+        VisionAnalyzer? classifierAnalyzer = null, byte[]? classifierPixels = null,
+        double targetFitAcceptanceRadiusInBallRadii = 0,
+        string referencePointSource = "reviewed-label", PreparedFrame? preparedFrame = null)
+    {
+        if (referencePointSource is not "reviewed-label" and not "unreviewed-model-proposal")
+            throw new ArgumentOutOfRangeException(nameof(referencePointSource), "Reference point source must be reviewed-label or unreviewed-model-proposal.");
+        if ((classifierAnalyzer is null) != (classifierPixels is null))
+            throw new ArgumentException("The classifier analyzer and its captured pixel buffer must be supplied together.");
+        if (classifierAnalyzer is not null && width != 1000)
+            throw new ArgumentOutOfRangeException(nameof(width), "Exact pocket-arc classifier evidence is supported only at width 1000.");
+        if (!double.IsFinite(targetFitAcceptanceRadiusInBallRadii)
+            || targetFitAcceptanceRadiusInBallRadii < 0 || targetFitAcceptanceRadiusInBallRadii > 5)
+            throw new ArgumentOutOfRangeException(nameof(targetFitAcceptanceRadiusInBallRadii),
+                "Targeted pocket-arc fit acceptance radius must be between 0 and 5 ball radii.");
+        var prepared = preparedFrame ?? Prepare(encodedImage, calibration, width, vision,
+            minimumPeakRadiusFactor, pocketExclusionRadiusAtWidth1000);
+        if (prepared.Width != width)
+            throw new ArgumentException("Prepared trace frame width does not match the requested capture width.", nameof(preparedFrame));
+        if (manualImageX < 0 || manualImageX >= prepared.SourceWidth || manualImageY < 0 || manualImageY >= prepared.SourceHeight)
+            throw new ArgumentOutOfRangeException(nameof(manualImageX),
+                $"Manual source label ({manualImageX},{manualImageY}) is outside the {prepared.SourceWidth}x{prepared.SourceHeight} replay image.");
+
+        var labelTablePoint = calibration.Map(new Point(manualImageX / (double)prepared.SourceWidth, manualImageY / (double)prepared.SourceHeight));
+        var label = new AnalysisCoordinates(width).FromTable(labelTablePoint);
+        double scale = prepared.Scale, ballRadius = prepared.BallRadius, minimumPeakRadius = prepared.MinimumPeakRadius;
+        int candidateAuditGeometryWidth = prepared.CandidateAuditGeometryWidth;
+        double auditScale = prepared.AuditScale;
+        var selectedCentres = prepared.SelectedCentres;
+        bool hasPackedWindow = prepared.HasPackedWindow;
+        double left = prepared.Left, right = prepared.Right, top = prepared.Top, bottom = prepared.Bottom;
+        string searchWindowSource = prepared.SearchWindowSource;
+        var nearbyPeaks = prepared.LocalMaxima.Select(peak => peak.At(label))
+            .Where(peak => peak.DistanceFromLabel <= 3 * ballRadius).ToList();
+        int nearbyPeakCount = prepared.NearbyPeakComponentCount;
+        int globalPeakCount = prepared.GlobalPeakComponentCount;
+        var allQualifiedSeeds = prepared.QualifiedSeeds.Select(seed => seed.At(label))
+            .Where(seed => seed.DistanceFromLabel <= 3 * ballRadius).ToList();
+        var productionSeeds = prepared.ProductionSeeds.Select(seed => seed.At(label)).ToList();
+        int croppedQualifiedSeedCount = prepared.CroppedQualifiedSeedCount;
+        var localProductionSeedPixels = prepared.LocalProductionSeedPixels;
+        byte[] hsvBytes = prepared.HsvBytes;
+        byte[] beforeBytes = prepared.ThresholdMaskBytes;
+        byte[] openedBytes = prepared.OpenedMaskBytes;
             int cx = (int)Math.Round(label.X), cy = (int)Math.Round(label.Y), regionRadius = (int)Math.Ceiling(1.5 * ballRadius);
             int rawDarkPixelsInExpectedBall = 0, openedDarkPixelsInExpectedBall = 0, expectedBallPixelCount = 0;
             double maxDistanceWithinExpectedBall = 0, maxDistanceWithin1_5BallRadii = 0;
@@ -164,46 +295,30 @@ internal static class PackedBlackMaskTrace
                     openedDarkPixelsInExpectedBall += openedBytes[pixel] == 0 ? 0 : 1;
                     expectedBallPixelCount++;
                 }
-                double distanceValue = distance.Get(y, x)![0];
+                double distanceValue = prepared.DistanceValues[y * width + x];
                 maxDistanceWithin1_5BallRadii = Math.Max(maxDistanceWithin1_5BallRadii, distanceValue);
                 if (radial <= ballRadius) maxDistanceWithinExpectedBall = Math.Max(maxDistanceWithinExpectedBall, distanceValue);
             }
             valuesInExpectedBall.Sort();
 
-            int windowLeft = Math.Clamp((int)Math.Floor(left), 0, width - 1);
-            int windowRight = Math.Clamp((int)Math.Ceiling(right), windowLeft, width - 1);
-            int windowTop = Math.Clamp((int)Math.Floor(top), 0, width * 2 - 1);
-            int windowBottom = Math.Clamp((int)Math.Ceiling(bottom), windowTop, width * 2 - 1);
-            int windowPixelCount = (windowRight - windowLeft + 1) * (windowBottom - windowTop + 1);
-            int rawDarkPixelsInWindow = 0, openedDarkPixelsInWindow = 0;
-            for (int y = windowTop; y <= windowBottom; y++)
-            for (int x = windowLeft; x <= windowRight; x++)
-            {
-                int pixel = y * width + x;
-                if (beforeBytes[pixel] != 0) rawDarkPixelsInWindow++;
-                if (openedBytes[pixel] != 0) openedDarkPixelsInWindow++;
-            }
-
-            using var componentLabels = new Mat(); using var componentStats = new Mat(); using var componentCentres = new Mat();
-            int componentCount = Imgproc.ConnectedComponentsWithStats(openedMask, componentLabels, componentStats, componentCentres);
+            int windowLeft = prepared.WindowLeft, windowRight = prepared.WindowRight;
+            int windowTop = prepared.WindowTop, windowBottom = prepared.WindowBottom;
+            int windowPixelCount = prepared.WindowPixelCount;
+            int rawDarkPixelsInWindow = prepared.RawDarkPixelsInWindow;
+            int openedDarkPixelsInWindow = prepared.OpenedDarkPixelsInWindow;
             var nearbyComponents = new List<object>();
-            for (int i = 1; i < componentCount; i++)
+            foreach (var component in prepared.DarkComponents)
             {
-                int x = (int)componentStats.Get(i, Imgproc.CcStatLeft)![0], y = (int)componentStats.Get(i, Imgproc.CcStatTop)![0];
-                int w = (int)componentStats.Get(i, Imgproc.CcStatWidth)![0], h = (int)componentStats.Get(i, Imgproc.CcStatHeight)![0];
-                double componentX = componentCentres.Get(i, 0)![0], componentY = componentCentres.Get(i, 1)![0];
+                int x = component.X, y = component.Y, w = component.Width, h = component.Height;
+                double componentX = component.CentreX, componentY = component.CentreY;
                 if (Math.Abs(componentX - label.X) <= 3 * ballRadius && Math.Abs(componentY - label.Y) <= 3 * ballRadius)
-                    nearbyComponents.Add(new { x, y, width = w, height = h, area = (int)componentStats.Get(i, Imgproc.CcStatArea)![0], centreX = componentX, centreY = componentY });
+                    nearbyComponents.Add(new { x, y, width = w, height = h, area = component.Area, centreX = componentX, centreY = componentY });
             }
 
             Directory.CreateDirectory(outputDirectory);
-            byte[] bgrBytes = new byte[width * width * 2 * 3]; warped.Get(0, 0, bgrBytes);
-            double pocketOcclusionRadius = pocketExclusionRadiusAtWidth1000 * scale;
-            Point[] calibratedPocketCentres =
-            [
-                new(0, 0), new(width, 0), new(0, width), new(width, width),
-                new(0, width * 2), new(width, width * 2)
-            ];
+            byte[] bgrBytes = prepared.BgrBytes;
+            double pocketOcclusionRadius = prepared.PocketOcclusionRadius;
+            Point[] calibratedPocketCentres = prepared.CalibratedPocketCentres;
             // Diagnostic-only reference-point probe: give the boundary refiner
             // the supplied reference point once, to distinguish a missing
             // dark-mask seed from a boundary that cannot be fitted. This point
@@ -547,15 +662,16 @@ internal static class PackedBlackMaskTrace
                 productionLikeNearestSeedFit04 = FitSummary(productionLikeSeedProbe04, label),
                 productionLikeNearestSeedFit13 = FitSummary(productionLikeSeedProbe13, label)
             };
+            byte[] overlayBgrBytes = (byte[])bgrBytes.Clone();
             for (int i = 0; i < openedBytes.Length; i++)
                 if (openedBytes[i] != 0)
                 {
                     int offset = i * 3;
-                    bgrBytes[offset] = (byte)((bgrBytes[offset] + 255) / 2);
-                    bgrBytes[offset + 1] /= 2;
-                    bgrBytes[offset + 2] = (byte)((bgrBytes[offset + 2] + 255) / 2);
+                    overlayBgrBytes[offset] = (byte)((overlayBgrBytes[offset] + 255) / 2);
+                    overlayBgrBytes[offset + 1] /= 2;
+                    overlayBgrBytes[offset + 2] = (byte)((overlayBgrBytes[offset + 2] + 255) / 2);
                 }
-            using var overlay = new Mat(width * 2, width, CvType.Cv8uc3); overlay.Put(0, 0, bgrBytes);
+            using var overlay = new Mat(width * 2, width, CvType.Cv8uc3); overlay.Put(0, 0, overlayBgrBytes);
             using var windowInk = new Scalar(255, 180, 0); using var labelInk = new Scalar(0, 255, 255);
             using var radiusInk = new Scalar(255, 255, 0); using var acceptedInk = new Scalar(0, 255, 0); using var rejectedInk = new Scalar(0, 0, 255);
             using var windowTopLeft = new CvPoint((int)Math.Round(left), (int)Math.Round(top));
@@ -586,7 +702,7 @@ internal static class PackedBlackMaskTrace
             for (int y = cropTop; y < cropBottom; y++)
             for (int x = cropLeft; x < cropRight; x++)
             {
-                byte intensity = (byte)Math.Clamp((int)Math.Round(distance.Get(y, x)![0] * 255 / (2 * ballRadius)), 0, 255);
+                byte intensity = (byte)Math.Clamp((int)Math.Round(prepared.DistanceValues[y * width + x] * 255 / (2 * ballRadius)), 0, 255);
                 distancePixels[distanceIndex++] = intensity; distancePixels[distanceIndex++] = intensity; distancePixels[distanceIndex++] = intensity;
             }
             distanceOverlay.Put(0, 0, distancePixels);
@@ -657,8 +773,6 @@ internal static class PackedBlackMaskTrace
                 productionSeedCountMatchesAnalyzer = seedCountComparable ? expectedAttemptedSeedCount == auditedProductionSeeds : (bool?)null,
                 overlays = new[] { maskOverlayName, distanceOverlayName }
             };
-        }
-        finally { foreach (var point in original.Concat(portrait)) point.Dispose(); }
     }
 
     static void SavePng(string path, Mat image)

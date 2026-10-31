@@ -515,13 +515,15 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                         throw new IOException("The width-1000 classifier pixels were not captured from the pocket-arc baseline analysis.");
                     if (pocketArcSweepOnly)
                     {
+                        var preparedArcFrame = PackedBlackMaskTrace.Prepare(bytes, calibration, 1000, arcBaseline1000,
+                            sparseBlackMinimumPeakRadiusFactor, pocketExclusionRadius);
                         var anchorTraces = new List<object>(anchorsForFrame.Count);
                         foreach (var anchor in anchorsForFrame)
                         {
                             var anchorDarkMaskTrace = PackedBlackMaskTrace.Capture(bytes, calibration, 1000, arcBaseline1000,
                                 Path.Combine(root, "o08-pocket-arc-trace-" + run), $"{frameId}-{anchor.Name}", anchor.X, anchor.Y,
                                 sparseBlackMinimumPeakRadiusFactor, pocketExclusionRadius, analyzer1000, pocketArcClassifierPixels,
-                                pocketArcTargetFitAcceptanceRadiusInBallRadii, pocketArcPointSource);
+                                pocketArcTargetFitAcceptanceRadiusInBallRadii, pocketArcPointSource, preparedArcFrame);
                             anchorTraces.Add(new
                             {
                                 anchor.Name,
