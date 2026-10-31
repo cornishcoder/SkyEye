@@ -25,6 +25,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         pocketArcTargetFitAcceptanceRadiusInBallRadii;
     int sparseBlackCandidateLimit = 12;
     bool sparseBlackRankByRadius = VisionSettings.DefaultSparseBlackRankByRadius;
+    const string SparseBlackFitAndClassifyStage = "sparseBlackFitAndClassifyMs";
     (int Hue, int SaturationFloor, int ValueFloor, int MedianValue)? diagnosticObstructionClothRangeOverride;
     (int Minimum, int Maximum)? diagnosticObstructionNeutralValueRangeOverride;
     string run = "";
@@ -563,7 +564,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     }
                     byte[]? pocketArcClassifierPixels = null;
                     analyzer1000.ObserveNextClassifierPixels(pixels => pocketArcClassifierPixels = pixels);
-                    var arcBaseline1000 = Measure(() => analyzer1000.Analyze(bytes, calibration), out var arcAnalysis1000Metrics);
+                    var arcBaseline1000 = Measure(() => analyzer1000.Analyze(bytes, calibration), out var arcAnalysis1000Metrics,
+                        includeSparseBlackFitAndClassifyTiming: !pocketArcSweepOnly);
                     if (pocketArcClassifierPixels is null)
                         throw new IOException("The width-1000 classifier pixels were not captured from the pocket-arc baseline analysis.");
                     if (pocketArcSweepOnly)
@@ -1254,14 +1256,21 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             throw new IOException("Could not encode the controlled black-removal replay frame.");
         return encodedVariant.ToArray();
     }
-    static T Measure<T>(Func<T> action, out object metrics)
+    static T Measure<T>(Func<T> action, out object metrics, bool includeSparseBlackFitAndClassifyTiming = false)
     {
+        var sparseBlackCheckpoint = includeSparseBlackFitAndClassifyTiming
+            ? PipelineDiagnostics.Checkpoint(SparseBlackFitAndClassifyStage)
+            : default;
         long allocatedBefore = GC.GetAllocatedBytesForCurrentThread();
         var timer = System.Diagnostics.Stopwatch.StartNew();
         T result = action();
         timer.Stop();
-        metrics = new { wallMs = timer.Elapsed.TotalMilliseconds,
-            managedBytes = GC.GetAllocatedBytesForCurrentThread() - allocatedBefore };
+        double wallMs = timer.Elapsed.TotalMilliseconds;
+        long managedBytes = GC.GetAllocatedBytesForCurrentThread() - allocatedBefore;
+        metrics = includeSparseBlackFitAndClassifyTiming
+            ? new { wallMs, managedBytes,
+                sparseBlackFitAndClassifyMs = PipelineDiagnostics.DeltaSince(SparseBlackFitAndClassifyStage, sparseBlackCheckpoint) }
+            : new { wallMs, managedBytes };
         return result;
     }
     static string? AnalyzerAlgorithm(string? identity)

@@ -10,6 +10,12 @@ if (args.SequenceEqual(["--gpt-table-advisory"]))
     return;
 }
 
+if (args.SequenceEqual(["--pipeline-diagnostics"]))
+{
+    PipelineDiagnosticsChecks.Run();
+    return;
+}
+
 if (args.SequenceEqual(["--shot-samples"]))
 {
     await ShotSampleChecks.Run();
