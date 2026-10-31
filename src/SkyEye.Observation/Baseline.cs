@@ -9,7 +9,19 @@ public sealed record DetectedBall(string Id, string Colour, double X, double Y, 
     public double? RadiusY { get; init; }
 }
 public sealed record StoredDetection(string SampleId, string PixelSha256, string CoordinateSpace, string Model,
-    string Provenance, bool Uncertain, ImmutableArray<DetectedBall> Balls);
+    string Provenance, bool Uncertain, ImmutableArray<DetectedBall> Balls)
+{
+    public O08ReplayProvenance? O08Replay { get; init; }
+}
+
+/// <summary>Exact replay provenance for a detection produced by the O08 offline replay exporter.</summary>
+public sealed record O08ReplayProvenance(string CorpusId, string ManifestSha256, string SplitLockSha256,
+    string SequenceId, string Split, long FrameId, long SourceTimeUs, FrameScope Scope, string PixelSha256, string ReceiptSha256,
+    string ReplayManifestSha256, string ReplayReportSha256, string ApkSha256,
+    string RecordedConfiguration, string ReplayConfiguration, string RecordedConfigurationSha256,
+    string ReplayConfigurationSha256, bool CaptureConfigurationExact, double AnalysisWallMs,
+    bool AnalysisUncertain, bool LayoutUncertain, bool Obstructed);
+
 public sealed record DetectionMatch(string TruthId, string DetectionId, double CentreError, bool ColourCorrect)
 {
     public double? CentreErrorInRadii { get; init; }

@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Collections.Immutable;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using SkyEye.Observation;
 using SkyEye.Core.Analysis;
 using SkyEye.Core.Application;
@@ -94,36 +95,63 @@ try
     File.WriteAllText(comparisonManifestPath, CorpusJson.Write(comparisonManifest));
     CorpusValidation.Validate(comparisonManifest, files);
     var comparisonLock = SplitLock.Freeze(comparisonManifest, files, comparisonManifestPath);
+    var recordedAnalyzer = "{\"Algorithm\":\"contract-v1\",\"Settings\":{\"Width\":800}}";
+    var alternateAnalyzer = "{\"Algorithm\":\"contract-v2\",\"Settings\":{\"Width\":800}}";
+    var comparisonLockBytes = System.Text.Encoding.UTF8.GetBytes(CorpusJson.Write(comparisonLock) + "\n");
+    var comparisonLockSha = CorpusFiles.Hash(comparisonLockBytes);
+    O08ReplayProvenance ReplayMetadata(IndexedFrame f, bool layoutUncertain = false) => new(
+        comparisonManifest.Id, comparisonLock.ManifestSha256, comparisonLockSha, positiveSequence.Id, "Holdout",
+        f.FrameId, f.SourceTimeUs!.Value, f.Scope, f.PixelSha256, new string('d', 64), new string('e', 64),
+        new string('f', 64), new string('c', 64), recordedAnalyzer, recordedAnalyzer,
+        CorpusFiles.Hash(System.Text.Encoding.UTF8.GetBytes(recordedAnalyzer)),
+        CorpusFiles.Hash(System.Text.Encoding.UTF8.GetBytes(recordedAnalyzer)), true, 10 + f.FrameId,
+        false, layoutUncertain, false);
     var comparisonDetections = positiveFrames.Select((f, i) => new StoredDetection(f.SampleId, f.PixelSha256,
         "table-2x1", "fixture-v1", "synthetic contract", i == 2,
-        i == 2 ? [new("extra", "red", 1.8, .9, null)] : [new("cue", "cue", 1, .5, null)])).ToImmutableArray();
+        i == 2 ? [new("cue", "cue", 1, .5, null), new("duplicate", "red", 1.01, .5, null),
+            new("other-extra", "red", 1.8, .9, null)] : [new("cue", "cue", 1, .5, null)])
+        { O08Replay = ReplayMetadata(positiveFrames[i], i == 2) }).ToImmutableArray();
     var comparisonCandidates = new[] {
         new O09CandidateInput("current", new string('a', 64), comparisonDetections),
         new O09CandidateInput("candidate", new string('b', 64), comparisonDetections),
         new O09CandidateInput("control", new string('c', 64), comparisonDetections) };
-    var comparison = O09Comparison.Compare(comparisonManifest, comparisonLock, files, CorpusSplit.Holdout, comparisonCandidates, .027);
+    var comparison = O09Comparison.Compare(comparisonManifest, comparisonLock, files, CorpusSplit.Holdout, comparisonCandidates, .027, comparisonLockSha);
     var comparisonFrames = comparison.Candidates[0].Frames;
-    Check(comparison.SchemaVersion == 2 && comparisonFrames.Length == positiveFrames.Length
+    Check(comparison.SchemaVersion == 3 && comparisonFrames.Length == positiveFrames.Length
         && comparisonFrames[0].FrameId == positiveFrames[0].FrameId && comparisonFrames[0].SourceTimeUs == positiveFrames[0].SourceTimeUs
         && comparisonFrames[0].Scope == positiveFrames[0].Scope && comparisonFrames[0].PixelSha256 == positiveFrames[0].PixelSha256,
         "Comparison retains every reviewed frame's exact source receipt");
-    Check(comparisonFrames[2].Score is { Uncertain: true, FalsePositives: 1, MissedVisible: 1 }
+    Check(comparisonFrames[2].Score is { Uncertain: true, FalsePositives: 2, MissedVisible: 0 }
+        && comparisonFrames[2].DuplicateExtraIds.SequenceEqual(["duplicate"])
+        && comparisonFrames[2].OtherExtraIds.SequenceEqual(["other-extra"])
         && comparisonFrames[0].Score is { FalsePositives: 0, MissedVisible: 0 }
         && comparison.Candidates[0].FailureSamples.Length == 1,
-        "Comparison retains successful and uncertain failed frame scores alongside failure summaries");
+        "Comparison reports duplicate and other extras separately alongside per-frame scores");
+    Check(comparison.SplitLockSha256 == comparisonLockSha
+        && comparison.Candidates[0].ReplayConfiguration is { CaptureConfigurationExactFrames: 5, CaptureConfigurationMismatchFrames: 0 }
+        && comparison.Candidates[0].Overall is { TimedFrames: 5, AnalysisWallP50Ms: 13.0, AnalysisWallP95Ms: 15.0, DuplicateFalsePositives: 1, OtherFalsePositives: 1 }
+        && comparisonFrames[2].O08Replay is { LayoutUncertain: true, Obstructed: false },
+        "O09 binds replay rows to the exact split lock and reports uncertainty plus offline timing separately");
+    var differentSettings = comparisonCandidates.Select(c => c.Name == "candidate" ? c with { Detections = c.Detections.Select(d =>
+        d with { O08Replay = d.O08Replay! with { ReplayConfiguration = alternateAnalyzer,
+            ReplayConfigurationSha256 = CorpusFiles.Hash(System.Text.Encoding.UTF8.GetBytes(alternateAnalyzer)), CaptureConfigurationExact = false } }).ToImmutableArray() } : c).ToArray();
+    var comparedSettings = O09Comparison.Compare(comparisonManifest, comparisonLock, files, CorpusSplit.Holdout, differentSettings, .027, comparisonLockSha);
+    Check(comparedSettings.Candidates.Single(c => c.Name == "candidate").ReplayConfiguration is
+        { CaptureConfigurationExactFrames: 0, CaptureConfigurationMismatchFrames: 5, ReplayConfigurations.Length: 1 },
+        "Candidate setting differences remain visible in the O09 report instead of being silently called matched");
     var reorderedCandidates = comparisonCandidates.Select(c => c with { Detections = c.Detections.Reverse().ToImmutableArray() }).ToArray();
     Check(CorpusJson.Write(comparison) == CorpusJson.Write(O09Comparison.Compare(comparisonManifest, comparisonLock, files,
-        CorpusSplit.Holdout, reorderedCandidates, .027)), "Per-frame comparison is deterministic across detection ordering");
+        CorpusSplit.Holdout, reorderedCandidates, .027, comparisonLockSha)), "Per-frame comparison is deterministic across detection ordering");
     Throws<InvalidDataException>(() => O09Comparison.Compare(comparisonManifest, comparisonLock, files, CorpusSplit.Holdout,
-        [comparisonCandidates[0] with { Detections = comparisonDetections.RemoveAt(0) }, comparisonCandidates[1], comparisonCandidates[2]], .027));
+        [comparisonCandidates[0] with { Detections = comparisonDetections.RemoveAt(0) }, comparisonCandidates[1], comparisonCandidates[2]], .027, comparisonLockSha));
     File.WriteAllText(Path.Combine(root, "positive-labels.json"), CorpusJson.Write(positiveLabels with { Reviewed = false }));
-    Throws<InvalidDataException>(() => O09Comparison.Compare(comparisonManifest, comparisonLock, files, CorpusSplit.Holdout, comparisonCandidates, .027));
+    Throws<InvalidDataException>(() => O09Comparison.Compare(comparisonManifest, comparisonLock, files, CorpusSplit.Holdout, comparisonCandidates, .027, comparisonLockSha));
     File.WriteAllText(Path.Combine(root, "positive-labels.json"), CorpusJson.Write(positiveLabels));
     var mismatchedIndex = Path.Combine(root, "mismatched-index.jsonl");
     File.WriteAllLines(mismatchedIndex, positiveFrames.Select((f, i) => JsonSerializer.Serialize(i == 0 ? f with { PixelSha256 = new string('0', 64) } : f,
         new JsonSerializerOptions(CorpusJson.Options) { WriteIndented = false })));
     Throws<InvalidDataException>(() => O09Comparison.Compare(comparisonManifest with { Sequences = [positiveSequence with { IndexFile = "mismatched-index.jsonl" }] },
-        comparisonLock, files, CorpusSplit.Holdout, comparisonCandidates, .027));
+        comparisonLock, files, CorpusSplit.Holdout, comparisonCandidates, .027, comparisonLockSha));
     Check(VerificationEvaluation.Score(manifest with { Sequences = [positiveSequence] }, files,
         [positiveRequest with { Result = observed }]).Single().FalseReady,
         "A safe-window Ready without proof remains in the false Ready denominator");
@@ -160,22 +188,145 @@ try
         crowdedDetection with { Balls = crowdedDetection.Balls.Reverse().ToImmutableArray() }, .035)),
         "Stored detection order cannot change association or metrics");
     var captureFolder = Path.Combine(root, "capture", "window"); Directory.CreateDirectory(captureFolder);
-    foreach (var f in frames.Take(2))
+    const string replayConfiguration = "{\"Algorithm\":\"synthetic-contract\",\"Settings\":{\"Width\":800}}";
+    var captureFrames = frames.Take(2).Append(Frame("after", 3, 67000)).ToArray();
+    foreach (var f in captureFrames)
     {
         File.Copy(Path.Combine(root, f.PixelFile), Path.Combine(captureFolder, f.PixelFile));
         object indexed = f.FrameId == 1
             ? new { f.SampleId, f.FrameId, f.SourceTimeUs, f.Scope, f.PixelFile, f.PixelSha256, f.Encoding, f.Width, f.Height,
                 f.EmbeddedFrameId, analyzerPixelSource = "decoded-bitmap-lossless" }
             : f; // Also retain coverage for older receipts without the extra field.
-        File.WriteAllText(Path.Combine(captureFolder, f.SampleId + ".json"), JsonSerializer.Serialize(new { indexedFrame = indexed }, CorpusJson.Options));
+        File.WriteAllText(Path.Combine(captureFolder, f.SampleId + ".json"), JsonSerializer.Serialize(new { indexedFrame = indexed,
+            calibrationCorners = new[] { new { x = 0d, y = 0d }, new { x = 1d, y = 0d }, new { x = 1d, y = 1d }, new { x = 0d, y = 1d } },
+            analyzerConfigurationIdentity = replayConfiguration, detectionRequested = f.FrameId != 2 }, CorpusJson.Options));
+    }
+    var secondScope = scope with { Timeline = "timeline-second" };
+    var secondCaptureFolder = Path.Combine(root, "capture", "window2"); Directory.CreateDirectory(secondCaptureFolder);
+    var secondCaptureFrames = new[] { Frame("other-start", 10, 1000, secondScope),
+        Frame("other-next", 11, 34000, secondScope), Frame("other-after", 12, 67000, secondScope) };
+    foreach (var f in secondCaptureFrames)
+    {
+        File.Copy(Path.Combine(root, f.PixelFile), Path.Combine(secondCaptureFolder, f.PixelFile));
+        File.WriteAllText(Path.Combine(secondCaptureFolder, f.SampleId + ".json"), JsonSerializer.Serialize(new { indexedFrame = f,
+            calibrationCorners = new[] { new { x = 0d, y = 0d }, new { x = 1d, y = 0d }, new { x = 1d, y = 1d }, new { x = 0d, y = 1d } },
+            analyzerConfigurationIdentity = replayConfiguration, detectionRequested = f.FrameId != 11 }, CorpusJson.Options));
     }
     var importedPath = VerificationCaptureImport.Import(Path.Combine(root, "capture"), Path.Combine(root, "imported"));
     var imported = CorpusJson.Read<CorpusManifest>(importedPath);
     var importedAudit = CorpusValidation.Validate(imported, new CorpusFiles(Path.Combine(root, "imported")));
-    Check(importedAudit.HeldOutVerificationSequences == 0 && imported.Sequences[0].Session == scope.Timeline,
+    Check(importedAudit.HeldOutVerificationSequences == 0 && imported.Sequences.Single(s => s.Id == "window").Session == scope.Timeline
+        && imported.Sequences.Single(s => s.Id == "window2").Session == secondScope.Timeline,
         "Imported paired snapshots stay unreviewed development material; related windows retain a common session");
     Check(File.ReadAllText(Path.Combine(root, "imported", "window", "start.receipt.json")).Contains("decoded-bitmap-lossless"),
         "Current capture pixel-source provenance stays in the copied receipt without becoming a reviewed label");
+    var importedFiles = new CorpusFiles(Path.Combine(root, "imported"));
+    var importedLock = SplitLock.Freeze(imported, importedFiles, importedPath);
+    var runRoot = Path.Combine(root, "test-replay"); Directory.CreateDirectory(Path.Combine(runRoot, "source-receipts"));
+    var replayFrames = captureFrames;
+    foreach (var f in replayFrames) File.Copy(Path.Combine(captureFolder, f.SampleId + ".json"), Path.Combine(runRoot, "source-receipts", f.SampleId + ".json"));
+    string ReceiptHash(IndexedFrame f) => CorpusFiles.Hash(File.ReadAllBytes(Path.Combine(runRoot, "source-receipts", f.SampleId + ".json")));
+    var replaySamples = replayFrames.Select((f, i) => new { frameId = f.FrameId, sourceTimeUs = f.SourceTimeUs,
+        pixelSha256 = f.PixelSha256, receiptSha256 = ReceiptHash(f), detectionRequested = i != 1,
+        analysis800Metrics = i == 1 ? null : new { wallMs = i == 0 ? 42.0 : 36.0 } }).ToArray();
+    var replayReport = new { completed = true, mode = "probe-only", recordedAnalyzerConfigurationIdentity = replayConfiguration,
+        replayAnalyzerConfigurationIdentity = replayConfiguration, samples = replaySamples,
+        fullAnalysis800 = new { observations = new object[] {
+            new { configuredWidth = 800, circleCount = 1, uncertain = false,
+                layoutUncertain = false, obstructed = true, circles = new[] { new { ballId = "cue-0", kind = "cue", x = 1.0, y = .5 } } },
+            new { configuredWidth = 800, circleCount = 1, uncertain = false,
+                layoutUncertain = true, obstructed = false, circles = new[] { new { ballId = "red-2", kind = "red", x = .7, y = .4 } } }
+        } } };
+    var replayReportPath = Path.Combine(runRoot, "report.json"); File.WriteAllText(replayReportPath, CorpusJson.Write(replayReport));
+    var replayManifestPath = Path.Combine(runRoot, "manifest.json");
+    var replayManifest = new { mode = "probe-only", apkSha256 = new string('a', 64), report = "report.json",
+        reportSha256 = CorpusFiles.Hash(File.ReadAllBytes(replayReportPath)), sourceFrames = replayFrames.Select(f => new {
+            frameId = f.FrameId, pixelFile = f.PixelFile, sha256 = f.PixelSha256, receiptSha256 = ReceiptHash(f),
+            receiptArtifact = "source-receipts/" + f.SampleId + ".json" }).ToArray() };
+    File.WriteAllText(replayManifestPath, CorpusJson.Write(replayManifest));
+    var splitLockPath = Path.Combine(root, "imported.lock.json");
+    File.WriteAllText(splitLockPath, CorpusJson.Write(importedLock) + "\n");
+    var splitLockBytes = File.ReadAllBytes(splitLockPath);
+    var splitLockSha = CorpusFiles.Hash(splitLockBytes);
+    var converted = O08ReplayExport.Convert(imported, importedPath, importedLock, importedFiles, "window", runRoot, splitLockBytes);
+    Check(!converted.LabelsReviewed && converted.Frames.Length == 3 && converted.Detections.Length == 2
+        && converted.SplitLockSha256 == splitLockSha
+        && converted.Frames[0] is { DetectionRequested: true, AnalysisWallMs: 42.0, AnalysisUncertain: false, Obstructed: true }
+        && converted.Frames[1] is { DetectionRequested: false, AnalysisWallMs: null, AnalysisUncertain: null }
+        && converted.Frames[2] is { DetectionRequested: true, AnalysisWallMs: 36.0, LayoutUncertain: true }
+        && converted.Detections[0] is { SampleId: "start", Uncertain: true, Balls.Length: 1 }
+        && converted.Detections[0].O08Replay is { AnalysisUncertain: false, LayoutUncertain: false, Obstructed: true, SplitLockSha256: var recordedLock } && recordedLock == splitLockSha
+        && converted.Detections[1] is { SampleId: "after", Uncertain: true, Balls.Length: 1 }
+        && converted.Detections[1].O08Replay is { AnalysisUncertain: false, LayoutUncertain: true, Obstructed: false },
+        "Bound O08 export preserves unreviewed status, binds split/config/timing provenance, maps requested observations around skips, and treats layout/obstruction uncertainty conservatively");
+    var exportDirectory = Path.Combine(root, "exported-window"); Directory.CreateDirectory(exportDirectory);
+    var exportedDetectionBytes = System.Text.Encoding.UTF8.GetBytes(CorpusJson.Write(converted.Detections) + "\n");
+    File.WriteAllBytes(Path.Combine(exportDirectory, "detections.json"), exportedDetectionBytes);
+    var exportArtifact = new O08ExportArtifactManifest(1, converted.CorpusId, converted.ManifestSha256,
+        converted.SplitLockSha256, converted.SequenceId, converted.Split, converted.LabelsReviewed,
+        converted.ReplayManifestSha256, converted.ReplayReportSha256, converted.ApkSha256, converted.Mode,
+        converted.RecordedConfiguration, converted.ReplayConfiguration, converted.CaptureConfigurationExact,
+        "detections.json", CorpusFiles.Hash(exportedDetectionBytes), converted.Frames,
+        "Offline width-800 synthetic test export.");
+    File.WriteAllText(Path.Combine(exportDirectory, "manifest.json"), CorpusJson.Write(exportArtifact) + "\n");
+    string ImportedReceiptHash(IndexedFrame f) => CorpusFiles.Hash(File.ReadAllBytes(Path.Combine(root, "imported", "window2", f.SampleId + ".receipt.json")));
+    var secondReplayManifestSha = new string('8', 64); var secondReplayReportSha = new string('9', 64); var secondApkSha = new string('7', 64);
+    var secondExportFrames = secondCaptureFrames.Select((f, i) => new O08ExportFrame(f.SampleId, f.FrameId, f.SourceTimeUs!.Value,
+        f.Scope, f.PixelSha256, ImportedReceiptHash(f), i != 1, i == 1 ? null : 30 + i,
+        i == 1 ? null : false, i == 1 ? null : false, i == 1 ? null : false)).ToImmutableArray();
+    var secondDetections = secondExportFrames.Where(f => f.DetectionRequested).Select(f => new StoredDetection(f.SampleId,
+        f.PixelSha256, "table-2x1", "o08-777777777777", "synthetic merge test", false,
+        [new("cue-" + f.FrameId, "cue", 1, .5, null)])
+        { O08Replay = new O08ReplayProvenance(imported.Id, importedLock.ManifestSha256, splitLockSha, "window2", "Development",
+            f.FrameId, f.SourceTimeUs, f.Scope, f.PixelSha256, f.ReceiptSha256, secondReplayManifestSha, secondReplayReportSha,
+            secondApkSha, replayConfiguration, replayConfiguration,
+            CorpusFiles.Hash(System.Text.Encoding.UTF8.GetBytes(replayConfiguration)),
+            CorpusFiles.Hash(System.Text.Encoding.UTF8.GetBytes(replayConfiguration)), true, f.AnalysisWallMs!.Value,
+            false, false, false) }).ToImmutableArray();
+    var secondExportDirectory = Path.Combine(root, "exported-window2"); Directory.CreateDirectory(secondExportDirectory);
+    var secondDetectionBytes = System.Text.Encoding.UTF8.GetBytes(CorpusJson.Write(secondDetections) + "\n");
+    File.WriteAllBytes(Path.Combine(secondExportDirectory, "detections.json"), secondDetectionBytes);
+    var secondArtifact = new O08ExportArtifactManifest(1, imported.Id, importedLock.ManifestSha256, splitLockSha,
+        "window2", "Development", false, secondReplayManifestSha, secondReplayReportSha, secondApkSha, "screening",
+        replayConfiguration, replayConfiguration, true, "detections.json", CorpusFiles.Hash(secondDetectionBytes),
+        secondExportFrames, "Offline width-800 synthetic second-sequence export.");
+    File.WriteAllText(Path.Combine(secondExportDirectory, "manifest.json"), CorpusJson.Write(secondArtifact) + "\n");
+    var merged = O08ReplayExport.Merge(imported, importedPath, importedLock, importedFiles,
+        [exportDirectory, secondExportDirectory], splitLockBytes);
+    var mergedDetectionBytes = System.Text.Encoding.UTF8.GetBytes(CorpusJson.Write(merged.Detections) + "\n");
+    Check(merged.Manifest is { SequenceCount: 2, FrameCount: 6, RequestedCount: 4, SkippedCount: 2 }
+        && merged.Detections.Length == 4 && merged.Manifest.DetectionSha256 == CorpusFiles.Hash(mergedDetectionBytes)
+        && merged.Detections[^1].O08Replay?.Scope == secondScope,
+        "O08 merge verifies source artifact hashes and combines distinct sequences with exact requested/skipped frame provenance");
+    var archivedReceipt = Path.Combine(runRoot, "source-receipts", "start.json");
+    File.AppendAllText(archivedReceipt, " ");
+    Throws<InvalidDataException>(() => O08ReplayExport.Convert(imported, importedPath, importedLock, importedFiles, "window", runRoot, splitLockBytes));
+    File.Copy(Path.Combine(captureFolder, "start.json"), archivedReceipt, true);
+    var copiedReceipt = Path.Combine(root, "imported", "window", "start.receipt.json");
+    File.AppendAllText(copiedReceipt, " ");
+    Throws<InvalidDataException>(() => O08ReplayExport.Convert(imported, importedPath, importedLock, importedFiles, "window", runRoot, splitLockBytes));
+    File.Copy(Path.Combine(captureFolder, "start.json"), copiedReceipt, true);
+    File.AppendAllText(replayReportPath, " ");
+    Throws<InvalidDataException>(() => O08ReplayExport.Convert(imported, importedPath, importedLock, importedFiles, "window", runRoot, splitLockBytes));
+    File.WriteAllText(replayReportPath, CorpusJson.Write(replayReport));
+    void RejectChangedReport(Action<JsonNode> change)
+    {
+        var changed = JsonNode.Parse(CorpusJson.Write(replayReport))!; change(changed);
+        File.WriteAllText(replayReportPath, changed.ToJsonString());
+        var changedManifest = JsonNode.Parse(CorpusJson.Write(replayManifest))!;
+        changedManifest["reportSha256"] = CorpusFiles.Hash(File.ReadAllBytes(replayReportPath));
+        File.WriteAllText(replayManifestPath, changedManifest.ToJsonString());
+        Throws<InvalidDataException>(() => O08ReplayExport.Convert(imported, importedPath, importedLock, importedFiles, "window", runRoot, splitLockBytes));
+        File.WriteAllText(replayReportPath, CorpusJson.Write(replayReport));
+        File.WriteAllText(replayManifestPath, CorpusJson.Write(replayManifest));
+    }
+    RejectChangedReport(r => r["samples"]![0]!["sourceTimeUs"] = 1001L);
+    RejectChangedReport(r => r["samples"]![0]!["detectionRequested"] = false);
+    RejectChangedReport(r => r["fullAnalysis800"]!["observations"]![0]!["circleCount"] = 2);
+    RejectChangedReport(r => r["recordedAnalyzerConfigurationIdentity"] = "different configuration");
+    File.AppendAllText(Path.Combine(root, "imported", "window", "labels.json"), " ");
+    Throws<InvalidDataException>(() => O08ReplayExport.Convert(imported, importedPath, importedLock, importedFiles, "window", runRoot, splitLockBytes));
+    File.WriteAllText(Path.Combine(root, "imported", "window", "labels.json"), CorpusJson.Write(CorpusJson.Read<SequenceLabels>(Path.Combine(root, "imported", "window", "labels.json"))));
     Throws<IOException>(() => VerificationCaptureImport.Import(Path.Combine(root, "capture"), Path.Combine(root, "imported")));
     var captureReceipt = Path.Combine(captureFolder, "start.json");
     File.WriteAllText(captureReceipt, File.ReadAllText(captureReceipt).Replace("analyzerPixelSource", "unexpectedCaptureField"));
