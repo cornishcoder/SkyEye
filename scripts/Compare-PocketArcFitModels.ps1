@@ -339,6 +339,7 @@ $summary = [pscustomobject][ordered]@{
 }
 
 Write-TextFile -Path $SummaryJsonPath -Content (ConvertTo-Json -InputObject $summary -Depth 40)
-$csv = ConvertTo-Csv -InputObject @($rows) -NoTypeInformation
+$rowArray = $rows.ToArray()
+$csv = @($rowArray | ConvertTo-Csv -NoTypeInformation)
 Write-TextFile -Path $RowsCsvPath -Content ($csv -join [Environment]::NewLine)
 Write-Output ([pscustomobject]@{ Passed = $true; SummaryJsonPath = [IO.Path]::GetFullPath($SummaryJsonPath); RowsCsvPath = [IO.Path]::GetFullPath($RowsCsvPath); Frames = $frameIds.Count; SeedRows = $rows.Count; CenterDriftPairs = $allDrifts.Count; DuplicateHypothesisPairs = $duplicateHypotheses.Count; TargetedExecuted = $targetedExecuted; TargetedSkipped = $targetedSkipped } | ConvertTo-Json -Compress)
