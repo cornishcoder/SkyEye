@@ -309,10 +309,10 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     }
                     byte[]? pocketArcClassifierPixels = null;
                     analyzer1000.ObserveNextClassifierPixels(pixels => pocketArcClassifierPixels = pixels);
-                    var baseline1000 = Measure(() => analyzer1000.Analyze(bytes, calibration), out var analysis1000Metrics);
+                    var arcBaseline1000 = Measure(() => analyzer1000.Analyze(bytes, calibration), out var arcAnalysis1000Metrics);
                     if (pocketArcClassifierPixels is null)
                         throw new IOException("The width-1000 classifier pixels were not captured from the pocket-arc baseline analysis.");
-                    var darkMaskTrace = PackedBlackMaskTrace.Capture(bytes, calibration, 1000, baseline1000,
+                    var darkMaskTrace = PackedBlackMaskTrace.Capture(bytes, calibration, 1000, arcBaseline1000,
                         Path.Combine(root, "o08-pocket-arc-trace-" + run), frameId.ToString(), manualBlackImageX, manualBlackImageY,
                         sparseBlackMinimumPeakRadiusFactor, pocketExclusionRadius, analyzer1000, pocketArcClassifierPixels);
                     samples.Add(new
@@ -320,8 +320,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                         frameId, pixelSha256 = sha, sourceTimeUs,
                         capturedAt = metadataRoot.TryGetProperty("capturedAt", out var pocketArcCapturedAt)
                             ? pocketArcCapturedAt.GetDateTimeOffset() : DateTimeOffset.UtcNow,
-                        detectionRequested, configurationMatchesPrimary, analysis1000Metrics,
-                        width1000 = new { analysis = Summarize(baseline1000, 1000), darkMaskTrace }
+                        detectionRequested, configurationMatchesPrimary, analysis1000Metrics = arcAnalysis1000Metrics,
+                        width1000 = new { analysis = Summarize(arcBaseline1000, 1000), darkMaskTrace }
                     });
                     continue;
                 }
