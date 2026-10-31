@@ -1,0 +1,91 @@
+{
+  "schemaVersion": 1,
+  "diagnosticOnly": true,
+  "reviewSelection": "Selected using the requested approximate pocket point to illustrate one target-near full-sweep candidate; no candidate generation or fit was changed.",
+  "groundTruth": false,
+  "accuracyClaim": false,
+  "source": {
+    "frameId": 1365,
+    "sourceTimeUs": 80806601200,
+    "pixelSha256": "602e00c4eb9fc92f3b124106137d8ca7c56f932e107f995f1f2c7d824dd25de4",
+    "sourceImage": "work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\exact-replay-input\\1365.png"
+  },
+  "candidate": {
+    "rank": 19,
+    "seedCentre": {
+      "x": 74,
+      "y": 57.5,
+      "length": 93.71365962334413
+    },
+    "seedRadius": 7.6400146484375,
+    "expectedBallRadiusPx": 27.0
+  },
+  "approximateEvaluationPoint": {
+    "sourcePixel": {
+      "x": 102,
+      "y": 903
+    },
+    "warpedPixel": {
+      "x": 57.07131144411592,
+      "y": 36.63146007085718,
+      "length": 67.815915955431
+    },
+    "role": "approximate interior point, not a ground-truth centre"
+  },
+  "regularFit": {
+    "centre": {
+      "x": 51.9,
+      "y": 86.4
+    },
+    "radius": 22.25,
+    "supportedSectorIndices": [
+      0,
+      1,
+      8,
+      9,
+      10,
+      11,
+      12,
+      13,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21,
+      22,
+      23,
+      24
+    ],
+    "pointSeparationPx": 50.1
+  },
+  "arcFit": {
+    "centre": {
+      "x": 66.4,
+      "y": 38.9
+    },
+    "radius": 27.25,
+    "supportedVisibleSectorIndices": [
+      4,
+      8,
+      12,
+      13,
+      14,
+      15,
+      16,
+      22,
+      23,
+      24,
+      25,
+      29
+    ],
+    "diagnosticChecksPass": true,
+    "pointSeparationPx": 9.6
+  },
+  "distanceInterpretation": "Descriptive distance to an approximate interior point only; not centre error or accuracy.",
+  "artifacts": {
+    "reviewOverlay": "work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\pocket-arc-holdout\\regular-sector-trace\\source-pixel-support\\target-near-frame1365-rank19-review.png",
+    "inputEvidenceJson": "work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\pocket-arc-holdout\\regular-sector-trace\\source-pixel-support\\sector-pixel-evidence.json"
+  }
+}
