@@ -10,7 +10,7 @@ The saved raw frame visibly contains the user-confirmed black/cue/red group. The
 
 Camera source audit (no device changes): `CaptureEngine.java` currently requests continuous-video AF and 30fps AE and encodes 1920×1080 H.264 at 6Mbps. The detector receives decoded video pixels, not sensor RAW. Exposure time, ISO, compensation, focus distance, camera capabilities and actual per-frame exposure are not exposed or logged; changing them is not yet evidence-backed. If image quality remains a limiting factor after the detector-stage trace, first add camera capability/capture-result readback, then compare one setting at a time on identical labeled frames. A faster shutter might help moving-ball blur, but is unlikely to restore a ball hidden by a pocket edge or rejected by a mask.
 
-**Current priority:** isolate the stage that loses the black and cue in these exact daylight pixels, then implement the smallest reviewable diagnostic or detector correction and replay this positive plus matched negative controls. Keep pocket-lip and cushion layouts as separate held-out acceptance fixtures. The test-tool efficiency audit is in progress; avoid another device replay if a local/batched path can produce the same stage evidence.
+**Current priority:** isolate the stage that loses the black and cue in these exact daylight pixels, then implement the smallest reviewable diagnostic or detector correction and replay this positive plus matched negative controls. Keep pocket-lip and cushion layouts as separate held-out acceptance fixtures. The test-tool efficiency audit is complete; instrument end-to-end timings and add a bulk screening path before expanding replay volume.
 
 ## Verification throughput review — 31 October 2026
 
