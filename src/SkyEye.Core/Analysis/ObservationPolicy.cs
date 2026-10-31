@@ -110,7 +110,21 @@ public sealed record CueBallRecoveryTelemetry(int InitialCueBallCount, int Befor
     public NeutralCueMaskTelemetry? NeutralMaskTelemetry { get; init; }
 }
 public sealed record NeutralCueMaskTelemetry(int MaskPixels, int ConnectedComponents,
-    Dictionary<string, int> FilterCounts, NeutralCueMaskComponentTelemetry[] NearPocketComponents);
+    Dictionary<string, int> FilterCounts, NeutralCueMaskComponentTelemetry[] NearPocketComponents)
+{
+    public NeutralCueMaskProbeTelemetry? Probe { get; init; }
+    public NeutralCueMaskBoundaryProbeTelemetry? BoundaryProbe { get; init; }
+}
+public sealed record NeutralCueMaskBoundaryProbeTelemetry(double? FittedCentreX, double? FittedCentreY,
+    double? FittedRadius, double? BoundarySupport, string? Classification, bool? LocalContrast, string Decision)
+{
+    public BoundarySectorEvidence[] SectorEvidence { get; init; } = [];
+}
+public sealed record NeutralCueMaskProbeTelemetry(double CentreX, double CentreY, double Radius,
+    int SamplePixels, int AppearancePassPixels, int AdaptiveValuePassPixels,
+    int PreMorphMaskPixels, int PostMorphMaskPixels, double MeanValue, double MeanFieldValue,
+    int CentreValue, int CentreFieldValue, bool CentreAppearancePass, bool CentreAdaptiveValuePass,
+    bool CentrePreMorphMask, bool CentrePostMorphMask, int CentreComponentLabel);
 public sealed record NeutralCueMaskComponentTelemetry(int Label, double CentreX, double CentreY,
     int Width, int Height, int Area, double Radius, double FillFraction,
     double NearestPocketDistance, string Decision);

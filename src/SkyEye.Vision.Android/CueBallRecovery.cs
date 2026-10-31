@@ -65,6 +65,20 @@ public sealed partial class VisionAnalyzer
     {
         int width = coordinates.Width, height = coordinates.Height;
         double scale = width / 1000d, expectedRadius = PoolGeometry.Radius * width;
+        bool hasProbe = auditCandidates && diagnosticNeutralCueProbeAt800 is { };
+        Point probeCentre = hasProbe
+            ? new Point(diagnosticNeutralCueProbeAt800!.Value.X * width / 800d,
+                diagnosticNeutralCueProbeAt800.Value.Y * width / 800d)
+            : default;
+        double probeRadius = expectedRadius * .65;
+        int probePixels = 0, probeAppearancePixels = 0, probeAdaptiveValuePixels = 0;
+        int probePreMorphPixels = 0, probePostMorphPixels = 0;
+        long probeValueSum = 0, probeFieldSum = 0;
+        int probeCentreX = hasProbe ? Math.Clamp((int)Math.Round(probeCentre.X), 0, width - 1) : 0;
+        int probeCentreY = hasProbe ? Math.Clamp((int)Math.Round(probeCentre.Y), 0, height - 1) : 0;
+        int probeCentreValue = 0, probeCentreFieldValue = 0;
+        bool probeCentreAppearance = false, probeCentreAdaptiveValue = false;
+        bool probeCentrePreMorphMask = false, probeCentrePostMorphMask = false;
         using var rawHsv = new MatLease(new Mat()); Imgproc.CvtColor(raw, rawHsv.Value, Imgproc.ColorBgr2hsv);
         var hsv = Read(rawHsv.Value);
         var values = new byte[width * height];
@@ -80,18 +94,54 @@ public sealed partial class VisionAnalyzer
         for (int i = 0; i < values.Length; i++)
         {
             if ((i & 8191) == 0) cancellation.ThrowIfCancellationRequested();
-            bool cueAppearance = hsv[i * 3 + 1] < 85
-                || hsv[i * 3] is >= 8 and <= 30 && hsv[i * 3 + 1] < 160 && hsv[i * 3 + 2] > 130;
-            values[i] = cueAppearance && hsv[i * 3 + 2] >= Math.Max(48, Math.Max(field[i] + 8, field[i] * 1.1))
-                ? (byte)255 : (byte)0;
+            int offset = i * 3;
+            int pixelX = i % width, pixelY = i / width;
+            byte pixelValue = hsv[offset + 2];
+            bool cueAppearance = hsv[offset + 1] < 85
+                || hsv[offset] is >= 8 and <= 30 && hsv[offset + 1] < 160 && pixelValue > 130;
+            bool adaptiveValue = pixelValue >= Math.Max(48, Math.Max(field[i] + 8, field[i] * 1.1));
+            bool selected = cueAppearance && adaptiveValue;
+            if (hasProbe)
+            {
+                double dx = pixelX - probeCentre.X, dy = pixelY - probeCentre.Y;
+                if (dx * dx + dy * dy <= probeRadius * probeRadius)
+                {
+                    probePixels++;
+                    probeValueSum += pixelValue; probeFieldSum += field[i];
+                    if (cueAppearance) probeAppearancePixels++;
+                    if (adaptiveValue) probeAdaptiveValuePixels++;
+                    if (selected) probePreMorphPixels++;
+                }
+                if (pixelX == probeCentreX && pixelY == probeCentreY)
+                {
+                    probeCentreValue = pixelValue; probeCentreFieldValue = field[i];
+                    probeCentreAppearance = cueAppearance; probeCentreAdaptiveValue = adaptiveValue;
+                    probeCentrePreMorphMask = selected;
+                }
+            }
+            values[i] = selected ? (byte)255 : (byte)0;
         }
         value.Value.Put(0, 0, values);
         using var kernelSize = new Size(3, 3);
         using var kernel = new MatLease(Imgproc.GetStructuringElement(Imgproc.MorphEllipse, kernelSize));
         Imgproc.MorphologyEx(value.Value, value.Value, Imgproc.MorphOpen, kernel.Value);
-        int maskPixels = auditCandidates ? Read(value.Value).Count(pixel => pixel != 0) : 0;
+        byte[]? postMorphMask = auditCandidates ? Read(value.Value) : null;
+        int maskPixels = postMorphMask?.Count(pixel => pixel != 0) ?? 0;
+        if (hasProbe && postMorphMask is not null)
+        {
+            for (int y = Math.Max(0, (int)Math.Floor(probeCentre.Y - probeRadius)); y <= Math.Min(height - 1, (int)Math.Ceiling(probeCentre.Y + probeRadius)); y++)
+            for (int x = Math.Max(0, (int)Math.Floor(probeCentre.X - probeRadius)); x <= Math.Min(width - 1, (int)Math.Ceiling(probeCentre.X + probeRadius)); x++)
+            {
+                double dx = x - probeCentre.X, dy = y - probeCentre.Y;
+                int index = y * width + x;
+                if (dx * dx + dy * dy <= probeRadius * probeRadius && postMorphMask[index] != 0)
+                    probePostMorphPixels++;
+            }
+            probeCentrePostMorphMask = postMorphMask[probeCentreY * width + probeCentreX] != 0;
+        }
         using var labels = new MatLease(new Mat()); using var stats = new MatLease(new Mat()); using var centres = new MatLease(new Mat());
         int count = Imgproc.ConnectedComponentsWithStats(value.Value, labels.Value, stats.Value, centres.Value);
+        int probeCentreComponentLabel = hasProbe ? (int)labels.Value.Get(probeCentreY, probeCentreX)![0] : 0;
         var candidates = new List<Circle>();
         var filterCounts = auditCandidates ? new Dictionary<string, int>(StringComparer.Ordinal) : null;
         var nearPocketComponents = auditCandidates ? new List<NeutralCueMaskComponentTelemetry>() : null;
@@ -120,11 +170,47 @@ public sealed partial class VisionAnalyzer
             if (!auditCandidates) continue;
             var counts = filterCounts!;
             counts[decision] = counts.GetValueOrDefault(decision) + 1;
-            if (pocketDistance <= traceDistance && nearPocketComponents!.Count < maximumNearPocketComponents)
-                nearPocketComponents.Add(new(i, x, y, (int)w, (int)h, (int)area, radius, fill, pocketDistance, decision));
+            if ((pocketDistance <= traceDistance && nearPocketComponents!.Count < maximumNearPocketComponents)
+                || i == probeCentreComponentLabel)
+                nearPocketComponents!.Add(new(i, x, y, (int)w, (int)h, (int)area, radius, fill, pocketDistance, decision));
+        }
+        NeutralCueMaskProbeTelemetry? probeTelemetry = null;
+        if (hasProbe && probePixels > 0)
+        {
+            probeTelemetry = new(probeCentre.X, probeCentre.Y, probeRadius, probePixels,
+                probeAppearancePixels, probeAdaptiveValuePixels, probePreMorphPixels, probePostMorphPixels,
+                probeValueSum / (double)probePixels, probeFieldSum / (double)probePixels,
+                probeCentreValue, probeCentreFieldValue, probeCentreAppearance, probeCentreAdaptiveValue,
+                probeCentrePreMorphMask, probeCentrePostMorphMask, probeCentreComponentLabel);
+        }
+        NeutralCueMaskBoundaryProbeTelemetry? boundaryProbeTelemetry = null;
+        if (hasProbe)
+        {
+            byte[] probeBgr = Read(raw);
+            var fit = BallBoundaryRefiner.Refine(probeBgr, width, height, probeCentre, expectedRadius,
+                settings.MinimumHoughBoundarySupport, collectSectorEvidence: true);
+            if (fit is null)
+            {
+                boundaryProbeTelemetry = new(null, null, null, null, null, null, "no-boundary-fit");
+            }
+            else
+            {
+                var fittedCircle = new Circle(fit.Centre.X, fit.Centre.Y, fit.Radius);
+                string classification = Classify(fittedCircle, hsv, inspectRim: true,
+                    allowWarmNeutralCueCandidate: true).Kind;
+                bool localContrast = HasLowLightNeutralBallContrast(fittedCircle, hsv, includeWarmCream: true);
+                string decision = fit.SupportedSectors < settings.MinimumHoughBoundarySupport
+                    ? "insufficient-boundary-support"
+                    : classification != "cue" ? "not-classified-cue"
+                    : !localContrast ? "no-local-contrast"
+                    : "labelled-cue-supported";
+                boundaryProbeTelemetry = new(fit.Centre.X, fit.Centre.Y, fit.Radius, fit.SupportedSectors,
+                    classification, localContrast, decision) { SectorEvidence = fit.SectorEvidence };
+            }
         }
         maskTelemetry = auditCandidates
-            ? new(maskPixels, count - 1, filterCounts!, nearPocketComponents!.ToArray())
+            ? new NeutralCueMaskTelemetry(maskPixels, count - 1, filterCounts!, nearPocketComponents!.ToArray())
+            { Probe = probeTelemetry, BoundaryProbe = boundaryProbeTelemetry }
             : null;
         candidateCount = candidates.Count; recoveredCount = 0;
         var audits = auditCandidates ? new List<NeutralCueCandidateTelemetry>(Math.Min(4, candidates.Count)) : null;

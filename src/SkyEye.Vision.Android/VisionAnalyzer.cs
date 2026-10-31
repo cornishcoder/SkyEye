@@ -22,6 +22,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     readonly bool boundaryDiagnostics;
     readonly bool candidateDiagnostics;
     readonly bool obstructionMaskDiagnostics;
+    readonly Point? diagnosticNeutralCueProbeAt800;
     readonly (int Hue, int SaturationFloor, int ValueFloor, int MedianValue)? diagnosticObstructionClothRangeOverride;
     readonly (int Minimum, int Maximum)? diagnosticObstructionNeutralValueRangeOverride;
     byte[]? lastObstructionMaskDiagnosticPng;
@@ -31,12 +32,14 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     public VisionAnalyzer(VisionSettings settings, bool includeBoundaryDiagnostics = false, bool includeCandidateDiagnostics = false,
         bool includeObstructionMaskDiagnostics = false,
         (int Hue, int SaturationFloor, int ValueFloor, int MedianValue)? diagnosticObstructionClothRangeOverride = null,
-        (int Minimum, int Maximum)? diagnosticObstructionNeutralValueRangeOverride = null)
+        (int Minimum, int Maximum)? diagnosticObstructionNeutralValueRangeOverride = null,
+        Point? diagnosticNeutralCueProbeAt800 = null)
     {
         settings.Validate(); this.settings = settings; boundaryDiagnostics = includeBoundaryDiagnostics;
         candidateDiagnostics = includeCandidateDiagnostics; obstructionMaskDiagnostics = includeObstructionMaskDiagnostics;
         this.diagnosticObstructionClothRangeOverride = diagnosticObstructionClothRangeOverride;
         this.diagnosticObstructionNeutralValueRangeOverride = diagnosticObstructionNeutralValueRangeOverride;
+        this.diagnosticNeutralCueProbeAt800 = diagnosticNeutralCueProbeAt800;
         coordinates = new(settings.Width);
     }
     public byte[]? TakeObstructionMaskDiagnosticPng()
@@ -135,7 +138,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
 
         cancellation.ThrowIfCancellationRequested();
         var fallbackAnalyzer = new VisionAnalyzer(settings with { Width = 1000 }, boundaryDiagnostics, candidateDiagnostics,
-            obstructionMaskDiagnostics);
+            obstructionMaskDiagnostics, diagnosticNeutralCueProbeAt800: diagnosticNeutralCueProbeAt800);
         var fallback = fallbackAnalyzer.AnalyzePixelsCore(source, calibration, cancellation, appearance);
         bool fallbackComplete = fallback.PackedCluster?.Complete == true;
         bool useFallback = fallbackComplete || fallback.CircleCount > primary.CircleCount;

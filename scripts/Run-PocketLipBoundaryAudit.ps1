@@ -20,6 +20,8 @@ param(
     [switch]$TraceBlackMask,
     [int]$BlackLabelX = 1282,
     [int]$BlackLabelY = 536,
+    [double]$NeutralCueProbeX800 = -1,
+    [double]$NeutralCueProbeY800 = -1,
     [int]$ObstructionClothHue = -1,
     [int]$ObstructionClothSaturationFloor = -1,
     [int]$ObstructionClothValueFloor = -1,
@@ -39,6 +41,15 @@ if ($SparseBlackSearchExtent -lt 0.2 -or $SparseBlackSearchExtent -gt 1.5) { thr
 if ($SparseBlackSupport -lt 0.5625 -or $SparseBlackSupport -gt 1) { throw 'SparseBlackSupport must be between 0.5625 and 1.' }
 if ($SparseBlackCandidateLimit -lt 1 -or $SparseBlackCandidateLimit -gt 64) { throw 'SparseBlackCandidateLimit must be between 1 and 64.' }
 if ($BlackLabelX -lt 0 -or $BlackLabelY -lt 0) { throw 'Black label coordinates must be non-negative source-image pixels.' }
+$specifiedNeutralCueProbeCoordinates = 0
+if ($NeutralCueProbeX800 -ne -1 -or $NeutralCueProbeY800 -ne -1) {
+    if (![double]::IsFinite($NeutralCueProbeX800) -or ![double]::IsFinite($NeutralCueProbeY800) -or
+        $NeutralCueProbeX800 -lt 0 -or $NeutralCueProbeY800 -lt 0 -or
+        $NeutralCueProbeX800 -gt 800 -or $NeutralCueProbeY800 -gt 1600) {
+        throw 'Neutral cue probe requires both finite width-800 coordinates inside the 800 by 1600 analysis frame.'
+    }
+    $specifiedNeutralCueProbeCoordinates = 2
+}
 $obstructionClothRange = @($ObstructionClothHue, $ObstructionClothSaturationFloor, $ObstructionClothValueFloor, $ObstructionClothMedianValue)
 $specifiedObstructionClothRange = @($obstructionClothRange | Where-Object { $_ -ge 0 }).Count
 if ($specifiedObstructionClothRange -notin @(0, 4)) { throw 'Obstruction cloth range override requires all four HSV values.' }
@@ -170,6 +181,12 @@ if ($specifiedObstructionNeutralRange -eq 2) {
         '-e', 'obstructionNeutralMaximum', "$ObstructionNeutralMaximum")
 }
 if ($TraceBlackMask) { $instrumentArguments += @('-e', 'trace', '1', '-e', 'blackLabelX', "$BlackLabelX", '-e', 'blackLabelY', "$BlackLabelY") }
+if ($specifiedNeutralCueProbeCoordinates -eq 2) {
+    $probeXArgument = $NeutralCueProbeX800.ToString('R', [Globalization.CultureInfo]::InvariantCulture)
+    $probeYArgument = $NeutralCueProbeY800.ToString('R', [Globalization.CultureInfo]::InvariantCulture)
+    $instrumentArguments += @('-e', 'neutralCueProbeX800', $probeXArgument,
+        '-e', 'neutralCueProbeY800', $probeYArgument)
+}
 $instrumentArguments += $instrumentation
 $instrumentResult = Invoke-Adb (@('-s', $serial) + $instrumentArguments)
 $instrumentResult.Output | Set-Content -LiteralPath (Join-Path $runDirectory 'instrumentation.log')
@@ -245,6 +262,7 @@ $manifest = [pscustomobject]@{
     obstructionMasks = $maskArtifacts
     traceBlackMask = [bool]$TraceBlackMask
     manualBlackLabelSourcePixel = if ($TraceBlackMask) { [pscustomobject]@{ x = $BlackLabelX; y = $BlackLabelY } } else { $null }
+    neutralCueProbeAtWidth800 = if ($specifiedNeutralCueProbeCoordinates -eq 2) { [pscustomobject]@{ x = $NeutralCueProbeX800; y = $NeutralCueProbeY800 } } else { $null }
     blackMaskTraces = $blackMaskArtifacts
     packedClusterImageEdgeMargin = $EdgeMargin
     pocketExclusionRadius = $PocketRadius

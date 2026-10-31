@@ -15,6 +15,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
     bool refinement, dump, boundaryAudit, traceDarkMask, tracePackedColourFits, normalizedGeometry, normalizedPackedProposalMask, boundaryExtentAblation,
         edgeMarginAblation, continueCalibrationMismatch, obstructionMaskTrace, localIlluminationNormalization;
     int fastWidth, darkBodyCeiling = 40, packedClusterImageEdgeMargin = 23, manualBlackImageX = 1282, manualBlackImageY = 536;
+    double? neutralCueProbeX800, neutralCueProbeY800;
     double boundaryExtentFraction = .65, production800BoundaryExtent = .65,
         pocketExclusionRadius = VisionSettings.DefaultPocketExclusionRadius, minimumBoundarySupport = .75,
         minimumSparseColourBoundarySupport = VisionSettings.DefaultMinimumSparseColourBoundarySupport,
@@ -46,6 +47,17 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 || !int.TryParse(requestedBlackLabelY, NumberStyles.Integer, CultureInfo.InvariantCulture, out manualBlackImageY)
                 || manualBlackImageX < 0 || manualBlackImageY < 0)
                 throw new ArgumentOutOfRangeException(nameof(manualBlackImageX), "Manual black label requires non-negative source-image X and Y pixel coordinates.");
+        }
+        var requestedCueProbeX800 = args?.GetString("neutralCueProbeX800");
+        var requestedCueProbeY800 = args?.GetString("neutralCueProbeY800");
+        if (!string.IsNullOrWhiteSpace(requestedCueProbeX800) || !string.IsNullOrWhiteSpace(requestedCueProbeY800))
+        {
+            if (!double.TryParse(requestedCueProbeX800, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsedX)
+                || !double.TryParse(requestedCueProbeY800, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsedY)
+                || !double.IsFinite(parsedX) || !double.IsFinite(parsedY) || parsedX is < 0 or > 800 || parsedY is < 0 or > 1600)
+                throw new ArgumentOutOfRangeException(nameof(requestedCueProbeX800), "Neutral cue probe requires finite width-800 analysis coordinates in the 800 by 1600 frame.");
+            neutralCueProbeX800 = parsedX;
+            neutralCueProbeY800 = parsedY;
         }
         normalizedGeometry = args?.GetString("normGeometry") == "1";
         normalizedPackedProposalMask = args?.GetString("normPackedProposalMask") == "1";
@@ -179,9 +191,11 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     UseNormalizedPackedColourProposalMask = useNormalizedProposalMask
                 };
             var analyzer800 = new VisionAnalyzer(ReplaySettings(800, boundaryExtent: production800BoundaryExtent), boundaryAudit, boundaryAudit, obstructionMaskTrace,
-                diagnosticObstructionClothRangeOverride, diagnosticObstructionNeutralValueRangeOverride);
+                diagnosticObstructionClothRangeOverride, diagnosticObstructionNeutralValueRangeOverride,
+                neutralCueProbeX800 is { } probeX && neutralCueProbeY800 is { } probeY ? new Point(probeX, probeY) : null);
             var analyzer1000 = new VisionAnalyzer(ReplaySettings(1000), boundaryAudit, boundaryAudit, obstructionMaskTrace,
-                diagnosticObstructionClothRangeOverride, diagnosticObstructionNeutralValueRangeOverride);
+                diagnosticObstructionClothRangeOverride, diagnosticObstructionNeutralValueRangeOverride,
+                neutralCueProbeX800 is { } probeX1000 && neutralCueProbeY800 is { } probeY1000 ? new Point(probeX1000, probeY1000) : null);
             var fastAnalyzer = fastWidth > 0 ? new VisionAnalyzer(ReplaySettings(fastWidth)) : null;
             var normalizedGeometryAnalyzer800 = normalizedGeometry
                 ? new VisionAnalyzer(ReplaySettings(800, useNormalizedGeometry: true), boundaryAudit, boundaryAudit)
