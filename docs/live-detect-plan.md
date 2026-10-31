@@ -1,12 +1,20 @@
 # Live Detect delivery plan
 
+## Code65 source-frame evidence path — 31 October 2026
+
+Production companion source is now `0.8.57` / code65. `TableAnalysisSession` exposes an accepted-frame observer while the exact source image is still alive. Live Detect uses it to retain the first frame, then frames at analysis-quality or inventory transitions and at most one every three seconds, capped at six source images per run. Decoded texture frames are saved losslessly as PNG; existing JPEG inputs remain byte-identical. Each schema-13 frame record links the relative file path, SHA-256, byte length, format and capture trigger alongside its source frame ID, PTS, timeline and calibration. The sidecars are bounded to 96 images / 128 MiB overall and 16 MiB per file; log rotation removes unreferenced files. Images can be fetched through `GET /api/live-detect-evidence?id=<32-character-guid>` while the local vision dashboard is active, or pulled from the app's `files/live-detect/evidence` directory.
+
+Focused `SkyEye.AgentUi.Checks` pass, including log-sidecar roundtrip, exact-byte retrieval, capture sampling policy and retention. The broader `SkyEye.Checks` run passed the frame-observer and table-session checks, then stopped in the unrelated recent-replay disk-space stress case (`RecentReplayChecks`, insufficient free space). The Production Release build succeeds with 13 existing Android/interop warnings and zero errors. Code65 is not yet installed or physically checked.
+
+**Next:** guarded in-place install to Pixel 11, then a short hands-clear Live Detect capture on the unchanged pocket-lip fixture. Review every retained source image against its same-frame JSON record, focusing on false obstruction and pocket-edge misses. The black is still intentionally off the table, so this run cannot prove complete 16-ball readiness. Stop the camera at the first safe boundary and keep Cast/TV out of scope.
+
 ## Code64 false-motion fix: bounded static recheck — 31 October 2026
 
 Production `0.8.56` / code64 is installed in place (commit `9c7e625`); the signed update retained the Pixel 11 UID and private storage. The user-confirmed unchanged, hands-clear pocket-lip layout has balls by all six pockets and along the cushions. It produced seven verifier receipts, four with a detector analysis; each analysis found all 15 balls present (7 reds, 7 yellows and cue), with the black intentionally off the table. The detector still marks the counts uncertain. The check ended `Unsettled (TimedOut)`, with per-frame motion `Unknown / InsufficientEvidence` and no `Moving` result. Across 45 same-ball centre comparisons against the first detector frame, self-jitter was median 0.019, p95 0.086 and max 0.198 ball widths; these are not independently labelled position errors. This is not readiness and does not validate positive motion; it is a physical static negative that no longer makes a motion claim.
 
 The verifier receipts are at `work/production/evidence/code64-static-pocket-lip-20261031/0a8a25ad1ae94c758ae416f8884a464e/0a8a25ad1ae94c758ae416f8884a464e/`. The camera is now `/status` `Stopped`, revision 77, 100% battery, 139 clips, zero viewers; Pixel 11 Home shows **Start live session**. No Cast or match action occurred.
 
-**Next:** get the black back onto the cloth for a complete 16-ball baseline, then run one clearly labelled moving-ball check to ensure template corroboration still detects real motion. Separately, reproduce Live Detect's intermittent obstruction labels while saving frame-matched source pixels and masks. Keep readiness unknown until the complete table is detected and adequately covered across the bounded samples. Do not infer a pot or event from this static verifier run.
+**Next at code64:** get the black back onto the cloth for a complete 16-ball baseline, then run one clearly labelled moving-ball check to ensure template corroboration still detects real motion. The code65 evidence path above is intended to make the intermittent Live Detect obstruction and pocket-edge misses inspectable at the exact source timestamp. Keep readiness unknown until the complete table is detected and adequately covered across bounded samples. Do not infer a pot or event from this static verifier run.
 
 ## Code63 static reducer result and pocket-edge false motion — 31 October 2026
 

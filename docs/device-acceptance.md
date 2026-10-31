@@ -1,5 +1,11 @@
 # Physical-device acceptance
 
+## Production v0.8.57 / code65 source-frame evidence — pending device check
+
+The Production Release build succeeds with 13 existing Android binding, interop and native-library warnings and zero errors. Focused `SkyEye.AgentUi.Checks` pass. The full `SkyEye.Checks` executable passed its table-session/frame-observer section but terminated later in `RecentReplayChecks` when its sparse-file stress fixture exceeded the remaining disk space; no detector or observer assertion failed. The mounted Pixel 10 reports `Stopped`, revision 77, battery 100%, `clipCount=139`, zero viewers. Pixel 11 is connected and code64 is still installed at this checkpoint. No Cast or camera package action occurred.
+
+Code65 adds schema-13 frame-linked PNG/JPEG sidecars and a read-only evidence download route; no vision threshold or canonical state change is included. Next: perform the guarded in-place Pixel 11 update, run the user-authorized short hands-clear pocket-lip check, compare saved source frames to frame IDs/PTS and detection logs, then stop capture and confirm Home `Start live session`.
+
 ## Production v0.8.56 / code64 static verifier recheck — 31 October 2026
 
 Commit `9c7e625` installed in place on Pixel 11 with the production updater. The updater verified the signer and retained UID/private storage; rollback APK: `work/production/backups/20261031-012425/before.apk`. No camera package update or Cast action occurred.

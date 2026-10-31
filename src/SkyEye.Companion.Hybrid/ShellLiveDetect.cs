@@ -54,8 +54,8 @@ public sealed partial class ShellSession
     public string LiveDetectClipStatus => liveDetectClipStatus;
     public string LiveDetectReadAt => liveDetectReadAt is { } value ? value.ToLocalTime().ToString("HH:mm:ss") : "";
     public string LiveDetectLogStatus => liveDetectLogError is { Length: > 0 } error
-        ? $"Log write failed · {error}"
-        : $"Retained log across runs · {liveDetectLog.Summary.RetainedFrames} frames · {liveDetectLog.Summary.RetainedTableEvents} table events · {liveDetectLog.Summary.RetainedEventClipOperations} event clip operations · GET /api/live-detect-log";
+        ? $"Evidence/logging issue · {error}"
+        : $"Retained log across runs · {liveDetectLog.Summary.RetainedFrames} frames · {liveDetectLog.Summary.RetainedEvidenceFrames} source images · {liveDetectLog.Summary.RetainedTableEvents} table events · {liveDetectLog.Summary.RetainedEventClipOperations} event clip operations · GET /api/live-detect-log";
     public IReadOnlyList<string> LiveDetectEvents => liveDetectEvents.ToArray();
 
     string LiveDetectUnavailableReason => !CanAnalyzeTable ? "start a live session first"
@@ -180,6 +180,8 @@ public sealed partial class ShellSession
         var eventTracker = new LiveDetectTableEventTracker();
         var frameCursor = new LiveDetectFrameCursor();
         var freshFrameWait = new LiveDetectFreshFrameWaitTracker();
+        var evidenceCapture = new LiveDetectFrameEvidenceCapture();
+        PendingLiveDetectFrameEvidence? liveDetectPendingFrameEvidence = null;
         var eventClipQueue = Channel.CreateUnbounded<LiveDetectEventClipQueueMessage>();
         var eventClipTask = ProcessLiveDetectEventClipQueueAsync(runId, source,
             eventClipQueue.Reader, cancellation);
@@ -203,7 +205,9 @@ public sealed partial class ShellSession
                 // newest decoded frame, so slow analysis never queues stale frames.
                 try
                 {
-                    await table.UpdateAsync(cancellation);
+                    liveDetectPendingFrameEvidence = null;
+                    await table.UpdateAsync(cancellation,
+                        frameObserver: (frame, vision) => liveDetectPendingFrameEvidence = evidenceCapture.Observe(frame, vision));
                     consecutiveAnalysisErrors = 0;
                     consecutiveFrameAcquisitionErrors = 0;
                 }
@@ -266,6 +270,8 @@ public sealed partial class ShellSession
                     continue;
                 }
                 cancellation.ThrowIfCancellationRequested();
+                var pendingFrameEvidence = liveDetectPendingFrameEvidence;
+                liveDetectPendingFrameEvidence = null;
                 var state = table.State;
                 var observation = state.Observation;
                 var receipt = observation?.DecodedReceipt;
@@ -368,6 +374,24 @@ public sealed partial class ShellSession
                 if (vision.Uncertain && !vision.HasUncertainLayout && !vision.Obstructed)
                     quality += " · advice unavailable";
                 var ageSeconds = Math.Max(0, observation.FrameAgeMs) / 1000;
+                LiveDetectLogFrameEvidence? frameEvidence = null;
+                bool evidenceWriteFailed = false;
+                if (pendingFrameEvidence is { } candidateEvidence)
+                {
+                    try
+                    {
+                        frameEvidence = candidateEvidence.Encoded is { } encoded
+                            ? liveDetectLog.SaveFrameEvidence(encoded, candidateEvidence.Trigger)
+                            : new(null, null, null, 0, null, candidateEvidence.Trigger, false,
+                                candidateEvidence.SkipReason ?? "source frame unavailable");
+                        evidenceWriteFailed = !frameEvidence.Available && frameEvidence.SkipReason is not "evidence storage limit reached";
+                    }
+                    catch (Exception error) when (error is not OutOfMemoryException)
+                    {
+                        frameEvidence = new(null, null, null, 0, null, candidateEvidence.Trigger, false, error.GetType().Name);
+                        evidenceWriteFailed = true;
+                    }
+                }
                 try
                 {
                     liveDetectLog.AppendFrame(runId, DateTimeOffset.UtcNow, new LiveDetectLogFrame(
@@ -382,10 +406,10 @@ public sealed partial class ShellSession
                         events.ToArray(), checkOutcome, observation.Change?.SpatiallyCompatible, rackEvidence,
                         LiveDetectLogObstructionAudit.From(vision.ObstructionAudit), observation.PlayerPlayback,
                         vision.PocketColourAudit, eventBatch.BaselineMatchSamples,
-                        eventBatch.SettledBaselineMatchesCurrent));
+                        eventBatch.SettledBaselineMatchesCurrent, frameEvidence));
                     foreach (var tableEvent in eventBatch.TableEvents)
                         liveDetectLog.AppendTableEvent(runId, tableEvent.CapturedAt, tableEvent);
-                    liveDetectLogError = null;
+                    liveDetectLogError = evidenceWriteFailed ? "source evidence unavailable" : null;
                 }
                 catch (Exception error) when (error is IOException or UnauthorizedAccessException or JsonException)
                 {

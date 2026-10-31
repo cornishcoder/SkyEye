@@ -1,4 +1,5 @@
 using SkyEye.Companion.Hybrid;
+using SkyEye.Core;
 using SkyEye.Core.Analysis;
 using System.Text.Json;
 
@@ -78,12 +79,34 @@ internal static class LiveDetectLogStoreChecks
             var framePath = Path.Combine(directory, "classified-checks.jsonl");
             var frameStore = new LiveDetectLogStore(framePath);
             var checkAt = start.AddSeconds(2);
+            var savedEvidence = frameStore.SaveFrameEvidence(
+                new EncodedTableFrameEvidence([10, 20, 30, 40], ".png", "image/png"), "initial");
+            Guid savedEvidenceId = savedEvidence.EvidenceId.GetValueOrDefault();
+            Require(savedEvidence.Available && savedEvidenceId != Guid.Empty
+                && savedEvidence.RelativePath == "evidence/" + savedEvidenceId.ToString("N") + ".png"
+                && savedEvidence.Sha256 is { Length: 64 },
+                "source frame evidence is saved with a stable relative path and content hash");
             var frame = new LiveDetectLogFrame(checkAt, 12, Guid.NewGuid(), 3, 82, 9_987_654,
                 9_987_654, 1_234_567, Guid.NewGuid().ToString("N"), "decoded-frame", "calibration",
-                16, 7, 7, 1, 1, 0, false, false, false, 22, 45, [], [], [], "clear_unchanged");
+                16, 7, 7, 1, 1, 0, false, false, false, 22, 45, [], [], [], "clear_unchanged",
+                FrameEvidence: savedEvidence);
             frameStore.AppendFrame(runId, checkAt, frame);
-            Require(new LiveDetectLogStore(framePath).ReadLast(1).Records.Single().Frame?.CheckOutcome == "clear_unchanged",
-                "every full analysis check records its typed outcome, including unchanged layouts");
+            var reopenedFrameStore = new LiveDetectLogStore(framePath);
+            Require(reopenedFrameStore.ReadLast(1).Records.Single().Frame is { CheckOutcome: "clear_unchanged",
+                    FrameEvidence.Available: true } && reopenedFrameStore.Summary.RetainedEvidenceFrames == 1
+                && reopenedFrameStore.Summary.RetainedEvidenceBytes == 4
+                && reopenedFrameStore.TryGetFrameEvidence(savedEvidenceId, out var evidencePath, out var evidenceType)
+                && evidenceType == "image/png" && File.ReadAllBytes(evidencePath).SequenceEqual(new byte[] { 10, 20, 30, 40 }),
+                "full checks link exact source evidence and expose it after reopening the log store");
+            var evidencePolicy = new LiveDetectFrameEvidenceCapture();
+            var evidenceBall = new Ball("red-1", "red", new(0.4, 0.5), 1);
+            var evidenceVision = new VisionResult([evidenceBall], false, [], 1, 1, true, "fixture", [1, 1, 1], 100, false, []);
+            TableFrame EvidenceFrame(DateTimeOffset capturedAt) => new([1, 2], capturedAt, "timeline");
+            Require(evidencePolicy.Observe(EvidenceFrame(checkAt), evidenceVision)?.Trigger == "initial"
+                && evidencePolicy.Observe(EvidenceFrame(checkAt.AddSeconds(1)), evidenceVision) is null
+                && evidencePolicy.Observe(EvidenceFrame(checkAt.AddSeconds(3)), evidenceVision)?.Trigger == "interval:3s"
+                && evidencePolicy.Observe(EvidenceFrame(checkAt.AddSeconds(4)), evidenceVision with { Balls = [evidenceBall, new("yellow-1", "yellow", new(.6, .5), 1)] })?.Trigger.StartsWith("inventory:") == true,
+                "source evidence samples initial, interval and inventory-change frames without copying every pass");
 
             // A large exempted region must not crowd the actual triggering
             // components out of the bounded audit. Include unreported triggers.

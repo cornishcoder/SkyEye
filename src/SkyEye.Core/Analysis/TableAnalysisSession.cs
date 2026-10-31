@@ -85,7 +85,12 @@ public interface ITableAnalyzer
     VisionResult Analyze(TableFrame frame, TableCalibration calibration, CancellationToken cancellation = default) => Analyze(frame.Jpeg, calibration, cancellation);
     Point[]? FindCorners(byte[] jpeg);
 }
-public interface ITableFrameImage : IDisposable { byte[] EncodeForReview(); }
+public sealed record EncodedTableFrameEvidence(byte[] Pixels, string Extension, string ContentType);
+public interface ITableFrameImage : IDisposable
+{
+    byte[] EncodeForReview();
+    EncodedTableFrameEvidence EncodeForEvidence() => new(EncodeForReview(), ".jpg", "image/jpeg");
+}
 public sealed record DecodedFrameReceipt(long MediaGeneration, long FrameId, long PresentationTimeUs,
     long SurfaceTimestampNs, int Width, int Height);
 public sealed record PlayerPlaybackTelemetry(int PlaybackState, bool IsLoading, bool IsPlaying,
@@ -107,6 +112,9 @@ public sealed record TableFrame(byte[] Jpeg, DateTimeOffset CapturedAt, string T
     public double? ClockUncertaintyMs { get; init; }
     public PlayerPlaybackTelemetry? PlayerPlayback { get; init; }
     public byte[] ReviewImage() => Jpeg.Length > 0 ? Jpeg : Image?.EncodeForReview() ?? throw new IOException("Review frame unavailable.");
+    public EncodedTableFrameEvidence EncodeForEvidence() => Jpeg.Length > 0
+        ? new(Jpeg, ".jpg", "image/jpeg")
+        : Image?.EncodeForEvidence() ?? throw new IOException("Evidence frame unavailable.");
     public void Dispose() => Image?.Dispose();
 }
 public interface ITableFrameSource { Task<TableFrame> ReadAsync(CameraScope source, CancellationToken cancellation); }
@@ -195,7 +203,8 @@ public sealed partial class TableAnalysisSession(ITableFrameSource frames, ITabl
         active?.Cancel(); StopVisionDiagnosticsLocked("Stopped because the camera or table calibration changed."); tracker.Reset(); lastTimeline = null;
         state = state with { Generation = checked(state.Generation + 1), Picking = false, Table = null, Vision = null, Jpeg = null, Observation = null, Choices = [], ChoicesComputed = false, VerificationProgress = null };
     }
-    public Task UpdateAsync(CancellationToken cancellation = default, bool reviewFrame = false)
+    public Task UpdateAsync(CancellationToken cancellation = default, bool reviewFrame = false,
+        Action<TableFrame, VisionResult>? frameObserver = null)
     {
         PipelineDiagnostics.Count("analysisRequests");
         lock (gate)
@@ -208,11 +217,12 @@ public sealed partial class TableAnalysisSession(ITableFrameSource frames, ITabl
             var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             var admitted = state; var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellation); active = linked;
             pending = completed.Task;
-            _ = RunUpdateAsync(admitted, linked, completed, reviewFrame);
+            _ = RunUpdateAsync(admitted, linked, completed, reviewFrame, frameObserver);
             return pending;
         }
     }
-    async Task RunUpdateAsync(TableAnalysisSnapshot admitted, CancellationTokenSource linked, TaskCompletionSource completed, bool reviewFrame)
+    async Task RunUpdateAsync(TableAnalysisSnapshot admitted, CancellationTokenSource linked, TaskCompletionSource completed,
+        bool reviewFrame, Action<TableFrame, VisionResult>? frameObserver)
     {
         var watch = System.Diagnostics.Stopwatch.StartNew();
         using var total = PipelineDiagnostics.Measure("observationMs");
@@ -228,6 +238,7 @@ public sealed partial class TableAnalysisSession(ITableFrameSource frames, ITabl
                 VisionResult detected;
                 try { PipelineDiagnostics.Count("fullAnalyses"); using var vision = PipelineDiagnostics.Measure("visionMs"); detected = await Task.Run(() => analyzer.Analyze(frame, admitted.Calibration!, linked.Token), linked.Token).ConfigureAwait(false); }
                 finally { analyzerGate.Release(); }
+                bool accepted = false;
                 lock (gate)
                 {
                     linked.Token.ThrowIfCancellationRequested();
@@ -251,8 +262,17 @@ public sealed partial class TableAnalysisSession(ITableFrameSource frames, ITabl
                                         Recognition = detected.Recognition,
                                         Change = detected.HasUncertainLayout || detected.Obstructed ? null
                                             : new(previous.Length, detected.Balls.Length, SpatiallyCompatible(previous, detected.Balls), TableTracker.SameLayout(previous, detected.Balls)) } }; lastTimeline = frame.Timeline;
+                            accepted = true;
                         }
                     }
+                }
+                if (accepted && frameObserver is not null)
+                {
+                    // Frame observers are diagnostic side channels. A failed evidence
+                    // write must not invalidate an otherwise accepted table reading.
+                    try { frameObserver(frame, detected); }
+                    catch (Exception error) when (error is not OutOfMemoryException)
+                    { PipelineDiagnostics.Count("frameObserverFailures"); }
                 }
             }
             completed.TrySetResult();

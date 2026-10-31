@@ -292,6 +292,15 @@ public sealed partial class ShellSession
             cancellation.ThrowIfCancellationRequested();
             return HttpResponse.Json(liveDetectLog.ReadLast(limit));
         }
+        if (request.Path == "/api/live-detect-evidence")
+        {
+            if (!request.Query.TryGetValue("id", out var rawId) || !Guid.TryParseExact(rawId, "N", out var evidenceId))
+                return HttpResponse.Json(new { error = "Provide an evidence id from the Live Detect log." }, 400);
+            cancellation.ThrowIfCancellationRequested();
+            return liveDetectLog.TryGetFrameEvidence(evidenceId, out var evidencePath, out var contentType)
+                ? new HttpResponse(200, contentType, FilePath: evidencePath, Headers: new() { ["Cache-Control"] = "no-store" })
+                : HttpResponse.Json(new { error = "Frame evidence is no longer retained." }, 404);
+        }
         if (request.Path == "/api/live-match")
         {
             return await MainThread.InvokeOnMainThreadAsync(() =>

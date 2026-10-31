@@ -22,8 +22,18 @@ static class TableAnalysisChecks
         Check(frames.Reads == 1 && session.State.Table?.Group == "yellow" && session.State.Table.Settled == false, "late analysis uses canonical current group, not admitted group");
         var duplicate = session.State; await session.UpdateAsync();
         Check(ReferenceEquals(duplicate.Vision, session.State.Vision) && ReferenceEquals(duplicate.Jpeg, session.State.Jpeg), "duplicate source time cannot replace the tracked frame or diagnostics");
+        int observedFrames = 0;
+        clock.Advance(1);
+        await session.UpdateAsync(frameObserver: (frame, vision) =>
+        {
+            observedFrames++;
+            Check(frame.Jpeg.SequenceEqual(new byte[] { 1, 2, 3 }) && vision.Balls.Length > 0,
+                "accepted frame observer receives the exact source bytes and analysis result before disposal");
+        });
+        await session.UpdateAsync(frameObserver: (_, _) => observedFrames++);
+        Check(observedFrames == 1, "frame observer runs once for a fresh accepted frame and not for duplicate source time");
         Refused(() => session.Confirm(session.State.Table!.Version));
-        clock.Advance(3); await session.UpdateAsync(); var version = session.State.Table!.Version;
+        clock.Advance(2); await session.UpdateAsync(); var version = session.State.Table!.Version;
         Check(session.Confirm(version).Confirmed, "fresh settled table can be reviewed");
         var corrected = session.Correct(version, "cue 1.8 0.5\nred 1.0 0.5\nyellow 0.5 0.2\nblack 0.2 0.8");
         Check(corrected.Version > version && corrected.Confirmed && corrected.Group == "yellow", "reviewed complete correction retains current group and updates layout version");
