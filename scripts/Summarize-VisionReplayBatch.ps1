@@ -22,11 +22,18 @@ Output format: Csv (default) or Json.
 .PARAMETER OutputPath
 Optional output file. Without it, the selected format is written to the pipeline.
 
+.PARAMETER RunSummaryPath
+Optional separate output file containing one run-level row per manifest, including
+phase timings from versioned phaseTimings or legacy timingsMs. Uses the selected format.
+
 .EXAMPLE
 ./scripts/Summarize-VisionReplayBatch.ps1 -RunDirectory work/production/evidence/run-a,work/production/evidence/run-b
 
 .EXAMPLE
 ./scripts/Summarize-VisionReplayBatch.ps1 -EvidenceRoot work/production/evidence/code70-daylight-pocket-capture-20261031 -Format Json -OutputPath work/vision-replay-batch.json
+
+.EXAMPLE
+./scripts/Summarize-VisionReplayBatch.ps1 -EvidenceRoot work/production/evidence/code70-daylight-pocket-capture-20261031 -RunSummaryPath work/vision-replay-runs.csv
 #>
 [CmdletBinding(DefaultParameterSetName = 'RunDirectory')]
 param(
@@ -40,11 +47,17 @@ param(
     [ValidateSet('Csv', 'Json')]
     [string] $Format = 'Csv',
 
-    [string] $OutputPath
+    [string] $OutputPath,
+
+    [string] $RunSummaryPath
 )
 
 Set-StrictMode -Version 2.0
 $ErrorActionPreference = 'Stop'
+
+if ($OutputPath -and $RunSummaryPath -and [string]::Equals([System.IO.Path]::GetFullPath($OutputPath), [System.IO.Path]::GetFullPath($RunSummaryPath), [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw 'OutputPath and RunSummaryPath must refer to different files.'
+}
 
 function Get-ObjectValue {
     param(
@@ -181,6 +194,54 @@ function Get-FrameWallMs {
     return $null
 }
 
+function Get-RunTimingData {
+    param([AllowNull()] [object] $Manifest)
+
+    $phases = [System.Collections.Specialized.OrderedDictionary]::new()
+    $timings = Get-ObjectValue -InputObject $Manifest -Name 'timingsMs'
+    $versionedTimings = Get-ObjectValue -InputObject $Manifest -Name 'phaseTimings'
+    $schemaVersion = Get-ObjectValue -InputObject $versionedTimings -Name 'schemaVersion'
+    $unit = Get-ObjectValue -InputObject $versionedTimings -Name 'unit'
+    $versionedPhases = Get-ObjectValue -InputObject $versionedTimings -Name 'phases'
+    $useVersionedTimings = ($schemaVersion -eq 1) -and
+        [string]::Equals([string]$unit, 'milliseconds', [System.StringComparison]::OrdinalIgnoreCase) -and
+        ($null -ne $versionedPhases) -and ($versionedPhases -isnot [string])
+
+    if ($useVersionedTimings) {
+        foreach ($phase in @($versionedPhases)) {
+            $name = Get-ObjectValue -InputObject $phase -Name 'name'
+            if ($null -eq $name -or [string]::IsNullOrWhiteSpace([string]$name)) { continue }
+            $phases[[string]$name] = Get-ObjectValue -InputObject $phase -Name 'elapsedMs'
+        }
+        if ($phases.Count -eq 0) { $useVersionedTimings = $false }
+    }
+
+    if (-not $useVersionedTimings -and $null -ne $timings) {
+        if ($timings -is [System.Collections.IDictionary]) {
+            foreach ($key in $timings.Keys) {
+                if ([string]::Equals([string]$key, 'total', [System.StringComparison]::OrdinalIgnoreCase)) { continue }
+                $value = $timings[$key]
+                if ($null -eq $value -or $value -is [string] -or $value -is [ValueType]) {
+                    $phases[[string]$key] = $value
+                }
+            }
+        } else {
+            foreach ($property in $timings.PSObject.Properties) {
+                if ([string]::Equals($property.Name, 'total', [System.StringComparison]::OrdinalIgnoreCase)) { continue }
+                $value = $property.Value
+                if ($null -eq $value -or $value -is [string] -or $value -is [ValueType]) {
+                    $phases[[string]$property.Name] = $value
+                }
+            }
+        }
+    }
+
+    return [pscustomobject]@{
+        Phases = $phases
+        TotalMs = Get-ObjectValue -InputObject $timings -Name 'total'
+    }
+}
+
 function Get-ManifestForReport {
     param([Parameter(Mandatory = $true)] [string] $ReportDirectory)
 
@@ -249,6 +310,8 @@ if ($reportFiles.Count -eq 0) {
 }
 
 $rows = [System.Collections.Generic.List[object]]::new()
+$runSummaryEntries = [System.Collections.Generic.List[object]]::new()
+$runSummaryKeys = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
 $parsedReportCount = 0
 foreach ($reportFile in $reportFiles) {
     try {
@@ -278,6 +341,22 @@ foreach ($reportFile in $reportFiles) {
     if ($null -ne $observations800) { $frameCount = [Math]::Max($frameCount, $observations800.Count) }
     if ($null -ne $observations1000) { $frameCount = [Math]::Max($frameCount, $observations1000.Count) }
     if ($null -ne $manifestFrames) { $frameCount = [Math]::Max($frameCount, $manifestFrames.Count) }
+
+    if ($RunSummaryPath) {
+        # A manifest represents one run even if more than one report was saved
+        # beside it. Keep its timing values in the separate summary only once.
+        $runSummaryKey = if ($manifestResult.Path) { $manifestResult.Path } else { $reportFile.DirectoryName }
+        if ($runSummaryKeys.Add([string]$runSummaryKey)) {
+            $runTimingData = Get-RunTimingData -Manifest $manifest
+            $runSummaryEntries.Add([pscustomobject]@{
+                RunId = $runId
+                FrameCount = $frameCount
+                SourceConfigurationMatch = Get-ObjectValue -InputObject $report -Name 'configurationMatchesPrimaryWidth'
+                Phases = $runTimingData.Phases
+                TotalMs = $runTimingData.TotalMs
+            })
+        }
+    }
 
     $rowIndexes = if ($frameCount -gt 0) { 0..($frameCount - 1) } else { @(-1) }
     foreach ($index in $rowIndexes) {
@@ -358,4 +437,41 @@ if ($OutputPath) {
     [System.IO.File]::WriteAllText($fullOutputPath, $content, [System.Text.UTF8Encoding]::new($false))
 } else {
     Write-Output $content
+}
+
+if ($RunSummaryPath) {
+    $phaseNames = [System.Collections.Generic.List[string]]::new()
+    foreach ($entry in $runSummaryEntries) {
+        foreach ($phaseName in $entry.Phases.Keys) {
+            if (-not $phaseNames.Contains([string]$phaseName)) { $phaseNames.Add([string]$phaseName) }
+        }
+    }
+
+    $runSummaryRows = [System.Collections.Generic.List[object]]::new()
+    foreach ($entry in $runSummaryEntries) {
+        $summaryRow = [ordered]@{
+            RunId = $entry.RunId
+            FrameCount = $entry.FrameCount
+            SourceConfigurationMatch = $entry.SourceConfigurationMatch
+        }
+        foreach ($phaseName in $phaseNames) {
+            $phaseColumn = "Phase_${phaseName}_Ms"
+            $summaryRow[$phaseColumn] = if ($entry.Phases.Contains($phaseName)) { $entry.Phases[$phaseName] } else { $null }
+        }
+        $summaryRow['TotalMs'] = $entry.TotalMs
+        $runSummaryRows.Add([pscustomobject]$summaryRow)
+    }
+
+    if ($Format -eq 'Json') {
+        $runSummaryContent = ConvertTo-Json -InputObject @($runSummaryRows.ToArray()) -Depth 8
+    } else {
+        $runSummaryContent = (@($runSummaryRows.ToArray()) | ConvertTo-Csv -NoTypeInformation) -join [Environment]::NewLine
+    }
+
+    $fullRunSummaryPath = [System.IO.Path]::GetFullPath($RunSummaryPath)
+    $runSummaryDirectory = [System.IO.Path]::GetDirectoryName($fullRunSummaryPath)
+    if (-not (Test-Path -LiteralPath $runSummaryDirectory -PathType Container)) {
+        throw "Run summary output directory does not exist: '$runSummaryDirectory'."
+    }
+    [System.IO.File]::WriteAllText($fullRunSummaryPath, $runSummaryContent, [System.Text.UTF8Encoding]::new($false))
 }
