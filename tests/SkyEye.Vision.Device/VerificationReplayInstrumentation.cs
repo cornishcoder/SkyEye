@@ -12,7 +12,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
 {
     public VerificationReplayInstrumentation() { }
     public VerificationReplayInstrumentation(IntPtr handle, global::Android.Runtime.JniHandleOwnership ownership) : base(handle, ownership) { }
-    bool refinement, dump, boundaryAudit, screenOnly, probeOnly, pocketArcProbeOnly, traceDarkMask, tracePackedColourFits, normalizedGeometry, normalizedPackedProposalMask, boundaryExtentAblation,
+    bool refinement, dump, boundaryAudit, screenOnly, probeOnly, pocketArcProbeOnly, rawProposalReplay, traceDarkMask, tracePackedColourFits, normalizedGeometry, normalizedPackedProposalMask, boundaryExtentAblation,
         edgeMarginAblation, continueCalibrationMismatch, obstructionMaskTrace, localIlluminationNormalization;
     int fastWidth, darkBodyCeiling = 40, packedClusterImageEdgeMargin = 23, manualBlackImageX = 1282, manualBlackImageY = 536;
     double? neutralCueProbeX800, neutralCueProbeY800;
@@ -159,6 +159,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         screenOnly = args?.GetString("screenOnly") == "1";
         probeOnly = args?.GetString("probeOnly") == "1";
         pocketArcProbeOnly = args?.GetString("pocketArcProbeOnly") == "1";
+        rawProposalReplay = args?.GetString("rawProposalReplay") == "1";
         var requestedPocketArcTargetFitAcceptanceRadius = args?.GetString("pocketArcTargetFitAcceptanceRadiusRadii");
         if (!string.IsNullOrWhiteSpace(requestedPocketArcTargetFitAcceptanceRadius)
             && (!double.TryParse(requestedPocketArcTargetFitAcceptanceRadius, NumberStyles.Float,
@@ -171,12 +172,17 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             throw new ArgumentException("Targeted label-reach pruning is supported only in pocket-arc probe-only mode.");
         if (pocketArcProbeOnly && (string.IsNullOrWhiteSpace(requestedBlackLabelX) || string.IsNullOrWhiteSpace(requestedBlackLabelY)))
             throw new ArgumentException("Pocket-arc probe-only mode requires explicit blackLabelX and blackLabelY values.");
-        if ((screenOnly ? 1 : 0) + (probeOnly ? 1 : 0) + (pocketArcProbeOnly ? 1 : 0) > 1)
-            throw new ArgumentException("Screen-only, probe-only, and pocket-arc probe-only modes are mutually exclusive.");
+        if ((screenOnly ? 1 : 0) + (probeOnly ? 1 : 0) + (pocketArcProbeOnly ? 1 : 0) + (rawProposalReplay ? 1 : 0) > 1)
+            throw new ArgumentException("Screen-only, probe-only, pocket-arc, and raw-proposal replay modes are mutually exclusive.");
         fastWidth = int.TryParse(args?.GetString("fastWidth"), out var requestedWidth) ? requestedWidth : 0;
         if (int.TryParse(args?.GetString("darkCeiling"), out var requestedDarkCeiling)) darkBodyCeiling = requestedDarkCeiling;
         if (fastWidth != 0 && fastWidth is < 320 or > 800) throw new ArgumentOutOfRangeException(nameof(fastWidth), "Fast-width probe must be between 320 and 800 pixels.");
         if (darkBodyCeiling is < 10 or > 55) throw new ArgumentOutOfRangeException(nameof(darkBodyCeiling), "Dark-body ceiling must be between 10 and 55.");
+        if (rawProposalReplay && (!boundaryAudit || traceDarkMask || tracePackedColourFits || obstructionMaskTrace || normalizedGeometry
+            || normalizedPackedProposalMask || boundaryExtentAblation || edgeMarginAblation || fastWidth > 0
+            || neutralCueProbeX800.HasValue || neutralCueProbeY800.HasValue
+            || diagnosticObstructionClothRangeOverride is not null || diagnosticObstructionNeutralValueRangeOverride is not null))
+            throw new ArgumentException("Raw-proposal replay requires candidate audits and cannot include unrelated ablations or trace artifacts.");
         if (pocketArcProbeOnly && (traceDarkMask || tracePackedColourFits || obstructionMaskTrace || normalizedGeometry
             || normalizedPackedProposalMask || boundaryExtentAblation || edgeMarginAblation || fastWidth > 0
             || neutralCueProbeX800.HasValue || neutralCueProbeY800.HasValue
@@ -194,9 +200,9 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             var paths = Directory.GetFiles(root, "*.json")
                 .Where(path => long.TryParse(Path.GetFileNameWithoutExtension(path), out _))
                 .OrderBy(path => long.Parse(Path.GetFileNameWithoutExtension(path))).ToArray();
-            int maximumFrames = screenOnly ? 24 : probeOnly || pocketArcProbeOnly ? 12 : 6;
+            int maximumFrames = screenOnly ? 24 : probeOnly || pocketArcProbeOnly || rawProposalReplay ? 12 : 6;
             if (paths.Length < 1 || paths.Length > maximumFrames)
-                throw new IOException($"Replay 1 to {maximumFrames} captured development snapshots in {(screenOnly ? "screening" : probeOnly ? "probe-only" : pocketArcProbeOnly ? "pocket-arc probe-only" : "full audit")} mode.");
+                throw new IOException($"Replay 1 to {maximumFrames} captured development snapshots in {(screenOnly ? "screening" : probeOnly ? "probe-only" : pocketArcProbeOnly ? "pocket-arc probe-only" : rawProposalReplay ? "raw-proposal replay" : "full audit")} mode.");
             using var first = JsonDocument.Parse(File.ReadAllBytes(paths[0]));
             var firstMetadata = first.RootElement;
             var corners = firstMetadata.GetProperty("calibrationCorners").EnumerateArray().Select(p => new Point(p.GetProperty("x").GetDouble(), p.GetProperty("y").GetDouble())).ToArray();
@@ -305,6 +311,70 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     throw new IOException("Replay frames do not share one analyzer configuration.");
                 var detectionRequested = metadataRoot.TryGetProperty("detectionRequested", out var detectionElement)
                     ? detectionElement.GetBoolean() : true;
+                if (rawProposalReplay)
+                {
+                    if (!detectionRequested)
+                    {
+                        samples.Add(new { frameId, pixelSha256 = sha, sourceTimeUs, detectionRequested, skipped = true, skipReason = "detection-not-requested" });
+                        continue;
+                    }
+                    var proposalPath = Path.Combine(root, $"local-proposals-{frameId}.json");
+                    using var proposalDocument = JsonDocument.Parse(File.ReadAllBytes(proposalPath));
+                    var proposalRoot = proposalDocument.RootElement;
+                    if (proposalRoot.GetProperty("frameId").GetInt64() != frameId)
+                        throw new IOException($"Raw proposal file does not belong to frame {frameId}.");
+                    if (!string.Equals(proposalRoot.GetProperty("sourceSha256").GetString(), sha, StringComparison.OrdinalIgnoreCase))
+                        throw new IOException($"Raw proposals for frame {frameId} do not match the replay pixel hash.");
+                    var modelResult = proposalRoot.GetProperty("result");
+                    if (!modelResult.GetProperty("success").GetBoolean())
+                        throw new IOException($"Local model did not successfully analyze frame {frameId}.");
+                    var imageSize = modelResult.GetProperty("image_size");
+                    int sourceWidth = imageSize.GetProperty("width").GetInt32();
+                    int sourceHeight = imageSize.GetProperty("height").GetInt32();
+                    var proposalElements = modelResult.GetProperty("balls").EnumerateArray().ToArray();
+                    if (proposalElements.Length is < 1 or > 32)
+                        throw new IOException($"Raw proposal count for frame {frameId} is outside the diagnostic limit 1-32.");
+                    var proposals = proposalElements.Select(ball =>
+                    {
+                        string id = ball.GetProperty("id").GetString() ?? throw new IOException("Raw proposal has no id.");
+                        string kind = ball.GetProperty("type").GetString() ?? throw new IOException($"Raw proposal {id} has no type.");
+                        string source = ball.GetProperty("source").GetString() ?? throw new IOException($"Raw proposal {id} has no source.");
+                        double confidence = ball.GetProperty("conf").GetDouble();
+                        var centre = ball.GetProperty("center");
+                        if (centre.GetArrayLength() != 2) throw new IOException($"Raw proposal {id} has invalid centre geometry.");
+                        return new VisionAnalyzer.DiagnosticAnalysisProposal(id, kind,
+                            new(centre[0].GetDouble(), centre[1].GetDouble()), source, confidence);
+                    }).ToArray();
+                    var baseline = Measure(() => analyzer1000.Analyze(bytes, calibration), out var baselineMetrics);
+                    byte[]? classifierPixels = null;
+                    analyzer1000.ObserveNextClassifierPixels(pixels => classifierPixels = pixels);
+                    var withRawProposals = Measure(() => analyzer1000.AnalyzeWithDiagnosticRawProposals(bytes, calibration,
+                        proposals, sourceWidth, sourceHeight), out var rawProposalMetrics);
+                    if (classifierPixels is null)
+                        throw new IOException($"Exact width-1000 classifier pixels were not captured for frame {frameId}.");
+                    var rawProposalAudits = withRawProposals.CandidateAudits
+                        .Where(a => a.Pass == "initial" && a.Stage == "local-model-raw")
+                        .OrderBy(a => a.Index).ToArray();
+                    samples.Add(new
+                    {
+                        frameId, pixelSha256 = sha, sourceTimeUs,
+                        capturedAt = metadataRoot.TryGetProperty("capturedAt", out var proposalCapturedAt)
+                            ? proposalCapturedAt.GetDateTimeOffset() : DateTimeOffset.UtcNow,
+                        sourceImage = new { width = sourceWidth, height = sourceHeight },
+                        model = new { engine = modelResult.GetProperty("engine").GetString(), latencyMs = modelResult.GetProperty("latency_ms").GetDouble() },
+                        baselineMetrics, rawProposalMetrics,
+                        baseline = Summarize(baseline, 1000),
+                        withRawProposals = Summarize(withRawProposals, 1000),
+                        proposals = proposals.Select((proposal, index) => new
+                        {
+                            proposal.Id, proposal.Kind, proposal.Source, proposal.Confidence,
+                            rawCentre = proposal.Centre,
+                            skyEyeClassifier = ClassifyRawProposal(analyzer1000, calibration, proposal, sourceWidth, sourceHeight, classifierPixels),
+                            audit = rawProposalAudits.SingleOrDefault(a => a.Index == index)
+                        })
+                    });
+                    continue;
+                }
                 if (pocketArcProbeOnly)
                 {
                     if (!detectionRequested)
@@ -651,7 +721,29 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                         ? null : Compare(verification800.Vision, verification1000.Vision, 800, 1000),
                 });
             }
-            if (pocketArcProbeOnly)
+        if (rawProposalReplay)
+        {
+            report = new
+            {
+                completed = true,
+                mode = "raw-proposal-replay",
+                diagnosticOnly = true,
+                canonicalStateChanged = false,
+                boundaryAudit,
+                pipelineDiagnostics = PipelineDiagnostics.Snapshot(),
+                recordedAnalyzerConfigurationIdentity = recordedConfiguration,
+                replayAnalyzerConfigurationIdentity = replayConfiguration,
+                configurationMatchesPrimary,
+                configurationSettingsMatchPrimary,
+                configurationComparison = configurationMatchesPrimary == true ? "exact-match"
+                    : configurationSettingsMatchPrimary == true && configurationAlgorithmChangedSinceCapture == true
+                        ? "settings-match; algorithm-revision-changed"
+                        : recordedConfiguration is null ? "recorded-identity-unavailable" : "configuration-mismatch",
+                scope = "Saved local-model raw centres were mapped through the capture calibration into canonical analysis coordinates and evaluated by the existing detector candidate classifier, duplicate, pocket, cloth and boundary-fit gates. Proposal audits are diagnostic evidence only; model labels are not ground truth and do not affect live or match state.",
+                samples
+            };
+        }
+        else if (pocketArcProbeOnly)
             {
                 report = new
                 {
@@ -742,7 +834,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         catch (Exception error) { report = new { completed = false, error = error.ToString() }; }
         var json = JsonSerializer.Serialize(report, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });
         var reportName = run.Length > 0
-            ? $"o08-replay-proof-{run}{(pocketArcProbeOnly ? "-pocketarc" : traceDarkMask ? "-blacktrace" : "")}.json"
+            ? $"o08-replay-proof-{run}{(rawProposalReplay ? "-rawproposals" : pocketArcProbeOnly ? "-pocketarc" : traceDarkMask ? "-blacktrace" : "")}.json"
             : "o08-replay-proof.json";
         File.WriteAllText(Path.Combine(TargetContext!.GetExternalFilesDir(null)!.AbsolutePath, reportName), json);
         using var bundle = new global::Android.OS.Bundle(); bundle.PutString("result", "O08 development replay written"); Finish(global::Android.App.Result.Ok, bundle);
@@ -771,6 +863,26 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 id.Contains('-') ? id[..id.IndexOf('-')] : id, []);
         }).ToArray();
         workerType.GetField("anchorDetections", fields)?.SetValue(worker, circles);
+    }
+    static object ClassifyRawProposal(VisionAnalyzer analyzer, TableCalibration calibration,
+        VisionAnalyzer.DiagnosticAnalysisProposal proposal, int sourceWidth, int sourceHeight, byte[] classifierPixels)
+    {
+        var tableCentre = calibration.Map(new(proposal.Centre.X / sourceWidth, proposal.Centre.Y / sourceHeight));
+        var analysisCentre = new AnalysisCoordinates(1000).FromTable(tableCentre);
+        var evidence = analyzer.ClassifyDiagnosticCandidate(analysisCentre, PoolGeometry.Radius * 1000, classifierPixels);
+        return new
+        {
+            kind = evidence.Classification.Kind,
+            pattern = evidence.Classification.Pattern,
+            quality = evidence.Classification.Quality,
+            qualityIsProbability = false,
+            bodySampleCount = evidence.BodySampleCount,
+            usableBodySampleCount = evidence.UsableBodySampleCount,
+            rimSampleCount = evidence.RimSampleCount,
+            usableRimSampleCount = evidence.UsableRimSampleCount,
+            bodyDarkFraction = evidence.Classification.BodyDarkFraction,
+            rimDarkFraction = evidence.Classification.RimDarkFraction
+        };
     }
     static object ProfileBoundaryScoring(byte[] encodedImage, TableCalibration calibration, JsonElement circlesElement, int width)
     {

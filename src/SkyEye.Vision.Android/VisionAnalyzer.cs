@@ -32,6 +32,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     readonly record struct PackedClusterEvidence(bool Detected, int RedCentres, int YellowCentres, bool BlackCentre);
     internal sealed record DiagnosticClassifierEvidence(BallClassification Classification,
         int BodySampleCount, int UsableBodySampleCount, int RimSampleCount, int UsableRimSampleCount);
+    internal sealed record DiagnosticAnalysisProposal(string Id, string Kind, Point Centre, string Source, double Confidence);
     public VisionAnalyzer(int width = 1000) : this(new VisionSettings(Width: width)) { }
     public VisionAnalyzer(VisionSettings settings, bool includeBoundaryDiagnostics = false, bool includeCandidateDiagnostics = false,
         bool includeObstructionMaskDiagnostics = false,
@@ -171,6 +172,20 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     {
         Load(); using var source = Decode(jpeg); return AnalyzePixels(source.Value, calibration, cancellation);
     }
+    internal VisionResult AnalyzeWithDiagnosticRawProposals(byte[] jpeg, TableCalibration calibration,
+        IReadOnlyList<DiagnosticAnalysisProposal> proposals, int expectedSourceWidth, int expectedSourceHeight,
+        CancellationToken cancellation = default)
+    {
+        ArgumentNullException.ThrowIfNull(proposals);
+        if (!candidateDiagnostics)
+            throw new InvalidOperationException("Raw proposal replay requires candidate diagnostics to be enabled.");
+        if (expectedSourceWidth <= 0 || expectedSourceHeight <= 0)
+            throw new ArgumentOutOfRangeException(nameof(expectedSourceWidth), "Expected raw frame dimensions must be positive.");
+        Load(); using var source = Decode(jpeg);
+        if (source.Value.Cols() != expectedSourceWidth || source.Value.Rows() != expectedSourceHeight)
+            throw new IOException($"Raw model dimensions {expectedSourceWidth}x{expectedSourceHeight} do not match replay frame {source.Value.Cols()}x{source.Value.Rows()}.");
+        return AnalyzePixels(source.Value, calibration, cancellation, diagnosticRawProposals: proposals);
+    }
     public VisionResult Analyze(TableFrame frame, TableCalibration calibration, CancellationToken cancellation = default)
     {
         if (frame.Image is not BitmapTableImage pixels) return Analyze(frame.Jpeg, calibration, cancellation);
@@ -180,16 +195,17 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         { Utils.BitmapToMat(pixels.Bitmap, rgba.Value); Imgproc.CvtColor(rgba.Value, bgr.Value, Imgproc.ColorRgba2bgr); }
         return AnalyzePixels(bgr.Value, calibration, cancellation);
     }
-    VisionResult AnalyzePixels(Mat source, TableCalibration calibration, CancellationToken cancellation, BurstAppearance? appearance = null)
+    VisionResult AnalyzePixels(Mat source, TableCalibration calibration, CancellationToken cancellation,
+        BurstAppearance? appearance = null, IReadOnlyList<DiagnosticAnalysisProposal>? diagnosticRawProposals = null)
     {
-        var primary = AnalyzePixelsCore(source, calibration, cancellation, appearance);
+        var primary = AnalyzePixelsCore(source, calibration, cancellation, appearance, diagnosticRawProposals);
         if (settings.Width >= 1000 ||
             primary.PackedCluster is not { Detected: true, Complete: false }) return primary;
 
         cancellation.ThrowIfCancellationRequested();
         var fallbackAnalyzer = new VisionAnalyzer(settings with { Width = 1000 }, boundaryDiagnostics, candidateDiagnostics,
             obstructionMaskDiagnostics, diagnosticNeutralCueProbeAt800: diagnosticNeutralCueProbeAt800);
-        var fallback = fallbackAnalyzer.AnalyzePixelsCore(source, calibration, cancellation, appearance);
+        var fallback = fallbackAnalyzer.AnalyzePixelsCore(source, calibration, cancellation, appearance, diagnosticRawProposals);
         bool fallbackComplete = fallback.PackedCluster?.Complete == true;
         bool useFallback = fallbackComplete || fallback.CircleCount > primary.CircleCount;
         var chosen = useFallback ? fallback : primary;
@@ -229,7 +245,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             ProposalRadius = circle.ProposalRadius * scale
         }).ToArray();
 
-    VisionResult AnalyzePixelsCore(Mat source, TableCalibration calibration, CancellationToken cancellation, BurstAppearance? appearance = null)
+    VisionResult AnalyzePixelsCore(Mat source, TableCalibration calibration, CancellationToken cancellation,
+        BurstAppearance? appearance = null, IReadOnlyList<DiagnosticAnalysisProposal>? diagnosticRawProposals = null)
     {
         cancellation.ThrowIfCancellationRequested(); var watch = Stopwatch.StartNew(); var warnings = new List<string>();
         using var rawWarped = Warp(source, calibration);
@@ -254,12 +271,28 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             ? BoundaryColourMask.FromHsvPixels(geometryHsvPixels) : boundaryColourMask;
         var candidateAudits = candidateDiagnostics ? new List<VisionCandidateAudit>() : null;
         var acceptedPackedBlackBoundaries = new Dictionary<Circle, BallBoundary>();
+        DiagnosticAnalysisProposal[]? analysisProposals = null;
+        if (diagnosticRawProposals is { Count: > 0 })
+        {
+            analysisProposals = diagnosticRawProposals.Select(proposal =>
+            {
+                if (string.IsNullOrWhiteSpace(proposal.Id) || string.IsNullOrWhiteSpace(proposal.Source)
+                    || proposal.Kind is not ("red" or "yellow" or "black" or "cue")
+                    || !double.IsFinite(proposal.Confidence) || proposal.Confidence is < 0 or > 1
+                    || !double.IsFinite(proposal.Centre.X) || !double.IsFinite(proposal.Centre.Y)
+                    || proposal.Centre.X < 0 || proposal.Centre.X >= source.Cols()
+                    || proposal.Centre.Y < 0 || proposal.Centre.Y >= source.Rows())
+                    throw new ArgumentException("Raw-frame proposals must have an id, recognized kind, source, and an in-frame finite centre.", nameof(diagnosticRawProposals));
+                var tableCentre = calibration.Map(new(proposal.Centre.X / source.Cols(), proposal.Centre.Y / source.Rows()));
+                return proposal with { Centre = coordinates.FromTable(tableCentre) };
+            }).ToArray();
+        }
         var circles = Detect(hsv.Value, pixels, settings.InitialVotes, out var packedCluster,
             out bool conflictingCoincidentCandidate,
             appearance is not null && settings.VerificationBodyRefinement,
             settings.FreshCueBallRecovery && settings.BodyProposalPriority ? geometryImage : null,
             geometryHsv, geometryHsvPixels, geometryBoundaryColourMask, packedClassifications,
-            candidateAudits, "initial", acceptedPackedBlackBoundaries, packedColourProposalHsv);
+            candidateAudits, "initial", acceptedPackedBlackBoundaries, packedColourProposalHsv, analysisProposals);
         bool inspectRim = appearance is not null || settings.FreshCueBallRecovery;
         Interlocked.Exchange(ref nextClassifierPixelsObserver, null)?.Invoke(pixels);
         var initialLabels = circles.Select(c => Classify(c, pixels, inspectRim)).ToArray();
@@ -384,7 +417,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                     {
                         circles = Detect(hsv.Value, pixels, settings.NormalizedVotes, out _,
                             out bool normalizedCoincidentConflict,
-                            packedClassifications: packedClassifications, candidateAudits: candidateAudits, pass: "normalized");
+                            packedClassifications: packedClassifications, candidateAudits: candidateAudits, pass: "normalized",
+                            diagnosticRawProposals: analysisProposals);
                         conflictingCoincidentCandidate |= normalizedCoincidentConflict;
                     }
                     var normalizedLabels = circles.Select(c => Classify(c, pixels, inspectRim)).ToArray();
@@ -605,7 +639,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         Dictionary<Circle, BallClassification>? packedClassifications = null,
         List<VisionCandidateAudit>? candidateAudits = null, string pass = "initial",
         Dictionary<Circle, BallBoundary>? acceptedPackedBlackBoundaries = null,
-        Mat? packedColourProposalHsv = null)
+        Mat? packedColourProposalHsv = null,
+        IReadOnlyList<DiagnosticAnalysisProposal>? diagnosticRawProposals = null)
     {
         using var timing = PipelineDiagnostics.Measure("circleDetectionMs");
         packedCluster = default;
@@ -642,19 +677,42 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         {
             var value = circles.Value.Get(circles.Value.Rows() == 1 ? 0 : i, circles.Value.Rows() == 1 ? i : 0);
             if (value is null || value.Length < 3) continue;
-            var c = new Circle(value[0], value[1], value[2]); double margin = 23 * scale;
+            ProcessCandidate(new Circle(value[0], value[1], value[2]), "hough", i);
+        }
+        if (diagnosticRawProposals is not null)
+        {
+            for (int i = 0; i < diagnosticRawProposals.Count && result.Count <= 32; i++)
+            {
+                var proposal = diagnosticRawProposals[i];
+                ProcessCandidate(new Circle(proposal.Centre.X, proposal.Centre.Y, PoolGeometry.Radius * coordinates.Width),
+                    "local-model-raw", i);
+            }
+        }
+        if (!prioritizeBodies) AddColourBodies(hsv, pixels, result, scale);
+        if (refineGeometry)
+        {
+            using var refinementTiming = PipelineDiagnostics.Measure("bodyGeometryRefinementMs");
+            RefineBodyGeometry(mask.Value, result, scale);
+        }
+        conflictingCoincidentCandidate = conflictingCoincidentCandidateDetected;
+        return result.ToArray();
+
+        void ProcessCandidate(Circle proposed, string stage, int index)
+        {
+            if (result.Count > 32) return;
+            var c = proposed; double margin = 23 * scale;
             string? fittedKind = null;
             double? fittedSupport = null;
             if (c.X < margin || c.Y < margin || c.X > coordinates.Width - margin || c.Y > coordinates.Height - margin)
-            { Audit("hough", "unknown", i, c, "rejected-margin"); continue; }
+            { Audit(stage, "unknown", index, c, "rejected-margin"); return; }
             // An opening is not a ball; ball-adjacent uncertain cases remain visible through review.
             if (PocketCentres().Any(p => (new Point(c.X, c.Y) - p).Length < settings.PocketExclusionRadius * scale))
-            { Audit("hough", "unknown", i, c, "rejected-pocket-exclusion"); continue; }
+            { Audit(stage, "unknown", index, c, "rejected-pocket-exclusion"); return; }
             if (prioritizeBodies)
             {
                 string proposedKind = Classify(c, pixels, inspectRim: true).Kind;
                 if (HasNearbyDuplicate(c, proposedKind))
-                { Audit("hough", "unknown", i, c, "rejected-duplicate-before-fit"); continue; }
+                { Audit(stage, "unknown", index, c, "rejected-duplicate-before-fit"); return; }
             }
             // Cloth shadows can produce circle edges anywhere. Keep the sampled
             // cloth rejection bounded, while rescuing a low-light neutral circle
@@ -670,7 +728,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 });
                 if (sampled > 0 && cloth / (double)sampled > .9
                     && !(prioritizeBodies ? HasLocalBodyValueContrast(c, pixels) : HasLowLightNeutralBallContrast(c, pixels)))
-                { Audit("hough", "unknown", i, c, "rejected-as-cloth"); continue; }
+                { Audit(stage, "unknown", index, c, "rejected-as-cloth"); return; }
             }
             if (prioritizeBodies && rawImage is not null)
             {
@@ -679,35 +737,27 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                     new(c.X, c.Y), PoolGeometry.Radius * coordinates.Width, settings.MinimumHoughBoundarySupport,
                     boundaryDiagnostics);
                 if (fit is null || fit.SupportedSectors < settings.MinimumHoughBoundarySupport)
-                { Audit("hough", "unknown", i, c, fit is null ? "rejected-no-boundary-fit" : "rejected-insufficient-boundary-support", fit?.Centre, fit?.Radius, fit?.SupportedSectors); continue; }
+                { Audit(stage, "unknown", index, c, fit is null ? "rejected-no-boundary-fit" : "rejected-insufficient-boundary-support", fit?.Centre, fit?.Radius, fit?.SupportedSectors); return; }
                 c = new(fit.Centre.X, fit.Centre.Y, fit.Radius);
                 fittedSupport = fit.SupportedSectors;
                 // The proposal can be outside a pocket's exclusion radius while
                 // its fitted centre drifts into the opening. Recheck the fitted
                 // geometry so a pocket edge cannot become a coloured ball.
                 if (PocketCentres().Any(p => (new Point(c.X, c.Y) - p).Length < settings.PocketExclusionRadius * scale))
-                { Audit("hough", "unknown", i, c, "rejected-pocket-exclusion-after-fit", new(c.X, c.Y), c.Radius, fit.SupportedSectors); continue; }
+                { Audit(stage, "unknown", index, c, "rejected-pocket-exclusion-after-fit", new(c.X, c.Y), c.Radius, fit.SupportedSectors); return; }
                 fittedKind = Classify(c, pixels, inspectRim: true).Kind;
                 if (HasNearbyDuplicate(c, fittedKind))
-                { Audit("hough", "unknown", i, c, "rejected-duplicate-after-fit", new(c.X, c.Y), c.Radius, fit.SupportedSectors); continue; }
+                { Audit(stage, "unknown", index, c, "rejected-duplicate-after-fit", new(c.X, c.Y), c.Radius, fit.SupportedSectors); return; }
                 // A fit near a neighbouring edge can move off the initial
                 // contrast patch. Its centre must still belong to a body.
                 if (IsClothBody(c, pixels, clothRange) && !HasLocalBodyValueContrast(c, pixels))
-                { Audit("hough", "unknown", i, c, "rejected-fitted-cloth-body", new(c.X, c.Y), c.Radius, fit.SupportedSectors); continue; }
+                { Audit(stage, "unknown", index, c, "rejected-fitted-cloth-body", new(c.X, c.Y), c.Radius, fit.SupportedSectors); return; }
             }
             result.Add(c);
             if (fittedKind is null && candidateAudits is not null)
                 fittedKind = Classify(c, pixels, inspectRim: true).Kind;
-            Audit("hough", "unknown", i, c, "accepted", new(c.X, c.Y), c.Radius, fittedSupport, fittedKind);
+            Audit(stage, "unknown", index, c, "accepted", new(c.X, c.Y), c.Radius, fittedSupport, fittedKind);
         }
-        if (!prioritizeBodies) AddColourBodies(hsv, pixels, result, scale);
-        if (refineGeometry)
-        {
-            using var refinementTiming = PipelineDiagnostics.Measure("bodyGeometryRefinementMs");
-            RefineBodyGeometry(mask.Value, result, scale);
-        }
-        conflictingCoincidentCandidate = conflictingCoincidentCandidateDetected;
-        return result.ToArray();
 
         void Audit(string stage, string kind, int index, Circle proposal, string decision,
             Point? fitCentre = null, double? fitRadius = null, double? support = null, string? classifiedKind = null)

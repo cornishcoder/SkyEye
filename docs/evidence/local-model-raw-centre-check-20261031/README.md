@@ -15,7 +15,9 @@ The saved comparison reports 4,572ms and 4,671ms end-to-end. The local service p
 
 The service listens on `127.0.0.1:5001`; a phone cannot directly reach that loopback endpoint. Any remote inference design would need an explicit network transport and latency/privacy review. Do not treat this laptop timing as a Pixel 11 benchmark.
 
-**Decision:** the raw model centres are promising proposals for pocket cases, but the false extra red and unverified SkyEye acceptance keep them out of production state. Next, pass externally supplied centres through SkyEye's existing classifier, boundary and uncertainty gates on exact saved frames. Separately, a CUDA-enabled isolated benchmark could measure the 3060's offline throughput without changing the running service. Match positive and absence controls by session and lighting before drawing acceptance conclusions.
+**SkyEye handoff result:** the model centres have now been replayed through SkyEye's existing candidate path on six repeated daylight positive frames and six repeated dim empty-pocket controls. SkyEye correctly classifies the cue and black proposals in daylight, but rejects both because their partial pocket-side boundaries score below 24/32 support (the black has no fit in two frames). On the empty-pocket controls, the extra `chromatic-peak` red is rejected at the table margin; an exact-frame classifier probe also labels it `unknown`. These are separate capture timelines, not matched lighting controls, and do not justify changing production gates. Full method, per-frame outcomes and hashes are in [the proposal gate replay](../local-raw-proposal-gates-20261031/README.md).
+
+**Decision:** keep local model output diagnostic-only. The most useful next experiment is to use the mapped centres to seed a pocket-aware partial-arc fit, while retaining the current global support gate and checking against a same-light empty-pocket control. The 4.57s/4.67s measurements came from CPU-only PyTorch even though the laptop has an RTX 3060; they are not GPU timings. A separate isolated CUDA benchmark can quantify the 3060 later without modifying the running service.
 
 ## Artifacts
 

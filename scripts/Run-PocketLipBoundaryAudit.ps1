@@ -4,6 +4,8 @@ param(
     [switch]$ScreenOnly,
     [switch]$ProbeOnly,
     [switch]$PocketArcProbeOnly,
+    [switch]$RawProposalReplay,
+    [string]$RawProposalDirectory,
     [string]$RunPrefix = 'pocketlip30',
     [string]$Purpose = 'Current-code exact-frame replay for the selected saved table frames.',
     [string]$EvidenceRelativePath = 'work/production/evidence/live-detect-pocket-lip-20261030/device-replays',
@@ -41,9 +43,13 @@ param(
 $ErrorActionPreference = 'Stop'
 $totalTimer = [Diagnostics.Stopwatch]::StartNew()
 $stageTimings = [ordered]@{}
-$maximumFrames = if ($ScreenOnly) { 24 } elseif ($ProbeOnly -or $PocketArcProbeOnly) { 12 } else { 6 }
-if (($ScreenOnly -and $ProbeOnly) -or ($ScreenOnly -and $PocketArcProbeOnly) -or ($ProbeOnly -and $PocketArcProbeOnly)) {
-    throw 'Choose only one of -ScreenOnly, -ProbeOnly, or -PocketArcProbeOnly.'
+$maximumFrames = if ($ScreenOnly) { 24 } elseif ($ProbeOnly -or $PocketArcProbeOnly -or $RawProposalReplay) { 12 } else { 6 }
+$selectedModeCount = 0
+foreach ($selectedMode in @($ScreenOnly, $ProbeOnly, $PocketArcProbeOnly, $RawProposalReplay)) {
+    if ($selectedMode) { $selectedModeCount++ }
+}
+if ($selectedModeCount -gt 1) {
+    throw 'Choose only one replay mode: -ScreenOnly, -ProbeOnly, -PocketArcProbeOnly, or -RawProposalReplay.'
 }
 if ($Frames.Count -lt 1 -or $Frames.Count -gt $maximumFrames) {
     throw "This run mode accepts 1 to $maximumFrames frames."
@@ -62,6 +68,12 @@ if ($ProbeOnly -and ($EnableIlluminationNormalization -or $TracePackedColourFits
 if ($PocketArcProbeOnly -and (-not $PSBoundParameters.ContainsKey('BlackLabelX') -or -not $PSBoundParameters.ContainsKey('BlackLabelY'))) {
     throw 'Pocket-arc probe-only mode requires explicit -BlackLabelX and -BlackLabelY values for the selected labelled frame.'
 }
+if ($RawProposalReplay -and [string]::IsNullOrWhiteSpace($RawProposalDirectory)) {
+    throw 'Raw-proposal replay requires -RawProposalDirectory containing one hash-matched local-model JSON file per frame.'
+}
+if (-not $RawProposalReplay -and -not [string]::IsNullOrWhiteSpace($RawProposalDirectory)) {
+    throw '-RawProposalDirectory is supported only with -RawProposalReplay.'
+}
 if (-not [double]::IsFinite($PocketArcTargetFitAcceptanceRadiusInBallRadii) -or
     $PocketArcTargetFitAcceptanceRadiusInBallRadii -lt 0 -or $PocketArcTargetFitAcceptanceRadiusInBallRadii -gt 5) {
     throw 'PocketArcTargetFitAcceptanceRadiusInBallRadii must be 0 (disabled) or between 0 and 5 ball radii.'
@@ -74,6 +86,12 @@ if ($PocketArcProbeOnly -and ($EnableIlluminationNormalization -or $TracePackedC
     $ObstructionClothHue -ge 0 -or $ObstructionClothSaturationFloor -ge 0 -or $ObstructionClothValueFloor -ge 0 -or $ObstructionClothMedianValue -ge 0 -or
     $ObstructionNeutralMinimum -ge 0 -or $ObstructionNeutralMaximum -ge 0)) {
     throw 'Pocket-arc probe-only mode captures only the width-1000 packed-black trace; remove unrelated ablations and trace options.'
+}
+if ($RawProposalReplay -and ($EnableIlluminationNormalization -or $TracePackedColourFits -or $ObstructionMaskTrace -or $TraceBlackMask -or
+    $NeutralCueProbeX800 -ne -1 -or $NeutralCueProbeY800 -ne -1 -or
+    $ObstructionClothHue -ge 0 -or $ObstructionClothSaturationFloor -ge 0 -or $ObstructionClothValueFloor -ge 0 -or $ObstructionClothMedianValue -ge 0 -or
+    $ObstructionNeutralMinimum -ge 0 -or $ObstructionNeutralMaximum -ge 0)) {
+    throw 'Raw-proposal replay uses the default width-1000 path and cannot include unrelated ablations or trace artifacts.'
 }
 if ($EdgeMargin -lt 0 -or $EdgeMargin -gt 100) { throw 'EdgeMargin must be between 0 and 100 pixels at width 1000.' }
 if ($PocketRadius -le 0 -or $PocketRadius -gt 80) { throw 'PocketRadius must be greater than 0 and at most 80 pixels at width 1000.' }
@@ -138,6 +156,13 @@ $sourceRoot = if ([IO.Path]::IsPathRooted($SourceRelativePath)) {
 } else {
     Join-Path $repoRoot $SourceRelativePath
 }
+$rawProposalRoot = if ([string]::IsNullOrWhiteSpace($RawProposalDirectory)) {
+    $null
+} elseif ([IO.Path]::IsPathRooted($RawProposalDirectory)) {
+    $RawProposalDirectory
+} else {
+    Join-Path $repoRoot $RawProposalDirectory
+}
 $apk = Join-Path $repoRoot 'tests/SkyEye.Vision.Device/bin/Release/net10.0-android/android-arm64/uk.co.skyeye.visionchecks-Signed.apk'
 $cameraStatusUri = 'http://192.168.1.124:8765/status'
 $run = "$RunPrefix-$(Get-Date -Format 'HHmmss')"
@@ -179,7 +204,22 @@ $inputs = foreach ($frame in $frames) {
     if ($actualHash -ne [string]$receipt.indexedFrame.pixelSha256) {
         throw "Source frame $frame does not match its receipt hash."
     }
-    [pscustomobject]@{ Frame = $frame; JsonPath = $jsonPath; PixelPath = $pixelPath; Hash = $actualHash; Receipt = $receipt }
+    $rawProposalPath = $null
+    if ($RawProposalReplay) {
+        $rawProposalPath = Join-Path $rawProposalRoot "$frame.json"
+        if (-not (Test-Path -LiteralPath $rawProposalPath)) { throw "Missing local-model proposal file for frame $frame." }
+        $proposal = Get-Content -LiteralPath $rawProposalPath -Raw | ConvertFrom-Json
+        if ([long]$proposal.frameId -ne [long]$frame -or [string]$proposal.sourceSha256 -ne $actualHash) {
+            throw "Local-model proposals for frame $frame do not match the exact replay source pixels."
+        }
+        if ($proposal.result.success -ne $true -or @($proposal.result.balls).Count -lt 1 -or @($proposal.result.balls).Count -gt 32) {
+            throw "Local-model proposal file for frame $frame has no successful bounded ball list."
+        }
+        if ([int]$proposal.result.image_size.width -lt 1 -or [int]$proposal.result.image_size.height -lt 1) {
+            throw "Local-model proposal file for frame $frame has invalid source image dimensions."
+        }
+    }
+    [pscustomobject]@{ Frame = $frame; JsonPath = $jsonPath; PixelPath = $pixelPath; Hash = $actualHash; Receipt = $receipt; RawProposalPath = $rawProposalPath }
 }
 for ($i = 1; $i -lt $inputs.Count; $i++) {
     $previous = $inputs[$i - 1].Receipt.indexedFrame
@@ -206,6 +246,11 @@ $pushFiles = @()
 foreach ($input in $inputs) {
     $pushFiles += $input.JsonPath
     $pushFiles += $input.PixelPath
+    if ($RawProposalReplay) {
+        $proposalCopy = Join-Path $runDirectory "local-proposals-$($input.Frame).json"
+        Copy-Item -LiteralPath $input.RawProposalPath -Destination $proposalCopy
+        $pushFiles += $proposalCopy
+    }
 }
 $pushResult = Invoke-Adb (@('-s', $serial, 'push') + $pushFiles + @("$remoteRunDirectory/"))
 if ($pushResult.ExitCode -ne 0) { throw "Input transfer failed: $($pushResult.Output -join ' ')" }
@@ -215,9 +260,11 @@ $stageTimings.inputTransferMs = [Math]::Round($stageTimer.Elapsed.TotalMilliseco
 $screenOnlyArgument = if ($ScreenOnly) { '1' } else { '0' }
 $probeOnlyArgument = if ($ProbeOnly) { '1' } else { '0' }
 $pocketArcProbeOnlyArgument = if ($PocketArcProbeOnly) { '1' } else { '0' }
+$rawProposalReplayArgument = if ($RawProposalReplay) { '1' } else { '0' }
 $auditArgument = if ($ScreenOnly) { '0' } else { '1' }
 $instrumentArguments = @('shell', 'am', 'instrument', '-w', '-e', 'run', $run,
     '-e', 'screenOnly', $screenOnlyArgument, '-e', 'probeOnly', $probeOnlyArgument, '-e', 'pocketArcProbeOnly', $pocketArcProbeOnlyArgument,
+    '-e', 'rawProposalReplay', $rawProposalReplayArgument,
     '-e', 'audit', $auditArgument, '-e', 'edgeMargin', "$EdgeMargin",
     '-e', 'pocketRadius', "$PocketRadius", '-e', 'boundarySupport', "$BoundarySupport",
     '-e', 'sparseColourSupport', "$SparseColourSupport",
@@ -266,13 +313,13 @@ $instrumentResult = Invoke-Adb (@('-s', $serial) + $instrumentArguments)
 $stageTimer.Stop()
 $stageTimings.instrumentationMs = [Math]::Round($stageTimer.Elapsed.TotalMilliseconds, 1)
 $instrumentResult.Output | Set-Content -LiteralPath (Join-Path $runDirectory 'instrumentation.log')
-$instrumentKind = if ($PocketArcProbeOnly) { 'Pocket-arc replay' } else { 'Boundary audit' }
+$instrumentKind = if ($RawProposalReplay) { 'Raw-proposal replay' } elseif ($PocketArcProbeOnly) { 'Pocket-arc replay' } else { 'Boundary audit' }
 if ($instrumentResult.ExitCode -ne 0) { throw "$instrumentKind instrumentation failed: $($instrumentResult.Output -join ' ')" }
 if (($instrumentResult.Output -join "`n") -match 'shortMsg=Process crashed') {
     throw "$instrumentKind instrumentation process crashed: $($instrumentResult.Output -join ' ')"
 }
 
-$reportSuffix = if ($PocketArcProbeOnly) { '-pocketarc' } elseif ($TraceBlackMask) { '-blacktrace' } else { '' }
+$reportSuffix = if ($RawProposalReplay) { '-rawproposals' } elseif ($PocketArcProbeOnly) { '-pocketarc' } elseif ($TraceBlackMask) { '-blacktrace' } else { '' }
 $reportName = "o08-replay-proof-$run$reportSuffix.json"
 $localReport = Join-Path $runDirectory $reportName
 $stageTimer = [Diagnostics.Stopwatch]::StartNew()
@@ -360,7 +407,7 @@ $manifest = [pscustomobject]@{
     package = $package
     apkSha256 = (Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash.ToLowerInvariant()
     run = $run
-    mode = if ($ScreenOnly) { 'screen-only' } elseif ($ProbeOnly) { 'probe-only' } elseif ($PocketArcProbeOnly) { 'pocket-arc-probe-only' } else { 'full-audit' }
+    mode = if ($ScreenOnly) { 'screen-only' } elseif ($ProbeOnly) { 'probe-only' } elseif ($PocketArcProbeOnly) { 'pocket-arc-probe-only' } elseif ($RawProposalReplay) { 'raw-proposal-replay' } else { 'full-audit' }
     timingsMs = [pscustomobject]@{
         inputHashAndOrderValidation = $stageTimings.inputHashAndOrderValidationMs
         apkInstall = $stageTimings.apkInstallMs
@@ -429,6 +476,10 @@ $manifest = [pscustomobject]@{
     sourceFrames = $inputs | ForEach-Object {
         [pscustomobject]@{ frameId = $_.Receipt.indexedFrame.frameId; pixelFile = [IO.Path]::GetFileName($_.PixelPath); receipt = [IO.Path]::GetFileName($_.JsonPath); sha256 = $_.Hash }
     }
+    rawModelProposalFiles = if ($RawProposalReplay) { $inputs | ForEach-Object {
+        $copiedProposal = Join-Path $runDirectory "local-proposals-$($_.Frame).json"
+        [pscustomobject]@{ frameId = $_.Frame; file = [IO.Path]::GetFileName($copiedProposal); sha256 = (Get-FileHash -LiteralPath $copiedProposal -Algorithm SHA256).Hash.ToLowerInvariant(); sourcePixelSha256 = $_.Hash }
+    } } else { @() }
     report = $reportName
     reportSha256 = (Get-FileHash -LiteralPath $localReport -Algorithm SHA256).Hash.ToLowerInvariant()
     cameraBefore = $cameraBefore
@@ -442,5 +493,5 @@ if ($PocketArcProbeOnly) {
 }
 $manifest | ConvertTo-Json -Depth 16 | Set-Content -LiteralPath (Join-Path $runDirectory 'manifest.json')
 $timingSummary = $stageTimings.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)ms" }
-$runKind = if ($ScreenOnly) { 'Detector screen' } elseif ($ProbeOnly) { 'Candidate probe' } elseif ($PocketArcProbeOnly) { 'Pocket-arc probe' } else { 'Boundary audit' }
+$runKind = if ($ScreenOnly) { 'Detector screen' } elseif ($ProbeOnly) { 'Candidate probe' } elseif ($PocketArcProbeOnly) { 'Pocket-arc probe' } elseif ($RawProposalReplay) { 'Raw-proposal replay' } else { 'Boundary audit' }
 Write-Output "$runKind saved under $runDirectory (total=$([Math]::Round($totalTimer.Elapsed.TotalMilliseconds, 1))ms; $($timingSummary -join ', '))"
