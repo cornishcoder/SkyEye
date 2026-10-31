@@ -1,5 +1,13 @@
 # Live Detect delivery plan
 
+## Fresh exact pocket-lip frame and code63 next step — 31 October 2026
+
+The camera was briefly restarted from Pixel 11 Home after the user confirmed the table unchanged and hands clear. The verifier saved exact frame 342, then failed closed at `SampleGap` with only 1/5 required samples. Its source PNG and receipt hash-match under `work/production/evidence/code62-pocket-lip-20261031/6cb5db8c47d84e7eab6039a39a1c1fb2/6cb5db8c47d84e7eab6039a39a1c1fb2/`.
+
+Current-source replay using the captured settings (not a hand-picked threshold sweep) found all 15 balls at both 800px and 1000px, no obstruction and no layout uncertainty. The fixture intentionally omits the black, so the detector correctly retains the generic `uncertain` flag. This is positive one-frame inventory evidence; it does not validate the verifier's five-sample stillness or the Live Detect event reducer. The operation stopped with camera `/status` `Stopped`, revision 69, 139 clips, zero viewers; Home showed **Start live session**. No Cast was used.
+
+**Next:** build and install code63 in place, preserving the companion UID and private storage. Run a short static Live Detect negative on the same layout. Inspect exact frame counts and event records; the expected result is no `movement_observed`, inventory candidate, pot/return candidate or event clip while the table stays still. Stop capture at the first safe boundary. Only after that passes should the next physical check be a labelled shot.
+
 ## Code62 static-run regression findings and reducer follow-up — 31 October 2026
 
 Production `0.8.54` / code62 repeated the unchanged 15-ball pocket-lip check. In 189 logged passes, 119 clear readings found the expected 15 balls, 12 clear readings briefly missed the same top-left red, and the remainder were obstructed or uncertain. The unchanged table nevertheless produced nine false movement events, two false pot candidates, two false return candidates and five saved event clips. See the [device-acceptance record](device-acceptance.md) and raw log under `work/production/evidence/code62-pocket-lip-20261031/`.

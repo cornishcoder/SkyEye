@@ -1,5 +1,13 @@
 # Physical-device acceptance
 
+## Exact pocket-lip frame replay after code62 — 31 October 2026
+
+After the code62 Live Detect check was stopped, one fresh verifier frame was captured with the user confirming the pocket-lip layout unchanged and hands clear. Operation `6cb5db8c-47d8-4e7e-ab60-39a39a1c1fb2` saved frame 342 at 00:55:08 UTC (1920×1080, SHA-256 `b1c549cc28c018c052d1520b2ac1ffd9b59ffd7a882814802bc4928f93dfb0cb`) using calibration `35da286065a14428b2db0cf0ede0cb77`. The image visibly contains 7 reds, 7 yellows and the cue ball; the black had been removed for this fixture.
+
+The verifier ended `Unsettled (SampleGap)` after saving only 1 of 5 required samples. Isolated VisionChecks replay of these exact pixels with the recorded analyzer configuration and 0.4 packed-colour extent returned 15/15 (7R/7Y/cue) at both 800px and 1000px, with no obstruction or layout uncertainty. `uncertain` remains true because this diagnostic fixture intentionally has no black. This is one-frame offline detector evidence, not a successful verifier or settled-table acceptance. Source PNG/receipt are under `work/production/evidence/code62-pocket-lip-20261031/6cb5db8c47d84e7eab6039a39a1c1fb2/6cb5db8c47d84e7eab6039a39a1c1fb2/`; replay output is `work/production/evidence/live-detect-pocket-lip-20261030/device-replays/fresh-pocket-exact-005902/`.
+
+At the safe boundary, camera `/status` was `Stopped`, revision 69, battery 100%, `clipCount=139`, zero viewers; Pixel 11 Home showed **Start live session**. The reducer change in source commit `c2caf21` is not installed yet. Next: deploy code63 in place, then make a short static Live Detect check on this same layout to verify the reducer suppresses false movement and inventory candidates. No Cast/TV or camera-package action occurred.
+
 ## Production v0.8.54 / code62 static pocket-lip Live Detect check — 31 October 2026
 
 The user confirmed that the previously reviewed 15-ball pocket-lip layout was unchanged and hands were clear. Production companion `0.8.54` / code62 ran Live Detect for 76 seconds and recorded 189 full passes. Of these, 119 were clear 15-ball inventories (7 reds, 7 yellows, cue, black absent) and 12 clear passes dropped one red to 14; the remaining 58 were marked obstructed or layout-uncertain. The top-left pocket red remained visible in the saved clip frames. No table change was reported by the player.
