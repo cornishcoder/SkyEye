@@ -11,7 +11,7 @@ internal sealed record LiveDetectActivity(Guid Id, string Timeline, long StartSo
 internal sealed record LiveDetectTableEventObservation(EvidenceSource Source, Guid CameraConnectionId,
     long MediaGeneration, long FrameId, DateTimeOffset CapturedAt, long SourceTimeUs, string Timeline,
     string CalibrationId, LiveDetectCounts Counts, ImmutableArray<SettledBallPosition> Layout,
-    bool Obstructed, bool LayoutUncertain, bool MovementObserved, bool PackedRack);
+    bool Obstructed, bool Uncertain, bool LayoutUncertain, bool MovementObserved, bool PackedRack);
 
 internal sealed record LiveDetectEventBatch(string CheckOutcome,
     ImmutableArray<LiveDetectLogTableEvent> TableEvents, LiveDetectActivity? ClipActivity,
@@ -70,8 +70,13 @@ internal sealed class LiveDetectTableEventTracker
         timeline = sample.Timeline;
 
         bool candidateEligible = !sample.LayoutUncertain && !sample.Obstructed;
+        // A broad uncertain result can describe a real post-shot cue/black absence,
+        // so keep accepting it after a trusted baseline. It must not seed the first
+        // baseline: without prior state, a missed cue or black is indistinguishable
+        // from a genuine incomplete table.
         bool stableSampleEligible = candidateEligible && IsStableInventory(sample.Counts)
-            && sample.Layout.Length == sample.Counts.Total;
+            && sample.Layout.Length == sample.Counts.Total
+            && (stableBaselineEstablished || !sample.Uncertain);
         var settledCounts = new SettledTableCounts(sample.Counts.Reds, sample.Counts.Yellows,
             sample.Counts.Cue, sample.Counts.Black);
         var stableBefore = stableLayoutTracker.Snapshot;

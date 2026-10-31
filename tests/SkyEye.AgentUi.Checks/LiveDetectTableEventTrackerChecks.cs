@@ -14,6 +14,8 @@ internal static class LiveDetectTableEventTrackerChecks
     public static void Run()
     {
         BaselineAndMissedShotProduceEventsAndClipCandidate();
+        UncertainFirstViewCannotSeedBaseline();
+        UncertainCueScratchAfterBaselineStillSettles();
         ObstructionWithoutMovementDoesNotProduceShotOutcome();
         SettledInventoryDecreaseProducesPotCandidate();
         ReturnedBallActivityDoesNotProduceShotClip();
@@ -104,6 +106,50 @@ internal static class LiveDetectTableEventTrackerChecks
             && settled.ClipEventType == "no_pot_observed"
             && settled.ClipEndSourceTimeUs == 3_200_000,
             "a settled no-pot observation carries the activity range needed to save its shot clip");
+    }
+
+    static void UncertainFirstViewCannotSeedBaseline()
+    {
+        var tracker = new LiveDetectTableEventTracker();
+        var partialCounts = new LiveDetectCounts(1, 1, 0, 0, 0);
+        var partialLayout = ImmutableArray.Create(
+            new SettledBallPosition(BallColour.Red, .2, .3),
+            new SettledBallPosition(BallColour.Yellow, .6, .7));
+        LiveDetectEventBatch lastPartial = default!;
+        for (int i = 0; i < 3; i++)
+            lastPartial = tracker.Observe(Sample(i, partialCounts, partialLayout, uncertain: true));
+
+        Require(lastPartial.CheckOutcome == "baseline_pending"
+            && lastPartial.TableEvents.All(e => e.Type != "settled_layout_baseline")
+            && lastPartial.SettledBaseline is null,
+            "a stable but uncertain first inventory cannot become the trusted baseline");
+
+        var completeCounts = new LiveDetectCounts(1, 0, 1, 1, 0);
+        var completeLayout = ImmutableArray.Create(
+            new SettledBallPosition(BallColour.Red, .2, .3),
+            new SettledBallPosition(BallColour.Black, .5, .5),
+            new SettledBallPosition(BallColour.Cue, .8, .7));
+        LiveDetectEventBatch complete = default!;
+        for (int i = 3; i < 6; i++) complete = tracker.Observe(Sample(i, completeCounts, completeLayout));
+        Require(complete.CheckOutcome == "settled_layout_baseline"
+            && complete.TableEvents.Any(e => e.Type == "settled_layout_baseline"),
+            "three complete, certain observations can establish the initial baseline after uncertain views");
+    }
+
+    static void UncertainCueScratchAfterBaselineStillSettles()
+    {
+        var tracker = NewBaseline();
+        var cueAbsent = new LiveDetectCounts(1, 0, 0, 0, 0);
+        var cueAbsentLayout = ImmutableArray.Create(new SettledBallPosition(BallColour.Red, .2, .3));
+        tracker.Observe(Sample(4, cueAbsent, cueAbsentLayout, uncertain: true, movementObserved: true));
+        tracker.Observe(Sample(5, cueAbsent, cueAbsentLayout, uncertain: true));
+        var settled = tracker.Observe(Sample(6, cueAbsent, cueAbsentLayout, uncertain: true));
+
+        Require(settled.CheckOutcome == "possible_pot_settled"
+            && settled.TableEvents.Any(e => e.Type == "possible_pot_settled"
+                && e.Message.Contains("cue ball", StringComparison.Ordinal))
+            && settled.SettledBaseline is { Cue: 0 },
+            "uncertain cue absence after a trusted baseline remains available for a confirmed scratch candidate");
     }
 
     static void ObstructionWithoutMovementDoesNotProduceShotOutcome()
@@ -303,7 +349,7 @@ internal static class LiveDetectTableEventTrackerChecks
 
     static LiveDetectTableEventObservation Sample(int index, LiveDetectCounts counts,
         ImmutableArray<SettledBallPosition> layout, bool obstructed = false,
-        bool layoutUncertain = false, bool movementObserved = false, bool packedRack = false,
+        bool uncertain = false, bool layoutUncertain = false, bool movementObserved = false, bool packedRack = false,
         long sourceGeneration = 1, long mediaGeneration = 3)
     {
         long sourceTimeUs = index * 400_000L;
@@ -311,7 +357,7 @@ internal static class LiveDetectTableEventTrackerChecks
         var calibration = "event-check-calibration";
         return new(new("camera", timeline, sourceGeneration, calibration, ConnectionId.ToString("N")),
             ConnectionId, mediaGeneration, index + 1, Start.AddTicks(sourceTimeUs * 10), sourceTimeUs,
-            timeline, calibration, counts, layout, obstructed, layoutUncertain,
+            timeline, calibration, counts, layout, obstructed, uncertain, layoutUncertain,
             movementObserved, packedRack);
     }
 
@@ -337,7 +383,7 @@ internal static class LiveDetectTableEventTrackerChecks
             }
             previousTimeline = frame.Timeline;
 
-            bool clear = !frame.Obstructed && !frame.LayoutUncertain && frame.Other == 0;
+            bool clear = !frame.Uncertain && !frame.Obstructed && !frame.LayoutUncertain && frame.Other == 0;
             bool movementObserved = clear && previousClear is { Length: > 0 }
                 && !SettledLayoutReconciler.PositionsCompatible(CaptureLayout(previousClear), CaptureLayout(frame.Balls));
             if (clear) previousClear = frame.Balls;
@@ -348,7 +394,7 @@ internal static class LiveDetectTableEventTrackerChecks
                 frame.CalibrationId, frame.CameraConnectionId.ToString("N"));
             var result = tracker.Observe(new(source, frame.CameraConnectionId, frame.MediaGeneration,
                 frame.FrameId, frame.CapturedAt, frame.SourceTimeUs, frame.Timeline, frame.CalibrationId,
-                counts, layout, frame.Obstructed, frame.LayoutUncertain, movementObserved,
+                counts, layout, frame.Obstructed, frame.Uncertain, frame.LayoutUncertain, movementObserved,
                 frame.PackedRackEvidence));
             outcomes[result.CheckOutcome] = outcomes.GetValueOrDefault(result.CheckOutcome) + 1;
             foreach (var tableEvent in result.TableEvents)

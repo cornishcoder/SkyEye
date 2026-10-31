@@ -313,7 +313,7 @@ public sealed partial class ShellSession
                             : "Decoder recovered; camera timestamps continue with restarted frame IDs.", null);
                 var counts = Count(vision.Balls);
                 var layout = CaptureLiveDetectLayout(vision.Balls);
-                bool currentInventoryClear = !vision.Obstructed && !vision.HasUncertainLayout
+                bool currentInventoryClear = !vision.Uncertain && !vision.Obstructed && !vision.HasUncertainLayout
                     && counts.Other == 0 && counts.Total > 0;
                 if (currentInventoryClear)
                 {
@@ -327,7 +327,7 @@ public sealed partial class ShellSession
                 var eventBatch = eventTracker.Observe(new LiveDetectTableEventObservation(evidenceSource,
                     source.ConnectionId, receipt.MediaGeneration, receipt.FrameId, observation.CapturedAt,
                     sourceTimeUs, observation.Timeline, calibrationId, counts, layout,
-                    vision.Obstructed, vision.HasUncertainLayout,
+                    vision.Obstructed, vision.Uncertain, vision.HasUncertainLayout,
                     observation.Change is { SpatiallyCompatible: false }, rackEvidence));
                 if (eventBatch.SettledBaseline is { } settledBaseline)
                 {
