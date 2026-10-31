@@ -3,6 +3,7 @@ param(
     [int[]]$Frames = @(399, 433),
     [switch]$ScreenOnly,
     [switch]$ProbeOnly,
+    [switch]$PocketArcProbeOnly,
     [string]$RunPrefix = 'pocketlip30',
     [string]$Purpose = 'Current-code exact-frame replay for the selected saved table frames.',
     [string]$EvidenceRelativePath = 'work/production/evidence/live-detect-pocket-lip-20261030/device-replays',
@@ -33,11 +34,16 @@ param(
     [int]$ObstructionNeutralMaximum = -1
 )
 
+# Labelled-frame example; replace the frame and coordinates for the selected capture:
+# ./scripts/Run-PocketLipBoundaryAudit.ps1 -PocketArcProbeOnly -Frames @(399) -BlackLabelX 102 -BlackLabelY 903
+
 $ErrorActionPreference = 'Stop'
 $totalTimer = [Diagnostics.Stopwatch]::StartNew()
 $stageTimings = [ordered]@{}
-$maximumFrames = if ($ScreenOnly) { 24 } elseif ($ProbeOnly) { 12 } else { 6 }
-if ($ScreenOnly -and $ProbeOnly) { throw 'Choose either -ScreenOnly or -ProbeOnly.' }
+$maximumFrames = if ($ScreenOnly) { 24 } elseif ($ProbeOnly -or $PocketArcProbeOnly) { 12 } else { 6 }
+if (($ScreenOnly -and $ProbeOnly) -or ($ScreenOnly -and $PocketArcProbeOnly) -or ($ProbeOnly -and $PocketArcProbeOnly)) {
+    throw 'Choose only one of -ScreenOnly, -ProbeOnly, or -PocketArcProbeOnly.'
+}
 if ($Frames.Count -lt 1 -or $Frames.Count -gt $maximumFrames) {
     throw "This run mode accepts 1 to $maximumFrames frames."
 }
@@ -51,6 +57,15 @@ if ($ProbeOnly -and ($EnableIlluminationNormalization -or $TracePackedColourFits
     $ObstructionClothHue -ge 0 -or $ObstructionClothSaturationFloor -ge 0 -or $ObstructionClothValueFloor -ge 0 -or $ObstructionClothMedianValue -ge 0 -or
     $ObstructionNeutralMinimum -ge 0 -or $ObstructionNeutralMaximum -ge 0)) {
     throw 'Probe-only mode supports candidate and neutral-cue telemetry; use full audit mode for other ablations or image traces.'
+}
+if ($PocketArcProbeOnly -and (-not $PSBoundParameters.ContainsKey('BlackLabelX') -or -not $PSBoundParameters.ContainsKey('BlackLabelY'))) {
+    throw 'Pocket-arc probe-only mode requires explicit -BlackLabelX and -BlackLabelY values for the selected labelled frame.'
+}
+if ($PocketArcProbeOnly -and ($EnableIlluminationNormalization -or $TracePackedColourFits -or $ObstructionMaskTrace -or $TraceBlackMask -or
+    $NeutralCueProbeX800 -ne -1 -or $NeutralCueProbeY800 -ne -1 -or
+    $ObstructionClothHue -ge 0 -or $ObstructionClothSaturationFloor -ge 0 -or $ObstructionClothValueFloor -ge 0 -or $ObstructionClothMedianValue -ge 0 -or
+    $ObstructionNeutralMinimum -ge 0 -or $ObstructionNeutralMaximum -ge 0)) {
+    throw 'Pocket-arc probe-only mode captures only the width-1000 packed-black trace; remove unrelated ablations and trace options.'
 }
 if ($EdgeMargin -lt 0 -or $EdgeMargin -gt 100) { throw 'EdgeMargin must be between 0 and 100 pixels at width 1000.' }
 if ($PocketRadius -le 0 -or $PocketRadius -gt 80) { throw 'PocketRadius must be greater than 0 and at most 80 pixels at width 1000.' }
@@ -191,9 +206,11 @@ $stageTimings.inputTransferMs = [Math]::Round($stageTimer.Elapsed.TotalMilliseco
 
 $screenOnlyArgument = if ($ScreenOnly) { '1' } else { '0' }
 $probeOnlyArgument = if ($ProbeOnly) { '1' } else { '0' }
+$pocketArcProbeOnlyArgument = if ($PocketArcProbeOnly) { '1' } else { '0' }
 $auditArgument = if ($ScreenOnly) { '0' } else { '1' }
 $instrumentArguments = @('shell', 'am', 'instrument', '-w', '-e', 'run', $run,
-    '-e', 'screenOnly', $screenOnlyArgument, '-e', 'probeOnly', $probeOnlyArgument, '-e', 'audit', $auditArgument, '-e', 'edgeMargin', "$EdgeMargin",
+    '-e', 'screenOnly', $screenOnlyArgument, '-e', 'probeOnly', $probeOnlyArgument, '-e', 'pocketArcProbeOnly', $pocketArcProbeOnlyArgument,
+    '-e', 'audit', $auditArgument, '-e', 'edgeMargin', "$EdgeMargin",
     '-e', 'pocketRadius', "$PocketRadius", '-e', 'boundarySupport', "$BoundarySupport",
     '-e', 'sparseColourSupport', "$SparseColourSupport",
     '-e', 'production800BoundaryExtent', "$Production800BoundarySearchExtent",
@@ -216,7 +233,15 @@ if ($specifiedObstructionNeutralRange -eq 2) {
     $instrumentArguments += @('-e', 'obstructionNeutralMinimum', "$ObstructionNeutralMinimum",
         '-e', 'obstructionNeutralMaximum', "$ObstructionNeutralMaximum")
 }
-if ($TraceBlackMask) { $instrumentArguments += @('-e', 'trace', '1', '-e', 'blackLabelX', "$BlackLabelX", '-e', 'blackLabelY', "$BlackLabelY") }
+$arcBlackLabelX = $null
+$arcBlackLabelY = $null
+if ($TraceBlackMask) {
+    $instrumentArguments += @('-e', 'trace', '1', '-e', 'blackLabelX', "$BlackLabelX", '-e', 'blackLabelY', "$BlackLabelY")
+} elseif ($PocketArcProbeOnly) {
+    $arcBlackLabelX = $BlackLabelX
+    $arcBlackLabelY = $BlackLabelY
+    $instrumentArguments += @('-e', 'blackLabelX', "$arcBlackLabelX", '-e', 'blackLabelY', "$arcBlackLabelY")
+}
 if ($specifiedNeutralCueProbeCoordinates -eq 2) {
     $probeXArgument = $NeutralCueProbeX800.ToString('R', [Globalization.CultureInfo]::InvariantCulture)
     $probeYArgument = $NeutralCueProbeY800.ToString('R', [Globalization.CultureInfo]::InvariantCulture)
@@ -229,12 +254,13 @@ $instrumentResult = Invoke-Adb (@('-s', $serial) + $instrumentArguments)
 $stageTimer.Stop()
 $stageTimings.instrumentationMs = [Math]::Round($stageTimer.Elapsed.TotalMilliseconds, 1)
 $instrumentResult.Output | Set-Content -LiteralPath (Join-Path $runDirectory 'instrumentation.log')
-if ($instrumentResult.ExitCode -ne 0) { throw "Boundary audit instrumentation failed: $($instrumentResult.Output -join ' ')" }
+$instrumentKind = if ($PocketArcProbeOnly) { 'Pocket-arc replay' } else { 'Boundary audit' }
+if ($instrumentResult.ExitCode -ne 0) { throw "$instrumentKind instrumentation failed: $($instrumentResult.Output -join ' ')" }
 if (($instrumentResult.Output -join "`n") -match 'shortMsg=Process crashed') {
-    throw "Boundary audit instrumentation process crashed: $($instrumentResult.Output -join ' ')"
+    throw "$instrumentKind instrumentation process crashed: $($instrumentResult.Output -join ' ')"
 }
 
-$reportSuffix = if ($TraceBlackMask) { '-blacktrace' } else { '' }
+$reportSuffix = if ($PocketArcProbeOnly) { '-pocketarc' } elseif ($TraceBlackMask) { '-blacktrace' } else { '' }
 $reportName = "o08-replay-proof-$run$reportSuffix.json"
 $localReport = Join-Path $runDirectory $reportName
 $stageTimer = [Diagnostics.Stopwatch]::StartNew()
@@ -247,6 +273,7 @@ if (-not $report.completed -or @($report.samples).Count -ne $frames.Count) {
 }
 $maskArtifacts = @()
 $blackMaskArtifacts = @()
+$pocketArcTraceArtifacts = @()
 if ($ObstructionMaskTrace) {
     foreach ($frame in $frames) {
         foreach ($width in @(800, 1000)) {
@@ -279,6 +306,35 @@ if ($TraceBlackMask) {
         }
     }
 }
+if ($PocketArcProbeOnly) {
+    $traceRoot = "$remoteRunDirectory/o08-pocket-arc-trace-$run"
+    foreach ($sample in $report.samples) {
+        if (-not $sample.detectionRequested) {
+            if ($null -ne $sample.width1000.darkMaskTrace) {
+                throw "Detection-disabled frame $($sample.frameId) unexpectedly contains a pocket-arc trace."
+            }
+            continue
+        }
+        $trace = $sample.width1000.darkMaskTrace
+        if ($null -eq $trace -or $trace.analysisWidth -ne 1000) {
+            throw "Pocket-arc trace is missing for width-1000 frame $($sample.frameId)."
+        }
+        $overlayNames = @($trace.overlays)
+        if ($overlayNames.Count -eq 0) { throw "Pocket-arc trace contains no overlays for frame $($sample.frameId)." }
+        foreach ($name in $overlayNames) {
+            if ([string]::IsNullOrWhiteSpace([string]$name) -or $name -ne [IO.Path]::GetFileName([string]$name)) {
+                throw "Pocket-arc trace contains an invalid artifact name for frame $($sample.frameId)."
+            }
+            $localTrace = Join-Path $runDirectory $name
+            $pullTraceResult = Invoke-Adb @('-s', $serial, 'pull', "$traceRoot/$name", $localTrace)
+            if ($pullTraceResult.ExitCode -ne 0) { throw "Could not retrieve pocket-arc trace $name`: $($pullTraceResult.Output -join ' ')" }
+            $pocketArcTraceArtifacts += [pscustomobject]@{
+                frameId = $sample.frameId; configuredWidth = $trace.analysisWidth; file = $name
+                sha256 = (Get-FileHash -LiteralPath $localTrace -Algorithm SHA256).Hash.ToLowerInvariant()
+            }
+        }
+    }
+}
 $stageTimer.Stop()
 $stageTimings.reportAndArtifactPullMs = [Math]::Round($stageTimer.Elapsed.TotalMilliseconds, 1)
 $cameraAfter = Invoke-RestMethod -Uri $cameraStatusUri -TimeoutSec 5
@@ -292,7 +348,7 @@ $manifest = [pscustomobject]@{
     package = $package
     apkSha256 = (Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash.ToLowerInvariant()
     run = $run
-    mode = if ($ScreenOnly) { 'screen-only' } elseif ($ProbeOnly) { 'probe-only' } else { 'full-audit' }
+    mode = if ($ScreenOnly) { 'screen-only' } elseif ($ProbeOnly) { 'probe-only' } elseif ($PocketArcProbeOnly) { 'pocket-arc-probe-only' } else { 'full-audit' }
     timingsMs = [pscustomobject]@{
         inputHashAndOrderValidation = $stageTimings.inputHashAndOrderValidationMs
         apkInstall = $stageTimings.apkInstallMs
@@ -366,7 +422,12 @@ $manifest = [pscustomobject]@{
     cameraBefore = $cameraBefore
     cameraAfter = $cameraAfter
 }
+if ($PocketArcProbeOnly) {
+    $manifest | Add-Member -MemberType NoteProperty -Name pocketArcProbeOnly -Value $true
+    $manifest | Add-Member -MemberType NoteProperty -Name pocketArcLabelSourcePixel -Value ([pscustomobject]@{ x = $arcBlackLabelX; y = $arcBlackLabelY })
+    $manifest | Add-Member -MemberType NoteProperty -Name pocketArcTraceArtifacts -Value $pocketArcTraceArtifacts
+}
 $manifest | ConvertTo-Json -Depth 16 | Set-Content -LiteralPath (Join-Path $runDirectory 'manifest.json')
 $timingSummary = $stageTimings.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)ms" }
-$runKind = if ($ScreenOnly) { 'Detector screen' } elseif ($ProbeOnly) { 'Candidate probe' } else { 'Boundary audit' }
+$runKind = if ($ScreenOnly) { 'Detector screen' } elseif ($ProbeOnly) { 'Candidate probe' } elseif ($PocketArcProbeOnly) { 'Pocket-arc probe' } else { 'Boundary audit' }
 Write-Output "$runKind saved under $runDirectory (total=$([Math]::Round($totalTimer.Elapsed.TotalMilliseconds, 1))ms; $($timingSummary -join ', '))"

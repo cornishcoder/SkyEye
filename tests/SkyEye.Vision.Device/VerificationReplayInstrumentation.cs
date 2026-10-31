@@ -12,7 +12,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
 {
     public VerificationReplayInstrumentation() { }
     public VerificationReplayInstrumentation(IntPtr handle, global::Android.Runtime.JniHandleOwnership ownership) : base(handle, ownership) { }
-    bool refinement, dump, boundaryAudit, screenOnly, probeOnly, traceDarkMask, tracePackedColourFits, normalizedGeometry, normalizedPackedProposalMask, boundaryExtentAblation,
+    bool refinement, dump, boundaryAudit, screenOnly, probeOnly, pocketArcProbeOnly, traceDarkMask, tracePackedColourFits, normalizedGeometry, normalizedPackedProposalMask, boundaryExtentAblation,
         edgeMarginAblation, continueCalibrationMismatch, obstructionMaskTrace, localIlluminationNormalization;
     int fastWidth, darkBodyCeiling = 40, packedClusterImageEdgeMargin = 23, manualBlackImageX = 1282, manualBlackImageY = 536;
     double? neutralCueProbeX800, neutralCueProbeY800;
@@ -157,11 +157,20 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         run = args?.GetString("run") ?? "";
         screenOnly = args?.GetString("screenOnly") == "1";
         probeOnly = args?.GetString("probeOnly") == "1";
-        if (screenOnly && probeOnly) throw new ArgumentException("Screen-only and probe-only modes are mutually exclusive.");
+        pocketArcProbeOnly = args?.GetString("pocketArcProbeOnly") == "1";
+        if (pocketArcProbeOnly && (string.IsNullOrWhiteSpace(requestedBlackLabelX) || string.IsNullOrWhiteSpace(requestedBlackLabelY)))
+            throw new ArgumentException("Pocket-arc probe-only mode requires explicit blackLabelX and blackLabelY values.");
+        if ((screenOnly ? 1 : 0) + (probeOnly ? 1 : 0) + (pocketArcProbeOnly ? 1 : 0) > 1)
+            throw new ArgumentException("Screen-only, probe-only, and pocket-arc probe-only modes are mutually exclusive.");
         fastWidth = int.TryParse(args?.GetString("fastWidth"), out var requestedWidth) ? requestedWidth : 0;
         if (int.TryParse(args?.GetString("darkCeiling"), out var requestedDarkCeiling)) darkBodyCeiling = requestedDarkCeiling;
         if (fastWidth != 0 && fastWidth is < 320 or > 800) throw new ArgumentOutOfRangeException(nameof(fastWidth), "Fast-width probe must be between 320 and 800 pixels.");
         if (darkBodyCeiling is < 10 or > 55) throw new ArgumentOutOfRangeException(nameof(darkBodyCeiling), "Dark-body ceiling must be between 10 and 55.");
+        if (pocketArcProbeOnly && (traceDarkMask || tracePackedColourFits || obstructionMaskTrace || normalizedGeometry
+            || normalizedPackedProposalMask || boundaryExtentAblation || edgeMarginAblation || fastWidth > 0
+            || neutralCueProbeX800.HasValue || neutralCueProbeY800.HasValue
+            || diagnosticObstructionClothRangeOverride is not null || diagnosticObstructionNeutralValueRangeOverride is not null))
+            throw new ArgumentException("Pocket-arc probe-only mode cannot include other ablations or trace artifacts.");
         if (run.Length > 32 || run.Any(c => !char.IsAsciiLetterOrDigit(c) && c is not '-' and not '_')) throw new ArgumentException("Invalid replay run name.");
         base.OnCreate(args); Start();
     }
@@ -174,9 +183,9 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             var paths = Directory.GetFiles(root, "*.json")
                 .Where(path => long.TryParse(Path.GetFileNameWithoutExtension(path), out _))
                 .OrderBy(path => long.Parse(Path.GetFileNameWithoutExtension(path))).ToArray();
-            int maximumFrames = screenOnly ? 24 : probeOnly ? 12 : 6;
+            int maximumFrames = screenOnly ? 24 : probeOnly || pocketArcProbeOnly ? 12 : 6;
             if (paths.Length < 1 || paths.Length > maximumFrames)
-                throw new IOException($"Replay 1 to {maximumFrames} captured development snapshots in {(screenOnly ? "screening" : probeOnly ? "probe-only" : "full audit")} mode.");
+                throw new IOException($"Replay 1 to {maximumFrames} captured development snapshots in {(screenOnly ? "screening" : probeOnly ? "probe-only" : pocketArcProbeOnly ? "pocket-arc probe-only" : "full audit")} mode.");
             using var first = JsonDocument.Parse(File.ReadAllBytes(paths[0]));
             var firstMetadata = first.RootElement;
             var corners = firstMetadata.GetProperty("calibrationCorners").EnumerateArray().Select(p => new Point(p.GetProperty("x").GetDouble(), p.GetProperty("y").GetDouble())).ToArray();
@@ -208,32 +217,32 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             var analyzer1000 = new VisionAnalyzer(ReplaySettings(1000), boundaryAudit, boundaryAudit, obstructionMaskTrace,
                 diagnosticObstructionClothRangeOverride, diagnosticObstructionNeutralValueRangeOverride,
                 neutralCueProbeX800 is { } probeX1000 && neutralCueProbeY800 is { } probeY1000 ? new Point(probeX1000, probeY1000) : null);
-            var fastAnalyzer = fastWidth > 0 ? new VisionAnalyzer(ReplaySettings(fastWidth)) : null;
-            var normalizedGeometryAnalyzer800 = normalizedGeometry
+            var fastAnalyzer = !pocketArcProbeOnly && fastWidth > 0 ? new VisionAnalyzer(ReplaySettings(fastWidth)) : null;
+            var normalizedGeometryAnalyzer800 = !pocketArcProbeOnly && normalizedGeometry
                 ? new VisionAnalyzer(ReplaySettings(800, useNormalizedGeometry: true), boundaryAudit, boundaryAudit)
                 : null;
-            var normalizedGeometryAnalyzer1000 = normalizedGeometry
+            var normalizedGeometryAnalyzer1000 = !pocketArcProbeOnly && normalizedGeometry
                 ? new VisionAnalyzer(ReplaySettings(1000, useNormalizedGeometry: true), boundaryAudit, boundaryAudit)
                 : null;
-            var normalizedPackedProposalMaskAnalyzer800 = normalizedPackedProposalMask
+            var normalizedPackedProposalMaskAnalyzer800 = !pocketArcProbeOnly && normalizedPackedProposalMask
                 ? new VisionAnalyzer(ReplaySettings(800, useNormalizedProposalMask: true), boundaryAudit, boundaryAudit)
                 : null;
-            var normalizedPackedProposalMaskAnalyzer1000 = normalizedPackedProposalMask
+            var normalizedPackedProposalMaskAnalyzer1000 = !pocketArcProbeOnly && normalizedPackedProposalMask
                 ? new VisionAnalyzer(ReplaySettings(1000, useNormalizedProposalMask: true), boundaryAudit, boundaryAudit)
                 : null;
-            var boundaryExtentAnalyzer800 = boundaryExtentAblation
+            var boundaryExtentAnalyzer800 = !pocketArcProbeOnly && boundaryExtentAblation
                 ? new VisionAnalyzer(ReplaySettings(800, boundaryExtent: boundaryExtentFraction), boundaryAudit, boundaryAudit)
                 : null;
-            var boundaryExtentAnalyzer1000 = boundaryExtentAblation
+            var boundaryExtentAnalyzer1000 = !pocketArcProbeOnly && boundaryExtentAblation
                 ? new VisionAnalyzer(ReplaySettings(1000, boundaryExtent: boundaryExtentFraction), boundaryAudit, boundaryAudit)
                 : null;
-            var edgeMarginAnalyzer800 = edgeMarginAblation
+            var edgeMarginAnalyzer800 = !pocketArcProbeOnly && edgeMarginAblation
                 ? new VisionAnalyzer(ReplaySettings(800, edgeMargin: packedClusterImageEdgeMargin), boundaryAudit, boundaryAudit)
                 : null;
-            var edgeMarginAnalyzer1000 = edgeMarginAblation
+            var edgeMarginAnalyzer1000 = !pocketArcProbeOnly && edgeMarginAblation
                 ? new VisionAnalyzer(ReplaySettings(1000, edgeMargin: packedClusterImageEdgeMargin), boundaryAudit, boundaryAudit)
                 : null;
-            string replayConfiguration = analyzer800.ConfigurationIdentity;
+            string replayConfiguration = pocketArcProbeOnly ? analyzer1000.ConfigurationIdentity : analyzer800.ConfigurationIdentity;
             bool? configurationMatchesPrimary = recordedConfiguration is null
                 ? null : string.Equals(recordedConfiguration, replayConfiguration, StringComparison.Ordinal);
             bool? configurationSettingsMatchPrimary = recordedConfiguration is null
@@ -242,17 +251,17 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             string replayAlgorithm = AnalyzerAlgorithm(replayConfiguration)!;
             bool? configurationAlgorithmChangedSinceCapture = recordedAlgorithm is null
                 ? null : !string.Equals(recordedAlgorithm, replayAlgorithm, StringComparison.Ordinal);
-            using var worker800 = analyzer800.CreateVerification(calibration);
-            using var worker1000 = analyzer1000.CreateVerification(calibration);
-            using var cached15Worker = analyzer800.CreateVerification(calibration);
-            using var cachedCompleteWorker = analyzer800.CreateVerification(calibration);
-            JsonDocument? cacheSeeds = File.Exists(Path.Combine(root, "cache-seeds.json"))
+            using var worker800 = pocketArcProbeOnly ? null : analyzer800.CreateVerification(calibration);
+            using var worker1000 = pocketArcProbeOnly ? null : analyzer1000.CreateVerification(calibration);
+            using var cached15Worker = pocketArcProbeOnly ? null : analyzer800.CreateVerification(calibration);
+            using var cachedCompleteWorker = pocketArcProbeOnly ? null : analyzer800.CreateVerification(calibration);
+            JsonDocument? cacheSeeds = !pocketArcProbeOnly && File.Exists(Path.Combine(root, "cache-seeds.json"))
                 ? JsonDocument.Parse(File.ReadAllBytes(Path.Combine(root, "cache-seeds.json"))) : null;
             if (cacheSeeds is not null)
             {
                 var seed = cacheSeeds.RootElement;
-                SeedVerificationWorker(cached15Worker, seed.GetProperty("actual15BodyCache"), seed.GetProperty("gains"), 800);
-                SeedVerificationWorker(cachedCompleteWorker, seed.GetProperty("priorCompleteCache"), seed.GetProperty("gains"), 800);
+                SeedVerificationWorker(cached15Worker!, seed.GetProperty("actual15BodyCache"), seed.GetProperty("gains"), 800);
+                SeedVerificationWorker(cachedCompleteWorker!, seed.GetProperty("priorCompleteCache"), seed.GetProperty("gains"), 800);
             }
             var samples = new List<object>();
             var analyses800 = new List<VisionResult>(); var analyses1000 = new List<VisionResult>();
@@ -285,6 +294,37 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     throw new IOException("Replay frames do not share one analyzer configuration.");
                 var detectionRequested = metadataRoot.TryGetProperty("detectionRequested", out var detectionElement)
                     ? detectionElement.GetBoolean() : true;
+                if (pocketArcProbeOnly)
+                {
+                    if (!detectionRequested)
+                    {
+                        samples.Add(new
+                        {
+                            frameId, pixelSha256 = sha, sourceTimeUs, detectionRequested,
+                            skipped = true,
+                            skipReason = "detection-not-requested",
+                            width1000 = new { analysis = (object?)null, darkMaskTrace = (object?)null }
+                        });
+                        continue;
+                    }
+                    byte[]? pocketArcClassifierPixels = null;
+                    analyzer1000.ObserveNextClassifierPixels(pixels => pocketArcClassifierPixels = pixels);
+                    var baseline1000 = Measure(() => analyzer1000.Analyze(bytes, calibration), out var analysis1000Metrics);
+                    if (pocketArcClassifierPixels is null)
+                        throw new IOException("The width-1000 classifier pixels were not captured from the pocket-arc baseline analysis.");
+                    var darkMaskTrace = PackedBlackMaskTrace.Capture(bytes, calibration, 1000, baseline1000,
+                        Path.Combine(root, "o08-pocket-arc-trace-" + run), frameId.ToString(), manualBlackImageX, manualBlackImageY,
+                        sparseBlackMinimumPeakRadiusFactor, pocketExclusionRadius, analyzer1000, pocketArcClassifierPixels);
+                    samples.Add(new
+                    {
+                        frameId, pixelSha256 = sha, sourceTimeUs,
+                        capturedAt = metadataRoot.TryGetProperty("capturedAt", out var pocketArcCapturedAt)
+                            ? pocketArcCapturedAt.GetDateTimeOffset() : DateTimeOffset.UtcNow,
+                        detectionRequested, configurationMatchesPrimary, analysis1000Metrics,
+                        width1000 = new { analysis = Summarize(baseline1000, 1000), darkMaskTrace }
+                    });
+                    continue;
+                }
                 if (screenOnly || probeOnly)
                 {
                     if (detectionRequested)
@@ -398,8 +438,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     FrameSource = frameSource,
                     DecodedReceipt = decodedReceipt,
                 };
-                var verification800 = Measure(() => worker800.Measure(frame, detectionRequested, CancellationToken.None), out var verification800Metrics); measurements800.Add(verification800);
-                var verification1000 = Measure(() => worker1000.Measure(frame, detectionRequested, CancellationToken.None), out var verification1000Metrics); measurements1000.Add(verification1000);
+                var verification800 = Measure(() => worker800!.Measure(frame, detectionRequested, CancellationToken.None), out var verification800Metrics); measurements800.Add(verification800);
+                var verification1000 = Measure(() => worker1000!.Measure(frame, detectionRequested, CancellationToken.None), out var verification1000Metrics); measurements1000.Add(verification1000);
                 bool fallbackMatchesStoredCalibration = fallbackCornerDeltas is { Length: > 0 }
                     && fallbackCornerDeltas.All(delta => delta <= .035);
                 bool calibrationGeometryContradiction = fallbackMatchesStoredCalibration
@@ -415,8 +455,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 if (cacheSeeds is not null && samples.Count == 0 && detectionRequested)
                 {
                     var seed = cacheSeeds.RootElement;
-                    var cached15 = Measure(() => cached15Worker.Measure(frame, true, CancellationToken.None), out var cached15Metrics);
-                    var cachedComplete = Measure(() => cachedCompleteWorker.Measure(frame, true, CancellationToken.None), out var cachedCompleteMetrics);
+                    var cached15 = Measure(() => cached15Worker!.Measure(frame, true, CancellationToken.None), out var cached15Metrics);
+                    var cachedComplete = Measure(() => cachedCompleteWorker!.Measure(frame, true, CancellationToken.None), out var cachedCompleteMetrics);
                     using var unmodifiedSyntheticControlWorker = analyzer800.CreateVerification(calibration);
                     SeedVerificationWorker(unmodifiedSyntheticControlWorker, seed.GetProperty("priorCompleteCache"), seed.GetProperty("gains"), 800, freezeAppearance: false);
                     var unmodifiedSyntheticControl = Measure(() => unmodifiedSyntheticControlWorker.Measure(frame, true, CancellationToken.None), out var unmodifiedSyntheticControlMetrics);
@@ -512,8 +552,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     };
                 }
                 var auditComparison = CompareCapturedAudit(metadataRoot, verification800);
-                if (verification800.Reason == ObservationReason.Obstructed) worker800.ResetAfterObstruction();
-                if (verification1000.Reason == ObservationReason.Obstructed) worker1000.ResetAfterObstruction();
+                if (verification800.Reason == ObservationReason.Obstructed) worker800!.ResetAfterObstruction();
+                if (verification1000.Reason == ObservationReason.Obstructed) worker1000!.ResetAfterObstruction();
                 samples.Add(new
                 {
                     frameId, pixelSha256 = sha, sourceTimeUs = frame.SourceTimeUs, capturedAt,
@@ -599,6 +639,42 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                         ? null : Compare(verification800.Vision, verification1000.Vision, 800, 1000),
                 });
             }
+            if (pocketArcProbeOnly)
+            {
+                report = new
+                {
+                    completed = true,
+                    mode = "pocket-arc-probe-only",
+                    pocketArcProbeOnly = true,
+                    configuration = ObservationPolicy.VerificationConfiguration,
+                    boundaryAudit,
+                    darkBodyValueCeiling = darkBodyCeiling,
+                    localIlluminationNormalization,
+                    pocketExclusionRadius,
+                    minimumHoughBoundarySupport = minimumBoundarySupport,
+                    minimumSparseColourBoundarySupport,
+                    sparseBlackSearchExtentFraction,
+                    minimumSparseBlackBoundarySupport,
+                    sparseBlackCandidateLimit,
+                    sparseBlackRankByRadius,
+                    pipelineDiagnostics = PipelineDiagnostics.Snapshot(),
+                    recordedAnalyzerConfigurationIdentity = recordedConfiguration,
+                    replayAnalyzerConfigurationIdentity = replayConfiguration,
+                    configurationMatchesPrimaryWidth = configurationMatchesPrimary,
+                    configurationSettingsMatchPrimaryWidth = configurationSettingsMatchPrimary,
+                    recordedAlgorithmIdentity = recordedAlgorithm,
+                    replayAlgorithmIdentity = replayAlgorithm,
+                    configurationAlgorithmChangedSinceCapture,
+                    configurationComparison = configurationMatchesPrimary == true ? "exact-match"
+                        : configurationSettingsMatchPrimary == true && configurationAlgorithmChangedSinceCapture == true
+                            ? "settings-match; algorithm-revision-changed"
+                            : recordedConfiguration is null ? "recorded-identity-unavailable" : "configuration-mismatch",
+                    scope = "Each detection-requested receipt/frame gets one width-1000 VisionAnalyzer pass and exact classifier-pixel capture, followed only by PackedBlackMaskTrace.Capture at width 1000. Frames with detection disabled are reported as skipped. No width-800 analysis, verification workers, width comparison, or unrelated trace artifacts. Evaluation-only; not live acceptance.",
+                    samples
+                };
+            }
+            else
+            {
             var consensus800 = VerificationConsensus.Resolve(measurements800.Where(m => m.Vision is not null).Select(m => m.Vision!).ToArray(), out var conflict800);
             var consensus1000 = VerificationConsensus.Resolve(measurements1000.Where(m => m.Vision is not null).Select(m => m.Vision!).ToArray(), out var conflict1000);
             var analysisConsensus800 = VerificationConsensus.Resolve(analyses800, out var analysisConflict800);
@@ -640,11 +716,12 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     : samples.Count == 1
                     ? "Single captured pixel asset replayed through 800 and 1000 analysis and verification workers. The single frame has no paired motion history; use only per-frame detection audits. Development evidence only; not blind holdout, live pixel pairing or latency acceptance."
                     : "Same captured pixel assets replayed through 800 and 1000 analysis and verification workers. Development evidence only; not blind holdout, live pixel pairing or latency acceptance.", samples };
+            }
         }
         catch (Exception error) { report = new { completed = false, error = error.ToString() }; }
         var json = JsonSerializer.Serialize(report, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true });
         var reportName = run.Length > 0
-            ? $"o08-replay-proof-{run}{(traceDarkMask ? "-blacktrace" : "")}.json"
+            ? $"o08-replay-proof-{run}{(pocketArcProbeOnly ? "-pocketarc" : traceDarkMask ? "-blacktrace" : "")}.json"
             : "o08-replay-proof.json";
         File.WriteAllText(Path.Combine(TargetContext!.GetExternalFilesDir(null)!.AbsolutePath, reportName), json);
         using var bundle = new global::Android.OS.Bundle(); bundle.PutString("result", "O08 development replay written"); Finish(global::Android.App.Result.Ok, bundle);
