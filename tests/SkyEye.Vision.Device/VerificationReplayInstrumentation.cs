@@ -12,7 +12,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
 {
     public VerificationReplayInstrumentation() { }
     public VerificationReplayInstrumentation(IntPtr handle, global::Android.Runtime.JniHandleOwnership ownership) : base(handle, ownership) { }
-    bool refinement, dump, boundaryAudit, traceDarkMask, tracePackedColourFits, normalizedGeometry, normalizedPackedProposalMask, boundaryExtentAblation,
+    bool refinement, dump, boundaryAudit, screenOnly, probeOnly, traceDarkMask, tracePackedColourFits, normalizedGeometry, normalizedPackedProposalMask, boundaryExtentAblation,
         edgeMarginAblation, continueCalibrationMismatch, obstructionMaskTrace, localIlluminationNormalization;
     int fastWidth, darkBodyCeiling = 40, packedClusterImageEdgeMargin = 23, manualBlackImageX = 1282, manualBlackImageY = 536;
     double? neutralCueProbeX800, neutralCueProbeY800;
@@ -149,6 +149,9 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             diagnosticObstructionNeutralValueRangeOverride = (minimum, maximum);
         }
         run = args?.GetString("run") ?? "";
+        screenOnly = args?.GetString("screenOnly") == "1";
+        probeOnly = args?.GetString("probeOnly") == "1";
+        if (screenOnly && probeOnly) throw new ArgumentException("Screen-only and probe-only modes are mutually exclusive.");
         fastWidth = int.TryParse(args?.GetString("fastWidth"), out var requestedWidth) ? requestedWidth : 0;
         if (int.TryParse(args?.GetString("darkCeiling"), out var requestedDarkCeiling)) darkBodyCeiling = requestedDarkCeiling;
         if (fastWidth != 0 && fastWidth is < 320 or > 800) throw new ArgumentOutOfRangeException(nameof(fastWidth), "Fast-width probe must be between 320 and 800 pixels.");
@@ -165,7 +168,9 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             var paths = Directory.GetFiles(root, "*.json")
                 .Where(path => long.TryParse(Path.GetFileNameWithoutExtension(path), out _))
                 .OrderBy(path => long.Parse(Path.GetFileNameWithoutExtension(path))).ToArray();
-            if (paths.Length is < 1 or > 6) throw new IOException("Replay 1 to 6 captured development snapshots.");
+            int maximumFrames = screenOnly ? 24 : probeOnly ? 12 : 6;
+            if (paths.Length < 1 || paths.Length > maximumFrames)
+                throw new IOException($"Replay 1 to {maximumFrames} captured development snapshots in {(screenOnly ? "screening" : probeOnly ? "probe-only" : "full audit")} mode.");
             using var first = JsonDocument.Parse(File.ReadAllBytes(paths[0]));
             var firstMetadata = first.RootElement;
             var corners = firstMetadata.GetProperty("calibrationCorners").EnumerateArray().Select(p => new Point(p.GetProperty("x").GetDouble(), p.GetProperty("y").GetDouble())).ToArray();
@@ -273,6 +278,26 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     throw new IOException("Replay frames do not share one analyzer configuration.");
                 var detectionRequested = metadataRoot.TryGetProperty("detectionRequested", out var detectionElement)
                     ? detectionElement.GetBoolean() : true;
+                if (screenOnly || probeOnly)
+                {
+                    if (detectionRequested)
+                    {
+                        var screened = Measure(() => analyzer800.Analyze(bytes, calibration), out var screenMetrics);
+                        analyses800.Add(screened);
+                        samples.Add(new
+                        {
+                            frameId, pixelSha256 = sha, sourceTimeUs, capturedAt = metadataRoot.TryGetProperty("capturedAt", out var screenCapturedAt)
+                                ? screenCapturedAt.GetDateTimeOffset() : DateTimeOffset.UtcNow,
+                            detectionRequested, configurationMatchesPrimary,
+                            analysis800Metrics = screenMetrics
+                        });
+                    }
+                    else
+                    {
+                        samples.Add(new { frameId, pixelSha256 = sha, sourceTimeUs, detectionRequested, skipped = true });
+                    }
+                    continue;
+                }
                 var baseline800 = Measure(() => analyzer800.Analyze(bytes, calibration), out var analysis800Metrics);
                 var baseline1000 = Measure(() => analyzer1000.Analyze(bytes, calibration), out var analysis1000Metrics);
                 string? obstructionMask800 = null, obstructionMask1000 = null;
@@ -566,7 +591,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             var consensus1000 = VerificationConsensus.Resolve(measurements1000.Where(m => m.Vision is not null).Select(m => m.Vision!).ToArray(), out var conflict1000);
             var analysisConsensus800 = VerificationConsensus.Resolve(analyses800, out var analysisConflict800);
             var analysisConsensus1000 = VerificationConsensus.Resolve(analyses1000, out var analysisConflict1000);
-            report = new { completed = true, configuration = ObservationPolicy.VerificationConfiguration, bodyRefinement = refinement, boundaryAudit,
+            report = new { completed = true, mode = screenOnly ? "screening" : probeOnly ? "probe-only" : "full-audit", configuration = ObservationPolicy.VerificationConfiguration, bodyRefinement = refinement, boundaryAudit,
                 obstructionMaskTrace, diagnosticObstructionClothRangeOverride, diagnosticObstructionNeutralValueRangeOverride,
                 darkBodyValueCeiling = darkBodyCeiling,
                 localIlluminationNormalization,
@@ -596,7 +621,11 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 fullAnalysis1000 = new { consensus = analysisConsensus1000, conflict = analysisConflict1000, observations = analyses1000.Select(v => Summarize(v, 1000)) },
                 width800 = new { consensus = consensus800, conflict = conflict800, allMotionSamplesStill = measurements800.Count > 1 && measurements800.Skip(1).All(m => m.Motion == TableMotion.Still && m.CoverageValid), measurements = measurements800.Select(SummarizeMotion) },
                 width1000 = new { consensus = consensus1000, conflict = conflict1000, allMotionSamplesStill = measurements1000.Count > 1 && measurements1000.Skip(1).All(m => m.Motion == TableMotion.Still && m.CoverageValid), measurements = measurements1000.Select(SummarizeMotion) },
-                scope = samples.Count == 1
+                scope = screenOnly
+                    ? "Sequential width-800 detector screening only, including its configured packed-cluster fallback; no motion workers, second-width baseline or candidate traces. Development evidence only; not live acceptance."
+                    : probeOnly
+                    ? "Sequential width-800 detector diagnostic pass, including its configured packed-cluster fallback and candidate telemetry; no motion workers or second-width baseline. Development evidence only; not live acceptance."
+                    : samples.Count == 1
                     ? "Single captured pixel asset replayed through 800 and 1000 analysis and verification workers. The single frame has no paired motion history; use only per-frame detection audits. Development evidence only; not blind holdout, live pixel pairing or latency acceptance."
                     : "Same captured pixel assets replayed through 800 and 1000 analysis and verification workers. Development evidence only; not blind holdout, live pixel pairing or latency acceptance.", samples };
         }

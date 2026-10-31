@@ -1,8 +1,10 @@
 param(
     [string]$SourceRelativePath = 'work/production/evidence/live-detect-pocket-lip-20261030/o08-capture',
     [int[]]$Frames = @(399, 433),
+    [switch]$ScreenOnly,
+    [switch]$ProbeOnly,
     [string]$RunPrefix = 'pocketlip30',
-    [string]$Purpose = 'Current-code exact-frame candidate and boundary audit for the Oct 30 pocket-lip fixture.',
+    [string]$Purpose = 'Current-code exact-frame replay for the selected saved table frames.',
     [string]$EvidenceRelativePath = 'work/production/evidence/live-detect-pocket-lip-20261030/device-replays',
     [int]$EdgeMargin = 23,
     [double]$PocketRadius = 48,
@@ -31,6 +33,24 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$totalTimer = [Diagnostics.Stopwatch]::StartNew()
+$stageTimings = [ordered]@{}
+$maximumFrames = if ($ScreenOnly) { 24 } elseif ($ProbeOnly) { 12 } else { 6 }
+if ($ScreenOnly -and $ProbeOnly) { throw 'Choose either -ScreenOnly or -ProbeOnly.' }
+if ($Frames.Count -lt 1 -or $Frames.Count -gt $maximumFrames) {
+    throw "This run mode accepts 1 to $maximumFrames frames."
+}
+if ($ScreenOnly -and ($EnableIlluminationNormalization -or $TracePackedColourFits -or $ObstructionMaskTrace -or $TraceBlackMask -or
+    $NeutralCueProbeX800 -ne -1 -or $NeutralCueProbeY800 -ne -1 -or
+    $ObstructionClothHue -ge 0 -or $ObstructionClothSaturationFloor -ge 0 -or $ObstructionClothValueFloor -ge 0 -or $ObstructionClothMedianValue -ge 0 -or
+    $ObstructionNeutralMinimum -ge 0 -or $ObstructionNeutralMaximum -ge 0)) {
+    throw 'Screen-only mode cannot be combined with ablations or trace artifacts; use the full audit mode for those.'
+}
+if ($ProbeOnly -and ($EnableIlluminationNormalization -or $TracePackedColourFits -or $ObstructionMaskTrace -or $TraceBlackMask -or
+    $ObstructionClothHue -ge 0 -or $ObstructionClothSaturationFloor -ge 0 -or $ObstructionClothValueFloor -ge 0 -or $ObstructionClothMedianValue -ge 0 -or
+    $ObstructionNeutralMinimum -ge 0 -or $ObstructionNeutralMaximum -ge 0)) {
+    throw 'Probe-only mode supports candidate and neutral-cue telemetry; use full audit mode for other ablations or image traces.'
+}
 if ($EdgeMargin -lt 0 -or $EdgeMargin -gt 100) { throw 'EdgeMargin must be between 0 and 100 pixels at width 1000.' }
 if ($PocketRadius -le 0 -or $PocketRadius -gt 80) { throw 'PocketRadius must be greater than 0 and at most 80 pixels at width 1000.' }
 if ($BoundarySupport -lt 0.5625 -or $BoundarySupport -gt 1) { throw 'BoundarySupport must be between 0.5625 and 1.' }
@@ -117,6 +137,7 @@ if ($packageResult.ExitCode -ne 0 -or ($packageResult.Output -join "`n") -notmat
     throw 'The isolated Vision Device package is not installed; Production and camera packages were not targeted.'
 }
 
+$stageTimer = [Diagnostics.Stopwatch]::StartNew()
 $inputs = foreach ($frame in $frames) {
     $jsonPath = Join-Path $sourceRoot "$frame.json"
     if (-not (Test-Path -LiteralPath $jsonPath)) {
@@ -142,23 +163,35 @@ for ($i = 1; $i -lt $inputs.Count; $i++) {
         throw 'Replay inputs must have strictly increasing frame IDs and source timestamps.'
     }
 }
+$stageTimer.Stop()
+$stageTimings.inputHashAndOrderValidationMs = [Math]::Round($stageTimer.Elapsed.TotalMilliseconds, 1)
 
 New-Item -ItemType Directory -Path $runDirectory -Force | Out-Null
+$stageTimer = [Diagnostics.Stopwatch]::StartNew()
 $installResult = Invoke-Adb @('-s', $serial, 'install', '-r', $apk)
 if ($installResult.ExitCode -ne 0 -or ($installResult.Output -join "`n") -notmatch 'Success') {
     throw "Could not update the isolated Vision Device package in place: $($installResult.Output -join ' ')"
 }
+$stageTimer.Stop()
+$stageTimings.apkInstallMs = [Math]::Round($stageTimer.Elapsed.TotalMilliseconds, 1)
+$stageTimer = [Diagnostics.Stopwatch]::StartNew()
 $mkdirResult = Invoke-Adb @('-s', $serial, 'shell', 'mkdir', '-p', $remoteRunDirectory)
 if ($mkdirResult.ExitCode -ne 0) { throw "Could not create isolated replay folder: $($mkdirResult.Output -join ' ')" }
+$pushFiles = @()
 foreach ($input in $inputs) {
-    foreach ($file in @($input.JsonPath, $input.PixelPath)) {
-        $pushResult = Invoke-Adb @('-s', $serial, 'push', $file, "$remoteRunDirectory/$([IO.Path]::GetFileName($file))")
-        if ($pushResult.ExitCode -ne 0) { throw "Transfer failed for $file`: $($pushResult.Output -join ' ')" }
-    }
+    $pushFiles += $input.JsonPath
+    $pushFiles += $input.PixelPath
 }
+$pushResult = Invoke-Adb (@('-s', $serial, 'push') + $pushFiles + @("$remoteRunDirectory/"))
+if ($pushResult.ExitCode -ne 0) { throw "Input transfer failed: $($pushResult.Output -join ' ')" }
+$stageTimer.Stop()
+$stageTimings.inputTransferMs = [Math]::Round($stageTimer.Elapsed.TotalMilliseconds, 1)
 
+$screenOnlyArgument = if ($ScreenOnly) { '1' } else { '0' }
+$probeOnlyArgument = if ($ProbeOnly) { '1' } else { '0' }
+$auditArgument = if ($ScreenOnly) { '0' } else { '1' }
 $instrumentArguments = @('shell', 'am', 'instrument', '-w', '-e', 'run', $run,
-    '-e', 'audit', '1', '-e', 'edgeMargin', "$EdgeMargin",
+    '-e', 'screenOnly', $screenOnlyArgument, '-e', 'probeOnly', $probeOnlyArgument, '-e', 'audit', $auditArgument, '-e', 'edgeMargin', "$EdgeMargin",
     '-e', 'pocketRadius', "$PocketRadius", '-e', 'boundarySupport', "$BoundarySupport",
     '-e', 'sparseColourSupport', "$SparseColourSupport",
     '-e', 'production800BoundaryExtent', "$Production800BoundarySearchExtent",
@@ -188,7 +221,10 @@ if ($specifiedNeutralCueProbeCoordinates -eq 2) {
         '-e', 'neutralCueProbeY800', $probeYArgument)
 }
 $instrumentArguments += $instrumentation
+$stageTimer = [Diagnostics.Stopwatch]::StartNew()
 $instrumentResult = Invoke-Adb (@('-s', $serial) + $instrumentArguments)
+$stageTimer.Stop()
+$stageTimings.instrumentationMs = [Math]::Round($stageTimer.Elapsed.TotalMilliseconds, 1)
 $instrumentResult.Output | Set-Content -LiteralPath (Join-Path $runDirectory 'instrumentation.log')
 if ($instrumentResult.ExitCode -ne 0) { throw "Boundary audit instrumentation failed: $($instrumentResult.Output -join ' ')" }
 if (($instrumentResult.Output -join "`n") -match 'shortMsg=Process crashed') {
@@ -198,6 +234,7 @@ if (($instrumentResult.Output -join "`n") -match 'shortMsg=Process crashed') {
 $reportSuffix = if ($TraceBlackMask) { '-blacktrace' } else { '' }
 $reportName = "o08-replay-proof-$run$reportSuffix.json"
 $localReport = Join-Path $runDirectory $reportName
+$stageTimer = [Diagnostics.Stopwatch]::StartNew()
 $pullResult = Invoke-Adb @('-s', $serial, 'pull', "$remoteFilesRoot/$reportName", $localReport)
 if ($pullResult.ExitCode -ne 0) { throw "Could not retrieve the replay report: $($pullResult.Output -join ' ')" }
 $report = Get-Content -LiteralPath $localReport -Raw | ConvertFrom-Json
@@ -239,8 +276,11 @@ if ($TraceBlackMask) {
         }
     }
 }
+$stageTimer.Stop()
+$stageTimings.reportAndArtifactPullMs = [Math]::Round($stageTimer.Elapsed.TotalMilliseconds, 1)
 $cameraAfter = Invoke-RestMethod -Uri $cameraStatusUri -TimeoutSec 5
 if ($cameraAfter.state -ne 'Stopped') { throw "Mounted camera changed state during offline replay: $($cameraAfter.state)." }
+$totalTimer.Stop()
 
 $manifest = [pscustomobject]@{
     createdAt = [DateTimeOffset]::UtcNow
@@ -249,9 +289,18 @@ $manifest = [pscustomobject]@{
     package = $package
     apkSha256 = (Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash.ToLowerInvariant()
     run = $run
+    mode = if ($ScreenOnly) { 'screen-only' } elseif ($ProbeOnly) { 'probe-only' } else { 'full-audit' }
+    timingsMs = [pscustomobject]@{
+        inputHashAndOrderValidation = $stageTimings.inputHashAndOrderValidationMs
+        apkInstall = $stageTimings.apkInstallMs
+        inputTransfer = $stageTimings.inputTransferMs
+        instrumentation = $stageTimings.instrumentationMs
+        reportAndArtifactPull = $stageTimings.reportAndArtifactPullMs
+        total = [Math]::Round($totalTimer.Elapsed.TotalMilliseconds, 1)
+    }
     localIlluminationNormalization = [bool]$EnableIlluminationNormalization
     tracePackedColourFits = [bool]$TracePackedColourFits
-    auditEnabled = $true
+    auditEnabled = -not $ScreenOnly
     obstructionMaskTrace = [bool]$ObstructionMaskTrace
     diagnosticObstructionClothRangeOverride = if ($specifiedObstructionClothRange -eq 4) {
         [pscustomobject]@{ hue = $ObstructionClothHue; saturationFloor = $ObstructionClothSaturationFloor; valueFloor = $ObstructionClothValueFloor; medianValue = $ObstructionClothMedianValue }
@@ -283,4 +332,6 @@ $manifest = [pscustomobject]@{
     cameraAfter = $cameraAfter
 }
 $manifest | ConvertTo-Json -Depth 16 | Set-Content -LiteralPath (Join-Path $runDirectory 'manifest.json')
-Write-Output "Boundary audit saved under $runDirectory"
+$timingSummary = $stageTimings.GetEnumerator() | ForEach-Object { "$($_.Key)=$($_.Value)ms" }
+$runKind = if ($ScreenOnly) { 'Detector screen' } elseif ($ProbeOnly) { 'Candidate probe' } else { 'Boundary audit' }
+Write-Output "$runKind saved under $runDirectory (total=$([Math]::Round($totalTimer.Elapsed.TotalMilliseconds, 1))ms; $($timingSummary -join ', '))"
