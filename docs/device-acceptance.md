@@ -1,5 +1,15 @@
 # Physical-device acceptance
 
+## Production v0.8.59 / code67 side-daylight pocket-cluster check — 31 October 2026
+
+The code67 Production companion was installed in place on Pixel 11 after a successful Release build (13 warnings, zero errors). The installer retained package UID and private storage; rollback APK is `work/production/backups/20261031-082234/before.apk`. No camera package was changed.
+
+The user held the same 16-ball layout, with the black 8-ball, cue ball and a red together over the lower-left pocket, and daylight entering from that side. The displayed camera image visibly showed that cluster. Live Detect produced fresh full passes (about 0.6 seconds, frame age about 1.2 seconds), but its current readout remained unknown with an uncertain layout, no settled baseline and no clear inventory through the final analysis at 08:25:25 UTC. The Live Detect log reported **no table events recorded during this run** and that it stopped before a settled event was ready for a clip.
+
+The old **Live source interrupted** message remained visible during the session, but the rendered live table changed and camera `sourceTimeUs`/`lastFrameSourceTimeUs` advanced; that message did not indicate that the frames being analyzed were frozen. The new baseline guard behaved conservatively: it did not turn an uncertain first inventory into a false settled state. It did not solve the detector's missing pocket-ball problem, and the daylight did not produce a trusted 16-ball reading.
+
+After one **End recording session** action, Pixel 10 `/status` was `Stopped`, revision 89, battery 37%, `clipCount=139`, with no viewers. Pixel 11 Home showed **Start live session** and **Live Detect stopped**. No Cast/TV action occurred and saved clips were preserved. Screenshot and fresh UI snapshots are under `work/production/evidence/code67-daylight-pocket-20261031/`; the follow-up diagnostic plan is in [Live Detect delivery plan](live-detect-plan.md#code67-side-daylight-pocket-cluster-check--31-october-2026).
+
 ## Production v0.8.58 / code66 side-daylight pocket-cluster Live Detect — 31 October 2026
 
 The Production companion remained `0.8.58` / code66 on Pixel 11. The user placed the black 8-ball over the lower-left pocket beside the cue ball and a red; the captured raw image clearly shows all three, and the full table layout contains 7 reds, 7 yellows, black and cue (16 balls). The camera was started through the normal Home flow and Live Detect; no match or Cast/TV action was used.
