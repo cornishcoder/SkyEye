@@ -28,6 +28,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
     (int Hue, int SaturationFloor, int ValueFloor, int MedianValue)? diagnosticObstructionClothRangeOverride;
     (int Minimum, int Maximum)? diagnosticObstructionNeutralValueRangeOverride;
     string run = "";
+    string pocketArcPointSource = "reviewed-label";
     public override void OnCreate(global::Android.OS.Bundle? args)
     {
         refinement = args?.GetString("refine") == "1"; dump = args?.GetString("dump") == "1";
@@ -160,6 +161,15 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         probeOnly = args?.GetString("probeOnly") == "1";
         pocketArcProbeOnly = args?.GetString("pocketArcProbeOnly") == "1";
         rawProposalReplay = args?.GetString("rawProposalReplay") == "1";
+        var requestedPocketArcPointSource = args?.GetString("blackPointSource");
+        if (!string.IsNullOrWhiteSpace(requestedPocketArcPointSource))
+        {
+            if (requestedPocketArcPointSource is not "reviewed-label" and not "unreviewed-model-proposal")
+                throw new ArgumentOutOfRangeException(nameof(requestedPocketArcPointSource), "Pocket-arc reference source must be reviewed-label or unreviewed-model-proposal.");
+            pocketArcPointSource = requestedPocketArcPointSource;
+        }
+        if (pocketArcPointSource != "reviewed-label" && !pocketArcProbeOnly)
+            throw new ArgumentException("An unreviewed-model-proposal point source is supported only in pocket-arc probe-only mode.");
         var requestedPocketArcTargetFitAcceptanceRadius = args?.GetString("pocketArcTargetFitAcceptanceRadiusRadii");
         if (!string.IsNullOrWhiteSpace(requestedPocketArcTargetFitAcceptanceRadius)
             && (!double.TryParse(requestedPocketArcTargetFitAcceptanceRadius, NumberStyles.Float,
@@ -396,7 +406,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     var darkMaskTrace = PackedBlackMaskTrace.Capture(bytes, calibration, 1000, arcBaseline1000,
                         Path.Combine(root, "o08-pocket-arc-trace-" + run), frameId.ToString(), manualBlackImageX, manualBlackImageY,
                         sparseBlackMinimumPeakRadiusFactor, pocketExclusionRadius, analyzer1000, pocketArcClassifierPixels,
-                        pocketArcTargetFitAcceptanceRadiusInBallRadii);
+                        pocketArcTargetFitAcceptanceRadiusInBallRadii, pocketArcPointSource);
                     samples.Add(new
                     {
                         frameId, pixelSha256 = sha, sourceTimeUs,
@@ -750,6 +760,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     completed = true,
                     mode = "pocket-arc-probe-only",
                     pocketArcProbeOnly = true,
+                    pocketArcPointSource,
                     configuration = ObservationPolicy.VerificationConfiguration,
                     boundaryAudit,
                     darkBodyValueCeiling = darkBodyCeiling,

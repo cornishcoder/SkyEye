@@ -23,13 +23,26 @@ The six dim empty-pocket frames (978, 1072, 1105, 1150, 1179 and 1198) are repea
 
 The positive and negative sets are not same-light, same-session controls, and their centre labels remain provisional. These results localize a failure; they do not validate a detector improvement or justify lowering the boundary gate.
 
+## Model-seeded pocket-arc probe
+
+To check whether a local arc can distinguish the pocket-overlapped black from a dark empty pocket, the same unreviewed PoolTableModeller black proposal `(99,897)` in source pixels was mapped through calibration and used as the reference point for one daylight black-present frame and one dim empty-pocket frame. The probe is diagnostic-only; it does not add candidates or change analyzer/game output. Reports explicitly mark the anchor as `unreviewed-model-proposal` so it cannot be mistaken for a human-reviewed centre.
+
+| Source frame | Result at mapped anchor | Existing SkyEye colour classifier | Pocket-aware partial-arc diagnostic |
+| --- | --- | --- | --- |
+| Daylight black-present, frame 1365 | Candidate centre `(64.98,41.04)`, 8.41px from the proposal; 11/32 supported sectors, 6 contiguous, 56.25° span | `black`, quality 0.869 (not a probability) | Diagnostic checks passed |
+| Dim empty pocket, frame 978 | Best candidate centre `(43.98,35.04)`, 20.74px from the proposal; 5/32 supported sectors, 3 contiguous, 22.5° span | `black`, quality 0.900 (not a probability) | Diagnostic checks failed |
+
+This is a useful lead: colour sampling alone calls the empty pocket black too, while the local arc checks reject that candidate and retain the black-present one. It is only one frame per side, from separate lighting timelines, with an unreviewed model anchor; the reports say no matched absent-pocket control is available. The positive diagnostic fit also has only 11/32 global sectors, far below production's 24/32 gate. Do not enable it in production or relax the global gate. Next, review the black centre and repeat the probe on a same-light, same-pocket present/absent pair plus more pocket positions.
+
+The source frame SHA-256 values are `602e00c4eb9fc92f3b124106137d8ca7c56f932e107f995f1f2c7d824dd25de4` (positive) and `b368348c63d924f5c7834e8e849b7287225ab525b470bdc3b85f7a8278cbbe70` (empty pocket). Run `arcmodelp3-165347` report SHA-256 is `00aa76c842111d80ae2cefbf53330c937be8e46acac4f817ce7db7794207310a`; `arcmodeln3-165402` report SHA-256 is `2f8ace6026158f317f168f0dd9a308cb5ca96c9525b0fd77b69ab38f09248153`. Both reports and manifests are retained under `work/production/evidence/local-raw-proposal-gates-20261031/`.
+
 ## Performance clarification
 
 PoolTableModeller reported 4,572ms and 4,671ms end-to-end for these frames. The laptop has an RTX 3060 Laptop GPU, but the service process used Python 3.13 with CPU-only `torch 2.15.0+cpu` and `torch.cuda.is_available()` was false. Those timings therefore do not measure the 3060's inference speed, and they are not a Pixel 11 benchmark. The local service also listens on `127.0.0.1:5001`; the phone cannot call it directly.
 
 ## Next work
 
-Keep the global 24/32 gate unchanged. Try the mapped external centres as seeds for a pocket-aware partial-arc fit, then measure fit drift and SkyEye classification on both the black-present positive and empty-pocket controls. First obtain a reviewed black centre and a same-light absent-black control at the same pocket. If that targeted branch stays selective, broaden it across the other pocket lips and cushion extremes before any production integration.
+Keep the global 24/32 gate unchanged. The first model-seeded arc probe is encouraging but inconclusive: one present-black frame passed diagnostic checks and one empty-pocket frame failed, while the classifier called both candidates black. Obtain a reviewed black centre and a same-light present/absent pair at the same pocket, then repeat across frames and other pocket positions. If the targeted branch stays selective, broaden it to cushion extremes before any production integration.
 
 ## Reproduction records
 

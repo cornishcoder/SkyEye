@@ -27,6 +27,8 @@ param(
     [switch]$TraceBlackMask,
     [int]$BlackLabelX = 1282,
     [int]$BlackLabelY = 536,
+    [ValidateSet('reviewed-label', 'unreviewed-model-proposal')]
+    [string]$BlackPointSource = 'reviewed-label',
     [double]$NeutralCueProbeX800 = -1,
     [double]$NeutralCueProbeY800 = -1,
     [int]$ObstructionClothHue = -1,
@@ -67,6 +69,9 @@ if ($ProbeOnly -and ($EnableIlluminationNormalization -or $TracePackedColourFits
 }
 if ($PocketArcProbeOnly -and (-not $PSBoundParameters.ContainsKey('BlackLabelX') -or -not $PSBoundParameters.ContainsKey('BlackLabelY'))) {
     throw 'Pocket-arc probe-only mode requires explicit -BlackLabelX and -BlackLabelY values for the selected labelled frame.'
+}
+if ($BlackPointSource -ne 'reviewed-label' -and -not $PocketArcProbeOnly) {
+    throw '-BlackPointSource unreviewed-model-proposal is supported only with -PocketArcProbeOnly.'
 }
 if ($RawProposalReplay -and [string]::IsNullOrWhiteSpace($RawProposalDirectory)) {
     throw 'Raw-proposal replay requires -RawProposalDirectory containing one hash-matched local-model JSON file per frame.'
@@ -295,7 +300,8 @@ if ($TraceBlackMask) {
 } elseif ($PocketArcProbeOnly) {
     $arcBlackLabelX = $BlackLabelX
     $arcBlackLabelY = $BlackLabelY
-    $instrumentArguments += @('-e', 'blackLabelX', "$arcBlackLabelX", '-e', 'blackLabelY', "$arcBlackLabelY")
+    $instrumentArguments += @('-e', 'blackLabelX', "$arcBlackLabelX", '-e', 'blackLabelY', "$arcBlackLabelY",
+        '-e', 'blackPointSource', $BlackPointSource)
     if ($PocketArcTargetFitAcceptanceRadiusInBallRadii -gt 0) {
         $targetFitAcceptanceRadiusArgument = $PocketArcTargetFitAcceptanceRadiusInBallRadii.ToString('R', [Globalization.CultureInfo]::InvariantCulture)
         $instrumentArguments += @('-e', 'pocketArcTargetFitAcceptanceRadiusRadii', $targetFitAcceptanceRadiusArgument)
@@ -476,6 +482,7 @@ $manifest = [pscustomobject]@{
     sourceFrames = $inputs | ForEach-Object {
         [pscustomobject]@{ frameId = $_.Receipt.indexedFrame.frameId; pixelFile = [IO.Path]::GetFileName($_.PixelPath); receipt = [IO.Path]::GetFileName($_.JsonPath); sha256 = $_.Hash }
     }
+    pocketArcPointSource = if ($PocketArcProbeOnly) { $BlackPointSource } else { $null }
     rawModelProposalFiles = if ($RawProposalReplay) { $inputs | ForEach-Object {
         $copiedProposal = Join-Path $runDirectory "local-proposals-$($_.Frame).json"
         [pscustomobject]@{ frameId = $_.Frame; file = [IO.Path]::GetFileName($copiedProposal); sha256 = (Get-FileHash -LiteralPath $copiedProposal -Algorithm SHA256).Hash.ToLowerInvariant(); sourcePixelSha256 = $_.Hash }

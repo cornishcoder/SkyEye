@@ -27,8 +27,11 @@ internal static class PackedBlackMaskTrace
         double minimumPeakRadiusFactor = 8,
         double pocketExclusionRadiusAtWidth1000 = VisionSettings.DefaultPocketExclusionRadius,
         VisionAnalyzer? classifierAnalyzer = null, byte[]? classifierPixels = null,
-        double targetFitAcceptanceRadiusInBallRadii = 0)
+        double targetFitAcceptanceRadiusInBallRadii = 0,
+        string referencePointSource = "reviewed-label")
     {
+        if (referencePointSource is not "reviewed-label" and not "unreviewed-model-proposal")
+            throw new ArgumentOutOfRangeException(nameof(referencePointSource), "Reference point source must be reviewed-label or unreviewed-model-proposal.");
         if ((classifierAnalyzer is null) != (classifierPixels is null))
             throw new ArgumentException("The classifier analyzer and its captured pixel buffer must be supplied together.");
         if (classifierAnalyzer is not null && width != 1000)
@@ -201,8 +204,8 @@ internal static class PackedBlackMaskTrace
                 new(0, 0), new(width, 0), new(0, width), new(width, width),
                 new(0, width * 2), new(width, width * 2)
             ];
-            // Diagnostic-only oracle probe: give the boundary refiner the
-            // manually labelled black centre once, to distinguish a missing
+            // Diagnostic-only reference-point probe: give the boundary refiner
+            // the supplied reference point once, to distinguish a missing
             // dark-mask seed from a boundary that cannot be fitted. This point
             // is never passed into VisionAnalyzer or a table-state decision.
             var manualCentreProbe = BallBoundaryRefiner.Refine(bgrBytes, width, width * 2, label,
@@ -423,8 +426,10 @@ internal static class PackedBlackMaskTrace
                 evaluationOnly = true,
                 diagnosticOnly = true,
                 productionOutputChanged = false,
+                referencePointSource,
+                referencePointIsReviewedLabel = referencePointSource == "reviewed-label",
                 matchedAbsentPocketControlAvailable = false,
-                controlNote = "The exact replay input contains six labelled present-ball frames and no matched ball-absent pocket capture.",
+                controlNote = "This trace contains no matched ball-absent pocket capture; compare only with an explicitly recorded control replay.",
                 geometry = new
                 {
                     source = "canonical calibrated table coordinates mapped into warped analysis pixels",
@@ -441,9 +446,11 @@ internal static class PackedBlackMaskTrace
                     maximumCandidateToProposalOffset = pocketArcProbe.MaximumCandidateToProposalOffset,
                     maximumCandidateToProposalOffsetFraction = pocketArcProbe.MaximumCandidateToProposalOffsetFraction
                 },
-                labelledCentre = new
+                referenceCentre = new
                 {
                     centre = label,
+                    pointSource = referencePointSource,
+                    isReviewedLabel = referencePointSource == "reviewed-label",
                     normalSupportedSectorIndices = normalFixedCentreSectors.Where(sector => sector.Supported)
                         .Select(sector => sector.Index).ToArray(),
                     pocketOccludedSectorIndices = pocketOccludedAtLabel.Order().ToArray(),
@@ -454,7 +461,7 @@ internal static class PackedBlackMaskTrace
                     unsupportedVisibleSectorIndices = visibleAtLabel.Where(sector => !sector.Supported)
                         .Select(sector => sector.Index).ToArray()
                 },
-                proposalSource = hasNearestMarginSeed ? "nearest qualifying dark-mask seed" : "manual-label fallback",
+                proposalSource = hasNearestMarginSeed ? "nearest qualifying dark-mask seed" : "reference-point fallback",
                 proposalCentre = pocketArcProposal,
                 candidate = pocketArcProbe.Candidate is { } pocketArcFit ? new
                 {
@@ -511,6 +518,8 @@ internal static class PackedBlackMaskTrace
             var manualCentreProbeReport = new
             {
                 evaluationOnly = true,
+                referencePointSource,
+                referencePointIsReviewedLabel = referencePointSource == "reviewed-label",
                 expectedRadius = ballRadius,
                 probeSupportFloor = .5,
                 fixedCentreEvidence,
@@ -592,8 +601,14 @@ internal static class PackedBlackMaskTrace
             return new
             {
                 frameId, analysisWidth = width, candidateAuditGeometryWidth,
+                referencePointSource,
+                referencePointIsReviewedLabel = referencePointSource == "reviewed-label",
                 manualBlackLabel = new { sourcePixel = new { x = manualImageX, y = manualImageY }, analysisPixel = label,
-                    note = "Manually inspected black-ball interior point in the saved frame; evaluation-only and never supplied to analyzer decisions." },
+                    pointSource = referencePointSource,
+                    isReviewedLabel = referencePointSource == "reviewed-label",
+                    note = referencePointSource == "reviewed-label"
+                        ? "Reviewed black-ball reference point in the saved frame; evaluation-only and never supplied to analyzer decisions."
+                        : "Unreviewed model proposal anchor in the saved frame; evaluation-only and never supplied to analyzer decisions." },
                 targetFitAcceptanceRadiusInBallRadii = targetFitAcceptanceRadiusInBallRadii > 0
                     ? targetFitAcceptanceRadiusInBallRadii : (double?)null,
                 maximumSeedToFitOffsetFraction = targetFitAcceptanceRadiusInBallRadii > 0
@@ -602,12 +617,14 @@ internal static class PackedBlackMaskTrace
                     ? targetMaximumSeedDistanceFromLabelRadii : (double?)null,
                 darkThreshold = new { minimumH = 0, maximumH = 179, minimumS = 0, maximumS = 255, minimumV = 0, maximumV = DarkValueCeiling, openKernel = "3x3 ellipse" },
                 analysisSearchWindow = new { source = searchWindowSource, left, top, right, bottom, selectedColourCentres = selectedCentres.Length,
-                    containsManualLabel = label.X >= left && label.X <= right && label.Y >= top && label.Y <= bottom },
+                    containsManualLabel = label.X >= left && label.X <= right && label.Y >= top && label.Y <= bottom,
+                    containsReferencePoint = label.X >= left && label.X <= right && label.Y >= top && label.Y <= bottom },
                 darkThresholdCoverageInSearchWindow = new { width = windowRight - windowLeft + 1,
                     height = windowBottom - windowTop + 1, pixelCount = windowPixelCount,
                     rawMaskPixels = rawDarkPixelsInWindow, rawMaskFraction = rawDarkPixelsInWindow / (double)windowPixelCount,
                     openedMaskPixels = openedDarkPixelsInWindow, openedMaskFraction = openedDarkPixelsInWindow / (double)windowPixelCount },
                 labelledBallRegion = new { expectedRadius = ballRadius, pixelCount = expectedBallPixelCount,
+                    referencePointSource,
                     valueMin = valuesInExpectedBall.Count == 0 ? (int?)null : valuesInExpectedBall[0],
                     valueMedian = valuesInExpectedBall.Count == 0 ? (int?)null : valuesInExpectedBall[valuesInExpectedBall.Count / 2],
                     valueP90 = valuesInExpectedBall.Count == 0 ? (int?)null : valuesInExpectedBall[(int)(valuesInExpectedBall.Count * .9)],
