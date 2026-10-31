@@ -301,6 +301,37 @@ $manifest = [pscustomobject]@{
         reportAndArtifactPull = $stageTimings.reportAndArtifactPullMs
         total = [Math]::Round($totalTimer.Elapsed.TotalMilliseconds, 1)
     }
+    phaseTimings = [pscustomobject]@{
+        schemaVersion = 1
+        unit = 'milliseconds'
+        phases = @(
+            [pscustomobject]@{
+                name = 'localInputHashAndOrderPreparation'
+                elapsedMs = $stageTimings.inputHashAndOrderValidationMs
+                scope = 'Receipt parsing, source pixel SHA-256 verification, and frame ordering validation.'
+            }
+            [pscustomobject]@{
+                name = 'apkInstall'
+                elapsedMs = $stageTimings.apkInstallMs
+                scope = 'In-place install of the isolated Vision Device APK.'
+            }
+            [pscustomobject]@{
+                name = 'inputDirectoryAndPush'
+                elapsedMs = $stageTimings.inputTransferMs
+                scope = 'Remote replay directory creation and source receipt/pixel pushes.'
+            }
+            [pscustomobject]@{
+                name = 'instrumentationWaitAndRun'
+                elapsedMs = $stageTimings.instrumentationMs
+                scope = 'ADB instrumentation invocation through completion of the -w wait.'
+            }
+            [pscustomobject]@{
+                name = 'reportValidationAndArtifactPulls'
+                elapsedMs = $stageTimings.reportAndArtifactPullMs
+                scope = 'Report retrieval and validation, optional trace artifact pulls, and pulled artifact hashing.'
+            }
+        )
+    }
     localIlluminationNormalization = [bool]$EnableIlluminationNormalization
     tracePackedColourFits = [bool]$TracePackedColourFits
     auditEnabled = -not $ScreenOnly
