@@ -151,6 +151,18 @@ function Invoke-Adb([string[]]$Arguments) {
     }
     [pscustomobject]@{ ExitCode = $exitCode; Output = $output }
 }
+function Get-CameraStatusForManifest([object]$Status) {
+    $safeStatus = [ordered]@{}
+    foreach ($property in $Status.PSObject.Properties) {
+        if ($property.Name -eq 'readToken') { continue }
+        $value = $property.Value
+        if ($property.Name -in @('streamPath', 'phoneStreamPath') -and $value -is [string]) {
+            $value = ($value -split '\?', 2)[0]
+        }
+        $safeStatus[$property.Name] = $value
+    }
+    [pscustomobject]$safeStatus
+}
 
 $serial = '66181FDDV001HS'
 $package = 'uk.co.skyeye.visionchecks'
@@ -489,8 +501,8 @@ $manifest = [pscustomobject]@{
     } } else { @() }
     report = $reportName
     reportSha256 = (Get-FileHash -LiteralPath $localReport -Algorithm SHA256).Hash.ToLowerInvariant()
-    cameraBefore = $cameraBefore
-    cameraAfter = $cameraAfter
+    cameraBefore = Get-CameraStatusForManifest $cameraBefore
+    cameraAfter = Get-CameraStatusForManifest $cameraAfter
 }
 if ($PocketArcProbeOnly) {
     $manifest | Add-Member -MemberType NoteProperty -Name pocketArcProbeOnly -Value $true

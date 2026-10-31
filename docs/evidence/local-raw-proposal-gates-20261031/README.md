@@ -36,13 +36,26 @@ This is a useful lead: colour sampling alone calls the empty pocket black too, w
 
 The source frame SHA-256 values are `602e00c4eb9fc92f3b124106137d8ca7c56f932e107f995f1f2c7d824dd25de4` (positive) and `b368348c63d924f5c7834e8e849b7287225ab525b470bdc3b85f7a8278cbbe70` (empty pocket). Run `arcmodelp3-165347` report SHA-256 is `00aa76c842111d80ae2cefbf53330c937be8e46acac4f817ce7db7794207310a`; `arcmodeln3-165402` report SHA-256 is `2f8ace6026158f317f168f0dd9a308cb5ca96c9525b0fd77b69ab38f09248153`. Both reports and manifests are retained under `work/production/evidence/local-raw-proposal-gates-20261031/`.
 
+### Six-frame follow-up — 31 October
+
+The same fixed anchor `(99,897)` was replayed across all six saved daylight positives and all six dim empty-pocket controls. It is the stable black proposal emitted by the local model on the positive frames (centres were `(99,897)` in five frames and `(98,897)` in one); it is deliberately applied to the corresponding empty-pocket region, where the model itself emits no black proposal.
+
+| Set | Frames | Arc diagnostic | Candidate offset from anchor | SkyEye classifier at candidate |
+| --- | --- | --- | --- | --- |
+| Daylight black-present | 1365, 1425, 1457, 1555, 1645, 1736 | Passed 6/6; 8–13/32 supported sectors, 5–6 contiguous, 45–56.25° | 6.52–12.89px | `black` 6/6; quality 0.865–0.889, not probability |
+| Dim empty pocket | 978, 1072, 1105, 1150, 1179, 1198 | Failed 6/6; 4–5/32 supported sectors, 2–3 contiguous, 11.25–22.5° | 10.49–20.74px | `black` 6/6; quality 0.900, not probability |
+
+This repeats the single-frame separation across the retained frames and makes the point of the test clearer: SkyEye colour classification calls the pocket candidate black in both sets, while the local arc support rejects every empty-pocket candidate. The unchanged full analyzer still returns 14/16 (7 red, 7 yellow) and uncertain/layout-uncertain on every positive, and 15/16 (cue, 7 red, 7 yellow) and uncertain/layout-uncertain on every negative. The reports mark the replay configuration as mismatched to the capture, so these are not current-production detector acceptance results. These are six repeated views of each fixed layout, not independent scenes or same-light controls; the positive and negative captures have different lighting and session histories. The fit remains an evaluation-only diagnostic and never changes `VisionAnalyzer` output. Production's 24/32 global support gate is unchanged, and these results do not establish pocket-wide selectivity. In particular, the separate target-free seed sweep found arc-qualified hypotheses at other empty-pocket locations, so all-pocket and other-colour negatives remain necessary.
+
+The Pixel 11 replay ran while the mounted camera remained `Stopped` (final `/status`: revision 94, 139 clips); no live capture or Cast/TV action occurred. Replay manifests retain the camera readback with read tokens and URL query strings removed. Positive run `modelarcpos6-1710-170232` report SHA-256 is `3892059ccdc73e78ae28f02fcd3961335e07f27034d431fb6fbbea3dc97d6763` and manifest SHA-256 is `8f7a5de2aacaca1e56f78a477294b7cb7d7eee44cd83cb18fdc1515cd655a93b`. Negative run `modelarcneg6-1711-170335` report SHA-256 is `d8baf8970f00a71a70e7751f4962a4cfe0ebbe1c95ff8555c154ee5fccb57b9c` and manifest SHA-256 is `66b4552d30086aa373cf3a0bf5357f605c46e789b6a2c64df54ab7f4de766c38`.
+
 ## Performance clarification
 
 PoolTableModeller reported 4,572ms and 4,671ms end-to-end for these frames. The laptop has an RTX 3060 Laptop GPU, but the service process used Python 3.13 with CPU-only `torch 2.15.0+cpu` and `torch.cuda.is_available()` was false. Those timings therefore do not measure the 3060's inference speed, and they are not a Pixel 11 benchmark. The local service also listens on `127.0.0.1:5001`; the phone cannot call it directly.
 
 ## Next work
 
-Keep the global 24/32 gate unchanged. The first model-seeded arc probe is encouraging but inconclusive: one present-black frame passed diagnostic checks and one empty-pocket frame failed, while the classifier called both candidates black. Obtain a reviewed black centre and a same-light present/absent pair at the same pocket, then repeat across frames and other pocket positions. If the targeted branch stays selective, broaden it to cushion extremes before any production integration.
+Keep the global 24/32 gate unchanged. The model-seeded arc probe passed all six retained black-present frames and rejected all six retained empty-pocket frames, while the classifier called every candidate black. This is encouraging but still inconclusive: the two sets are repeated views under different lighting/session conditions, and target-free searches produce arc-qualified hypotheses elsewhere. Obtain a reviewed black centre and a same-light present/absent pair at the same pocket. Then test all six pockets with black-absent and other-colour controls before considering any production integration.
 
 ## Reproduction records
 
