@@ -33,13 +33,15 @@ public static class BallBoundaryRefiner
     /// fit. This is useful for explaining a rejected fit without retaining
     /// per-candidate evidence throughout the bounded search.</summary>
     public static BoundarySectorEvidence[] Inspect(byte[] bgr, int width, int height, Point proposal,
-        double expectedRadius, Point centre, double radius, string? expectedKind = null)
+        double expectedRadius, Point centre, double radius, string? expectedKind = null,
+        bool allowDarkBodyEdgeTransitions = false, int darkBodyValueCeiling = 40)
     {
         if (width <= 0 || height <= 0 || bgr.Length != checked(width * height * 3)
             || !double.IsFinite(expectedRadius) || expectedRadius < 5 || expectedRadius > 100
             || !double.IsFinite(radius) || radius < 5 || radius > 125
             || !double.IsFinite(proposal.X) || !double.IsFinite(proposal.Y)
-            || !double.IsFinite(centre.X) || !double.IsFinite(centre.Y))
+            || !double.IsFinite(centre.X) || !double.IsFinite(centre.Y)
+            || darkBodyValueCeiling is < 0 or > 255)
             throw new ArgumentException("Invalid boundary image or fit.");
         var background = new double[3];
         for (int channel = 0; channel < 3; channel++)
@@ -76,10 +78,15 @@ public static class BallBoundaryRefiner
             edge /= 3; exterior /= 3; fineEdge /= 3;
             bool exteriorRejected = RejectExterior(bgr, inside, outside, exterior, expectedKind, null);
             bool colourMaskTransitionUsed = IsColourMaskTransitionSupport(expectedKind, exteriorRejected, edge, fineEdge);
-            bool supported = !exteriorRejected && (edge >= 16 || colourMaskTransitionUsed);
+            bool darkBodyTransitionUsed = allowDarkBodyEdgeTransitions && expectedKind == "black"
+                && MaximumChannel(bgr, inside) <= darkBodyValueCeiling
+                && MaximumChannel(bgr, outside) > darkBodyValueCeiling
+                && edge >= 16;
+            bool supported = darkBodyTransitionUsed
+                || !exteriorRejected && (edge >= 16 || colourMaskTransitionUsed);
             evidence[i] = new(i, innerPoint, outerPoint, fineInnerPoint, fineOuterPoint,
                 edge, exterior, fineEdge, exteriorRejected, supported)
-            { ColourMaskTransitionUsed = colourMaskTransitionUsed };
+            { ColourMaskTransitionUsed = colourMaskTransitionUsed, DarkBodyTransitionUsed = darkBodyTransitionUsed };
         }
         return evidence;
     }

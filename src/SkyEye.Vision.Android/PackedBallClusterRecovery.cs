@@ -221,6 +221,19 @@ public sealed partial class VisionAnalyzer
         for (int i = 0; i < rankedSeeds.Length; i++)
         {
             var seed = rankedSeeds[i].Seed;
+            double nearestPocketRadius = PocketCentres().Min(pocket => (seed.Centre - pocket).Length) / expectedRadius;
+            if (candidateAudits is not null && nearestPocketRadius <= 3.5)
+            {
+                var seedCentredBody = new Circle(seed.Centre.X, seed.Centre.Y, expectedRadius);
+                var seedClassification = Classify(seedCentredBody, rawPixels, inspectRim: true);
+                bool localValueContrast = HasLocalBodyValueContrast(seedCentredBody, rawPixels);
+                candidateAudits.Add(new(pass, "sparse-black-seed-body-probe", "black", i,
+                    seed.Centre, seed.Radius, seed.Centre, expectedRadius, null,
+                    seedClassification.Kind, "seed-centred ball-size appearance probe")
+                {
+                    Evidence = $"nearestPocket={nearestPocketRadius:0.###}R;quality={seedClassification.Quality:0.###};pattern={seedClassification.Pattern};bodyDark={seedClassification.BodyDarkFraction?.ToString("0.###") ?? "n/a"};rimDark={seedClassification.RimDarkFraction?.ToString("0.###") ?? "n/a"};localValueContrast={localValueContrast}"
+                });
+            }
             if (PocketCentres().Any(p => (seed.Centre - p).Length < settings.PocketExclusionRadius * scale))
             { Audit("rejected-pocket-exclusion"); continue; }
             if (circles.Any(c => Classify(c, rawPixels, inspectRim: true).Kind == "black"))

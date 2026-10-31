@@ -188,6 +188,37 @@ internal static class PackedBlackMaskTrace
             // is never passed into VisionAnalyzer or a table-state decision.
             var manualCentreProbe = BallBoundaryRefiner.Refine(bgrBytes, width, width * 2, label,
                 ballRadius, minimumSupportedFraction: .5, collectSectorEvidence: true, expectedKind: "black");
+            var fixedCentreSectors = BallBoundaryRefiner.Inspect(bgrBytes, width, width * 2,
+                label, ballRadius, label, ballRadius, expectedKind: "black",
+                allowDarkBodyEdgeTransitions: true, darkBodyValueCeiling: DarkValueCeiling);
+            var fixedCentreEvidence = new
+            {
+                evaluationOnly = true,
+                centre = label,
+                radius = ballRadius,
+                measuredSectorCount = fixedCentreSectors.Length,
+                normalSupportedSectorIndices = fixedCentreSectors.Where(sector => sector.Supported
+                    && !sector.DarkBodyTransitionUsed).Select(sector => sector.Index).ToArray(),
+                darkTransitionSectorIndices = fixedCentreSectors.Where(sector => sector.DarkBodyTransitionUsed)
+                    .Select(sector => sector.Index).ToArray(),
+                combinedSupportedSectorIndices = fixedCentreSectors.Where(sector => sector.Supported)
+                    .Select(sector => sector.Index).ToArray(),
+                combinedSupportedSectorCount = fixedCentreSectors.Count(sector => sector.Supported)
+            };
+            var fixedCentreThresholdSweep = new[] { 30, 35, 40, 45, 50, 55 }.Select(ceiling =>
+            {
+                var sectors = BallBoundaryRefiner.Inspect(bgrBytes, width, width * 2,
+                    label, ballRadius, label, ballRadius, expectedKind: "black",
+                    allowDarkBodyEdgeTransitions: true, darkBodyValueCeiling: ceiling);
+                return new
+                {
+                    darkBodyValueCeiling = ceiling,
+                    normalSupportedSectorCount = sectors.Count(sector => sector.Supported && !sector.DarkBodyTransitionUsed),
+                    darkTransitionSectorCount = sectors.Count(sector => sector.DarkBodyTransitionUsed),
+                    combinedSupportedSectorCount = sectors.Count(sector => sector.Supported),
+                    combinedSupportedSectorIndices = sectors.Where(sector => sector.Supported).Select(sector => sector.Index).ToArray()
+                };
+            }).ToArray();
             static object? FitSummary(BallBoundary? fit, Point reference) => fit is null ? null : new
             {
                 centre = fit.Centre,
@@ -227,6 +258,8 @@ internal static class PackedBlackMaskTrace
                 evaluationOnly = true,
                 expectedRadius = ballRadius,
                 probeSupportFloor = .5,
+                fixedCentreEvidence,
+                fixedCentreThresholdSweep,
                 selectedFit = FitSummary(manualCentreProbe, label),
                 exactProposalFit = FitSummary(manualCentreProbe?.ProposalFit, label),
                 nearestDarkSeed = hasNearestMarginSeed ? new

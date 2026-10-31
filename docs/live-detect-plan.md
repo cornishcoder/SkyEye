@@ -1,5 +1,17 @@
 # Live Detect delivery plan
 
+## Code69 fixed-centre edge persistence — 31 October 2026
+
+Added an evaluation-only fixed-centre sector trace and replayed six side-daylight frames with the black present and six earlier pocket/cushion frames with it absent, at both 800px and 1000px. The present/absent sets are not a matched lighting pair; these measurements guide the next experiment and are not acceptance evidence.
+
+At the manually labelled black centre, each daylight frame has only 1–3 normally supported sectors, but 10–13 sectors when strong dark-inside/non-dark-outside transitions are included. With a dark-value ceiling of 40, the same 11 sectors persisted in at least four of six frames at both analysis widths. At the corresponding mapped point in the black-absent set, no normal sector passed and only 2–5 combined sectors appeared; 4 sectors persisted at width 800 and 3 at width 1000. Sweeping the dark-value ceiling from 30 to 55 kept the positive/negative gap: 10–11 persistent sectors with the black versus 3–5 without. This suggests the visible black contour has repeatable evidence that the single-frame exterior check rejects, while the empty pocket has fewer such sectors.
+
+The dark local maximum is also well localized in the positive frames: at width 800, the nearest qualified seed is 0.4–2.2px from the label in all six frames. In the negative frames, the nearest seed is 52.8–57.8px away. However, the automatic boundary fit can drift 0.5–0.75 ball radii from the seed, so the current proposal/refinement path still does not yield a trustworthy centre. Do not lower the 21/32 support gate or accept these evaluation-only centres as detections. The daylight positive and low-light negative are not matched, and other pocket locations still need false-positive checks.
+
+Evidence is under `work/production/evidence/code69-temporal-edge-check-20261031/device-replays/`: `code69temppos-095636` / `code69tempneg-095736` contain the fixed-centre trace; `code69sweepP-100105` / `code69sweepN-100229` contain the value-threshold sweep. A follow-up all-seed ball-sized classification probe was attempted with a 64-seed budget but failed before producing a report; Pixel 11 then disappeared from ADB. Its cause is unknown, so no result is inferred from that run.
+
+**Next:** once the isolated replay device is available again, repeat the seed-centred ball-size classification with a bounded candidate budget (start at 16), then compare its labels, local contrast and fitted centre on the positive and absent frames. If that identifies a localized rule without false candidates, collect a matched side-daylight pair changing only the black. Then measure positions and inventory on the separate pocket and cushion fixtures before changing production. The camera remained `/status` `Stopped`, revision 90, 139 clips preserved; no Cast or camera-package action occurred.
+
 ## Code68 black-edge candidate and daylight follow-up — 31 October 2026
 
 The user has put the black back over the pocket beside the cue ball and red and noted that daylight reaches this side. This exact side-daylight cluster was already recorded in Code67, so the current pass is a hash-checked offline replay of those frames; no new camera session was started. The camera remains `/status` `Stopped` (revision 90, 139 clips preserved).
