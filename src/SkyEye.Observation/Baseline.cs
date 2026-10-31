@@ -17,7 +17,8 @@ public sealed record StoredDetection(string SampleId, string PixelSha256, string
 /// <summary>Exact replay provenance for a detection produced by the O08 offline replay exporter.</summary>
 public sealed record O08ReplayProvenance(string CorpusId, string ManifestSha256, string SplitLockSha256,
     string SequenceId, string Split, long FrameId, long SourceTimeUs, FrameScope Scope, string PixelSha256, string ReceiptSha256,
-    string ReplayManifestSha256, string ReplayReportSha256, string ApkSha256,
+    string ReplayManifestSha256, string ReplayReportSha256, string ApkSha256, string Mode, string DeviceSerial,
+    int BatchSize, bool IndependentFrames, string WarmupTreatment,
     string RecordedConfiguration, string ReplayConfiguration, string RecordedConfigurationSha256,
     string ReplayConfigurationSha256, bool CaptureConfigurationExact, double AnalysisWallMs,
     bool AnalysisUncertain, bool LayoutUncertain, bool Obstructed);

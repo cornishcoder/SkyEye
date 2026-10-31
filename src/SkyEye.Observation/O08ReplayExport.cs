@@ -7,26 +7,36 @@ namespace SkyEye.Observation;
 
 public sealed record O08ExportFrame(string SampleId, long FrameId, long SourceTimeUs, FrameScope Scope, string PixelSha256,
     string ReceiptSha256, bool DetectionRequested, double? AnalysisWallMs, bool? AnalysisUncertain,
-    bool? LayoutUncertain, bool? Obstructed);
+    bool? LayoutUncertain, bool? Obstructed)
+{
+    public string SequenceId { get; init; } = "";
+}
 public sealed record O08ReplayExportResult(string CorpusId, string ManifestSha256, string SequenceId, string Split,
     string SplitLockSha256, bool LabelsReviewed, string ReplayManifestSha256, string ReplayReportSha256, string ApkSha256, string Mode,
+    string DeviceSerial, int BatchSize, bool IndependentFrames, string WarmupTreatment,
     string RecordedConfiguration, string ReplayConfiguration, bool CaptureConfigurationExact,
     ImmutableArray<O08ExportFrame> Frames, ImmutableArray<StoredDetection> Detections);
 public sealed record O08ExportArtifactManifest(int SchemaVersion, string CorpusId, string ManifestSha256,
     string SplitLockSha256, string SequenceId, string Split, bool LabelsReviewed, string ReplayManifestSha256,
-    string ReplayReportSha256, string ApkSha256, string Mode, string RecordedConfiguration,
+    string ReplayReportSha256, string ApkSha256, string Mode, string DeviceSerial, int BatchSize,
+    bool IndependentFrames, string WarmupTreatment, string RecordedConfiguration,
     string ReplayConfiguration, bool CaptureConfigurationExact, string DetectionFile, string DetectionSha256,
     ImmutableArray<O08ExportFrame> Frames, string Scope);
-public sealed record O08MergedInput(string SequenceId, string ArtifactManifestSha256, string DetectionSha256);
+public sealed record O08MergedInput(string SequenceId, string ArtifactManifestSha256, string DetectionSha256,
+    string Mode, string DeviceSerial, int BatchSize, bool IndependentFrames, string WarmupTreatment);
 public sealed record O08MergedExportManifest(int SchemaVersion, string CorpusId, string ManifestSha256,
     string SplitLockSha256, string Split, bool LabelsReviewed, string DetectionFile, string DetectionSha256,
     int SequenceCount, int FrameCount, int RequestedCount, int SkippedCount,
     ImmutableArray<O08MergedInput> Inputs, ImmutableArray<O08ExportFrame> Frames, string Scope);
 public sealed record O08ReplayMergeResult(O08MergedExportManifest Manifest, ImmutableArray<StoredDetection> Detections);
+public sealed record O09CandidateBinding(int SchemaVersion, string ArtifactManifestSha256, string CorpusId,
+    string ManifestSha256, string SplitLockSha256, string Split, bool LabelsReviewed, string DetectionFile,
+    string DetectionSha256);
 
 /// <summary>Offline conversion only: never creates labels, readiness, events or a live timing claim.</summary>
 public static class O08ReplayExport
 {
+    public const string WarmupTreatment = "No explicit warm-up call is excluded; the first measured analyzer call is retained.";
     static JsonElement Required(JsonElement element, string property)
         => element.ValueKind == JsonValueKind.Object && element.TryGetProperty(property, out var value)
             ? value : throw new InvalidDataException("Missing replay field: " + property);
@@ -67,6 +77,10 @@ public static class O08ReplayExport
         var mode = Text(r, "mode");
         if (mode is not ("screening" or "probe-only") || mode != Text(m, "mode"))
             throw new InvalidDataException("Only matching width-800 screening or probe-only reports are supported.");
+        var deviceSerial = Text(m, "deviceSerial");
+        var independentFrames = Required(r, "independentFrames").GetBoolean();
+        if (Required(m, "independentFrames").GetBoolean() != independentFrames)
+            throw new InvalidDataException("Replay manifest and report disagree about independent-frame mode.");
         var recordedConfig = Text(r, "recordedAnalyzerConfigurationIdentity");
         var replayConfig = Text(r, "replayAnalyzerConfigurationIdentity");
         using var config = JsonDocument.Parse(replayConfig);
@@ -131,7 +145,8 @@ public static class O08ReplayExport
                 throw new InvalidDataException("Detection request differs from receipt: " + sampleId);
             if (!requested)
             {
-                frames.Add(new(sampleId, frameId, pts, scope, frame.PixelSha256, receiptSha, false, null, null, null, null));
+                frames.Add(new O08ExportFrame(sampleId, frameId, pts, scope, frame.PixelSha256, receiptSha,
+                    false, null, null, null, null) { SequenceId = sequenceId });
                 continue;
             }
             var analysis = observations[observationIndex++];
@@ -152,17 +167,19 @@ public static class O08ReplayExport
             var obstructed = Required(analysis, "obstructed").GetBoolean();
             var replayProvenance = new O08ReplayProvenance(manifest.Id, frozen.ManifestSha256, splitLockSha256,
                 sequenceId, sequence.Split.ToString(), frameId, pts, scope, frame.PixelSha256, receiptSha,
-                CorpusFiles.Hash(manifestBytes), reportSha, apkSha, recordedConfig, replayConfig,
+                CorpusFiles.Hash(manifestBytes), reportSha, apkSha, mode, deviceSerial, samples.Length, independentFrames,
+                WarmupTreatment, recordedConfig, replayConfig,
                 recordedConfigSha, configSha, recordedConfig == replayConfig, wall,
                 analysisUncertain, layoutUncertain, obstructed);
             detections.Add(new StoredDetection(sampleId, frame.PixelSha256, "table-2x1", "o08-" + apkSha[..12],
                 $"offline report={reportSha}; receipt={receiptSha}; config={configSha}; width=800",
                 analysisUncertain || layoutUncertain || obstructed, balls) { O08Replay = replayProvenance });
-            frames.Add(new(sampleId, frameId, pts, scope, frame.PixelSha256, receiptSha, true, wall,
-                analysisUncertain, layoutUncertain, obstructed));
+            frames.Add(new O08ExportFrame(sampleId, frameId, pts, scope, frame.PixelSha256, receiptSha,
+                true, wall, analysisUncertain, layoutUncertain, obstructed) { SequenceId = sequenceId });
         }
         return new(manifest.Id, frozen.ManifestSha256, sequenceId, sequence.Split.ToString(), splitLockSha256, labels.Reviewed,
-            CorpusFiles.Hash(manifestBytes), reportSha, apkSha, mode, recordedConfig, replayConfig,
+            CorpusFiles.Hash(manifestBytes), reportSha, apkSha, mode, deviceSerial, samples.Length, independentFrames,
+            WarmupTreatment, recordedConfig, replayConfig,
             recordedConfig == replayConfig, frames.ToImmutable(), detections.ToImmutable());
     }
 
@@ -201,7 +218,7 @@ public static class O08ReplayExport
             if (artifactBytes.Length > 16 * 1024 * 1024) throw new InvalidDataException("O08 export manifest exceeds bounds.");
             var artifact = JsonSerializer.Deserialize<O08ExportArtifactManifest>(artifactBytes, CorpusJson.Options)
                 ?? throw new InvalidDataException("O08 export manifest is empty.");
-            if (artifact.SchemaVersion != 1 || artifact.CorpusId != manifest.Id
+            if (artifact.SchemaVersion != 2 || artifact.CorpusId != manifest.Id
                 || !SameHash(artifact.ManifestSha256, frozen.ManifestSha256)
                 || !SameHash(artifact.SplitLockSha256, splitLockSha256)
                 || artifact.Split is not ("Development" or "Holdout")
@@ -209,6 +226,8 @@ public static class O08ReplayExport
                 || !CorpusFiles.IsHash(artifact.ReplayManifestSha256)
                 || !CorpusFiles.IsHash(artifact.ReplayReportSha256) || !CorpusFiles.IsHash(artifact.ApkSha256)
                 || string.IsNullOrWhiteSpace(artifact.SequenceId) || artifact.SequenceId.Length > 500
+                || string.IsNullOrWhiteSpace(artifact.DeviceSerial) || artifact.DeviceSerial.Length > 500
+                || artifact.BatchSize != artifact.Frames.Length || artifact.WarmupTreatment != WarmupTreatment
                 || artifact.RecordedConfiguration is not { Length: > 0 and <= 65536 }
                 || artifact.ReplayConfiguration is not { Length: > 0 and <= 65536 }
                 || artifact.Frames.IsDefaultOrEmpty || artifact.Frames.Length > 24)
@@ -218,7 +237,7 @@ public static class O08ReplayExport
             if (labelsReviewed is not null && labelsReviewed != artifact.LabelsReviewed)
                 throw new InvalidDataException("O08 exports mix reviewed and unreviewed sequence labels.");
             labelsReviewed = artifact.LabelsReviewed;
-            if (!seenSequences.Add(artifact.SequenceId)) throw new InvalidDataException("O08 sequence is supplied more than once: " + artifact.SequenceId);
+            seenSequences.Add(artifact.SequenceId);
             var sequence = manifest.Sequences.SingleOrDefault(s => s.Id == artifact.SequenceId)
                 ?? throw new InvalidDataException("O08 sequence is outside the current corpus.");
             if (sequence.Split.ToString() != artifact.Split) throw new InvalidDataException("O08 sequence split changed.");
@@ -246,7 +265,7 @@ public static class O08ReplayExport
             foreach (var exportedFrame in artifact.Frames)
             {
                 if (exportedFrame is null) throw new InvalidDataException("O08 export contains an empty frame row.");
-                if (!CorpusFiles.Text(exportedFrame.SampleId) || !seenSamples.Add(exportedFrame.SampleId)
+                if (exportedFrame.SequenceId != artifact.SequenceId || !CorpusFiles.Text(exportedFrame.SampleId) || !seenSamples.Add(exportedFrame.SampleId)
                     || !indexed.TryGetValue(exportedFrame.SampleId, out var frame)
                     || frame.FrameId != exportedFrame.FrameId || frame.SourceTimeUs != exportedFrame.SourceTimeUs
                     || frame.Scope != exportedFrame.Scope || !SameHash(frame.PixelSha256, exportedFrame.PixelSha256)
@@ -272,6 +291,8 @@ public static class O08ReplayExport
                     || !SameHash(replay.SplitLockSha256, artifact.SplitLockSha256) || replay.SequenceId != artifact.SequenceId
                     || replay.Split != artifact.Split || replay.FrameId != exportedFrame.FrameId
                     || replay.SourceTimeUs != exportedFrame.SourceTimeUs || replay.Scope != exportedFrame.Scope
+                    || replay.Mode != artifact.Mode || replay.DeviceSerial != artifact.DeviceSerial || replay.BatchSize != artifact.BatchSize
+                    || replay.IndependentFrames != artifact.IndependentFrames || replay.WarmupTreatment != artifact.WarmupTreatment
                     || !SameHash(replay.PixelSha256, exportedFrame.PixelSha256) || !SameHash(replay.ReceiptSha256, exportedFrame.ReceiptSha256)
                     || !SameHash(replay.ReplayManifestSha256, artifact.ReplayManifestSha256)
                     || !SameHash(replay.ReplayReportSha256, artifact.ReplayReportSha256) || !SameHash(replay.ApkSha256, artifact.ApkSha256)
@@ -286,7 +307,8 @@ public static class O08ReplayExport
                 allDetections.Add(detection);
             }
             if (requested != detections.Length) throw new InvalidDataException("O08 requested frames and detections differ.");
-            inputRows.Add(new(artifact.SequenceId, CorpusFiles.Hash(artifactBytes), artifact.DetectionSha256));
+            inputRows.Add(new(artifact.SequenceId, CorpusFiles.Hash(artifactBytes), artifact.DetectionSha256,
+                artifact.Mode, artifact.DeviceSerial, artifact.BatchSize, artifact.IndependentFrames, artifact.WarmupTreatment));
         }
         if (allDetections.Count > 100_000 || allFrames.Count > 100_000)
             throw new InvalidDataException("Merged O08 export exceeds the 100,000-frame limit.");
@@ -296,7 +318,7 @@ public static class O08ReplayExport
             .ThenBy(f => f.Scope.Generation).ThenBy(f => f.SourceTimeUs).ToImmutableArray();
         if (detectionOutput.IsDefaultOrEmpty) throw new InvalidDataException("Merged O08 exports contain no requested detections.");
         var mergedDetectionBytes = Encoding.UTF8.GetBytes(CorpusJson.Write(detectionOutput) + "\n");
-        var mergedManifest = new O08MergedExportManifest(1, manifest.Id, frozen.ManifestSha256, splitLockSha256,
+        var mergedManifest = new O08MergedExportManifest(2, manifest.Id, frozen.ManifestSha256, splitLockSha256,
             split ?? throw new InvalidDataException("No O08 exports supplied."), labelsReviewed!.Value,
             "detections.json", CorpusFiles.Hash(mergedDetectionBytes), seenSequences.Count, frameOutput.Length,
             frameOutput.Count(f => f.DetectionRequested), frameOutput.Count(f => !f.DetectionRequested),

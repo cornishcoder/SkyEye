@@ -102,7 +102,8 @@ try
     O08ReplayProvenance ReplayMetadata(IndexedFrame f, bool layoutUncertain = false) => new(
         comparisonManifest.Id, comparisonLock.ManifestSha256, comparisonLockSha, positiveSequence.Id, "Holdout",
         f.FrameId, f.SourceTimeUs!.Value, f.Scope, f.PixelSha256, new string('d', 64), new string('e', 64),
-        new string('f', 64), new string('c', 64), recordedAnalyzer, recordedAnalyzer,
+        new string('f', 64), new string('c', 64), "screening", "contract-device", 5, false,
+        O08ReplayExport.WarmupTreatment, recordedAnalyzer, recordedAnalyzer,
         CorpusFiles.Hash(System.Text.Encoding.UTF8.GetBytes(recordedAnalyzer)),
         CorpusFiles.Hash(System.Text.Encoding.UTF8.GetBytes(recordedAnalyzer)), true, 10 + f.FrameId,
         false, layoutUncertain, false);
@@ -111,13 +112,15 @@ try
         i == 2 ? [new("cue", "cue", 1, .5, null), new("duplicate", "red", 1.01, .5, null),
             new("other-extra", "red", 1.8, .9, null)] : [new("cue", "cue", 1, .5, null)])
         { O08Replay = ReplayMetadata(positiveFrames[i], i == 2) }).ToImmutableArray();
+    O09CandidateBinding Binding(string detectionSha, string exportSha) => new(2, exportSha, comparisonManifest.Id,
+        comparisonLock.ManifestSha256, comparisonLockSha, "Holdout", true, "detections.json", detectionSha);
     var comparisonCandidates = new[] {
-        new O09CandidateInput("current", new string('a', 64), comparisonDetections),
-        new O09CandidateInput("candidate", new string('b', 64), comparisonDetections),
-        new O09CandidateInput("control", new string('c', 64), comparisonDetections) };
+        new O09CandidateInput("current", new string('a', 64), comparisonDetections, Binding(new string('a', 64), new string('1', 64))),
+        new O09CandidateInput("candidate", new string('b', 64), comparisonDetections, Binding(new string('b', 64), new string('2', 64))),
+        new O09CandidateInput("control", new string('c', 64), comparisonDetections, Binding(new string('c', 64), new string('3', 64))) };
     var comparison = O09Comparison.Compare(comparisonManifest, comparisonLock, files, CorpusSplit.Holdout, comparisonCandidates, .027, comparisonLockSha);
     var comparisonFrames = comparison.Candidates[0].Frames;
-    Check(comparison.SchemaVersion == 3 && comparisonFrames.Length == positiveFrames.Length
+    Check(comparison.SchemaVersion == 4 && comparisonFrames.Length == positiveFrames.Length
         && comparisonFrames[0].FrameId == positiveFrames[0].FrameId && comparisonFrames[0].SourceTimeUs == positiveFrames[0].SourceTimeUs
         && comparisonFrames[0].Scope == positiveFrames[0].Scope && comparisonFrames[0].PixelSha256 == positiveFrames[0].PixelSha256,
         "Comparison retains every reviewed frame's exact source receipt");
@@ -129,6 +132,7 @@ try
         "Comparison reports duplicate and other extras separately alongside per-frame scores");
     Check(comparison.SplitLockSha256 == comparisonLockSha
         && comparison.Candidates[0].ReplayConfiguration is { CaptureConfigurationExactFrames: 5, CaptureConfigurationMismatchFrames: 0 }
+        && comparison.Candidates[0].ReplayConfiguration is { Modes.Length: 1, DeviceSerials.Length: 1, BatchSizes.Length: 1, WarmupTreatments.Length: 1 }
         && comparison.Candidates[0].Overall is { TimedFrames: 5, AnalysisWallP50Ms: 13.0, AnalysisWallP95Ms: 15.0, DuplicateFalsePositives: 1, OtherFalsePositives: 1 }
         && comparisonFrames[2].O08Replay is { LayoutUncertain: true, Obstructed: false },
         "O09 binds replay rows to the exact split lock and reports uncertainty plus offline timing separately");
@@ -139,6 +143,12 @@ try
     Check(comparedSettings.Candidates.Single(c => c.Name == "candidate").ReplayConfiguration is
         { CaptureConfigurationExactFrames: 0, CaptureConfigurationMismatchFrames: 5, ReplayConfigurations.Length: 1 },
         "Candidate setting differences remain visible in the O09 report instead of being silently called matched");
+    Throws<InvalidDataException>(() => O09Comparison.Compare(comparisonManifest, comparisonLock, files, CorpusSplit.Holdout,
+        [comparisonCandidates[0] with { Binding = comparisonCandidates[0].Binding! with { DetectionSha256 = new string('0', 64) } },
+            comparisonCandidates[1], comparisonCandidates[2]], .027, comparisonLockSha));
+    Throws<InvalidDataException>(() => O09Comparison.Compare(comparisonManifest, comparisonLock, files, CorpusSplit.Holdout,
+        [comparisonCandidates[0] with { Binding = comparisonCandidates[0].Binding! with { SchemaVersion = 1 } },
+            comparisonCandidates[1], comparisonCandidates[2]], .027, comparisonLockSha));
     var reorderedCandidates = comparisonCandidates.Select(c => c with { Detections = c.Detections.Reverse().ToImmutableArray() }).ToArray();
     Check(CorpusJson.Write(comparison) == CorpusJson.Write(O09Comparison.Compare(comparisonManifest, comparisonLock, files,
         CorpusSplit.Holdout, reorderedCandidates, .027, comparisonLockSha)), "Per-frame comparison is deterministic across detection ordering");
@@ -229,7 +239,7 @@ try
     var replaySamples = replayFrames.Select((f, i) => new { frameId = f.FrameId, sourceTimeUs = f.SourceTimeUs,
         pixelSha256 = f.PixelSha256, receiptSha256 = ReceiptHash(f), detectionRequested = i != 1,
         analysis800Metrics = i == 1 ? null : new { wallMs = i == 0 ? 42.0 : 36.0 } }).ToArray();
-    var replayReport = new { completed = true, mode = "probe-only", recordedAnalyzerConfigurationIdentity = replayConfiguration,
+    var replayReport = new { completed = true, mode = "probe-only", independentFrames = false, recordedAnalyzerConfigurationIdentity = replayConfiguration,
         replayAnalyzerConfigurationIdentity = replayConfiguration, samples = replaySamples,
         fullAnalysis800 = new { observations = new object[] {
             new { configuredWidth = 800, circleCount = 1, uncertain = false,
@@ -239,7 +249,8 @@ try
         } } };
     var replayReportPath = Path.Combine(runRoot, "report.json"); File.WriteAllText(replayReportPath, CorpusJson.Write(replayReport));
     var replayManifestPath = Path.Combine(runRoot, "manifest.json");
-    var replayManifest = new { mode = "probe-only", apkSha256 = new string('a', 64), report = "report.json",
+    var replayManifest = new { mode = "probe-only", deviceSerial = "synthetic-device", independentFrames = false,
+        apkSha256 = new string('a', 64), report = "report.json",
         reportSha256 = CorpusFiles.Hash(File.ReadAllBytes(replayReportPath)), sourceFrames = replayFrames.Select(f => new {
             frameId = f.FrameId, pixelFile = f.PixelFile, sha256 = f.PixelSha256, receiptSha256 = ReceiptHash(f),
             receiptArtifact = "source-receipts/" + f.SampleId + ".json" }).ToArray() };
@@ -260,39 +271,63 @@ try
         && converted.Detections[1].O08Replay is { AnalysisUncertain: false, LayoutUncertain: true, Obstructed: false },
         "Bound O08 export preserves unreviewed status, binds split/config/timing provenance, maps requested observations around skips, and treats layout/obstruction uncertainty conservatively");
     var exportDirectory = Path.Combine(root, "exported-window"); Directory.CreateDirectory(exportDirectory);
-    var exportedDetectionBytes = System.Text.Encoding.UTF8.GetBytes(CorpusJson.Write(converted.Detections) + "\n");
-    File.WriteAllBytes(Path.Combine(exportDirectory, "detections.json"), exportedDetectionBytes);
-    var exportArtifact = new O08ExportArtifactManifest(1, converted.CorpusId, converted.ManifestSha256,
+    var primaryFrames = converted.Frames.Take(2).ToImmutableArray();
+    var primaryDetections = converted.Detections.Take(1).Select(d => d with
+        { O08Replay = d.O08Replay! with { BatchSize = 2 } }).ToImmutableArray();
+    var primaryDetectionBytes = System.Text.Encoding.UTF8.GetBytes(CorpusJson.Write(primaryDetections) + "\n");
+    File.WriteAllBytes(Path.Combine(exportDirectory, "detections.json"), primaryDetectionBytes);
+    var primaryArtifact = new O08ExportArtifactManifest(2, converted.CorpusId, converted.ManifestSha256,
         converted.SplitLockSha256, converted.SequenceId, converted.Split, converted.LabelsReviewed,
         converted.ReplayManifestSha256, converted.ReplayReportSha256, converted.ApkSha256, converted.Mode,
+        converted.DeviceSerial, 2, converted.IndependentFrames, converted.WarmupTreatment,
         converted.RecordedConfiguration, converted.ReplayConfiguration, converted.CaptureConfigurationExact,
-        "detections.json", CorpusFiles.Hash(exportedDetectionBytes), converted.Frames,
-        "Offline width-800 synthetic test export.");
-    File.WriteAllText(Path.Combine(exportDirectory, "manifest.json"), CorpusJson.Write(exportArtifact) + "\n");
+        "detections.json", CorpusFiles.Hash(primaryDetectionBytes), primaryFrames,
+        "Offline width-800 synthetic first batch.");
+    File.WriteAllText(Path.Combine(exportDirectory, "manifest.json"), CorpusJson.Write(primaryArtifact) + "\n");
+    var chunkDirectory = Path.Combine(root, "exported-window-chunk"); Directory.CreateDirectory(chunkDirectory);
+    var chunkReplayManifestSha = new string('6', 64); var chunkReplayReportSha = new string('5', 64);
+    var chunkDetection = converted.Detections[1] with { O08Replay = converted.Detections[1].O08Replay! with
+        { ReplayManifestSha256 = chunkReplayManifestSha, ReplayReportSha256 = chunkReplayReportSha,
+            DeviceSerial = "synthetic-device-chunk", BatchSize = 1 } };
+    var chunkDetectionBytes = System.Text.Encoding.UTF8.GetBytes(CorpusJson.Write(new[] { chunkDetection }) + "\n");
+    File.WriteAllBytes(Path.Combine(chunkDirectory, "detections.json"), chunkDetectionBytes);
+    var chunkArtifact = new O08ExportArtifactManifest(2, converted.CorpusId, converted.ManifestSha256,
+        converted.SplitLockSha256, converted.SequenceId, converted.Split, converted.LabelsReviewed,
+        chunkReplayManifestSha, chunkReplayReportSha, converted.ApkSha256, converted.Mode,
+        "synthetic-device-chunk", 1, converted.IndependentFrames, converted.WarmupTreatment,
+        converted.RecordedConfiguration, converted.ReplayConfiguration, converted.CaptureConfigurationExact,
+        "detections.json", CorpusFiles.Hash(chunkDetectionBytes), [converted.Frames[2]],
+        "Offline width-800 synthetic second batch from the same sequence.");
+    File.WriteAllText(Path.Combine(chunkDirectory, "manifest.json"), CorpusJson.Write(chunkArtifact) + "\n");
     string ImportedReceiptHash(IndexedFrame f) => CorpusFiles.Hash(File.ReadAllBytes(Path.Combine(root, "imported", "window2", f.SampleId + ".receipt.json")));
     var secondReplayManifestSha = new string('8', 64); var secondReplayReportSha = new string('9', 64); var secondApkSha = new string('7', 64);
     var secondExportFrames = secondCaptureFrames.Select((f, i) => new O08ExportFrame(f.SampleId, f.FrameId, f.SourceTimeUs!.Value,
         f.Scope, f.PixelSha256, ImportedReceiptHash(f), i != 1, i == 1 ? null : 30 + i,
-        i == 1 ? null : false, i == 1 ? null : false, i == 1 ? null : false)).ToImmutableArray();
+        i == 1 ? null : false, i == 1 ? null : false, i == 1 ? null : false) { SequenceId = "window2" }).ToImmutableArray();
     var secondDetections = secondExportFrames.Where(f => f.DetectionRequested).Select(f => new StoredDetection(f.SampleId,
         f.PixelSha256, "table-2x1", "o08-777777777777", "synthetic merge test", false,
         [new("cue-" + f.FrameId, "cue", 1, .5, null)])
         { O08Replay = new O08ReplayProvenance(imported.Id, importedLock.ManifestSha256, splitLockSha, "window2", "Development",
             f.FrameId, f.SourceTimeUs, f.Scope, f.PixelSha256, f.ReceiptSha256, secondReplayManifestSha, secondReplayReportSha,
-            secondApkSha, replayConfiguration, replayConfiguration,
+            secondApkSha, "screening", "test-device", 3, false, O08ReplayExport.WarmupTreatment,
+            replayConfiguration, replayConfiguration,
             CorpusFiles.Hash(System.Text.Encoding.UTF8.GetBytes(replayConfiguration)),
             CorpusFiles.Hash(System.Text.Encoding.UTF8.GetBytes(replayConfiguration)), true, f.AnalysisWallMs!.Value,
             false, false, false) }).ToImmutableArray();
     var secondExportDirectory = Path.Combine(root, "exported-window2"); Directory.CreateDirectory(secondExportDirectory);
     var secondDetectionBytes = System.Text.Encoding.UTF8.GetBytes(CorpusJson.Write(secondDetections) + "\n");
     File.WriteAllBytes(Path.Combine(secondExportDirectory, "detections.json"), secondDetectionBytes);
-    var secondArtifact = new O08ExportArtifactManifest(1, imported.Id, importedLock.ManifestSha256, splitLockSha,
+    var secondArtifact = new O08ExportArtifactManifest(2, imported.Id, importedLock.ManifestSha256, splitLockSha,
         "window2", "Development", false, secondReplayManifestSha, secondReplayReportSha, secondApkSha, "screening",
-        replayConfiguration, replayConfiguration, true, "detections.json", CorpusFiles.Hash(secondDetectionBytes),
-        secondExportFrames, "Offline width-800 synthetic second-sequence export.");
+        "test-device", 3, false, O08ReplayExport.WarmupTreatment, replayConfiguration, replayConfiguration, true,
+        "detections.json", CorpusFiles.Hash(secondDetectionBytes), secondExportFrames, "Offline width-800 synthetic second-sequence export.");
     File.WriteAllText(Path.Combine(secondExportDirectory, "manifest.json"), CorpusJson.Write(secondArtifact) + "\n");
+    File.WriteAllText(Path.Combine(exportDirectory, "manifest.json"), CorpusJson.Write(primaryArtifact with { SchemaVersion = 1 }) + "\n");
+    Throws<InvalidDataException>(() => O08ReplayExport.Merge(imported, importedPath, importedLock, importedFiles,
+        [exportDirectory], splitLockBytes));
+    File.WriteAllText(Path.Combine(exportDirectory, "manifest.json"), CorpusJson.Write(primaryArtifact) + "\n");
     var merged = O08ReplayExport.Merge(imported, importedPath, importedLock, importedFiles,
-        [exportDirectory, secondExportDirectory], splitLockBytes);
+        [exportDirectory, chunkDirectory, secondExportDirectory], splitLockBytes);
     var mergedDetectionBytes = System.Text.Encoding.UTF8.GetBytes(CorpusJson.Write(merged.Detections) + "\n");
     Check(merged.Manifest is { SequenceCount: 2, FrameCount: 6, RequestedCount: 4, SkippedCount: 2 }
         && merged.Detections.Length == 4 && merged.Manifest.DetectionSha256 == CorpusFiles.Hash(mergedDetectionBytes)

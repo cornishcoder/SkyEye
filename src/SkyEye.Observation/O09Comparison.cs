@@ -5,7 +5,8 @@ using System.Text;
 
 namespace SkyEye.Observation;
 
-public sealed record O09CandidateInput(string Name, string DetectionSha256, ImmutableArray<StoredDetection> Detections);
+public sealed record O09CandidateInput(string Name, string DetectionSha256, ImmutableArray<StoredDetection> Detections,
+    O09CandidateBinding? Binding = null);
 public sealed record O09RateEstimate(double? Value, double? Lower95, double? Upper95);
 public sealed record O09SessionMetrics(string Session, int Sequences, int Frames, int VisibleLabels, int Detections,
     int SpatialMatches, int FalsePositives, int MissedVisible, int ColourCorrect, int UnknownColourMatches,
@@ -47,12 +48,15 @@ public sealed record O09FrameScore(string SequenceId, string Session, ImmutableA
 }
 public sealed record O09ReplayConfigurationSummary(ImmutableArray<string> RecordedConfigurations,
     ImmutableArray<string> ReplayConfigurations, ImmutableArray<string> ReplayReportSha256s,
-    ImmutableArray<string> ApkSha256s, int CaptureConfigurationExactFrames, int CaptureConfigurationMismatchFrames);
+    ImmutableArray<string> ApkSha256s, ImmutableArray<string> Modes, ImmutableArray<string> DeviceSerials,
+    ImmutableArray<int> BatchSizes, ImmutableArray<bool> IndependentFrames, ImmutableArray<string> WarmupTreatments,
+    int CaptureConfigurationExactFrames, int CaptureConfigurationMismatchFrames);
 public sealed record O09CandidateResult(string Name, string DetectionSha256, ImmutableArray<string> Models,
     ImmutableArray<string> Provenances, O09MetricSummary Overall, ImmutableArray<O09SliceResult> ByLightingOrSceneTag,
     ImmutableArray<O09FailureSample> FailureSamples, ImmutableArray<O09FrameScore> Frames)
 {
     public O09ReplayConfigurationSummary? ReplayConfiguration { get; init; }
+    public string? ExportManifestSha256 { get; init; }
 }
 public sealed record O09ComparisonReport(int SchemaVersion, string CorpusId, string Split, string ManifestSha256,
     double Tolerance, int BootstrapReplicates, string UncertaintyMethod, string PublicationLimit,
@@ -60,7 +64,7 @@ public sealed record O09ComparisonReport(int SchemaVersion, string CorpusId, str
 {
     public string? SplitLockSha256 { get; init; }
     public string DuplicateClassification { get; init; } = "An unmatched detection is a duplicate only when it lies within the centre tolerance of a reviewed visible ball that already has a spatial match; every other unmatched detection is a non-duplicate extra.";
-    public string TimingScope { get; init; } = "O08 runtime fields are offline width-800 analyzer-call wall time. Source age and live end-to-end latency are not measured by this replay comparison.";
+    public string TimingScope { get; init; } = "O08 p50/p95 summarize offline width-800 analyzer-call wall time. Candidate summaries retain replay mode, device serial, batch size, independent-frame mode and warm-up treatment; no explicit warm-up call is excluded and the first measured analyzer call is retained. Source age and live end-to-end latency are not measured by this replay comparison.";
 }
 
 /// <summary>Scores frozen O09 candidate outputs on exactly the same reviewed real samples.</summary>
@@ -123,10 +127,21 @@ public static class O09Comparison
                     throw new InvalidDataException("Candidate output contains a sample outside the selected frozen split: " + detection.SampleId);
             }
             bool hasO08Metadata = candidate.Detections.Any(d => d.O08Replay is not null);
-            if (hasO08Metadata && (candidate.Detections.Any(d => d.O08Replay is null) || splitLockSha256 is null))
-                throw new InvalidDataException("O08 candidate outputs require complete per-frame provenance and the exact frozen split-lock hash.");
+            if (hasO08Metadata && (candidate.Detections.Any(d => d.O08Replay is null) || splitLockSha256 is null || candidate.Binding is null))
+                throw new InvalidDataException("O08 candidate outputs require complete per-frame provenance, a bound export manifest and the exact frozen split-lock hash.");
+            if (!hasO08Metadata && candidate.Binding is not null)
+                throw new InvalidDataException("An O08 export manifest cannot be attached to a candidate without O08 per-frame provenance.");
             if (hasO08Metadata)
             {
+                var binding = candidate.Binding!;
+                if (binding.SchemaVersion != 2 || !CorpusFiles.IsHash(binding.ArtifactManifestSha256)
+                    || binding.CorpusId != manifest.Id || !CorpusFiles.IsHash(binding.ManifestSha256)
+                    || !binding.ManifestSha256.Equals(frozen.ManifestSha256, StringComparison.OrdinalIgnoreCase)
+                    || !CorpusFiles.IsHash(binding.SplitLockSha256) || !binding.SplitLockSha256.Equals(splitLockSha256, StringComparison.OrdinalIgnoreCase)
+                    || binding.Split != split.ToString() || !binding.LabelsReviewed || binding.DetectionFile != "detections.json"
+                    || !CorpusFiles.IsHash(binding.DetectionSha256)
+                    || !binding.DetectionSha256.Equals(candidate.DetectionSha256, StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidDataException("O08 candidate export manifest/hash does not match the selected corpus, split, labels or detection bytes.");
                 foreach (var detection in candidate.Detections)
                 {
                     var replay = detection.O08Replay!;
@@ -143,6 +158,9 @@ public static class O09Comparison
                         || replay.Scope != context.Frame.Scope
                         || !CorpusFiles.IsHash(replay.ReceiptSha256) || !CorpusFiles.IsHash(replay.ReplayManifestSha256)
                         || !CorpusFiles.IsHash(replay.ReplayReportSha256) || !CorpusFiles.IsHash(replay.ApkSha256)
+                        || replay.Mode is not ("screening" or "probe-only") || !CorpusFiles.Text(replay.DeviceSerial)
+                        || replay.BatchSize is < 1 or > 24
+                        || replay.WarmupTreatment != O08ReplayExport.WarmupTreatment
                         || !ValidIdentity(replay.RecordedConfiguration) || !ValidIdentity(replay.ReplayConfiguration)
                         || !ExactHash(replay.RecordedConfigurationSha256, replay.RecordedConfiguration)
                         || !ExactHash(replay.ReplayConfigurationSha256, replay.ReplayConfiguration)
@@ -185,14 +203,20 @@ public static class O09Comparison
                 replayRows.Select(p => p.ReplayConfiguration).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToImmutableArray(),
                 replayRows.Select(p => p.ReplayReportSha256).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToImmutableArray(),
                 replayRows.Select(p => p.ApkSha256).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToImmutableArray(),
+                replayRows.Select(p => p.Mode).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToImmutableArray(),
+                replayRows.Select(p => p.DeviceSerial).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToImmutableArray(),
+                replayRows.Select(p => p.BatchSize).Distinct().Order().ToImmutableArray(),
+                replayRows.Select(p => p.IndependentFrames).Distinct().Order().ToImmutableArray(),
+                replayRows.Select(p => p.WarmupTreatment).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToImmutableArray(),
                 replayRows.Count(p => p.CaptureConfigurationExact), replayRows.Count(p => !p.CaptureConfigurationExact));
             results.Add(new O09CandidateResult(candidate.Name, candidate.DetectionSha256,
                 candidate.Detections.Select(d => d.Model).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToImmutableArray(),
                 candidate.Detections.Select(d => d.Provenance).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToImmutableArray(),
-                allMetrics, allSlices, failures, frames) { ReplayConfiguration = replayConfiguration });
+                allMetrics, allSlices, failures, frames)
+                { ReplayConfiguration = replayConfiguration, ExportManifestSha256 = candidate.Binding?.ArtifactManifestSha256 });
         }
 
-        return new O09ComparisonReport(3, manifest.Id, split.ToString(), frozen.ManifestSha256, tolerance, BootstrapCount,
+        return new O09ComparisonReport(4, manifest.Id, split.ToString(), frozen.ManifestSha256, tolerance, BootstrapCount,
             "Deterministic cluster bootstrap resampling recording sessions; per-session counts are retained. Intervals are null when fewer than two sessions contribute or the rate denominator is empty.",
             "Per-frame ball metrics do not establish safe table readiness. Use the O08 verification scorer for false-ready and current-layout gates. Offline replay runtime is not live source age or end-to-end latency.",
             results.ToImmutable()) { SplitLockSha256 = splitLockSha256 };

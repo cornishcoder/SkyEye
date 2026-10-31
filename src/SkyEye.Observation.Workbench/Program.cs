@@ -11,13 +11,14 @@ try
     if (args.Length == 4 && args[0] == "import-diagnostic-shots")
     { Console.WriteLine(DiagnosticLabelCaptureImport.ImportAssociationSequences(args[1], args[2], args[3])); return; }
     if (args.Length == 0 || args[0] is not ("validate" or "replay" or "freeze" or "baseline" or "verification" or "compare" or "export-yolo" or "export-o08" or "merge-o08" or "association"))
-        throw new ArgumentException("Usage: validate|replay|freeze|baseline|verification|compare|export-yolo|export-o08|merge-o08|association --root DIR --manifest FILE [--output FILE] [--output-dir DIR] [--lock FILE] [--detections FILE] [--requests FILE] [--current FILE --learned FILE --hybrid FILE --split Development|Holdout] [--tolerance NUMBER] [export-o08: --sequence ID --run-dir DIR --output-dir NEW-DIR --lock FILE] [merge-o08: --exports DIR-LIST.json --output-dir NEW-DIR --lock FILE] [association: --candidate-name NAME --max-balls INTEGER --max-speed NUMBER --association-slack NUMBER --move-start NUMBER --move-stop NUMBER --truth-move-start NUMBER --truth-move-stop NUMBER --max-gap-ms INTEGER --ambiguity-margin NUMBER --colour-penalty NUMBER [--viewer-sequence ID --html-output FILE]] | import-diagnostic-labels CAPTURE_ROOT OUTPUT_ROOT ASSIGNMENTS.json | import-diagnostic-shots CAPTURE_ROOT OUTPUT_ROOT ASSIGNMENTS.json");
+        throw new ArgumentException("Usage: validate|replay|freeze|baseline|verification|compare|export-yolo|export-o08|merge-o08|association --root DIR --manifest FILE [--output FILE] [--output-dir DIR] [--lock FILE] [--detections FILE] [--requests FILE] [--current FILE --learned FILE --hybrid FILE --split Development|Holdout] [--current-export FILE --learned-export FILE --hybrid-export FILE] [--tolerance NUMBER] [export-o08: --sequence ID --run-dir DIR --output-dir NEW-DIR --lock FILE] [merge-o08: --exports DIR-LIST.json --output-dir NEW-DIR --lock FILE] [association: --candidate-name NAME --max-balls INTEGER --max-speed NUMBER --association-slack NUMBER --move-start NUMBER --move-stop NUMBER --truth-move-start NUMBER --truth-move-stop NUMBER --max-gap-ms INTEGER --ambiguity-margin NUMBER --colour-penalty NUMBER [--viewer-sequence ID --html-output FILE]] | import-diagnostic-labels CAPTURE_ROOT OUTPUT_ROOT ASSIGNMENTS.json | import-diagnostic-shots CAPTURE_ROOT OUTPUT_ROOT ASSIGNMENTS.json");
     var options = new Dictionary<string, string>();
     for (int i = 1; i < args.Length; i += 2)
         if (i + 1 == args.Length || args[i] is not ("--root" or "--manifest" or "--output" or "--lock" or "--detections" or "--requests" or "--tolerance"
             or "--current" or "--learned" or "--hybrid" or "--split" or "--output-dir" or "--candidate-name" or "--max-speed"
             or "--association-slack" or "--move-start" or "--move-stop" or "--truth-move-start" or "--truth-move-stop" or "--max-balls"
-            or "--max-gap-ms" or "--ambiguity-margin" or "--colour-penalty" or "--viewer-sequence" or "--html-output" or "--sequence" or "--run-dir" or "--exports")
+            or "--max-gap-ms" or "--ambiguity-margin" or "--colour-penalty" or "--viewer-sequence" or "--html-output" or "--sequence" or "--run-dir" or "--exports"
+            or "--current-export" or "--learned-export" or "--hybrid-export")
             || !options.TryAdd(args[i], args[i + 1])) throw new ArgumentException("Unknown, duplicate or incomplete option.");
     if (args[0] != "association" && (options.ContainsKey("--viewer-sequence") || options.ContainsKey("--html-output")))
         throw new ArgumentException("--viewer-sequence and --html-output are available only for O04 association.");
@@ -25,6 +26,8 @@ try
         throw new ArgumentException("--sequence and --run-dir are available only for export-o08.");
     if (args[0] != "merge-o08" && options.ContainsKey("--exports"))
         throw new ArgumentException("--exports is available only for merge-o08.");
+    if (args[0] != "compare" && (options.ContainsKey("--current-export") || options.ContainsKey("--learned-export") || options.ContainsKey("--hybrid-export")))
+        throw new ArgumentException("Candidate export manifests are available only for compare.");
     string Required(string name) => options.GetValueOrDefault(name) ?? throw new ArgumentException("Missing " + name);
     var manifestPath = Path.GetFullPath(Required("--manifest"));
     var files = new CorpusFiles(Required("--root"));
@@ -55,9 +58,10 @@ try
         var outputDirectory = Path.GetFullPath(Required("--output-dir"));
         if (Directory.Exists(outputDirectory) || File.Exists(outputDirectory)) throw new IOException("Choose a new O08 export directory.");
         var detectionBytes = System.Text.Encoding.UTF8.GetBytes(CorpusJson.Write(exportResult.Detections) + "\n");
-        var exportManifest = new O08ExportArtifactManifest(1, exportResult.CorpusId, exportResult.ManifestSha256,
+        var exportManifest = new O08ExportArtifactManifest(2, exportResult.CorpusId, exportResult.ManifestSha256,
             exportResult.SplitLockSha256, exportResult.SequenceId, exportResult.Split, exportResult.LabelsReviewed,
             exportResult.ReplayManifestSha256, exportResult.ReplayReportSha256, exportResult.ApkSha256, exportResult.Mode,
+            exportResult.DeviceSerial, exportResult.BatchSize, exportResult.IndependentFrames, exportResult.WarmupTreatment,
             exportResult.RecordedConfiguration, exportResult.ReplayConfiguration, exportResult.CaptureConfigurationExact,
             "detections.json", CorpusFiles.Hash(detectionBytes), exportResult.Frames,
             "Offline width-800 replay export. Skipped frames are unscored, not empty detections. Runtime is replay analysis wall time, not live latency or source age. No labels, events or readiness are created.");
@@ -71,6 +75,9 @@ try
     if (args[0] == "merge-o08")
     {
         var exportsPath = Path.GetFullPath(Required("--exports"));
+        var exportsInfo = new FileInfo(exportsPath);
+        if (!exportsInfo.Exists || exportsInfo.Length > 256 * 1024)
+            throw new InvalidDataException("O08 export directory list is missing or exceeds bounds.");
         var exportsBytes = File.ReadAllBytes(exportsPath);
         if (exportsBytes.Length > 256 * 1024) throw new InvalidDataException("O08 export directory list exceeds bounds.");
         var exportDirectories = System.Text.Json.JsonSerializer.Deserialize<string[]>(exportsBytes, CorpusJson.Options)
@@ -122,7 +129,34 @@ try
         };
         if (!options.ContainsKey("--tolerance")) throw new ArgumentException("O09 comparison requires a precommitted --tolerance appropriate to the frozen coordinate space.");
         double tolerance = double.Parse(Required("--tolerance"), System.Globalization.CultureInfo.InvariantCulture);
-        O09CandidateInput Candidate(string name, string key)
+        O09CandidateBinding? ExportBinding(string exportKey, string detectionPath, string detectionSha)
+        {
+            if (!options.TryGetValue(exportKey, out var exportFile)) return null;
+            var path = Path.GetFullPath(exportFile);
+            var info = new FileInfo(path);
+            if (!info.Exists || info.Length > 16 * 1024 * 1024) throw new InvalidDataException("O08 export manifest is missing or exceeds 16 MiB: " + exportKey);
+            var bytes = File.ReadAllBytes(path);
+            if (bytes.Length > 16 * 1024 * 1024) throw new InvalidDataException("O08 export manifest exceeds 16 MiB: " + exportKey);
+            using var json = System.Text.Json.JsonDocument.Parse(bytes);
+            var root = json.RootElement;
+            string RequiredText(string property) => root.TryGetProperty(property, out var value)
+                && value.ValueKind == System.Text.Json.JsonValueKind.String && !string.IsNullOrWhiteSpace(value.GetString())
+                    ? value.GetString()! : throw new InvalidDataException("Missing O08 export field: " + property);
+            if (!root.TryGetProperty("schemaVersion", out var schema) || schema.GetInt32() != 2
+                || RequiredText("detectionFile") != "detections.json")
+                throw new InvalidDataException("Unsupported O08 candidate export manifest.");
+            var expectedDetectionPath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(path)!, "detections.json"));
+            if (!string.Equals(expectedDetectionPath, detectionPath,
+                OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+                throw new InvalidDataException("O08 candidate detection file must be the file bound by its sidecar manifest.");
+            if (!CorpusFiles.IsHash(RequiredText("detectionSha256"))
+                || !RequiredText("detectionSha256").Equals(detectionSha, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("O08 export manifest does not bind the exact candidate detection bytes.");
+            return new(2, CorpusFiles.Hash(bytes), RequiredText("corpusId"), RequiredText("manifestSha256"),
+                RequiredText("splitLockSha256"), RequiredText("split"), root.GetProperty("labelsReviewed").GetBoolean(),
+                RequiredText("detectionFile"), RequiredText("detectionSha256"));
+        }
+        O09CandidateInput Candidate(string name, string key, string exportKey)
         {
             var path = Path.GetFullPath(Required(key));
             var info = new FileInfo(path);
@@ -131,10 +165,11 @@ try
             var sha = Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
             var detections = (System.Text.Json.JsonSerializer.Deserialize<StoredDetection[]>(bytes, CorpusJson.Options)
                 ?? throw new InvalidDataException("Candidate output is empty: " + key)).ToImmutableArray();
-            return new(name, sha, detections);
+            return new(name, sha, detections, ExportBinding(exportKey, path, sha));
         }
         return O09Comparison.Compare(manifest, frozen, files, split,
-            [Candidate("current", "--current"), Candidate("learned", "--learned"), Candidate("hybrid", "--hybrid")], tolerance,
+            [Candidate("current", "--current", "--current-export"), Candidate("learned", "--learned", "--learned-export"),
+                Candidate("hybrid", "--hybrid", "--hybrid-export")], tolerance,
             CorpusFiles.Hash(lockBytes!));
     }
     object Association()
