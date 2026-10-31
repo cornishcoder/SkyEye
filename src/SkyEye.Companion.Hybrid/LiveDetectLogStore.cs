@@ -77,7 +77,7 @@ internal sealed record LiveDetectLogReadout(LiveDetectLogSummary Summary, int Re
 /// <summary>Bounded Live Detect frame receipts, source-image sidecars and automatic clip-save receipts.</summary>
 internal sealed class LiveDetectLogStore
 {
-    internal const int CurrentSchemaVersion = 13;
+    internal const int CurrentSchemaVersion = 14;
     public const int MaximumRetainedRecords = 2000;
     internal const long MaximumBytes = 4 * 1024 * 1024;
     internal const long MaximumEvidenceBytes = 128 * 1024 * 1024;

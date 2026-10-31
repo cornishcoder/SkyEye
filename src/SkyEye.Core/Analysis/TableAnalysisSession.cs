@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Globalization;
+using System.Text.Json.Serialization;
 using SkyEye.Core.Application;
 
 namespace SkyEye.Core.Analysis;
@@ -54,8 +55,13 @@ public sealed record ObstructionAuditTelemetry(int AnalysisWidth, int AnalysisHe
     public int? DiagnosticAppliedNeutralMinimumValue { get; init; }
     public int? DiagnosticAppliedNeutralMaximumValue { get; init; }
 }
+public sealed record PocketColourBallSupportAudit(int CircleIndex, string Kind, Point Centre,
+    double PocketDistance, string Decision, double? BoundarySupport = null, double? CentreShift = null,
+    double? RadiusShift = null, int? PocketFacingSectors = null, int? PocketFacingSupportedSectors = null);
 public sealed record PocketColourRegionAudit(Point Centre, int ColouredPixels, int ExplainedPixels,
-    int UnexplainedPixels, int SupportedBallBodies, bool NeedsReview);
+    int UnexplainedPixels, int SupportedBallBodies, bool NeedsReview,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    PocketColourBallSupportAudit[]? BallSupportAudit = null);
 public sealed record PocketColourAuditTelemetry(int AnalysisWidth, int AnalysisHeight, double ExclusionRadius,
     double ReviewPixelThreshold, PocketColourRegionAudit[] Pockets);
 public sealed record VisionResult(Ball[] Balls, bool Uncertain, string[] Warnings, double ElapsedMs, int CircleCount, bool Normalized, string Runtime, double[] ColourGains, int ClothHue, bool Obstructed, CircleObservation[] Circles)

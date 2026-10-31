@@ -129,11 +129,30 @@ internal static class LiveDetectLogStoreChecks
                 && retainedAudit.Components[0].BallBodyCoverageFraction == .125
                 && retainedAudit.Components[0].BallCentresInBounds == 3,
                 "obstruction bounds and body evidence survive JSONL serialization and reopening");
+            var pocketAudit = new PocketColourAuditTelemetry(800, 1600, 38.4, 64,
+                [new(new(0, 800), 718, 640, 78, 2, true,
+                    [new(3, "red", new(41, 1036), 56.7, "pocket-facing-arc-unsupported",
+                        .75, 1.2, .1, 6, 5)])]);
+            frameStore.AppendFrame(runId, checkAt.AddSeconds(2), frame with { PocketColourAudit = pocketAudit });
+            var pocketLogged = new LiveDetectLogStore(framePath).ReadLast(1).Records.Single();
+            Require(pocketLogged.SchemaVersion == LiveDetectLogStore.CurrentSchemaVersion
+                && pocketLogged.Frame?.PocketColourAudit?.Pockets.Single().BallSupportAudit is
+                    [{ Decision: "pocket-facing-arc-unsupported", CircleIndex: 3, PocketFacingSectors: 6,
+                       PocketFacingSupportedSectors: 5 }],
+                "per-ball pocket support rejection details survive JSONL serialization and reopening");
             var oldOptions = new JsonSerializerOptions(JsonSerializerDefaults.Web);
             var oldRecord = JsonSerializer.Serialize(new LiveDetectLogRecord(6, "frame", runId, checkAt, Frame: frame), oldOptions);
             Require(!oldRecord.Contains("obstructionAudit")
                 && JsonSerializer.Deserialize<LiveDetectLogRecord>(oldRecord, oldOptions)?.Frame?.ObstructionAudit is null,
                 "schema-six frames without obstruction audits stay readable");
+            var oldPocketFrame = frame with { PocketColourAudit = new PocketColourAuditTelemetry(800, 1600, 38.4, 64,
+                [new(new(0, 800), 718, 640, 78, 2, true)]) };
+            var oldPocketRecord = JsonSerializer.Serialize(new LiveDetectLogRecord(13, "frame", runId, checkAt,
+                Frame: oldPocketFrame), oldOptions);
+            Require(!oldPocketRecord.Contains("ballSupportAudit")
+                && JsonSerializer.Deserialize<LiveDetectLogRecord>(oldPocketRecord, oldOptions)
+                    ?.Frame?.PocketColourAudit?.Pockets.Single().BallSupportAudit is null,
+                "older pocket audits without per-ball support details remain readable");
 
             var countPath = Path.Combine(directory, "record-cap.jsonl");
             var countStore = new LiveDetectLogStore(countPath);

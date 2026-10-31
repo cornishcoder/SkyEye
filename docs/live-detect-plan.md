@@ -12,12 +12,24 @@ The separate four-light regression uses three user-labelled full-rack frames fro
 
 The Vision Device Release build succeeds with 23 existing Android/interop warnings and zero errors. The detector change is in commit `d89028b` (`Improve pocket-lip inventory and obstruction masks`). Camera capture is stopped. No Cast/TV or camera-package action occurred.
 
+### Pocket-colour warning trace — 31 October 2026
+
+Added optional per-ball support decisions to the pocket-colour audit and bumped the companion log schema to 14. This is diagnostic telemetry only: the pocket admission gates and detection output are unchanged. The `SkyEye.AgentUi.Checks` run passes, including the nested audit round-trip and compatibility with older pocket-audit rows. The isolated Vision Device Release build succeeds with 23 existing warnings and zero errors.
+
+The exact six-frame replay at `work/production/evidence/code66-pocket-cushion-replay-20261031/device-replays/code66trace-074757/` (report SHA-256 `410d63268875f2e41f448757514497f6593c7b4b5e9522b89cde84b05f325b0b`) matches the prior code66 detector summary on all 12 frame/width pairs: 15 balls, 7 reds, 7 yellows and cue; same uncertainty, layout-uncertainty and obstruction flags. It localizes the remaining pocket warnings:
+
+- Frame 978 at width 1000 has 112 unexplained coloured pixels against a 100-pixel review threshold. The nearby red and yellow fits both have full boundary support and all 8/8 pocket-facing sectors supported.
+- Frame 1150 at width 800 has 78 unexplained pixels against a 64-pixel threshold. Its nearby red and yellow fits both have full pocket-facing support.
+- Frame 1150 at width 1000 has 579 unexplained pixels. Its red fit is fully supported; the yellow candidate has 31/32 total boundary sectors and 7/8 pocket-facing sectors, so the audit declines to use that already-detected candidate to explain the pocket-region colour.
+
+For the first two warnings, the trace rules out rejection of the nearby ball fits: both balls were accepted with strong support, but some coloured pixels remain outside their accepted body masks. The third warning is narrowed to the strict all-pocket-facing-sectors rule. None of this proves the residual pixels harmless, so no thresholds or acceptance gates have changed. The source fixture still has the black intentionally removed and has no independently reviewed centre labels. Latest camera readback after the replay: `Stopped`, revision 82, battery 44%, 139 clips, zero viewers. The Production companion remains code66; only the isolated Vision Device package was updated for offline replay. Cast and the camera package were untouched.
+
 **Next gates:**
 
-1. Reconnect the companion to the saved camera; verify host/camera status without starting capture. Once the pocket-lip/cushion layout is still present and hands are clear, run a short bounded code66 Live Detect check, inspect timestamped source-frame receipts for every miss or obstruction, then stop and verify `/status` `Stopped` and Home **Start live session**.
-2. Repeat the same physical check after restoring the black, requiring the complete 16-ball inventory with clear, stable evidence. Run the planned separate all-cushion layout as its own holdout. Keep readiness unknown on missing, extra, obstructed or stale readings.
-3. If the live check disagrees with exact-frame replay, compare the matching source pixels, calibration, analyzer width and candidate/boundary audits before changing a detector gate. Add both positive and negative controls for every fix.
-4. After inventory/readiness is reliable, validate one same-session no-pot, object-ball pot, cue scratch/return and re-rack. Each sequential check must log a timestamped outcome; movement/obstruction/pot candidates stay separate from canonical match state.
+1. Keep the detector defaults unchanged. Use the traced pixels to compare pocket-colour explanation at the fitted radius and quantify the 7/8 pocket-facing yellow candidate. Replay with both present-ball and absent/obstructed controls before considering a localized change to the explanatory mask or arc rule.
+2. Once the offline hypothesis is supported, reconnect the companion to the saved camera without starting capture. If the pocket/cushion fixture is still present and hands are clear, run a short bounded physical Live Detect check; inspect exact timestamped frames, then stop and verify `/status` `Stopped` and Home **Start live session**.
+3. Restore the black and repeat for a complete 16-ball pocket layout; then run the separate all-cushion layout as its own holdout. Use reviewed ball-centre labels to measure position error. Keep readiness unknown on missing, extra, obstructed, stale or unlabelled evidence.
+4. After full inventory/readiness is reliable, validate same-session no-pot, object-ball pot, cue scratch/return and re-rack. Each sequence must log timestamps; movement, obstruction and pot candidates remain distinct from canonical match state.
 5. Verify event-to-camera PTS mapping and shot clips: include the 2-second lead-in and post-roll, ensure quick separate shots produce non-overlapping clips, and check that obstruction or interrupted activity remains outcome-unknown. Then test accepted facts through the existing canonical `SkyEye.GameState` reducer.
 
 The full acceptance sequence and remaining historical evidence remain below; none of the broader Live Detect goal is complete yet.

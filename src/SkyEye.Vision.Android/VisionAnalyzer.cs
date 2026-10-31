@@ -1001,29 +1001,84 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             // raw-image boundary support, including the arc facing the opening.
             // Hidden/partial bodies and unexplained colour retain the old guard.
             var supported = new List<Circle>();
+            var supportAudits = new List<PocketColourBallSupportAudit>();
             for (int n = 0; n < circles.Length; n++)
             {
                 var circle = circles[n]; string kind = labels[n].Kind;
                 if (kind is not "red" and not "yellow") continue;
                 var centre = new Point(circle.X, circle.Y); double distance = (centre - pocket).Length;
-                if (distance < radius || distance >= radius + circle.Radius) continue;
+                if (distance >= radius + circle.Radius) continue;
+                if (distance < radius)
+                {
+                    supportAudits.Add(new(n, kind, centre, distance, "centre-inside-pocket-exclusion"));
+                    continue;
+                }
                 raw ??= Read(rawImage);
                 var fit = BallBoundaryRefiner.Refine(raw, coordinates.Width, coordinates.Height, centre, expectedRadius,
                     minimumSupportedFraction: .75, collectSectorEvidence: true, expectedKind: kind, colourMask: colourMask);
-                if (fit is null || fit.SupportedSectors < .75 || fit.SectorEvidence.Length != 32 ||
-                    (fit.Centre - centre).Length > expectedRadius * .25 ||
-                    Math.Abs(fit.Radius - circle.Radius) > expectedRadius * .25 ||
-                    fit.Centre.X < fit.Radius || fit.Centre.Y < fit.Radius ||
-                    fit.Centre.X > coordinates.Width - fit.Radius || fit.Centre.Y > coordinates.Height - fit.Radius ||
-                    PocketCentres().Any(p => (fit.Centre - p).Length < radius)) continue;
+                if (fit is null)
+                {
+                    supportAudits.Add(new(n, kind, centre, distance, "no-boundary-fit"));
+                    continue;
+                }
+                double centreShift = (fit.Centre - centre).Length;
+                double radiusShift = Math.Abs(fit.Radius - circle.Radius);
+                double boundarySupport = fit.SupportedSectors;
+                if (boundarySupport < .75)
+                {
+                    supportAudits.Add(new(n, kind, centre, distance, "weak-boundary-support",
+                        boundarySupport, centreShift, radiusShift));
+                    continue;
+                }
+                if (fit.SectorEvidence.Length != 32)
+                {
+                    supportAudits.Add(new(n, kind, centre, distance, "incomplete-sector-evidence",
+                        boundarySupport, centreShift, radiusShift));
+                    continue;
+                }
+                if (centreShift > expectedRadius * .25)
+                {
+                    supportAudits.Add(new(n, kind, centre, distance, "centre-drift",
+                        boundarySupport, centreShift, radiusShift));
+                    continue;
+                }
+                if (radiusShift > expectedRadius * .25)
+                {
+                    supportAudits.Add(new(n, kind, centre, distance, "radius-drift",
+                        boundarySupport, centreShift, radiusShift));
+                    continue;
+                }
+                if (fit.Centre.X < fit.Radius || fit.Centre.Y < fit.Radius ||
+                    fit.Centre.X > coordinates.Width - fit.Radius || fit.Centre.Y > coordinates.Height - fit.Radius)
+                {
+                    supportAudits.Add(new(n, kind, centre, distance, "fit-crosses-image-edge",
+                        boundarySupport, centreShift, radiusShift));
+                    continue;
+                }
+                if (PocketCentres().Any(p => (fit.Centre - p).Length < radius))
+                {
+                    supportAudits.Add(new(n, kind, centre, distance, "fit-centre-inside-pocket-exclusion",
+                        boundarySupport, centreShift, radiusShift));
+                    continue;
+                }
                 var towardPocket = pocket - fit.Centre; double pocketDistance = towardPocket.Length;
-                bool pocketArcSupported = fit.SectorEvidence.Where(sector =>
+                var pocketFacing = fit.SectorEvidence.Where(sector =>
                 {
                     var direction = sector.OuterPoint - fit.Centre;
                     return (direction.X * towardPocket.X + direction.Y * towardPocket.Y)
                         / (direction.Length * pocketDistance) >= Math.Sqrt(.5);
-                }).All(sector => sector.Supported);
-                if (pocketArcSupported) supported.Add(new(fit.Centre.X, fit.Centre.Y, fit.Radius * .95));
+                }).ToArray();
+                int supportedPocketFacing = pocketFacing.Count(sector => sector.Supported);
+                bool pocketArcSupported = pocketFacing.All(sector => sector.Supported);
+                if (!pocketArcSupported)
+                {
+                    supportAudits.Add(new(n, kind, centre, distance, "pocket-facing-arc-unsupported",
+                        boundarySupport, centreShift, radiusShift, pocketFacing.Length, supportedPocketFacing));
+                    continue;
+                }
+                supportAudits.Add(new(n, kind, centre, distance, "supported",
+                    boundarySupport, centreShift, radiusShift, pocketFacing.Length, supportedPocketFacing));
+                supported.Add(new(fit.Centre.X, fit.Centre.Y, fit.Radius * .95));
             }
             int explained = 0;
             ForPixels(new(pocket.X, pocket.Y, radius), 1, (x, y) =>
@@ -1035,7 +1090,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                         <= ball.Radius * ball.Radius)) explained++;
             });
             int unexplained = coloured - explained;
-            pockets.Add(new(pocket, coloured, explained, unexplained, supported.Count, unexplained > threshold));
+            pockets.Add(new(pocket, coloured, explained, unexplained, supported.Count, unexplained > threshold,
+                supportAudits.Count == 0 ? null : supportAudits.ToArray()));
         }
         audit = new(coordinates.Width, coordinates.Height, radius, threshold, pockets.ToArray());
         return pockets.Any(pocket => pocket.NeedsReview);
