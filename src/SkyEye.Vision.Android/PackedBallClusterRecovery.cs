@@ -190,18 +190,24 @@ public sealed partial class VisionAnalyzer
         Dictionary<Circle, BallClassification>? packedClassifications,
         List<VisionCandidateAudit>? candidateAudits, string pass)
     {
-        using var dark = new MatLease(new Mat());
-        using var darkLow = new Scalar(0, 0, 0);
-        using var darkHigh = new Scalar(179, 255, settings.DarkBodyValueCeiling);
-        Cv.InRange(rawHsv, darkLow, darkHigh, dark.Value);
-        using var cleanupSize = new Size(3, 3);
-        using var cleanupKernel = new MatLease(Imgproc.GetStructuringElement(Imgproc.MorphEllipse, cleanupSize));
-        Imgproc.MorphologyEx(dark.Value, dark.Value, Imgproc.MorphOpen, cleanupKernel.Value);
+        using var recoveryTiming = PipelineDiagnostics.Measure("sparseBlackRecoveryMs");
+        (Point Centre, double Radius)[] seeds;
         double edgeMargin = settings.PackedClusterImageEdgeMargin * scale;
         var bounds = (Left: edgeMargin, Right: coordinates.Width - edgeMargin,
             Top: edgeMargin, Bottom: coordinates.Height - edgeMargin);
-        var seeds = FindPeakSeeds(dark.Value, scale, 8 * scale, bounds)
-            .Where(seed => seed.Radius <= settings.MaximumRadius * scale).ToArray();
+        using (PipelineDiagnostics.Measure("sparseBlackMaskAndSeedMs"))
+        {
+            using var dark = new MatLease(new Mat());
+            using var darkLow = new Scalar(0, 0, 0);
+            using var darkHigh = new Scalar(179, 255, settings.DarkBodyValueCeiling);
+            Cv.InRange(rawHsv, darkLow, darkHigh, dark.Value);
+            using var cleanupSize = new Size(3, 3);
+            using var cleanupKernel = new MatLease(Imgproc.GetStructuringElement(Imgproc.MorphEllipse, cleanupSize));
+            Imgproc.MorphologyEx(dark.Value, dark.Value, Imgproc.MorphOpen, cleanupKernel.Value);
+            seeds = FindPeakSeeds(dark.Value, scale, 8 * scale, bounds)
+                .Where(seed => seed.Radius <= settings.MaximumRadius * scale).ToArray();
+        }
+        PipelineDiagnostics.Sample("sparseBlackAvailableSeedCount", seeds.Length);
         // Prefer peaks near supported painted bodies by default. A diagnostic
         // ablation can prioritize larger dark interiors to test isolated-black
         // recovery without raising the bounded candidate-fit budget.
@@ -214,10 +220,12 @@ public sealed partial class VisionAnalyzer
             : candidates.OrderBy(candidate => candidate.ColourDistance)
                 .ThenByDescending(candidate => candidate.Seed.Radius);
         var rankedSeeds = ranked.Take(settings.SparseBlackCandidateLimit).ToArray();
+        PipelineDiagnostics.Sample("sparseBlackRankedSeedCount", rankedSeeds.Length);
         candidateAudits?.Add(new(pass, "sparse-black-search", "black", seeds.Length,
             new((bounds.Left + bounds.Right) / 2, (bounds.Top + bounds.Bottom) / 2), 0, null, null, null, null,
             $"ball-sized-full-table-seeds={seeds.Length};ranking={(settings.SparseBlackRankByRadius ? "dark-radius-then-colour-proximity" : "colour-proximity-then-dark-radius")};ranked={rankedSeeds.Length};fit-cap={settings.SparseBlackCandidateLimit}"));
         double expectedRadius = PoolGeometry.Radius * coordinates.Width;
+        using (PipelineDiagnostics.Measure("sparseBlackFitAndClassifyMs"))
         for (int i = 0; i < rankedSeeds.Length; i++)
         {
             var seed = rankedSeeds[i].Seed;
@@ -247,6 +255,7 @@ public sealed partial class VisionAnalyzer
             { Audit("rejected-pocket-exclusion"); continue; }
             if (circles.Any(c => Classify(c, rawPixels, inspectRim: true).Kind == "black"))
             { Audit("rejected-black-already-present"); return; }
+            PipelineDiagnostics.Count("sparseBlackBoundaryRefineCalls");
             var fit = BallBoundaryRefiner.Refine(rawBgrPixels, coordinates.Width, coordinates.Height,
                 seed.Centre, expectedRadius, .5625,
                 maximumCentreOffsetFraction: settings.SparseBlackBoundarySearchExtentFraction);

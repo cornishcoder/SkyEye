@@ -586,6 +586,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             using var darkBodyTiming = PipelineDiagnostics.Measure("darkBodyProposalsMs");
             AddDarkBodies(rawImage, result, scale, packedClassifications, candidateAudits, pass);
         }
+        using (PipelineDiagnostics.Measure("houghCandidateProcessingMs"))
         for (int i = 0; i < count && result.Count <= 32; i++)
         {
             var value = circles.Value.Get(circles.Value.Rows() == 1 ? 0 : i, circles.Value.Rows() == 1 ? i : 0);
