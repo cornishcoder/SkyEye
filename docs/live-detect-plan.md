@@ -106,6 +106,13 @@ Example manifest shape (coordinates are source-image pixels):
   ]
 }
 ```
+
+Run it with the same ordered frame selection, for example:
+
+```powershell
+.\scripts\Run-PocketLipBoundaryAudit.ps1 -SourceRelativePath '<capture-folder>' -Frames @(1365,1425) `
+  -PocketArcSweepOnly -PocketArcAnchorManifest '<anchor-manifest.json>'
+```
 - A six-frame Code70 batch with two anchors per frame (`batchpos6-201611`) completed in 65.372s: 59.220s instrumentation, 2.631s install, 0.870s input transfer, and 1.449s report plus bulk-artifact pull. It emitted 12 traces and 24 overlays. The same frame-1365 black-proposal trace matched the earlier single-frame run at the exact same pixel hash (11/32 supported sectors, diagnostic pass, classifier `black`). The other anchors were model proposals, not reviewed labels; some cue anchors also classified as black and one black anchor had no measurable sectors. This validates the batch plumbing and reveals remaining trace cost; it is not detection accuracy evidence. Camera `/status` was `Stopped` before and after.
 - The unchanged full audit remains capped at six frames for detailed two-width and worker checks.
 - The runner pushes all receipt/image files in one ADB invocation and records hash/order, install, transfer, instrumentation, artifact-pull, and total timings in each run manifest. Commit `fd4fb6e` adds a versioned named `phaseTimings` view while preserving existing `timingsMs` fields; the new geometry reuse is in `0a03c9c` and has not yet been timed.
