@@ -242,8 +242,8 @@ internal static class PackedBlackMaskTrace
         double targetFitAcceptanceRadiusInBallRadii = 0,
         string referencePointSource = "reviewed-label", PreparedFrame? preparedFrame = null)
     {
-        if (referencePointSource is not "reviewed-label" and not "unreviewed-model-proposal")
-            throw new ArgumentOutOfRangeException(nameof(referencePointSource), "Reference point source must be reviewed-label or unreviewed-model-proposal.");
+        if (referencePointSource is not "reviewed-label" and not "unreviewed-model-proposal" and not "unreviewed-negative-control")
+            throw new ArgumentOutOfRangeException(nameof(referencePointSource), "Reference point source must be reviewed-label, unreviewed-model-proposal, or unreviewed-negative-control.");
         if ((classifierAnalyzer is null) != (classifierPixels is null))
             throw new ArgumentException("The classifier analyzer and its captured pixel buffer must be supplied together.");
         if (classifierAnalyzer is not null && width != 1000)
@@ -836,9 +836,12 @@ internal static class PackedBlackMaskTrace
                 manualBlackLabel = new { sourcePixel = new { x = manualImageX, y = manualImageY }, analysisPixel = label,
                     pointSource = referencePointSource,
                     isReviewedLabel = referencePointSource == "reviewed-label",
-                    note = referencePointSource == "reviewed-label"
-                        ? "Reviewed black-ball reference point in the saved frame; evaluation-only and never supplied to analyzer decisions."
-                        : "Unreviewed model proposal anchor in the saved frame; evaluation-only and never supplied to analyzer decisions." },
+                    note = referencePointSource switch
+                    {
+                        "reviewed-label" => "Reviewed black-ball reference point in the saved frame; evaluation-only and never supplied to analyzer decisions.",
+                        "unreviewed-model-proposal" => "Unreviewed model proposal anchor in the saved frame; evaluation-only and never supplied to analyzer decisions.",
+                        _ => "Unreviewed negative-control reference point in the saved frame; evaluation-only and never supplied to analyzer decisions."
+                    } },
                 targetFitAcceptanceRadiusInBallRadii = targetFitAcceptanceRadiusInBallRadii > 0
                     ? targetFitAcceptanceRadiusInBallRadii : (double?)null,
                 maximumSeedToFitOffsetFraction = targetFitAcceptanceRadiusInBallRadii > 0

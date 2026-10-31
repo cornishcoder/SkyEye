@@ -40,7 +40,7 @@ param(
     [switch]$TraceBlackMask,
     [int]$BlackLabelX = 1282,
     [int]$BlackLabelY = 536,
-    [ValidateSet('reviewed-label', 'unreviewed-model-proposal')]
+    [ValidateSet('reviewed-label', 'unreviewed-model-proposal', 'unreviewed-negative-control')]
     [string]$BlackPointSource = 'reviewed-label',
     [double]$NeutralCueProbeX800 = -1,
     [double]$NeutralCueProbeY800 = -1,
@@ -110,7 +110,7 @@ if ($PocketArcSweepOnly) {
     }
 }
 if ($BlackPointSource -ne 'reviewed-label' -and -not ($PocketArcProbeOnly -or $PocketArcSweepOnly)) {
-    throw '-BlackPointSource unreviewed-model-proposal is supported only with a pocket-arc probe or sweep.'
+    throw 'Unreviewed -BlackPointSource values are supported only with a pocket-arc probe or sweep.'
 }
 if ($RawProposalReplay -and [string]::IsNullOrWhiteSpace($RawProposalDirectory)) {
     throw 'Raw-proposal replay requires -RawProposalDirectory containing one hash-matched local-model JSON file per frame.'

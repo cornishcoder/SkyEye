@@ -242,12 +242,12 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         var requestedPocketArcPointSource = args?.GetString("blackPointSource");
         if (!string.IsNullOrWhiteSpace(requestedPocketArcPointSource))
         {
-            if (requestedPocketArcPointSource is not "reviewed-label" and not "unreviewed-model-proposal")
-                throw new ArgumentOutOfRangeException(nameof(requestedPocketArcPointSource), "Pocket-arc reference source must be reviewed-label or unreviewed-model-proposal.");
+            if (requestedPocketArcPointSource is not "reviewed-label" and not "unreviewed-model-proposal" and not "unreviewed-negative-control")
+                throw new ArgumentOutOfRangeException(nameof(requestedPocketArcPointSource), "Pocket-arc reference source must be reviewed-label, unreviewed-model-proposal, or unreviewed-negative-control.");
             pocketArcPointSource = requestedPocketArcPointSource;
         }
         if (pocketArcPointSource != "reviewed-label" && !pocketArcProbeOnly)
-            throw new ArgumentException("An unreviewed-model-proposal point source is supported only in pocket-arc probe-only mode.");
+            throw new ArgumentException("An unreviewed point source is supported only in pocket-arc probe-only mode.");
         var requestedPocketArcTargetFitAcceptanceRadius = args?.GetString("pocketArcTargetFitAcceptanceRadiusRadii");
         if (!string.IsNullOrWhiteSpace(requestedPocketArcTargetFitAcceptanceRadius)
             && (!double.TryParse(requestedPocketArcTargetFitAcceptanceRadius, NumberStyles.Float,
