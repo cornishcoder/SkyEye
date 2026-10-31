@@ -18,6 +18,7 @@ import importlib.util
 import json
 import math
 from pathlib import Path
+import sys
 from typing import Any
 
 import numpy as np
@@ -25,6 +26,7 @@ from PIL import Image, ImageDraw, ImageFont
 
 
 def load_probe_module():
+    sys.dont_write_bytecode = True
     path = Path(__file__).with_name("Compare-RawPerspectiveHoughProposals.py")
     spec = importlib.util.spec_from_file_location("raw_perspective_hough_probe", path)
     if spec is None or spec.loader is None:
