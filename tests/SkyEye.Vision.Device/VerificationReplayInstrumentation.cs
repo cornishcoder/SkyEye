@@ -319,7 +319,9 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     }
                 }
             }
-            using var first = JsonDocument.Parse(File.ReadAllBytes(paths[0]));
+            var firstReceiptBytes = File.ReadAllBytes(paths[0]);
+            var firstReceiptSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(firstReceiptBytes)).ToLowerInvariant();
+            using var first = JsonDocument.Parse(firstReceiptBytes);
             var firstMetadata = first.RootElement;
             var corners = firstMetadata.GetProperty("calibrationCorners").EnumerateArray().Select(p => new Point(p.GetProperty("x").GetDouble(), p.GetProperty("y").GetDouble())).ToArray();
             var recordedConfiguration = firstMetadata.TryGetProperty("analyzerConfigurationIdentity", out var configurationElement)
@@ -403,7 +405,11 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             string? timeline = null;
             foreach (var path in paths)
             {
-                using var metadata = JsonDocument.Parse(File.ReadAllBytes(path)); var metadataRoot = metadata.RootElement;
+                var receiptBytes = File.ReadAllBytes(path);
+                var receiptSha256 = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(receiptBytes)).ToLowerInvariant();
+                if (path == paths[0] && receiptSha256 != firstReceiptSha256)
+                    throw new IOException("First replay receipt changed after calibration and analyzer settings were read.");
+                using var metadata = JsonDocument.Parse(receiptBytes); var metadataRoot = metadata.RootElement;
                 var receipt = metadataRoot.GetProperty("indexedFrame");
                 var file = receipt.GetProperty("pixelFile").GetString()!;
                 if (file != Path.GetFileName(file)) throw new IOException("Replay asset leaves its directory.");
@@ -441,7 +447,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 {
                     if (!detectionRequested)
                     {
-                        samples.Add(new { frameId, pixelSha256 = sha, sourceTimeUs, detectionRequested, skipped = true, skipReason = "detection-not-requested" });
+                        samples.Add(new { frameId, pixelSha256 = sha, receiptSha256, sourceTimeUs, detectionRequested, skipped = true, skipReason = "detection-not-requested" });
                         continue;
                     }
                     var proposalPath = Path.Combine(root, $"local-proposals-{frameId}.json");
@@ -535,7 +541,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     }).ToArray();
                     samples.Add(new
                     {
-                        frameId, pixelSha256 = sha, sourceTimeUs,
+                        frameId, pixelSha256 = sha, receiptSha256, sourceTimeUs,
                         capturedAt = metadataRoot.TryGetProperty("capturedAt", out var proposalCapturedAt)
                             ? proposalCapturedAt.GetDateTimeOffset() : DateTimeOffset.UtcNow,
                         sourceImage = new { width = sourceWidth, height = sourceHeight },
@@ -560,7 +566,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     {
                         samples.Add(new
                         {
-                            frameId, pixelSha256 = sha, sourceTimeUs, detectionRequested,
+                            frameId, pixelSha256 = sha, receiptSha256, sourceTimeUs, detectionRequested,
                             skipped = true,
                             skipReason = "detection-not-requested",
                             width1000 = new { analysis = (object?)null, darkMaskTrace = (object?)null }
@@ -594,7 +600,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                         }
                         samples.Add(new
                         {
-                            frameId, pixelSha256 = sha, sourceTimeUs,
+                            frameId, pixelSha256 = sha, receiptSha256, sourceTimeUs,
                             capturedAt = metadataRoot.TryGetProperty("capturedAt", out var pocketArcSweepCapturedAt)
                                 ? pocketArcSweepCapturedAt.GetDateTimeOffset() : DateTimeOffset.UtcNow,
                             detectionRequested, configurationMatchesPrimary, analysis1000Metrics = arcAnalysis1000Metrics,
@@ -608,7 +614,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                         pocketArcTargetFitAcceptanceRadiusInBallRadii, pocketArcPointSource);
                     samples.Add(new
                     {
-                        frameId, pixelSha256 = sha, sourceTimeUs,
+                        frameId, pixelSha256 = sha, receiptSha256, sourceTimeUs,
                         capturedAt = metadataRoot.TryGetProperty("capturedAt", out var pocketArcCapturedAt)
                             ? pocketArcCapturedAt.GetDateTimeOffset() : DateTimeOffset.UtcNow,
                         detectionRequested, configurationMatchesPrimary, analysis1000Metrics = arcAnalysis1000Metrics,
@@ -624,7 +630,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                         analyses800.Add(screened);
                         samples.Add(new
                         {
-                            frameId, pixelSha256 = sha, sourceTimeUs, capturedAt = metadataRoot.TryGetProperty("capturedAt", out var screenCapturedAt)
+                            frameId, pixelSha256 = sha, receiptSha256, sourceTimeUs, capturedAt = metadataRoot.TryGetProperty("capturedAt", out var screenCapturedAt)
                                 ? screenCapturedAt.GetDateTimeOffset() : DateTimeOffset.UtcNow,
                             detectionRequested, configurationMatchesPrimary,
                             analysis800Metrics = screenMetrics
@@ -632,7 +638,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     }
                     else
                     {
-                        samples.Add(new { frameId, pixelSha256 = sha, sourceTimeUs, detectionRequested, skipped = true });
+                        samples.Add(new { frameId, pixelSha256 = sha, receiptSha256, sourceTimeUs, detectionRequested, skipped = true });
                     }
                     continue;
                 }
@@ -847,7 +853,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 if (verification1000.Reason == ObservationReason.Obstructed) worker1000!.ResetAfterObstruction();
                 samples.Add(new
                 {
-                    frameId, pixelSha256 = sha, sourceTimeUs = frame.SourceTimeUs, capturedAt,
+                    frameId, pixelSha256 = sha, receiptSha256, sourceTimeUs = frame.SourceTimeUs, capturedAt,
                     detectionRequested, configurationMatchesPrimary,
                     detectedPocketGeometry,
                     fallbackCornerGeometry,

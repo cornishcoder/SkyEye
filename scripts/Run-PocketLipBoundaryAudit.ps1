@@ -216,6 +216,7 @@ $serial = '66181FDDV001HS'
 $package = 'uk.co.skyeye.visionchecks'
 $instrumentation = "$package/uk.co.skyeye.visionchecks.VerificationReplayInstrumentation"
 $repoRoot = Split-Path -Parent $PSScriptRoot
+. (Join-Path $PSScriptRoot 'Assert-VisionReplayReceiptBinding.ps1')
 $sourceRoot = if ([IO.Path]::IsPathRooted($SourceRelativePath)) {
     $SourceRelativePath
 } else {
@@ -279,7 +280,11 @@ $inputs = foreach ($frame in $frames) {
         }
         $jsonPath = $indexedReceiptPaths[$requestedFrameId]
     }
-    $receipt = Get-Content -LiteralPath $jsonPath -Raw | ConvertFrom-Json
+    # Parse and hash the same bytes. A later archive copy must still match this hash.
+    $receiptBytes = [IO.File]::ReadAllBytes($jsonPath)
+    $receiptHash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($receiptBytes)).ToLowerInvariant()
+    $receiptText = [Text.UTF8Encoding]::new($false, $true).GetString($receiptBytes).TrimStart([char]0xFEFF)
+    $receipt = $receiptText | ConvertFrom-Json
     if ([long]$receipt.indexedFrame.frameId -ne [long]$frame) {
         throw "Source receipt '$([IO.Path]::GetFileName($jsonPath))' identifies frame $($receipt.indexedFrame.frameId), not requested frame $frame."
     }
@@ -335,7 +340,7 @@ $inputs = foreach ($frame in $frames) {
             throw "Local-model proposal file for frame $frame has invalid source image dimensions."
         }
     }
-    [pscustomobject]@{ Frame = $frame; JsonPath = $jsonPath; PixelPath = $pixelPath; Hash = $actualHash; Receipt = $receipt; RawProposalPath = $rawProposalPath }
+    [pscustomobject]@{ Frame = $frame; JsonPath = $jsonPath; PixelPath = $pixelPath; Hash = $actualHash; ReceiptHash = $receiptHash; Receipt = $receipt; RawProposalPath = $rawProposalPath }
 }
 for ($i = 1; $i -lt $inputs.Count; $i++) {
     $previous = $inputs[$i - 1].Receipt.indexedFrame
@@ -422,8 +427,15 @@ $stageTimer = [Diagnostics.Stopwatch]::StartNew()
 $mkdirResult = Invoke-Adb @('-s', $serial, 'shell', 'mkdir', '-p', $remoteRunDirectory)
 if ($mkdirResult.ExitCode -ne 0) { throw "Could not create isolated replay folder: $($mkdirResult.Output -join ' ')" }
 $pushFiles = @()
+$receiptArchive = Join-Path $runDirectory 'source-receipts'
+New-Item -ItemType Directory -Path $receiptArchive | Out-Null
 foreach ($input in $inputs) {
-    $pushFiles += $input.JsonPath
+    $receiptCopy = Join-Path $receiptArchive ([IO.Path]::GetFileName($input.JsonPath))
+    Copy-Item -LiteralPath $input.JsonPath -Destination $receiptCopy
+    if ((Get-FileHash -LiteralPath $receiptCopy -Algorithm SHA256).Hash.ToLowerInvariant() -ne $input.ReceiptHash) {
+        throw "Source receipt for frame $($input.Frame) changed before transfer."
+    }
+    $pushFiles += $receiptCopy
     $pushFiles += $input.PixelPath
     if ($RawProposalReplay) {
         $proposalCopy = Join-Path $runDirectory "local-proposals-$($input.Frame).json"
@@ -527,6 +539,7 @@ if (-not $report.completed -or @($report.samples).Count -ne $frames.Count) {
     $reason = if ([string]::IsNullOrWhiteSpace([string]$report.error)) { 'sample count or completion flag mismatch' } else { [string]$report.error }
     throw "Replay report is incomplete ($reason): $localReport"
 }
+Assert-VisionReplayReceiptBinding -Inputs @($inputs) -Report $report
 $maskArtifacts = @()
 $blackMaskArtifacts = @()
 $pocketArcTraceArtifacts = @()
@@ -727,7 +740,7 @@ $manifest = [pscustomobject]@{
     sparseBlackMinimumPeakRadiusFactor = $SparseBlackMinimumPeakRadiusFactor
     sparseBlackRankByRadius = [bool]$SparseBlackRankByRadius
     sourceFrames = $inputs | ForEach-Object {
-        [pscustomobject]@{ frameId = $_.Receipt.indexedFrame.frameId; pixelFile = [IO.Path]::GetFileName($_.PixelPath); receipt = [IO.Path]::GetFileName($_.JsonPath); sha256 = $_.Hash }
+        [pscustomobject]@{ frameId = $_.Receipt.indexedFrame.frameId; pixelFile = [IO.Path]::GetFileName($_.PixelPath); receipt = [IO.Path]::GetFileName($_.JsonPath); receiptArtifact = ('source-receipts/' + [IO.Path]::GetFileName($_.JsonPath)); receiptSha256 = $_.ReceiptHash; sha256 = $_.Hash }
     }
     pocketArcPointSource = if ($PocketArcProbeOnly -or $PocketArcSweepOnly) { $BlackPointSource } else { $null }
     rawModelProposalFiles = if ($RawProposalReplay) { $inputs | ForEach-Object {
