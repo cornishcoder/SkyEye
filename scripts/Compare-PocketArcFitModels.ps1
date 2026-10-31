@@ -122,6 +122,26 @@ function Get-ComparableArcEvidenceJson {
     return ConvertTo-Json -InputObject ([pscustomobject]$ordered) -Depth 30 -Compress
 }
 
+function Convert-SectorIndexSet {
+    param([AllowNull()] [object] $Value, [Parameter(Mandatory = $true)] [string] $Context)
+    if ($null -eq $Value) { return $null }
+    $indices = @($Value | ForEach-Object {
+        $number = 0
+        if (-not [int]::TryParse([string]$_, [ref]$number) -or $number -lt 0 -or $number -gt 31) {
+            throw "$Context contains an invalid sector index '$($_)' (expected integer 0..31)."
+        }
+        $number
+    })
+    if (@($indices | Select-Object -Unique).Count -ne $indices.Count) { throw "$Context contains duplicate sector indices." }
+    return [int[]]$indices
+}
+
+function Get-SortedSectorCsv {
+    param([AllowNull()] [int[]] $Indices)
+    if ($null -eq $Indices) { return $null }
+    return (@($Indices | Sort-Object) -join ';')
+}
+
 function Write-TextFile {
     param([Parameter(Mandatory = $true)] [string] $Path, [Parameter(Mandatory = $true)] [string] $Content)
     $full = [IO.Path]::GetFullPath($Path)
@@ -238,6 +258,32 @@ foreach ($frameId in $frameIds) {
         }
         $supportFraction = if ($normalSupport.Found -and $null -ne $normalSupport.Value) { [double]$normalSupport.Value } else { $null }
         $supportSectors32 = if ($null -ne $supportFraction -and $supportFraction -ge 0 -and $supportFraction -le 1) { [int][Math]::Round($supportFraction * 32) } else { $null }
+        $regularSectorValue = Get-Value -InputObject $regularAudit -Name 'supportedSectorIndices'
+        $regularSectorSamples = Get-Value -InputObject $regularAudit -Name 'sectorEvidenceSampleCount'
+        $regularSectorParity = Get-Value -InputObject $regularAudit -Name 'sectorIndexCountMatchesBoundarySupport'
+        $regularSectorIndices = if ($regularSectorValue.Found) { Convert-SectorIndexSet -Value $regularSectorValue.Value -Context "Frame $frameId rank $rank regular supported sectors" } else { $null }
+        if ($null -ne $regularSectorIndices) {
+            if (-not $regularSectorSamples.Found -or [int]$regularSectorSamples.Value -ne 32) { throw "Frame $frameId rank $rank regular sector evidence must report 32 sampled sectors." }
+            if (-not $regularSectorParity.Found -or $regularSectorParity.Value -ne $true) { throw "Frame $frameId rank $rank regular sector-index count does not match boundarySupport." }
+            if ($null -ne $supportSectors32 -and $regularSectorIndices.Count -ne $supportSectors32) { throw "Frame $frameId rank $rank regular sector indices disagree with scalar boundarySupport." }
+        }
+        $arcVisibleIndices = Convert-SectorIndexSet -Value $arcSeed.visibleSectorIndices -Context "Frame $frameId rank $rank pocket-arc visible sectors"
+        $arcSupportedIndices = Convert-SectorIndexSet -Value $arcSeed.supportedVisibleSectorIndices -Context "Frame $frameId rank $rank pocket-arc supported visible sectors"
+        if ($null -ne $arcVisibleIndices -and $null -ne $arcSupportedIndices) {
+            $arcVisibleSet = [System.Collections.Generic.HashSet[int]]::new([int[]]$arcVisibleIndices)
+            foreach ($sector in $arcSupportedIndices) { if (-not $arcVisibleSet.Contains($sector)) { throw "Frame $frameId rank $rank pocket-arc supported sector $sector is not visible." } }
+        }
+        $regularVisibleSupport = $null; $sectorOverlapCount = $null; $sectorOverlapJaccard = $null
+        if ($null -ne $regularSectorIndices -and $null -ne $arcVisibleIndices -and $null -ne $arcSupportedIndices) {
+            $arcVisibleSet = [System.Collections.Generic.HashSet[int]]::new([int[]]$arcVisibleIndices)
+            $regularVisibleSupport = @($regularSectorIndices | Where-Object { $arcVisibleSet.Contains([int]$_) })
+            $arcSupportSet = [System.Collections.Generic.HashSet[int]]::new([int[]]$arcSupportedIndices)
+            $regularVisibleSet = [System.Collections.Generic.HashSet[int]]::new([int[]]$regularVisibleSupport)
+            $intersection = @($regularVisibleSupport | Where-Object { $arcSupportSet.Contains([int]$_) })
+            $unionCount = @($regularVisibleSupport + $arcSupportedIndices | Sort-Object -Unique).Count
+            $sectorOverlapCount = $intersection.Count
+            $sectorOverlapJaccard = if ($unionCount -gt 0) { [double]$intersection.Count / $unionCount } else { $null }
+        }
         $arcClass = Get-PathValue -InputObject $arcSeed -Path 'classifier.evidence.kind'
         $targetStatus = if ($null -eq $targetProbe) { 'not-supplied' } elseif ($targetProbe.probeExecuted) { 'executed-label-conditioned' } else { 'skipped-label-conditioned' }
         $row = [pscustomobject][ordered]@{
@@ -247,15 +293,21 @@ foreach ($frameId in $frameIds) {
             RegularFitAvailable = $normalFitAvailable; RegularFitX = if ($normalFitAvailable) { [double]$normalCentre.Value.x } else { $null }; RegularFitY = if ($normalFitAvailable) { [double]$normalCentre.Value.y } else { $null }
             RegularFitRadiusPx = if ($normalFitRadius.Found -and $null -ne $normalFitRadius.Value) { [double]$normalFitRadius.Value } else { $null }
             RegularBoundarySupportFraction = $supportFraction; RegularSupportApproxSectorsOf32 = $supportSectors32
+            RegularSupportedSectorIndices = Get-SortedSectorCsv -Indices $regularSectorIndices
+            RegularSectorEvidenceSampleCount = if ($regularSectorSamples.Found) { $regularSectorSamples.Value } else { $null }
+            RegularSectorIndexCountMatchesBoundarySupport = if ($regularSectorParity.Found) { $regularSectorParity.Value } else { $null }
             RegularDecision = [string]$regularAudit.decision; RegularClassifiedKind = if ($null -ne $regularAudit.classifiedKind) { [string]$regularAudit.classifiedKind } else { $null }
             PocketArcFitAvailable = $arcFitAvailable; PocketArcFitX = if ($arcFitAvailable) { [double]$arcCentre.Value.x } else { $null }; PocketArcFitY = if ($arcFitAvailable) { [double]$arcCentre.Value.y } else { $null }
             PocketArcFitRadiusPx = if ($arcSeed.arcFitRadius -ne $null) { [double]$arcSeed.arcFitRadius } else { $null }; PocketArcClassifiedKind = if ($arcClass.Found) { [string]$arcClass.Value } else { $null }
             PocketArcDiagnosticChecksPass = [bool]$arcSeed.diagnosticArcChecksPass; PocketArcVisibleSectorCount = $arcSeed.visibleSectorCount
             PocketArcSupportedVisibleSectorCount = $arcSeed.supportedVisibleSectorCount; PocketArcGlobalSupportedSectorCount = $arcSeed.globalSupportedSectorCount
+            PocketArcVisibleSectorIndices = Get-SortedSectorCsv -Indices $arcVisibleIndices
             PocketArcSupportedVisibleSectorIndices = (@($arcSeed.supportedVisibleSectorIndices) -join ';')
             CenterDriftPx = $driftPx; CenterDriftBallRadii = $driftRadii
-            SupportSectorSetOverlapAvailable = $false; SupportSectorSetOverlapCount = $null
-            SupportComparisonLimit = 'Regular candidate audit stores scalar boundarySupport only; pocket-aware audit stores sector indices with a different visibility mask.'
+            RegularSupportedSectorsWithinPocketArcVisible = Get-SortedSectorCsv -Indices ([int[]]$regularVisibleSupport)
+            SupportSectorSetOverlapAvailable = ($null -ne $sectorOverlapCount); SupportSectorSetOverlapCount = $sectorOverlapCount
+            SupportSectorSetOverlapJaccard = $sectorOverlapJaccard
+            SupportComparisonLimit = 'Directional index comparison only: regular sectors are sampled around the regular fit centre, while the pocket-arc visible mask and support are sampled around the arc fit centre; indices are not identical image-space samples.'
             TargetedProbeStatus = $targetStatus
         }
         $rows.Add($row); $frameRows.Add($row)
@@ -299,7 +351,10 @@ foreach ($frameId in $frameIds) {
         RegularSupportAtLeast21Of32Count = $normalGateCount; PocketArcFitCount = @($frameRows | Where-Object PocketArcFitAvailable).Count
         PocketArcDiagnosticPassCount = $arcPassCount; BothFitCount = $both.Count; MeanCentreDriftPx = $meanPx; MedianCentreDriftPx = $medianPx
         MedianCentreDriftBallRadii = $medianR; NearDuplicateBlackHypothesisPairCount = $duplicatePairs
-        SectorSetOverlapAvailable = $false; TargetedExecutedCount = @($frameRows | Where-Object TargetedProbeStatus -eq 'executed-label-conditioned').Count
+        SectorSetOverlapAvailable = @($frameRows | Where-Object SupportSectorSetOverlapAvailable).Count -gt 0
+        SectorSetOverlapComparedSeedCount = @($frameRows | Where-Object SupportSectorSetOverlapAvailable).Count
+        MedianSupportSectorSetOverlapJaccard = Get-Median -Values ([double[]]@($frameRows | Where-Object { $null -ne $_.SupportSectorSetOverlapJaccard } | ForEach-Object { [double]$_.SupportSectorSetOverlapJaccard }))
+        TargetedExecutedCount = @($frameRows | Where-Object TargetedProbeStatus -eq 'executed-label-conditioned').Count
         TargetedSkippedCount = @($frameRows | Where-Object TargetedProbeStatus -eq 'skipped-label-conditioned').Count
     })
 }
@@ -321,8 +376,9 @@ $summary = [pscustomobject][ordered]@{
     regularRefinerFitCount = $regularFitRows.Count; regularSupportAtLeast21Of32Count = $regularGateRows.Count
     pocketArcFitCount = $arcFitRows.Count; pocketArcDiagnosticPassCount = $arcPassRows.Count; pocketArcBlackClassificationCount = $arcBlackRows.Count
     productionSupportGateSectorsOf32 = 21; productionSupportScalarOnly = $true
-    pocketArcVisibilitySupportIsReportedSeparately = $true; supportSectorSetOverlapAvailable = $false
-    supportSectorSetOverlapUnavailableReason = 'Regular audit contains only scalar boundarySupport; pocket-aware support uses sector IDs after its visibility mask.'
+    pocketArcVisibilitySupportIsReportedSeparately = $true
+    supportSectorSetOverlapComparedSeedCount = @($rows | Where-Object SupportSectorSetOverlapAvailable).Count
+    supportSectorSetOverlapMedianJaccard = Get-Median -Values ([double[]]@($rows | Where-Object { $null -ne $_.SupportSectorSetOverlapJaccard } | ForEach-Object { [double]$_.SupportSectorSetOverlapJaccard }))
     centerDriftPairs = $allDrifts.Count; meanCenterDriftPx = if ($allDrifts.Count) { ($allDrifts | Measure-Object -Average).Average } else { $null }
     medianCenterDriftPx = Get-Median -Values ([double[]]$allDrifts)
     medianCenterDriftBallRadii = Get-Median -Values ([double[]]$allDriftsR)
@@ -333,7 +389,7 @@ $summary = [pscustomobject][ordered]@{
     frames = @($frameSummaries); duplicateHypothesisPairs = @($duplicateHypotheses)
     limitations = @(
         'Pocket-aware arc fits are evaluation-only diagnostics and do not feed detector candidates, vision results, or GameState.',
-        'Regular boundary support and pocket-aware visible-sector support are different metrics; sector-index overlap is unavailable in the regular audit.',
+        'Sector-index overlap is directional only: regular support is sampled around the regular fitted centre; pocket-arc visibility/support uses the arc fitted centre, so shared indices are not identical image-space samples.',
         'A passing arc geometry/classifier result does not establish target-free precision; many remote seeds can pass.'
     )
 }

@@ -316,8 +316,35 @@ public sealed partial class VisionAnalyzer
 
             void Audit(string decision, BallBoundary? boundary = null, double? support = null,
                 string? classifiedKind = null, string? evidence = null)
-                => candidateAudits?.Add(new(pass, "sparse-black-add", "black", i, seed.Centre, seed.Radius,
-                    boundary?.Centre, boundary?.Radius, support, classifiedKind, decision) { Evidence = evidence });
+            {
+                if (candidateAudits is null) return;
+                int[]? supportedSectorIndices = null;
+                int? sectorEvidenceSampleCount = null;
+                bool? sectorIndexCountMatchesBoundarySupport = null;
+                if (boundary is not null)
+                {
+                    // Post-fit diagnostic sampling reports the directions at the
+                    // selected regular fit without changing the optimizer's
+                    // candidate search, scoring, or production support gate.
+                    var sectors = BallBoundaryRefiner.Inspect(rawBgrPixels,
+                        coordinates.Width, coordinates.Height, seed.Centre, expectedRadius,
+                        boundary.Centre, boundary.Radius);
+                    sectorEvidenceSampleCount = sectors.Length;
+                    supportedSectorIndices = sectors.Where(sector => sector.Supported)
+                        .Select(sector => sector.Index).ToArray();
+                    if (sectors.Length == 32)
+                        sectorIndexCountMatchesBoundarySupport = Math.Abs(
+                            supportedSectorIndices.Length / 32d - boundary.SupportedSectors) < 1e-9;
+                }
+                candidateAudits.Add(new(pass, "sparse-black-add", "black", i, seed.Centre, seed.Radius,
+                    boundary?.Centre, boundary?.Radius, support, classifiedKind, decision)
+                {
+                    Evidence = evidence,
+                    SupportedSectorIndices = supportedSectorIndices,
+                    SectorEvidenceSampleCount = sectorEvidenceSampleCount,
+                    SectorIndexCountMatchesBoundarySupport = sectorIndexCountMatchesBoundarySupport
+                });
+            }
         }
     }
 
