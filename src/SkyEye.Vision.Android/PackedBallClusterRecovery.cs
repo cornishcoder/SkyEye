@@ -227,11 +227,16 @@ public sealed partial class VisionAnalyzer
                 var seedCentredBody = new Circle(seed.Centre.X, seed.Centre.Y, expectedRadius);
                 var seedClassification = Classify(seedCentredBody, rawPixels, inspectRim: true);
                 bool localValueContrast = HasLocalBodyValueContrast(seedCentredBody, rawPixels);
+                var seedSectors = BallBoundaryRefiner.Inspect(rawBgrPixels, coordinates.Width, coordinates.Height,
+                    seed.Centre, expectedRadius, seed.Centre, expectedRadius, expectedKind: "black",
+                    allowDarkBodyEdgeTransitions: true, darkBodyValueCeiling: settings.DarkBodyValueCeiling);
+                int normalSectors = seedSectors.Count(sector => sector.Supported && !sector.DarkBodyTransitionUsed);
+                int darkTransitionSectors = seedSectors.Count(sector => sector.DarkBodyTransitionUsed);
                 candidateAudits.Add(new(pass, "sparse-black-seed-body-probe", "black", i,
                     seed.Centre, seed.Radius, seed.Centre, expectedRadius, null,
                     seedClassification.Kind, "seed-centred ball-size appearance probe")
                 {
-                    Evidence = $"nearestPocket={nearestPocketRadius:0.###}R;quality={seedClassification.Quality:0.###};pattern={seedClassification.Pattern};bodyDark={seedClassification.BodyDarkFraction?.ToString("0.###") ?? "n/a"};rimDark={seedClassification.RimDarkFraction?.ToString("0.###") ?? "n/a"};localValueContrast={localValueContrast}"
+                    Evidence = $"nearestPocket={nearestPocketRadius:0.###}R;quality={seedClassification.Quality:0.###};pattern={seedClassification.Pattern};bodyDark={seedClassification.BodyDarkFraction?.ToString("0.###") ?? "n/a"};rimDark={seedClassification.RimDarkFraction?.ToString("0.###") ?? "n/a"};localValueContrast={localValueContrast};fixedNormal={normalSectors}/32;fixedDarkTransitions={darkTransitionSectors}/32;fixedCombined={seedSectors.Count(sector => sector.Supported)}/32"
                 });
             }
             if (PocketCentres().Any(p => (seed.Centre - p).Length < settings.PocketExclusionRadius * scale))
