@@ -24,6 +24,7 @@ The exact-frame runner is `scripts/Run-PocketLipBoundaryAudit.ps1` plus `tests/S
 - `-ProbeOnly` processes 1–12 chronological frames with one width-800 analyzer pass and candidate/cue telemetry, but no workers or second-width baseline.
 - The unchanged full audit remains capped at six frames for detailed two-width and worker checks.
 - The runner pushes all receipt/image files in one ADB invocation and records hash/order, install, transfer, instrumentation, artifact-pull, and total timings in each run manifest.
+- `scripts/Summarize-VisionReplayBatch.ps1` flattens many saved reports into one per-frame CSV or JSON without rerunning analysis. A smoke run over two Code70 reports produced 12 frame rows and retained config-match flags, counts, uncertainty and analysis timings.
 
 A six-frame `-ScreenOnly` run completed in 15.047s (hash/order 0.103s, install 2.205s, transfer 0.795s, instrumentation 10.970s). A six-frame `-ProbeOnly` run completed in 20.247s (hash/order 0.088s, install 1.928s, transfer 0.931s, instrumentation 15.825s, report/artifact pull 0.219s). These runs have different telemetry costs and are not a detector-performance A/B. The first screen run’s report-pull timer was misplaced; that is corrected and the later probe run records the pull stage. Device project build succeeded with 23 warnings and zero errors; PowerShell parsing succeeded.
 
