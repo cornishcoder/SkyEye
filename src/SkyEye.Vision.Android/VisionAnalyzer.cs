@@ -562,18 +562,30 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         bool conflictingCoincidentCandidateDetected = false;
         using var mask = ClothMask(hsv, pixels); using var circles = new MatLease(new Mat());
         double scale = coordinates.Width / 1000.0;
-        Imgproc.HoughCircles(mask.Value, circles.Value, Imgproc.HoughGradient, settings.HoughDp, settings.Separation * scale, settings.EdgeThreshold, votes * scale, (int)(settings.MinimumRadius * scale), (int)(settings.MaximumRadius * scale));
+        using (PipelineDiagnostics.Measure("houghCirclesMs"))
+            Imgproc.HoughCircles(mask.Value, circles.Value, Imgproc.HoughGradient, settings.HoughDp, settings.Separation * scale, settings.EdgeThreshold, votes * scale, (int)(settings.MinimumRadius * scale), (int)(settings.MaximumRadius * scale));
         var result = new List<Circle>(); int count = Math.Max(circles.Value.Cols(), circles.Value.Rows()); var clothRange = ClothRange(pixels); int clothHue = clothRange.Hue;
+        PipelineDiagnostics.Sample("houghCircleCandidateCount", count);
         // Strong compact paint bodies get a bounded proposal budget before
         // binary-mask texture can fill the Hough list with cloth holes.
         bool prioritizeBodies = settings.FreshCueBallRecovery && settings.BodyProposalPriority;
         byte[]? rawBoundaryPixels = null;
         if (prioritizeBodies && rawImage is not null)
+        {
+            using var packedTiming = PipelineDiagnostics.Measure("packedClusterBodyProposalsMs");
             packedCluster = AddPackedClusterBodies(rawImage, rawHsv!, packedColourProposalHsv ?? rawHsv!, rawHsvPixels!, boundaryColourMask!, result, scale,
                 packedClassifications, candidateAudits, pass, acceptedPackedBlackBoundaries);
-        if (prioritizeBodies) AddColourBodies(hsv, pixels, result, scale);
+        }
+        if (prioritizeBodies)
+        {
+            using var colourBodyTiming = PipelineDiagnostics.Measure("colourBodyProposalsMs");
+            AddColourBodies(hsv, pixels, result, scale);
+        }
         if (prioritizeBodies && rawImage is not null)
+        {
+            using var darkBodyTiming = PipelineDiagnostics.Measure("darkBodyProposalsMs");
             AddDarkBodies(rawImage, result, scale, packedClassifications, candidateAudits, pass);
+        }
         for (int i = 0; i < count && result.Count <= 32; i++)
         {
             var value = circles.Value.Get(circles.Value.Rows() == 1 ? 0 : i, circles.Value.Rows() == 1 ? i : 0);
@@ -637,7 +649,11 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             Audit("hough", "unknown", i, c, "accepted", new(c.X, c.Y), c.Radius, fittedSupport, fittedKind);
         }
         if (!prioritizeBodies) AddColourBodies(hsv, pixels, result, scale);
-        if (refineGeometry) RefineBodyGeometry(mask.Value, result, scale);
+        if (refineGeometry)
+        {
+            using var refinementTiming = PipelineDiagnostics.Measure("bodyGeometryRefinementMs");
+            RefineBodyGeometry(mask.Value, result, scale);
+        }
         conflictingCoincidentCandidate = conflictingCoincidentCandidateDetected;
         return result.ToArray();
 

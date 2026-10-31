@@ -359,6 +359,7 @@ public sealed partial class VisionAnalyzer
         double minimumPeakRadius, BoundaryColourMask boundaryColourMask,
         List<VisionCandidateAudit>? candidateAudits, string pass)
     {
+        using var peakBodyTiming = PipelineDiagnostics.Measure($"{kind}ColourPeakBodiesMs");
         var candidates = new List<ClusterBall>();
         using var distance = new MatLease(new Mat());
         Imgproc.DistanceTransform(colourMask, distance.Value, Imgproc.DistL2, 3);
@@ -373,6 +374,7 @@ public sealed partial class VisionAnalyzer
         Cv.Bitwise_and(peaks.Value, aboveMinimum.Value, peaks.Value);
         using var labels = new MatLease(new Mat()); using var stats = new MatLease(new Mat()); using var centres = new MatLease(new Mat());
         int count = Imgproc.ConnectedComponentsWithStats(peaks.Value, labels.Value, stats.Value, centres.Value);
+        PipelineDiagnostics.Sample($"{kind}ColourPeakComponents", count - 1);
         double margin = settings.PackedClusterImageEdgeMargin * scale;
         for (int i = 1; i < count && candidates.Count < 32; i++)
         {
@@ -386,6 +388,7 @@ public sealed partial class VisionAnalyzer
             seed = new Circle(x, y, interiorRadius);
             if (interiorRadius < minimumPeakRadius || interiorRadius > settings.MaximumRadius * scale)
             { Audit("rejected-peak-radius"); continue; }
+            PipelineDiagnostics.Count($"packed{kind}BoundaryRefineCalls");
             var fit = BallBoundaryRefiner.Refine(rawBgr, coordinates.Width, coordinates.Height,
                 new(x, y), PoolGeometry.Radius * coordinates.Width, .5, expectedKind: kind,
                 colourMask: boundaryColourMask,
@@ -408,6 +411,7 @@ public sealed partial class VisionAnalyzer
                     && Distance(c.Body, body) < (c.Body.Radius + body.Radius) * .5))
             { Audit("rejected-duplicate-colour-peak", fit, fit.SupportedSectors, classification.Kind); continue; }
             candidates.Add(new(kind, body, peakCentre, interiorRadius, classification, fit.SupportedSectors));
+            PipelineDiagnostics.Count($"packed{kind}AcceptedBodies");
             Audit("accepted-colour-peak", fit, fit.SupportedSectors, classification.Kind);
 
             void Audit(string decision, BallBoundary? boundary = null, double? support = null, string? label = null)
