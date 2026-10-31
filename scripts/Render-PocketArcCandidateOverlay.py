@@ -16,7 +16,7 @@ import sys
 from pathlib import Path
 from typing import Any, NoReturn
 
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 
 def fail(message: str) -> NoReturn:
@@ -57,6 +57,89 @@ def point(value: Any, context: str) -> tuple[float, float]:
     if not isinstance(value, dict):
         fail(f"{context} must be an object with x/y coordinates.")
     return number(value.get("x"), f"{context}.x"), number(value.get("y"), f"{context}.y")
+
+
+def suppress_baked_reference_markers(
+    overlay: Image.Image,
+    centre: tuple[float, float],
+    expected_radius: float,
+    frame_id: str,
+) -> tuple[Image.Image, dict[str, Any]]:
+    """Remove PackedBlackMaskTrace's baked cross and radius ring for an unreviewed point."""
+    cx, cy = int(round(centre[0])), int(round(centre[1]))
+    radius = int(round(expected_radius))
+    width, height = overlay.size
+    radius_extent = radius + 3
+    left, right = max(0, cx - radius_extent), min(width - 1, cx + radius_extent)
+    top, bottom = max(0, cy - radius_extent), min(height - 1, cy + radius_extent)
+    source_pixels = overlay.load()
+    marker_mask = Image.new("L", overlay.size, 0)
+    mask_pixels = marker_mask.load()
+    cross_count = 0
+    radius_count = 0
+
+    # PackedBlackMaskTrace draws a yellow RGB center circle/cross inside +/- 11 px
+    # and a cyan RGB outline at the rounded expected ball radius. Match both color
+    # and geometry so nearby production candidate marks remain untouched.
+    for y in range(top, bottom + 1):
+        for x in range(left, right + 1):
+            color = source_pixels[x, y]
+            dx, dy = x - cx, y - cy
+            if color == (255, 255, 0) and abs(dx) <= 12 and abs(dy) <= 12:
+                mask_pixels[x, y] = 255
+                cross_count += 1
+            elif color == (0, 255, 255) and abs(math.hypot(dx, dy) - radius) <= 2.5:
+                mask_pixels[x, y] = 255
+                radius_count += 1
+
+    replaced = cross_count + radius_count
+    cleaned = overlay.copy()
+    if replaced:
+        crop_box = (left, top, right + 1, bottom + 1)
+        crop = overlay.crop(crop_box)
+        crop.paste(crop.filter(ImageFilter.MedianFilter(size=21)), mask=marker_mask.crop(crop_box))
+        cleaned.paste(crop, crop_box)
+
+    cleaned_pixels = cleaned.load()
+    remaining_cross = 0
+    remaining_radius = 0
+    changed_marker_pixels = 0
+    changed_outside_mask_pixels = 0
+    for y in range(top, bottom + 1):
+        for x in range(left, right + 1):
+            color = cleaned_pixels[x, y]
+            dx, dy = x - cx, y - cy
+            changed = color != source_pixels[x, y]
+            if changed and mask_pixels[x, y]:
+                changed_marker_pixels += 1
+            elif changed:
+                changed_outside_mask_pixels += 1
+            if color == (255, 255, 0) and abs(dx) <= 12 and abs(dy) <= 12:
+                remaining_cross += 1
+            elif color == (0, 255, 255) and abs(math.hypot(dx, dy) - radius) <= 2.5:
+                remaining_radius += 1
+    if changed_outside_mask_pixels:
+        fail(f"Frame {frame_id}: target-free marker cleanup modified {changed_outside_mask_pixels} pixels outside its marker mask.")
+    if remaining_cross or remaining_radius:
+        fail(
+            f"Frame {frame_id}: target-free marker cleanup left matching pixels "
+            f"(cross={remaining_cross}, radius={remaining_radius})."
+        )
+
+    return cleaned, {
+        "source": "baked PackedBlackMaskTrace reference markers in the verified overlay",
+        "analysisCentrePixel": {"x": cx, "y": cy},
+        "roundedExpectedRadiusPixels": radius,
+        "crossMarkerRgb": [255, 255, 0],
+        "expectedRadiusMarkerRgb": [0, 255, 255],
+        "crossPixelsReplaced": cross_count,
+        "expectedRadiusPixelsReplaced": radius_count,
+        "pixelsChanged": changed_marker_pixels,
+        "pixelsChangedOutsideMarkerMask": changed_outside_mask_pixels,
+        "pixelsRemainingInMarkerGeometry": remaining_cross + remaining_radius,
+        "replacement": "21x21 median-filtered values from the saved overlay, applied only to exact marker-color pixels inside the traced marker geometry",
+        "semantics": "presentation cleanup only; replaced pixels are not recovered source pixels or detector evidence",
+    }
 
 
 def safe_font(size: int, bold: bool = False) -> ImageFont.ImageFont:
@@ -117,13 +200,76 @@ def get_candidate_audits(analysis: dict[str, Any], trace: dict[str, Any], frame_
     return rows
 
 
-def resolve_source_input_directory(run_dir: Path, manifest: dict[str, Any], requested: Path | None) -> Path:
+def get_arc_pass_rows(trace: dict[str, Any], frame_id: str) -> list[dict[str, Any]]:
+    rows = trace.get("rankedSparseBlackPocketArcProbes")
+    if not isinstance(rows, list):
+        fail(f"Frame {frame_id}: rankedSparseBlackPocketArcProbes is missing.")
+
+    prepared: list[dict[str, Any]] = []
+    ranks: set[int] = set()
+    for row in rows:
+        if not isinstance(row, dict):
+            fail(f"Frame {frame_id}: ranked PocketArc probe row is invalid.")
+        passed = row.get("diagnosticArcChecksPass")
+        if not isinstance(passed, bool):
+            fail(f"Frame {frame_id}: ranked PocketArc row has no boolean diagnosticArcChecksPass value.")
+        if not passed:
+            continue
+
+        rank = row.get("candidateRank")
+        if isinstance(rank, bool) or not isinstance(rank, int) or rank < 0 or row.get("candidateRankIsZeroBased") is not True:
+            fail(f"Frame {frame_id}: passing PocketArc row has an invalid zero-based candidate rank.")
+        if rank in ranks:
+            fail(f"Frame {frame_id}: duplicate passing PocketArc candidate rank {rank}.")
+        ranks.add(rank)
+        if row.get("evaluationOnly") is not True or row.get("diagnosticOnly") is not True:
+            fail(f"Frame {frame_id}: passing PocketArc row is not explicitly diagnostic-only.")
+        if row.get("productionOutputChanged") is not False:
+            fail(f"Frame {frame_id}: passing PocketArc row does not preserve production output.")
+        if any(row.get(name) is not False for name in ("feedsDetectorCandidates", "feedsVisionResult", "feedsGameState")):
+            fail(f"Frame {frame_id}: passing PocketArc row may feed production state.")
+        if row.get("probeExecuted") is not True or row.get("arcFitAvailable") is not True:
+            fail(f"Frame {frame_id}: passing PocketArc row has no executed arc fit.")
+        if row.get("candidateAuditGeometryWidth") != 1000:
+            fail(f"Frame {frame_id}: passing PocketArc row geometry is not width 1000.")
+
+        centre = point(row.get("arcFitCentre"), f"Frame {frame_id} candidate rank {rank + 1} arcFitCentre")
+        radius = number(row.get("arcFitRadius"), f"Frame {frame_id} candidate rank {rank + 1} arcFitRadius")
+        if radius <= 0:
+            fail(f"Frame {frame_id}: candidate rank {rank + 1} arc fit radius must be positive.")
+        prepared.append({
+            "candidate_rank_zero_based": rank,
+            "display_rank_one_based": rank + 1,
+            "centre": centre,
+            "radius": radius,
+            "source_row": row,
+        })
+
+    prepared.sort(key=lambda item: item["candidate_rank_zero_based"])
+    return prepared
+
+
+def resolve_source_input_directory(
+    run_dir: Path,
+    manifest: dict[str, Any],
+    requested: Path | None,
+    selected_frames: set[str] | None,
+) -> Path:
     if requested is not None:
         return requested.resolve()
 
     source_frames = manifest.get("sourceFrames")
     if not isinstance(source_frames, list) or not source_frames:
         fail("Run manifest has no source frames for exact input verification.")
+    if selected_frames is not None:
+        source_frames = [
+            source for source in source_frames
+            if isinstance(source, dict) and str(source.get("frameId")) in selected_frames
+        ]
+        selected_source_ids = {str(source.get("frameId")) for source in source_frames}
+        unknown = selected_frames - selected_source_ids
+        if unknown:
+            fail(f"Requested frame ids are absent from the run manifest: {sorted(unknown)}")
     candidates: set[Path] = set()
     candidates.add((run_dir.parent.parent / "exact-replay-input").resolve())
     evidence_root = next((parent for parent in run_dir.parents if parent.name.lower() == "evidence"), None)
@@ -160,7 +306,13 @@ def resolve_source_input_directory(run_dir: Path, manifest: dict[str, Any], requ
     return matching[0]
 
 
-def verify_and_prepare(run_dir: Path, source_dir: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+def verify_and_prepare(
+    run_dir: Path,
+    source_dir: Path,
+    selected_frames: set[str] | None,
+    target_free: bool,
+    show_arc_pass_rows: bool,
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
     if not run_dir.is_dir():
         fail(f"Replay run directory not found: {run_dir}")
     if not source_dir.is_dir():
@@ -212,8 +364,32 @@ def verify_and_prepare(run_dir: Path, source_dir: Path) -> tuple[dict[str, Any],
                 fail(f"Frame {frame_id}: source {ref_name} reference is missing or unsafe.")
         source_by_id[frame_id] = source
 
+    sample_by_id: dict[str, dict[str, Any]] = {}
+    for sample in samples:
+        if not isinstance(sample, dict):
+            fail("Replay report contains an invalid sample record.")
+        frame_id = str(sample.get("frameId"))
+        if frame_id in sample_by_id:
+            fail(f"Duplicate replay sample frame id {frame_id}.")
+        if frame_id not in source_by_id:
+            fail(f"Frame {frame_id}: no matching source frame record in the manifest.")
+        sample_by_id[frame_id] = sample
+
+    if set(sample_by_id) != set(source_by_id):
+        missing = sorted(set(source_by_id) - set(sample_by_id))
+        extra = sorted(set(sample_by_id) - set(source_by_id))
+        fail(f"Sample/source frame id sets do not match (missing={missing}, extra={extra}).")
+    if selected_frames is not None:
+        unknown = selected_frames - set(sample_by_id)
+        if unknown:
+            fail(f"Requested frame ids are absent from the verified run: {sorted(unknown)}")
+        selected_ids = selected_frames
+    else:
+        selected_ids = set(sample_by_id)
+
     source_evidence: dict[str, dict[str, Any]] = {}
-    for frame_id, source in source_by_id.items():
+    for frame_id in selected_ids:
+        source = source_by_id[frame_id]
         pixel_path = source_dir / source["pixelFile"]
         receipt_path = source_dir / source["receipt"]
         if not pixel_path.is_file():
@@ -264,16 +440,10 @@ def verify_and_prepare(run_dir: Path, source_dir: Path) -> tuple[dict[str, Any],
         artifact_by_key[key] = artifact
 
     prepared: list[dict[str, Any]] = []
-    seen_samples: set[str] = set()
     for sample in samples:
-        if not isinstance(sample, dict):
-            fail("Replay report contains an invalid sample record.")
         frame_id = str(sample.get("frameId"))
-        if frame_id in seen_samples:
-            fail(f"Duplicate replay sample frame id {frame_id}.")
-        seen_samples.add(frame_id)
-        if frame_id not in source_by_id:
-            fail(f"Frame {frame_id}: no matching source frame record in the manifest.")
+        if frame_id not in selected_ids:
+            continue
         source_hash = source_by_id[frame_id]["sha256"].lower()
         sample_hash = sample.get("pixelSha256")
         if not isinstance(sample_hash, str) or sample_hash.lower() != source_hash:
@@ -294,6 +464,8 @@ def verify_and_prepare(run_dir: Path, source_dir: Path) -> tuple[dict[str, Any],
         label = trace.get("manualBlackLabel")
         if not isinstance(label, dict) or not isinstance(label.get("sourcePixel"), dict):
             fail(f"Frame {frame_id}: explicit manual label evidence is missing.")
+        if target_free and label.get("isReviewedLabel") is not False:
+            fail(f"Frame {frame_id}: target-free mode requires an explicitly unreviewed reference point.")
         if point(label["sourcePixel"], f"Frame {frame_id} trace source label") != label_source_xy:
             fail(f"Frame {frame_id}: trace label source point differs from the manifest label.")
         label_analysis_xy = point(label.get("analysisPixel"), f"Frame {frame_id} transformed label")
@@ -316,6 +488,7 @@ def verify_and_prepare(run_dir: Path, source_dir: Path) -> tuple[dict[str, Any],
                 fail(f"Frame {frame_id}: arc candidate radius must be positive.")
 
         candidate_rows = get_candidate_audits(analysis, trace, frame_id)
+        arc_pass_rows = get_arc_pass_rows(trace, frame_id) if show_arc_pass_rows else []
         ranked: list[tuple[float, int, dict[str, Any]]] = []
         for row in candidate_rows:
             proposal_xy = point(row["proposalCentre"], f"Frame {frame_id} proposal")
@@ -344,6 +517,12 @@ def verify_and_prepare(run_dir: Path, source_dir: Path) -> tuple[dict[str, Any],
         except OSError as exc:
             fail(f"Frame {frame_id}: cannot decode overlay: {exc}")
 
+        marker_suppression = None
+        if target_free:
+            overlay, marker_suppression = suppress_baked_reference_markers(
+                overlay, label_analysis_xy, expected_radius, frame_id
+            )
+
         prepared.append({
             "frame_id": frame_id,
             "pixel_hash": sample_hash.lower(),
@@ -351,9 +530,14 @@ def verify_and_prepare(run_dir: Path, source_dir: Path) -> tuple[dict[str, Any],
             "source_evidence": source_evidence[frame_id],
             "overlay_name": overlay_name,
             "overlay_sha256": str(artifact["sha256"]).lower(),
+            "marker_suppression": marker_suppression,
             "manual_source_pixel": label["sourcePixel"],
             "overlay": overlay,
             "label": label_analysis_xy,
+            "label_point_source": label.get("pointSource"),
+            "target_free": target_free,
+            "show_arc_pass_rows": show_arc_pass_rows,
+            "arc_pass_rows": arc_pass_rows,
             "expected_radius": expected_radius,
             "max_distance": max_distance,
             "candidate": nearest_local,
@@ -364,10 +548,6 @@ def verify_and_prepare(run_dir: Path, source_dir: Path) -> tuple[dict[str, Any],
             "purpose": str(manifest.get("purpose", "")),
         })
 
-    if seen_samples != set(source_by_id):
-        missing = sorted(set(source_by_id) - seen_samples)
-        extra = sorted(seen_samples - set(source_by_id))
-        fail(f"Sample/source frame id sets do not match (missing={missing}, extra={extra}).")
     if not prepared:
         fail("Replay report has no frame samples to render.")
     return manifest, prepared
@@ -404,15 +584,17 @@ def wrap_text(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, m
     return lines
 
 
-def candidate_report(item: dict[str, Any], entry: tuple[float, int, dict[str, Any]] | None, within_window: bool) -> dict[str, Any] | None:
+def candidate_report(
+    item: dict[str, Any],
+    entry: tuple[float, int, dict[str, Any]] | None,
+    within_window: bool,
+) -> dict[str, Any] | None:
     if entry is None:
         return None
     distance, index, audit = entry
     decision = str(audit.get("decision", ""))
-    return {
+    report = {
         "rank": index + 1,
-        "distanceFromTransformedManualLabelPx": round(distance, 4),
-        "within3R": within_window,
         "proposalCentre": audit.get("proposalCentre"),
         "proposalRadius": audit.get("proposalRadius"),
         "fittedCentre": audit.get("fittedCentre"),
@@ -424,6 +606,13 @@ def candidate_report(item: dict[str, Any], entry: tuple[float, int, dict[str, An
         "evidence": audit.get("evidence"),
         "semantics": "candidate audit only; never a detector result or table-state assertion",
     }
+    if item["target_free"]:
+        report["distanceFromUnreviewedReferencePx"] = round(distance, 4)
+        report["within3ROfUnreviewedReference"] = within_window
+    else:
+        report["distanceFromTransformedManualLabelPx"] = round(distance, 4)
+        report["within3R"] = within_window
+    return report
 
 
 def frame_report(item: dict[str, Any]) -> dict[str, Any]:
@@ -431,7 +620,20 @@ def frame_report(item: dict[str, Any]) -> dict[str, Any]:
     nearest_any = item["nearest_any"]
     outside = nearest_any if item["candidate"] is None else None
     arc_report = item["arc_report"]
-    return {
+    audit_window = {
+        "candidateStage": "initial/sparse-black-add/black",
+        "distanceLimitMultipleOfRadius": 3,
+        "distanceLimitPixels": item["max_distance"],
+    }
+    if item["target_free"]:
+        audit_window["rankingReference"] = "post-hoc unreviewed point for candidate ranking and fixed-point diagnostics"
+        audit_window["nearestProposalWithin3ROfUnreviewedReference"] = candidate_report(item, item["candidate"], True)
+        audit_window["nearestProposalOutside3ROfUnreviewedReference"] = candidate_report(item, outside, False)
+    else:
+        audit_window["nearestProposalWithin3R"] = candidate_report(item, item["candidate"], True)
+        audit_window["nearestProposalOutside3R"] = candidate_report(item, outside, False)
+
+    report = {
         "frameId": item["frame_id"],
         "sourceFrame": {
             "pixelFile": item["source_frame"]["pixelFile"],
@@ -446,19 +648,7 @@ def frame_report(item: dict[str, Any]) -> dict[str, Any]:
             "dimensions": {"width": 1000, "height": 2000},
             "mode": "RGB",
         },
-        "manualBlackLabel": {
-            "sourcePixel": item["manual_source_pixel"],
-            "transformedAnalysisPixel": {"x": label_x, "y": label_y},
-            "expectedAnalysisRadius": item["expected_radius"],
-            "note": "Explicit evaluation label, not supplied to analyzer decisions.",
-        },
-        "sparseBlackAuditWindow": {
-            "candidateStage": "initial/sparse-black-add/black",
-            "distanceLimitMultipleOfRadius": 3,
-            "distanceLimitPixels": item["max_distance"],
-            "nearestProposalWithin3R": candidate_report(item, item["candidate"], True),
-            "nearestProposalOutside3R": candidate_report(item, outside, False),
-        },
+        "sparseBlackAuditWindow": audit_window,
         "pocketAwarePartialArcDiagnostic": {
             "diagnosticOnly": True,
             "candidate": arc_report.get("candidate"),
@@ -468,13 +658,73 @@ def frame_report(item: dict[str, Any]) -> dict[str, Any]:
             "semantics": "diagnostic overlay only; not a detector result",
         },
     }
+    if item["target_free"]:
+        report["postHocUnreviewedReference"] = {
+            "sourcePixel": item["manual_source_pixel"],
+            "transformedAnalysisPixel": {"x": label_x, "y": label_y},
+            "expectedAnalysisRadius": item["expected_radius"],
+            "pointSource": item["label_point_source"],
+            "isReviewedLabel": False,
+            "note": "Unreviewed post-hoc reference for candidate ranking and fixed-point diagnostics; not a reviewed label or production detector input.",
+        }
+        report["bakedReferenceMarkerSuppression"] = item["marker_suppression"]
+    else:
+        report["manualBlackLabel"] = {
+            "sourcePixel": item["manual_source_pixel"],
+            "transformedAnalysisPixel": {"x": label_x, "y": label_y},
+            "expectedAnalysisRadius": item["expected_radius"],
+            "note": "Explicit evaluation label, not supplied to analyzer decisions.",
+        }
+    if item["show_arc_pass_rows"]:
+        report["rankedSparseBlackPocketArcPassRows"] = {
+            "displayedCount": len(item["arc_pass_rows"]),
+            "semantics": "ranked arc-fit diagnostics with diagnosticArcChecksPass=true; not detector results or object assertions",
+            "rows": [
+                {
+                    "candidateRankZeroBased": row["candidate_rank_zero_based"],
+                    "displayRankOneBased": row["display_rank_one_based"],
+                    "arcFitCentre": row["source_row"]["arcFitCentre"],
+                    "arcFitRadius": row["radius"],
+                    "diagnosticArcChecksPass": True,
+                    "sourceRow": row["source_row"],
+                }
+                for row in item["arc_pass_rows"]
+            ],
+        }
+    return report
+
+
+def draw_arc_pass_rows(draw: ImageDraw.ImageDraw, item: dict[str, Any]) -> None:
+    rows = item["arc_pass_rows"]
+    if not item["show_arc_pass_rows"] or not rows:
+        return
+
+    marker_color = (255, 195, 40)
+    rank_font = safe_font(16, bold=True)
+    image_width, image_height = item["overlay"].size
+    for index, row in enumerate(rows):
+        x, y = row["centre"]
+        radius = row["radius"]
+        outlined(draw, "ellipse", (x - radius, y - radius, x + radius, y + radius), marker_color, width=3)
+        cross(draw, x, y, marker_color, radius=7)
+
+        angle = (-math.pi / 2) + (2 * math.pi * index / len(rows))
+        label_distance = radius + 28
+        text = f"#{row['display_rank_one_based']}"
+        text_width = draw.textlength(text, font=rank_font)
+        text_x = x + math.cos(angle) * label_distance - text_width / 2
+        text_y = y + math.sin(angle) * label_distance - 9
+        text_x = max(2, min(image_width - text_width - 2, text_x))
+        text_y = max(2, min(image_height - 20, text_y))
+        draw.text((text_x, text_y), text, font=rank_font, fill=marker_color, stroke_width=3, stroke_fill=(0, 0, 0))
 
 
 def draw_frame(item: dict[str, Any], purpose_short: str) -> Image.Image:
     base = item["overlay"].copy()
     draw = ImageDraw.Draw(base)
     label_x, label_y = item["label"]
-    cross(draw, label_x, label_y, (255, 245, 0), radius=20)
+    if not item["target_free"]:
+        cross(draw, label_x, label_y, (255, 245, 0), radius=20)
 
     candidate = item["candidate"]
     if candidate is not None:
@@ -504,6 +754,8 @@ def draw_frame(item: dict[str, Any], purpose_short: str) -> Image.Image:
                  (210, 90, 255), width=4)
         cross(draw, arc_x, arc_y, (210, 90, 255), radius=10)
 
+    draw_arc_pass_rows(draw, item)
+
     # Keep the verified overlay at 1:1 resolution. The added header/footer are
     # outside the image; only diagnostic markers touch its original pixels.
     tile_width = 1000
@@ -512,8 +764,9 @@ def draw_frame(item: dict[str, Any], purpose_short: str) -> Image.Image:
     header_height = 54
     header_font = safe_font(27, bold=True)
     body_font = safe_font(21)
+    reference_name = "unreviewed reference" if item["target_free"] else "transformed label"
     logical_lines: list[str] = [
-        f"Source frame SHA-256: {item['pixel_hash']}  |  transformed label at ({label_x:.1f}, {label_y:.1f}) px",
+        f"Source frame SHA-256: {item['pixel_hash']}  |  {reference_name} at ({label_x:.1f}, {label_y:.1f}) px",
     ]
     if candidate is None:
         nearest = item["nearest_any"]
@@ -521,7 +774,10 @@ def draw_frame(item: dict[str, Any], purpose_short: str) -> Image.Image:
             logical_lines.append(f"No sparse-black proposal in the audited candidate prefix; local window = 3R ({item['max_distance']:.1f}px).")
         else:
             distance, index, _audit = nearest
-            logical_lines.append(f"No proposal within 3R ({item['max_distance']:.1f}px); nearest is rank {index + 1} at {distance:.1f}px.")
+            logical_lines.append(
+                f"No proposal within 3R ({item['max_distance']:.1f}px); nearest is rank {index + 1} "
+                f"at {distance:.1f}px from {reference_name}."
+            )
     else:
         distance, index, audit = candidate
         support = audit.get("boundarySupport")
@@ -534,7 +790,10 @@ def draw_frame(item: dict[str, Any], purpose_short: str) -> Image.Image:
             fit_text = (f"fitted centre ({fitted['x']:.1f}, {fitted['y']:.1f}) px, "
                         f"radius {audit['fittedRadius']:.1f} px; {decision}; boundarySupport={support_text}")
         proposal = audit["proposalCentre"]
-        logical_lines.append(f"Nearest cap proposal rank {index + 1} at ({proposal['x']:.1f}, {proposal['y']:.1f}), {distance:.1f}px from label.")
+        logical_lines.append(
+            f"Nearest cap proposal rank {index + 1} at ({proposal['x']:.1f}, {proposal['y']:.1f}), "
+            f"{distance:.1f}px from {reference_name}."
+        )
         logical_lines.append(f"Candidate-stage audit only; not a detector result: {fit_text}.")
     if arc is None:
         logical_lines.append("Pocket-aware partial-arc diagnostic: no candidate.")
@@ -542,7 +801,20 @@ def draw_frame(item: dict[str, Any], purpose_short: str) -> Image.Image:
         arc_status = "PASS" if item["arc_pass"] else "FAIL"
         arc_xy = arc["centre"]
         logical_lines.append(f"Partial-arc diagnostic only: {arc_status} at ({arc_xy['x']:.1f}, {arc_xy['y']:.1f}); not a detector result.")
-    legend = "Legend: yellow=transformed manual label; cyan=proposal; green=accepted candidate fit; orange=rejected candidate fit; purple=pocket-aware arc diagnostic only (not a detection)."
+    if item["show_arc_pass_rows"]:
+        row_details = "; ".join(
+            f"#{row['display_rank_one_based']} ({row['centre'][0]:.1f}, {row['centre'][1]:.1f}), r={row['radius']:.1f}"
+            for row in item["arc_pass_rows"]
+        ) or "none"
+        logical_lines.append(
+            f"Ranked arc-pass diagnostic rows: {len(item['arc_pass_rows'])}; one-based candidate ranks at arcFitCentre (px): {row_details}."
+        )
+    if item["target_free"]:
+        legend = "Legend: cyan=proposal; green=accepted candidate fit; orange=rejected candidate fit; purple=pocket-aware arc diagnostic only (not a detection). The unreviewed post-hoc reference guides ranking/diagnostics and is not drawn."
+    else:
+        legend = "Legend: yellow=transformed manual label; cyan=proposal; green=accepted candidate fit; orange=rejected candidate fit; purple=pocket-aware arc diagnostic only (not a detection)."
+    if item["show_arc_pass_rows"]:
+        legend += " Amber rings/crosses with # labels=ranked passing arc-fit diagnostics; diagnostic-only, not detections or object assertions."
     logical_lines.append(legend)
 
     text_draw = ImageDraw.Draw(Image.new("RGB", (tile_width, 1)))
@@ -554,6 +826,8 @@ def draw_frame(item: dict[str, Any], purpose_short: str) -> Image.Image:
     tile = Image.new("RGB", (tile_width, header_height + image_height + footer_height), (24, 27, 32))
     tile_draw = ImageDraw.Draw(tile)
     title = f"Frame {item['frame_id']} · {purpose_short}"
+    if item["show_arc_pass_rows"]:
+        title += f" · {len(item['arc_pass_rows'])} arc-pass rows"
     tile_draw.text((14, 11), title, font=header_font, fill=(245, 245, 245))
     tile.paste(image, (0, header_height))
 
@@ -564,18 +838,21 @@ def draw_frame(item: dict[str, Any], purpose_short: str) -> Image.Image:
     return tile
 
 
-def render(run_dir: Path, output: Path, report_output: Path, source_dir: Path | None, selected_frames: set[str] | None, columns: int) -> list[dict[str, Any]]:
+def render(
+    run_dir: Path,
+    output: Path,
+    report_output: Path,
+    source_dir: Path | None,
+    selected_frames: set[str] | None,
+    columns: int,
+    target_free: bool,
+    show_arc_pass_rows: bool,
+) -> list[dict[str, Any]]:
     if not run_dir.is_dir():
         fail(f"Replay run directory not found: {run_dir}")
     manifest_seed = read_json(run_dir / "manifest.json")
-    source_dir = resolve_source_input_directory(run_dir, manifest_seed, source_dir)
-    manifest, frames = verify_and_prepare(run_dir, source_dir)
-    if selected_frames is not None:
-        known = {item["frame_id"] for item in frames}
-        unknown = selected_frames - known
-        if unknown:
-            fail(f"Requested frame ids are absent from the verified run: {sorted(unknown)}")
-        frames = [item for item in frames if item["frame_id"] in selected_frames]
+    source_dir = resolve_source_input_directory(run_dir, manifest_seed, source_dir, selected_frames)
+    manifest, frames = verify_and_prepare(run_dir, source_dir, selected_frames, target_free, show_arc_pass_rows)
     if not frames:
         fail("No frames remain after selection.")
 
@@ -593,9 +870,11 @@ def render(run_dir: Path, output: Path, report_output: Path, source_dir: Path | 
         fail("Contact sheet and JSON report must use different output paths.")
 
     purpose = str(manifest.get("purpose", ""))
-    purpose_short = "positive/control"
+    purpose_short = "target-free candidate audit" if target_free else "positive/control"
     lowered = purpose.lower()
-    if "empty-pocket" in lowered or "control" in lowered:
+    if target_free:
+        purpose_short = "target-free candidate audit"
+    elif "empty-pocket" in lowered or "control" in lowered:
         purpose_short = "empty-pocket control"
     elif "positive" in lowered or "present" in lowered:
         purpose_short = "black-present"
@@ -617,11 +896,22 @@ def render(run_dir: Path, output: Path, report_output: Path, source_dir: Path | 
     except OSError as exc:
         fail(f"Cannot save contact sheet {output}: {exc}")
 
+    pixel_preservation = (
+        "Each saved dark-mask overlay is placed at native 1000x2000 resolution. Only diagnostic markers are drawn over source pixels; title and text are outside the image area."
+    )
+    if target_free:
+        pixel_preservation = (
+            "Each verified dark-mask overlay is placed at native 1000x2000 resolution. The baked unreviewed-reference cross and expected-radius ring are removed only at matching marker-color pixels inside the traced geometry, then replaced with local 21x21 median-filtered overlay values. Per-frame counts and hashes document this derived review canvas; newly selected candidate and arc markers are drawn afterward."
+        )
+    if show_arc_pass_rows:
+        pixel_preservation += " Ranked pass-row arc-fit markers use source arcFitCentre/radius values, with one-based rank labels and exact source rows recorded in provenance."
+
     report_payload = {
         "schemaVersion": 1,
         "tool": "Render-PocketArcCandidateOverlay.py",
         "mode": manifest.get("mode"),
         "diagnosticOnly": True,
+        "targetFreeReview": target_free,
         "sourceRunDirectory": str(run_dir.resolve()),
         "sourceFrameDirectory": str(source_dir.resolve()),
         "sourceManifest": {"file": "manifest.json", "sha256": sha256(run_dir / "manifest.json")},
@@ -629,7 +919,7 @@ def render(run_dir: Path, output: Path, report_output: Path, source_dir: Path | 
         "contactSheet": {
             "file": str(output.resolve()),
             "sha256": sha256(output),
-            "pixelPreservation": "Each source overlay is placed at native 1000x2000 resolution. Only diagnostic markers are drawn over source pixels; title and text are outside the image area.",
+            "pixelPreservation": pixel_preservation,
         },
         "legend": {
             "yellowCross": "transformed manual black label",
@@ -640,6 +930,20 @@ def render(run_dir: Path, output: Path, report_output: Path, source_dir: Path | 
         },
         "frames": [frame_report(item) for item in frames],
     }
+    if target_free:
+        report_payload["candidateRankingReference"] = "post-hoc unreviewed point for candidate ranking and fixed-point diagnostics; not a reviewed label or production detector input"
+        report_payload["legend"].pop("yellowCross")
+        report_payload["legend"]["referencePoint"] = "unreviewed post-hoc reference for candidate ranking and fixed-point diagnostics; not drawn"
+    if show_arc_pass_rows:
+        total_displayed = sum(len(item["arc_pass_rows"]) for item in frames)
+        report_payload["showArcPassRows"] = True
+        report_payload["rankedSparseBlackPocketArcPassRows"] = {
+            "displayedCount": total_displayed,
+            "frameCount": len(frames),
+            "semantics": "ranked arc-fit diagnostics only; a passing row does not assert a detector result or object",
+            "displayedCountByFrame": {item["frame_id"]: len(item["arc_pass_rows"]) for item in frames},
+        }
+        report_payload["legend"]["amberArcPassRows"] = "Amber arc-fit rings/crosses use each passing row's arcFitCentre/radius; # labels show one-based candidate ranks. Diagnostic-only, not detections or object assertions."
     report_output.parent.mkdir(parents=True, exist_ok=True)
     try:
         report_output.write_text(json.dumps(report_payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
@@ -654,7 +958,17 @@ def main() -> int:
     parser.add_argument("--source-input-directory", type=Path, help="Directory containing the exact replay PNGs and receipts; defaults to the run's sibling exact-replay-input directory.")
     parser.add_argument("--output", type=Path, help="Output PNG path; defaults to the run directory.")
     parser.add_argument("--report", type=Path, help="Output JSON provenance report; defaults to the run directory.")
-    parser.add_argument("--frames", nargs="+", help="Optional frame ids to render after the full run is validated.")
+    parser.add_argument("--frames", nargs="+", help="Optional frame ids to select before per-frame diagnostic validation.")
+    parser.add_argument(
+        "--target-free",
+        action="store_true",
+        help="Render candidate diagnostics without drawing the explicitly unreviewed reference as a manual label.",
+    )
+    parser.add_argument(
+        "--show-arc-pass-rows",
+        action="store_true",
+        help="Draw each ranked arc probe row with diagnosticArcChecksPass=true at its verified arc-fit centre and candidate rank.",
+    )
     parser.add_argument("--columns", type=int, default=3, help="Contact-sheet columns (default: 3).")
     args = parser.parse_args()
 
@@ -665,7 +979,10 @@ def main() -> int:
     try:
         selected = {str(value) for value in args.frames} if args.frames else None
         source_dir = args.source_input_directory.resolve() if args.source_input_directory is not None else None
-        frames = render(args.run_directory.resolve(), output.resolve(), report_output.resolve(), source_dir, selected, args.columns)
+        frames = render(
+            args.run_directory.resolve(), output.resolve(), report_output.resolve(), source_dir,
+            selected, args.columns, args.target_free, args.show_arc_pass_rows,
+        )
     except ValueError as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 2
