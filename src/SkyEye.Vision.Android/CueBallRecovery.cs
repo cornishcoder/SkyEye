@@ -174,6 +174,57 @@ public sealed partial class VisionAnalyzer
                 || i == probeCentreComponentLabel)
                 nearPocketComponents!.Add(new(i, x, y, (int)w, (int)h, (int)area, radius, fill, pocketDistance, decision));
         }
+        var edgePrunedTelemetry = new List<NeutralCueMaskEdgePrunedComponentTelemetry>();
+        if (hasProbe && postMorphMask is not null)
+        {
+            foreach (double edgeMarginFraction in new[] { .75, 1.0, 1.25, 1.5, 1.7 })
+            {
+                cancellation.ThrowIfCancellationRequested();
+                double edgeMargin = expectedRadius * edgeMarginFraction;
+                byte[] edgePrunedMask = (byte[])postMorphMask.Clone();
+                int edgePixelCount = 0;
+                for (int y = 0; y < height; y++)
+                for (int x = 0; x < width; x++)
+                {
+                    int index = y * width + x;
+                    if (x < edgeMargin || y < edgeMargin || x >= width - edgeMargin || y >= height - edgeMargin)
+                        edgePrunedMask[index] = 0;
+                    if (edgePrunedMask[index] != 0) edgePixelCount++;
+                }
+                using var edgePrunedMat = new MatLease(new Mat(height, width, CvType.Cv8uc1));
+                edgePrunedMat.Value.Put(0, 0, edgePrunedMask);
+                using var edgeLabels = new MatLease(new Mat()); using var edgeStats = new MatLease(new Mat());
+                using var edgeCentres = new MatLease(new Mat());
+                int edgeCount = Imgproc.ConnectedComponentsWithStats(edgePrunedMat.Value,
+                    edgeLabels.Value, edgeStats.Value, edgeCentres.Value);
+                int edgeLabel = (int)edgeLabels.Value.Get(probeCentreY, probeCentreX)![0];
+                if (edgeLabel == 0)
+                {
+                    edgePrunedTelemetry.Add(new(edgeMarginFraction, edgeMargin, edgePixelCount, edgeCount - 1, 0,
+                        null, null, null, null, null, null, null, "label-pixel-removed"));
+                }
+                else
+                {
+                    double w = edgeStats.Value.Get(edgeLabel, Imgproc.CcStatWidth)![0];
+                    double h = edgeStats.Value.Get(edgeLabel, Imgproc.CcStatHeight)![0];
+                    double area = edgeStats.Value.Get(edgeLabel, Imgproc.CcStatArea)![0];
+                    double x = edgeCentres.Value.Get(edgeLabel, 0)![0], y = edgeCentres.Value.Get(edgeLabel, 1)![0];
+                    double radius = (w + h) / 4, fill = w * h <= 0 ? 0 : area / (w * h);
+                    double pocketDistance = pockets.Min(p => (new Point(x, y) - p).Length);
+                    string decision = radius < expectedRadius * .65 || radius > expectedRadius * 1.3
+                        ? "rejected-radius"
+                        : w / h is < .75 or > 1.33 ? "rejected-aspect"
+                        : fill < .6 ? "rejected-fill"
+                        : x < edgeMargin || y < edgeMargin || x > width - edgeMargin || y > height - edgeMargin
+                            ? "rejected-image-edge"
+                        : pocketDistance < settings.PocketExclusionRadius * scale
+                            ? "rejected-pocket-exclusion"
+                        : "candidate";
+                    edgePrunedTelemetry.Add(new(edgeMarginFraction, edgeMargin, edgePixelCount,
+                        edgeCount - 1, edgeLabel, x, y, (int)w, (int)h, (int)area, radius, fill, decision));
+                }
+            }
+        }
         NeutralCueMaskProbeTelemetry? probeTelemetry = null;
         if (hasProbe && probePixels > 0)
         {
@@ -183,11 +234,61 @@ public sealed partial class VisionAnalyzer
                 probeCentreValue, probeCentreFieldValue, probeCentreAppearance, probeCentreAdaptiveValue,
                 probeCentrePreMorphMask, probeCentrePostMorphMask, probeCentreComponentLabel);
         }
+        byte[]? diagnosticRawPixels = null;
+        NeutralCueMaskHoughTelemetry? houghProbeTelemetry = null;
+        if (hasProbe)
+        {
+            using var houghCircles = new MatLease(new Mat());
+            Imgproc.HoughCircles(value.Value, houghCircles.Value, Imgproc.HoughGradient,
+                settings.HoughDp, settings.Separation * scale, settings.EdgeThreshold,
+                settings.InitialVotes * scale, (int)(settings.MinimumRadius * scale),
+                (int)(settings.MaximumRadius * scale));
+            int houghCount = Math.Max(houghCircles.Value.Cols(), houghCircles.Value.Rows());
+            var nearby = new List<(Circle Circle, double Distance)>();
+            for (int index = 0; index < houghCount; index++)
+            {
+                var proposal = houghCircles.Value.Get(houghCircles.Value.Rows() == 1 ? 0 : index,
+                    houghCircles.Value.Rows() == 1 ? index : 0);
+                if (proposal is null || proposal.Length < 3) continue;
+                var circle = new Circle(proposal[0], proposal[1], proposal[2]);
+                double distance = Math.Sqrt(Math.Pow(circle.X - probeCentre.X, 2) + Math.Pow(circle.Y - probeCentre.Y, 2));
+                if (distance <= expectedRadius * 3) nearby.Add((circle, distance));
+            }
+            var houghAudits = new List<NeutralCueMaskHoughCandidateTelemetry>();
+            foreach (var candidate in nearby.OrderBy(candidate => candidate.Distance).Take(16))
+            {
+                diagnosticRawPixels ??= Read(raw);
+                var fit = BallBoundaryRefiner.Refine(diagnosticRawPixels, width, height,
+                    new(candidate.Circle.X, candidate.Circle.Y), expectedRadius,
+                    settings.MinimumHoughBoundarySupport);
+                string? classification = null; bool? localContrast = null;
+                string decision;
+                if (fit is null)
+                {
+                    decision = "no-boundary-fit";
+                }
+                else
+                {
+                    var fittedCircle = new Circle(fit.Centre.X, fit.Centre.Y, fit.Radius);
+                    classification = Classify(fittedCircle, hsv, inspectRim: true,
+                        allowWarmNeutralCueCandidate: true).Kind;
+                    localContrast = HasLowLightNeutralBallContrast(fittedCircle, hsv, includeWarmCream: true);
+                    decision = fit.SupportedSectors < settings.MinimumHoughBoundarySupport
+                        ? "insufficient-boundary-support"
+                        : classification != "cue" ? "not-classified-cue"
+                        : !localContrast.Value ? "no-local-contrast"
+                        : "labelled-cue-supported";
+                }
+                houghAudits.Add(new(candidate.Circle.X, candidate.Circle.Y, candidate.Circle.Radius,
+                    candidate.Distance, fit?.SupportedSectors, classification, localContrast, decision));
+            }
+            houghProbeTelemetry = new(houghCount, houghAudits.ToArray());
+        }
         NeutralCueMaskBoundaryProbeTelemetry? boundaryProbeTelemetry = null;
         if (hasProbe)
         {
-            byte[] probeBgr = Read(raw);
-            var fit = BallBoundaryRefiner.Refine(probeBgr, width, height, probeCentre, expectedRadius,
+            diagnosticRawPixels ??= Read(raw);
+            var fit = BallBoundaryRefiner.Refine(diagnosticRawPixels, width, height, probeCentre, expectedRadius,
                 settings.MinimumHoughBoundarySupport, collectSectorEvidence: true);
             if (fit is null)
             {
@@ -210,7 +311,8 @@ public sealed partial class VisionAnalyzer
         }
         maskTelemetry = auditCandidates
             ? new NeutralCueMaskTelemetry(maskPixels, count - 1, filterCounts!, nearPocketComponents!.ToArray())
-            { Probe = probeTelemetry, BoundaryProbe = boundaryProbeTelemetry }
+            { Probe = probeTelemetry, BoundaryProbe = boundaryProbeTelemetry, HoughProbe = houghProbeTelemetry,
+                EdgePrunedComponents = edgePrunedTelemetry.ToArray() }
             : null;
         candidateCount = candidates.Count; recoveredCount = 0;
         var audits = auditCandidates ? new List<NeutralCueCandidateTelemetry>(Math.Min(4, candidates.Count)) : null;
