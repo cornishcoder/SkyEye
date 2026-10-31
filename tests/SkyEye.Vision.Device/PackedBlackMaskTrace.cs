@@ -17,6 +17,7 @@ internal static class PackedBlackMaskTrace
     const int ManualImageY = 536;
     const int DarkValueCeiling = 40;
     const int PackedClusterImageEdgeMargin = 23;
+    const int MaximumRankedSparseBlackPocketArcProbes = 32;
 
     readonly record struct Peak(int ComponentIndex, double X, double Y, double Radius, int Area, double DistanceFromLabel,
         bool PassesMargin, bool PassesMinimumRadius, bool InSearchWindow);
@@ -297,6 +298,105 @@ internal static class PackedBlackMaskTrace
                 classifierUnavailableReason = pocketArcProbe.Candidate is null
                     ? "The pocket-aware partial-arc probe returned no candidate."
                     : "The exact width-1000 analyzer pixels were not supplied for this trace.";
+
+            // Evaluate the pocket-aware arc fit from every already-ranked
+            // sparse-black candidate audit. This is intentionally separate
+            // from the nearest-seed/manual-label probes above and is capped at
+            // the analyzer's maximum candidate budget. None of these fits are
+            // fed back into production detection or canonical table state.
+            var rankedSparseBlackCandidateAudits = vision.CandidateAudits
+                .Where(audit => audit.Pass == "initial" && audit.Stage == "sparse-black-add")
+                .OrderBy(audit => audit.Index)
+                .Take(MaximumRankedSparseBlackPocketArcProbes)
+                .ToArray();
+            var rankedSparseBlackPocketArcProbes = rankedSparseBlackCandidateAudits.Select(audit =>
+            {
+                Point seedCentre = audit.ProposalCentre * auditScale;
+                double seedRadius = audit.ProposalRadius * auditScale;
+                double seedDistanceToLabel = (seedCentre - label).Length;
+                var probe = BallBoundaryRefiner.ProbePocketAwarePartialArc(bgrBytes,
+                    width, width * 2, seedCentre, ballRadius, calibratedPocketCentres,
+                    pocketOcclusionRadius, expectedKind: "black", maximumCentreOffsetFraction: .8);
+
+                object? classifierEvidence = null;
+                string? classifierUnavailableReason = null;
+                if (probe.Candidate is { } fit
+                    && classifierAnalyzer is not null && classifierPixels is not null)
+                {
+                    var evidence = classifierAnalyzer.ClassifyDiagnosticCandidate(fit.Centre,
+                        fit.Radius, classifierPixels);
+                    classifierEvidence = new
+                    {
+                        kind = evidence.Classification.Kind,
+                        pattern = evidence.Classification.Pattern,
+                        quality = evidence.Classification.Quality,
+                        qualityIsProbability = false,
+                        bodySampleCount = evidence.BodySampleCount,
+                        usableBodySampleCount = evidence.UsableBodySampleCount,
+                        rimSampleCount = evidence.RimSampleCount,
+                        usableRimSampleCount = evidence.UsableRimSampleCount,
+                        bodyDarkFraction = evidence.Classification.BodyDarkFraction,
+                        rimDarkFraction = evidence.Classification.RimDarkFraction
+                    };
+                }
+                else
+                    classifierUnavailableReason = probe.Candidate is null
+                        ? "The candidate-seeded pocket-aware partial-arc probe returned no fit."
+                        : "The exact width-1000 analyzer pixels were not supplied for this trace.";
+
+                var arcFit = probe.Candidate;
+                return new
+                {
+                    evaluationOnly = true,
+                    diagnosticOnly = true,
+                    productionOutputChanged = false,
+                    feedsDetectorCandidates = false,
+                    feedsVisionResult = false,
+                    feedsGameState = false,
+                    candidateRank = audit.Index,
+                    candidateRankIsZeroBased = true,
+                    pass = audit.Pass,
+                    stage = audit.Stage,
+                    decision = audit.Decision,
+                    classifiedKindFromProductionAudit = audit.ClassifiedKind,
+                    seedCentre,
+                    seedRadius,
+                    distanceFromLabel = seedDistanceToLabel,
+                    candidateAuditCentreBeforeGeometryScale = audit.ProposalCentre,
+                    candidateAuditRadiusBeforeGeometryScale = audit.ProposalRadius,
+                    candidateAuditGeometryWidth,
+                    arcFitAvailable = arcFit is not null,
+                    arcFitCentre = arcFit?.Centre,
+                    arcFitRadius = arcFit?.Radius,
+                    arcFitDistanceFromLabel = arcFit is null ? (double?)null : (arcFit.Centre - label).Length,
+                    candidateToSeedOffset = probe.CandidateToProposalOffset,
+                    candidateToSeedOffsetFraction = probe.CandidateToProposalOffsetFraction,
+                    maximumCandidateToSeedOffset = probe.MaximumCandidateToProposalOffset,
+                    maximumCandidateToSeedOffsetFraction = probe.MaximumCandidateToProposalOffsetFraction,
+                    visibleSectorCount = probe.VisibleSectorCount,
+                    visibleSectorIndices = probe.VisibleSectorIndices,
+                    supportedVisibleSectorCount = probe.SupportedVisibleSectorCount,
+                    supportedVisibleSectorIndices = probe.SupportedVisibleSectorIndices,
+                    unexplainedVisibleSectorCount = probe.UnexplainedVisibleSectorIndices.Length,
+                    unexplainedVisibleSectorIndices = probe.UnexplainedVisibleSectorIndices,
+                    globalSupportedSectorCount = arcFit?.SectorEvidence.Count(sector => sector.Supported),
+                    globalSupportFraction = arcFit?.SupportedSectors,
+                    longestContiguousSupportedRun = probe.LongestContiguousSupportedRun,
+                    supportedArcSpanDegrees = probe.SupportedArcSpanDegrees,
+                    minimumVisibleSectors = probe.MinimumVisibleSectors,
+                    minimumSupportedVisibleSectors = probe.MinimumSupportedVisibleSectors,
+                    minimumContiguousSupportedRun = probe.MinimumContiguousSupportedRun,
+                    minimumSupportedArcSpanDegrees = probe.MinimumSupportedArcSpanDegrees,
+                    diagnosticArcChecksPass = probe.DiagnosticArcChecksPass,
+                    score = arcFit?.Score,
+                    classifier = new
+                    {
+                        available = classifierEvidence is not null,
+                        unavailableReason = classifierUnavailableReason,
+                        evidence = classifierEvidence
+                    }
+                };
+            }).ToArray();
             var pocketAwarePartialArcExperiment = new
             {
                 evaluationOnly = true,
@@ -489,6 +589,9 @@ internal static class PackedBlackMaskTrace
                     maximumDistanceWithinExpectedBall = maxDistanceWithinExpectedBall, maximumDistanceWithin1_5BallRadii = maxDistanceWithin1_5BallRadii,
                     minimumPeakRadiusFactor, minimumPeakRadius },
                 manualCentreProbe = manualCentreProbeReport,
+                rankedSparseBlackPocketArcProbeCount = rankedSparseBlackPocketArcProbes.Length,
+                rankedSparseBlackPocketArcProbeCap = MaximumRankedSparseBlackPocketArcProbes,
+                rankedSparseBlackPocketArcProbes,
                 nearbyComponents = nearbyComponents.ToArray(), nearbyLocalMaxima = nearbyPeaks,
                 peakComponentCounts = new { positiveLocalMaximumComponents = nearbyPeakCount - 1,
                     minimumRadiusQualifiedComponents = globalPeakCount - 1, croppedMinimumRadiusQualifiedComponents = croppedQualifiedSeedCount,
