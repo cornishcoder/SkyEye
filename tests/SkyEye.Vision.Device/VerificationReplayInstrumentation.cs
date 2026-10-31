@@ -306,7 +306,12 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     continue;
                 }
                 var baseline800 = Measure(() => analyzer800.Analyze(bytes, calibration), out var analysis800Metrics);
+                byte[]? classifierPixels1000 = null;
+                if (traceDarkMask)
+                    analyzer1000.ObserveNextClassifierPixels(pixels => classifierPixels1000 = pixels);
                 var baseline1000 = Measure(() => analyzer1000.Analyze(bytes, calibration), out var analysis1000Metrics);
+                if (traceDarkMask && classifierPixels1000 is null)
+                    throw new IOException("The width-1000 classifier pixels were not captured from the baseline analysis.");
                 string? obstructionMask800 = null, obstructionMask1000 = null;
                 if (obstructionMaskTrace)
                 {
@@ -587,7 +592,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                         darkMaskTrace = traceDarkMask ? PackedBlackMaskTrace.Capture(bytes, calibration, 800, baseline800, Path.Combine(root, "o08-black-trace-" + run), receipt.GetProperty("frameId").GetInt64().ToString(), manualBlackImageX, manualBlackImageY, sparseBlackMinimumPeakRadiusFactor, pocketExclusionRadius) : null,
                         packedBlackBoundaryTrace = boundaryAudit ? AuditPackedBlackBoundaries(bytes, calibration, 800, baseline800) : null },
                     width1000 = new { blackSeedRecovered = blackSeedRecovered1000, analysis = Summarize(baseline1000, 1000), verification = Summarize(verification1000, 1000),
-                        darkMaskTrace = traceDarkMask ? PackedBlackMaskTrace.Capture(bytes, calibration, 1000, baseline1000, Path.Combine(root, "o08-black-trace-" + run), frameId.ToString(), manualBlackImageX, manualBlackImageY, sparseBlackMinimumPeakRadiusFactor, pocketExclusionRadius) : null,
+                        darkMaskTrace = traceDarkMask ? PackedBlackMaskTrace.Capture(bytes, calibration, 1000, baseline1000, Path.Combine(root, "o08-black-trace-" + run), frameId.ToString(), manualBlackImageX, manualBlackImageY, sparseBlackMinimumPeakRadiusFactor, pocketExclusionRadius, analyzer1000, classifierPixels1000!) : null,
                         packedBlackBoundaryTrace = boundaryAudit ? AuditPackedBlackBoundaries(bytes, calibration, 1000, baseline1000) : null },
                     analysisWidthComparison = Compare(baseline800, baseline1000, 800, 1000),
                     widthComparison = verification800.Vision is null || verification1000.Vision is null

@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Threading;
 using SkyEye.Core;
 using SkyEye.Core.Analysis;
 using Org.Opencv.Android;
@@ -26,8 +27,11 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     readonly (int Hue, int SaturationFloor, int ValueFloor, int MedianValue)? diagnosticObstructionClothRangeOverride;
     readonly (int Minimum, int Maximum)? diagnosticObstructionNeutralValueRangeOverride;
     byte[]? lastObstructionMaskDiagnosticPng;
+    Action<byte[]>? nextClassifierPixelsObserver;
     readonly record struct Circle(double X, double Y, double Radius);
     readonly record struct PackedClusterEvidence(bool Detected, int RedCentres, int YellowCentres, bool BlackCentre);
+    internal sealed record DiagnosticClassifierEvidence(BallClassification Classification,
+        int BodySampleCount, int UsableBodySampleCount, int RimSampleCount, int UsableRimSampleCount);
     public VisionAnalyzer(int width = 1000) : this(new VisionSettings(Width: width)) { }
     public VisionAnalyzer(VisionSettings settings, bool includeBoundaryDiagnostics = false, bool includeCandidateDiagnostics = false,
         bool includeObstructionMaskDiagnostics = false,
@@ -47,6 +51,50 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         var result = lastObstructionMaskDiagnosticPng;
         lastObstructionMaskDiagnosticPng = null;
         return result;
+    }
+    internal void ObserveNextClassifierPixels(Action<byte[]> observer)
+    {
+        ArgumentNullException.ThrowIfNull(observer);
+        if (Interlocked.CompareExchange(ref nextClassifierPixelsObserver, observer, null) is not null)
+            throw new InvalidOperationException("A classifier-pixel observer is already registered.");
+    }
+    internal DiagnosticClassifierEvidence ClassifyDiagnosticCandidate(Point centre, double radius, byte[] hsvPixels)
+    {
+        if (coordinates.Width != 1000)
+            throw new InvalidOperationException("Pocket-arc classifier evidence is supported only on the width-1000 analyzer.");
+        ArgumentNullException.ThrowIfNull(hsvPixels);
+        if (hsvPixels.Length != coordinates.Width * coordinates.Height * 3)
+            throw new ArgumentException("Classifier pixels do not match this analyzer's dimensions.", nameof(hsvPixels));
+        if (!double.IsFinite(centre.X) || !double.IsFinite(centre.Y) || !double.IsFinite(radius) || radius <= 0)
+            throw new ArgumentOutOfRangeException(nameof(radius), "Classifier candidate geometry must be finite and positive.");
+
+        var circle = new Circle(centre.X, centre.Y, radius);
+        int bodySamples = 0, usableBodySamples = 0, rimSamples = 0, usableRimSamples = 0;
+        ForPixels(circle, .85, (x, y) =>
+        {
+            int offset = (y * coordinates.Width + x) * 3;
+            bodySamples++;
+            if (IsUsableClassifierSample(hsvPixels, offset)) usableBodySamples++;
+        });
+        if (settings.FreshCueBallRecovery)
+            ForPixels(circle, .95, (x, y) =>
+            {
+                if ((x - circle.X) * (x - circle.X) + (y - circle.Y) * (y - circle.Y)
+                    < circle.Radius * circle.Radius * .8 * .8) return;
+                int offset = (y * coordinates.Width + x) * 3;
+                rimSamples++;
+                if (IsUsableClassifierSample(hsvPixels, offset)) usableRimSamples++;
+            });
+
+        var classification = Classify(circle, hsvPixels, inspectRim: settings.FreshCueBallRecovery);
+        return new(classification, bodySamples, usableBodySamples, rimSamples, usableRimSamples);
+    }
+    static bool IsUsableClassifierSample(byte[] hsvPixels, int offset)
+    {
+        // Keep these diagnostic counts aligned with BallClassifier's input filter.
+        double hue = hsvPixels[offset], saturation = hsvPixels[offset + 1], value = hsvPixels[offset + 2];
+        return double.IsFinite(hue) && hue is >= 0 and <= 179
+            && saturation is >= 0 and <= 255 && value is > 5 and <= 255;
     }
     public string ConfigurationIdentity
     {
@@ -213,6 +261,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             geometryHsv, geometryHsvPixels, geometryBoundaryColourMask, packedClassifications,
             candidateAudits, "initial", acceptedPackedBlackBoundaries, packedColourProposalHsv);
         bool inspectRim = appearance is not null || settings.FreshCueBallRecovery;
+        Interlocked.Exchange(ref nextClassifierPixelsObserver, null)?.Invoke(pixels);
         var initialLabels = circles.Select(c => Classify(c, pixels, inspectRim)).ToArray();
         int initialCueCount = initialLabels.Count(l => l.Kind == "cue");
         int neutralCandidates = 0, neutralRecovered = 0;

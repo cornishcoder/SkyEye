@@ -24,8 +24,13 @@ internal static class PackedBlackMaskTrace
     public static object Capture(byte[] encodedImage, TableCalibration calibration, int width, VisionResult vision,
         string outputDirectory, string frameId, int manualImageX = ManualImageX, int manualImageY = ManualImageY,
         double minimumPeakRadiusFactor = 8,
-        double pocketExclusionRadiusAtWidth1000 = VisionSettings.DefaultPocketExclusionRadius)
+        double pocketExclusionRadiusAtWidth1000 = VisionSettings.DefaultPocketExclusionRadius,
+        VisionAnalyzer? classifierAnalyzer = null, byte[]? classifierPixels = null)
     {
+        if ((classifierAnalyzer is null) != (classifierPixels is null))
+            throw new ArgumentException("The classifier analyzer and its captured pixel buffer must be supplied together.");
+        if (classifierAnalyzer is not null && width != 1000)
+            throw new ArgumentOutOfRangeException(nameof(width), "Exact pocket-arc classifier evidence is supported only at width 1000.");
         using var encoded = new MatOfByte(encodedImage);
         using var source = Imgcodecs.Imdecode(encoded, Imgcodecs.ImreadColor);
         if (manualImageX < 0 || manualImageX >= source.Cols() || manualImageY < 0 || manualImageY >= source.Rows())
@@ -251,6 +256,47 @@ internal static class PackedBlackMaskTrace
             var pocketArcProbe = BallBoundaryRefiner.ProbePocketAwarePartialArc(bgrBytes,
                 width, width * 2, pocketArcProposal, ballRadius, calibratedPocketCentres,
                 pocketOcclusionRadius, expectedKind: "black", maximumCentreOffsetFraction: .8);
+            object? candidateColourClassifier = null;
+            string? classifierUnavailableReason = null;
+            if (pocketArcProbe.Candidate is { } classifierFit
+                && classifierAnalyzer is not null && classifierPixels is not null)
+            {
+                var evidence = classifierAnalyzer.ClassifyDiagnosticCandidate(classifierFit.Centre,
+                    classifierFit.Radius, classifierPixels);
+                candidateColourClassifier = new
+                {
+                    evaluationOnly = true,
+                    diagnosticOnly = true,
+                    productionOutputChanged = false,
+                    feedsDetectorCandidates = false,
+                    feedsVisionResult = false,
+                    feedsGameState = false,
+                    source = "exact HSV pixels captured from the same width-1000 baseline analyzer invocation",
+                    classifier = "existing VisionAnalyzer.Classify at the pocket-aware probe candidate",
+                    kind = evidence.Classification.Kind,
+                    pattern = evidence.Classification.Pattern,
+                    quality = evidence.Classification.Quality,
+                    qualityIsProbability = false,
+                    sampleCoverage = new
+                    {
+                        bodySampleCount = evidence.BodySampleCount,
+                        usableBodySampleCount = evidence.UsableBodySampleCount,
+                        minimumUsableBodySamplesForClassification = 8,
+                        bodySamplesBelowMinimum = evidence.UsableBodySampleCount < 8,
+                        rimSampleCount = evidence.RimSampleCount,
+                        usableRimSampleCount = evidence.UsableRimSampleCount,
+                        minimumUsableRimSamplesForBlackRecovery = 8,
+                        rimSamplesBelowMinimum = evidence.UsableRimSampleCount < 8,
+                        bodyDarkFraction = evidence.Classification.BodyDarkFraction,
+                        rimDarkFraction = evidence.Classification.RimDarkFraction
+                    },
+                    clusters = evidence.Classification.Clusters
+                };
+            }
+            else
+                classifierUnavailableReason = pocketArcProbe.Candidate is null
+                    ? "The pocket-aware partial-arc probe returned no candidate."
+                    : "The exact width-1000 analyzer pixels were not supplied for this trace.";
             var pocketAwarePartialArcExperiment = new
             {
                 evaluationOnly = true,
@@ -313,7 +359,13 @@ internal static class PackedBlackMaskTrace
                     minimumSupportedArcSpanDegrees = pocketArcProbe.MinimumSupportedArcSpanDegrees,
                     diagnosticArcChecksPass = pocketArcProbe.DiagnosticArcChecksPass,
                     score = pocketArcFit.Score
-                } : null
+                } : null,
+                candidateColourClassifier = new
+                {
+                    available = candidateColourClassifier is not null,
+                    unavailableReason = classifierUnavailableReason,
+                    evidence = candidateColourClassifier
+                }
             };
             var nearestSeedProbe08 = hasNearestMarginSeed
                 ? BallBoundaryRefiner.Refine(bgrBytes, width, width * 2, nearestSeedCentre, ballRadius,
