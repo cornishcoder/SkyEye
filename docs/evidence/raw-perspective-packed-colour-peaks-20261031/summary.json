@@ -1,0 +1,1854 @@
+{
+  "schemaVersion": 1,
+  "purpose": "offline raw-versus-rectified packed-colour peak proposal screen; not full detector or acceptance evidence",
+  "opencvVersion": "4.12.0",
+  "proposalStageCopiedFrom": "PackedBallClusterRecovery.FindColourPeakBodies",
+  "parameters": {
+    "redHueRangesInclusive": [
+      [
+        0,
+        10
+      ],
+      [
+        170,
+        179
+      ]
+    ],
+    "yellowHueRangeInclusive": [
+      10,
+      40
+    ],
+    "minimumSaturation": 100,
+    "minimumValue": 30,
+    "distanceTransform": "DIST_L2 maskSize=3",
+    "peakDilation": "17x17 rectangular",
+    "minimumPeakRadius": 12.0,
+    "maximumRadius": 35.0,
+    "edgeMargin": 23.0,
+    "pocketExclusionRadius": 48.0,
+    "matchRadius": 27.0
+  },
+  "limitations": [
+    "This compares colour masks and distance-transform seeds only; it does not run outer-boundary fits, colour classification, dense-window selection, deduplication, or uncertainty acceptance.",
+    "Raw masks are thresholded from decoded camera pixels and nearest-neighbour warped before the production seed operation; this does not implement a native raw-coordinate detector.",
+    "Labels are provisional visual estimates, and frames from different sessions are not a held-out matched set.",
+    "A seed match is not a detected ball; the existing production fit and classification gates remain authoritative."
+  ],
+  "cases": [
+    {
+      "case": "daylight",
+      "inputManifest": {
+        "image": {
+          "path": "work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\exact-replay-input\\1365.png",
+          "sha256": "602e00c4eb9fc92f3b124106137d8ca7c56f932e107f995f1f2c7d824dd25de4"
+        },
+        "receipt": {
+          "path": "work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\exact-replay-input\\1365.json",
+          "sha256": "0ca2daa12e7f0618825b85d0478f0ce490e961644f4f71adb4eaea2fb63fe931"
+        },
+        "labels": {
+          "path": "docs\\evidence\\pocket-cushion-centre-labels-20261031\\positive\\manual-labels-frame-1365-draft.json",
+          "sha256": "4573477fa1c197b1043a8eb7bf6c4873078632be6e8bb70457e0ab5c09c99e9e",
+          "status": "assistant draft; user review needed"
+        },
+        "frameId": 1365,
+        "timeline": "76ec0f8c622045378494b0c250198ce6",
+        "sourceTimeUs": 80806601200
+      },
+      "modes": {
+        "raw-mask-then-warp": {
+          "byKind": {
+            "red": {
+              "stageCounts": {
+                "peakComponents": 7,
+                "seed": 7
+              },
+              "labelCount": 7,
+              "matchedCount": 7,
+              "recall": 1.0,
+              "seedCount": 7,
+              "unmatchedSeedCount": 0,
+              "unmatchedLabelIds": [],
+              "medianMatchedOffsetRectifiedPx": 7.422,
+              "matches": [
+                {
+                  "seedIndex": 0,
+                  "labelId": "red-05",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 4.531,
+                  "centreOffsetBallDiameters": 0.0839
+                },
+                {
+                  "seedIndex": 1,
+                  "labelId": "red-04",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 5.073,
+                  "centreOffsetBallDiameters": 0.094
+                },
+                {
+                  "seedIndex": 3,
+                  "labelId": "red-02",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 6.034,
+                  "centreOffsetBallDiameters": 0.1117
+                },
+                {
+                  "seedIndex": 6,
+                  "labelId": "red-03",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 7.422,
+                  "centreOffsetBallDiameters": 0.1374
+                },
+                {
+                  "seedIndex": 2,
+                  "labelId": "red-01",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 8.402,
+                  "centreOffsetBallDiameters": 0.1556
+                },
+                {
+                  "seedIndex": 4,
+                  "labelId": "red-06",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 11.266,
+                  "centreOffsetBallDiameters": 0.2086
+                },
+                {
+                  "seedIndex": 5,
+                  "labelId": "red-07",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 12.137,
+                  "centreOffsetBallDiameters": 0.2248
+                }
+              ],
+              "seeds": [
+                {
+                  "kind": "red",
+                  "componentId": 1,
+                  "rectifiedX": 110.0,
+                  "rectifiedY": 69.0,
+                  "interiorRadius": 25.94649887084961,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 2,
+                  "rectifiedX": 551.0,
+                  "rectifiedY": 76.0,
+                  "interiorRadius": 25.69369888305664,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 3,
+                  "rectifiedX": 940.0,
+                  "rectifiedY": 100.0,
+                  "interiorRadius": 23.369400024414062,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 4,
+                  "rectifiedX": 968.0,
+                  "rectifiedY": 963.0,
+                  "interiorRadius": 20.66590118408203,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 5,
+                  "rectifiedX": 48.0,
+                  "rectifiedY": 1042.0,
+                  "interiorRadius": 22.57590103149414,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 6,
+                  "rectifiedX": 55.0,
+                  "rectifiedY": 1908.0,
+                  "interiorRadius": 22.44950294494629,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 7,
+                  "rectifiedX": 968.0,
+                  "rectifiedY": 1939.0,
+                  "interiorRadius": 21.33300018310547,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                }
+              ]
+            },
+            "yellow": {
+              "stageCounts": {
+                "peakComponents": 8,
+                "seed": 8
+              },
+              "labelCount": 7,
+              "matchedCount": 7,
+              "recall": 1.0,
+              "seedCount": 8,
+              "unmatchedSeedCount": 1,
+              "unmatchedLabelIds": [],
+              "medianMatchedOffsetRectifiedPx": 6.433,
+              "matches": [
+                {
+                  "seedIndex": 4,
+                  "labelId": "yellow-02",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 1.223,
+                  "centreOffsetBallDiameters": 0.0227
+                },
+                {
+                  "seedIndex": 5,
+                  "labelId": "yellow-05",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 2.62,
+                  "centreOffsetBallDiameters": 0.0485
+                },
+                {
+                  "seedIndex": 6,
+                  "labelId": "yellow-03",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 4.023,
+                  "centreOffsetBallDiameters": 0.0745
+                },
+                {
+                  "seedIndex": 3,
+                  "labelId": "yellow-04",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 6.433,
+                  "centreOffsetBallDiameters": 0.1191
+                },
+                {
+                  "seedIndex": 2,
+                  "labelId": "yellow-06",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 6.565,
+                  "centreOffsetBallDiameters": 0.1216
+                },
+                {
+                  "seedIndex": 0,
+                  "labelId": "yellow-01",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 9.008,
+                  "centreOffsetBallDiameters": 0.1668
+                },
+                {
+                  "seedIndex": 7,
+                  "labelId": "yellow-07",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 11.252,
+                  "centreOffsetBallDiameters": 0.2084
+                }
+              ],
+              "seeds": [
+                {
+                  "kind": "yellow",
+                  "componentId": 1,
+                  "rectifiedX": 938.0,
+                  "rectifiedY": 28.0,
+                  "interiorRadius": 22.57590103149414,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 2,
+                  "rectifiedX": 58.0,
+                  "rectifiedY": 93.0,
+                  "interiorRadius": 16.93720054626465,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 3,
+                  "rectifiedX": 44.0,
+                  "rectifiedY": 959.0,
+                  "interiorRadius": 21.96500015258789,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 4,
+                  "rectifiedX": 506.0,
+                  "rectifiedY": 989.0,
+                  "interiorRadius": 22.86380386352539,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 5,
+                  "rectifiedX": 959.0,
+                  "rectifiedY": 1034.0,
+                  "interiorRadius": 25.602405548095703,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 6,
+                  "rectifiedX": 483.0,
+                  "rectifiedY": 1927.0,
+                  "interiorRadius": 25.78499984741211,
+                  "peakPixels": 5,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 7,
+                  "rectifiedX": 909.0,
+                  "rectifiedY": 1941.0,
+                  "interiorRadius": 25.11789894104004,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 8,
+                  "rectifiedX": 65.0,
+                  "rectifiedY": 1954.0,
+                  "interiorRadius": 24.485904693603516,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                }
+              ]
+            }
+          },
+          "totalSeeds": 15,
+          "matchedTotal": 14
+        },
+        "warp-bgr-then-mask": {
+          "byKind": {
+            "red": {
+              "stageCounts": {
+                "peakComponents": 7,
+                "seed": 7
+              },
+              "labelCount": 7,
+              "matchedCount": 7,
+              "recall": 1.0,
+              "seedCount": 7,
+              "unmatchedSeedCount": 0,
+              "unmatchedLabelIds": [],
+              "medianMatchedOffsetRectifiedPx": 8.085,
+              "matches": [
+                {
+                  "seedIndex": 0,
+                  "labelId": "red-05",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 4.853,
+                  "centreOffsetBallDiameters": 0.0899
+                },
+                {
+                  "seedIndex": 1,
+                  "labelId": "red-04",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 5.073,
+                  "centreOffsetBallDiameters": 0.094
+                },
+                {
+                  "seedIndex": 3,
+                  "labelId": "red-02",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 6.249,
+                  "centreOffsetBallDiameters": 0.1157
+                },
+                {
+                  "seedIndex": 6,
+                  "labelId": "red-03",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 8.085,
+                  "centreOffsetBallDiameters": 0.1497
+                },
+                {
+                  "seedIndex": 2,
+                  "labelId": "red-01",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 9.282,
+                  "centreOffsetBallDiameters": 0.1719
+                },
+                {
+                  "seedIndex": 4,
+                  "labelId": "red-06",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 10.339,
+                  "centreOffsetBallDiameters": 0.1915
+                },
+                {
+                  "seedIndex": 5,
+                  "labelId": "red-07",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 12.137,
+                  "centreOffsetBallDiameters": 0.2248
+                }
+              ],
+              "seeds": [
+                {
+                  "kind": "red",
+                  "componentId": 1,
+                  "rectifiedX": 111.0,
+                  "rectifiedY": 69.0,
+                  "interiorRadius": 25.78499984741211,
+                  "peakPixels": 3,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 2,
+                  "rectifiedX": 551.0,
+                  "rectifiedY": 76.0,
+                  "interiorRadius": 25.728803634643555,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 3,
+                  "rectifiedX": 940.0,
+                  "rectifiedY": 101.0,
+                  "interiorRadius": 23.875,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 4,
+                  "rectifiedX": 967.5,
+                  "rectifiedY": 963.5,
+                  "interiorRadius": 20.53950309753418,
+                  "peakPixels": 2,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 5,
+                  "rectifiedX": 47.0,
+                  "rectifiedY": 1042.0,
+                  "interiorRadius": 23.243000030517578,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 6,
+                  "rectifiedX": 55.0,
+                  "rectifiedY": 1908.0,
+                  "interiorRadius": 22.44950294494629,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 7,
+                  "rectifiedX": 966.0,
+                  "rectifiedY": 1940.0,
+                  "interiorRadius": 21.424299240112305,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                }
+              ]
+            },
+            "yellow": {
+              "stageCounts": {
+                "peakComponents": 8,
+                "seed": 8
+              },
+              "labelCount": 7,
+              "matchedCount": 7,
+              "recall": 1.0,
+              "seedCount": 8,
+              "unmatchedSeedCount": 1,
+              "unmatchedLabelIds": [],
+              "medianMatchedOffsetRectifiedPx": 5.532,
+              "matches": [
+                {
+                  "seedIndex": 4,
+                  "labelId": "yellow-02",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 1.723,
+                  "centreOffsetBallDiameters": 0.0319
+                },
+                {
+                  "seedIndex": 5,
+                  "labelId": "yellow-05",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 2.515,
+                  "centreOffsetBallDiameters": 0.0466
+                },
+                {
+                  "seedIndex": 6,
+                  "labelId": "yellow-03",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 4.023,
+                  "centreOffsetBallDiameters": 0.0745
+                },
+                {
+                  "seedIndex": 3,
+                  "labelId": "yellow-04",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 5.532,
+                  "centreOffsetBallDiameters": 0.1024
+                },
+                {
+                  "seedIndex": 2,
+                  "labelId": "yellow-06",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 6.565,
+                  "centreOffsetBallDiameters": 0.1216
+                },
+                {
+                  "seedIndex": 0,
+                  "labelId": "yellow-01",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 9.008,
+                  "centreOffsetBallDiameters": 0.1668
+                },
+                {
+                  "seedIndex": 7,
+                  "labelId": "yellow-07",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 11.252,
+                  "centreOffsetBallDiameters": 0.2084
+                }
+              ],
+              "seeds": [
+                {
+                  "kind": "yellow",
+                  "componentId": 1,
+                  "rectifiedX": 938.0,
+                  "rectifiedY": 28.0,
+                  "interiorRadius": 23.278104782104492,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 2,
+                  "rectifiedX": 58.0,
+                  "rectifiedY": 93.0,
+                  "interiorRadius": 16.93720054626465,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 3,
+                  "rectifiedX": 44.0,
+                  "rectifiedY": 959.0,
+                  "interiorRadius": 21.96500015258789,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 4,
+                  "rectifiedX": 507.0,
+                  "rectifiedY": 988.0,
+                  "interiorRadius": 23.369400024414062,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 5,
+                  "rectifiedX": 958.5,
+                  "rectifiedY": 1034.0,
+                  "interiorRadius": 25.78499984741211,
+                  "peakPixels": 2,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 6,
+                  "rectifiedX": 482.85714285714283,
+                  "rectifiedY": 1927.0,
+                  "interiorRadius": 25.78499984741211,
+                  "peakPixels": 7,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 7,
+                  "rectifiedX": 909.0,
+                  "rectifiedY": 1941.0,
+                  "interiorRadius": 25.11789894104004,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 8,
+                  "rectifiedX": 65.0,
+                  "rectifiedY": 1954.0,
+                  "interiorRadius": 24.829999923706055,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                }
+              ]
+            }
+          },
+          "totalSeeds": 15,
+          "matchedTotal": 14
+        }
+      }
+    },
+    {
+      "case": "dim-pocket-control",
+      "inputManifest": {
+        "image": {
+          "path": "work\\production\\evidence\\code65-source-frame-check-20261031\\exact-replay-input\\978.png",
+          "sha256": "b368348c63d924f5c7834e8e849b7287225ab525b470bdc3b85f7a8278cbbe70"
+        },
+        "receipt": {
+          "path": "work\\production\\evidence\\code65-source-frame-check-20261031\\exact-replay-input\\978.json",
+          "sha256": "653e1ea4bc6c927ba592ad796a6c084e49103c27003d13e5d23d0c98a3144034"
+        },
+        "labels": {
+          "path": "docs\\evidence\\pocket-cushion-centre-labels-20261031\\negative\\manual-centres-frame-978-draft.json",
+          "sha256": "08130aefb6d6eed81366d44274e35cc733b79df14b840e56464e46ce536fc251",
+          "status": "assistant draft; user review needed"
+        },
+        "frameId": 978,
+        "timeline": "2ea48e0c35cd474eb627acf970a7eec5",
+        "sourceTimeUs": 48922017388
+      },
+      "modes": {
+        "raw-mask-then-warp": {
+          "byKind": {
+            "red": {
+              "stageCounts": {
+                "peakComponents": 7,
+                "seed": 7
+              },
+              "labelCount": 7,
+              "matchedCount": 7,
+              "recall": 1.0,
+              "seedCount": 7,
+              "unmatchedSeedCount": 0,
+              "unmatchedLabelIds": [],
+              "medianMatchedOffsetRectifiedPx": 4.148,
+              "matches": [
+                {
+                  "seedIndex": 1,
+                  "labelId": "red-04",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 0.891,
+                  "centreOffsetBallDiameters": 0.0165
+                },
+                {
+                  "seedIndex": 0,
+                  "labelId": "red-05",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 1.899,
+                  "centreOffsetBallDiameters": 0.0352
+                },
+                {
+                  "seedIndex": 2,
+                  "labelId": "red-01",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 3.694,
+                  "centreOffsetBallDiameters": 0.0684
+                },
+                {
+                  "seedIndex": 5,
+                  "labelId": "red-07",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 4.148,
+                  "centreOffsetBallDiameters": 0.0768
+                },
+                {
+                  "seedIndex": 6,
+                  "labelId": "red-03",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 5.892,
+                  "centreOffsetBallDiameters": 0.1091
+                },
+                {
+                  "seedIndex": 3,
+                  "labelId": "red-02",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 6.893,
+                  "centreOffsetBallDiameters": 0.1276
+                },
+                {
+                  "seedIndex": 4,
+                  "labelId": "red-06",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 8.003,
+                  "centreOffsetBallDiameters": 0.1482
+                }
+              ],
+              "seeds": [
+                {
+                  "kind": "red",
+                  "componentId": 1,
+                  "rectifiedX": 109.0,
+                  "rectifiedY": 66.0,
+                  "interiorRadius": 24.829999923706055,
+                  "peakPixels": 3,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 2,
+                  "rectifiedX": 551.0,
+                  "rectifiedY": 73.0,
+                  "interiorRadius": 24.70359992980957,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 3,
+                  "rectifiedX": 944.0,
+                  "rectifiedY": 88.0,
+                  "interiorRadius": 24.07159996032715,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 4,
+                  "rectifiedX": 960.0,
+                  "rectifiedY": 952.0,
+                  "interiorRadius": 20.05500030517578,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 5,
+                  "rectifiedX": 38.0,
+                  "rectifiedY": 1030.0,
+                  "interiorRadius": 20.46929931640625,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 6,
+                  "rectifiedX": 49.5,
+                  "rectifiedY": 1894.0,
+                  "interiorRadius": 21.010000228881836,
+                  "peakPixels": 2,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 7,
+                  "rectifiedX": 958.0,
+                  "rectifiedY": 1930.0,
+                  "interiorRadius": 22.828699111938477,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                }
+              ]
+            },
+            "yellow": {
+              "stageCounts": {
+                "peakComponents": 8,
+                "seed": 8
+              },
+              "labelCount": 7,
+              "matchedCount": 7,
+              "recall": 1.0,
+              "seedCount": 8,
+              "unmatchedSeedCount": 1,
+              "unmatchedLabelIds": [],
+              "medianMatchedOffsetRectifiedPx": 2.053,
+              "matches": [
+                {
+                  "seedIndex": 2,
+                  "labelId": "yellow-06",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 0.736,
+                  "centreOffsetBallDiameters": 0.0136
+                },
+                {
+                  "seedIndex": 5,
+                  "labelId": "yellow-05",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 1.165,
+                  "centreOffsetBallDiameters": 0.0216
+                },
+                {
+                  "seedIndex": 3,
+                  "labelId": "yellow-04",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 1.34,
+                  "centreOffsetBallDiameters": 0.0248
+                },
+                {
+                  "seedIndex": 4,
+                  "labelId": "yellow-02",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 2.053,
+                  "centreOffsetBallDiameters": 0.038
+                },
+                {
+                  "seedIndex": 6,
+                  "labelId": "yellow-03",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 2.45,
+                  "centreOffsetBallDiameters": 0.0454
+                },
+                {
+                  "seedIndex": 0,
+                  "labelId": "yellow-01",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 3.119,
+                  "centreOffsetBallDiameters": 0.0578
+                },
+                {
+                  "seedIndex": 7,
+                  "labelId": "yellow-07",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 5.742,
+                  "centreOffsetBallDiameters": 0.1063
+                }
+              ],
+              "seeds": [
+                {
+                  "kind": "yellow",
+                  "componentId": 1,
+                  "rectifiedX": 938.0,
+                  "rectifiedY": 31.0,
+                  "interiorRadius": 23.748600006103516,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 2,
+                  "rectifiedX": 49.0,
+                  "rectifiedY": 82.0,
+                  "interiorRadius": 19.675800323486328,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 3,
+                  "rectifiedX": 38.0,
+                  "rectifiedY": 956.0,
+                  "interiorRadius": 26.557405471801758,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 4,
+                  "rectifiedX": 505.42857142857144,
+                  "rectifiedY": 983.7142857142857,
+                  "interiorRadius": 25.78499984741211,
+                  "peakPixels": 7,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 5,
+                  "rectifiedX": 957.0,
+                  "rectifiedY": 1034.0,
+                  "interiorRadius": 25.78499984741211,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 6,
+                  "rectifiedX": 481.0,
+                  "rectifiedY": 1926.5,
+                  "interiorRadius": 25.78499984741211,
+                  "peakPixels": 2,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 7,
+                  "rectifiedX": 910.0,
+                  "rectifiedY": 1942.0,
+                  "interiorRadius": 24.577199935913086,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 8,
+                  "rectifiedX": 66.0,
+                  "rectifiedY": 1954.0,
+                  "interiorRadius": 23.818803787231445,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                }
+              ]
+            }
+          },
+          "totalSeeds": 15,
+          "matchedTotal": 14
+        },
+        "warp-bgr-then-mask": {
+          "byKind": {
+            "red": {
+              "stageCounts": {
+                "peakComponents": 7,
+                "seed": 7
+              },
+              "labelCount": 7,
+              "matchedCount": 7,
+              "recall": 1.0,
+              "seedCount": 7,
+              "unmatchedSeedCount": 0,
+              "unmatchedLabelIds": [],
+              "medianMatchedOffsetRectifiedPx": 4.942,
+              "matches": [
+                {
+                  "seedIndex": 1,
+                  "labelId": "red-04",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 0.391,
+                  "centreOffsetBallDiameters": 0.0072
+                },
+                {
+                  "seedIndex": 0,
+                  "labelId": "red-05",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 1.565,
+                  "centreOffsetBallDiameters": 0.029
+                },
+                {
+                  "seedIndex": 2,
+                  "labelId": "red-01",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 2.811,
+                  "centreOffsetBallDiameters": 0.0521
+                },
+                {
+                  "seedIndex": 5,
+                  "labelId": "red-07",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 4.942,
+                  "centreOffsetBallDiameters": 0.0915
+                },
+                {
+                  "seedIndex": 6,
+                  "labelId": "red-03",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 5.892,
+                  "centreOffsetBallDiameters": 0.1091
+                },
+                {
+                  "seedIndex": 3,
+                  "labelId": "red-02",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 6.402,
+                  "centreOffsetBallDiameters": 0.1185
+                },
+                {
+                  "seedIndex": 4,
+                  "labelId": "red-06",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 8.003,
+                  "centreOffsetBallDiameters": 0.1482
+                }
+              ],
+              "seeds": [
+                {
+                  "kind": "red",
+                  "componentId": 1,
+                  "rectifiedX": 109.0,
+                  "rectifiedY": 66.5,
+                  "interiorRadius": 24.829999923706055,
+                  "peakPixels": 4,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 2,
+                  "rectifiedX": 550.52,
+                  "rectifiedY": 72.72,
+                  "interiorRadius": 23.875,
+                  "peakPixels": 25,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 3,
+                  "rectifiedX": 944.0,
+                  "rectifiedY": 89.0,
+                  "interiorRadius": 24.233104705810547,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 4,
+                  "rectifiedX": 961.0,
+                  "rectifiedY": 952.0,
+                  "interiorRadius": 21.010000228881836,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 5,
+                  "rectifiedX": 38.0,
+                  "rectifiedY": 1030.0,
+                  "interiorRadius": 20.5044002532959,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 6,
+                  "rectifiedX": 49.0,
+                  "rectifiedY": 1903.0,
+                  "interiorRadius": 25.855201721191406,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 7,
+                  "rectifiedX": 958.0,
+                  "rectifiedY": 1930.0,
+                  "interiorRadius": 23.78369903564453,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                }
+              ]
+            },
+            "yellow": {
+              "stageCounts": {
+                "peakComponents": 8,
+                "seed": 8
+              },
+              "labelCount": 7,
+              "matchedCount": 7,
+              "recall": 1.0,
+              "seedCount": 8,
+              "unmatchedSeedCount": 1,
+              "unmatchedLabelIds": [],
+              "medianMatchedOffsetRectifiedPx": 2.324,
+              "matches": [
+                {
+                  "seedIndex": 2,
+                  "labelId": "yellow-06",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 0.736,
+                  "centreOffsetBallDiameters": 0.0136
+                },
+                {
+                  "seedIndex": 5,
+                  "labelId": "yellow-05",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 1.665,
+                  "centreOffsetBallDiameters": 0.0308
+                },
+                {
+                  "seedIndex": 3,
+                  "labelId": "yellow-04",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 1.807,
+                  "centreOffsetBallDiameters": 0.0335
+                },
+                {
+                  "seedIndex": 0,
+                  "labelId": "yellow-01",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 2.324,
+                  "centreOffsetBallDiameters": 0.043
+                },
+                {
+                  "seedIndex": 4,
+                  "labelId": "yellow-02",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 2.553,
+                  "centreOffsetBallDiameters": 0.0473
+                },
+                {
+                  "seedIndex": 6,
+                  "labelId": "yellow-03",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 4.677,
+                  "centreOffsetBallDiameters": 0.0866
+                },
+                {
+                  "seedIndex": 7,
+                  "labelId": "yellow-07",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 6.151,
+                  "centreOffsetBallDiameters": 0.1139
+                }
+              ],
+              "seeds": [
+                {
+                  "kind": "yellow",
+                  "componentId": 1,
+                  "rectifiedX": 937.0,
+                  "rectifiedY": 32.0,
+                  "interiorRadius": 23.818803787231445,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 2,
+                  "rectifiedX": 49.0,
+                  "rectifiedY": 82.0,
+                  "interiorRadius": 20.090099334716797,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 3,
+                  "rectifiedX": 38.0,
+                  "rectifiedY": 956.0,
+                  "interiorRadius": 26.739999771118164,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 4,
+                  "rectifiedX": 505.44444444444446,
+                  "rectifiedY": 984.2222222222222,
+                  "interiorRadius": 25.78499984741211,
+                  "peakPixels": 9,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 5,
+                  "rectifiedX": 956.5,
+                  "rectifiedY": 1034.0,
+                  "interiorRadius": 25.78499984741211,
+                  "peakPixels": 2,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 6,
+                  "rectifiedX": 481.0,
+                  "rectifiedY": 1926.0,
+                  "interiorRadius": 26.61359977722168,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 7,
+                  "rectifiedX": 909.0,
+                  "rectifiedY": 1940.0,
+                  "interiorRadius": 24.70359992980957,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 8,
+                  "rectifiedX": 65.5,
+                  "rectifiedY": 1954.0,
+                  "interiorRadius": 23.818803787231445,
+                  "peakPixels": 2,
+                  "decision": "seed"
+                }
+              ]
+            }
+          },
+          "totalSeeds": 15,
+          "matchedTotal": 14
+        }
+      }
+    },
+    {
+      "case": "packed-rack",
+      "inputManifest": {
+        "image": {
+          "path": "work\\production\\evidence\\o08-holdout-20261029\\raw-session-e3c02bb9dc4542948c829a512630041a\\frame-01.png",
+          "sha256": "daa8dfdf70492e7338dfd0b3bdc0c51bfd028b969db276aac1aed4de6dfedcb4"
+        },
+        "receipt": {
+          "path": "work\\production\\evidence\\o08-holdout-20261029\\raw-session-e3c02bb9dc4542948c829a512630041a\\01.json",
+          "sha256": "bca0fdc69527374b6adc6bb41b70d78a06b8e500358d24362c7fe07e9b3b7506"
+        },
+        "labels": {
+          "path": "work\\production\\evidence\\o08-holdout-20261029\\raw-session-e3c02bb9dc4542948c829a512630041a\\manual-labels-frame-01.json",
+          "sha256": "6f420945c83e92d412565ce7c17a287f6854084d623d23ee1b5f94dd9f55e062",
+          "status": "manual draft; user independent review pending"
+        },
+        "frameId": 1,
+        "timeline": "e3c02bb9dc4542948c829a512630041a",
+        "sourceTimeUs": 0
+      },
+      "modes": {
+        "raw-mask-then-warp": {
+          "byKind": {
+            "red": {
+              "stageCounts": {
+                "peakComponents": 14,
+                "seed": 14
+              },
+              "labelCount": 7,
+              "matchedCount": 7,
+              "recall": 1.0,
+              "seedCount": 14,
+              "unmatchedSeedCount": 7,
+              "unmatchedLabelIds": [],
+              "medianMatchedOffsetRectifiedPx": 6.862,
+              "matches": [
+                {
+                  "seedIndex": 2,
+                  "labelId": "red-02",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 1.77,
+                  "centreOffsetBallDiameters": 0.0328
+                },
+                {
+                  "seedIndex": 5,
+                  "labelId": "red-03",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 2.533,
+                  "centreOffsetBallDiameters": 0.0469
+                },
+                {
+                  "seedIndex": 11,
+                  "labelId": "red-07",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 2.735,
+                  "centreOffsetBallDiameters": 0.0507
+                },
+                {
+                  "seedIndex": 7,
+                  "labelId": "red-04",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 6.862,
+                  "centreOffsetBallDiameters": 0.1271
+                },
+                {
+                  "seedIndex": 1,
+                  "labelId": "red-01",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 7.283,
+                  "centreOffsetBallDiameters": 0.1349
+                },
+                {
+                  "seedIndex": 13,
+                  "labelId": "red-06",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 8.988,
+                  "centreOffsetBallDiameters": 0.1665
+                },
+                {
+                  "seedIndex": 8,
+                  "labelId": "red-05",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 9.286,
+                  "centreOffsetBallDiameters": 0.172
+                }
+              ],
+              "seeds": [
+                {
+                  "kind": "red",
+                  "componentId": 1,
+                  "rectifiedX": 518.0,
+                  "rectifiedY": 1379.0,
+                  "interiorRadius": 16.43160057067871,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 2,
+                  "rectifiedX": 501.0,
+                  "rectifiedY": 1384.0,
+                  "interiorRadius": 16.93720054626465,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 3,
+                  "rectifiedX": 543.0,
+                  "rectifiedY": 1427.0,
+                  "interiorRadius": 16.522899627685547,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 4,
+                  "rectifiedX": 527.0,
+                  "rectifiedY": 1431.0,
+                  "interiorRadius": 17.063600540161133,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 5,
+                  "rectifiedX": 464.0,
+                  "rectifiedY": 1472.0,
+                  "interiorRadius": 16.43160057067871,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 6,
+                  "rectifiedX": 448.0,
+                  "rectifiedY": 1476.0,
+                  "interiorRadius": 16.93720054626465,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 7,
+                  "rectifiedX": 491.0,
+                  "rectifiedY": 1519.0,
+                  "interiorRadius": 16.01729965209961,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 8,
+                  "rectifiedX": 594.0,
+                  "rectifiedY": 1522.0,
+                  "interiorRadius": 17.190000534057617,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 9,
+                  "rectifiedX": 473.0,
+                  "rectifiedY": 1524.0,
+                  "interiorRadius": 17.386600494384766,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 10,
+                  "rectifiedX": 577.0,
+                  "rectifiedY": 1527.0,
+                  "interiorRadius": 17.09869956970215,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 11,
+                  "rectifiedX": 414.0,
+                  "rectifiedY": 1563.5,
+                  "interiorRadius": 17.190000534057617,
+                  "peakPixels": 2,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 12,
+                  "rectifiedX": 395.0,
+                  "rectifiedY": 1569.0,
+                  "interiorRadius": 16.810800552368164,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 13,
+                  "rectifiedX": 569.0,
+                  "rectifiedY": 1568.0,
+                  "interiorRadius": 17.063600540161133,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 14,
+                  "rectifiedX": 550.0,
+                  "rectifiedY": 1574.0,
+                  "interiorRadius": 17.92729949951172,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                }
+              ]
+            },
+            "yellow": {
+              "stageCounts": {
+                "peakComponents": 8,
+                "seed": 8
+              },
+              "labelCount": 7,
+              "matchedCount": 7,
+              "recall": 1.0,
+              "seedCount": 8,
+              "unmatchedSeedCount": 1,
+              "unmatchedLabelIds": [],
+              "medianMatchedOffsetRectifiedPx": 6.131,
+              "matches": [
+                {
+                  "seedIndex": 2,
+                  "labelId": "yellow-02",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 4.367,
+                  "centreOffsetBallDiameters": 0.0809
+                },
+                {
+                  "seedIndex": 1,
+                  "labelId": "yellow-01",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 4.481,
+                  "centreOffsetBallDiameters": 0.083
+                },
+                {
+                  "seedIndex": 6,
+                  "labelId": "yellow-06",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 5.617,
+                  "centreOffsetBallDiameters": 0.104
+                },
+                {
+                  "seedIndex": 4,
+                  "labelId": "yellow-03",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 6.131,
+                  "centreOffsetBallDiameters": 0.1135
+                },
+                {
+                  "seedIndex": 7,
+                  "labelId": "yellow-05",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 6.248,
+                  "centreOffsetBallDiameters": 0.1157
+                },
+                {
+                  "seedIndex": 3,
+                  "labelId": "yellow-04",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 7.049,
+                  "centreOffsetBallDiameters": 0.1305
+                },
+                {
+                  "seedIndex": 5,
+                  "labelId": "yellow-07",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 7.261,
+                  "centreOffsetBallDiameters": 0.1345
+                }
+              ],
+              "seeds": [
+                {
+                  "kind": "yellow",
+                  "componentId": 1,
+                  "rectifiedX": 521.0,
+                  "rectifiedY": 442.0,
+                  "interiorRadius": 18.882299423217773,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 2,
+                  "rectifiedX": 484.0,
+                  "rectifiedY": 1432.0,
+                  "interiorRadius": 20.66590118408203,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 3,
+                  "rectifiedX": 562.0,
+                  "rectifiedY": 1480.0,
+                  "interiorRadius": 20.125202178955078,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 4,
+                  "rectifiedX": 431.5,
+                  "rectifiedY": 1524.5,
+                  "interiorRadius": 20.05500030517578,
+                  "peakPixels": 2,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 5,
+                  "rectifiedX": 533.0,
+                  "rectifiedY": 1527.0,
+                  "interiorRadius": 19.38789939880371,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 6,
+                  "rectifiedX": 457.0,
+                  "rectifiedY": 1573.0,
+                  "interiorRadius": 21.96500015258789,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 7,
+                  "rectifiedX": 507.0,
+                  "rectifiedY": 1575.0,
+                  "interiorRadius": 21.712200164794922,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 8,
+                  "rectifiedX": 611.0,
+                  "rectifiedY": 1577.0,
+                  "interiorRadius": 21.712200164794922,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                }
+              ]
+            }
+          },
+          "totalSeeds": 22,
+          "matchedTotal": 14
+        },
+        "warp-bgr-then-mask": {
+          "byKind": {
+            "red": {
+              "stageCounts": {
+                "peakComponents": 12,
+                "seed": 12
+              },
+              "labelCount": 7,
+              "matchedCount": 7,
+              "recall": 1.0,
+              "seedCount": 12,
+              "unmatchedSeedCount": 5,
+              "unmatchedLabelIds": [],
+              "medianMatchedOffsetRectifiedPx": 6.788,
+              "matches": [
+                {
+                  "seedIndex": 1,
+                  "labelId": "red-02",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 1.77,
+                  "centreOffsetBallDiameters": 0.0328
+                },
+                {
+                  "seedIndex": 4,
+                  "labelId": "red-03",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 2.533,
+                  "centreOffsetBallDiameters": 0.0469
+                },
+                {
+                  "seedIndex": 9,
+                  "labelId": "red-07",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 2.735,
+                  "centreOffsetBallDiameters": 0.0507
+                },
+                {
+                  "seedIndex": 6,
+                  "labelId": "red-05",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 6.788,
+                  "centreOffsetBallDiameters": 0.1257
+                },
+                {
+                  "seedIndex": 5,
+                  "labelId": "red-04",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 6.862,
+                  "centreOffsetBallDiameters": 0.1271
+                },
+                {
+                  "seedIndex": 0,
+                  "labelId": "red-01",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 7.052,
+                  "centreOffsetBallDiameters": 0.1306
+                },
+                {
+                  "seedIndex": 11,
+                  "labelId": "red-06",
+                  "labelColour": "red",
+                  "centreOffsetRectifiedPx": 8.988,
+                  "centreOffsetBallDiameters": 0.1665
+                }
+              ],
+              "seeds": [
+                {
+                  "kind": "red",
+                  "componentId": 1,
+                  "rectifiedX": 513.0,
+                  "rectifiedY": 1386.0,
+                  "interiorRadius": 20.88360023498535,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 2,
+                  "rectifiedX": 543.0,
+                  "rectifiedY": 1427.0,
+                  "interiorRadius": 16.522899627685547,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 3,
+                  "rectifiedX": 526.0,
+                  "rectifiedY": 1431.0,
+                  "interiorRadius": 16.93720054626465,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 4,
+                  "rectifiedX": 464.0,
+                  "rectifiedY": 1472.0,
+                  "interiorRadius": 16.522899627685547,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 5,
+                  "rectifiedX": 448.0,
+                  "rectifiedY": 1476.0,
+                  "interiorRadius": 17.386600494384766,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 6,
+                  "rectifiedX": 594.0,
+                  "rectifiedY": 1522.0,
+                  "interiorRadius": 17.190000534057617,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 7,
+                  "rectifiedX": 484.0,
+                  "rectifiedY": 1527.0,
+                  "interiorRadius": 21.010000228881836,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 8,
+                  "rectifiedX": 577.0,
+                  "rectifiedY": 1527.0,
+                  "interiorRadius": 17.09869956970215,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 9,
+                  "rectifiedX": 414.0,
+                  "rectifiedY": 1563.5,
+                  "interiorRadius": 17.190000534057617,
+                  "peakPixels": 2,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 10,
+                  "rectifiedX": 395.0,
+                  "rectifiedY": 1569.0,
+                  "interiorRadius": 16.972299575805664,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 11,
+                  "rectifiedX": 568.5,
+                  "rectifiedY": 1568.0,
+                  "interiorRadius": 17.386600494384766,
+                  "peakPixels": 2,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "red",
+                  "componentId": 12,
+                  "rectifiedX": 550.0,
+                  "rectifiedY": 1574.0,
+                  "interiorRadius": 17.92729949951172,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                }
+              ]
+            },
+            "yellow": {
+              "stageCounts": {
+                "peakComponents": 8,
+                "seed": 8
+              },
+              "labelCount": 7,
+              "matchedCount": 7,
+              "recall": 1.0,
+              "seedCount": 8,
+              "unmatchedSeedCount": 1,
+              "unmatchedLabelIds": [],
+              "medianMatchedOffsetRectifiedPx": 6.032,
+              "matches": [
+                {
+                  "seedIndex": 3,
+                  "labelId": "yellow-03",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 1.999,
+                  "centreOffsetBallDiameters": 0.037
+                },
+                {
+                  "seedIndex": 2,
+                  "labelId": "yellow-02",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 4.367,
+                  "centreOffsetBallDiameters": 0.0809
+                },
+                {
+                  "seedIndex": 1,
+                  "labelId": "yellow-01",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 4.452,
+                  "centreOffsetBallDiameters": 0.0825
+                },
+                {
+                  "seedIndex": 6,
+                  "labelId": "yellow-06",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 6.032,
+                  "centreOffsetBallDiameters": 0.1117
+                },
+                {
+                  "seedIndex": 7,
+                  "labelId": "yellow-05",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 6.248,
+                  "centreOffsetBallDiameters": 0.1157
+                },
+                {
+                  "seedIndex": 4,
+                  "labelId": "yellow-04",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 7.155,
+                  "centreOffsetBallDiameters": 0.1325
+                },
+                {
+                  "seedIndex": 5,
+                  "labelId": "yellow-07",
+                  "labelColour": "yellow",
+                  "centreOffsetRectifiedPx": 7.261,
+                  "centreOffsetBallDiameters": 0.1345
+                }
+              ],
+              "seeds": [
+                {
+                  "kind": "yellow",
+                  "componentId": 1,
+                  "rectifiedX": 520.0,
+                  "rectifiedY": 443.0,
+                  "interiorRadius": 19.296600341796875,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 2,
+                  "rectifiedX": 484.5,
+                  "rectifiedY": 1432.0,
+                  "interiorRadius": 20.66590118408203,
+                  "peakPixels": 2,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 3,
+                  "rectifiedX": 562.0,
+                  "rectifiedY": 1480.0,
+                  "interiorRadius": 20.21649932861328,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 4,
+                  "rectifiedX": 533.0,
+                  "rectifiedY": 1521.5,
+                  "interiorRadius": 22.920000076293945,
+                  "peakPixels": 4,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 5,
+                  "rectifiedX": 432.0,
+                  "rectifiedY": 1524.0,
+                  "interiorRadius": 20.21649932861328,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 6,
+                  "rectifiedX": 457.0,
+                  "rectifiedY": 1573.0,
+                  "interiorRadius": 21.96500015258789,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 7,
+                  "rectifiedX": 508.0,
+                  "rectifiedY": 1575.0,
+                  "interiorRadius": 22.12649917602539,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                },
+                {
+                  "kind": "yellow",
+                  "componentId": 8,
+                  "rectifiedX": 611.0,
+                  "rectifiedY": 1577.0,
+                  "interiorRadius": 21.712200164794922,
+                  "peakPixels": 1,
+                  "decision": "seed"
+                }
+              ]
+            }
+          },
+          "totalSeeds": 20,
+          "matchedTotal": 14
+        }
+      }
+    }
+  ]
+}
