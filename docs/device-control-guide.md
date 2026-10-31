@@ -2,11 +2,11 @@
 
 Use this guide to operate the Hybrid Production companion on the Pixel 11 and inspect the mounted camera without guessing at screen coordinates or changing match state. Prefer the current accessibility label and a fresh screenshot/UI tree; layout bounds move as the video and Settings panel scroll.
 
-## Current stopped state after code65 pocket-lip source capture — 31 October 2026
+## Current stopped state after code66 install and offline replay — 31 October 2026
 
-Production `0.8.57` / code65 is installed on Pixel 11. The user-confirmed unchanged, hands-clear fixture has 15 visible balls (7 reds, 7 yellows and cue; black intentionally removed). Live Detect run `6cdb8824-464f-43c4-82e4-ddc07f79b280` saved six exact source PNGs and frame-linked receipts under `work/production/evidence/code65-source-frame-check-20261031/`. Five receipts report 15 balls; frame 1179 reports 14, then frame 1198 returns to 15. Two clear source images trigger false obstruction. The isolated exact-frame replay and candidate code66 findings are summarized in the [live-detect plan](live-detect-plan.md#code66-pocket-lip-and-obstruction-candidates--31-october-2026).
+Production `0.8.58` / code66 is installed on Pixel 11 (`versionCode=66`). Current Home shows **Connect your camera**, **Start live session**, and **Live detect unavailable: start a live session first**; this is disconnected, not a live run. Pixel 10 camera `/status` is `Stopped`, revision 82, battery 46%, `clipCount=139`, zero viewers. No Cast/TV action or camera-package update occurred. Keep capture stopped during offline replay/build work.
 
-Pixel 11 and Pixel 10 are connected as expected. Pixel 10 camera `/status` is `Stopped`, revision 81, with 139 clips and zero viewers. Pixel 11 Home shows **Start live session**; Live Detect is off. Production remains code65; candidate code66 (`0.8.58`) is not installed yet. No Cast/TV action occurred, and no camera package was updated. Do not tap **Start live session** during offline replay or builds.
+The preceding code65 Live Detect run `6cdb8824-464f-43c4-82e4-ddc07f79b280` saved six exact source PNGs and frame-linked receipts under `work/production/evidence/code65-source-frame-check-20261031/`. Five receipts report 15 visible balls; frame 1179 reports 14, then frame 1198 returns to 15. Two clear source images trigger false obstruction. Current code66 replay and the four-light rack regression results are summarized in the [Live Detect plan](live-detect-plan.md#code66-pocket-lip-replay-and-four-light-regression--31-october-2026). The pocket/cushion replay remains offline evidence only; no physical code66 run has been accepted.
 
 ## Current stopped state after code64 static verifier recheck — 31 October 2026
 
