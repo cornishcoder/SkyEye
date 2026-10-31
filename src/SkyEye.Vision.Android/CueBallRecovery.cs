@@ -236,53 +236,15 @@ public sealed partial class VisionAnalyzer
         }
         byte[]? diagnosticRawPixels = null;
         NeutralCueMaskHoughTelemetry? houghProbeTelemetry = null;
+        NeutralCueMaskHoughTelemetry? valuePlaneHoughProbeTelemetry = null;
         if (hasProbe)
         {
-            using var houghCircles = new MatLease(new Mat());
-            Imgproc.HoughCircles(value.Value, houghCircles.Value, Imgproc.HoughGradient,
-                settings.HoughDp, settings.Separation * scale, settings.EdgeThreshold,
-                settings.InitialVotes * scale, (int)(settings.MinimumRadius * scale),
-                (int)(settings.MaximumRadius * scale));
-            int houghCount = Math.Max(houghCircles.Value.Cols(), houghCircles.Value.Rows());
-            var nearby = new List<(Circle Circle, double Distance)>();
-            for (int index = 0; index < houghCount; index++)
-            {
-                var proposal = houghCircles.Value.Get(houghCircles.Value.Rows() == 1 ? 0 : index,
-                    houghCircles.Value.Rows() == 1 ? index : 0);
-                if (proposal is null || proposal.Length < 3) continue;
-                var circle = new Circle(proposal[0], proposal[1], proposal[2]);
-                double distance = Math.Sqrt(Math.Pow(circle.X - probeCentre.X, 2) + Math.Pow(circle.Y - probeCentre.Y, 2));
-                if (distance <= expectedRadius * 3) nearby.Add((circle, distance));
-            }
-            var houghAudits = new List<NeutralCueMaskHoughCandidateTelemetry>();
-            foreach (var candidate in nearby.OrderBy(candidate => candidate.Distance).Take(16))
-            {
-                diagnosticRawPixels ??= Read(raw);
-                var fit = BallBoundaryRefiner.Refine(diagnosticRawPixels, width, height,
-                    new(candidate.Circle.X, candidate.Circle.Y), expectedRadius,
-                    settings.MinimumHoughBoundarySupport);
-                string? classification = null; bool? localContrast = null;
-                string decision;
-                if (fit is null)
-                {
-                    decision = "no-boundary-fit";
-                }
-                else
-                {
-                    var fittedCircle = new Circle(fit.Centre.X, fit.Centre.Y, fit.Radius);
-                    classification = Classify(fittedCircle, hsv, inspectRim: true,
-                        allowWarmNeutralCueCandidate: true).Kind;
-                    localContrast = HasLowLightNeutralBallContrast(fittedCircle, hsv, includeWarmCream: true);
-                    decision = fit.SupportedSectors < settings.MinimumHoughBoundarySupport
-                        ? "insufficient-boundary-support"
-                        : classification != "cue" ? "not-classified-cue"
-                        : !localContrast.Value ? "no-local-contrast"
-                        : "labelled-cue-supported";
-                }
-                houghAudits.Add(new(candidate.Circle.X, candidate.Circle.Y, candidate.Circle.Radius,
-                    candidate.Distance, fit?.SupportedSectors, classification, localContrast, decision));
-            }
-            houghProbeTelemetry = new(houghCount, houghAudits.ToArray());
+            houghProbeTelemetry = ProbeHoughCandidates(value.Value, "neutral-mask");
+            byte[] rawValuePlane = new byte[width * height];
+            for (int index = 0; index < rawValuePlane.Length; index++) rawValuePlane[index] = hsv[index * 3 + 2];
+            using var rawValue = new MatLease(new Mat(height, width, CvType.Cv8uc1));
+            rawValue.Value.Put(0, 0, rawValuePlane);
+            valuePlaneHoughProbeTelemetry = ProbeHoughCandidates(rawValue.Value, "brightness-plane");
         }
         NeutralCueMaskBoundaryProbeTelemetry? boundaryProbeTelemetry = null;
         if (hasProbe)
@@ -312,6 +274,7 @@ public sealed partial class VisionAnalyzer
         maskTelemetry = auditCandidates
             ? new NeutralCueMaskTelemetry(maskPixels, count - 1, filterCounts!, nearPocketComponents!.ToArray())
             { Probe = probeTelemetry, BoundaryProbe = boundaryProbeTelemetry, HoughProbe = houghProbeTelemetry,
+                ValuePlaneHoughProbe = valuePlaneHoughProbeTelemetry,
                 EdgePrunedComponents = edgePrunedTelemetry.ToArray() }
             : null;
         candidateCount = candidates.Count; recoveredCount = 0;
@@ -378,6 +341,79 @@ public sealed partial class VisionAnalyzer
         }
         candidateAudits = audits?.ToArray() ?? [];
         return result.ToArray();
+
+        NeutralCueMaskHoughTelemetry ProbeHoughCandidates(Mat source, string sourceName)
+        {
+            using var houghCircles = new MatLease(new Mat());
+            Imgproc.HoughCircles(source, houghCircles.Value, Imgproc.HoughGradient,
+                settings.HoughDp, settings.Separation * scale, settings.EdgeThreshold,
+                settings.InitialVotes * scale, (int)(settings.MinimumRadius * scale),
+                (int)(settings.MaximumRadius * scale));
+            int houghCount = Math.Max(houghCircles.Value.Cols(), houghCircles.Value.Rows());
+            var nearby = new List<(Circle Circle, double Distance)>();
+            for (int index = 0; index < houghCount; index++)
+            {
+                var proposal = houghCircles.Value.Get(houghCircles.Value.Rows() == 1 ? 0 : index,
+                    houghCircles.Value.Rows() == 1 ? index : 0);
+                if (proposal is null || proposal.Length < 3) continue;
+                var circle = new Circle(proposal[0], proposal[1], proposal[2]);
+                double distance = Math.Sqrt(Math.Pow(circle.X - probeCentre.X, 2)
+                    + Math.Pow(circle.Y - probeCentre.Y, 2));
+                if (distance <= expectedRadius * 3) nearby.Add((circle, distance));
+            }
+            var houghAudits = new List<NeutralCueMaskHoughCandidateTelemetry>();
+            Point[] independentColourCentres = circles
+                .Where(circle => Classify(circle, hsv, inspectRim: true).Kind is "red" or "yellow")
+                .Select(circle => new Point(circle.X, circle.Y)).ToArray();
+            foreach (var candidate in nearby.OrderBy(candidate => candidate.Distance).Take(16))
+            {
+                diagnosticRawPixels ??= Read(raw);
+                var fitProbes = new List<NeutralCueMaskHoughFitProbeTelemetry>();
+                foreach (double maximumOffset in new[] { .4, .65, .8, 1.0 })
+                {
+                    var fit = maximumOffset == .4 ? BallBoundaryRefiner.Refine(
+                        diagnosticRawPixels, width, height, new(candidate.Circle.X, candidate.Circle.Y),
+                        expectedRadius, settings.MinimumHoughBoundarySupport)
+                        : BallBoundaryRefiner.Refine(diagnosticRawPixels, width, height,
+                            new(candidate.Circle.X, candidate.Circle.Y), expectedRadius,
+                            settings.MinimumHoughBoundarySupport, collectSectorEvidence: maximumOffset == 1.0,
+                            maximumCentreOffsetFraction: maximumOffset);
+                    string? classification = null; bool? localContrast = null;
+                    bool? neighbourCoverage = null;
+                    double? fittedLabelDistance = null;
+                    string decision;
+                    if (fit is null)
+                    {
+                        decision = "no-boundary-fit";
+                    }
+                    else
+                    {
+                        fittedLabelDistance = Math.Sqrt(Math.Pow(fit.Centre.X - probeCentre.X, 2)
+                            + Math.Pow(fit.Centre.Y - probeCentre.Y, 2));
+                        var fittedCircle = new Circle(fit.Centre.X, fit.Centre.Y, fit.Radius);
+                        classification = Classify(fittedCircle, hsv, inspectRim: true,
+                            allowWarmNeutralCueCandidate: true).Kind;
+                        localContrast = HasLowLightNeutralBallContrast(fittedCircle, hsv, includeWarmCream: true);
+                        if (maximumOffset == 1.0 && fit.SectorEvidence.Length == 32)
+                            neighbourCoverage = BallBoundaryRefiner.HasConservativeOcclusionCoverage(
+                                fit.SectorEvidence, fit.Centre, expectedRadius, independentColourCentres, .5625);
+                        decision = fit.SupportedSectors < settings.MinimumHoughBoundarySupport
+                            ? "insufficient-boundary-support"
+                            : classification != "cue" ? "not-classified-cue"
+                            : !localContrast.Value ? "no-local-contrast"
+                            : "labelled-cue-supported";
+                    }
+                    fitProbes.Add(new(maximumOffset, fit?.Centre.X, fit?.Centre.Y, fit?.Radius,
+                        fittedLabelDistance, fit?.SupportedSectors, classification, localContrast,
+                        neighbourCoverage, decision));
+                }
+                var defaultProbe = fitProbes[0];
+                houghAudits.Add(new(candidate.Circle.X, candidate.Circle.Y, candidate.Circle.Radius,
+                    candidate.Distance, defaultProbe.BoundarySupport, defaultProbe.Classification,
+                    defaultProbe.LocalContrast, defaultProbe.Decision) { FitProbes = fitProbes.ToArray() });
+            }
+            return new(houghCount, houghAudits.ToArray()) { Source = sourceName };
+        }
     }
 
     static bool SameBody(Circle left, Circle right)

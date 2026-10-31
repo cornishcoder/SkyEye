@@ -115,15 +115,26 @@ public sealed record NeutralCueMaskTelemetry(int MaskPixels, int ConnectedCompon
     public NeutralCueMaskProbeTelemetry? Probe { get; init; }
     public NeutralCueMaskBoundaryProbeTelemetry? BoundaryProbe { get; init; }
     public NeutralCueMaskHoughTelemetry? HoughProbe { get; init; }
+    public NeutralCueMaskHoughTelemetry? ValuePlaneHoughProbe { get; init; }
     public NeutralCueMaskEdgePrunedComponentTelemetry[] EdgePrunedComponents { get; init; } = [];
 }
 public sealed record NeutralCueMaskEdgePrunedComponentTelemetry(double EdgeMarginFraction, double EdgeMargin,
     int MaskPixels, int ConnectedComponents, int ComponentLabel, double? CentreX, double? CentreY, int? Width,
     int? Height, int? Area, double? Radius, double? FillFraction, string Decision);
 public sealed record NeutralCueMaskHoughTelemetry(int CandidateCount,
-    NeutralCueMaskHoughCandidateTelemetry[] NearbyCandidates);
+    NeutralCueMaskHoughCandidateTelemetry[] NearbyCandidates)
+{
+    public string Source { get; init; } = "unspecified";
+}
 public sealed record NeutralCueMaskHoughCandidateTelemetry(double CentreX, double CentreY, double Radius,
-    double DistanceToLabel, double? BoundarySupport, string? Classification, bool? LocalContrast, string Decision);
+    double DistanceToLabel, double? BoundarySupport, string? Classification, bool? LocalContrast, string Decision)
+{
+    public NeutralCueMaskHoughFitProbeTelemetry[] FitProbes { get; init; } = [];
+}
+public sealed record NeutralCueMaskHoughFitProbeTelemetry(double MaximumCentreOffsetFraction,
+    double? FittedCentreX, double? FittedCentreY, double? FittedRadius, double? DistanceToLabel,
+    double? BoundarySupport, string? Classification, bool? LocalContrast, bool? ConservativeNeighbourCoverageAt18Of32,
+    string Decision);
 public sealed record NeutralCueMaskBoundaryProbeTelemetry(double? FittedCentreX, double? FittedCentreY,
     double? FittedRadius, double? BoundarySupport, string? Classification, bool? LocalContrast, string Decision)
 {
