@@ -20,7 +20,17 @@ Run from the repository root:
 python scripts/Compare-RawWarpBallEdgeSupport.py
 ```
 
-The script writes `summary.json`, `sectors.csv`, and `overlay.png` alongside this README by default. Input paths and output directory can be overridden with `--evidence`, `--output`, and `--width`.
+The script writes `summary.json`, `sectors.csv`, and `overlay.png` alongside this README by default. The original rack-frame inputs and output directory remain the defaults. For another exact frame, pass its image, receipt, and manual-label JSON together, and select a separate output folder:
+
+```powershell
+python scripts/Compare-RawWarpBallEdgeSupport.py `
+  --image work/production/evidence/example/frame.png `
+  --receipt work/production/evidence/example/frame.json `
+  --labels work/production/evidence/example/manual-labels.json `
+  --output docs/evidence/raw-warp-edge-probe-example
+```
+
+The three explicit input paths are all required together. The script verifies the image SHA-256 against both the receipt and label file, and checks the labelled dimensions against the source image. Explicit-input summaries also include an `inputManifest` with each input path and SHA-256. `--evidence` continues to select the original default filenames; `--width` and `--radius` control the rectified raster and nominal ball radius.
 
 ## Limits
 

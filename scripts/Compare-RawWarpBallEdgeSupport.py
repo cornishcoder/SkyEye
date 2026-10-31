@@ -123,15 +123,24 @@ def draw_panel(
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--evidence", type=Path, default=DEFAULT_EVIDENCE)
+    parser.add_argument("--image", type=Path, help="Exact decoded source image (requires --receipt and --labels)")
+    parser.add_argument("--receipt", type=Path, help="Frame receipt JSON (requires --image and --labels)")
+    parser.add_argument("--labels", type=Path, help="Manual centre-label JSON (requires --image and --receipt)")
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--width", type=int, default=1000, help="Rectified raster width; height is 2x width")
     parser.add_argument("--radius", type=float, default=27.0, help="Ball radius in rectified pixels")
     args = parser.parse_args()
 
-    root = args.evidence
-    image_path = root / "frame-01.png"
-    metadata_path = root / "01.json"
-    labels_path = root / "manual-labels-frame-01.json"
+    explicit_inputs = any(path is not None for path in (args.image, args.receipt, args.labels))
+    if explicit_inputs:
+        if any(path is None for path in (args.image, args.receipt, args.labels)):
+            parser.error("--image, --receipt, and --labels must be supplied together")
+        image_path, metadata_path, labels_path = args.image, args.receipt, args.labels
+    else:
+        root = args.evidence
+        image_path = root / "frame-01.png"
+        metadata_path = root / "01.json"
+        labels_path = root / "manual-labels-frame-01.json"
     for path in (image_path, metadata_path, labels_path):
         if not path.is_file():
             raise FileNotFoundError(path)
@@ -279,7 +288,8 @@ def main() -> int:
             "gradientDefinition": "absolute Sobel luma derivative along the expected radial normal, expressed per rectified pixel; peak selected within the shared +/-4px radius search",
         },
         "limitations": [
-            "Only one rack frame and one lighting condition are measured.",
+            "Only one rack frame and one lighting condition are measured."
+            if not explicit_inputs else "Only one source frame and one lighting condition are measured.",
             "Manual centres are approximate draft labels with stated uncertainty, not reviewed ground-truth centres.",
             "The projected ball circles and occlusion mask inherit those centre and radius assumptions.",
             "Gradient support is an image-signal diagnostic, not candidate recall, classification, accepted detection, or Live Detect performance.",
@@ -287,6 +297,12 @@ def main() -> int:
         ],
         "perBall": ball_rows,
     }
+    if explicit_inputs:
+        summary["inputManifest"] = {
+            "image": {"path": str(image_path).replace("\\", "/"), "sha256": source_hash},
+            "receipt": {"path": str(metadata_path).replace("\\", "/"), "sha256": sha256(metadata_path)},
+            "labels": {"path": str(labels_path).replace("\\", "/"), "sha256": sha256(labels_path)},
+        }
     args.output.mkdir(parents=True, exist_ok=True)
     (args.output / "summary.json").write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
     with (args.output / "sectors.csv").open("w", newline="", encoding="utf-8") as stream:
