@@ -1,3 +1,13 @@
+<#
+.SYNOPSIS
+Replays saved frames through the isolated Vision Device package.
+
+.PARAMETER Frames
+Ordered source frame IDs. Receipts may be named `<frameId>.json` or discovered
+by their indexedFrame.frameId metadata when extracted clip filenames are padded.
+The host validates frame identity, timeline, calibration and analyzer identity
+before installing the replay package.
+#>
 param(
     [string]$SourceRelativePath = 'work/production/evidence/live-detect-pocket-lip-20261030/o08-capture',
     [int[]]$Frames = @(399, 433),
@@ -234,12 +244,63 @@ if ($packageResult.ExitCode -ne 0 -or ($packageResult.Output -join "`n") -notmat
 }
 
 $stageTimer = [Diagnostics.Stopwatch]::StartNew()
+$indexedReceiptPaths = $null
+$previousTimeline = $null
+$previousCalibrationSignature = $null
+$previousConfigurationIdentity = $null
+$hasPreviousConfigurationIdentity = $false
 $inputs = foreach ($frame in $frames) {
     $jsonPath = Join-Path $sourceRoot "$frame.json"
     if (-not (Test-Path -LiteralPath $jsonPath)) {
-        throw "Missing captured source frame $frame."
+        if ($null -eq $indexedReceiptPaths) {
+            $indexedReceiptPaths = @{}
+            foreach ($candidatePath in Get-ChildItem -LiteralPath $sourceRoot -Filter '*.json' -File) {
+                $candidateReceipt = Get-Content -LiteralPath $candidatePath.FullName -Raw | ConvertFrom-Json
+                if ($null -eq $candidateReceipt.indexedFrame -or $null -eq $candidateReceipt.indexedFrame.frameId) { continue }
+                $candidateFrameId = [long]$candidateReceipt.indexedFrame.frameId
+                if ($indexedReceiptPaths.ContainsKey($candidateFrameId)) {
+                    throw "Source directory contains multiple receipts for frame ID $candidateFrameId."
+                }
+                $indexedReceiptPaths[$candidateFrameId] = $candidatePath.FullName
+            }
+        }
+        $requestedFrameId = [long]$frame
+        if (-not $indexedReceiptPaths.ContainsKey($requestedFrameId)) {
+            throw "Missing captured source frame $frame (no exact filename or indexedFrame.frameId match)."
+        }
+        $jsonPath = $indexedReceiptPaths[$requestedFrameId]
     }
     $receipt = Get-Content -LiteralPath $jsonPath -Raw | ConvertFrom-Json
+    if ([long]$receipt.indexedFrame.frameId -ne [long]$frame) {
+        throw "Source receipt '$([IO.Path]::GetFileName($jsonPath))' identifies frame $($receipt.indexedFrame.frameId), not requested frame $frame."
+    }
+    $frameTimeline = [string]$receipt.indexedFrame.scope.timeline
+    if ([string]::IsNullOrWhiteSpace($frameTimeline)) {
+        throw "Frame $frame has no source timeline identity."
+    }
+    if ($null -ne $previousTimeline -and $frameTimeline -ne $previousTimeline) {
+        throw "Selected frames cross source timelines at frame $frame; split independent timelines into separate replay runs."
+    }
+    $previousTimeline = $frameTimeline
+    $cornerSignature = (@($receipt.calibrationCorners | ForEach-Object {
+        ([double]$_.x).ToString('R', [Globalization.CultureInfo]::InvariantCulture) + ',' +
+        ([double]$_.y).ToString('R', [Globalization.CultureInfo]::InvariantCulture)
+    }) -join ';')
+    if ([string]::IsNullOrWhiteSpace($cornerSignature)) {
+        throw "Frame $frame has no calibration corners."
+    }
+    if ($null -ne $previousCalibrationSignature -and $cornerSignature -ne $previousCalibrationSignature) {
+        throw "Selected frames use different calibration corners at frame $frame; split them into separate replay runs."
+    }
+    $previousCalibrationSignature = $cornerSignature
+    $frameConfigurationIdentity = if ($null -ne $receipt.PSObject.Properties['analyzerConfigurationIdentity']) {
+        [string]$receipt.analyzerConfigurationIdentity
+    } else { $null }
+    if ($hasPreviousConfigurationIdentity -and $frameConfigurationIdentity -ne $previousConfigurationIdentity) {
+        throw "Selected frames use different analyzer configurations at frame $frame; split them into separate replay runs."
+    }
+    $previousConfigurationIdentity = $frameConfigurationIdentity
+    $hasPreviousConfigurationIdentity = $true
     $pixelFile = [string]$receipt.indexedFrame.pixelFile
     if ([string]::IsNullOrWhiteSpace($pixelFile) -or $pixelFile -ne [IO.Path]::GetFileName($pixelFile)) {
         throw "Frame $frame receipt has an invalid pixelFile name."
