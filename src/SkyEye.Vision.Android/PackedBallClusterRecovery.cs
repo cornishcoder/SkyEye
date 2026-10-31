@@ -228,6 +228,34 @@ public sealed partial class VisionAnalyzer
             var fit = BallBoundaryRefiner.Refine(rawBgrPixels, coordinates.Width, coordinates.Height,
                 seed.Centre, expectedRadius, .5625,
                 maximumCentreOffsetFraction: settings.SparseBlackBoundarySearchExtentFraction);
+            if (candidateAudits is not null
+                && PocketCentres().Min(pocket => (seed.Centre - pocket).Length) <= expectedRadius * 3.5)
+            {
+                // Offline audit only: test a dark-body radial transition without
+                // letting the local-background rejection erase it. Never feed
+                // this alternate fit into the accepted detection list.
+                var darkEdgeFit = BallBoundaryRefiner.Refine(rawBgrPixels, coordinates.Width, coordinates.Height,
+                    seed.Centre, expectedRadius, .5625, collectSectorEvidence: true, expectedKind: "black",
+                    maximumCentreOffsetFraction: settings.SparseBlackBoundarySearchExtentFraction,
+                    allowDarkBodyEdgeTransitions: true, darkBodyValueCeiling: settings.DarkBodyValueCeiling);
+                if (darkEdgeFit is null)
+                    candidateAudits.Add(new(pass, "sparse-black-dark-edge-probe", "black", i,
+                        seed.Centre, seed.Radius, null, null, null, null, "no-fit")
+                    { Evidence = "Diagnostic-only alternate fit found fewer than 12 supported sectors." });
+                else
+                {
+                    var darkEdgeBody = new Circle(darkEdgeFit.Centre.X, darkEdgeFit.Centre.Y, darkEdgeFit.Radius);
+                    var darkEdgeClassification = Classify(darkEdgeBody, rawPixels, inspectRim: true);
+                    double seedDrift = (darkEdgeFit.Centre - seed.Centre).Length / expectedRadius;
+                    int transitionSectors = darkEdgeFit.SectorEvidence.Count(sector => sector.DarkBodyTransitionUsed);
+                    string normalSupport = fit is null ? "none" : $"{fit.SupportedSectors * 32:0}/32";
+                    candidateAudits.Add(new(pass, "sparse-black-dark-edge-probe", "black", i,
+                        seed.Centre, seed.Radius, darkEdgeFit.Centre, darkEdgeFit.Radius,
+                        darkEdgeFit.SupportedSectors, darkEdgeClassification.Kind,
+                        $"normalSupport={normalSupport};darkTransitionSectors={transitionSectors};seedDrift={seedDrift:0.###}R;classified={darkEdgeClassification.Kind}")
+                    { Evidence = "Diagnostic-only: count strong dark-inside to non-dark-outside radial edges even when the local-background exterior check rejects them." });
+                }
+            }
             if (fit is null)
             { Audit("rejected-no-boundary-fit"); continue; }
             string? occlusionEvidence = null;

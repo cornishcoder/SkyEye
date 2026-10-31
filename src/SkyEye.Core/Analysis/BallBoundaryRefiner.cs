@@ -10,6 +10,7 @@ public sealed record BoundarySectorEvidence(int Index, Point InnerPoint, Point O
     double FineEdgeContrast, bool ExteriorRejected, bool Supported)
 {
     public bool ColourMaskTransitionUsed { get; init; }
+    public bool DarkBodyTransitionUsed { get; init; }
 }
 
 /// <summary>Bounded current-image refinement of an existing circle proposal.
@@ -119,7 +120,8 @@ public static class BallBoundaryRefiner
     public static BallBoundary? Refine(byte[] bgr, int width, int height, Point proposal, double expectedRadius,
         double minimumSupportedFraction = ObservationPolicy.MinimumSupportedBoundaryFraction,
         bool collectSectorEvidence = false, string? expectedKind = null, BoundaryColourMask? colourMask = null,
-        double maximumCentreOffsetFraction = .4)
+        double maximumCentreOffsetFraction = .4, bool allowDarkBodyEdgeTransitions = false,
+        int darkBodyValueCeiling = 40)
     {
         PipelineDiagnostics.Count("boundaryRefineCalls");
         using var scoringTiming = PipelineDiagnostics.Enabled ? PipelineDiagnostics.Measure("boundaryScoringMs") : null;
@@ -127,7 +129,8 @@ public static class BallBoundaryRefiner
             || !double.IsFinite(expectedRadius) || expectedRadius < 5 || expectedRadius > 100
             || !double.IsFinite(proposal.X) || !double.IsFinite(proposal.Y)
             || !double.IsFinite(minimumSupportedFraction) || minimumSupportedFraction is < .5 or > 1
-            || !double.IsFinite(maximumCentreOffsetFraction) || maximumCentreOffsetFraction is < .2 or > 1.5)
+            || !double.IsFinite(maximumCentreOffsetFraction) || maximumCentreOffsetFraction is < .2 or > 1.5
+            || darkBodyValueCeiling is < 0 or > 255)
             throw new ArgumentException("Invalid boundary image or proposal.");
         double step = Math.Max(1.5, expectedRadius / 9), extent = expectedRadius * maximumCentreOffsetFraction;
         var background = new double[3];
@@ -183,13 +186,18 @@ public static class BallBoundaryRefiner
                 // exterior of a supported body must return to local cloth.
                 bool exteriorRejected = RejectExterior(bgr, inside, outside, exterior, expectedKind, colourMask);
                 bool colourMaskTransitionUsed = IsColourMaskTransitionSupport(expectedKind, exteriorRejected, measuredEdge, measuredFineEdge);
-                if (exteriorRejected) { edge = 0; fineEdge = 0; }
-                bool supportedSector = !exteriorRejected && (measuredEdge >= 16 || colourMaskTransitionUsed);
+                bool darkBodyTransitionUsed = allowDarkBodyEdgeTransitions && expectedKind == "black"
+                    && MaximumChannel(bgr, inside) <= darkBodyValueCeiling
+                    && MaximumChannel(bgr, outside) > darkBodyValueCeiling
+                    && measuredEdge >= 16;
+                if (exteriorRejected && !darkBodyTransitionUsed) { edge = 0; fineEdge = 0; }
+                bool supportedSector = darkBodyTransitionUsed
+                    || !exteriorRejected && (measuredEdge >= 16 || colourMaskTransitionUsed);
                 if (supportedSector) supported++;
                 if (sectorEvidence is not null)
                     sectorEvidence[i] = new(i, innerPoint, outerPoint, fineInnerPoint, fineOuterPoint,
                         measuredEdge, exterior, measuredFineEdge, exteriorRejected, supportedSector)
-                    { ColourMaskTransitionUsed = colourMaskTransitionUsed };
+                    { ColourMaskTransitionUsed = colourMaskTransitionUsed, DarkBodyTransitionUsed = darkBodyTransitionUsed };
                 // Cap strong highlights so a few patch/shadow edges cannot dominate.
                 score += Math.Min(60, fineEdge) + .1 * Math.Min(60, edge);
             }
@@ -216,6 +224,9 @@ public static class BallBoundaryRefiner
             && Math.Round(x + radius + offset) < width
             && Math.Round(y + radius + offset) < height;
     }
+
+    static int MaximumChannel(byte[] bgr, int offset)
+        => Math.Max(bgr[offset], Math.Max(bgr[offset + 1], bgr[offset + 2]));
 
     static int MinimumBackgroundSamples(string? expectedKind)
         // A ball next to the warped table edge can lose several background
