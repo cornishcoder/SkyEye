@@ -1,0 +1,939 @@
+{
+  "schemaVersion": 1,
+  "purpose": "offline raw-versus-rectified colour-body proposal ablation; not full detector or acceptance evidence",
+  "opencvVersion": "4.12.0",
+  "productionSettingsCopiedFrom": "VisionSettings defaults and VisionAnalyzer.AddColourBodies",
+  "parameters": {
+    "hueKept": "0..37 and 150..179",
+    "minimumSaturation": 160,
+    "minimumValue": 40,
+    "minimumRadius": 18.0,
+    "maximumRadius": 35.0,
+    "aspectRange": [
+      0.6,
+      1.6
+    ],
+    "minimumFill": 0.55,
+    "edgeMargin": 23.0,
+    "pocketExclusionRadius": 48.0,
+    "matchRadius": 27.0
+  },
+  "limitations": [
+    "The raw branch thresholds raw decoded RGB-derived HSV, then maps the binary mask with nearest-neighbour interpolation; this is a proposal-source ablation, not a complete raw-coordinate detector.",
+    "Both branches apply component geometry and fixed pocket/edge gates on the canonical 1000x2000 grid; no Hough, packed-cluster splitting, black/cue recovery, classification, duplicate-against-other-stage, boundary-refiner or uncertainty logic is run.",
+    "Labels are provisional visual estimates and all cases must be reviewed before scoring; they are not held-out gold labels.",
+    "Per-frame thresholding and greedy centre matching are diagnostic only; use session-separated reviewed holdouts before any production decision."
+  ],
+  "cases": [
+    {
+      "case": "daylight",
+      "inputManifest": {
+        "image": {
+          "path": "work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\exact-replay-input\\1365.png",
+          "sha256": "602e00c4eb9fc92f3b124106137d8ca7c56f932e107f995f1f2c7d824dd25de4"
+        },
+        "receipt": {
+          "path": "work\\production\\evidence\\code70-daylight-pocket-capture-20261031\\exact-replay-input\\1365.json",
+          "sha256": "0ca2daa12e7f0618825b85d0478f0ce490e961644f4f71adb4eaea2fb63fe931"
+        },
+        "labels": {
+          "path": "docs\\evidence\\pocket-cushion-centre-labels-20261031\\positive\\manual-labels-frame-1365-draft.json",
+          "sha256": "4573477fa1c197b1043a8eb7bf6c4873078632be6e8bb70457e0ab5c09c99e9e",
+          "status": "assistant draft; user review needed"
+        },
+        "frameId": 1365,
+        "timeline": "76ec0f8c622045378494b0c250198ce6",
+        "sourceTimeUs": 80806601200
+      },
+      "proposalStage": "VisionAnalyzer.AddColourBodies HSV connected components",
+      "rawMaskWarp": "threshold source BGR-decoded pixels, then nearest-neighbour warp mask",
+      "rectifiedMask": "linear BGR warp, then threshold decoded HSV pixels",
+      "modes": {
+        "raw-mask-then-warp": {
+          "stageCounts": {
+            "components": 22,
+            "rejected-radius": 14,
+            "proposal": 8
+          },
+          "labelCount": 14,
+          "matchedCount": 8,
+          "recall": 0.5714,
+          "candidateCount": 8,
+          "unmatchedCandidateCount": 0,
+          "unmatchedLabelIds": [
+            "red-01",
+            "red-03",
+            "red-07",
+            "yellow-01",
+            "yellow-03",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 1.7,
+          "matches": [
+            {
+              "candidateIndex": 1,
+              "labelId": "red-04",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 0.915,
+              "centreErrorBallDiameters": 0.0169
+            },
+            {
+              "candidateIndex": 5,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 1.033,
+              "centreErrorBallDiameters": 0.0191
+            },
+            {
+              "candidateIndex": 2,
+              "labelId": "yellow-06",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 1.281,
+              "centreErrorBallDiameters": 0.0237
+            },
+            {
+              "candidateIndex": 7,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 1.61,
+              "centreErrorBallDiameters": 0.0298
+            },
+            {
+              "candidateIndex": 3,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 1.79,
+              "centreErrorBallDiameters": 0.0331
+            },
+            {
+              "candidateIndex": 0,
+              "labelId": "red-05",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 2.179,
+              "centreErrorBallDiameters": 0.0404
+            },
+            {
+              "candidateIndex": 4,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 2.529,
+              "centreErrorBallDiameters": 0.0468
+            },
+            {
+              "candidateIndex": 6,
+              "labelId": "red-06",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 5.395,
+              "centreErrorBallDiameters": 0.0999
+            }
+          ],
+          "candidates": [
+            {
+              "componentId": 4,
+              "rectifiedX": 109.80981595092024,
+              "rectifiedY": 66.60224948875256,
+              "radius": 32.0,
+              "bboxX": 80,
+              "bboxY": 32,
+              "bboxWidth": 58,
+              "bboxHeight": 70,
+              "pixelArea": 2934,
+              "aspect": 0.8285714285714286,
+              "fill": 0.7226600985221675,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 5,
+              "rectifiedX": 551.2400568181819,
+              "rectifiedY": 71.35369318181819,
+              "radius": 30.5,
+              "bboxX": 524,
+              "bboxY": 38,
+              "bboxWidth": 54,
+              "bboxHeight": 68,
+              "pixelArea": 2816,
+              "aspect": 0.7941176470588235,
+              "fill": 0.7668845315904139,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 9,
+              "rectifiedX": 37.51107594936709,
+              "rectifiedY": 957.6261867088608,
+              "radius": 28.5,
+              "bboxX": 9,
+              "bboxY": 929,
+              "bboxWidth": 57,
+              "bboxHeight": 57,
+              "pixelArea": 2528,
+              "aspect": 1.0,
+              "fill": 0.7780855647891659,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 10,
+              "rectifiedX": 964.4240882103478,
+              "rectifiedY": 959.5118744698898,
+              "radius": 28.0,
+              "bboxX": 937,
+              "bboxY": 932,
+              "bboxWidth": 55,
+              "bboxHeight": 57,
+              "pixelArea": 2358,
+              "aspect": 0.9649122807017544,
+              "fill": 0.7521531100478469,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 11,
+              "rectifiedX": 506.31904983698183,
+              "rectifiedY": 985.070796460177,
+              "radius": 26.0,
+              "bboxX": 481,
+              "bboxY": 959,
+              "bboxWidth": 50,
+              "bboxHeight": 54,
+              "pixelArea": 2147,
+              "aspect": 0.9259259259259259,
+              "fill": 0.7951851851851852,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 13,
+              "rectifiedX": 959.4737739872069,
+              "rectifiedY": 1034.7688699360342,
+              "radius": 28.0,
+              "bboxX": 932,
+              "bboxY": 1007,
+              "bboxWidth": 55,
+              "bboxHeight": 57,
+              "pixelArea": 2345,
+              "aspect": 0.9649122807017544,
+              "fill": 0.748006379585327,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 14,
+              "rectifiedX": 42.862054329371816,
+              "rectifiedY": 1037.4779286926994,
+              "radius": 27.5,
+              "bboxX": 15,
+              "bboxY": 1011,
+              "bboxWidth": 56,
+              "bboxHeight": 54,
+              "pixelArea": 2356,
+              "aspect": 1.037037037037037,
+              "fill": 0.7791005291005291,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 19,
+              "rectifiedX": 482.55348460291737,
+              "rectifiedY": 1928.1766612641816,
+              "radius": 28.25,
+              "bboxX": 457,
+              "bboxY": 1899,
+              "bboxWidth": 53,
+              "bboxHeight": 60,
+              "pixelArea": 2468,
+              "aspect": 0.8833333333333333,
+              "fill": 0.7761006289308177,
+              "decision": "proposal"
+            }
+          ]
+        },
+        "warp-bgr-then-mask": {
+          "stageCounts": {
+            "components": 15,
+            "rejected-radius": 7,
+            "proposal": 8
+          },
+          "labelCount": 14,
+          "matchedCount": 8,
+          "recall": 0.5714,
+          "candidateCount": 8,
+          "unmatchedCandidateCount": 0,
+          "unmatchedLabelIds": [
+            "red-01",
+            "red-03",
+            "red-07",
+            "yellow-01",
+            "yellow-03",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 1.666,
+          "matches": [
+            {
+              "candidateIndex": 1,
+              "labelId": "red-04",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 0.792,
+              "centreErrorBallDiameters": 0.0147
+            },
+            {
+              "candidateIndex": 5,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 1.063,
+              "centreErrorBallDiameters": 0.0197
+            },
+            {
+              "candidateIndex": 2,
+              "labelId": "yellow-06",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 1.373,
+              "centreErrorBallDiameters": 0.0254
+            },
+            {
+              "candidateIndex": 7,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 1.574,
+              "centreErrorBallDiameters": 0.0292
+            },
+            {
+              "candidateIndex": 3,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 1.758,
+              "centreErrorBallDiameters": 0.0326
+            },
+            {
+              "candidateIndex": 0,
+              "labelId": "red-05",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 2.077,
+              "centreErrorBallDiameters": 0.0385
+            },
+            {
+              "candidateIndex": 4,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 2.637,
+              "centreErrorBallDiameters": 0.0488
+            },
+            {
+              "candidateIndex": 6,
+              "labelId": "red-06",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 5.495,
+              "centreErrorBallDiameters": 0.1018
+            }
+          ],
+          "candidates": [
+            {
+              "componentId": 2,
+              "rectifiedX": 109.7932561307902,
+              "rectifiedY": 66.49897820163488,
+              "radius": 32.0,
+              "bboxX": 79,
+              "bboxY": 32,
+              "bboxWidth": 58,
+              "bboxHeight": 70,
+              "pixelArea": 2936,
+              "aspect": 0.8285714285714286,
+              "fill": 0.723152709359606,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 3,
+              "rectifiedX": 551.1202688362222,
+              "rectifiedY": 71.31906614785993,
+              "radius": 30.25,
+              "bboxX": 524,
+              "bboxY": 38,
+              "bboxWidth": 53,
+              "bboxHeight": 68,
+              "pixelArea": 2827,
+              "aspect": 0.7794117647058824,
+              "fill": 0.7844062153163152,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 5,
+              "rectifiedX": 37.43732809430255,
+              "rectifiedY": 957.5316306483301,
+              "radius": 29.25,
+              "bboxX": 8,
+              "bboxY": 928,
+              "bboxWidth": 58,
+              "bboxHeight": 59,
+              "pixelArea": 2545,
+              "aspect": 0.9830508474576272,
+              "fill": 0.7437171244886032,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 6,
+              "rectifiedX": 964.4216765453006,
+              "rectifiedY": 959.4779847586791,
+              "radius": 27.75,
+              "bboxX": 937,
+              "bboxY": 932,
+              "bboxWidth": 55,
+              "bboxHeight": 56,
+              "pixelArea": 2362,
+              "aspect": 0.9821428571428571,
+              "fill": 0.7668831168831168,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 7,
+              "rectifiedX": 506.3396663577386,
+              "rectifiedY": 985.1765523632994,
+              "radius": 26.25,
+              "bboxX": 481,
+              "bboxY": 959,
+              "bboxWidth": 50,
+              "bboxHeight": 55,
+              "pixelArea": 2158,
+              "aspect": 0.9090909090909091,
+              "fill": 0.7847272727272727,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 8,
+              "rectifiedX": 959.5501468736886,
+              "rectifiedY": 1034.8816617708771,
+              "radius": 28.0,
+              "bboxX": 932,
+              "bboxY": 1007,
+              "bboxWidth": 55,
+              "bboxHeight": 57,
+              "pixelArea": 2383,
+              "aspect": 0.9649122807017544,
+              "fill": 0.7601275917065391,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 9,
+              "rectifiedX": 42.93109243697479,
+              "rectifiedY": 1037.2004201680672,
+              "radius": 28.0,
+              "bboxX": 15,
+              "bboxY": 1009,
+              "bboxWidth": 56,
+              "bboxHeight": 56,
+              "pixelArea": 2380,
+              "aspect": 1.0,
+              "fill": 0.7589285714285714,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 14,
+              "rectifiedX": 482.48850342880195,
+              "rectifiedY": 1928.1117386042758,
+              "radius": 28.25,
+              "bboxX": 457,
+              "bboxY": 1899,
+              "bboxWidth": 53,
+              "bboxHeight": 60,
+              "pixelArea": 2479,
+              "aspect": 0.8833333333333333,
+              "fill": 0.779559748427673,
+              "decision": "proposal"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case": "dim-pocket-control",
+      "inputManifest": {
+        "image": {
+          "path": "work\\production\\evidence\\code65-source-frame-check-20261031\\exact-replay-input\\978.png",
+          "sha256": "b368348c63d924f5c7834e8e849b7287225ab525b470bdc3b85f7a8278cbbe70"
+        },
+        "receipt": {
+          "path": "work\\production\\evidence\\code65-source-frame-check-20261031\\exact-replay-input\\978.json",
+          "sha256": "653e1ea4bc6c927ba592ad796a6c084e49103c27003d13e5d23d0c98a3144034"
+        },
+        "labels": {
+          "path": "docs\\evidence\\pocket-cushion-centre-labels-20261031\\negative\\manual-centres-frame-978-draft.json",
+          "sha256": "08130aefb6d6eed81366d44274e35cc733b79df14b840e56464e46ce536fc251",
+          "status": "assistant draft; user review needed"
+        },
+        "frameId": 978,
+        "timeline": "2ea48e0c35cd474eb627acf970a7eec5",
+        "sourceTimeUs": 48922017388
+      },
+      "proposalStage": "VisionAnalyzer.AddColourBodies HSV connected components",
+      "rawMaskWarp": "threshold source BGR-decoded pixels, then nearest-neighbour warp mask",
+      "rectifiedMask": "linear BGR warp, then threshold decoded HSV pixels",
+      "modes": {
+        "raw-mask-then-warp": {
+          "stageCounts": {
+            "components": 35,
+            "rejected-radius": 27,
+            "proposal": 8
+          },
+          "labelCount": 14,
+          "matchedCount": 8,
+          "recall": 0.5714,
+          "candidateCount": 8,
+          "unmatchedCandidateCount": 0,
+          "unmatchedLabelIds": [
+            "red-01",
+            "red-03",
+            "red-07",
+            "yellow-01",
+            "yellow-03",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 1.212,
+          "matches": [
+            {
+              "candidateIndex": 7,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 0.384,
+              "centreErrorBallDiameters": 0.0071
+            },
+            {
+              "candidateIndex": 2,
+              "labelId": "yellow-06",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 0.55,
+              "centreErrorBallDiameters": 0.0102
+            },
+            {
+              "candidateIndex": 1,
+              "labelId": "red-04",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 1.09,
+              "centreErrorBallDiameters": 0.0202
+            },
+            {
+              "candidateIndex": 6,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 1.134,
+              "centreErrorBallDiameters": 0.021
+            },
+            {
+              "candidateIndex": 3,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 1.289,
+              "centreErrorBallDiameters": 0.0239
+            },
+            {
+              "candidateIndex": 4,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 1.452,
+              "centreErrorBallDiameters": 0.0269
+            },
+            {
+              "candidateIndex": 0,
+              "labelId": "red-05",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 1.502,
+              "centreErrorBallDiameters": 0.0278
+            },
+            {
+              "candidateIndex": 5,
+              "labelId": "red-06",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 3.138,
+              "centreErrorBallDiameters": 0.0581
+            }
+          ],
+          "candidates": [
+            {
+              "componentId": 3,
+              "rectifiedX": 109.31980906921241,
+              "rectifiedY": 66.24821002386635,
+              "radius": 28.5,
+              "bboxX": 85,
+              "bboxY": 35,
+              "bboxWidth": 50,
+              "bboxHeight": 64,
+              "pixelArea": 2514,
+              "aspect": 0.78125,
+              "fill": 0.785625,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 4,
+              "rectifiedX": 550.6287187623959,
+              "rectifiedY": 71.28758429194764,
+              "radius": 29.0,
+              "bboxX": 526,
+              "bboxY": 39,
+              "bboxWidth": 49,
+              "bboxHeight": 67,
+              "pixelArea": 2521,
+              "aspect": 0.7313432835820896,
+              "fill": 0.767895217788608,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 24,
+              "rectifiedX": 36.891304347826086,
+              "rectifiedY": 956.6372785829308,
+              "radius": 28.25,
+              "bboxX": 9,
+              "bboxY": 929,
+              "bboxWidth": 57,
+              "bboxHeight": 56,
+              "pixelArea": 2484,
+              "aspect": 1.0178571428571428,
+              "fill": 0.7781954887218046,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 25,
+              "rectifiedX": 962.6355060034306,
+              "rectifiedY": 958.3932246998285,
+              "radius": 27.5,
+              "bboxX": 935,
+              "bboxY": 932,
+              "bboxWidth": 56,
+              "bboxHeight": 54,
+              "pixelArea": 2332,
+              "aspect": 1.037037037037037,
+              "fill": 0.7711640211640212,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 27,
+              "rectifiedX": 505.41567291311753,
+              "rectifiedY": 983.8462521294718,
+              "radius": 27.25,
+              "bboxX": 481,
+              "bboxY": 956,
+              "bboxWidth": 52,
+              "bboxHeight": 57,
+              "pixelArea": 2348,
+              "aspect": 0.9122807017543859,
+              "fill": 0.7921727395411606,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 29,
+              "rectifiedX": 41.595006347862885,
+              "rectifiedY": 1036.8434193821413,
+              "radius": 27.5,
+              "bboxX": 15,
+              "bboxY": 1009,
+              "bboxWidth": 54,
+              "bboxHeight": 56,
+              "pixelArea": 2363,
+              "aspect": 0.9642857142857143,
+              "fill": 0.781415343915344,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 30,
+              "rectifiedX": 958.0313517915309,
+              "rectifiedY": 1034.525651465798,
+              "radius": 27.5,
+              "bboxX": 932,
+              "bboxY": 1008,
+              "bboxWidth": 54,
+              "bboxHeight": 56,
+              "pixelArea": 2456,
+              "aspect": 0.9642857142857143,
+              "fill": 0.8121693121693122,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 32,
+              "rectifiedX": 481.3219650832318,
+              "rectifiedY": 1927.9480308566788,
+              "radius": 28.5,
+              "bboxX": 454,
+              "bboxY": 1899,
+              "bboxWidth": 54,
+              "bboxHeight": 60,
+              "pixelArea": 2463,
+              "aspect": 0.9,
+              "fill": 0.7601851851851852,
+              "decision": "proposal"
+            }
+          ]
+        },
+        "warp-bgr-then-mask": {
+          "stageCounts": {
+            "components": 41,
+            "rejected-radius": 33,
+            "proposal": 8
+          },
+          "labelCount": 14,
+          "matchedCount": 8,
+          "recall": 0.5714,
+          "candidateCount": 8,
+          "unmatchedCandidateCount": 0,
+          "unmatchedLabelIds": [
+            "red-01",
+            "red-03",
+            "red-07",
+            "yellow-01",
+            "yellow-03",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": 1.317,
+          "matches": [
+            {
+              "candidateIndex": 7,
+              "labelId": "yellow-05",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 0.419,
+              "centreErrorBallDiameters": 0.0078
+            },
+            {
+              "candidateIndex": 2,
+              "labelId": "yellow-06",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 0.519,
+              "centreErrorBallDiameters": 0.0096
+            },
+            {
+              "candidateIndex": 5,
+              "labelId": "yellow-02",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 1.218,
+              "centreErrorBallDiameters": 0.0226
+            },
+            {
+              "candidateIndex": 3,
+              "labelId": "red-02",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 1.312,
+              "centreErrorBallDiameters": 0.0243
+            },
+            {
+              "candidateIndex": 1,
+              "labelId": "red-04",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 1.321,
+              "centreErrorBallDiameters": 0.0245
+            },
+            {
+              "candidateIndex": 0,
+              "labelId": "red-05",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 1.407,
+              "centreErrorBallDiameters": 0.0261
+            },
+            {
+              "candidateIndex": 4,
+              "labelId": "yellow-04",
+              "labelColour": "yellow",
+              "centreErrorRectifiedPx": 1.412,
+              "centreErrorBallDiameters": 0.0261
+            },
+            {
+              "candidateIndex": 6,
+              "labelId": "red-06",
+              "labelColour": "red",
+              "centreErrorRectifiedPx": 3.17,
+              "centreErrorBallDiameters": 0.0587
+            }
+          ],
+          "candidates": [
+            {
+              "componentId": 3,
+              "rectifiedX": 109.3966679888933,
+              "rectifiedY": 66.3074176913923,
+              "radius": 28.75,
+              "bboxX": 85,
+              "bboxY": 34,
+              "bboxWidth": 50,
+              "bboxHeight": 65,
+              "pixelArea": 2521,
+              "aspect": 0.7692307692307693,
+              "fill": 0.7756923076923077,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 4,
+              "rectifiedX": 550.6991643454039,
+              "rectifiedY": 71.06725029844807,
+              "radius": 28.75,
+              "bboxX": 527,
+              "bboxY": 38,
+              "bboxWidth": 48,
+              "bboxHeight": 67,
+              "pixelArea": 2513,
+              "aspect": 0.7164179104477612,
+              "fill": 0.7814054726368159,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 30,
+              "rectifiedX": 36.879173290938,
+              "rectifiedY": 956.4678060413355,
+              "radius": 28.25,
+              "bboxX": 9,
+              "bboxY": 929,
+              "bboxWidth": 57,
+              "bboxHeight": 56,
+              "pixelArea": 2516,
+              "aspect": 1.0178571428571428,
+              "fill": 0.7882205513784462,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 31,
+              "rectifiedX": 962.6377309840997,
+              "rectifiedY": 958.4434894714225,
+              "radius": 27.0,
+              "bboxX": 936,
+              "bboxY": 932,
+              "bboxWidth": 54,
+              "bboxHeight": 54,
+              "pixelArea": 2327,
+              "aspect": 1.0,
+              "fill": 0.7980109739368999,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 32,
+              "rectifiedX": 505.4245122985581,
+              "rectifiedY": 983.7972858354537,
+              "radius": 27.25,
+              "bboxX": 481,
+              "bboxY": 956,
+              "bboxWidth": 52,
+              "bboxHeight": 57,
+              "pixelArea": 2358,
+              "aspect": 0.9122807017543859,
+              "fill": 0.7955465587044535,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 34,
+              "rectifiedX": 957.9481781376518,
+              "rectifiedY": 1034.5457489878543,
+              "radius": 27.75,
+              "bboxX": 931,
+              "bboxY": 1008,
+              "bboxWidth": 55,
+              "bboxHeight": 56,
+              "pixelArea": 2470,
+              "aspect": 0.9821428571428571,
+              "fill": 0.801948051948052,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 36,
+              "rectifiedX": 41.593170320404724,
+              "rectifiedY": 1036.7529510961215,
+              "radius": 27.25,
+              "bboxX": 15,
+              "bboxY": 1010,
+              "bboxWidth": 54,
+              "bboxHeight": 55,
+              "pixelArea": 2372,
+              "aspect": 0.9818181818181818,
+              "fill": 0.7986531986531986,
+              "decision": "proposal"
+            },
+            {
+              "componentId": 39,
+              "rectifiedX": 481.37220447284346,
+              "rectifiedY": 1927.9480830670927,
+              "radius": 28.0,
+              "bboxX": 455,
+              "bboxY": 1899,
+              "bboxWidth": 53,
+              "bboxHeight": 59,
+              "pixelArea": 2504,
+              "aspect": 0.8983050847457628,
+              "fill": 0.8007675087943716,
+              "decision": "proposal"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "case": "packed-rack",
+      "inputManifest": {
+        "image": {
+          "path": "work\\production\\evidence\\o08-holdout-20261029\\raw-session-e3c02bb9dc4542948c829a512630041a\\frame-01.png",
+          "sha256": "daa8dfdf70492e7338dfd0b3bdc0c51bfd028b969db276aac1aed4de6dfedcb4"
+        },
+        "receipt": {
+          "path": "work\\production\\evidence\\o08-holdout-20261029\\raw-session-e3c02bb9dc4542948c829a512630041a\\01.json",
+          "sha256": "bca0fdc69527374b6adc6bb41b70d78a06b8e500358d24362c7fe07e9b3b7506"
+        },
+        "labels": {
+          "path": "work\\production\\evidence\\o08-holdout-20261029\\raw-session-e3c02bb9dc4542948c829a512630041a\\manual-labels-frame-01.json",
+          "sha256": "6f420945c83e92d412565ce7c17a287f6854084d623d23ee1b5f94dd9f55e062",
+          "status": "manual draft; user independent review pending"
+        },
+        "frameId": 1,
+        "timeline": "e3c02bb9dc4542948c829a512630041a",
+        "sourceTimeUs": 0
+      },
+      "proposalStage": "VisionAnalyzer.AddColourBodies HSV connected components",
+      "rawMaskWarp": "threshold source BGR-decoded pixels, then nearest-neighbour warp mask",
+      "rectifiedMask": "linear BGR warp, then threshold decoded HSV pixels",
+      "modes": {
+        "raw-mask-then-warp": {
+          "stageCounts": {
+            "components": 29,
+            "rejected-radius": 29
+          },
+          "labelCount": 14,
+          "matchedCount": 0,
+          "recall": 0.0,
+          "candidateCount": 0,
+          "unmatchedCandidateCount": 0,
+          "unmatchedLabelIds": [
+            "red-01",
+            "red-02",
+            "red-03",
+            "red-04",
+            "red-05",
+            "red-06",
+            "red-07",
+            "yellow-01",
+            "yellow-02",
+            "yellow-03",
+            "yellow-04",
+            "yellow-05",
+            "yellow-06",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": null,
+          "matches": [],
+          "candidates": []
+        },
+        "warp-bgr-then-mask": {
+          "stageCounts": {
+            "components": 19,
+            "rejected-radius": 19
+          },
+          "labelCount": 14,
+          "matchedCount": 0,
+          "recall": 0.0,
+          "candidateCount": 0,
+          "unmatchedCandidateCount": 0,
+          "unmatchedLabelIds": [
+            "red-01",
+            "red-02",
+            "red-03",
+            "red-04",
+            "red-05",
+            "red-06",
+            "red-07",
+            "yellow-01",
+            "yellow-02",
+            "yellow-03",
+            "yellow-04",
+            "yellow-05",
+            "yellow-06",
+            "yellow-07"
+          ],
+          "medianMatchedCentreErrorRectifiedPx": null,
+          "matches": [],
+          "candidates": []
+        }
+      }
+    }
+  ]
+}
