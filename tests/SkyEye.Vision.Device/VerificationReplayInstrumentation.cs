@@ -12,7 +12,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
 {
     public VerificationReplayInstrumentation() { }
     public VerificationReplayInstrumentation(IntPtr handle, global::Android.Runtime.JniHandleOwnership ownership) : base(handle, ownership) { }
-    bool refinement, dump, boundaryAudit, screenOnly, probeOnly, pocketArcProbeOnly, pocketArcSweepOnly, rawProposalReplay, traceDarkMask, tracePackedColourFits, normalizedGeometry, normalizedPackedProposalMask, boundaryExtentAblation,
+    bool refinement, dump, boundaryAudit, screenOnly, independentFrames, probeOnly, pocketArcProbeOnly, pocketArcSweepOnly, rawProposalReplay, traceDarkMask, tracePackedColourFits, normalizedGeometry, normalizedPackedProposalMask, boundaryExtentAblation,
         edgeMarginAblation, continueCalibrationMismatch, obstructionMaskTrace, localIlluminationNormalization;
     int fastWidth, darkBodyCeiling = 40, packedClusterImageEdgeMargin = 23, manualBlackImageX = 1282, manualBlackImageY = 536;
     double? neutralCueProbeX800, neutralCueProbeY800;
@@ -161,6 +161,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         }
         run = args?.GetString("run") ?? "";
         screenOnly = args?.GetString("screenOnly") == "1";
+        independentFrames = args?.GetString("independentFrames") == "1";
         probeOnly = args?.GetString("probeOnly") == "1";
         pocketArcSweepOnly = args?.GetString("pocketArcSweepOnly") == "1";
         pocketArcProbeOnly = args?.GetString("pocketArcProbeOnly") == "1" || pocketArcSweepOnly;
@@ -263,6 +264,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             throw new ArgumentException("Pocket-arc probe-only mode requires explicit blackLabelX and blackLabelY values.");
         if ((screenOnly ? 1 : 0) + (probeOnly ? 1 : 0) + (pocketArcProbeOnly ? 1 : 0) + (rawProposalReplay ? 1 : 0) > 1)
             throw new ArgumentException("Screen-only, probe-only, pocket-arc, and raw-proposal replay modes are mutually exclusive.");
+        if (independentFrames && !screenOnly)
+            throw new ArgumentException("Independent frames are supported only in screen-only mode.");
         fastWidth = int.TryParse(args?.GetString("fastWidth"), out var requestedWidth) ? requestedWidth : 0;
         if (int.TryParse(args?.GetString("darkCeiling"), out var requestedDarkCeiling)) darkBodyCeiling = requestedDarkCeiling;
         if (fastWidth != 0 && fastWidth is < 320 or > 800) throw new ArgumentOutOfRangeException(nameof(fastWidth), "Fast-width probe must be between 320 and 800 pixels.");
@@ -418,8 +421,10 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     anchorsForFrame = frameAnchorEntry.Anchors;
                 }
                 var frameTimeline = receipt.GetProperty("scope").GetProperty("timeline").GetString()!;
-                if (frameId <= priorFrameId || sourceTimeUs <= priorSourceTimeUs)
-                    throw new IOException("Replay frames must preserve strictly increasing frame IDs and source PTS.");
+                if (frameId <= priorFrameId || (independentFrames ? sourceTimeUs < priorSourceTimeUs : sourceTimeUs <= priorSourceTimeUs))
+                    throw new IOException(independentFrames
+                        ? "Independent replay frames must preserve strictly increasing frame IDs and nondecreasing source PTS."
+                        : "Replay frames must preserve strictly increasing frame IDs and source PTS.");
                 if (timeline is not null && !string.Equals(timeline, frameTimeline, StringComparison.Ordinal))
                     throw new IOException("Replay frames cross a captured source timeline.");
                 timeline = frameTimeline; priorFrameId = frameId; priorSourceTimeUs = sourceTimeUs;
@@ -1009,7 +1014,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             var consensus1000 = VerificationConsensus.Resolve(measurements1000.Where(m => m.Vision is not null).Select(m => m.Vision!).ToArray(), out var conflict1000);
             var analysisConsensus800 = VerificationConsensus.Resolve(analyses800, out var analysisConflict800);
             var analysisConsensus1000 = VerificationConsensus.Resolve(analyses1000, out var analysisConflict1000);
-            report = new { completed = true, mode = screenOnly ? "screening" : probeOnly ? "probe-only" : "full-audit", configuration = ObservationPolicy.VerificationConfiguration, bodyRefinement = refinement, boundaryAudit,
+            report = new { completed = true, mode = screenOnly ? "screening" : probeOnly ? "probe-only" : "full-audit", independentFrames, configuration = ObservationPolicy.VerificationConfiguration, bodyRefinement = refinement, boundaryAudit,
                 obstructionMaskTrace, diagnosticObstructionClothRangeOverride, diagnosticObstructionNeutralValueRangeOverride,
                 darkBodyValueCeiling = darkBodyCeiling,
                 localIlluminationNormalization,
@@ -1040,7 +1045,9 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 width800 = new { consensus = consensus800, conflict = conflict800, allMotionSamplesStill = measurements800.Count > 1 && measurements800.Skip(1).All(m => m.Motion == TableMotion.Still && m.CoverageValid), measurements = measurements800.Select(SummarizeMotion) },
                 width1000 = new { consensus = consensus1000, conflict = conflict1000, allMotionSamplesStill = measurements1000.Count > 1 && measurements1000.Skip(1).All(m => m.Motion == TableMotion.Still && m.CoverageValid), measurements = measurements1000.Select(SummarizeMotion) },
                 scope = screenOnly
-                    ? "Sequential width-800 detector screening only, including its configured packed-cluster fallback; no motion workers, second-width baseline or candidate traces. Development evidence only; not live acceptance."
+                    ? independentFrames
+                        ? "Independent width-800 detector screening only, including its configured packed-cluster fallback; equal source PTS is permitted, no temporal or motion-worker semantics are applied, and there is no second-width baseline or candidate trace. Development evidence only; not live acceptance."
+                        : "Sequential width-800 detector screening only, including its configured packed-cluster fallback; no motion workers, second-width baseline or candidate traces. Development evidence only; not live acceptance."
                     : probeOnly
                     ? "Sequential width-800 detector diagnostic pass, including its configured packed-cluster fallback and candidate telemetry; no motion workers or second-width baseline. Development evidence only; not live acceptance."
                     : samples.Count == 1

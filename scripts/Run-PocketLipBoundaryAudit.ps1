@@ -7,11 +7,17 @@ Ordered source frame IDs. Receipts may be named `<frameId>.json` or discovered
 by their indexedFrame.frameId metadata when extracted clip filenames are padded.
 The host validates frame identity, timeline, calibration and analyzer identity
 before installing the replay package.
+
+.PARAMETER IndependentFrames
+Allows equal source timestamps for independent screen-only samples, such as a
+same-source synthetic positive/negative pair. Frame IDs must remain ordered;
+source timeline, calibration and analyzer identity checks remain enforced.
 #>
 param(
     [string]$SourceRelativePath = 'work/production/evidence/live-detect-pocket-lip-20261030/o08-capture',
     [int[]]$Frames = @(399, 433),
     [switch]$ScreenOnly,
+    [switch]$IndependentFrames,
     [switch]$ProbeOnly,
     [switch]$PocketArcProbeOnly,
     [switch]$PocketArcSweepOnly,
@@ -68,6 +74,9 @@ if ($selectedModeCount -gt 1) {
 }
 if ($Frames.Count -lt 1 -or $Frames.Count -gt $maximumFrames) {
     throw "This run mode accepts 1 to $maximumFrames frames."
+}
+if ($IndependentFrames -and -not $ScreenOnly) {
+    throw '-IndependentFrames is supported only with -ScreenOnly; use a chronological mode for temporal/stateful replay.'
 }
 if ($ScreenOnly -and ($EnableIlluminationNormalization -or $TracePackedColourFits -or $ObstructionMaskTrace -or $TraceBlackMask -or
     $NeutralCueProbeX800 -ne -1 -or $NeutralCueProbeY800 -ne -1 -or
@@ -331,8 +340,14 @@ $inputs = foreach ($frame in $frames) {
 for ($i = 1; $i -lt $inputs.Count; $i++) {
     $previous = $inputs[$i - 1].Receipt.indexedFrame
     $current = $inputs[$i].Receipt.indexedFrame
-    if ([long]$current.frameId -le [long]$previous.frameId -or [long]$current.sourceTimeUs -le [long]$previous.sourceTimeUs) {
-        throw 'Replay inputs must have strictly increasing frame IDs and source timestamps.'
+    $timestampsOutOfOrder = if ($IndependentFrames) {
+        [long]$current.sourceTimeUs -lt [long]$previous.sourceTimeUs
+    } else {
+        [long]$current.sourceTimeUs -le [long]$previous.sourceTimeUs
+    }
+    if ([long]$current.frameId -le [long]$previous.frameId -or $timestampsOutOfOrder) {
+        $orderingRule = if ($IndependentFrames) { 'strictly increasing frame IDs and nondecreasing source timestamps' } else { 'strictly increasing frame IDs and source timestamps' }
+        throw "Replay inputs must have $orderingRule."
     }
 }
 $stageTimer.Stop()
@@ -422,13 +437,14 @@ $stageTimer.Stop()
 $stageTimings.inputTransferMs = [Math]::Round($stageTimer.Elapsed.TotalMilliseconds, 1)
 
 $screenOnlyArgument = if ($ScreenOnly) { '1' } else { '0' }
+$independentFramesArgument = if ($IndependentFrames) { '1' } else { '0' }
 $probeOnlyArgument = if ($ProbeOnly) { '1' } else { '0' }
 $pocketArcProbeOnlyArgument = if ($PocketArcProbeOnly) { '1' } else { '0' }
 $pocketArcSweepOnlyArgument = if ($PocketArcSweepOnly) { '1' } else { '0' }
 $rawProposalReplayArgument = if ($RawProposalReplay) { '1' } else { '0' }
 $auditArgument = if ($ScreenOnly) { '0' } else { '1' }
 $instrumentArguments = @('shell', 'am', 'instrument', '-w', '-e', 'run', $run,
-    '-e', 'screenOnly', $screenOnlyArgument, '-e', 'probeOnly', $probeOnlyArgument, '-e', 'pocketArcProbeOnly', $pocketArcProbeOnlyArgument,
+    '-e', 'screenOnly', $screenOnlyArgument, '-e', 'independentFrames', $independentFramesArgument, '-e', 'probeOnly', $probeOnlyArgument, '-e', 'pocketArcProbeOnly', $pocketArcProbeOnlyArgument,
     '-e', 'pocketArcSweepOnly', $pocketArcSweepOnlyArgument,
     '-e', 'rawProposalReplay', $rawProposalReplayArgument,
     '-e', 'audit', $auditArgument, '-e', 'edgeMargin', "$EdgeMargin",
@@ -644,6 +660,7 @@ $manifest = [pscustomobject]@{
     apkSha256 = (Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash.ToLowerInvariant()
     run = $run
     mode = if ($ScreenOnly) { 'screen-only' } elseif ($ProbeOnly) { 'probe-only' } elseif ($PocketArcSweepOnly) { 'pocket-arc-sweep-only' } elseif ($PocketArcProbeOnly) { 'pocket-arc-probe-only' } elseif ($RawProposalReplay) { 'raw-proposal-replay' } else { 'full-audit' }
+    independentFrames = [bool]$IndependentFrames
     timingsMs = [pscustomobject]@{
         inputHashAndOrderValidation = $stageTimings.inputHashAndOrderValidationMs
         apkInstall = $stageTimings.apkInstallMs
