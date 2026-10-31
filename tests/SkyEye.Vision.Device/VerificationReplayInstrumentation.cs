@@ -584,10 +584,10 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     replayObstructionMaximumNormalizedBoundsDelta = auditComparison.MaximumNormalizedBoundsDelta,
                     replayObstructionDecisionMatchesCapture = auditComparison.DecisionMatches,
                     width800 = new { blackSeedRecovered = blackSeedRecovered800, analysis = Summarize(baseline800, 800), verification = Summarize(verification800, 800),
-                        darkMaskTrace = traceDarkMask ? PackedBlackMaskTrace.Capture(bytes, calibration, 800, baseline800, Path.Combine(root, "o08-black-trace-" + run), receipt.GetProperty("frameId").GetInt64().ToString(), manualBlackImageX, manualBlackImageY, sparseBlackMinimumPeakRadiusFactor) : null,
+                        darkMaskTrace = traceDarkMask ? PackedBlackMaskTrace.Capture(bytes, calibration, 800, baseline800, Path.Combine(root, "o08-black-trace-" + run), receipt.GetProperty("frameId").GetInt64().ToString(), manualBlackImageX, manualBlackImageY, sparseBlackMinimumPeakRadiusFactor, pocketExclusionRadius) : null,
                         packedBlackBoundaryTrace = boundaryAudit ? AuditPackedBlackBoundaries(bytes, calibration, 800, baseline800) : null },
                     width1000 = new { blackSeedRecovered = blackSeedRecovered1000, analysis = Summarize(baseline1000, 1000), verification = Summarize(verification1000, 1000),
-                        darkMaskTrace = traceDarkMask ? PackedBlackMaskTrace.Capture(bytes, calibration, 1000, baseline1000, Path.Combine(root, "o08-black-trace-" + run), frameId.ToString(), manualBlackImageX, manualBlackImageY, sparseBlackMinimumPeakRadiusFactor) : null,
+                        darkMaskTrace = traceDarkMask ? PackedBlackMaskTrace.Capture(bytes, calibration, 1000, baseline1000, Path.Combine(root, "o08-black-trace-" + run), frameId.ToString(), manualBlackImageX, manualBlackImageY, sparseBlackMinimumPeakRadiusFactor, pocketExclusionRadius) : null,
                         packedBlackBoundaryTrace = boundaryAudit ? AuditPackedBlackBoundaries(bytes, calibration, 1000, baseline1000) : null },
                     analysisWidthComparison = Compare(baseline800, baseline1000, 800, 1000),
                     widthComparison = verification800.Vision is null || verification1000.Vision is null

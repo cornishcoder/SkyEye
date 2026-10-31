@@ -23,7 +23,8 @@ internal static class PackedBlackMaskTrace
 
     public static object Capture(byte[] encodedImage, TableCalibration calibration, int width, VisionResult vision,
         string outputDirectory, string frameId, int manualImageX = ManualImageX, int manualImageY = ManualImageY,
-        double minimumPeakRadiusFactor = 8)
+        double minimumPeakRadiusFactor = 8,
+        double pocketExclusionRadiusAtWidth1000 = VisionSettings.DefaultPocketExclusionRadius)
     {
         using var encoded = new MatOfByte(encodedImage);
         using var source = Imgcodecs.Imdecode(encoded, Imgcodecs.ImreadColor);
@@ -183,6 +184,12 @@ internal static class PackedBlackMaskTrace
 
             Directory.CreateDirectory(outputDirectory);
             byte[] bgrBytes = new byte[width * width * 2 * 3]; warped.Get(0, 0, bgrBytes);
+            double pocketOcclusionRadius = pocketExclusionRadiusAtWidth1000 * scale;
+            Point[] calibratedPocketCentres =
+            [
+                new(0, 0), new(width, 0), new(0, width), new(width, width),
+                new(0, width * 2), new(width, width * 2)
+            ];
             // Diagnostic-only oracle probe: give the boundary refiner the
             // manually labelled black centre once, to distinguish a missing
             // dark-mask seed from a boundary that cannot be fitted. This point
@@ -192,6 +199,12 @@ internal static class PackedBlackMaskTrace
             var fixedCentreSectors = BallBoundaryRefiner.Inspect(bgrBytes, width, width * 2,
                 label, ballRadius, label, ballRadius, expectedKind: "black",
                 allowDarkBodyEdgeTransitions: true, darkBodyValueCeiling: DarkValueCeiling);
+            var normalFixedCentreSectors = BallBoundaryRefiner.Inspect(bgrBytes, width, width * 2,
+                label, ballRadius, label, ballRadius, expectedKind: "black");
+            var pocketOccludedAtLabel = BallBoundaryRefiner.GetPocketOccludedSectorIndexes(
+                normalFixedCentreSectors, calibratedPocketCentres, pocketOcclusionRadius).ToHashSet();
+            var visibleAtLabel = normalFixedCentreSectors.Where(sector => !pocketOccludedAtLabel.Contains(sector.Index)).ToArray();
+            var supportedVisibleAtLabel = visibleAtLabel.Where(sector => sector.Supported).ToArray();
             var fixedCentreEvidence = new
             {
                 evaluationOnly = true,
@@ -234,6 +247,74 @@ internal static class PackedBlackMaskTrace
                 .OrderBy(peak => peak.DistanceFromLabel).FirstOrDefault();
             bool hasNearestMarginSeed = nearestMarginSeed.PassesMargin && nearestMarginSeed.PassesMinimumRadius;
             Point nearestSeedCentre = new(nearestMarginSeed.X, nearestMarginSeed.Y);
+            Point pocketArcProposal = hasNearestMarginSeed ? nearestSeedCentre : label;
+            var pocketArcProbe = BallBoundaryRefiner.ProbePocketAwarePartialArc(bgrBytes,
+                width, width * 2, pocketArcProposal, ballRadius, calibratedPocketCentres,
+                pocketOcclusionRadius, expectedKind: "black", maximumCentreOffsetFraction: .8);
+            var pocketAwarePartialArcExperiment = new
+            {
+                evaluationOnly = true,
+                diagnosticOnly = true,
+                productionOutputChanged = false,
+                matchedAbsentPocketControlAvailable = false,
+                controlNote = "The exact replay input contains six labelled present-ball frames and no matched ball-absent pocket capture.",
+                geometry = new
+                {
+                    source = "canonical calibrated table coordinates mapped into warped analysis pixels",
+                    pocketCentres = calibratedPocketCentres,
+                    pocketOcclusionRadius,
+                    rule = "A sector is excluded only when its measured inner-to-outer radial sample segment intersects a pocket occlusion disk."
+                },
+                diagnosticChecks = new
+                {
+                    minimumVisibleSectors = pocketArcProbe.MinimumVisibleSectors,
+                    minimumSupportedVisibleSectors = pocketArcProbe.MinimumSupportedVisibleSectors,
+                    minimumContiguousSupportedRun = pocketArcProbe.MinimumContiguousSupportedRun,
+                    minimumSupportedArcSpanDegrees = pocketArcProbe.MinimumSupportedArcSpanDegrees,
+                    maximumCandidateToProposalOffset = pocketArcProbe.MaximumCandidateToProposalOffset,
+                    maximumCandidateToProposalOffsetFraction = pocketArcProbe.MaximumCandidateToProposalOffsetFraction
+                },
+                labelledCentre = new
+                {
+                    centre = label,
+                    normalSupportedSectorIndices = normalFixedCentreSectors.Where(sector => sector.Supported)
+                        .Select(sector => sector.Index).ToArray(),
+                    pocketOccludedSectorIndices = pocketOccludedAtLabel.Order().ToArray(),
+                    visibleSectorIndices = visibleAtLabel.Select(sector => sector.Index).ToArray(),
+                    visibleSectorCount = visibleAtLabel.Length,
+                    supportedVisibleSectorIndices = supportedVisibleAtLabel.Select(sector => sector.Index).ToArray(),
+                    supportedVisibleSectorCount = supportedVisibleAtLabel.Length,
+                    unsupportedVisibleSectorIndices = visibleAtLabel.Where(sector => !sector.Supported)
+                        .Select(sector => sector.Index).ToArray()
+                },
+                proposalSource = hasNearestMarginSeed ? "nearest qualifying dark-mask seed" : "manual-label fallback",
+                proposalCentre = pocketArcProposal,
+                candidate = pocketArcProbe.Candidate is { } pocketArcFit ? new
+                {
+                    centre = pocketArcFit.Centre,
+                    radius = pocketArcFit.Radius,
+                    distanceFromLabel = (pocketArcFit.Centre - label).Length,
+                    candidateToProposalOffset = pocketArcProbe.CandidateToProposalOffset,
+                    candidateToProposalOffsetFraction = pocketArcProbe.CandidateToProposalOffsetFraction,
+                    maximumCandidateToProposalOffset = pocketArcProbe.MaximumCandidateToProposalOffset,
+                    maximumCandidateToProposalOffsetFraction = pocketArcProbe.MaximumCandidateToProposalOffsetFraction,
+                    globalSupportedSectorCount = pocketArcFit.SectorEvidence.Count(sector => sector.Supported),
+                    globalSupportFraction = pocketArcFit.SupportedSectors,
+                    pocketOccludedSectorIndices = pocketArcProbe.PocketOccludedSectorIndices,
+                    visibleSectorCount = pocketArcProbe.VisibleSectorCount,
+                    supportedVisibleSectorIndices = pocketArcProbe.SupportedVisibleSectorIndices,
+                    supportedVisibleSectorCount = pocketArcProbe.SupportedVisibleSectorCount,
+                    unexplainedVisibleSectorIndices = pocketArcProbe.UnexplainedVisibleSectorIndices,
+                    longestContiguousSupportedRun = pocketArcProbe.LongestContiguousSupportedRun,
+                    supportedArcSpanDegrees = pocketArcProbe.SupportedArcSpanDegrees,
+                    minimumVisibleSectors = pocketArcProbe.MinimumVisibleSectors,
+                    minimumSupportedVisibleSectors = pocketArcProbe.MinimumSupportedVisibleSectors,
+                    minimumContiguousSupportedRun = pocketArcProbe.MinimumContiguousSupportedRun,
+                    minimumSupportedArcSpanDegrees = pocketArcProbe.MinimumSupportedArcSpanDegrees,
+                    diagnosticArcChecksPass = pocketArcProbe.DiagnosticArcChecksPass,
+                    score = pocketArcFit.Score
+                } : null
+            };
             var nearestSeedProbe08 = hasNearestMarginSeed
                 ? BallBoundaryRefiner.Refine(bgrBytes, width, width * 2, nearestSeedCentre, ballRadius,
                     minimumSupportedFraction: .5, collectSectorEvidence: true, expectedKind: "black",
@@ -261,6 +342,7 @@ internal static class PackedBlackMaskTrace
                 probeSupportFloor = .5,
                 fixedCentreEvidence,
                 fixedCentreThresholdSweep,
+                pocketAwarePartialArcExperiment,
                 selectedFit = FitSummary(manualCentreProbe, label),
                 exactProposalFit = FitSummary(manualCentreProbe?.ProposalFit, label),
                 nearestDarkSeed = hasNearestMarginSeed ? new

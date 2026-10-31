@@ -13,6 +13,19 @@ public sealed record BoundarySectorEvidence(int Index, Point InnerPoint, Point O
     public bool DarkBodyTransitionUsed { get; init; }
 }
 
+/// <summary>Evaluation-only result from a pocket-aware partial-arc fit. This
+/// probe is not used by production detection and does not relax its support gate.</summary>
+public sealed record PocketAwarePartialArcProbeResult(BallBoundary? Candidate,
+    int[] PocketOccludedSectorIndices, int[] VisibleSectorIndices,
+    int[] SupportedVisibleSectorIndices, int[] UnexplainedVisibleSectorIndices,
+    int VisibleSectorCount, int SupportedVisibleSectorCount,
+    int LongestContiguousSupportedRun, double SupportedArcSpanDegrees,
+    int MinimumVisibleSectors, int MinimumSupportedVisibleSectors,
+    int MinimumContiguousSupportedRun, double MinimumSupportedArcSpanDegrees,
+    double? CandidateToProposalOffset, double? CandidateToProposalOffsetFraction,
+    double MaximumCandidateToProposalOffset, double MaximumCandidateToProposalOffsetFraction,
+    bool DiagnosticArcChecksPass);
+
 /// <summary>Bounded current-image refinement of an existing circle proposal.
 /// Raw colour edges distinguish painted bodies from cloth/shadow and interior patches.
 /// A size prior bounds the search; it never supplies a body without edge support.</summary>
@@ -122,6 +135,168 @@ public static class BallBoundaryRefiner
             explained++;
         }
         return visible + explained >= minimumCoverage;
+    }
+
+    /// <summary>List radial sectors whose measured edge-sample segment intersects
+    /// any supplied calibrated pocket occlusion disk. Evaluation-only helper.</summary>
+    public static int[] GetPocketOccludedSectorIndexes(IReadOnlyList<BoundarySectorEvidence> sectors,
+        IReadOnlyList<Point> calibratedPocketCentres, double pocketOcclusionRadius)
+    {
+        if (sectors.Count != directions.Length || calibratedPocketCentres is null
+            || calibratedPocketCentres.Count == 0
+            || calibratedPocketCentres.Any(p => !double.IsFinite(p.X) || !double.IsFinite(p.Y))
+            || !double.IsFinite(pocketOcclusionRadius) || pocketOcclusionRadius <= 0)
+            throw new ArgumentException("Invalid pocket occlusion geometry.");
+        return sectors.Where(sector => IsPocketOccluded(sector, calibratedPocketCentres, pocketOcclusionRadius))
+            .Select(sector => sector.Index).ToArray();
+    }
+
+    /// <summary>Search a bounded centre/radius neighborhood while treating only
+    /// measured radial sample segments inside the supplied calibrated pocket
+    /// masks as geometrically occluded. Remaining supported sectors must still
+    /// form a sufficiently long contiguous arc. This evaluation-only probe is
+    /// deliberately separate from Refine, whose production gate is unchanged.</summary>
+    public static PocketAwarePartialArcProbeResult ProbePocketAwarePartialArc(byte[] bgr,
+        int width, int height, Point proposal, double expectedRadius,
+        IReadOnlyList<Point> calibratedPocketCentres, double pocketOcclusionRadius,
+        string? expectedKind = "black", double maximumCentreOffsetFraction = .8)
+    {
+        const int minimumVisibleSectors = 16;
+        const int minimumSupportedVisibleSectors = 8;
+        const int minimumContiguousSupportedRun = 5;
+        const double minimumSupportedArcSpanDegrees = 45;
+        const double maximumCandidateToProposalOffsetFraction = .8;
+
+        if (width <= 0 || height <= 0 || bgr.Length != checked(width * height * 3)
+            || !double.IsFinite(expectedRadius) || expectedRadius < 5 || expectedRadius > 100
+            || !double.IsFinite(proposal.X) || !double.IsFinite(proposal.Y)
+            || calibratedPocketCentres is null || calibratedPocketCentres.Count == 0
+            || calibratedPocketCentres.Any(p => !double.IsFinite(p.X) || !double.IsFinite(p.Y))
+            || !double.IsFinite(pocketOcclusionRadius) || pocketOcclusionRadius <= 0 || pocketOcclusionRadius > 250
+            || !double.IsFinite(maximumCentreOffsetFraction) || maximumCentreOffsetFraction is < .2 or > 1.5)
+            throw new ArgumentException("Invalid pocket-aware boundary probe input.");
+
+        double step = Math.Max(1.5, expectedRadius / 9);
+        double extent = expectedRadius * maximumCentreOffsetFraction;
+        double maximumCandidateToProposalOffset = expectedRadius * maximumCandidateToProposalOffsetFraction;
+        BallBoundary? best = null;
+        bool bestPassesChecks = false;
+        Consider(proposal.X, proposal.Y, expectedRadius);
+        for (double y = proposal.Y - extent; y <= proposal.Y + extent; y += step)
+            for (double x = proposal.X - extent; x <= proposal.X + extent; x += step)
+                for (double radius = expectedRadius * .75; radius <= expectedRadius * 1.25; radius += step)
+                    Consider(x, y, radius);
+
+        if (best is not null)
+        {
+            double fine = step / 3;
+            var coarse = best;
+            for (double y = coarse.Centre.Y - step; y <= coarse.Centre.Y + step; y += fine)
+                for (double x = coarse.Centre.X - step; x <= coarse.Centre.X + step; x += fine)
+                    for (double radius = Math.Max(expectedRadius * .75, coarse.Radius - step);
+                         radius <= Math.Min(expectedRadius * 1.25, coarse.Radius + step); radius += fine)
+                        Consider(x, y, radius);
+        }
+
+        if (best is null)
+            return new(null, [], [], [], [], 0, 0, 0, 0,
+                minimumVisibleSectors, minimumSupportedVisibleSectors, minimumContiguousSupportedRun,
+                minimumSupportedArcSpanDegrees, null, null, maximumCandidateToProposalOffset,
+                maximumCandidateToProposalOffsetFraction, false);
+
+        var selectedEvidence = best.SectorEvidence;
+        var selectedOccluded = GetPocketOccludedSectorIndexes(selectedEvidence,
+            calibratedPocketCentres, pocketOcclusionRadius);
+        var selectedOccludedSet = selectedOccluded.ToHashSet();
+        var selectedVisible = selectedEvidence.Where(sector => !selectedOccludedSet.Contains(sector.Index)).ToArray();
+        var selectedSupported = selectedVisible.Where(sector => sector.Supported).ToArray();
+        var selectedUnexplained = selectedVisible.Where(sector => !sector.Supported).ToArray();
+        int longestRun = LongestCircularRun(selectedSupported.Select(sector => sector.Index).ToHashSet());
+        double arcSpan = longestRun <= 1 ? 0 : (longestRun - 1) * (360d / directions.Length);
+        double candidateToProposalOffset = (best.Centre - proposal).Length;
+        bool checksPass = selectedVisible.Length >= minimumVisibleSectors
+            && selectedSupported.Length >= minimumSupportedVisibleSectors
+            && longestRun >= minimumContiguousSupportedRun
+            && arcSpan >= minimumSupportedArcSpanDegrees
+            && candidateToProposalOffset <= maximumCandidateToProposalOffset;
+        return new(best, selectedOccluded, selectedVisible.Select(sector => sector.Index).ToArray(),
+            selectedSupported.Select(sector => sector.Index).ToArray(),
+            selectedUnexplained.Select(sector => sector.Index).ToArray(),
+            selectedVisible.Length, selectedSupported.Length, longestRun, arcSpan,
+            minimumVisibleSectors, minimumSupportedVisibleSectors, minimumContiguousSupportedRun,
+            minimumSupportedArcSpanDegrees, candidateToProposalOffset,
+            candidateToProposalOffset / expectedRadius, maximumCandidateToProposalOffset,
+            maximumCandidateToProposalOffsetFraction, checksPass);
+
+        void Consider(double x, double y, double radius)
+        {
+            double offset = Math.Max(2, expectedRadius * .12);
+            if (!FitsSampleBounds(x, y, radius, offset, width, height)) return;
+            var sectors = Inspect(bgr, width, height, proposal, expectedRadius,
+                new Point(x, y), radius, expectedKind);
+            if (sectors.Length != directions.Length) return;
+
+            var occluded = GetPocketOccludedSectorIndexes(sectors, calibratedPocketCentres, pocketOcclusionRadius)
+                .ToHashSet();
+            var visible = sectors.Where(sector => !occluded.Contains(sector.Index)).ToArray();
+            if (visible.Length < minimumVisibleSectors) return;
+            var supported = visible.Where(sector => sector.Supported).ToArray();
+            var supportIndexes = supported.Select(sector => sector.Index).ToHashSet();
+            int longest = LongestCircularRun(supportIndexes);
+            double span = longest <= 1 ? 0 : (longest - 1) * (360d / directions.Length);
+            double candidateToProposalOffset = (new Point(x, y) - proposal).Length;
+            bool passesChecks = supported.Length >= minimumSupportedVisibleSectors
+                && longest >= minimumContiguousSupportedRun
+                && span >= minimumSupportedArcSpanDegrees
+                && candidateToProposalOffset <= maximumCandidateToProposalOffset;
+
+            double edgeScore = visible.Sum(sector => Math.Min(60, sector.FineEdgeContrast)
+                + .1 * Math.Min(60, sector.EdgeContrast));
+            double score = supported.Length * 2 + edgeScore / visible.Length
+                - .1 * Math.Abs(radius - expectedRadius);
+            var candidate = new BallBoundary(new(x, y), radius,
+                supported.Length / (double)directions.Length, score)
+            { SectorEvidence = sectors };
+            bool take = best is null
+                || passesChecks && !bestPassesChecks
+                || passesChecks == bestPassesChecks && score > best.Score;
+            if (take)
+            {
+                best = candidate;
+                bestPassesChecks = passesChecks;
+            }
+        }
+
+    }
+
+    static bool IsPocketOccluded(BoundarySectorEvidence sector,
+        IReadOnlyList<Point> calibratedPocketCentres, double pocketOcclusionRadius)
+        => calibratedPocketCentres.Any(pocket =>
+            DistanceToSegment(pocket, sector.InnerPoint, sector.OuterPoint) <= pocketOcclusionRadius);
+
+    static int LongestCircularRun(IReadOnlySet<int> supportedIndexes)
+    {
+        if (supportedIndexes.Count == 0) return 0;
+        if (supportedIndexes.Count == directions.Length) return directions.Length;
+        int longest = 0, current = 0;
+        for (int i = 0; i < directions.Length * 2; i++)
+        {
+            if (supportedIndexes.Contains(i % directions.Length))
+            {
+                current = Math.Min(directions.Length, current + 1);
+                longest = Math.Max(longest, current);
+            }
+            else current = 0;
+        }
+        return longest;
+    }
+
+    static double DistanceToSegment(Point point, Point start, Point end)
+    {
+        var segment = end - start;
+        double lengthSquared = segment.Dot(segment);
+        double amount = lengthSquared < 1e-12 ? 0 : Math.Clamp((point - start).Dot(segment) / lengthSquared, 0, 1);
+        return (point - (start + segment * amount)).Length;
     }
 
     public static BallBoundary? Refine(byte[] bgr, int width, int height, Point proposal, double expectedRadius,
