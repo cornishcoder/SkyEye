@@ -844,3 +844,5 @@ For future physical evidence, predeclare a short batch of staged changes and con
 Workflow: follow [the capture batching and offline efficiency protocol](live-detect-workflow-efficiency-20261101.md) for future staged evidence and candidate cycles; acceptance gates remain unchanged.
 
 - Full seed enumeration measured: nearby black seeds now fit, but support18/19/18 of32 fails21/32. No recovery or promotion. See evidence/sparse-black-full-seed-enumeration-20261101.md; next inspect sector evidence offline.
+
+- Visible pass/fail runner: scripts/Run-LiveDetectScorecard.ps1; initial software3/3 suites pass, detector0/3 positive cases pass, physical0/3 gates proven. See evidence/live-detect-scorecard-20261101.md. Fit64 failed to recover black; stop budget sweeps.

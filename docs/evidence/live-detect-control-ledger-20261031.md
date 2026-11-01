@@ -173,3 +173,5 @@ The user staged the same mid-cushion black/chalk/table with only the cue moved t
 - Evaluation candidate in progress: SparseBlackEnumerateAllSeeds (default false) enumerates the entire sparse-black mask before existing radius/proximity ranking and12-fit cap. Packed colour callers retain their existing cap. Runner manifest and analyzer diagnostic identity record the option. Build/replay pending; no acceptance claim.
 
 - Candidate allseed-positive-174021: 0/3 black recovery; nearby seeds reach fit and fail support18/19/18 versus21 sectors. Report: sparse-black-full-seed-enumeration-20261101.md. Camera freshly Stopped/rev63.
+
+- Expanded fit64 diagnostic remains0/3 black recovery. Initial repeatable scorecard records software suites separately from exact-hash detector cases and D1/D2/E; see live-detect-scorecard-20261101.md.
