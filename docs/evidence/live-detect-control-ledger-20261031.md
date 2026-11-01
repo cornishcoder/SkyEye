@@ -175,3 +175,5 @@ The user staged the same mid-cushion black/chalk/table with only the cue moved t
 - Candidate allseed-positive-174021: 0/3 black recovery; nearby seeds reach fit and fail support18/19/18 versus21 sectors. Report: sparse-black-full-seed-enumeration-20261101.md. Camera freshly Stopped/rev63.
 
 - Expanded fit64 diagnostic remains0/3 black recovery. Initial repeatable scorecard records software suites separately from exact-hash detector cases and D1/D2/E; see live-detect-scorecard-20261101.md.
+
+- Combined scorecard exits1: software2/3, detector0/3. General suite failed MotionFeedChecks line42 timeout; initial3/3 pass is historical. Failure artifacts retained.

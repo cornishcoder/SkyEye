@@ -7,3 +7,7 @@ Latest completed software run: **3/3 suites PASS** (GameState, Observation, gene
 The64-fit diagnostic still misses black in all three frames; analysis wall times1784.62/1416.80/1398.58ms. Increasing the fit budget does not resolve these saved failures. Do not promote this diagnostic or broaden fit-budget sweeps. Next development should address boundary geometry/evidence and measure negatives with the same contract.
 
 The scorecard is an initial visible regression set, not the full acceptance contract. Expand it with frozen reviewed positive/negative cases and temporal scenarios; untested acceptance remains NOT PROVEN. A complete inventory count does not establish unique matched centres, freshness, safe readiness, events or clips.
+
+## Subsequent combined run
+
+The combined run at2026-11-01T17:45:29Z reports **2/3 software suites PASS**, **0/3 detector cases PASS**, exit1. General Checks failed at MotionFeedChecks.cs line42 while waiting for stale acquisition accounting; the exception is Motion-feed check timeout. The earlier3/3 pass remains historical, not current green status. Preserve both outcomes: an intermittent timeout requires diagnosis. Failed log and JSON are retained in work/live-detect-scorecard/SkyEye.Checks-motion-timeout-20261101.log and scorecard-failed-20261101.json. Do not retry until green or lengthen the timeout as a substitute for finding the cause.
