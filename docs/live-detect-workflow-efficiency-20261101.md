@@ -16,6 +16,12 @@ This operating plan implements the user's request to batch staged table changes 
 
 The current session demonstrates why these changes matter: the restaged cue-positive frame group was internally stable, but later cue removal occurred after daylight darkened; earlier groups also differed in cloth-patch luminance. Interleaving lengthy replay and label work between physical steps lost the matched comparison. Separately, a wrong implicit black trace point required a runner guard, and inspection of the component cap revealed useful source evidence without another capture. See [restaged evidence](evidence/opposite-cue-positive-restaged-stage-replay-20261101.md) and commits `02c5405`, `52bd55a`, `8ebf829`, `13fb7f9`.
 
+## Measured lesson from the O09 v2 export — 1 November
+
+The seven newly reviewed controls were efficiently handled as one guide-sheet review and one immutable corpus expansion, then the exact frozen transfer checkpoint was probed once across all seven frames. That avoided seven separate model runs and prevented another training cycle before a split audit. The export audit showed why that ordering matters: all seven additions landed in train, while validation remained only two frames/31 boxes from one correlated group. A second training run on that split would not answer whether the detector generalizes. Before asking for another staged batch, precompute group-aware train/validation roles and verify that validation has multiple independent, varied full-table layouts in each supported lighting stratum. Review the contact sheets together and keep the same-table present/absent sequence within one setup group.
+
+The one-pass probe then rejected the checkpoint decisively: 0/7 layouts, every frame at the 100-prediction cap, no cue/black matches, and capped 664 false positives. The next useful work is coverage collection and split design, not confidence sweeps or repeated inference on the same seven images. This measured reuse is recorded in the [probe report](evidence/live-detect-o09-transfer-new-controls-probe-20261101.md) and [targeted ledger](evidence/live-detect-targeted-test-ledger-20261101.md).
+
 ## Batch capture protocol
 
 1. Prepare offline: choose the hypothesis and a small batch, assign setup/step IDs, list exactly what moves, expected visible inventory, required controls and maximum capture per step. Prepare output paths and receipt checks. Confirm suitable light before requesting staging.

@@ -6,7 +6,7 @@
 
 ### 1 November 2026 Development checkpoint
 
-The reviewed apparent image-space radii now support a Development export, but the first two learned baselines do not approach a usable detector: config-only scratch training scored 0/4 complete layouts, and pretrained YOLO11n transfer scored 16/62 boxes (all yellow), 384 false positives, 46 misses, and 0/4 complete layouts on the same four-frame, single-group Development validation set. Holdout remains unopened. Do not integrate either checkpoint or tune repeatedly against that validation group. The seven-frame O09 Development expansion is recorded below; it improves target-control coverage but does not establish broader rack/spread or lighting coverage. The next target is `O09-TRANSFER-NEW-CONTROLS-PROBE`: score the already frozen transfer checkpoint on the seven newly reviewed frames without training or tuning. See the [transfer result](evidence/live-detect-o09-training-dev-transfer-baseline-20261101.md), [expansion report](evidence/live-detect-o09-dev-corpus-expansion-20261101.md), and [targeted test ledger](evidence/live-detect-targeted-test-ledger-20261101.md).
+The reviewed apparent image-space radii now support a Development export, but the learned baselines do not approach a usable detector: config-only scratch training scored 0/4 complete layouts, pretrained YOLO11n transfer scored 16/62 boxes (all yellow), 384 false positives, 46 misses, and 0/4 layouts on its validation group, and the frozen transfer checkpoint scored 0/7 complete layouts on seven new controls (36 TP, 664 capped FP, 73 FN; 5.14% precision, 33.03% recall, no correct cue/black matches). Holdout remains unopened. Do not integrate either checkpoint, retrain on the probe frames, or tune repeatedly against these Development samples. The seven-frame expansion improves target-control coverage but not broad rack/spread or lighting coverage; its validation split is only two frames from one correlated group. The next target is `O09-DEVELOPMENT-LAYOUT-LIGHTING-EXPANSION`, which needs stable playable light and precomputed setup/layout split roles before staging. See the [transfer result](evidence/live-detect-o09-training-dev-transfer-baseline-20261101.md), [new-control probe](evidence/live-detect-o09-transfer-new-controls-probe-20261101.md), [expansion report](evidence/live-detect-o09-dev-corpus-expansion-20261101.md), and [targeted test ledger](evidence/live-detect-targeted-test-ledger-20261101.md).
 
 ### O09 Development expansion follow-up — 1 November 2026
 
@@ -21,6 +21,18 @@ dotnet run --project src/SkyEye.Observation.Workbench/SkyEye.Observation.Workben
 dotnet run --project src/SkyEye.Observation.Workbench/SkyEye.Observation.Workbench.csproj -c Release --no-restore -- export-yolo --root work/o09/radius-reviewed-corpus-v2-verified --manifest work/o09/radius-reviewed-corpus-v2-verified/manifest.json --lock work/o09/radius-reviewed-corpus-v2-verified/split-lock.json --output-dir work/o09/yolo-reviewed-radii-v2-verified
 python scripts/Verify-O09ReviewedRadiusExport.py --corpus-root work/o09/radius-reviewed-corpus-v2-verified --manifest work/o09/radius-reviewed-corpus-v2-verified/manifest.json --export-dir work/o09/yolo-reviewed-radii-v2-verified
 ```
+
+### Frozen transfer probe on the seven additions
+
+Target `O09-TRANSFER-NEW-CONTROLS-PROBE` is complete and rejected the checkpoint as a candidate: **0/7** layouts, **36 TP / 664 capped FP / 73 FN** across **109** reviewed balls, with **5.14% precision** and **33.03% recall**. All seven frames reached `max_det=100`; cue/black had no correct matches, and the absent controls produced seven black proposals and five cue proposals. The seven exact source frames were absent from the checkpoint's training export. Centre error on the 36 matches is descriptive only because reviewed centres have no numeric tolerance. No retraining, tuning, Holdout access or integration occurred. See the [full probe report](evidence/live-detect-o09-transfer-new-controls-probe-20261101.md).
+
+The bounded probe can be reproduced against the retained work artifacts with:
+
+```powershell
+python scripts/Probe-O09NewControlFrames.py --output work/o09/transfer-new-controls-probe-reproduction-v1/report.json
+```
+
+The script verifies the frozen checkpoint and training-export hashes, exact Development frame set, source/index/label hashes, class map, and zero sample overlap before inference. A reproduction must use a new `--output` path; the original evidence artifact is kept immutable.
 
 Determine whether a small learned detector, alone or paired with the existing OpenCV geometry refinement, materially improves ball recall, false-positive rate and colour accuracy across held-out lighting conditions while meeting Pixel latency and resource needs. Keep the production path unchanged unless a candidate wins the frozen evaluation and passes O08 safety and release gates.
 
