@@ -26,6 +26,7 @@ static Guid OperationId(string callId, string action) => new(SHA256.HashData(Enc
 LiveDetectCountCandidateChecks.Run();
 LiveDetectFreshFrameWaitChecks.Run();
 LiveDetectTableEventTrackerChecks.Run();
+LiveDetectInventoryReadoutChecks.Run();
 await LiveDetectShotClipWindowChecks.Run();
 LiveDetectShotClipGroupingChecks.Run();
 LiveDetectLogStoreChecks.Run();

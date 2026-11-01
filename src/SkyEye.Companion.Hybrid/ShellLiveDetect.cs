@@ -313,8 +313,8 @@ public sealed partial class ShellSession
                             : "Decoder recovered; camera timestamps continue with restarted frame IDs.", null);
                 var counts = Count(vision.Balls);
                 var layout = CaptureLiveDetectLayout(vision.Balls);
-                bool currentInventoryClear = !vision.Uncertain && !vision.Obstructed && !vision.HasUncertainLayout
-                    && counts.Other == 0 && counts.Total > 0;
+                bool currentInventoryClear = LiveDetectInventoryReadoutPolicy.IsCurrentInventoryClear(
+                    vision.Uncertain, vision.Obstructed, vision.HasUncertainLayout, counts);
                 if (currentInventoryClear)
                 {
                     liveDetectLastClearInventory = $"{counts.Total} detected · {counts.Summary}";
@@ -423,7 +423,9 @@ public sealed partial class ShellSession
                     liveDetectHasResult = true;
                     liveDetectReadAt = observation.CapturedAt;
                     liveDetectStatus = $"Live Detect running · full pass {vision.ElapsedMs / 1000:0.0}s.";
-                    liveDetectInventory = eventBatch.SettledBaselineMatchesCurrent && eventBatch.SettledBaseline is { } settled
+                    var settledCurrentInventory = LiveDetectInventoryReadoutPolicy.SettledCurrentInventory(
+                        currentInventoryClear, eventBatch);
+                    liveDetectInventory = settledCurrentInventory is { } settled
                         ? $"Settled current state · {settled.Total} detected · {settled.Summary} · confirmed by this frame · frame age {ageSeconds:0.0}s"
                         : currentInventoryClear && checkOutcome == "clear_unchanged"
                             && eventBatch.SettledBaseline is not null
