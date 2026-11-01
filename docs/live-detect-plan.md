@@ -856,3 +856,5 @@ Workflow: follow [the capture batching and offline efficiency protocol](live-det
 - Target motion-feed source-gap:17/20 reproduction passes,3 failures acquired third frame then replaced it before processing. Fix pre-read pending handoff without exceeding two-image ownership. Aggregate carried forward2/3 suites,0/3 detector,0/3 gates.
 
 - Consult evidence/live-detect-targeted-test-ledger-20261101.md before selecting any target; records decisions/rerun triggers. MOTION-GAP-HANDOFF20/20 pass (was17/20), full scorecard active. Aggregate carried forward2/3 software,0/3 detector,0/3 physical.
+
+- SOFTWARE-HANDOFF complete3/3 software PASS, detector0/3 FAIL,physical0/3 proven. Focused handoff20/20. Next INVENTORY-POSITIVE: partial-arc silhouette discrimination against empty-rail negatives. Camera freshly Stopped/rev63.

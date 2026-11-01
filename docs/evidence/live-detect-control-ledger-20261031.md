@@ -185,3 +185,5 @@ The user staged the same mid-cushion black/chalk/table with only the cue moved t
 - Motion-feed source-gap reproduction17/20 pass;3 failures show Acquired3/Processed2/Replaced1 and no stale/scope rejection. Pending dropped before blocking next read. Next handoff fix; aggregate2/3 software,0/3 detector,0/3 gates.
 
 - MOTION-GAP-HANDOFF20/20 pass after idle-consumer handoff change; full scorecard active. Targeted-test ledger now centralizes hypotheses/results/stop rules. Aggregate carried forward2/3 software,0/3 detector,0/3 physical.
+
+- SOFTWARE-HANDOFF3/3 pass; combined scorecard exit1 correctly retains detector0/3 failure. Physical0/3 proven. Fresh Stopped/rev63. Next partial-arc positive/negative discrimination.
