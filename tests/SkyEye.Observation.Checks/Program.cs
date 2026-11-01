@@ -359,6 +359,7 @@ try
     RejectChangedReport(r => r["samples"]![0]!["detectionRequested"] = false);
     RejectChangedReport(r => r["fullAnalysis800"]!["observations"]![0]!["circleCount"] = 2);
     RejectChangedReport(r => r["recordedAnalyzerConfigurationIdentity"] = "different configuration");
+    RejectChangedReport(r => r["mode"] = "screen-only");
     File.AppendAllText(Path.Combine(root, "imported", "window", "labels.json"), " ");
     Throws<InvalidDataException>(() => O08ReplayExport.Convert(imported, importedPath, importedLock, importedFiles, "window", runRoot, splitLockBytes));
     File.WriteAllText(Path.Combine(root, "imported", "window", "labels.json"), CorpusJson.Write(CorpusJson.Read<SequenceLabels>(Path.Combine(root, "imported", "window", "labels.json"))));
