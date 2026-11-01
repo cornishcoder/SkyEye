@@ -852,3 +852,5 @@ Workflow: follow [the capture batching and offline efficiency protocol](live-det
 - Reporting requirement: name target test before each work cycle, tie findings back to it, update docs and metrics at every commit. Current target: motion-feed source-gap processing (line42); correct earlier stale-acquisition attribution. Metrics carried forward: software2/3, detector0/3, physical0/3 proven.
 
 - Target motion-feed source-gap test: focused entry and snapshot-on-failure added; initial focused run1/1 pass,20-attempt reproduction active. Aggregate carried forward2/3 software,0/3 detector,0/3 gates.
+
+- Target motion-feed source-gap:17/20 reproduction passes,3 failures acquired third frame then replaced it before processing. Fix pre-read pending handoff without exceeding two-image ownership. Aggregate carried forward2/3 suites,0/3 detector,0/3 gates.

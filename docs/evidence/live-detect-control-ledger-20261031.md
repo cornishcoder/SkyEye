@@ -181,3 +181,5 @@ The user staged the same mid-cushion black/chalk/table with only the cue moved t
 - Reporting correction/policy: timeout at MotionFeedChecks line42 is third-frame source-gap processing, not stale rejection. Current carried-forward metrics2/3 software,0/3 detector,0/3 physical gates. Name target test before work and report metrics at every commit.
 
 - Motion-feed source-gap target: focused invocation passes once, failure diagnostics added;20-run reproduction active. Carried-forward metrics2/3 suites,0/3 detector,0/3 gates.
+
+- Motion-feed source-gap reproduction17/20 pass;3 failures show Acquired3/Processed2/Replaced1 and no stale/scope rejection. Pending dropped before blocking next read. Next handoff fix; aggregate2/3 software,0/3 detector,0/3 gates.
