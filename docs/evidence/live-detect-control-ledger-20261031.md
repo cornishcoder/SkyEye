@@ -189,3 +189,5 @@ The user staged the same mid-cushion black/chalk/table with only the cue moved t
 - SOFTWARE-HANDOFF3/3 pass; combined scorecard exit1 correctly retains detector0/3 failure. Physical0/3 proven. Fresh Stopped/rev63. Next partial-arc positive/negative discrimination.
 
 - Partial-arc Development comparison on reviewed lower-left same-setup frames: both black-present678 and expected-empty844 pass diagnostic arc criteria (22/32 and20/32), so method fails discrimination and is not promoted. See live-detect-arc-discrimination-20261101.md. Current suite3/3, motion20/20, inventory0/3, physical0/3.
+
+- ARC-NEGATIVE-CONTROL fails specificity: lower-right absent461 (geometric-only; different timeline) passes at10/32 sectors/run8/span78.75 alongside present375. No partial-arc promotion or more threshold sweeps. See live-detect-arc-negative-audit-20261101.md.

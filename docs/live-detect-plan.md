@@ -860,3 +860,5 @@ Workflow: follow [the capture batching and offline efficiency protocol](live-det
 - SOFTWARE-HANDOFF complete3/3 software PASS, detector0/3 FAIL,physical0/3 proven. Focused handoff20/20. Next INVENTORY-POSITIVE: partial-arc silhouette discrimination against empty-rail negatives. Camera freshly Stopped/rev63.
 
 - ARC-PAIR fails discrimination: partial-arc diagnostic accepts positive678 (22/32 sectors) and empty844 (20/32). Keep evaluation-only, next study false acceptance on reviewed negatives. Current metrics software3/3, focused motion20/20, inventory0/3, physical0/3 proven.
+
+- ARC-NEGATIVE-CONTROL: present375 and expected-empty461 both pass the partial-arc diagnostic; timelines differ. Reject method promotion and stop threshold sweeps. Current suites3/3, motion20/20, detector0/3, physical0/3 proven.

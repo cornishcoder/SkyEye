@@ -18,3 +18,6 @@ SOFTWARE-HANDOFF terminal result:3/3 suites PASS; combined exit1 due detector0/3
 
 | ARC-PAIR | Do partial-arc checks distinguish reviewed black-present678 from expected-empty844 at lower-left? | FAIL: both pass diagnostic fit (22/32 vs20/32) | Do not promote. Next investigate false arc acceptance with reviewed empty controls; rerun only after model/config change. | live-detect-arc-discrimination-20261101.md |
 
+
+| ARC-NEGATIVE-CONTROL | Does pocket arc reject reviewed empty lower-right location461 versus positive375? | FAIL: both diagnostic checks pass (32/32 vs10/32); timelines differ | Reject partial-arc promotion; stop threshold sweeps on this set. New model/evidence required. | live-detect-arc-negative-audit-20261101.md |
+

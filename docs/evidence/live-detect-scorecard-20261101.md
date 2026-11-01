@@ -21,3 +21,5 @@ Motion-feed reproduction completed:17/20 pass,3/20 fail. Timeout snapshots show 
 SOFTWARE-HANDOFF completed:3/3 software suites PASS after handoff fix; detector0/3 FAIL, combined exit1 as intended. Results/logs: work/live-detect-scorecard/handoff. MOTION-GAP-HANDOFF20/20 focused passes retained. Fresh camera Stopped/rev63. Next INVENTORY-POSITIVE: raw crop shows upper black silhouette merges into dark cushion; evaluate partial-arc geometry against reviewed empty-rail controls before any integration.
 
 ARC-PAIR result: both the reviewed positive frame678 and expected-empty frame844 produce diagnostic accepted arcs. The experiment cannot discriminate black from background. See live-detect-arc-discrimination-20261101.md. Software current3/3 PASS; motion focused20/20; inventory positive0/3; physical0/3 proven.
+
+ARC-NEGATIVE-CONTROL fails: present375 and expected-empty461 both pass partial-arc diagnostics; different camera timelines, so negative is geometric-only. No promotion. Current software3/3, motion20/20, detector0/3, physical gates0/3. See live-detect-arc-negative-audit-20261101.md.
