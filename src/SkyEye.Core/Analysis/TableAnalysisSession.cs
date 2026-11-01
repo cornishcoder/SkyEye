@@ -25,6 +25,7 @@ public sealed record VisionCandidateAudit(string Pass, string Stage, string Kind
     public int[]? SupportedSectorIndices { get; init; }
     public int? SectorEvidenceSampleCount { get; init; }
     public bool? SectorIndexCountMatchesBoundarySupport { get; init; }
+    public BoundaryRefinementDiagnostics? BoundaryRefinement { get; init; }
 }
 public sealed record ObstructionComponentAudit(int Label, int Left, int Top, int Width, int Height, int Area,
     int BallCentres, bool WholeTableSegmentation, bool PackedClusterSizeEligible,

@@ -13,6 +13,16 @@ public sealed record BoundarySectorEvidence(int Index, Point InnerPoint, Point O
     public bool DarkBodyTransitionUsed { get; init; }
 }
 
+/// <summary>Diagnostics-only accounting for one boundary refinement. Counts
+/// explain the existing search and selected fit; they do not change acceptance.</summary>
+public sealed record BoundaryRefinementDiagnostics(int BackgroundSamplesAvailable,
+    int MinimumBackgroundSamples, int MinimumSupportedSectors, int FitPositionsConsidered,
+    int FitPositionsRejectedBySampleBounds, int FitPositionsWithinSampleBounds,
+    int FitPositionsBelowEvidenceMinimum, int FitPositionsWithEvidence,
+    int? SelectedSupportedSectors, bool? SelectedMeetsSupportGate,
+    int[] SelectedSupportedSectorIndices, int[] SelectedExteriorRejectedSectorIndices,
+    int[] SelectedWeakNonExteriorSectorIndices, string? NoFitReason);
+
 /// <summary>Evaluation-only result from a pocket-aware partial-arc fit. This
 /// probe is not used by production detection and does not relax its support gate.</summary>
 public sealed record PocketAwarePartialArcProbeResult(BallBoundary? Candidate,
@@ -309,6 +319,30 @@ public static class BallBoundaryRefiner
             allowDarkBodyEdgeTransitions, darkBodyValueCeiling, enableScoreUpperBound: true,
             useGlobalBestForVerification: false, pruneStats: null, maximumRadialCentreOffset: null);
 
+    /// <summary>Runs the same bounded fit as <see cref="Refine"/> and returns
+    /// diagnostic counters for background samples, search bounds, and selected
+    /// sector evidence. The counters are observational and never relax a gate.</summary>
+    public static BallBoundary? RefineWithDiagnostics(byte[] bgr, int width, int height, Point proposal,
+        double expectedRadius, out BoundaryRefinementDiagnostics diagnostics,
+        double minimumSupportedFraction = ObservationPolicy.MinimumSupportedBoundaryFraction,
+        bool collectSectorEvidence = false, string? expectedKind = null,
+        BoundaryColourMask? colourMask = null, double maximumCentreOffsetFraction = .4,
+        bool allowDarkBodyEdgeTransitions = false, int darkBodyValueCeiling = 40)
+    {
+        var counters = new BoundaryRefinementDiagnosticCounters();
+        var fit = RefineCore(bgr, width, height, proposal, expectedRadius, minimumSupportedFraction,
+            collectSectorEvidence, expectedKind, colourMask, maximumCentreOffsetFraction,
+            allowDarkBodyEdgeTransitions, darkBodyValueCeiling, enableScoreUpperBound: true,
+            useGlobalBestForVerification: false, pruneStats: null, maximumRadialCentreOffset: null,
+            diagnosticCounters: counters);
+        var sectors = fit?.SectorEvidence ?? [];
+        if (fit is not null && sectors.Length != directions.Length)
+            sectors = Inspect(bgr, width, height, proposal, expectedRadius, fit.Centre, fit.Radius,
+                expectedKind, allowDarkBodyEdgeTransitions, darkBodyValueCeiling);
+        diagnostics = counters.Build(fit, sectors, minimumSupportedFraction);
+        return fit;
+    }
+
     /// <summary>Diagnostic-only counterpart to <see cref="Refine"/> that applies
     /// the same centre-offset fraction as a Euclidean radius. The ordinary
     /// production entry point remains unchanged.</summary>
@@ -348,7 +382,8 @@ public static class BallBoundaryRefiner
         BoundaryColourMask? colourMask, double maximumCentreOffsetFraction,
         bool allowDarkBodyEdgeTransitions, int darkBodyValueCeiling,
         bool enableScoreUpperBound, bool useGlobalBestForVerification,
-        RefinementPruneStats? pruneStats, double? maximumRadialCentreOffset)
+        RefinementPruneStats? pruneStats, double? maximumRadialCentreOffset,
+        BoundaryRefinementDiagnosticCounters? diagnosticCounters = null)
     {
         PipelineDiagnostics.Count("boundaryRefineCalls");
         using var scoringTiming = PipelineDiagnostics.Enabled ? PipelineDiagnostics.Measure("boundaryScoringMs") : null;
@@ -361,12 +396,18 @@ public static class BallBoundaryRefiner
             throw new ArgumentException("Invalid boundary image or proposal.");
         double step = Math.Max(1.5, expectedRadius / 9), extent = expectedRadius * maximumCentreOffsetFraction;
         var background = new double[3];
+        int minimumBackgroundSamples = MinimumBackgroundSamples(expectedKind);
         for (int channel = 0; channel < 3; channel++)
         {
             var surrounding = directions.Select(d => (X: (int)Math.Round(proposal.X + d.X * expectedRadius * 1.7), Y: (int)Math.Round(proposal.Y + d.Y * expectedRadius * 1.7)))
                 .Where(p => p.X >= 0 && p.X < width && p.Y >= 0 && p.Y < height)
                 .Select(p => bgr[(p.Y * width + p.X) * 3 + channel]).Order().ToArray();
-            if (surrounding.Length < MinimumBackgroundSamples(expectedKind)) return null;
+            if (channel == 0) diagnosticCounters?.SetBackgroundSamples(surrounding.Length, minimumBackgroundSamples);
+            if (surrounding.Length < minimumBackgroundSamples)
+            {
+                diagnosticCounters?.SetNoFitReason("insufficient-background-samples");
+                return null;
+            }
             background[channel] = surrounding[surrounding.Length / 2];
         }
         BallBoundary? best = null, supportedBest = null, proposalFit = null;
@@ -378,7 +419,11 @@ public static class BallBoundaryRefiner
             for (double x = proposal.X - extent; x <= proposal.X + extent; x += step)
                 for (double r = expectedRadius * .75; r <= expectedRadius * 1.25; r += step)
                     Consider(x, y, r);
-        if (best is null) return null;
+        if (best is null)
+        {
+            diagnosticCounters?.SetNoFitReason("no-fit-position-reached-12-supported-sectors");
+            return null;
+        }
         var coarse = best;
         double fine = step / 3;
         for (double y = coarse.Centre.Y - step; y <= coarse.Centre.Y + step; y += fine)
@@ -392,8 +437,14 @@ public static class BallBoundaryRefiner
         {
             if (maximumRadialCentreOffset is { } radialLimit
                 && (new Point(x, y) - proposal).Length > radialLimit + 1e-9) return;
+            diagnosticCounters?.ConsiderFitPosition();
             double offset = Math.Max(2, expectedRadius * .12);
-            if (!FitsSampleBounds(x, y, radius, offset, width, height)) return;
+            if (!FitsSampleBounds(x, y, radius, offset, width, height))
+            {
+                diagnosticCounters?.RejectFitPositionBySampleBounds();
+                return;
+            }
+            diagnosticCounters?.AcceptFitPositionBounds();
             int supported = 0; double score = 0;
             var sectorEvidence = collectSectorEvidence ? new BoundarySectorEvidence[directions.Length] : null;
             for (int i = 0; i < directions.Length; i++)
@@ -462,7 +513,12 @@ public static class BallBoundaryRefiner
             }
             // Coarse candidates need not already meet the final support gate;
             // otherwise grid quantization can prevent subpixel refinement entirely.
-            if (supported < 12) return;
+            if (supported < 12)
+            {
+                diagnosticCounters?.RejectFitPositionBelowEvidenceMinimum();
+                return;
+            }
+            diagnosticCounters?.AcceptFitPositionEvidence();
             score = supported * 2 + score / directions.Length - .1 * Math.Abs(radius - expectedRadius);
             var candidate = new BallBoundary(new(x, y), radius, supported / (double)directions.Length, score)
             { SectorEvidence = sectorEvidence ?? [] };
@@ -477,6 +533,42 @@ public static class BallBoundaryRefiner
     {
         public int PrunedCandidates { get; set; }
         public int SkippedSectors { get; set; }
+    }
+
+    sealed class BoundaryRefinementDiagnosticCounters
+    {
+        int backgroundSamplesAvailable;
+        int minimumBackgroundSamples;
+        int fitPositionsConsidered;
+        int fitPositionsRejectedBySampleBounds;
+        int fitPositionsWithinSampleBounds;
+        int fitPositionsBelowEvidenceMinimum;
+        int fitPositionsWithEvidence;
+        string? noFitReason;
+
+        public void SetBackgroundSamples(int available, int minimum)
+        { backgroundSamplesAvailable = available; minimumBackgroundSamples = minimum; }
+        public void ConsiderFitPosition() => fitPositionsConsidered++;
+        public void RejectFitPositionBySampleBounds() => fitPositionsRejectedBySampleBounds++;
+        public void AcceptFitPositionBounds() => fitPositionsWithinSampleBounds++;
+        public void RejectFitPositionBelowEvidenceMinimum() => fitPositionsBelowEvidenceMinimum++;
+        public void AcceptFitPositionEvidence() => fitPositionsWithEvidence++;
+        public void SetNoFitReason(string reason) => noFitReason = reason;
+
+        public BoundaryRefinementDiagnostics Build(BallBoundary? fit, BoundarySectorEvidence[] sectors,
+            double minimumSupportedFraction)
+        {
+            int? selectedSupport = fit is null ? null : (int)Math.Round(fit.SupportedSectors * directions.Length);
+            int[] supported = sectors.Where(s => s.Supported).Select(s => s.Index).ToArray();
+            int[] exteriorRejected = sectors.Where(s => !s.Supported && s.ExteriorRejected).Select(s => s.Index).ToArray();
+            int[] weakNonExterior = sectors.Where(s => !s.Supported && !s.ExteriorRejected).Select(s => s.Index).ToArray();
+            int minimumSupportedSectors = (int)Math.Ceiling(minimumSupportedFraction * directions.Length - 1e-9);
+            return new(backgroundSamplesAvailable, minimumBackgroundSamples, minimumSupportedSectors,
+                fitPositionsConsidered, fitPositionsRejectedBySampleBounds, fitPositionsWithinSampleBounds,
+                fitPositionsBelowEvidenceMinimum, fitPositionsWithEvidence, selectedSupport,
+                selectedSupport is { } count ? count >= minimumSupportedSectors : null,
+                supported, exteriorRejected, weakNonExterior, fit is null ? noFitReason : null);
+        }
     }
 
     static bool FitsSampleBounds(double x, double y, double radius, double offset, int width, int height)

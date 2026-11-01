@@ -35,6 +35,12 @@ if (args.SequenceEqual(["--boundary-only"]))
     return;
 }
 
+if (args.SequenceEqual(["--boundary-diagnostics"]))
+{
+    VerificationChecks.RunBoundaryDiagnosticsChecks();
+    return;
+}
+
 await GptTableAdvisoryChecks.Run();
 
 if (args.SequenceEqual(["--game-tracking"]))

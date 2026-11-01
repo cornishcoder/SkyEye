@@ -2,6 +2,12 @@
 
 Use this guide to operate the Hybrid Production companion on the Pixel 11 and inspect the mounted camera without guessing at screen coordinates or changing match state. Prefer the current accessibility label and a fresh screenshot/UI tree; layout bounds move as the video and Settings panel scroll.
 
+## Current safe state after offline boundary trace — 1 November 2026
+
+The exact saved-frame boundary trace finished without starting live capture. Mounted-camera `/status` at `2026-11-01T18:22:43.5822980Z` reported `Stopped`, revision 64, timeline `c5d9a60d9fb44210888abaabc77545ed`, 39,676 completed frames, 139 clips and 30fps. A fresh Pixel 11 accessibility tree after the replay showed **Camera ready** and enabled **Start live session** on companion Home. No new clip or verifier frame was created.
+
+Only the isolated VisionChecks package `uk.co.skyeye.visionchecks` was installed in place for offline analysis (version 0.1, code 1). The built APK SHA-256 `3d4c1470f82b63aa8ebf3fe678758820a353783c8b22a0c8f44bfe39239fef09` matched a read-only pull of the installed base APK. The exact frame report and manifest are retained under `work/production/evidence/boundary-trace-telemetry-20261101/btrace1179-182035/`. The Production companion and mounted-camera packages were not updated; Cast/TV and saved clips were untouched.
+
 ## Latest safe state after cue-positive preflight — no verifier capture — 1 November 2026
 
 After the user reported restoring only the cue, the companion started one short live session for visual preflight. The screen showed the black and other balls but no visible cue, so **Capture verifier frames** was not invoked and no detector result or verifier frame was produced. One Home **End recording session** action stopped the camera. Fresh `/status` at `2026-11-01T17:09:54.5557954Z` reported `Stopped`, revision 61, timeline `8b384787302142e1866c78a931f8a47f`, 36,101 completed frames, 1920×1080 at 30fps, 139 clips, zero viewers and 59% battery. The token-free snapshot is `../work/o08/live-detect-black-pair-v1/physical-controls/stage-replays/oppositecue-20261101/device-state/pixel10-status-after-cue-mismatch-stop-20261101.json` (SHA-256 `FD86611D19D9AB9AC35FF88C57FFD965B015DF57574A2169CD5980E9AB288BB3`).

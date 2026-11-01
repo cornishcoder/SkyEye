@@ -6,7 +6,83 @@ static class VerificationChecks
 {
     static void Check(bool yes, string reason) { if (!yes) throw new Exception(reason); }
     public static void RunBoundaryChecksForVerification() => BoundaryChecks();
+    public static void RunBoundaryDiagnosticsChecks() => BoundaryDiagnosticsChecks();
     static VisionResult Vision(Ball[]? balls = null, bool uncertain = false) => new(balls ?? [new("cue", "cue", new(1.8, .5), 1), new("red", "red", new(1, .5), 1), new("black", "black", new(.2, .8), 1)], uncertain, [], 1, 3, true, "fixture", [1, 1, 1], 100, false, []);
+
+    static void BoundaryDiagnosticsChecks()
+    {
+        const int width = 160, height = 160;
+        byte[] Disk(int centreX, int centreY, int radius, byte blue, byte green, byte red)
+        {
+            var image = Enumerable.Repeat((byte)110, width * height * 3).ToArray();
+            for (int y = Math.Max(0, centreY - radius); y <= Math.Min(height - 1, centreY + radius); y++)
+            for (int x = Math.Max(0, centreX - radius); x <= Math.Min(width - 1, centreX + radius); x++)
+                if ((x - centreX) * (x - centreX) + (y - centreY) * (y - centreY) <= radius * radius)
+                {
+                    int offset = (y * width + x) * 3;
+                    image[offset] = blue; image[offset + 1] = green; image[offset + 2] = red;
+                }
+            return image;
+        }
+        static bool SameFit(BallBoundary? left, BallBoundary? right)
+            => left is null ? right is null : right is not null
+                && left.Centre == right.Centre && left.Radius == right.Radius
+                && left.SupportedSectors == right.SupportedSectors && left.Score == right.Score
+                && left.ProposalFit?.Centre == right.ProposalFit?.Centre
+                && left.ProposalFit?.Radius == right.ProposalFit?.Radius;
+
+        var fullBall = Disk(32, 80, 20, 20, 20, 20);
+        for (int y = 0; y < height; y++) for (int x = 0; x < width; x++)
+        {
+            int dx = x - 32, dy = y - 80;
+            double radius = Math.Sqrt(dx * dx + dy * dy), angle = Math.Atan2(dy, dx);
+            if (radius is >= 20 and <= 30 && angle is >= 0 and <= .55)
+            {
+                int offset = (y * width + x) * 3;
+                fullBall[offset] = fullBall[offset + 1] = fullBall[offset + 2] = 20;
+            }
+        }
+        var ordinaryFit = BallBoundaryRefiner.Refine(fullBall, width, height, new(32, 80), 20,
+            .75, collectSectorEvidence: true, expectedKind: "black");
+        var tracedFit = BallBoundaryRefiner.RefineWithDiagnostics(fullBall, width, height, new(32, 80), 20,
+            out var traced, .75, collectSectorEvidence: true, expectedKind: "black");
+        Check(ordinaryFit is { SupportedSectors: >= .75 } && SameFit(ordinaryFit, tracedFit)
+            && traced.BackgroundSamplesAvailable >= 24 && traced.MinimumBackgroundSamples == 24
+            && traced.FitPositionsRejectedBySampleBounds > 0
+            && traced.SelectedSupportedSectorIndices.Length == (int)Math.Round(tracedFit!.SupportedSectors * 32)
+            && traced.SelectedExteriorRejectedSectorIndices.Length > 0
+            && traced.SelectedExteriorRejectedSectorIndices.Length + traced.SelectedWeakNonExteriorSectorIndices.Length
+                + traced.SelectedSupportedSectorIndices.Length == 32,
+            "Diagnostics report bounded search rejects and selected sectors without changing the ordinary fit");
+        Console.WriteLine($"PASS boundary trace unchanged-fit case: support={traced.SelectedSupportedSectors}/32, background={traced.BackgroundSamplesAvailable}/{traced.MinimumBackgroundSamples}, sample-bound rejects={traced.FitPositionsRejectedBySampleBounds}, exterior={traced.SelectedExteriorRejectedSectorIndices.Length}, weak={traced.SelectedWeakNonExteriorSectorIndices.Length}");
+
+        var clippedRed = Disk(15, 80, 20, 10, 10, 180);
+        var ordinaryRedFit = BallBoundaryRefiner.Refine(clippedRed, width, height, new(15, 80), 20,
+            expectedKind: "red");
+        var tracedRedFit = BallBoundaryRefiner.RefineWithDiagnostics(clippedRed, width, height, new(15, 80), 20,
+            out var clippedRedTrace, expectedKind: "red");
+        Check(SameFit(ordinaryRedFit, tracedRedFit)
+            && clippedRedTrace.BackgroundSamplesAvailable is >= 17 and < 24
+            && clippedRedTrace.MinimumBackgroundSamples == 17
+            && clippedRedTrace.NoFitReason != "insufficient-background-samples"
+            && clippedRedTrace.FitPositionsRejectedBySampleBounds > 0,
+            "Colour fits retain the existing 17-sample floor while reporting candidates rejected by rounded sample bounds");
+
+        var edgeBackground = Enumerable.Repeat((byte)110, width * height * 3).ToArray();
+        var ordinaryEdgeFit = BallBoundaryRefiner.Refine(edgeBackground, width, height, new(6, 80), 20,
+            expectedKind: "black");
+        var tracedEdgeFit = BallBoundaryRefiner.RefineWithDiagnostics(edgeBackground, width, height, new(6, 80), 20,
+            out var edgeTrace, expectedKind: "black");
+        Check(ordinaryEdgeFit is null && tracedEdgeFit is null
+            && edgeTrace.BackgroundSamplesAvailable < edgeTrace.MinimumBackgroundSamples
+            && edgeTrace.MinimumBackgroundSamples == 24
+            && edgeTrace.NoFitReason == "insufficient-background-samples"
+            && edgeTrace.FitPositionsConsidered == 0,
+            "A non-colour fit that lacks the 24-sample background ring reports the early rejection without searching");
+        Console.WriteLine($"PASS boundary trace early-background rejection: available={edgeTrace.BackgroundSamplesAvailable}/{edgeTrace.MinimumBackgroundSamples}, reason={edgeTrace.NoFitReason}");
+        Console.WriteLine("PASS boundary diagnostics contract 3/3 cases");
+    }
+
     public static async Task Run()
     {
         var good = Vision();

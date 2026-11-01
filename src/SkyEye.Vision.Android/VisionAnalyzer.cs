@@ -711,6 +711,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             var c = proposed; double margin = 23 * scale;
             string? fittedKind = null;
             double? fittedSupport = null;
+            BoundaryRefinementDiagnostics? refinementDiagnostics = null;
             if (c.X < margin || c.Y < margin || c.X > coordinates.Width - margin || c.Y > coordinates.Height - margin)
             { Audit(stage, "unknown", index, c, "rejected-margin"); return; }
             // An opening is not a ball; ball-adjacent uncertain cases remain visible through review.
@@ -741,37 +742,50 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             if (prioritizeBodies && rawImage is not null)
             {
                 rawBoundaryPixels ??= Read(rawImage);
-                var fit = BallBoundaryRefiner.Refine(rawBoundaryPixels, coordinates.Width, coordinates.Height,
-                    new(c.X, c.Y), PoolGeometry.Radius * coordinates.Width, settings.MinimumHoughBoundarySupport,
-                    boundaryDiagnostics);
+                BallBoundary? fit;
+                if (boundaryDiagnostics && candidateAudits is not null)
+                    fit = BallBoundaryRefiner.RefineWithDiagnostics(rawBoundaryPixels,
+                        coordinates.Width, coordinates.Height, new(c.X, c.Y),
+                        PoolGeometry.Radius * coordinates.Width, out refinementDiagnostics,
+                        settings.MinimumHoughBoundarySupport, collectSectorEvidence: true);
+                else
+                    fit = BallBoundaryRefiner.Refine(rawBoundaryPixels, coordinates.Width, coordinates.Height,
+                        new(c.X, c.Y), PoolGeometry.Radius * coordinates.Width, settings.MinimumHoughBoundarySupport,
+                        boundaryDiagnostics);
                 if (fit is null || fit.SupportedSectors < settings.MinimumHoughBoundarySupport)
-                { Audit(stage, "unknown", index, c, fit is null ? "rejected-no-boundary-fit" : "rejected-insufficient-boundary-support", fit?.Centre, fit?.Radius, fit?.SupportedSectors); return; }
+                { Audit(stage, "unknown", index, c,
+                    fit is null ? "rejected-no-boundary-fit" : "rejected-insufficient-boundary-support",
+                    fit?.Centre, fit?.Radius, fit?.SupportedSectors,
+                    refinementDiagnostics: refinementDiagnostics); return; }
                 c = new(fit.Centre.X, fit.Centre.Y, fit.Radius);
                 fittedSupport = fit.SupportedSectors;
                 // The proposal can be outside a pocket's exclusion radius while
                 // its fitted centre drifts into the opening. Recheck the fitted
                 // geometry so a pocket edge cannot become a coloured ball.
                 if (PocketCentres().Any(p => (new Point(c.X, c.Y) - p).Length < settings.PocketExclusionRadius * scale))
-                { Audit(stage, "unknown", index, c, "rejected-pocket-exclusion-after-fit", new(c.X, c.Y), c.Radius, fit.SupportedSectors); return; }
+                { Audit(stage, "unknown", index, c, "rejected-pocket-exclusion-after-fit", new(c.X, c.Y), c.Radius, fit.SupportedSectors, refinementDiagnostics: refinementDiagnostics); return; }
                 fittedKind = Classify(c, pixels, inspectRim: true).Kind;
                 if (HasNearbyDuplicate(c, fittedKind))
-                { Audit(stage, "unknown", index, c, "rejected-duplicate-after-fit", new(c.X, c.Y), c.Radius, fit.SupportedSectors); return; }
+                { Audit(stage, "unknown", index, c, "rejected-duplicate-after-fit", new(c.X, c.Y), c.Radius, fit.SupportedSectors, refinementDiagnostics: refinementDiagnostics); return; }
                 // A fit near a neighbouring edge can move off the initial
                 // contrast patch. Its centre must still belong to a body.
                 if (IsClothBody(c, pixels, clothRange) && !HasLocalBodyValueContrast(c, pixels))
-                { Audit(stage, "unknown", index, c, "rejected-fitted-cloth-body", new(c.X, c.Y), c.Radius, fit.SupportedSectors); return; }
+                { Audit(stage, "unknown", index, c, "rejected-fitted-cloth-body", new(c.X, c.Y), c.Radius, fit.SupportedSectors, refinementDiagnostics: refinementDiagnostics); return; }
             }
             result.Add(c);
             if (fittedKind is null && candidateAudits is not null)
                 fittedKind = Classify(c, pixels, inspectRim: true).Kind;
-            Audit(stage, "unknown", index, c, "accepted", new(c.X, c.Y), c.Radius, fittedSupport, fittedKind);
+            Audit(stage, "unknown", index, c, "accepted", new(c.X, c.Y), c.Radius,
+                fittedSupport, fittedKind, refinementDiagnostics);
         }
 
         void Audit(string stage, string kind, int index, Circle proposal, string decision,
-            Point? fitCentre = null, double? fitRadius = null, double? support = null, string? classifiedKind = null)
+            Point? fitCentre = null, double? fitRadius = null, double? support = null,
+            string? classifiedKind = null, BoundaryRefinementDiagnostics? refinementDiagnostics = null)
         {
             candidateAudits?.Add(new(pass, stage, kind, index, new(proposal.X, proposal.Y), proposal.Radius,
-                fitCentre, fitRadius, support, classifiedKind, decision));
+                fitCentre, fitRadius, support, classifiedKind, decision)
+            { BoundaryRefinement = refinementDiagnostics });
         }
 
         bool HasNearbyDuplicate(Circle candidate, string candidateKind)
