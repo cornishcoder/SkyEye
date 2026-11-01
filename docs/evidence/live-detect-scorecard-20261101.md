@@ -11,3 +11,5 @@ The scorecard is an initial visible regression set, not the full acceptance cont
 ## Subsequent combined run
 
 The combined run at2026-11-01T17:45:29Z reports **2/3 software suites PASS**, **0/3 detector cases PASS**, exit1. General Checks failed at MotionFeedChecks.cs line42 while waiting for stale acquisition accounting; the exception is Motion-feed check timeout. The earlier3/3 pass remains historical, not current green status. Preserve both outcomes: an intermittent timeout requires diagnosis. Failed log and JSON are retained in work/live-detect-scorecard/SkyEye.Checks-motion-timeout-20261101.log and scorecard-failed-20261101.json. Do not retry until green or lengthen the timeout as a substitute for finding the cause.
+
+Correction: MotionFeedChecks line42 waits for Processed==3 after the source-time gap; stale acquisition is line45. The failed test is source-gap processing, not stale rejection. Current metrics remain2/3 software suites,0/3 detector cases,0/3 physical gates proven; no new run.

@@ -19,3 +19,7 @@ For the full accessibility and device procedure, see [docs/device-control-guide.
 - Document every shortcut in [docs/device-control-guide.md](docs/device-control-guide.md): accessible name and state labels, exact code handler, prerequisites, whether it starts capture, visible result, and post-action readback.
 - Keep actionable WebView controls above the native video hit surface. Verify a shortcut from the current visible screen while live video is active; accessibility hierarchy alone does not prove it can be tapped.
 - Keep the stop-when-idle rule above: after a bounded live check, stop capture and confirm `Stopped` and Home `Start live session` before waiting, building, or finishing.
+
+## Live Detect progress reporting
+
+Before each work cycle, name the specific test/case/gate being worked on, its current result and the intended observable improvement. Refer back to that same test when reporting findings. At every commit point update the Live Detect plan/evidence ledger and report current software-suite, detector-case and physical-gate metrics separately, identifying carried-forward versus newly executed results. Preserve failures and untested status; never combine unlike denominators or treat counts as geometric acceptance. Include the commit and next target test.

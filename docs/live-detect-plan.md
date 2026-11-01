@@ -848,3 +848,5 @@ Workflow: follow [the capture batching and offline efficiency protocol](live-det
 - Visible pass/fail runner: scripts/Run-LiveDetectScorecard.ps1; initial software3/3 suites pass, detector0/3 positive cases pass, physical0/3 gates proven. See evidence/live-detect-scorecard-20261101.md. Fit64 failed to recover black; stop budget sweeps.
 
 - Scorecard follow-up: combined run2/3 software suites,0/3 detector cases. Motion-feed stale-acquisition check intermittently timed out at line42; preserve failed log and diagnose before claiming software green.
+
+- Reporting requirement: name target test before each work cycle, tie findings back to it, update docs and metrics at every commit. Current target: motion-feed source-gap processing (line42); correct earlier stale-acquisition attribution. Metrics carried forward: software2/3, detector0/3, physical0/3 proven.
