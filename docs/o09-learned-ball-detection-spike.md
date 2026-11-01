@@ -110,6 +110,14 @@ The importer maps hand-labelled image centres through the exact saved table cali
 
 ## Implemented offline workbench slice
 
+### Read-only source-radius review pack
+
+`scripts/Build-O09RadiusReviewPack.py` creates full-frame centre overlays, enlarged source crops and a blank reviewer CSV from an O01 corpus plus its receipt-bound `source-to-table-transform.json`. It verifies image/label/transform pixel hashes and maps each visible table-space centre back to its exact source point. The pack does not load detector output, draw a radius guide, estimate a radius, or modify labels. Radius and uncertainty columns remain blank until a reviewer supplies measurements. Current run evidence and coverage counts are in [the O09 radius-pack report](evidence/live-detect-o09-radius-label-review-pack-20261101.md).
+
+```powershell
+python scripts/Build-O09RadiusReviewPack.py --corpus-root work/o08/live-detect-black-pair-v1/corpus-v4 --transform work/o08/live-detect-black-pair-v1/corpus-v4/source-to-table-transform.json --output work/o09/radius-review-v1
+```
+
 `export-yolo` exports reviewed real **Development** samples only. It forms deterministic connected split groups by joining every sequence that shares a camera recording session or a `setup-group:<id>` tag, then assigns whole groups to train and validation. It requires at least three independent Development recording sessions and three resulting split groups, image-normalized labels and reviewed X/Y radii, and refuses ambiguous/occluded labels. Export report schema 2 records each session's split-group ID and each group's sessions/setup groups. O01 Holdout pixels are never copied; this exporter does not perform augmentation or select a training framework. Apply the planned appearance augmentation to train only.
 
 ```powershell
