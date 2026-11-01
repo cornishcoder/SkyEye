@@ -50,5 +50,6 @@ The camera `/status` readback was `Stopped` before and after, revision 94, batte
 
 - [Replay report](../../work/production/evidence/local-raw-proposal-gates-20261031/exact-profile-negative-replay-20261101/runs/rawclneg800-004647/o08-replay-proof-rawclneg800-004647-rawproposals.json), SHA-256 `f19910e93a8b3a12eb38f18a1ede2362f267959e9655875f756c0d147d2099e7`.
 - [Replay manifest](../../work/production/evidence/local-raw-proposal-gates-20261031/exact-profile-negative-replay-20261101/runs/rawclneg800-004647/manifest.json), computed SHA-256 `a3fc0045f925a4bb9eaecafebbbc0375e89ac15c2eb684e9aa5bf0896cd0036a`.
+- [Frame 1179 proposal review crop](pocket-cushion-centre-labels-20261031/negative/frame1179-red-proposal-review.png): the marker shows the model proposal only; it is not a reviewed centre.
 
 The six dim frames are useful as a separate-session negative diagnostic, but they do not supply the missing matched black-present/absent pair, cue-present/absent pair, reviewed centres, or a held-out lighting result. The user reported that current lighting was too dark to play, so no new capture was attempted. Resume with the same-light lower-left-pocket layout and review the source centres when lighting supports reliable placement. The held-out inventory gate and subsequent event/clip gate remain open.
