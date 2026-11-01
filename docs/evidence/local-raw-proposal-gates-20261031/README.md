@@ -2,7 +2,7 @@
 
 This replay answers a narrow question: can the saved raw-image centres from PoolTableModeller pass through SkyEye's existing candidate checks on the same source frames? It does not run an independent raw-frame detector, and it does not modify live table or match state.
 
-**Exact-profile follow-up — 1 November:** the daylight positive set was replayed through the captured width-800 `.4` analyzer in the [new exact-profile note](../code70-raw-proposal-exact-profile-20261101.md). This does not change the status of the original runs below: they used width 1000 at `.65`, remain configuration-mismatched, and their separate dim negative set is not a matched control.
+**Exact-profile follow-ups — 1 November:** the daylight positive set and separate dim Code65 negative set were replayed through the captured width-800 `.4` analyzer in the [Code70 note](../code70-raw-proposal-exact-profile-20261101.md) and [Code65 note](../code65-raw-proposal-exact-profile-20261101.md). These are source-bound diagnostics from different sessions and lighting conditions, not a matched pair or reviewed holdout. The original raw-proposal runs below used the width-1000 path at `.65` and remain configuration-mismatched.
 
 ## Method
 
@@ -21,7 +21,9 @@ The six daylight frames (1365, 1425, 1457, 1555, 1645 and 1736) are repeated vie
 
 This puts the observed daylight miss after colour recognition: SkyEye recognizes the proposed cue and black, but their pocket-overlapped contours do not meet the current global boundary-support rule. The local-model black proposal is produced by a hand-written `pocket-black-specular` fallback, not YOLO.
 
-The six dim empty-pocket frames (978, 1072, 1105, 1150, 1179 and 1198) are repeated views of a different capture session and lighting condition. Baseline and proposal-assisted inventory stayed at 15 balls (cue, 7 reds and 7 yellows) in every frame, with readiness still uncertain. The cue proposal was accepted in five frames at exactly 24/32 support and was a duplicate in one; it did not change final inventory. The model's extra `chromatic-peak` red appeared in two frames. Both proposals were rejected at the table margin, and SkyEye's same-frame classifier diagnostic called that location `unknown` with quality 0.
+In the original configuration-mismatched run `rawclneg6-164655`, the six dim empty-pocket frames (978, 1072, 1105, 1150, 1179 and 1198) were repeated views of a different capture session and lighting condition. That run reported 15 balls in every frame and readiness remained uncertain; its raw-proposal path used width 1000 at `.65`, while the source receipts record width 800 at `.4`. The cue proposal was accepted in five frames at exactly 24/32 support and was a duplicate in one; it did not change final inventory. The model's extra `chromatic-peak` red appeared in two frames. Both extra proposals were rejected at the table margin, and SkyEye's same-frame classifier diagnostic called that location `unknown` with quality 0. Those counts describe only the mismatched run and are not comparable to the exact-profile result below.
+
+The [1 November exact-profile Code65 replay](../code65-raw-proposal-exact-profile-20261101.md) used the same six hash-verified source frames and proposals at width 800 / `.4`. Its baseline and assisted counts match: five frames output 15, while frame 1179 output 14 (cue 1, red 6, yellow 7). All frames remain uncertain; no black proposal was supplied and no black circle was output. Frame 1179 is an observed count, not a reviewed recall miss. The separate lighting/session and absent reviewed centres keep this diagnostic outside the matched-control gate.
 
 The positive and negative sets are not same-light, same-session controls, and their centre labels remain provisional. These results localize a failure; they do not validate a detector improvement or justify lowering the boundary gate.
 

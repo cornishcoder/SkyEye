@@ -144,7 +144,7 @@ if ($RawProposalReplay -and ($EnableIlluminationNormalization -or $TracePackedCo
     $NeutralCueProbeX800 -ne -1 -or $NeutralCueProbeY800 -ne -1 -or
     $ObstructionClothHue -ge 0 -or $ObstructionClothSaturationFloor -ge 0 -or $ObstructionClothValueFloor -ge 0 -or $ObstructionClothMedianValue -ge 0 -or
     $ObstructionNeutralMinimum -ge 0 -or $ObstructionNeutralMaximum -ge 0)) {
-    throw 'Raw-proposal replay uses the default width-1000 path and cannot include unrelated ablations or trace artifacts.'
+    throw 'Raw-proposal replay cannot include these unrelated ablations or trace artifacts.'
 }
 if ($EdgeMargin -lt 0 -or $EdgeMargin -gt 100) { throw 'EdgeMargin must be between 0 and 100 pixels at width 1000.' }
 if ($PocketRadius -le 0 -or $PocketRadius -gt 80) { throw 'PocketRadius must be greater than 0 and at most 80 pixels at width 1000.' }
