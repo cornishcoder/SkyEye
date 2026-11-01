@@ -36,6 +36,7 @@ param(
     [double]$PackedColourBoundarySearchExtent = 0.65,
     [double]$SparseBlackSearchExtent = 1.3,
     [double]$SparseBlackSupport = 0.65625,
+    [switch]$SparseBlackEnumerateAllSeeds,
     [int]$SparseBlackCandidateLimit = 12,
     [bool]$SparseBlackRankByRadius = $true,
     [double]$SparseBlackMinimumPeakRadiusFactor = 8,
@@ -474,6 +475,7 @@ $instrumentArguments = @('shell', 'am', 'instrument', '-w', '-e', 'run', $run,
     '-e', 'sparseBlackExtent', "$SparseBlackSearchExtent", '-e', 'sparseBlackSupport', "$SparseBlackSupport",
     '-e', 'sparseBlackMinimumPeakRadius', "$SparseBlackMinimumPeakRadiusFactor",
     '-e', 'sparseBlackLimit', "$SparseBlackCandidateLimit")
+$instrumentArguments += @('-e', 'sparseBlackEnumerateAllSeeds', $(if ($SparseBlackEnumerateAllSeeds) { '1' } else { '0' }))
 $sparseBlackRankArgument = if ($SparseBlackRankByRadius) { '1' } else { '0' }
 $instrumentArguments += @('-e', 'sparseBlackRadiusRank', $sparseBlackRankArgument)
 if ($EnableIlluminationNormalization) { $instrumentArguments += @('-e', 'illuminationNormalization', '1') }
@@ -752,6 +754,7 @@ $manifest = [pscustomobject]@{
     minimumSparseBlackBoundarySupport = $SparseBlackSupport
     sparseBlackCandidateLimit = $SparseBlackCandidateLimit
     sparseBlackMinimumPeakRadiusFactor = $SparseBlackMinimumPeakRadiusFactor
+    sparseBlackEnumerateAllSeeds = [bool]$SparseBlackEnumerateAllSeeds
     sparseBlackRankByRadius = [bool]$SparseBlackRankByRadius
     sourceFrames = @(New-CameraReplaySourceFrameManifestEntries -Inputs @($inputs))
     pocketArcPointSource = if ($PocketArcProbeOnly -or $PocketArcSweepOnly) { $BlackPointSource } else { $null }

@@ -836,3 +836,7 @@ Historical follow-up: cue-absent eligibility was fixed, along with stale invento
 - Restaged frame1691 seed audit: the trace's index64 cap excludes three nearby qualified seeds; inspect actual analyzer selection before attributing the miss to mask absence. Physical cue-removal confirmation is pending.
 
 - Next implementation: remove pre-ranking scan-order starvation in sparse-black FindPeakSeeds while retaining a bounded fit budget; evaluate saved positives and negatives. User reports darker lighting, invalidating the pending physical pair; defer further staging until offline diagnosis delivers a measured candidate.
+
+## Capture batching preference — 1 November 2026
+
+For future physical evidence, predeclare a short batch of staged changes and controls, collect their bounded source/receipt sets consecutively, and then perform review and replay offline. Stop capture between every table change. Check framing, saved artifacts and configuration before releasing each setup; preserve per-frame review requirements and reject lighting drift. Avoid interleaving lengthy analysis with matched physical steps. User requested this workflow after daylight changed during the current session.

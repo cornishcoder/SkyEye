@@ -24,6 +24,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         sparseBlackMinimumPeakRadiusFactor = VisionSettings.DefaultSparseBlackMinimumPeakRadiusFactor,
         pocketArcTargetFitAcceptanceRadiusInBallRadii;
     int sparseBlackCandidateLimit = 12;
+    bool sparseBlackEnumerateAllSeeds;
     bool sparseBlackRankByRadius = VisionSettings.DefaultSparseBlackRankByRadius;
     const string SparseBlackFitAndClassifyStage = "sparseBlackFitAndClassifyMs";
     (int Hue, int SaturationFloor, int ValueFloor, int MedianValue)? diagnosticObstructionClothRangeOverride;
@@ -124,6 +125,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
             && (!int.TryParse(requestedSparseBlackLimit, NumberStyles.Integer, CultureInfo.InvariantCulture, out sparseBlackCandidateLimit)
                 || sparseBlackCandidateLimit is < 1 or > 64))
             throw new ArgumentOutOfRangeException(nameof(sparseBlackCandidateLimit), "Sparse-black candidate limit must be between 1 and 64.");
+        sparseBlackEnumerateAllSeeds = args?.GetString("sparseBlackEnumerateAllSeeds") is "1" or "true";
         sparseBlackRankByRadius = args?.GetString("sparseBlackRadiusRank") is "1" or "true";
         var requestedObstructionHue = args?.GetString("obstructionClothHue");
         var requestedObstructionSaturationFloor = args?.GetString("obstructionClothSaturationFloor");
@@ -340,6 +342,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     MinimumSparseBlackBoundarySupport = minimumSparseBlackBoundarySupport,
                     SparseBlackCandidateLimit = sparseBlackCandidateLimit,
                     SparseBlackRankByRadius = sparseBlackRankByRadius,
+                    SparseBlackEnumerateAllSeeds = sparseBlackEnumerateAllSeeds,
                     SparseBlackMinimumPeakRadiusFactor = sparseBlackMinimumPeakRadiusFactor,
                     PackedClusterImageEdgeMargin = edgeMargin,
                     PackedColourBoundarySearchExtentFraction = boundaryExtent,
@@ -991,6 +994,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     minimumSparseColourBoundarySupport,
                     sparseBlackSearchExtentFraction,
                     minimumSparseBlackBoundarySupport,
+                    sparseBlackEnumerateAllSeeds,
                     sparseBlackCandidateLimit,
                     sparseBlackRankByRadius,
                     pipelineDiagnostics = PipelineDiagnostics.Snapshot(),
@@ -1033,7 +1037,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 pocketExclusionRadius, minimumHoughBoundarySupport = minimumBoundarySupport,
                 minimumSparseColourBoundarySupport,
                 sparseBlackSearchExtentFraction, minimumSparseBlackBoundarySupport,
-                sparseBlackCandidateLimit, sparseBlackRankByRadius,
+                sparseBlackEnumerateAllSeeds, sparseBlackCandidateLimit, sparseBlackRankByRadius,
                 normalizedGeometryAblation = normalizedGeometry,
                 normalizedPackedProposalMaskAblation = normalizedPackedProposalMask,
                 production800BoundaryExtent,

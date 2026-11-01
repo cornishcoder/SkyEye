@@ -169,3 +169,5 @@ The user staged the same mid-cushion black/chalk/table with only the cue moved t
 - Restaged frame1691 follow-up: diagnostic seed list is capped at component index64 of134 qualifying components; three nearby seeds were skipped. See restaged replay report. Cue-removal staging remains pending; no new capture.
 
 - User confirmed cue removed but lighting darker. Pending pair is unmatched and was not captured. Fresh camera status Stopped/rev63/139 clips. Source confirms production FindPeakSeeds shares the pre-ranking64-component cap; next work is offline candidate evaluation.
+
+- Evaluation candidate in progress: SparseBlackEnumerateAllSeeds (default false) enumerates the entire sparse-black mask before existing radius/proximity ranking and12-fit cap. Packed colour callers retain their existing cap. Runner manifest and analyzer diagnostic identity record the option. Build/replay pending; no acceptance claim.

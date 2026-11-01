@@ -204,7 +204,7 @@ public sealed partial class VisionAnalyzer
             using var cleanupSize = new Size(3, 3);
             using var cleanupKernel = new MatLease(Imgproc.GetStructuringElement(Imgproc.MorphEllipse, cleanupSize));
             Imgproc.MorphologyEx(dark.Value, dark.Value, Imgproc.MorphOpen, cleanupKernel.Value);
-            seeds = FindPeakSeeds(dark.Value, scale, settings.SparseBlackMinimumPeakRadiusFactor * scale, bounds)
+            seeds = FindPeakSeeds(dark.Value, scale, settings.SparseBlackMinimumPeakRadiusFactor * scale, bounds, settings.SparseBlackEnumerateAllSeeds)
                 .Where(seed => seed.Radius <= settings.MaximumRadius * scale).ToArray();
         }
         PipelineDiagnostics.Sample("sparseBlackAvailableSeedCount", seeds.Length);
@@ -481,7 +481,7 @@ public sealed partial class VisionAnalyzer
     }
 
     IEnumerable<(Point Centre, double Radius)> FindPeakSeeds(Mat mask, double scale, double minimumPeakRadius,
-        (double Left, double Right, double Top, double Bottom) bounds)
+        (double Left, double Right, double Top, double Bottom) bounds, bool enumerateAllSeeds = false)
     {
         using var distance = new MatLease(new Mat()); Imgproc.DistanceTransform(mask, distance.Value, Imgproc.DistL2, 3);
         using var dilated = new MatLease(new Mat());
@@ -503,7 +503,7 @@ public sealed partial class VisionAnalyzer
         using var searchWindow = new MatLease(peaks.Value.Submat(new Rect(left, top, right - left + 1, bottom - top + 1)));
         using var labels = new MatLease(new Mat()); using var stats = new MatLease(new Mat()); using var centres = new MatLease(new Mat());
         int count = Imgproc.ConnectedComponentsWithStats(searchWindow.Value, labels.Value, stats.Value, centres.Value);
-        for (int i = 1; i < count && i <= 64; i++)
+        for (int i = 1; i < count && (enumerateAllSeeds || i <= 64); i++)
         {
             double x = centres.Value.Get(i, 0)![0] + left, y = centres.Value.Get(i, 1)![0] + top;
             double edgeMargin = settings.PackedClusterImageEdgeMargin * scale;

@@ -64,6 +64,8 @@ public sealed record VisionSettings(int Width = 1000, double MinimumRadius = 18,
     public const double DefaultSparseBlackMinimumPeakRadiusFactor = 8;
     public double SparseBlackBoundarySearchExtentFraction { get; init; } = DefaultSparseBlackBoundarySearchExtentFraction;
     public double MinimumSparseBlackBoundarySupport { get; init; } = DefaultMinimumSparseBlackBoundarySupport;
+    // Evaluation-only: enumerate the full sparse-black mask before bounded fit ranking.
+    public bool SparseBlackEnumerateAllSeeds { get; init; }
     public int SparseBlackCandidateLimit { get; init; } = 12;
     public bool SparseBlackRankByRadius { get; init; } = DefaultSparseBlackRankByRadius;
     public double SparseBlackMinimumPeakRadiusFactor { get; init; } = DefaultSparseBlackMinimumPeakRadiusFactor;
