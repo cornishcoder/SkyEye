@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "status": "draft-awaiting-user-review",
+  "evidenceKind": "saved-frame-assistant-visual-centre-draft",
+  "source": {
+    "file": "work/production/evidence/code65-source-frame-check-20261031/exact-replay-input/1179.png",
+    "pixelSha256": "0ce1efbdfdb940d04c0021356a527ab5ce45312334aa8bf988eb84362fac7301",
+    "receipt": "work/production/evidence/code65-source-frame-check-20261031/exact-replay-input/1179.json",
+    "receiptSha256": "fca4a67f270caba01d04af620d40beb84eaae7ed69a10e772b86bbba5a8c00ca",
+    "width": 1920,
+    "height": 1080,
+    "frameId": 1179,
+    "sourceTimeUs": 48928717966,
+    "timeline": "2ea48e0c35cd474eb627acf970a7eec5",
+    "generation": 3,
+    "calibrationId": "6d304dd864f84c8486ee30844fe685b1"
+  },
+  "draftMethod": "Assistant placed each visible centre by direct visual inspection of this exact source image, without a detector overlay. These are approximate source-pixel centres with roughly 5-8px visual uncertainty. They visually align closely with frame 978 because the same physical placement appears unchanged; this is a correlated same-setup frame, not an independent layout or session.",
+  "inventoryDraft": {
+    "cue": 1,
+    "red": 7,
+    "yellow": 7,
+    "black": "no visible centre proposed; absence remains unreviewed",
+    "status": "assistant draft only; not a reviewed frame inventory"
+  },
+  "centres": [
+    {"id": "cue-01", "colour": "cue", "xPx": 141.0, "yPx": 906.0, "uncertaintyPx": 7.0, "status": "assistant-visual-draft"},
+    {"id": "red-01", "colour": "red", "xPx": 125.0, "yPx": 194.0, "uncertaintyPx": 6.0, "status": "assistant-visual-draft; prior proposal-conditioned single-point confirmation exists"},
+    {"id": "red-02", "colour": "red", "xPx": 785.0, "yPx": 146.0, "uncertaintyPx": 6.0, "status": "assistant-visual-draft"},
+    {"id": "red-03", "colour": "red", "xPx": 1627.0, "yPx": 105.0, "uncertaintyPx": 6.0, "status": "assistant-visual-draft"},
+    {"id": "red-04", "colour": "red", "xPx": 116.0, "yPx": 510.0, "uncertaintyPx": 5.0, "status": "assistant-visual-draft"},
+    {"id": "red-05", "colour": "red", "xPx": 122.0, "yPx": 861.0, "uncertaintyPx": 7.0, "status": "assistant-visual-draft"},
+    {"id": "red-06", "colour": "red", "xPx": 866.0, "yPx": 930.0, "uncertaintyPx": 6.0, "status": "assistant-visual-draft"},
+    {"id": "red-07", "colour": "red", "xPx": 1608.0, "yPx": 932.0, "uncertaintyPx": 6.0, "status": "assistant-visual-draft"},
+    {"id": "yellow-01", "colour": "yellow", "xPx": 83.0, "yPx": 201.0, "uncertaintyPx": 6.0, "status": "assistant-visual-draft"},
+    {"id": "yellow-02", "colour": "yellow", "xPx": 846.0, "yPx": 148.0, "uncertaintyPx": 6.0, "status": "assistant-visual-draft"},
+    {"id": "yellow-03", "colour": "yellow", "xPx": 1638.0, "yPx": 153.0, "uncertaintyPx": 6.0, "status": "assistant-visual-draft"},
+    {"id": "yellow-04", "colour": "yellow", "xPx": 814.0, "yPx": 535.0, "uncertaintyPx": 4.0, "status": "assistant-visual-draft"},
+    {"id": "yellow-05", "colour": "yellow", "xPx": 1630.0, "yPx": 543.0, "uncertaintyPx": 5.0, "status": "assistant-visual-draft"},
+    {"id": "yellow-06", "colour": "yellow", "xPx": 800.0, "yPx": 930.0, "uncertaintyPx": 6.0, "status": "assistant-visual-draft"},
+    {"id": "yellow-07", "colour": "yellow", "xPx": 1657.0, "yPx": 914.0, "uncertaintyPx": 6.0, "status": "assistant-visual-draft"}
+  ],
+  "priorPointReview": {
+    "file": "docs/evidence/pocket-cushion-centre-labels-20261031/negative/user-confirmed-point-frame-1179.json",
+    "sha256": "3dfd5b4a579af11ade699fd28aa59bcdff82b70ca9ff399658ce74cf58278635",
+    "scope": "Only red-01 at approximately (125.2,194.4) was user-confirmed after a model proposal. That confirmation is proposal-conditioned and does not review this frame's complete inventory or the other centres."
+  },
+  "overlay": {
+    "file": "work/o08/frame1179-review-draft/frame1179-centre-draft-overlay.png",
+    "sha256": "29f4eb83f6bf847a8c0699d399d5d3144824946fb6c081932aeed42e8043d984",
+    "description": "Exact source image with assistant draft centre markers and readable centre IDs; no detector output."
+  },
+  "reviewStatus": {
+    "completeFrameInventoryReviewed": false,
+    "otherBallCentresReviewed": false,
+    "blackAbsenceReviewed": false,
+    "numericCentreToleranceAgreed": false
+  }
+}
