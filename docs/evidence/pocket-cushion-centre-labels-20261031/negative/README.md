@@ -14,4 +14,4 @@ After seeing the model proposal, the user confirmed that source pixel `(125.2, 1
 
 `frame1179-red-proposal-review.png` remains a separate review aid for the YOLOv11 proposal. Its marker shows the model proposal; it is not itself the user confirmation or a full-frame label.
 
-The [raw-only visual draft note](../raw-only-visual-drafts-20261101.md) includes separate source-only centre estimates for the six Code65 frames. They remain assistant drafts; only the single point above has user confirmation.
+The [raw-only visual draft note](../raw-only-visual-drafts-20261101.md) includes separate source-only centre estimates for the six Code65 frames. The user confirmed all 15 markers in the frame 978 overlay, as recorded in [its complete review](user-reviewed-centres-frame-978.json); frame 1179 has the separate single-point confirmation above. The other frame estimates remain assistant drafts, and frame 1179's full inventory remains unreviewed. Confirmation applies to the exact reviewed coordinates and does not transfer to the note's approximate estimates for other frames.
