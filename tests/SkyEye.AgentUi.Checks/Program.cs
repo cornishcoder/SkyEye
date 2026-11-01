@@ -530,6 +530,14 @@ foreach (bool portrait in new[] { true, false })
 }
 Console.WriteLine("PASS exact pocket-centre rectangle for phone and TV with shared inverse mapping");
 var geometryFence = new SkyEye.Companion.Hybrid.FramingGeometryFence();
+Check(SkyEye.Companion.Hybrid.CalibrationReconnectPolicy.Decide(true, true)
+    == SkyEye.Companion.Hybrid.CalibrationReconnectDecision.KeepSavedCalibration,
+    "a fresh corner proposal cannot replace a restored calibration after reconnect");
+Check(SkyEye.Companion.Hybrid.CalibrationReconnectPolicy.Decide(false, true)
+    == SkyEye.Companion.Hybrid.CalibrationReconnectDecision.ApplyFreshProposal
+    && SkyEye.Companion.Hybrid.CalibrationReconnectPolicy.Decide(false, false)
+    == SkyEye.Companion.Hybrid.CalibrationReconnectDecision.RequireManualCalibration,
+    "a new mount uses a valid proposal or asks for manual calibration");
 Check(!geometryFence.Observe(1920, 1080, "fixed"), "initial known geometry binds without invalidating stored calibration");
 Check(!geometryFence.Observe(0, 0, "fixed") && !geometryFence.Observe(1920, 1080, "fixed"), "reconnect's transient unknown size retains calibration");
 Check(geometryFence.Observe(1280, 720, "fixed"), "real resolution change invalidates calibration");

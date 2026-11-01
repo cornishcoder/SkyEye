@@ -220,6 +220,18 @@ public sealed partial class ShellSession
                     await CheckInitialTableAsync(token);
                     return;
                 }
+                if (CalibrationReconnectPolicy.Decide(hadSavedCalibration, hasValidProposal: true)
+                    == CalibrationReconnectDecision.KeepSavedCalibration)
+                {
+                    // RestoreCalibration only returns the saved geometry for the same camera identity
+                    // and stream geometry. A fresh automatic proposal is not pose verification and
+                    // must not silently replace that saved geometry after a connection restart.
+                    table.Invalidate();
+                    Message = "Saved calibration kept after reconnect. Recalibrate if the camera mount moved.";
+                    Publish();
+                    await CheckInitialTableAsync(token);
+                    return;
+                }
                 table.ApplyCalibration(draft.Generation, draft.Proposed);
                 Message = "Table corners detected and accepted. Checking the initial table layout…";
                 Publish();
