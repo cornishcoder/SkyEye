@@ -671,7 +671,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         if (prioritizeBodies)
         {
             using var colourBodyTiming = PipelineDiagnostics.Measure("colourBodyProposalsMs");
-            AddColourBodies(hsv, pixels, result, scale);
+            AddColourBodies(hsv, pixels, result, scale, candidateAudits, pass);
         }
         if (prioritizeBodies && rawImage is not null)
         {
@@ -694,7 +694,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                     "local-model-raw", i);
             }
         }
-        if (!prioritizeBodies) AddColourBodies(hsv, pixels, result, scale);
+        if (!prioritizeBodies) AddColourBodies(hsv, pixels, result, scale, candidateAudits, pass);
         if (refineGeometry)
         {
             using var refinementTiming = PipelineDiagnostics.Measure("bodyGeometryRefinementMs");
@@ -821,7 +821,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 circles[included[0]] = observed;
         }
     }
-    void AddColourBodies(Mat hsv, byte[] pixels, List<Circle> circles, double scale)
+    void AddColourBodies(Mat hsv, byte[] pixels, List<Circle> circles, double scale,
+        List<VisionCandidateAudit>? candidateAudits, string pass)
     {
         // Recover isolated painted bodies that the cloth mask loses beside a
         // cushion or warm shadow. Size, fill and aspect bounds exclude streaks,
@@ -839,13 +840,32 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         {
             double width = stats.Value.Get(i, Imgproc.CcStatWidth)![0], height = stats.Value.Get(i, Imgproc.CcStatHeight)![0], area = stats.Value.Get(i, Imgproc.CcStatArea)![0];
             double radius = (width + height) / 4;
-            if (radius < settings.MinimumRadius * scale || radius > settings.MaximumRadius * scale || width / height is < .6 or > 1.6 || area / (width * height) < .55) continue;
+            double aspect = width / height, fill = area / (width * height);
+            if (radius < settings.MinimumRadius * scale || radius > settings.MaximumRadius * scale || aspect is < .6 or > 1.6 || fill < .55) continue;
             var c = new Circle(centres.Value.Get(i, 0)![0], centres.Value.Get(i, 1)![0], radius);
             double margin = 23 * scale;
-            if (c.X < margin || c.Y < margin || c.X > coordinates.Width - margin || c.Y > coordinates.Height - margin ||
-                PocketCentres().Any(p => (new Point(c.X, c.Y) - p).Length < settings.PocketExclusionRadius * scale) ||
-                circles.Any(p => Math.Sqrt((p.X - c.X) * (p.X - c.X) + (p.Y - c.Y) * (p.Y - c.Y)) < settings.Separation * scale)) continue;
+            string? rejection = null;
+            if (c.X < margin || c.Y < margin || c.X > coordinates.Width - margin || c.Y > coordinates.Height - margin)
+                rejection = "rejected-margin";
+            else if (PocketCentres().Any(p => (new Point(c.X, c.Y) - p).Length < settings.PocketExclusionRadius * scale))
+                rejection = "rejected-pocket-exclusion";
+            else if (circles.Any(p => Math.Sqrt((p.X - c.X) * (p.X - c.X) + (p.Y - c.Y) * (p.Y - c.Y)) < settings.Separation * scale))
+                rejection = "rejected-separation";
+            string evidence = $"bounds={stats.Value.Get(i, Imgproc.CcStatLeft)![0]},{stats.Value.Get(i, Imgproc.CcStatTop)![0]},{width},{height};area={area};aspect={aspect:F3};fill={fill:F3}";
+            if (rejection is not null)
+            {
+                Audit(i, rejection, c, evidence);
+                continue;
+            }
             circles.Add(c);
+            Audit(i, "accepted", c, evidence);
+        }
+
+        void Audit(int index, string decision, Circle proposal, string evidence)
+        {
+            candidateAudits?.Add(new VisionCandidateAudit(pass, "colour-body", "unknown", index,
+                new(proposal.X, proposal.Y), proposal.Radius, null, null, null, null, decision)
+            { Evidence = evidence });
         }
     }
     int ClothHue(byte[] pixels)
