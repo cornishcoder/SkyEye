@@ -118,6 +118,26 @@ The importer maps hand-labelled image centres through the exact saved table cali
 python scripts/Build-O09RadiusReviewPack.py --corpus-root work/o08/live-detect-black-pair-v1/corpus-v4 --transform work/o08/live-detect-black-pair-v1/corpus-v4/source-to-table-transform.json --output work/o09/radius-review-v1
 ```
 
+`scripts/Propose-O09SourceImageRadiusGuides.py` is a separate proposal-only step. It computes a radial CIELAB gradient response from each raw source crop around the reviewed centre and renders a cyan circle guide; it does not read detector output or write O01 radii. The report preserves the search range and response score. Human inspection remains required, especially for low-contrast black/cue rims and pocket/cushion edges; these apparent image-space guides do not establish physical cloth-plane size. See [the guide review report](evidence/live-detect-o09-image-edge-radius-guides-20261101.md).
+
+```powershell
+python scripts/Propose-O09SourceImageRadiusGuides.py --corpus-root work/o08/live-detect-black-pair-v1/corpus-v4 --review-pack work/o09/radius-review-v1 --output work/o09/radius-guide-proposals-radial-v1
+```
+
+On 1 November, the user reviewed all ten displayed guide sheets and replied **“all look correct.”** This accepts the 155 circles as apparent source-image radii for the separate O09 derivative only; it is not a physical cloth-plane radius claim. The proposal report binds 155/155 visible points across 10 frames, found no search-boundary hits, and confirmed 20/20 original image/label files unchanged. The [guide review report](evidence/live-detect-o09-image-edge-radius-guides-20261101.md) records the method, human review, and rejected Hough pilot.
+
+`scripts/Create-O09ReviewedRadiusCorpus.py` verifies every guide against its source hash, reviewed centre, and source-to-table mapping, then writes a versioned derivative without changing O08 corpus-v4:
+
+```powershell
+python scripts/Create-O09ReviewedRadiusCorpus.py --source-corpus work/o08/live-detect-black-pair-v1/corpus-v4 --review-pack work/o09/radius-review-v1 --radius-guides work/o09/radius-guide-proposals-radial-v1/radius-guides.json --reviewer-response "all look correct" --review-date 2026-11-01 --output work/o09/radius-reviewed-corpus-v1
+dotnet run --project src/SkyEye.Observation.Workbench/SkyEye.Observation.Workbench.csproj -c Release --no-restore -- validate --root work/o09/radius-reviewed-corpus-v1 --manifest work/o09/radius-reviewed-corpus-v1/manifest.json
+dotnet run --project src/SkyEye.Observation.Workbench/SkyEye.Observation.Workbench.csproj -c Release --no-restore -- freeze --root work/o09/radius-reviewed-corpus-v1 --manifest work/o09/radius-reviewed-corpus-v1/manifest.json --output work/o09/radius-reviewed-corpus-v1/split-lock.json
+dotnet run --project src/SkyEye.Observation.Workbench/SkyEye.Observation.Workbench.csproj -c Release --no-restore -- export-yolo --root work/o09/radius-reviewed-corpus-v1 --manifest work/o09/radius-reviewed-corpus-v1/manifest.json --lock work/o09/radius-reviewed-corpus-v1/split-lock.json --output-dir work/o09/yolo-reviewed-radii-v1
+python scripts/Verify-O09ReviewedRadiusExport.py --corpus-root work/o09/radius-reviewed-corpus-v1 --manifest work/o09/radius-reviewed-corpus-v1/manifest.json --export-dir work/o09/yolo-reviewed-radii-v1
+```
+
+The derivative uses `x=sourceXpx/width`, `y=sourceYpx/height`, `radiusX=sourceRadiusPx/width`, and `radiusY=sourceRadiusPx/height`. It has 160 normalized centres, 155 visible radii, and five absent expected points without radii. Original source image/label files remain unchanged. The exporter preserves PNG inputs and extensions as well as JPEG inputs; the [round-trip report](evidence/live-detect-o09-radius-label-roundtrip-20261101.md) records 10/10 sample/hash coverage, 155/155 exported boxes, setup-group split status, and focused regression results. This produces Development train/validation data only: no Holdout images are copied, no model has been trained, and no detector or Pixel acceptance result is claimed.
+
 `export-yolo` exports reviewed real **Development** samples only. It forms deterministic connected split groups by joining every sequence that shares a camera recording session or a `setup-group:<id>` tag, then assigns whole groups to train and validation. It requires at least three independent Development recording sessions and three resulting split groups, image-normalized labels and reviewed X/Y radii, and refuses ambiguous/occluded labels. Export report schema 2 records each session's split-group ID and each group's sessions/setup groups. O01 Holdout pixels are never copied; this exporter does not perform augmentation or select a training framework. Apply the planned appearance augmentation to train only.
 
 ```powershell

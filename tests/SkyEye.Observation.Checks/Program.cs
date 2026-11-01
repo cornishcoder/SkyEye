@@ -424,6 +424,59 @@ try
         SplitSequence("few-b", "few-session-b", "few-group-b")
     ])));
 
+    // O09 export must preserve PNG source bytes and extensions while retaining JPEG compatibility.
+    var encodingRoot = Path.Combine(root, "o09-image-encoding"); Directory.CreateDirectory(encodingRoot);
+    var encodingFiles = new CorpusFiles(encodingRoot);
+    byte[] pngFixture = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/f+8AAAAASUVORK5CYII=");
+    byte[] jpegFixture = [0xff, 0xd8, 0xff, 0xc0, 0, 11, 8, 0, 1, 0, 1, 1, 1, 0x11, 0, 0xff, 0xd9];
+    var encodingSequences = new List<CorpusSequence>();
+    var encodingBySample = new Dictionary<string, (PixelEncoding Encoding, byte[] Bytes)>(StringComparer.Ordinal);
+    for (int i = 0; i < 3; i++)
+    {
+        string id = "encoding-" + i.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        bool isJpeg = i == 1;
+        string extension = isJpeg ? ".jpg" : ".png";
+        string pixelFile = id + extension;
+        byte[] pixels = (isJpeg ? jpegFixture : pngFixture).ToArray();
+        File.WriteAllBytes(Path.Combine(encodingRoot, pixelFile), pixels);
+        string sampleId = id + "-sample";
+        var indexed = new IndexedFrame(sampleId, i + 1, 1000 + i, scope with { Timeline = id }, pixelFile,
+            CorpusFiles.Hash(pixels), isJpeg ? PixelEncoding.Jpeg : PixelEncoding.Png, 1, 1);
+        string indexFile = id + "-frames.jsonl";
+        File.WriteAllText(Path.Combine(encodingRoot, indexFile), JsonSerializer.Serialize(indexed,
+            new JsonSerializerOptions(CorpusJson.Options) { WriteIndented = false }) + "\n");
+        string labelsFile = id + "-labels.json";
+        File.WriteAllText(Path.Combine(encodingRoot, labelsFile), CorpusJson.Write(new SequenceLabels(2, id,
+            "reviewer", "cal-v1", true,
+            [new(sampleId, indexed.PixelSha256, "image-normalized",
+                [new("R1", "red", .5, .5, LabelVisibility.Visible) { RadiusX = .25, RadiusY = .25 }], "synthetic image-encoding fixture")], [])));
+        encodingSequences.Add(new(id, "session-" + id, CorpusKind.Real, CorpusSplit.Development,
+            SequencePurpose.StillRegression,
+            new("camera-" + id, "synthetic O09 image-encoding fixture", pixelFile, indexed.PixelSha256, 1, 1,
+                SourceClock.RecordingMicroseconds, "cal-v1"), indexFile, labelsFile, "Synthetic exporter contract only", ["setup-group:" + id]));
+        encodingBySample.Add(sampleId, (indexed.Encoding, pixels));
+    }
+    var encodingManifest = new CorpusManifest(1, "o09-image-encoding-fixture", encodingSequences.ToImmutableArray());
+    var encodingManifestPath = Path.Combine(encodingRoot, "manifest.json");
+    File.WriteAllText(encodingManifestPath, CorpusJson.Write(encodingManifest) + "\n");
+    CorpusValidation.Validate(encodingManifest, encodingFiles);
+    var encodingLock = SplitLock.Freeze(encodingManifest, encodingFiles, encodingManifestPath);
+    string encodingExportDirectory = Path.Combine(encodingRoot, "export");
+    var encodingExport = O09YoloDatasetExport.Export(encodingManifest, encodingLock, encodingFiles, encodingExportDirectory);
+    int pngPreserved = 0, jpegPreserved = 0;
+    foreach (var sample in encodingExport.Samples)
+    {
+        var expected = encodingBySample[sample.SampleId];
+        string imagePath = Path.Combine(encodingExportDirectory, sample.ImageFile.Replace('/', Path.DirectorySeparatorChar));
+        bool preserved = Path.GetExtension(sample.ImageFile) == (expected.Encoding == PixelEncoding.Png ? ".png" : ".jpg")
+            && File.ReadAllBytes(imagePath).SequenceEqual(expected.Bytes);
+        if (preserved && expected.Encoding == PixelEncoding.Png) pngPreserved++;
+        if (preserved && expected.Encoding == PixelEncoding.Jpeg) jpegPreserved++;
+    }
+    Console.WriteLine($"PASS O09-YOLO-PNG-ENCODING {pngPreserved}/2 files preserve .png extension and exact bytes");
+    Console.WriteLine($"PASS O09-YOLO-JPEG-ENCODING {jpegPreserved}/1 file preserves .jpg extension and exact bytes");
+    Check(pngPreserved == 2 && jpegPreserved == 1, "O09 exports retain indexed image formats and exact source bytes");
+
     var diagnosticCaptureRoot = Path.Combine(root, "o09-setup-group-captures");
     Directory.CreateDirectory(diagnosticCaptureRoot);
     string diagnosticA = Guid.NewGuid().ToString("N"), diagnosticB = Guid.NewGuid().ToString("N");

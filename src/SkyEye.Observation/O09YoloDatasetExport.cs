@@ -119,8 +119,9 @@ public static class O09YoloDatasetExport
                     throw new InvalidDataException("YOLO export requires reviewed image-normalized labels; no calibration warp is inferred: " + frameLabels.SampleId);
                 if (frameLabels.Balls.Any(b => b.Visibility is LabelVisibility.Occluded or LabelVisibility.Uncertain))
                     throw new InvalidDataException("YOLO export cannot turn ambiguous/occluded labels into background; resolve them before export: " + frameLabels.SampleId);
-                if (!index.TryGetValue(frameLabels.SampleId, out var indexed) || indexed.Encoding != PixelEncoding.Jpeg)
-                    throw new InvalidDataException("Every exported label needs an indexed JPEG frame: " + frameLabels.SampleId);
+                if (!index.TryGetValue(frameLabels.SampleId, out var indexed)
+                    || indexed.Encoding is not (PixelEncoding.Jpeg or PixelEncoding.Png))
+                    throw new InvalidDataException("Every exported label needs an indexed JPEG or PNG frame: " + frameLabels.SampleId);
                 var visible = frameLabels.Balls.Where(b => b.Visibility == LabelVisibility.Visible).ToArray();
                 if (visible.Any(b => b.RadiusX is null || b.RadiusY is null))
                     throw new InvalidDataException("Every visible training ball needs independently reviewed X/Y radii: " + frameLabels.SampleId);
@@ -128,7 +129,8 @@ public static class O09YoloDatasetExport
                 totalBytes = checked(totalBytes + new FileInfo(files.Resolve(indexed.PixelFile)).Length);
                 if (totalBytes > 2L * 1024 * 1024 * 1024) throw new InvalidDataException("O09 exported image set exceeds the 2 GiB bound.");
                 string stem = CorpusFiles.Hash(Encoding.UTF8.GetBytes(sequence.Id + "\n" + frameLabels.SampleId)).ToLowerInvariant();
-                string imageRelative = $"images/{folder}/{stem}.jpg";
+                string extension = indexed.Encoding == PixelEncoding.Png ? ".png" : ".jpg";
+                string imageRelative = $"images/{folder}/{stem}{extension}";
                 string labelRelative = $"labels/{folder}/{stem}.txt";
                 var yoloLines = visible.Select(ball => YoloBox(ball)).ToArray();
                 string labelText = yoloLines.Length == 0 ? string.Empty : string.Join("\n", yoloLines) + "\n";
