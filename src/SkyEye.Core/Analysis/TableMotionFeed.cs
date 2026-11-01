@@ -377,7 +377,7 @@ public sealed class TableMotionFeed : IAsyncDisposable
                 }
                 // Coalesced sources dispose pending inside the same callback that
                 // immediately allocates its bitmap. Other sources dispose it here.
-                if (frame is null) DropPendingBeforeReadback();
+                if (frame is null) await PrepareReadbackAsync(stopped.Token).ConfigureAwait(false);
                 try
                 {
                     var clock = Stopwatch.StartNew();
@@ -460,6 +460,29 @@ public sealed class TableMotionFeed : IAsyncDisposable
         }
         return false;
     }
+    async Task PrepareReadbackAsync(CancellationToken cancellation)
+    {
+        // An idle consumer must get its queued frame before a potentially
+        // blocking read removes it. Busy consumers still replace pending work
+        // before allocation, preserving the active + pending ownership bound.
+        while (true)
+        {
+            TableFrame? discard;
+            lock (gate)
+            {
+                if (pending is not null && active == 0) discard = null;
+                else
+                {
+                    discard = pending; pending = null; pendingProbe = null;
+                    if (discard is not null) replaced++;
+                    discard?.Dispose();
+                    return;
+                }
+            }
+            await Task.Delay(1, cancellation).ConfigureAwait(false);
+        }
+    }
+
     void DropPendingBeforeReadback()
     {
         TableFrame? discard;
