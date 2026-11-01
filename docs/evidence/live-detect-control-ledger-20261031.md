@@ -193,3 +193,5 @@ The user staged the same mid-cushion black/chalk/table with only the cue moved t
 - ARC-NEGATIVE-CONTROL fails specificity: lower-right absent461 (geometric-only; different timeline) passes at10/32 sectors/run8/span78.75 alongside present375. No partial-arc promotion or more threshold sweeps. See live-detect-arc-negative-audit-20261101.md.
 
 - Black 8-ball number-patch hypothesis: location-conditioned marker feature4/4 across reviewed visible678/375 and expected-empty844/461. Not whole-table recall/specificity; timeline IDs differ. Script and result in docs/evidence/live-detect-black-marker-cue-20261101.md and work/live-detect-scorecard. Production unchanged.
+
+- Whole-frame marker+dark-annulus feature exploratory4/4; components1/0/1/0 on positive678/absent844/positive375/absent461, no other reviewed ball label collisions. Threshold post-hoc; no timeline match or acceptance. See live-detect-black-marker-discovery-20261101.md. Production unchanged.

@@ -864,3 +864,5 @@ Workflow: follow [the capture batching and offline efficiency protocol](live-det
 - ARC-NEGATIVE-CONTROL: present375 and expected-empty461 both pass the partial-arc diagnostic; timelines differ. Reject method promotion and stop threshold sweeps. Current suites3/3, motion20/20, detector0/3, physical0/3 proven.
 
 - BLACK-MARKER-CUE: 4/4 simple bright circular features at labelled present/absent points; locations supplied and timelines differ. Next whole-table feature discovery against reviewed negatives. Production inventory remains0/3, suites3/3, physical0/3.
+
+- BLACK-MARKER-DISCOVERY exploratory: bright circular marker plus dark neutral annulus yields 1/0/1/0 whole-frame candidates and4/4 label-point cases on four reviewed frames; no other-ball label collisions. Post-hoc/four distinct timelines, not acceptance. Next freeze feature then independent Development comparison; production inventory0/3.

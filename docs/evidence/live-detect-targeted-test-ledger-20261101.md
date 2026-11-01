@@ -24,3 +24,6 @@ SOFTWARE-HANDOFF terminal result:3/3 suites PASS; combined exit1 due detector0/3
 
 | BLACK-MARKER-CUE | Is a bright low-saturation circular 8-ball marker present at reviewed black point and absent at expected-empty points? | PASS4/4 location-conditioned: visible678/375 one component each; absent844/461 none | Hypothesis only. Next evaluate whole-table proposals and all reviewed white-feature negatives; don't count as detector inventory. | live-detect-black-marker-cue-20261101.md |
 
+
+| BLACK-MARKER-DISCOVERY | Does full-frame bright circle plus dark neutral annulus isolate black markers from red highlights and reviewed negatives? | Exploratory4/4 location cases; counts1/0/1/0, no reviewed non-black label collisions | Post-hoc thresholds, four distinct timelines; predeclare and score independent reviewed sessions before integration. | live-detect-black-marker-discovery-20261101.md |
+
