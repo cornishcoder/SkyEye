@@ -1,5 +1,7 @@
 # Live Detect pocket-control evidence ledger — 1 November 2026
 
+**Continuation protocol update — 1 November:** the [Argon source review](live-detect-argon-review-20261101.md) and [revised goal](../live-detect-continuation-goal-20261101.md) require a calibration-restart preflight and separate matched Development and Holdout groups. The first scoring milestone uses the single-baseline scorer; the screening runner/report mode mismatch must be corrected before that export route is relied upon. Historical `.4` reproduction and current `.65` candidate evaluation retain separate identities. No evidence rows, labels, split assignments or physical acceptance results changed in this documentation review.
+
 This is an index of the immediate pocket/cushion controls, not a complete accuracy corpus. Physical images and runs, offline replays, synthetic inputs and diagnostic hypotheses are different kinds of evidence. No row below passes the held-out inventory gate. PTS values are source microseconds; hashes are SHA-256 of the source PNG bytes. All 14 PNG hashes in the source table matched their receipts. The expanded six-frame Code65 replay source hashes, PTS and receipts are in the linked addendum.
 
 ## Retained physical sources and offline replays
