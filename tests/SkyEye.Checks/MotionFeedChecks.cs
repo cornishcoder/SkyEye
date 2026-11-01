@@ -39,7 +39,9 @@ static class MotionFeedChecks
         {
             feed.Start(); source.Push(1, 1000); await Until(() => feed.Snapshot.Processed == 1);
             source.Push(2, 34000); await Until(() => feed.Snapshot.Processed == 2);
-            source.Push(3, 400000); await Until(() => feed.Snapshot.Processed == 3);
+            source.Push(3, 400000);
+            try { await Until(() => feed.Snapshot.Processed == 3); }
+            catch (Exception error) { throw new Exception("Source-gap processing snapshot: " + System.Text.Json.JsonSerializer.Serialize(feed.Snapshot), error); }
             Check(worker.Contexts[0].Reset && !worker.Contexts[1].Reset && worker.Contexts[1].DeltaSeconds == .033
                 && worker.Contexts[2].Reset && feed.Snapshot.GapResets == 1, "Motion uses source delta time and resets over gaps");
             source.Push(4, 500000, old: true); await Until(() => feed.Snapshot.Stale == 1);

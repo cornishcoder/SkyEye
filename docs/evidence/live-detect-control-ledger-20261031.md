@@ -179,3 +179,5 @@ The user staged the same mid-cushion black/chalk/table with only the cue moved t
 - Combined scorecard exits1: software2/3, detector0/3. General suite failed MotionFeedChecks line42 timeout; initial3/3 pass is historical. Failure artifacts retained.
 
 - Reporting correction/policy: timeout at MotionFeedChecks line42 is third-frame source-gap processing, not stale rejection. Current carried-forward metrics2/3 software,0/3 detector,0/3 physical gates. Name target test before work and report metrics at every commit.
+
+- Motion-feed source-gap target: focused invocation passes once, failure diagnostics added;20-run reproduction active. Carried-forward metrics2/3 suites,0/3 detector,0/3 gates.

@@ -4,6 +4,12 @@ using System.Text;
 using System.Text.Json;
 using SkyEye.Core;
 
+if (args.SequenceEqual(["--motion-feed"]))
+{
+    await MotionFeedChecks.Run();
+    return;
+}
+
 if (args.SequenceEqual(["--gpt-table-advisory"]))
 {
     await GptTableAdvisoryChecks.Run();

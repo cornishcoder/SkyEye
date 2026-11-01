@@ -850,3 +850,5 @@ Workflow: follow [the capture batching and offline efficiency protocol](live-det
 - Scorecard follow-up: combined run2/3 software suites,0/3 detector cases. Motion-feed stale-acquisition check intermittently timed out at line42; preserve failed log and diagnose before claiming software green.
 
 - Reporting requirement: name target test before each work cycle, tie findings back to it, update docs and metrics at every commit. Current target: motion-feed source-gap processing (line42); correct earlier stale-acquisition attribution. Metrics carried forward: software2/3, detector0/3, physical0/3 proven.
+
+- Target motion-feed source-gap test: focused entry and snapshot-on-failure added; initial focused run1/1 pass,20-attempt reproduction active. Aggregate carried forward2/3 software,0/3 detector,0/3 gates.
