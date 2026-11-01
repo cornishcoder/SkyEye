@@ -2,6 +2,16 @@
 
 Use this guide to operate the Hybrid Production companion on the Pixel 11 and inspect the mounted camera without guessing at screen coordinates or changing match state. Prefer the current accessibility label and a fresh screenshot/UI tree; layout bounds move as the video and Settings panel scroll.
 
+## Latest camera readback after lower-right controls — 1 November 2026
+
+The lower-right four-step Development sequence completed on Pixel 11 Pro XL (`66181FDDV001HS`). The mounted camera `/status` read immediately before corpus preparation is `Stopped`, revision 28, timeline `94748b6e18d648f18b3709842afba4cb`, 18,800 completed frames, 1920×1080 at 30fps, `clipCount=139`, battery 100%, and armed. A token-redacted snapshot is `work/o08/live-detect-black-pair-v1/physical-controls/device-state/pixel10-status-before-corpus-build-20261101.json`.
+
+After the final capture stop, a fresh Pixel 11 Home hierarchy showed **Camera ready**, **Start live session**, Live Detect unavailable while stopped, and **Live Detect off**. It also retained `Sample saved · 31.4s clip · 5s target timing unverified`; no operation link identifies that message as part of these four verifier captures, and the camera clip count remained 139. During later label review, a read-only ADB hierarchy dump showed ChatGPT in the foreground, so no app switch was attempted while the user viewed the images. Capture remains stopped; the last companion Home readback is historical, not a claim about the current foreground screen.
+
+Fresh installed-package readback confirms Production `uk.co.skyeye.companion` 0.8.59 / code67, APK SHA-256 `0751393c12afbbad838522c9a69f2a8ea8c97369ae794b3fc47c2c248d9e1a55`; isolated VisionChecks `uk.co.skyeye.visionchecks` is installed separately with APK SHA-256 `2c670059d2d1104c431524ed83be76dac8eb85c3d983caad0eb45651ef4e879c`. The fresh APKs were pulled read-only to `work/o08/live-detect-black-pair-v1/physical-controls/device-state/`. Neither package was installed or updated during the lower-right controls. No camera-package, Cast/TV, saved-clip deletion or app-data action occurred.
+
+After the offline boundary-fit experiments, a fresh read-only mounted-camera `/status` GET at `2026-11-01T11:52:11Z` reported `Stopped`, revision 28, timeline `94748b6e18d648f18b3709842afba4cb`, 18,800 completed frames, 139 clips, zero viewers, no host and armed. The token-free fields are saved at `work/o08/live-detect-black-pair-v1/device-state/pixel10-status-after-ext050-candidate-20261101.json` (SHA-256 `6D7B9BBC0D8538F5F026F2CC66385F0D36A9473986C733A44E8C2DBCD91B1C9B`). No capture or package update occurred. The companion's Home screen was not rechecked, so its current foreground and Home labels are unknown. See the [boundary-fit Development evidence](evidence/colour-boundary-y3-diagnostic-20261101.md).
+
 ## Latest stopped state after phone stream diagnostic — 1 November 2026
 
 Production companion `0.8.59` / code67 is installed on Pixel 11 (`66181FDDV001HS`). Commit `438696d` adds Media3 load diagnostics with the stream access token redacted; the Release build succeeded with 8 warnings and 0 errors. Installed APK SHA-256 is `0751393c12afbbad838522c9a69f2a8ea8c97369ae794b3fc47c2c248d9e1a55`. UID/private storage were retained; the previous APK is `work/production/backups/20261101-103910/before.apk`. The camera package was untouched.
