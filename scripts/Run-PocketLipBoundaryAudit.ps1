@@ -218,6 +218,7 @@ $instrumentation = "$package/uk.co.skyeye.visionchecks.VerificationReplayInstrum
 $repoRoot = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot 'Assert-VisionReplayReceiptBinding.ps1')
 . (Join-Path $PSScriptRoot 'CameraReplayPreflight.ps1')
+. (Join-Path $PSScriptRoot 'CameraReplayManifest.ps1')
 $sourceRoot = if ([IO.Path]::IsPathRooted($SourceRelativePath)) {
     $SourceRelativePath
 } else {
@@ -749,9 +750,7 @@ $manifest = [pscustomobject]@{
     sparseBlackCandidateLimit = $SparseBlackCandidateLimit
     sparseBlackMinimumPeakRadiusFactor = $SparseBlackMinimumPeakRadiusFactor
     sparseBlackRankByRadius = [bool]$SparseBlackRankByRadius
-    sourceFrames = $inputs | ForEach-Object {
-        [pscustomobject]@{ frameId = $_.Receipt.indexedFrame.frameId; pixelFile = [IO.Path]::GetFileName($_.PixelPath); receipt = [IO.Path]::GetFileName($_.JsonPath); receiptArtifact = ('source-receipts/' + [IO.Path]::GetFileName($_.JsonPath)); receiptSha256 = $_.ReceiptHash; sha256 = $_.Hash }
-    }
+    sourceFrames = @(New-CameraReplaySourceFrameManifestEntries -Inputs @($inputs))
     pocketArcPointSource = if ($PocketArcProbeOnly -or $PocketArcSweepOnly) { $BlackPointSource } else { $null }
     rawModelProposalFiles = if ($RawProposalReplay) { $inputs | ForEach-Object {
         $copiedProposal = Join-Path $runDirectory "local-proposals-$($_.Frame).json"
