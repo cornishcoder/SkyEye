@@ -2,7 +2,12 @@
 
 <section class="control-section" aria-label="Table awareness">
     <h2>Table awareness</h2><p class="hint" role="status">@Session.TableStatus</p>
-    <button class="secondary" disabled="@(Busy || !Session.CanAnalyzeTable)" @onclick="Calibrate">@(Session.HasTableCalibration ? "Recalibrate table" : "Calibrate table")</button>
+    <button class="secondary" disabled="@(Busy || !Session.CanCalibrateTable)" @onclick="Calibrate">@(Session.HasTableCalibration ? "Recalibrate table" : "Calibrate table")</button>
+    @if (Session.CalibrationPoseConfirmationRequired)
+    {
+        <p class="hint">Confirm the camera mount is still in the same position to reuse its saved calibration.</p>
+        <button class="secondary" disabled="@(Busy || !Session.CanConfirmCalibrationPose)" @onclick="Session.ConfirmCalibrationPoseUnchangedAsync">Confirm camera has not moved</button>
+    }
     <p class="hint">Readiness is automatic after a fresh, clear still check. Correct the layout if a detection is wrong.</p>
     <button class="secondary" disabled="@(Busy || !Session.CanCorrectTable)" @onclick="Correct">Correct layout</button>
     @if (Session.Match.Id is null || Session.Match.Finished)

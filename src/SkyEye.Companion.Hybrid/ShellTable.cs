@@ -12,6 +12,7 @@ public sealed partial class ShellSession
     TableAnalysisSession table = null!;
     readonly TableEditDraft edit = new();
     string? restoredCamera;
+    Guid? confirmedCalibrationPoseConnection;
     Guid? autoCalibrationAttemptedConnection;
     bool automaticTableCheckPending;
     string? automaticBaselineAttemptedFrame;
@@ -24,8 +25,14 @@ public sealed partial class ShellSession
     public bool EditingTable => edit.Mode != TableEditMode.None;
     public double EditorHeight => Math.Min(editorLimit, (edit.Mode == TableEditMode.Correction ? 360 : 260) * FontScale);
     public void SetEditorLimit(double height) { if (height > 0 && Math.Abs(editorLimit - height) > .5) { editorLimit = height; Changed?.Invoke(); } }
-    public bool CanAnalyzeTable => sessionMode == TableSessionMode.Live
+    bool CanUseLiveTable => sessionMode == TableSessionMode.Live
         && app.State.Camera is { CanControl: true, Capture: CaptureState.Active } && selection.Kind == ViewingSource.Live;
+    public bool CalibrationPoseConfirmationRequired => table.State is { Calibration: not null, Source: { } source }
+        && CalibrationReconnectPolicy.RequiresPoseConfirmation(true,
+            poseVerifiedForConnection: confirmedCalibrationPoseConnection == source.ConnectionId);
+    public bool CanAnalyzeTable => CanUseLiveTable && !CalibrationPoseConfirmationRequired;
+    public bool CanCalibrateTable => CanUseLiveTable;
+    public bool CanConfirmCalibrationPose => CanUseLiveTable && CalibrationPoseConfirmationRequired;
     public bool HasTableCalibration => table.State.Calibration is not null;
     public bool CanCorrectTable => CanAnalyzeTable && !LiveDetectBusy && table.VisionDiagnostics.Active == false && table.State is { Calibration: not null, Table: not null };
     public bool CanApplyTableEdit => CanAnalyzeTable && edit.Matches(table.State.Generation, table.State.Table?.Version)
@@ -143,18 +150,26 @@ public sealed partial class ShellSession
         if (snapshot.CameraIdentity != restoredCamera)
         {
             restoredCamera = snapshot.CameraIdentity;
+            confirmedCalibrationPoseConnection = null;
             try { if (restoredCamera is not null) table.RestoreCalibration(); }
             catch { ShowError("Saved calibration could not load. Calibrate the table again."); }
             snapshot = table.State;
         }
-        if (snapshot.Source is { } source && CanAnalyzeTable && active && player is not null
+        if (snapshot.Source is { } source && CanUseLiveTable && active && player is not null
             && !EditingTable && autoCalibrationAttemptedConnection != source.ConnectionId)
         {
-            autoCalibrationAttemptedConnection = source.ConnectionId;
-            automaticBaselineAttemptedFrame = app.State.Game.Frame?.Id;
-            automaticBaselineCheckBatches = 1;
-            automaticTableCheckPending = true;
-            _ = TryAutoCalibrateConnectedCameraAsync(source.ConnectionId);
+            if (CalibrationPoseConfirmationRequired)
+            {
+                Message = "Camera reconnected. Confirm the mount has not moved, or recalibrate before checking the table.";
+            }
+            else
+            {
+                autoCalibrationAttemptedConnection = source.ConnectionId;
+                automaticBaselineAttemptedFrame = app.State.Game.Frame?.Id;
+                automaticBaselineCheckBatches = 1;
+                automaticTableCheckPending = true;
+                _ = TryAutoCalibrateConnectedCameraAsync(source.ConnectionId);
+            }
         }
         else if (snapshot.Source is not null && CanAnalyzeTable && active && player is not null
             && snapshot.Calibration is not null && !EditingTable && !automaticTableCheckPending
@@ -172,7 +187,9 @@ public sealed partial class ShellSession
             _ = TryEstablishFrameBaselineAsync();
         }
         var state = snapshot.Table;
-        TableStatus = snapshot.Source is null ? "Watch an active camera as host to check the table."
+        TableStatus = CalibrationPoseConfirmationRequired
+            ? "Camera reconnected. Confirm the mount has not moved, or recalibrate before checking balls."
+            : snapshot.Source is null ? "Watch an active camera as host to check the table."
             : snapshot.VerificationProgress is { } progress ? $"Checking table · {progress.IndependentFrames} fresh views."
             : snapshot.Calibration is null ? "Calibrate your table to check its balls."
             : state is null ? "Ready to observe when you ask."
@@ -186,8 +203,15 @@ public sealed partial class ShellSession
         await MainThread.InvokeOnMainThreadAsync(async () =>
         {
             var current = table.State;
-            if (disposed || !CanAnalyzeTable || current.Source?.ConnectionId != connectionId || EditingTable)
+            if (disposed || !CanUseLiveTable || current.Source?.ConnectionId != connectionId || EditingTable)
                 return;
+            if (CalibrationPoseConfirmationRequired)
+            {
+                Message = "Confirm the camera mount has not moved before using the saved calibration.";
+                automaticTableCheckPending = false;
+                Publish();
+                return;
+            }
             var token = foreground?.Token ?? CancellationToken.None;
             bool hadSavedCalibration = current.Calibration is not null;
             try
@@ -220,8 +244,16 @@ public sealed partial class ShellSession
                     await CheckInitialTableAsync(token);
                     return;
                 }
-                if (CalibrationReconnectPolicy.Decide(hadSavedCalibration, hasValidProposal: true)
-                    == CalibrationReconnectDecision.KeepSavedCalibration)
+                var reconnectDecision = CalibrationReconnectPolicy.Decide(hadSavedCalibration,
+                    poseVerifiedForConnection: confirmedCalibrationPoseConnection == connectionId,
+                    hasValidProposal: true);
+                if (reconnectDecision == CalibrationReconnectDecision.RequirePoseConfirmation)
+                {
+                    Message = "Confirm the camera mount has not moved before using the saved calibration.";
+                    Publish();
+                    return;
+                }
+                if (reconnectDecision == CalibrationReconnectDecision.KeepSavedCalibration)
                 {
                     // RestoreCalibration only returns the saved geometry for the same camera identity
                     // and stream geometry. A fresh automatic proposal is not pose verification and
@@ -361,13 +393,28 @@ public sealed partial class ShellSession
         }
     }
     public Task CalibrateTableAsync() => PrepareTableCalibrationAsync(CancellationToken.None);
+    public Task ConfirmCalibrationPoseUnchangedAsync() => MainThread.InvokeOnMainThreadAsync(async () =>
+    {
+        var current = table.State;
+        if (!CanConfirmCalibrationPose || foreground is null || current.Source is not { } source
+            || current.Calibration is null) return;
+        confirmedCalibrationPoseConnection = source.ConnectionId;
+        autoCalibrationAttemptedConnection = source.ConnectionId;
+        automaticBaselineAttemptedFrame = app.State.Game.Frame?.Id;
+        automaticBaselineCheckBatches = 1;
+        automaticTableCheckPending = true;
+        Message = "Camera mount confirmed unchanged. Checking the saved calibration…";
+        Publish();
+        await TryAutoCalibrateConnectedCameraAsync(source.ConnectionId);
+    });
     async Task PrepareTableCalibrationAsync(CancellationToken cancellation) => await MainThread.InvokeOnMainThreadAsync(async () =>
     {
-        if (!CanAnalyzeTable || foreground is null || EditingTable) return;
+        if (!CanCalibrateTable || foreground is null || EditingTable) return;
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(foreground.Token, cancellation);
         var token = linked.Token; DismissNotice(); suppressShotLoop = true; StopShotScenes(closeRelay:false); ClearSceneCheck();
         try
         {
+            confirmedCalibrationPoseConnection = table.State.Source?.ConnectionId;
             autoCalibrationAttemptedConnection = table.State.Source?.ConnectionId;
             table.InvalidateCalibration(forgetStored: true);
             await ClearShotCatalogAsync(token); player?.SetOverlay("{}");
