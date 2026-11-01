@@ -171,3 +171,5 @@ The user staged the same mid-cushion black/chalk/table with only the cue moved t
 - User confirmed cue removed but lighting darker. Pending pair is unmatched and was not captured. Fresh camera status Stopped/rev63/139 clips. Source confirms production FindPeakSeeds shares the pre-ranking64-component cap; next work is offline candidate evaluation.
 
 - Evaluation candidate in progress: SparseBlackEnumerateAllSeeds (default false) enumerates the entire sparse-black mask before existing radius/proximity ranking and12-fit cap. Packed colour callers retain their existing cap. Runner manifest and analyzer diagnostic identity record the option. Build/replay pending; no acceptance claim.
+
+- Candidate allseed-positive-174021: 0/3 black recovery; nearby seeds reach fit and fail support18/19/18 versus21 sectors. Report: sparse-black-full-seed-enumeration-20261101.md. Camera freshly Stopped/rev63.

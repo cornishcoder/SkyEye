@@ -842,3 +842,5 @@ Historical follow-up: cue-absent eligibility was fixed, along with stale invento
 For future physical evidence, predeclare a short batch of staged changes and controls, collect their bounded source/receipt sets consecutively, and then perform review and replay offline. Stop capture between every table change. Check framing, saved artifacts and configuration before releasing each setup; preserve per-frame review requirements and reject lighting drift. Avoid interleaving lengthy analysis with matched physical steps. User requested this workflow after daylight changed during the current session.
 
 Workflow: follow [the capture batching and offline efficiency protocol](live-detect-workflow-efficiency-20261101.md) for future staged evidence and candidate cycles; acceptance gates remain unchanged.
+
+- Full seed enumeration measured: nearby black seeds now fit, but support18/19/18 of32 fails21/32. No recovery or promotion. See evidence/sparse-black-full-seed-enumeration-20261101.md; next inspect sector evidence offline.
