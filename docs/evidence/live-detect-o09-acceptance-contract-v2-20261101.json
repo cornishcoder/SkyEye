@@ -1,0 +1,307 @@
+{
+  "schemaVersion": 1,
+  "contractId": "live-detect-phone-acceptance-v2-dev-expansion",
+  "status": "criteria-unchanged-refrozen-before-next-candidate",
+  "frozenDate": "2026-11-01",
+  "basis": "The initial O08 acceptance proposals and the 1 November continuation prompt. No criteria have been lowered. These are gates, not achieved results or previously reported user-approved outcomes.",
+  "versioning": {
+    "changeRule": "Any change to criteria, supported scope, candidate configuration, or split after evaluation starts requires a new version. Preserve this version, assignments, failures, and reports. Holdout feedback used for tuning permanently converts that exposed set to Development and requires a new session-separated Holdout.",
+    "holdoutRule": "Do not open Holdout detector scores until labels, group assignments, candidate configuration, and this protocol are frozen.",
+    "supersedes": "live-detect-phone-acceptance-v1",
+    "sourceContractSha256": "1574245e516431ea3087c9202875d4b26c17701f4d424457f722f987ead47563",
+    "criteriaChanged": false,
+    "developmentCorpusId": "live-detect-20261101-black-cue-development-v4-o09-reviewed-radii-v2",
+    "holdoutExposure": "None; all added samples remain Development and Holdout is unopened."
+  },
+  "scope": {
+    "product": "Android phone Live Detect on Pixel 11 using the mounted camera and canonical SkyEye.GameState review path.",
+    "included": [
+      "Fresh settled inventory and conservative unknown state",
+      "Source freshness and request completion",
+      "Phone resource and one-action interaction gates",
+      "Physical shot events, bounded clips, and canonical review"
+    ],
+    "excludedButOutstanding": [
+      "TV/Cast coexistence and corrected-TV presentation",
+      "Voice audio and tool acceptance",
+      "Any camera package update"
+    ],
+    "conditionsOutsideSupportedScope": [
+      "Lighting too dark for ordinary play",
+      "Unverified camera pose, table geometry, or source clock mapping"
+    ]
+  },
+  "supportedConditions": {
+    "lightingStrata": [
+      {
+        "id": "normal-pool-room",
+        "definition": "Normal bright pool-room lighting used for ordinary play. Record measured illuminance at the table, colour-temperature/source description, exposure state, and direct glare for every session."
+      },
+      {
+        "id": "warm-dim-playable",
+        "definition": "Warm or dimmer pool-room lighting that remains suitable for ordinary play. Record measured illuminance at the table, colour-temperature/source description, exposure state, and direct glare for every session."
+      }
+    ],
+    "layoutCoverage": [
+      "Full 16-ball rack and spread layouts",
+      "Reviewed reduced layouts with intentional cue or black absence",
+      "Balls near each pocket and cushion, including a visible black near the lower-left pocket with a nearby non-overlapping cue",
+      "Close or touching balls and other-colour balls over pocket mouths",
+      "Empty pocket mouths, rail/chalk/shadow negatives, and an overlapping/occluded cluster whose hidden centres remain unknown"
+    ],
+    "lightingAndLayoutRules": "Keep camera, calibration, source settings, lighting, and non-target balls fixed within each matched pair. Record actual lighting and all changes. Do not use too-dark-to-play conditions as a supported stratum."
+  },
+  "corpusAndSampling": {
+    "spatialLayouts": {
+      "distinctReviewedLayoutsMinimum": 12,
+      "planningMaximum": 20,
+      "anchorFramesPerLayout": "1 to 2",
+      "rule": "Only independently reviewed visible centres and reviewed absence locations score spatial accuracy. Do not copy labels between frames. Preserve source pixels and source-coordinate labels."
+    },
+    "split": {
+      "unit": "Whole recording session and every related setup/control group, including camera restarts and layout changes.",
+      "development": "At least two to three distinct matched Development groups; both positive and negative controls on the same side of the split.",
+      "holdout": "At least five distinct layouts in at least two separate held-out recording sessions, with matched positive and negative controls in each lighting stratum.",
+      "frame978": "Development only. It cannot enter Holdout or be counted as a matched control."
+    },
+    "requestWindows": {
+      "minimumNonOverlappingWindowsPerLightingStratum": 100,
+      "denominator": "Every predeclared request in the supported clear/still condition, including timeout, retry, required correction, unresolved output, and incorrect Ready.",
+      "correlation": "Report session and stratum denominators and failures. Non-overlap does not make same-session requests statistically independent; include session-level uncertainty and do not claim more independent evidence than collected."
+    },
+    "unsafeWindows": {
+      "minimumHeldOutWindows": 100,
+      "categories": [
+        "Movement and slow cumulative drift",
+        "Hand/cue/body obstruction",
+        "Unexplained appearance or disappearance and occlusion",
+        "Duplicate/frozen/out-of-order/stale frames and clock/source failure",
+        "Camera nudge, source disconnect/reconnect, authority loss, and cancellation"
+      ],
+      "rule": "All categories must be represented. Count false Ready against the complete held-out denominator; the pass limit is zero."
+    },
+    "unchangedTableSoak": "At least 30 seconds of repeated verification per representative layout. Retain every request, result, and source interval."
+  },
+  "geometry": {
+    "sourceImage": {
+      "dimensionsPx": [
+        1920,
+        1080
+      ],
+      "axes": "x increases right and y increases down; source pixel centres are normalized as x/width and y/height.",
+      "cornerOrder": [
+        "top-left",
+        "top-right",
+        "bottom-right",
+        "bottom-left"
+      ],
+      "tableCoordinates": "The existing TableCalibration maps ordered corners to (0,0), (2,0), (2,1), and (0,1). Preserve source labels and record forward and inverse transforms, calibration provenance, and both source and table coordinate units."
+    },
+    "accuracy": {
+      "metric": "Euclidean centre error in table-2x1 coordinates divided by the mapped labelled ball radius. Report per-frame, per-ball, per-session, per-lighting-stratum, and aggregate results, including worst error and pocket/cushion cases.",
+      "labelledRadiusTableUnits": 0.027,
+      "maximumP95RadiusFraction": 0.25,
+      "maximumP95TableUnits": 0.00675,
+      "percentile": "Nearest-rank empirical 95th percentile over independently reviewed visible ball centres.",
+      "labelPrecisionRule": "A scored centre label must have independently reviewed uncertainty no greater than 0.00675 table units. Refine labels that exceed this bound before freezing the accuracy set. A cloth homography and image-centre review do not by themselves prove physical cloth-plane centre accuracy; audit sphere-height/parallax before making that claim.",
+      "transformChecks": "Verify the mapped source-image overlay, round-trip centres, exact dimensions, corner order, source hash, and calibration provenance before scoring. Reject an unverified transform."
+    },
+    "frame978DevelopmentBaseline": {
+      "matchingToleranceTableUnits": 0.01,
+      "purpose": "Explicit tolerance for the single Development baseline score only; it is approximately 0.37 of the labelled radius and is not the accepted accuracy bound.",
+      "accuracyClaim": "The current rough 4-7 source-pixel review uncertainty exceeds the 0.25R proposal for some frame 978 centres. This frame cannot establish the p95 accuracy gate without label refinement."
+    }
+  },
+  "inventoryAndReadiness": {
+    "correctTimelyLayout": {
+      "minimumRate": 0.99,
+      "deadlineSeconds": 3,
+      "start": "Monotonic time when the phone accepts the user's Live Detect request.",
+      "end": "First publication of a fresh, settled, clear, exact reviewed inventory with all required evidence and no unresolved reason.",
+      "failureCases": [
+        "Timeout or no result",
+        "Retry or manual correction required",
+        "Unresolved/uncertain result in a supported clear/still request",
+        "Incorrect count, identity, colour, or centre",
+        "Incorrect Ready"
+      ],
+      "inventoryRule": "Full-rack windows require exactly 16 unique correctly classified balls: one cue, seven reds, seven yellows, and one black. A reduced layout is eligible only with independently reviewed/history-supported absence or accepted correction; unexplained missing cue/black, occlusion, or uncertain geometry remains unknown and cannot be Ready."
+    },
+    "unsafeReadiness": {
+      "maximumFalseReady": 0,
+      "minimumHeldOutWindows": 100,
+      "rule": "Any false Ready in a predeclared unsafe/source/control window fails this gate. Do not reclassify failed windows after evaluation."
+    },
+    "unchangedTable": {
+      "minimumSecondsPerRepresentativeLayout": 30,
+      "rule": "No false movement, pot, return, re-rack, or count/colour change in published Ready results. Unknown during unsafe intervals is the expected safe result."
+    }
+  },
+  "timingAndFreshness": {
+    "requestToReadyMaximumMs": 3000,
+    "analysisProcessingP95MaximumMs": 1400,
+    "analysisProcessingInterval": "From analyzer start on an admitted frame through final analysis result for that same frame. Include both passes when the 800-to-1000 fallback occurs; report branch frequency.",
+    "sourceAgeAtPublicationP95MaximumMs": 1500,
+    "sourceAgeInterval": "Mapped camera source capture time to publication decision for the same frame. Report clock-mapping age and uncertainty separately; do not add processing time to a post-analysis frame-age value.",
+    "verificationEvidence": {
+      "minimumIndependentFreshSamples": 5,
+      "standardSamples": 7,
+      "maximumSamples": 8,
+      "minimumSourceStillSpanMs": 2000,
+      "maximumSourceGapMs": 800,
+      "maximumFinalFrameAgeMs": 1500,
+      "maximumClockSampleAgeMs": 2500,
+      "maximumClockMappingUncertaintyMs": 250,
+      "hardRequestTimeoutMs": 4000,
+      "sourceRule": "Scoped frame IDs and source PTS must strictly increase. Duplicate/frozen frames, mapping failure, interrupted spans, or excessive gaps cannot establish Ready."
+    },
+    "reporting": "Report acquisition/decode, analysis, publication, request-to-ready, and source age as distinct same-frame intervals. Show p50, p95, maxima, sample counts, percentile definitions, fallback counts, and failed windows; do not add independent percentiles."
+  },
+  "phoneResourceAndInteraction": {
+    "baseline": "Matched Pixel 11 phone-only scenario at actual mounted-camera resolution, same source, calibration, lighting, session group, and warm-up policy.",
+    "p95RegressionMaximumFraction": 0.1,
+    "metrics": [
+      "Phone video frame gap",
+      "Phone playback latency",
+      "Analysis and acquisition time",
+      "Peak and retained native memory",
+      "CPU, thermal, and battery cost"
+    ],
+    "otherLimits": [
+      "No new playback stall longer than 1000ms",
+      "No monotonic retained native-resource growth after warm-up and repeated checks",
+      "One active/latest analysis owner with bounded work and prompt cancellation/disposal"
+    ],
+    "interaction": "One actual phone tap produces a result or a specific reason without a timed second tap or separate ball-confirmation tap. Preset/select/clear actions do not increase detector calls. Exercise touch-origin and Sky-origin typed command parity where in scope.",
+    "excluded": "TV/Cast resource comparison and voice acceptance remain outstanding for broader release."
+  },
+  "physicalEventAndClipGate": {
+    "sourceAlignmentMaximumMs": 100,
+    "clipWindow": {
+      "requestedLeadInSeconds": 2,
+      "requestedPostRollSeconds": 2,
+      "startAllowance": "0 <= requestedStartUs - RecordingOrigin.StartUs <= the maximum segment/keyframe interval verified from segment metadata and decoded first-frame evidence for this recording path.",
+      "endCoverage": "Decoded content covers the requested end; separately record and enforce a predeclared 100ms frame/source-clock tolerance.",
+      "integrity": "Verify same-timeline requested windows, decoded content, keyframe effects, actual coverage, finalization, and one-to-one event/activity linkage. A later start, missing history, excessive lead-in, missing post-roll, or merged distinct shots fails."
+    },
+    "activities": [
+      {
+        "id": "E01-no-pot",
+        "expectedCanonicalOrder": [
+          "ShotStartedEvent",
+          "ShotEndedEvent",
+          "TableSettledEvent",
+          "ShotResolvedEvent"
+        ],
+        "expectedCounts": {
+          "ShotStartedEvent": 1,
+          "ShotEndedEvent": 1,
+          "TableSettledEvent": 1,
+          "ShotResolvedEvent": 1,
+          "BallPottedEvent": 0
+        },
+        "eligibleShotClipCount": 1
+      },
+      {
+        "id": "E02-object-ball-pot",
+        "expectedCanonicalOrder": [
+          "ShotStartedEvent",
+          "ShotEndedEvent",
+          "TableSettledEvent",
+          "BallPottedEvent(object ball, reviewed pocket)",
+          "ShotResolvedEvent"
+        ],
+        "expectedCounts": {
+          "ShotStartedEvent": 1,
+          "ShotEndedEvent": 1,
+          "BallPottedEvent(object ball)": 1,
+          "ShotResolvedEvent": 1
+        },
+        "eligibleShotClipCount": 1
+      },
+      {
+        "id": "E03-cue-scratch-and-return",
+        "expectedCanonicalOrder": [
+          "ShotStartedEvent",
+          "ShotEndedEvent",
+          "BallPottedEvent(cue ball) when supported",
+          "ShotResolvedEvent",
+          "TableObservedEvent after physical return",
+          "SettledInventoryAcceptedEvent or SettledInventoryCorrectedEvent after review"
+        ],
+        "expectedCounts": {
+          "ShotStartedEvent": 1,
+          "ShotEndedEvent": 1,
+          "cue BallPottedEvent": "0 or 1 only with supporting evidence",
+          "ShotResolvedEvent": 1,
+          "SettledInventoryAcceptedEvent or SettledInventoryCorrectedEvent": "one after review"
+        },
+        "eligibleShotClipCount": 1
+      },
+      {
+        "id": "E04-intentional-rerack",
+        "expectedCanonicalOrder": [
+          "TableObservedEvent",
+          "SettledInventoryAcceptedEvent or SettledInventoryCorrectedEvent after explicit review",
+          "SettledBaselineEstablishedEvent when a new trusted baseline is warranted"
+        ],
+        "expectedCounts": {
+          "ShotStartedEvent": 0,
+          "BallPottedEvent": 0,
+          "reviewed inventory event": 1
+        },
+        "eligibleShotClipCount": 0
+      },
+      {
+        "id": "E05-obstruction-no-touch-recovery",
+        "expectedCanonicalOrder": [
+          "Unknown/obstructed during obstruction",
+          "TableObservedEvent on fresh clear source",
+          "SettledInventoryAcceptedEvent or SettledBaselineEstablishedEvent only after complete re-verification"
+        ],
+        "expectedCounts": {
+          "false movement/pot/return/rerack events": 0,
+          "eligible shot clips": 0
+        },
+        "eligibleShotClipCount": 0
+      },
+      {
+        "id": "E06-two-quick-distinct-no-pot-shots",
+        "expectedCanonicalOrder": [
+          "Two distinct ShotStartedEvent/ShotEndedEvent/TableSettledEvent/ShotResolvedEvent sequences in source-time order"
+        ],
+        "expectedCounts": {
+          "ShotStartedEvent": 2,
+          "ShotEndedEvent": 2,
+          "TableSettledEvent": 2,
+          "ShotResolvedEvent": 2,
+          "BallPottedEvent": 0,
+          "distinct non-merged clips": 2
+        },
+        "eligibleShotClipCount": 2
+      },
+      {
+        "id": "E07-stop-during-pending-postroll",
+        "expectedCanonicalOrder": [
+          "Eligible shot events",
+          "one queued clip request remains attributable through stop",
+          "unknown if required source post-roll is interrupted"
+        ],
+        "expectedCounts": {
+          "eligible shot clips": 1,
+          "duplicate clips": 0,
+          "unsupported accepted outcome after interruption": 0
+        },
+        "eligibleShotClipCount": 1,
+        "interruptionRule": "Stopping Live Detect must preserve the queued save while the camera source remains available through the required post-roll. If source continuity is interrupted, record exactly one linked incomplete/unknown outcome, count the eligible clip gate as failed, and do not infer pot/no-pot."
+      }
+    ],
+    "review": "For each planned activity, retain before/after inventories and source-aligned movement, settle, and event PTS. Review through ReviewLiveOutcomeAsync and the existing canonical SkyEye.GameState path; accepted facts and canonical state must agree. Preserve every attempt, repeat, missing/duplicate event, timeout, failed save, ambiguity, and interruption."
+  },
+  "gateStatus": {
+    "D1OfflineInventoryAndReadiness": "not-run",
+    "D2InstalledPhoneStationaryReadiness": "not-run",
+    "EPhysicalEventsClipsAndCanonicalReview": "not-run",
+    "completionRule": "All three gates must pass on the tested current implementation and installed package, with linked evidence binding this contract, corpus/split lock, source/artifact hashes, analyzer configuration, tested commit, installed APK, and all failures/exclusions."
+  }
+}
