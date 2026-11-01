@@ -21,3 +21,6 @@ SOFTWARE-HANDOFF terminal result:3/3 suites PASS; combined exit1 due detector0/3
 
 | ARC-NEGATIVE-CONTROL | Does pocket arc reject reviewed empty lower-right location461 versus positive375? | FAIL: both diagnostic checks pass (32/32 vs10/32); timelines differ | Reject partial-arc promotion; stop threshold sweeps on this set. New model/evidence required. | live-detect-arc-negative-audit-20261101.md |
 
+
+| BLACK-MARKER-CUE | Is a bright low-saturation circular 8-ball marker present at reviewed black point and absent at expected-empty points? | PASS4/4 location-conditioned: visible678/375 one component each; absent844/461 none | Hypothesis only. Next evaluate whole-table proposals and all reviewed white-feature negatives; don't count as detector inventory. | live-detect-black-marker-cue-20261101.md |
+

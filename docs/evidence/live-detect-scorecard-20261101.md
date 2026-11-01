@@ -23,3 +23,5 @@ SOFTWARE-HANDOFF completed:3/3 software suites PASS after handoff fix; detector0
 ARC-PAIR result: both the reviewed positive frame678 and expected-empty frame844 produce diagnostic accepted arcs. The experiment cannot discriminate black from background. See live-detect-arc-discrimination-20261101.md. Software current3/3 PASS; motion focused20/20; inventory positive0/3; physical0/3 proven.
 
 ARC-NEGATIVE-CONTROL fails: present375 and expected-empty461 both pass partial-arc diagnostics; different camera timelines, so negative is geometric-only. No promotion. Current software3/3, motion20/20, detector0/3, physical gates0/3. See live-detect-arc-negative-audit-20261101.md.
+
+BLACK-MARKER-CUE location-conditioned check passes4/4; it is not whole-table detection and does not change production inventory0/3. See live-detect-black-marker-cue-20261101.md. Overall software3/3, focused motion20/20, detector inventory0/3, physical0/3 proven.
