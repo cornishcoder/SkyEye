@@ -866,3 +866,5 @@ Workflow: follow [the capture batching and offline efficiency protocol](live-det
 - BLACK-MARKER-CUE: 4/4 simple bright circular features at labelled present/absent points; locations supplied and timelines differ. Next whole-table feature discovery against reviewed negatives. Production inventory remains0/3, suites3/3, physical0/3.
 
 - BLACK-MARKER-DISCOVERY exploratory: bright circular marker plus dark neutral annulus yields 1/0/1/0 whole-frame candidates and4/4 label-point cases on four reviewed frames; no other-ball label collisions. Post-hoc/four distinct timelines, not acceptance. Next freeze feature then independent Development comparison; production inventory0/3.
+
+- BLACK-MARKER-CUE-FROZEN-DEV:8/10 on10 reviewed Development frames (black present5/7, absent3/3); misses477/697, zero other-ball label collisions,0 Holdout. Do not tune on this set; next collect new reviewed groups under frozen feature. Production inventory0/3.

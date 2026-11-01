@@ -195,3 +195,5 @@ The user staged the same mid-cushion black/chalk/table with only the cue moved t
 - Black 8-ball number-patch hypothesis: location-conditioned marker feature4/4 across reviewed visible678/375 and expected-empty844/461. Not whole-table recall/specificity; timeline IDs differ. Script and result in docs/evidence/live-detect-black-marker-cue-20261101.md and work/live-detect-scorecard. Production unchanged.
 
 - Whole-frame marker+dark-annulus feature exploratory4/4; components1/0/1/0 on positive678/absent844/positive375/absent461, no other reviewed ball label collisions. Threshold post-hoc; no timeline match or acceptance. See live-detect-black-marker-discovery-20261101.md. Production unchanged.
+
+- Frozen marker+annulus feature across corpus-v4 Development:8/10 (visible5/7, absent3/3), misses477/697, zero other-ball label collisions;0 Holdout. No tuning or production change. See live-detect-black-marker-dev-v4-20261101.md.

@@ -27,3 +27,5 @@ ARC-NEGATIVE-CONTROL fails: present375 and expected-empty461 both pass partial-a
 BLACK-MARKER-CUE location-conditioned check passes4/4; it is not whole-table detection and does not change production inventory0/3. See live-detect-black-marker-cue-20261101.md. Overall software3/3, focused motion20/20, detector inventory0/3, physical0/3 proven.
 
 BLACK-MARKER-DISCOVERY exploratory full-frame feature4/4 location cases, one/zero/one/zero candidates on positive678/negative844/positive375/negative461, no collisions with reviewed other-ball centres. Post-hoc threshold and all timelines distinct; not acceptance. Production inventory remains0/3. Details in live-detect-black-marker-discovery-20261101.md.
+
+BLACK-MARKER-CUE-FROZEN-DEV scores8/10 point cases (present5/7, absent3/3), zero non-black reviewed-label collisions. This corpus has0 Holdout and is not independent acceptance. Production inventory remains0/3. See live-detect-black-marker-dev-v4-20261101.md. Software3/3, motion20/20, physical0/3 proven.

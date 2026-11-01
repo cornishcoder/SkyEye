@@ -1,7 +1,7 @@
 import argparse,hashlib,json
 from pathlib import Path
 import cv2,numpy as np
-FRAMES=(678,844,375,461);VISIBLE={678,375};S_MAX=100;V_MIN=170;AREA_MIN=20;AREA_MAX=1000;CIRC_MIN=.45;RING_IN=10;RING_OUT=20;RING_S_MAX=120;RING_V_MAX=80;MATCH=20
+FRAMES=(1049,190,206,229,375,461,477,678,697,844);S_MAX=100;V_MIN=170;AREA_MIN=20;AREA_MAX=1000;CIRC_MIN=.45;RING_IN=10;RING_OUT=20;RING_S_MAX=120;RING_V_MAX=80;MATCH=20
 
 def point(corners,table):
  a=[];b=[]
@@ -12,7 +12,7 @@ def point(corners,table):
 def main():
  ap=argparse.ArgumentParser();ap.add_argument('--root',default='work/o08/live-detect-black-pair-v1/physical-controls/replay-inputs/upper-right-development-v4');ap.add_argument('--labels',default='work/o08/live-detect-black-pair-v1/corpus-v3');ap.add_argument('--output',default='work/live-detect-scorecard/black-marker-discovery-annulus.json');args=ap.parse_args();root=Path(args.root);labelroot=Path(args.labels);results=[]
  for f in FRAMES:
-  rp=root/f'{f}.json';ip=root/f'{f}.png';rec=json.loads(rp.read_text());ld=json.loads((labelroot/str(f)/'labels.json').read_text());assert ld['reviewed'];labels=ld['frames'][0]['balls'];black=next(x for x in labels if x['colour']=='black');expected='Visible' if f in VISIBLE else 'Absent';assert black['visibility']==expected
+  rp=root/f'{f}.json';ip=root/f'{f}.png';rec=json.loads(rp.read_text());ld=json.loads((labelroot/str(f)/'labels.json').read_text());assert ld['reviewed'];labels=ld['frames'][0]['balls'];black=next(x for x in labels if x['colour']=='black');expected=black['visibility'];assert expected in ('Visible','Absent')
   image=cv2.imread(str(ip));hsv=cv2.cvtColor(image,cv2.COLOR_BGR2HSV);mask=((hsv[:,:,1]<=S_MAX)&(hsv[:,:,2]>=V_MIN)).astype(np.uint8)*255;n,cc,stats,cent=cv2.connectedComponentsWithStats(mask,8);base=[];selected=[];yy,xx=np.ogrid[:1080,:1920]
   for i in range(1,n):
    x,y,w,h,area=map(int,stats[i]);

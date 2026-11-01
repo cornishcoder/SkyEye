@@ -27,3 +27,6 @@ SOFTWARE-HANDOFF terminal result:3/3 suites PASS; combined exit1 due detector0/3
 
 | BLACK-MARKER-DISCOVERY | Does full-frame bright circle plus dark neutral annulus isolate black markers from red highlights and reviewed negatives? | Exploratory4/4 location cases; counts1/0/1/0, no reviewed non-black label collisions | Post-hoc thresholds, four distinct timelines; predeclare and score independent reviewed sessions before integration. | live-detect-black-marker-discovery-20261101.md |
 
+
+| BLACK-MARKER-CUE-FROZEN-DEV | Apply frozen whole-frame annulus feature to all reviewed corpus-v4 frames | 8/10 black-point cases: positives5/7, absent3/3, zero other-ball label collisions | Misses477/697;0 Holdout, all Development. No tuning on this set; require new reviewed setup group. | live-detect-black-marker-dev-v4-20261101.md |
+
