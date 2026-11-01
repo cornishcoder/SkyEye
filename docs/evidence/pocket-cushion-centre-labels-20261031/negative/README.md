@@ -13,3 +13,5 @@ Frame 978 is a black-absent, empty-mouth spatial control from timeline `2ea48e0c
 After seeing the model proposal, the user confirmed that source pixel `(125.2, 194.4)` is the centre of the visible red ball near the upper-left pocket in saved frame 1179. [The point record](user-confirmed-point-frame-1179.json) binds that proposal-conditioned confirmation to the source PNG and receipt, source PTS, proposal file, exact-profile replay report, and manifest. It is not an independently placed ground-truth centre. This is a point-level label only: it does not review the frame's full inventory or any other ball centre, and it is not a held-out accuracy score.
 
 `frame1179-red-proposal-review.png` remains a separate review aid for the YOLOv11 proposal. Its marker shows the model proposal; it is not itself the user confirmation or a full-frame label.
+
+The [raw-only visual draft note](../raw-only-visual-drafts-20261101.md) includes separate source-only centre estimates for the six Code65 frames. They remain assistant drafts; only the single point above has user confirmation.
