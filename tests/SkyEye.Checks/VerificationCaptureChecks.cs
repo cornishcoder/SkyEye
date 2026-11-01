@@ -8,8 +8,27 @@ static class VerificationCaptureChecks
     static void Check(bool yes, string reason) { if (!yes) throw new Exception(reason); }
     static string FormatTime(DateTimeOffset value) => value.ToUniversalTime().ToString("HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
 
+    static void CheckEvidenceBudget()
+    {
+        const long MiB = 1024 * 1024;
+        Check(VerificationEvidenceBudget.MaximumBytes == 256 * MiB,
+            "The bounded verifier store cap is 256 MiB");
+        Check(VerificationEvidenceBudget.CaptureReservationBytes == 17 * MiB + MiB / 2,
+            "The preflight still reserves 2.5 MiB for each of the seven possible samples");
+        Check(VerificationEvidenceBudget.CanReserveCapture(VerificationEvidenceBudget.MaximumBytes - VerificationEvidenceBudget.CaptureReservationBytes)
+            && !VerificationEvidenceBudget.CanReserveCapture(VerificationEvidenceBudget.MaximumBytes - VerificationEvidenceBudget.CaptureReservationBytes + 1),
+            "The capture preflight accepts its exact reserve boundary and rejects one byte over it");
+        Check(VerificationEvidenceBudget.CanWriteFrame(VerificationEvidenceBudget.MaximumBytes - VerificationEvidenceBudget.MaximumFrameBytes
+                - VerificationEvidenceBudget.FrameWriteOverheadBytes, VerificationEvidenceBudget.MaximumFrameBytes)
+            && !VerificationEvidenceBudget.CanWriteFrame(VerificationEvidenceBudget.MaximumBytes - VerificationEvidenceBudget.MaximumFrameBytes
+                - VerificationEvidenceBudget.FrameWriteOverheadBytes + 1, VerificationEvidenceBudget.MaximumFrameBytes)
+            && !VerificationEvidenceBudget.CanWriteFrame(0, VerificationEvidenceBudget.MaximumFrameBytes + 1),
+            "A frame write respects both exact remaining-space and per-image boundaries");
+    }
+
     public static Task Run()
     {
+        CheckEvidenceBudget();
         var root = Path.Combine(Path.GetTempPath(), "skyeye-verification-capture-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         try
@@ -100,7 +119,7 @@ static class VerificationCaptureChecks
                 && status.Format(FormatTime).Contains(replacementRun.ToString("N")[..8], StringComparison.Ordinal),
                 "A late receipt from a completed run cannot overwrite the next run's status");
 
-            Console.WriteLine("PASS verifier capture counts are operation-scoped, hash-validated, and truthful for partial runs");
+            Console.WriteLine("PASS verifier capture counts are operation-scoped, hash-validated, truthful for partial runs, and quota-bounded");
         }
         finally
         {

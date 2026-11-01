@@ -8,10 +8,6 @@ namespace SkyEye.Companion.Hybrid;
 public sealed partial class ShellSession
 {
     // Keep the evidence store bounded while leaving room for several lossless live captures.
-    const long MaxVerificationEvidenceBytes = 192L * 1024 * 1024;
-    // Reserve 2 MiB per pixel file plus 512 KiB overhead for each bounded sample.
-    const long VerificationCaptureReservationBytes = (2L * 1024 * 1024 + 512L * 1024)
-        * ObservationPolicy.MaximumCapturedVerificationSamples;
     readonly VerificationCaptureRunStatus verificationCaptureStatus = new();
 
     public bool CanCaptureVerificationFrames => CanAnalyzeTable && HasTableCalibration && !EditingTable && !LiveDetectBusy
@@ -54,10 +50,10 @@ public sealed partial class ShellSession
             Publish();
             return;
         }
-        if (retained + VerificationCaptureReservationBytes > MaxVerificationEvidenceBytes)
+        if (!VerificationEvidenceBudget.CanReserveCapture(retained))
         {
-            var requiredMiB = (long)Math.Ceiling(VerificationCaptureReservationBytes / (1024d * 1024d));
-            var freeMiB = Math.Max(0, (MaxVerificationEvidenceBytes - retained) / (1024 * 1024));
+            var requiredMiB = (long)Math.Ceiling(VerificationEvidenceBudget.CaptureReservationBytes / (1024d * 1024d));
+            var freeMiB = Math.Max(0, (VerificationEvidenceBudget.MaximumBytes - retained) / (1024 * 1024));
             verificationCaptureStatus.Complete(operationId, DateTimeOffset.UtcNow,
                 $"Capture not started · {freeMiB} MiB free; {requiredMiB} MiB is required for up to {ObservationPolicy.MaximumCapturedVerificationSamples} frames", 0);
             Message = VerificationCaptureStatus;
@@ -134,7 +130,7 @@ public sealed partial class ShellSession
         var root = VerificationEvidenceRoot;
         Directory.CreateDirectory(root);
         var retained = Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).Sum(p => new FileInfo(p).Length);
-        if (retained > MaxVerificationEvidenceBytes)
+        if (retained > VerificationEvidenceBudget.MaximumBytes)
             throw new IOException("O08 diagnostic capture budget reached. Export evidence before another capture.");
         var folder = Path.Combine(root, sample.OperationId.ToString("N")); Directory.CreateDirectory(folder);
         var decoded = sample.Frame.DecodedReceipt!;
@@ -153,8 +149,8 @@ public sealed partial class ShellSession
             extension = ".jpg"; encoding = "Jpeg"; inputSource = "jpeg-analysis-input";
             width = decoded.Width; height = decoded.Height;
         }
-        if (pixels.Length > 8 * 1024 * 1024) throw new IOException("O08 diagnostic frame exceeds the per-frame capture budget.");
-        if (retained + pixels.Length + 512 * 1024 > MaxVerificationEvidenceBytes) throw new IOException("O08 diagnostic capture budget reached.");
+        if (pixels.Length > VerificationEvidenceBudget.MaximumFrameBytes) throw new IOException("O08 diagnostic frame exceeds the per-frame capture budget.");
+        if (!VerificationEvidenceBudget.CanWriteFrame(retained, pixels.Length)) throw new IOException("O08 diagnostic capture budget reached.");
         var name = decoded.FrameId.ToString(System.Globalization.CultureInfo.InvariantCulture);
         var sha = Convert.ToHexString(SHA256.HashData(pixels)).ToLowerInvariant();
         File.WriteAllBytes(Path.Combine(folder, name + extension), pixels);
