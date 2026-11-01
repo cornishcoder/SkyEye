@@ -2,7 +2,13 @@
 
 Use this guide to operate the Hybrid Production companion on the Pixel 11 and inspect the mounted camera without guessing at screen coordinates or changing match state. Prefer the current accessibility label and a fresh screenshot/UI tree; layout bounds move as the video and Settings panel scroll.
 
-## Current stopped state after lower-left black/cue controls — 1 November 2026
+## Latest stopped state after phone stream diagnostic — 1 November 2026
+
+Production companion `0.8.59` / code67 is installed on Pixel 11 (`66181FDDV001HS`). Commit `438696d` adds Media3 load diagnostics with the stream access token redacted; the Release build succeeded with 8 warnings and 0 errors. Installed APK SHA-256 is `0751393c12afbbad838522c9a69f2a8ea8c97369ae794b3fc47c2c248d9e1a55`. UID/private storage were retained; the previous APK is `work/production/backups/20261101-103910/before.apk`. The camera package was untouched.
+
+One Home **Start live** action produced a visible live image and a Media3 `Media load completed` event for `/live/stream.ts` on timeline `c1a726f97fde4f119c8ce8a1da26f4e6`; the active status showed one viewer. The readback reports 137,435,896 bytes over 173,187ms. This session lasted about 173 seconds, longer than intended, and is not a stillness/readiness check. Home **End recording session** stopped it. Latest `/status` is `Stopped`, revision 19, 13,836 completed frames, `clipCount=139`, zero viewers. [The after-stop screenshot](../work/o08/frame978-development-v1/device-state/pixel11-stream-metrics-after-stop-20261101.png) and hierarchy show **Start live session** and Live Detect off. After the offline pair replay, a fresh `/status` GET at `2026-11-01T10:58:04Z` again reported `Stopped`, revision 19, 13,836 completed frames, 139 clips and zero viewers. The token-redacted readback, fresh Pixel 11 Home screenshot and UI hierarchy are retained at `work/o08/frame978-development-v1/device-state/pixel10-status-current-safe-20261101.json` and the matching `pixel11-current-home-recheck-20261101.*` files. The phone Home shows **Start live session** and the Live Detect action unavailable until a session starts. No verifier frame or new clip was created; no Cast/TV or camera-package action occurred. See the [full diagnostic record](evidence/phone-stream-load-diagnostic-20261101.md). The prior zero-viewer attempt remains unexplained.
+
+## Earlier stopped state after lower-left black/cue controls — 1 November 2026
 
 Production companion `0.8.59` / code67 is installed on Pixel 11 (`66181FDDV001HS`). A Release build from source commit `1c19f1c` was installed in place for verifier timing diagnosis; build succeeded with 9 warnings and 0 errors, installed APK SHA-256 `872f3494843be309b147f13bf56d238f59097a9dc21cbb02abf9f90eac66c187`. UID/private storage were retained; the previous APK is `work/production/backups/20261101-102028/before.apk`. The camera package was untouched.
 
