@@ -379,6 +379,124 @@ try
         "A frame ID cannot name another timestamp/payload receipt");
     File.WriteAllBytes(Path.Combine(root, "next.gray"), new byte[64]);
     Throws<InvalidDataException>(() => FrameReplay.Run(sequence, files));
+
+    var splitSource = new MediaSource("camera", "split-planner fixture", "unused.gray", new string('a', 64),
+        8, 8, SourceClock.RecordingMicroseconds, "cal-v1");
+    CorpusSequence SplitSequence(string id, string session, string setupGroup)
+        => new(id, session, CorpusKind.Real, CorpusSplit.Development, SequencePurpose.StillRegression,
+            splitSource, "unused-index.jsonl", id + "-labels.json", "split planning only", ["setup-group:" + setupGroup]);
+    var groupedSequences = new[]
+    {
+        SplitSequence("a1", "session-a1", "group-a"), SplitSequence("a2", "session-a2", "group-a"),
+        SplitSequence("b1", "session-b1", "group-b"), SplitSequence("b2", "session-b2", "group-b"),
+        SplitSequence("c1", "session-c1", "group-c"), SplitSequence("c2", "session-c2", "group-c")
+    };
+    var groupedManifest = new CorpusManifest(1, "o09-setup-group-split-fixture", groupedSequences.ToImmutableArray());
+    var splitPlan = O09YoloDatasetExport.PlanDevelopmentSplit(groupedManifest);
+    Check(splitPlan.SplitGroups.Length == 3 && splitPlan.SessionAssignments.Length == 6
+        && splitPlan.SplitGroups.SelectMany(group => group.Sessions).Distinct(StringComparer.Ordinal).Count() == 6,
+        "O09 keeps every independent recording session in one explicit split group");
+    var assignmentsBySession = splitPlan.SessionAssignments.ToDictionary(assignment => assignment.Session, StringComparer.Ordinal);
+    Check(new[] { "session-a1", "session-a2" }.Select(session => assignmentsBySession[session].SplitGroupId).Distinct().Count() == 1
+        && new[] { "session-a1", "session-a2" }.Select(session => assignmentsBySession[session].Role).Distinct().Count() == 1
+        && new[] { "session-b1", "session-b2" }.Select(session => assignmentsBySession[session].SplitGroupId).Distinct().Count() == 1
+        && new[] { "session-b1", "session-b2" }.Select(session => assignmentsBySession[session].Role).Distinct().Count() == 1
+        && splitPlan.SplitGroups.Count(group => group.Role == "validation") == 1
+        && splitPlan.SplitGroups.Count(group => group.Role == "train") == 2,
+        "Sibling setup/control sessions cannot cross train/validation and all roles remain represented");
+    Check(CorpusJson.Write(splitPlan) == CorpusJson.Write(O09YoloDatasetExport.PlanDevelopmentSplit(
+            groupedManifest with { Sequences = groupedManifest.Sequences.Reverse().ToImmutableArray() })),
+        "O09 setup-group assignments are deterministic regardless of manifest order");
+    var transitivePlan = O09YoloDatasetExport.PlanDevelopmentSplit(new CorpusManifest(1, "o09-transitive-groups",
+    [
+        SplitSequence("shared-a", "shared-camera-session", "group-a"),
+        SplitSequence("shared-b", "shared-camera-session", "group-b"),
+        SplitSequence("only-c", "session-c", "group-c"),
+        SplitSequence("only-d", "session-d", "group-d")
+    ]));
+    Check(transitivePlan.SessionAssignments.Where(assignment => assignment.Session == "shared-camera-session").Select(a => a.SplitGroupId).Distinct().Count() == 1
+        && transitivePlan.SplitGroups.Single(group => group.Sessions.Contains("shared-camera-session")).SetupGroups.Length == 2,
+        "A shared recording session joins multiple setup groups transitively");
+    Throws<InvalidDataException>(() => O09YoloDatasetExport.PlanDevelopmentSplit(new CorpusManifest(1, "o09-insufficient-groups",
+    [
+        SplitSequence("few-a1", "few-session-a1", "few-group-a"),
+        SplitSequence("few-a2", "few-session-a2", "few-group-a"),
+        SplitSequence("few-b", "few-session-b", "few-group-b")
+    ])));
+
+    var diagnosticCaptureRoot = Path.Combine(root, "o09-setup-group-captures");
+    Directory.CreateDirectory(diagnosticCaptureRoot);
+    string diagnosticA = Guid.NewGuid().ToString("N"), diagnosticB = Guid.NewGuid().ToString("N");
+    string recordingA = Guid.NewGuid().ToString("N"), recordingB = Guid.NewGuid().ToString("N");
+    var diagnosticJpeg = new byte[] { 0xff, 0xd8, 0xff, 0xc0, 0, 11, 8, 0, 8, 0, 8, 1, 1, 0x11, 0, 0xff, 0xd9 };
+    void WriteDiagnosticBatch(string diagnosticId, string recordingId)
+    {
+        string folder = Path.Combine(diagnosticCaptureRoot, diagnosticId);
+        Directory.CreateDirectory(folder);
+        for (int frameId = 1; frameId <= 2; frameId++)
+        {
+            var pixels = diagnosticJpeg.ToArray();
+            pixels[12] = (byte)(frameId + (recordingId == recordingA ? 1 : 3));
+            long sourceTime = frameId * 33_333L;
+            string sampleId = diagnosticId + "-" + frameId.ToString("D12", System.Globalization.CultureInfo.InvariantCulture);
+            string pixelFile = sampleId + ".jpg";
+            File.WriteAllBytes(Path.Combine(folder, pixelFile), pixels);
+            var indexed = new IndexedFrame(sampleId, frameId, sourceTime,
+                new("mounted-camera", recordingId, 1, "diagnostic-calibration"), pixelFile,
+                CorpusFiles.Hash(pixels), PixelEncoding.Jpeg, 8, 8);
+            var capture = new DiagnosticLabelCapture(2, diagnosticId, recordingId, true, true, false,
+                DateTimeOffset.UtcNow.AddMilliseconds(frameId), 0, frameId, "diagnostic-calibration", "fixture-analyzer",
+                [new(.1, .1), new(.9, .1), new(.9, .9), new(.1, .9)], "decoded-live-texture", indexed, [],
+                [new("red-01", "red", .5, .5, "Visible", .1, .1)], "Reviewed complete-frame setup-group importer fixture");
+            File.WriteAllText(Path.Combine(folder, sampleId + ".label.json"), CorpusJson.Write(capture));
+        }
+    }
+    WriteDiagnosticBatch(diagnosticA, recordingA);
+    WriteDiagnosticBatch(diagnosticB, recordingB);
+    var assignmentPath = Path.Combine(root, "o09-setup-group-assignments.json");
+    var developmentAssignments = new DiagnosticLabelAssignmentManifest(1,
+    [
+        new(diagnosticA, CorpusSplit.Development, null, SetupGroupId: "related-pocket-controls"),
+        new(diagnosticB, CorpusSplit.Development, null, SetupGroupId: "related-pocket-controls")
+    ]);
+    File.WriteAllText(assignmentPath, CorpusJson.Write(developmentAssignments));
+    string importedSetupManifestPath = DiagnosticLabelCaptureImport.Import(diagnosticCaptureRoot,
+        Path.Combine(root, "o09-setup-group-imported"), assignmentPath);
+    var importedSetupManifest = CorpusJson.Read<CorpusManifest>(importedSetupManifestPath);
+    Check(importedSetupManifest.Sequences.Length == 2 && importedSetupManifest.Sequences.All(sequence =>
+            sequence.Tags.Contains("setup-group:related-pocket-controls", StringComparer.Ordinal)),
+        "Diagnostic import carries the frozen setup-group assignment into O01 sequence metadata");
+    File.WriteAllText(assignmentPath, CorpusJson.Write(developmentAssignments with
+    {
+        Sessions = [developmentAssignments.Sessions[0], developmentAssignments.Sessions[1] with
+        { Split = CorpusSplit.Holdout, HoldoutCondition = "still" }]
+    }));
+    Throws<InvalidDataException>(() => DiagnosticLabelCaptureImport.Import(diagnosticCaptureRoot,
+        Path.Combine(root, "o09-setup-group-cross-split"), assignmentPath));
+
+    var setupDevFrame = Frame("setup-dev-group", 101, 5000, scope with { Timeline = "setup-dev" }, pixelId: 101);
+    var setupHoldoutFrame = Frame("setup-holdout-group", 102, 6000, scope with { Timeline = "setup-holdout" }, pixelId: 102);
+    string setupDevIndexPath = Path.Combine(root, "setup-dev-index.jsonl");
+    string setupHoldoutIndexPath = Path.Combine(root, "setup-holdout-index.jsonl");
+    File.WriteAllText(setupDevIndexPath, JsonSerializer.Serialize(setupDevFrame, new JsonSerializerOptions(CorpusJson.Options) { WriteIndented = false }));
+    File.WriteAllText(setupHoldoutIndexPath, JsonSerializer.Serialize(setupHoldoutFrame, new JsonSerializerOptions(CorpusJson.Options) { WriteIndented = false }));
+    var setupDevSequence = new CorpusSequence("setup-dev-sequence", "setup-dev-session", CorpusKind.Real,
+        CorpusSplit.Development, SequencePurpose.StillRegression,
+        new("camera", "setup-group leakage fixture", setupDevFrame.PixelFile, setupDevFrame.PixelSha256, 8, 8,
+            SourceClock.RecordingMicroseconds, "cal-v1"), "setup-dev-index.jsonl", "setup-dev-labels.json", "Development fixture", ["setup-group:shared-control"]);
+    var setupHoldoutSequence = new CorpusSequence("setup-holdout-sequence", "setup-holdout-session", CorpusKind.Real,
+        CorpusSplit.Holdout, SequencePurpose.Shot,
+        new("camera", "setup-group leakage fixture", setupHoldoutFrame.PixelFile, setupHoldoutFrame.PixelSha256, 8, 8,
+            SourceClock.RecordingMicroseconds, "cal-v1"), "setup-holdout-index.jsonl", "setup-holdout-labels.json", "Holdout fixture", ["setup-group:shared-control"]);
+    FrameLabels SetupLabel(IndexedFrame frame) => new(frame.SampleId, frame.PixelSha256, "table-2x1",
+        [new("R1", "red", .5, .5, LabelVisibility.Visible)], "independent setup-group fixture label");
+    File.WriteAllText(Path.Combine(root, "setup-dev-labels.json"), CorpusJson.Write(new SequenceLabels(2,
+        setupDevSequence.Id, "reviewer", "cal-v1", true, [SetupLabel(setupDevFrame)], [])));
+    File.WriteAllText(Path.Combine(root, "setup-holdout-labels.json"), CorpusJson.Write(new SequenceLabels(2,
+        setupHoldoutSequence.Id, "reviewer", "cal-v1", true, [SetupLabel(setupHoldoutFrame)], [])));
+    Throws<InvalidDataException>(() => CorpusValidation.Validate(new CorpusManifest(1, "setup-group-leak-check",
+        [setupDevSequence, setupHoldoutSequence]), files));
+    Console.WriteLine("PASS O09-SETUP-GROUP-SPLIT-ISOLATION 8/8 · import carries groups; train/validation and O01 Holdout boundaries prevent setup/control leakage");
     Console.WriteLine("PASS observation corpus/replay: deterministic receipts, duplicates/backwards, gaps/scope resets, pixel-ID pairing, checksums, split leakage and synthetic coverage limits");
 }
 finally

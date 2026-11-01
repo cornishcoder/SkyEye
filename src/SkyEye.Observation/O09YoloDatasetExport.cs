@@ -5,11 +5,16 @@ using System.Text;
 
 namespace SkyEye.Observation;
 
-public sealed record O09ExportSession(string Session, string Role);
-public sealed record O09ExportSample(string SequenceId, string Session, string Split, string SampleId,
+public sealed record O09ExportSession(string Session, string SplitGroupId, string Role);
+public sealed record O09ExportSplitGroup(string SplitGroupId, string Role, ImmutableArray<string> Sessions,
+    ImmutableArray<string> SetupGroups);
+public sealed record O09DevelopmentSplitPlan(ImmutableArray<O09ExportSession> SessionAssignments,
+    ImmutableArray<O09ExportSplitGroup> SplitGroups);
+public sealed record O09ExportSample(string SequenceId, string Session, string Split, string SplitGroupId, string SampleId,
     string ImageFile, string PixelSha256, string LabelFile, int VisibleBoxes);
 public sealed record O09TrainingExportReport(int SchemaVersion, string CorpusId, string ManifestSha256,
     string SourceSplit, ImmutableArray<O09ExportSession> SessionAssignments,
+    ImmutableArray<O09ExportSplitGroup> SplitGroups,
     ImmutableArray<O09ExportSample> Samples, ImmutableArray<string> Classes, string AugmentationPolicy,
     string HoldoutPolicy);
 
@@ -17,24 +22,83 @@ public sealed record O09TrainingExportReport(int SchemaVersion, string CorpusId,
 public static class O09YoloDatasetExport
 {
     static readonly ImmutableArray<string> Classes = ["cue", "black", "red", "yellow", "unknown"];
-    sealed record PreparedSample(string SequenceId, string Session, string Role, string SampleId,
+    sealed record PreparedSample(string SequenceId, string Session, string Role, string SplitGroupId, string SampleId,
         IndexedFrame Frame, string ImageFile, string LabelFile, string LabelText, int VisibleBoxes);
+
+    public static O09DevelopmentSplitPlan PlanDevelopmentSplit(CorpusManifest manifest)
+    {
+        var development = manifest.Sequences.Where(s => s.Kind == CorpusKind.Real && s.Split == CorpusSplit.Development)
+            .OrderBy(s => s.Id, StringComparer.Ordinal).ToArray();
+        if (development.Length == 0) throw new InvalidDataException("No real Development sequences are available for O09 training export.");
+        var sessions = development.Select(s => s.Session).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
+        if (sessions.Length < 3)
+            throw new InvalidDataException("O09 requires at least three independent Development recording sessions; O01 Holdout sessions are never exported.");
+
+        var parent = new Dictionary<string, string>(StringComparer.Ordinal);
+        string SessionNode(string id) => "session:" + id;
+        string SetupNode(string id) => "setup:" + id;
+        void Add(string node) { if (!parent.ContainsKey(node)) parent.Add(node, node); }
+        string Find(string node)
+        {
+            var current = parent[node];
+            if (!StringComparer.Ordinal.Equals(current, node)) parent[node] = Find(current);
+            return parent[node];
+        }
+        void Union(string first, string second)
+        {
+            var a = Find(first); var b = Find(second);
+            if (!StringComparer.Ordinal.Equals(a, b)) parent[b] = a;
+        }
+
+        foreach (var sequence in development)
+        {
+            var session = SessionNode(sequence.Session);
+            Add(session);
+            foreach (var setupGroup in CorpusSetupGroups.ForSequence(sequence))
+            {
+                var setup = SetupNode(setupGroup);
+                Add(setup);
+                Union(session, setup);
+            }
+        }
+
+        var components = development.GroupBy(sequence => Find(SessionNode(sequence.Session)), StringComparer.Ordinal)
+            .Select(component =>
+            {
+                var componentSequences = component.ToArray();
+                var componentSessions = componentSequences.Select(s => s.Session).Distinct(StringComparer.Ordinal)
+                    .Order(StringComparer.Ordinal).ToImmutableArray();
+                var setupGroups = componentSequences.SelectMany(sequence => CorpusSetupGroups.ForSequence(sequence).AsEnumerable())
+                    .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToImmutableArray();
+                string identity = "sessions\n" + string.Join('\n', componentSessions) + "\nsetup-groups\n" + string.Join('\n', setupGroups);
+                string splitGroupId = "split-" + Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(identity)))
+                    .ToLowerInvariant()[..16];
+                return (Id: splitGroupId, Sessions: componentSessions, SetupGroups: setupGroups);
+            }).OrderBy(component => component.Id, StringComparer.Ordinal).ToArray();
+        if (components.Length < 3)
+            throw new InvalidDataException("O09 needs at least three independent Development split groups after joining every shared recording session and setup/control group.");
+
+        int validationCount = Math.Clamp((int)Math.Round(components.Length * .2, MidpointRounding.AwayFromZero), 1, components.Length - 2);
+        var validation = components.OrderBy(component => StableSplitGroupHash(manifest.Id,
+                component.Id, component.Sessions, component.SetupGroups), StringComparer.Ordinal)
+            .ThenBy(component => component.Id, StringComparer.Ordinal).Take(validationCount)
+            .Select(component => component.Id).ToHashSet(StringComparer.Ordinal);
+        var groups = components.Select(component => new O09ExportSplitGroup(component.Id,
+                validation.Contains(component.Id) ? "validation" : "train", component.Sessions, component.SetupGroups))
+            .ToImmutableArray();
+        var sessionAssignments = groups.SelectMany(group => group.Sessions.Select(session =>
+                new O09ExportSession(session, group.SplitGroupId, group.Role)))
+            .OrderBy(assignment => assignment.Session, StringComparer.Ordinal).ToImmutableArray();
+        return new(sessionAssignments, groups);
+    }
 
     public static O09TrainingExportReport Export(CorpusManifest manifest, FrozenCorpus frozen, CorpusFiles files, string outputDirectory)
     {
         if (string.IsNullOrWhiteSpace(outputDirectory)) throw new ArgumentException("Provide a new O09 dataset output directory.", nameof(outputDirectory));
         var development = manifest.Sequences.Where(s => s.Kind == CorpusKind.Real && s.Split == CorpusSplit.Development)
             .OrderBy(s => s.Id, StringComparer.Ordinal).ToArray();
-        if (development.Length == 0) throw new InvalidDataException("No real Development sequences are available for O09 training export.");
-
-        var sessions = development.Select(s => s.Session).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
-        if (sessions.Length < 3)
-            throw new InvalidDataException("O09 requires at least three independent Development sessions to form train and validation splits; O01 Holdout sessions are never exported.");
-        int validationCount = Math.Clamp((int)Math.Round(sessions.Length * .2, MidpointRounding.AwayFromZero), 1, sessions.Length - 2);
-        var validationSessions = sessions.OrderBy(s => StableSessionHash(manifest.Id, s), StringComparer.Ordinal)
-            .ThenBy(s => s, StringComparer.Ordinal).Take(validationCount).ToHashSet(StringComparer.Ordinal);
-        var assignments = sessions.Select(s => new O09ExportSession(s, validationSessions.Contains(s) ? "validation" : "train"))
-            .ToImmutableArray();
+        var plan = PlanDevelopmentSplit(manifest);
+        var assignmentBySession = plan.SessionAssignments.ToDictionary(assignment => assignment.Session, StringComparer.Ordinal);
 
         var target = Path.GetFullPath(outputDirectory);
         if (Directory.Exists(target) || File.Exists(target)) throw new IOException("O09 export destination already exists; choose a new versioned directory.");
@@ -42,7 +106,8 @@ public static class O09YoloDatasetExport
         long totalBytes = 0;
         foreach (var sequence in development)
         {
-            var role = validationSessions.Contains(sequence.Session) ? "validation" : "train";
+            var assignment = assignmentBySession[sequence.Session];
+            var role = assignment.Role;
             var folder = role == "validation" ? "val" : "train";
             var labels = CorpusJson.Read<SequenceLabels>(files.Resolve(sequence.LabelsFile));
             if (!labels.Reviewed || labels.Frames.IsDefaultOrEmpty)
@@ -67,7 +132,7 @@ public static class O09YoloDatasetExport
                 string labelRelative = $"labels/{folder}/{stem}.txt";
                 var yoloLines = visible.Select(ball => YoloBox(ball)).ToArray();
                 string labelText = yoloLines.Length == 0 ? string.Empty : string.Join("\n", yoloLines) + "\n";
-                prepared.Add(new(sequence.Id, sequence.Session, role, frameLabels.SampleId, indexed,
+                prepared.Add(new(sequence.Id, sequence.Session, role, assignment.SplitGroupId, frameLabels.SampleId, indexed,
                     imageRelative, labelRelative, labelText, visible.Length));
             }
         }
@@ -84,13 +149,13 @@ public static class O09YoloDatasetExport
             string labelPath = Path.Combine(target, sample.LabelFile.Replace('/', Path.DirectorySeparatorChar));
             File.WriteAllBytes(imagePath, pixels);
             File.WriteAllText(labelPath, sample.LabelText, new UTF8Encoding(false));
-            exported.Add(new(sample.SequenceId, sample.Session, sample.Role, sample.SampleId,
+            exported.Add(new(sample.SequenceId, sample.Session, sample.Role, sample.SplitGroupId, sample.SampleId,
                 sample.ImageFile, sample.Frame.PixelSha256, sample.LabelFile, sample.VisibleBoxes));
         }
         File.WriteAllText(Path.Combine(target, "dataset.yaml"),
             "path: .\ntrain: images/train\nval: images/val\nnames:\n  0: cue\n  1: black\n  2: red\n  3: yellow\n  4: unknown\n", new UTF8Encoding(false));
-        var report = new O09TrainingExportReport(1, manifest.Id, frozen.ManifestSha256, "Development", assignments,
-            exported.ToImmutable(), Classes,
+        var report = new O09TrainingExportReport(2, manifest.Id, frozen.ManifestSha256, "Development",
+            plan.SessionAssignments, plan.SplitGroups, exported.ToImmutable(), Classes,
             "No augmentation is applied during export. Apply exposure changes up to plus/minus two stops, brightness/gamma/contrast, warm/cool white balance, saturation, directional/partial shadows, blind-like stripes, highlights, dim/bright-room variation, motion blur, slight defocus, compression/noise, overlap and partial occlusion to train sessions only. Keep validation and O01 Holdout pixels unchanged.",
             "O01 Holdout sessions and pixels are not copied or listed as training samples; evaluate a frozen candidate against them only after model and thresholds are fixed.");
         File.WriteAllText(Path.Combine(target, "o09-export.json"), CorpusJson.Write(report) + "\n", new UTF8Encoding(false));
@@ -116,6 +181,8 @@ public static class O09YoloDatasetExport
         return string.Join(' ', bounds.ToString(CultureInfo.InvariantCulture), N((left + right) / 2), N((top + bottom) / 2), N(right - left), N(bottom - top));
     }
 
-    static string StableSessionHash(string corpusId, string session) =>
-        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(corpusId + "\n" + session)));
+    static string StableSplitGroupHash(string corpusId, string splitGroupId, ImmutableArray<string> sessions,
+        ImmutableArray<string> setupGroups) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(corpusId + "\n" + splitGroupId + "\n"
+            + string.Join('\n', sessions) + "\n" + string.Join('\n', setupGroups))));
 }

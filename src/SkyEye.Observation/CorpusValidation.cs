@@ -19,6 +19,15 @@ public static class CorpusValidation
         foreach (var session in manifest.Sequences.GroupBy(s => s.Session))
             if (session.Any(s => s.Split == CorpusSplit.Holdout) && session.Any(s => s.Split is CorpusSplit.Development or CorpusSplit.Regression))
                 throw new InvalidDataException("Recording session leaks across holdout and development/regression: " + session.Key);
+        foreach (var setupGroup in manifest.Sequences
+            .SelectMany(sequence => CorpusSetupGroups.ForSequence(sequence).Select(id => (Sequence: sequence, Id: id)))
+            .GroupBy(item => item.Id, StringComparer.Ordinal))
+        {
+            var assignedSplits = setupGroup.Select(item => item.Sequence.Split)
+                .Where(split => split != CorpusSplit.Unassigned).Distinct().ToArray();
+            if (assignedSplits.Length > 1)
+                throw new InvalidDataException("Setup/control group leaks across corpus splits: " + setupGroup.Key);
+        }
         foreach (var source in manifest.Sequences.GroupBy(s => s.Source?.Sha256))
             if (source.Any(s => s.Split == CorpusSplit.Holdout) && source.Any(s => s.Split is CorpusSplit.Development or CorpusSplit.Regression))
                 throw new InvalidDataException("The same source asset leaks across splits.");

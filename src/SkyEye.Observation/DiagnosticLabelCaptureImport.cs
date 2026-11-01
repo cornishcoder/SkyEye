@@ -19,7 +19,7 @@ public sealed record DiagnosticLabelDetection(string Model, string Provenance, b
 public sealed record DiagnosticLabelSession(int SchemaVersion, string DiagnosticSessionId, string RecordingSessionId,
     DateTimeOffset StartedAt, DateTimeOffset CompletedAt, bool Reviewed, int FrameCount, string Notes);
 public sealed record DiagnosticLabelSessionAssignment(string DiagnosticSessionId, CorpusSplit Split, string? HoldoutCondition,
-    SequencePurpose? Purpose = null);
+    SequencePurpose? Purpose = null, string? SetupGroupId = null);
 public sealed record DiagnosticLabelAssignmentManifest(int SchemaVersion,
     ImmutableArray<DiagnosticLabelSessionAssignment> Sessions);
 
@@ -30,7 +30,7 @@ public static class DiagnosticLabelCaptureImport
     const long MaximumPixels = 40L * 1024 * 1024;
     static readonly string[] HoldoutConditions = ["still", "moving", "obstructed", "lighting-changed", "camera-changed"];
 
-    sealed record PreparedSession(DiagnosticLabelSession Session, CorpusSplit Split, string? HoldoutCondition,
+    sealed record PreparedSession(DiagnosticLabelSession Session, CorpusSplit Split, string? HoldoutCondition, string? SetupGroupId,
         ImmutableArray<(DiagnosticLabelCapture Capture, string ReceiptPath, byte[] Pixels)> Frames);
 
     public static string Import(string captureRoot, string outputRoot, string assignmentsFile)
@@ -50,6 +50,8 @@ public static class DiagnosticLabelCaptureImport
                 || a.Purpose is { } purpose && purpose != SequencePurpose.Shot
                 || associationReady && a.Purpose != SequencePurpose.Shot
                 || !associationReady && a.Purpose == SequencePurpose.Shot
+                || a.SetupGroupId is { } setupGroupId && (!CorpusFiles.Text(setupGroupId)
+                    || setupGroupId.Length > 160 || setupGroupId != setupGroupId.Trim())
                 || a.Split == CorpusSplit.Development && a.HoldoutCondition is not null
                 || a.Purpose == SequencePurpose.Shot && a.HoldoutCondition is not null
                 || a.Split == CorpusSplit.Holdout && a.Purpose != SequencePurpose.Shot
@@ -188,7 +190,7 @@ public static class DiagnosticLabelCaptureImport
             session ??= new(1, diagnosticSessionId, recordingSessionId,
                 frames.Min(f => f.Item1.CapturedAt), frames.Max(f => f.Item1.CapturedAt), true,
                 frames.Count, "Recovered from individually reviewed frame receipts; finish marker was not written.");
-            sessions.Add(new(session, assignment.Split, assignment.HoldoutCondition, frames.ToImmutable()));
+            sessions.Add(new(session, assignment.Split, assignment.HoldoutCondition, assignment.SetupGroupId, frames.ToImmutable()));
         }
 
         if (sessions.Count == 0) throw new InvalidDataException("No individually reviewed diagnostic label frames were found.");
@@ -199,6 +201,9 @@ public static class DiagnosticLabelCaptureImport
         if (sessions.GroupBy(s => s.Session.RecordingSessionId, StringComparer.Ordinal)
             .Any(group => group.Select(s => s.Split).Distinct().Count() > 1))
             throw new InvalidDataException("Diagnostic batches from one camera recording session must share the same frozen split.");
+        if (sessions.Where(s => s.SetupGroupId is not null).GroupBy(s => s.SetupGroupId!, StringComparer.Ordinal)
+            .Any(group => group.Select(s => s.Split).Distinct().Count() > 1))
+            throw new InvalidDataException("Diagnostic batches from one setup/control group must share the same frozen split.");
 
         Directory.CreateDirectory(destination);
         var sequences = ImmutableArray.CreateBuilder<CorpusSequence>(sessions.Count);
@@ -263,10 +268,13 @@ public static class DiagnosticLabelCaptureImport
                 CorpusJson.Write(new SequenceLabels(2, id, "user-reviewed diagnostic labels", calibration, true,
                     labelFrames.ToImmutable(), intervals)) + "\n");
             var first = indexFrames[0];
+            var sequenceTags = prepared.SetupGroupId is { } setupGroup
+                ? ImmutableArray.Create("setup-group:" + setupGroup)
+                : ImmutableArray<string>.Empty;
             sequences.Add(new(id, prepared.Session.RecordingSessionId, CorpusKind.Real, prepared.Split, purpose,
                 new("diagnostic-" + id, "Opt-in, hand-labelled live camera frames", first.PixelFile, first.PixelSha256,
                     first.Width, first.Height, SourceClock.RecordingMicroseconds, calibration), indexFile, labelsFile,
-                "User-labelled diagnostic frame subset. Detector output is not included in ground truth.", []));
+                "User-labelled diagnostic frame subset. Detector output is not included in ground truth.", sequenceTags));
             if (associationReady)
             {
                 if (sessionDetections.Count != prepared.Frames.Length)

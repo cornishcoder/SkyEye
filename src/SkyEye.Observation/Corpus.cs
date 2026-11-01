@@ -37,6 +37,19 @@ public sealed record LabelInterval(string Kind, long FromUs, long ToUs, string C
 public sealed record SequenceLabels(int SchemaVersion, string SequenceId, string Annotator, string CalibrationVersion,
     bool Reviewed, ImmutableArray<FrameLabels> Frames, ImmutableArray<LabelInterval> Intervals);
 
+public static class CorpusSetupGroups
+{
+    public static ImmutableArray<string> ForSequence(CorpusSequence sequence)
+    {
+        if (sequence.Tags.IsDefaultOrEmpty) return [];
+        return sequence.Tags.Select(tag => tag.StartsWith("setup-group:", StringComparison.Ordinal)
+                ? tag["setup-group:".Length..]
+                : tag.StartsWith("matched-setup-group-", StringComparison.Ordinal) ? tag : null)
+            .Where(id => id is not null).Select(id => id!)
+            .Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToImmutableArray();
+    }
+}
+
 public static class CorpusJson
 {
     public static JsonSerializerOptions Options { get; } = new(JsonSerializerDefaults.Web)

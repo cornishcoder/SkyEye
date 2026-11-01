@@ -22,7 +22,7 @@ Keep the detector output as candidate evidence. An uncertain/unknown candidate m
 
 ## Data and evaluation
 
-Use the existing O01 workbench and its session-level split; do not create a parallel corpus. Extend its reviewed still/negative sequence support as needed. Capture original local Pixel table frames through an explicit opt-in, size-limited path with the actual source/frame receipt, calibration/configuration identity and lighting/motion condition. The current rolling detection dump alone is not labelled source imagery; do not turn on unbounded recording or auto-upload as part of the debug workflow.
+Use the existing O01 workbench and its split metadata; do not create a parallel corpus. Extend its reviewed still/negative sequence support as needed. Capture original local Pixel table frames through an explicit opt-in, size-limited path with the actual source/frame receipt, calibration/configuration identity and lighting/motion condition. The current rolling detection dump alone is not labelled source imagery; do not turn on unbounded recording or auto-upload as part of the debug workflow.
 
 Freeze development and held-out recording sessions **before training or augmentation**. Keep every frame and augmented derivative from one source session on the same side of the split. Augment training data only: exposure changes up to ±2 stops, brightness/gamma/contrast, warm/cool white balance, saturation, directional and partial shadows, blind-like stripes, specular highlights, dim/bright rooms, motion blur, slight defocus, compression/noise, overlaps and partial occlusion. Synthetic augmentation supports real data; it does not replace real held-out sessions.
 
@@ -64,14 +64,14 @@ Copy the lab app's capture directory into `work/o09/label-captures`:
 adb pull /sdcard/Android/data/uk.co.skyeye.companion.lab/files/o09-labels work/o09/label-captures
 ```
 
-Create `work/o09/session-assignments.json` before training or augmentation, assigning every diagnostic batch and condition. The importer groups them by the original camera recording session, so it rejects a split that leaks batches from one recording session across Development and Holdout.
+Create `work/o09/session-assignments.json` before training or augmentation, assigning every diagnostic batch, condition, and (when separate camera recordings share a staged layout/control family) setup group. `setupGroupId` is optional for unrelated batches; use the same stable ID for sibling captures whose pixels must stay together. The importer carries it into O01 as `setup-group:<id>` and rejects a group split across Development and Holdout. O01 validation independently rejects that leakage if metadata is edited later. O09 train/validation planning joins sequences that share either the original camera recording session or a setup group, including transitive links, before assigning roles.
 
 ```json
 {
   "schemaVersion": 1,
   "sessions": [
-    { "diagnosticSessionId": "DIAGNOSTIC_BATCH_ID", "split": "Development", "holdoutCondition": null },
-    { "diagnosticSessionId": "ANOTHER_BATCH_ID", "split": "Holdout", "holdoutCondition": "still" }
+    { "diagnosticSessionId": "DIAGNOSTIC_BATCH_ID", "split": "Development", "holdoutCondition": null, "setupGroupId": "dev-pocket-control-a" },
+    { "diagnosticSessionId": "ANOTHER_BATCH_ID", "split": "Holdout", "holdoutCondition": "still", "setupGroupId": "holdout-layout-a" }
   ]
 }
 ```
@@ -110,7 +110,7 @@ The importer maps hand-labelled image centres through the exact saved table cali
 
 ## Implemented offline workbench slice
 
-`export-yolo` exports reviewed real **Development** samples only. It partitions whole Development sessions deterministically into train and validation sets, requires at least three sessions, image-normalized labels and reviewed X/Y radii, and refuses ambiguous/occluded labels. The report records the frozen manifest and session assignments. O01 Holdout pixels are never copied; this exporter does not perform augmentation or select a training framework. Apply the planned appearance augmentation to train only.
+`export-yolo` exports reviewed real **Development** samples only. It forms deterministic connected split groups by joining every sequence that shares a camera recording session or a `setup-group:<id>` tag, then assigns whole groups to train and validation. It requires at least three independent Development recording sessions and three resulting split groups, image-normalized labels and reviewed X/Y radii, and refuses ambiguous/occluded labels. Export report schema 2 records each session's split-group ID and each group's sessions/setup groups. O01 Holdout pixels are never copied; this exporter does not perform augmentation or select a training framework. Apply the planned appearance augmentation to train only.
 
 ```powershell
 dotnet run --project src/SkyEye.Observation.Workbench -- export-yolo --root PATH-TO-CORPUS --manifest PATH-TO-MANIFEST --lock PATH-TO-LOCK --output-dir work/o09/train-v1
