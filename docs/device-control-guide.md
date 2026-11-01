@@ -2,11 +2,17 @@
 
 Use this guide to operate the Hybrid Production companion on the Pixel 11 and inspect the mounted camera without guessing at screen coordinates or changing match state. Prefer the current accessibility label and a fresh screenshot/UI tree; layout bounds move as the video and Settings panel scroll.
 
-## Latest safe state after mid-cushion stage replay — 1 November 2026
+## Latest safe state after opposite-cue-absent replay — 1 November 2026
 
-Fresh mounted-camera `/status` at `2026-11-01T16:23:45Z` reports `Stopped`, revision 55, timeline `9c88cf01eebe4b51a368dd16fa506665`, 30,544 completed frames, 1920×1080 at 30fps, 139 clips, zero viewers, battery 67%, armed. The token-free snapshot is `../work/o08/live-detect-black-pair-v1/physical-controls/stage-replays/midcushion-20261101/device-state/pixel10-status-final-20261101.json` (SHA-256 `165c8f9843249142cb00cfdb6f0ba0a0d8bfda8d235c8bebb97002441e215583`).
+After the bounded cue-absent verifier, a fresh mounted-camera `/status` at `2026-11-01T16:56:51.3389068Z` reported `Stopped`, revision 59, timeline `972b743103a54820afdc4484ffaf7042`, 34,376 completed frames, 1920×1080 at 30fps, 139 clips, zero viewers and 61% battery. The token-free snapshot is `../work/o08/live-detect-black-pair-v1/physical-controls/stage-replays/oppositecue-20261101/device-state/pixel10-status-after-opposite-cue-absent-replay-20261101.json` (SHA-256 `F424BEBFCA5A353E6EFC908A6B040C92227198F7ADCC022A6EEDC8145342189C`).
 
-Read-only ADB confirms Pixel 11 Pro XL (`66181FDDV001HS`) is at Production companion Home showing **Camera ready** and **Start live**. The video surface is black; the old verifier result text is historical. See the [fresh screenshot](../work/o08/live-detect-black-pair-v1/physical-controls/device-state/pixel11-home-final-current-20261101.png), SHA-256 `92e77e3a7776acc6ff12fffa1feebd251aed853e83fa38d1fe978b254f315a50`. Production companion remains 0.8.60/code68, APK SHA-256 `bf26e48a44769f352dc9ea09270c85fc0d0ee86d19de0a5fc22ffd456ea11c7d`; isolated VisionChecks 0.1/code1 is SHA-256 `9b9e1658b781a8773bf3fc3e70a54f889e7132ad5fb600224c6963b6cb754be3`, matching the current-source replay build. No capture or clip was started, no package was installed or updated during readback, and Cast/TV was untouched.
+The last post-replay Pixel 11 Home screenshot shows **Camera ready** and **Start live**, SHA-256 `5632C848C97ED53CE4BCE801AAE66AD37DA03510C06C48825D9CA2AC799A5FFA`; it is at `../work/o08/live-detect-black-pair-v1/physical-controls/stage-replays/oppositecue-20261101/device-state/pixel11-home-after-opposite-cue-absent-replay-20261101.png`. The historical Home result says `Sample saved · 31.4s clip · 5s target timing unverified`; camera `clipCount` remained 139. Capture remains stopped and the last checked Home screen was ready for a new session. The user subsequently reviewed images in chat; the companion foreground was not rechecked. No Production companion or camera package update, clip deletion, app-data action, or Cast/TV interaction occurred. See the [bounded control report](evidence/opposite-cue-absent-stage-replay-20261101.md).
+
+## Previous safe state after mid-cushion stage replay — 1 November 2026
+
+Fresh mounted-camera `/status` at `2026-11-01T16:23:45Z` reported `Stopped`, revision 55, timeline `9c88cf01eebe4b51a368dd16fa506665`, 30,544 completed frames, 1920×1080 at 30fps, 139 clips, zero viewers, battery 67%, armed. The token-free snapshot is `../work/o08/live-detect-black-pair-v1/physical-controls/stage-replays/midcushion-20261101/device-state/pixel10-status-final-20261101.json` (SHA-256 `165c8f9843249142cb00cfdb6f0ba0a0d8bfda8d235c8bebb97002441e215583`).
+
+Its companion Home screenshot shows **Camera ready** and **Start live**. Production companion was 0.8.60/code68, APK SHA-256 `bf26e48a44769f352dc9ea09270c85fc0d0ee86d19de0a5fc22ffd456ea11c7d`; isolated VisionChecks 0.1/code1 was SHA-256 `9b9e1658b781a8773bf3fc3e70a54f889e7132ad5fb600224c6963b6cb754be3`. No capture or clip was started during that readback, and Cast/TV was untouched.
 
 ## Latest camera readback after lower-right controls — 1 November 2026
 
