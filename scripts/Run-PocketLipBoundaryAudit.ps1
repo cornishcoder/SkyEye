@@ -92,6 +92,9 @@ if ($ProbeOnly -and ($EnableIlluminationNormalization -or $TracePackedColourFits
 if ($PocketArcProbeOnly -and (-not $PSBoundParameters.ContainsKey('BlackLabelX') -or -not $PSBoundParameters.ContainsKey('BlackLabelY'))) {
     throw 'Pocket-arc probe-only mode requires explicit -BlackLabelX and -BlackLabelY values for the selected labelled frame.'
 }
+if ($TraceBlackMask -and (-not $PSBoundParameters.ContainsKey('BlackLabelX') -or -not $PSBoundParameters.ContainsKey('BlackLabelY'))) {
+    throw 'Black-mask trace requires explicit -BlackLabelX and -BlackLabelY values for a reviewed source-image black centre.'
+}
 if ($PocketArcSweepOnly -and ($PocketArcAnchor.Count -lt 2 -or $PocketArcAnchor.Count -gt 12)) {
     if ([string]::IsNullOrWhiteSpace($PocketArcAnchorManifest)) {
         throw 'Pocket-arc sweep mode requires 2 to 12 -PocketArcAnchor values for one frame, or -PocketArcAnchorManifest for per-frame anchors.'
