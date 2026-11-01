@@ -1,0 +1,34 @@
+{
+  "schemaVersion": 1,
+  "id": "o08-code65-frame978-development-v1",
+  "sequences": [
+    {
+      "id": "code65-frame978-v1",
+      "session": "2ea48e0c35cd474eb627acf970a7eec5",
+      "kind": "Real",
+      "split": "Development",
+      "purpose": "StillRegression",
+      "source": {
+        "id": "mounted-camera",
+        "origin": "Exact lossless Code65 saved frame 978; reviewed centre set retained in source/user-reviewed-centres-frame-978.json.",
+        "file": "978/978.png",
+        "sha256": "b368348c63d924f5c7834e8e849b7287225ab525b470bdc3b85f7a8278cbbe70",
+        "width": 1920,
+        "height": 1080,
+        "clock": "RecordingMicroseconds",
+        "calibrationVersion": "6d304dd864f84c8486ee30844fe685b1",
+        "nominalFps": null
+      },
+      "indexFile": "978/frames.jsonl",
+      "labelsFile": "978/labels.json",
+      "notes": "One reviewed Code65 black-absent frame for Development baseline scoring only; related to the dim capture session and not a matched control or Holdout.",
+      "tags": [
+        "o08",
+        "development",
+        "code65",
+        "black-absent",
+        "reviewed-centres"
+      ]
+    }
+  ]
+}

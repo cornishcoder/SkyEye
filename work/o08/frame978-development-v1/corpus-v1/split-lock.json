@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "corpusId": "o08-code65-frame978-development-v1",
+  "manifestSha256": "09D383902F0CD2C271A555F1ED41BE7016D958DD7D251EB2B5B0AFFBB4366950",
+  "sequences": [
+    {
+      "id": "code65-frame978-v1",
+      "session": "2ea48e0c35cd474eb627acf970a7eec5",
+      "kind": "Real",
+      "split": "Development",
+      "sourceSha256": "b368348c63d924f5c7834e8e849b7287225ab525b470bdc3b85f7a8278cbbe70",
+      "indexSha256": "21539C943D635E92EF802CA0EBAB83614446A560E5B85F88E915CA3FEFC92723",
+      "labelsSha256": "10276EF090853643E6BE8167AFE05299120E8526D33C3DEFE8E4EF7FCAD20022",
+      "pixelSha256": [
+        "b368348c63d924f5c7834e8e849b7287225ab525b470bdc3b85f7a8278cbbe70"
+      ]
+    }
+  ]
+}

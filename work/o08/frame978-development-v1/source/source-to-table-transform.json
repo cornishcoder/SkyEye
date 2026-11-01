@@ -1,0 +1,234 @@
+{
+  "schemaVersion": 1,
+  "sourceWidth": 1920,
+  "sourceHeight": 1080,
+  "sourceCoordinates": "Pixel centres with x right and y down; normalize as (x/width,y/height).",
+  "cornerOrder": "Top-left, top-right, bottom-right, bottom-left.",
+  "cornerSource": "Corners reused from code64 source receipt 715 on the same fixed mount. Code65 live log retained calibrationId but not corners; the source frames show the same table framing, so interpret geometry-dependent replay diagnostically.",
+  "cornersNormalized": [
+    {
+      "x": 0.029895832141240437,
+      "y": 0.14129628781919126,
+      "length": 0.14442438066649607
+    },
+    {
+      "x": 0.880104128519694,
+      "y": 0.06351851710566768,
+      "length": 0.8823932677965721
+    },
+    {
+      "x": 0.8873957951863607,
+      "y": 0.9061110885054977,
+      "length": 1.2682699247506626
+    },
+    {
+      "x": 0.04010416666666667,
+      "y": 0.8775925812897859,
+      "length": 0.8785084421443525
+    }
+  ],
+  "tableCoordinates": "SkyEye.Core.TableCalibration maps ordered corners to (0,0),(2,0),(2,1),(0,1); table X spans the long axis and table Y spans the short axis.",
+  "homographyFormula": "X=(a*x+b*y+c)/(g*x+h*y+1); Y=(d*x+e*y+f)/(g*x+h*y+1).",
+  "matrixValuesRowMajor": [
+    2.6994574212714713,
+    -0.03742646083900755,
+    -0.07541430595599558,
+    0.12400681039535186,
+    1.3555495103336281,
+    -0.19524140055321418,
+    0.16991868964006765,
+    -0.008503335750243578,
+    1.0
+  ],
+  "roundTripMethod": "For each centre, TableCalibration.Map(normalized source point) then TableCalibration.Unmap(table point), converted back to source pixels.",
+  "maximumRoundTripErrorSourcePx": 3.410605131648481E-13,
+  "sourceReceiptSha256": "653e1ea4bc6c927ba592ad796a6c084e49103c27003d13e5d23d0c98a3144034",
+  "sourcePixelSha256": "b368348c63d924f5c7834e8e849b7287225ab525b470bdc3b85f7a8278cbbe70",
+  "userReviewRecordSha256": "4f8a2c1139b6e007e4a4789b1e6a9592b4d880d042772a709b36b4ff210b2fc1",
+  "labels": [
+    {
+      "id": "cue-01",
+      "colour": "cue",
+      "xPx": 141.0,
+      "yPx": 906.0,
+      "draftUncertaintyPx": 7.0,
+      "tableX": 0.0909443541600528,
+      "tableY": 0.945964544457539,
+      "mappedDraftUncertaintyRadius": 0.009774447744354962,
+      "roundTripErrorSourcePx": 0.0,
+      "visibility": "user-confirmed"
+    },
+    {
+      "id": "red-01",
+      "colour": "red",
+      "xPx": 124.0,
+      "yPx": 193.0,
+      "draftUncertaintyPx": 6.0,
+      "tableX": 0.09137352912416079,
+      "tableY": 0.054493887053356074,
+      "mappedDraftUncertaintyRadius": 0.008324478563522156,
+      "roundTripErrorSourcePx": 3.1776437161565096E-14,
+      "visibility": "user-confirmed"
+    },
+    {
+      "id": "red-02",
+      "colour": "red",
+      "xPx": 785.0,
+      "yPx": 146.0,
+      "draftUncertaintyPx": 6.0,
+      "tableX": 0.9577732039052652,
+      "tableY": 0.036233922205919006,
+      "mappedDraftUncertaintyRadius": 0.007451395384794463,
+      "roundTripErrorSourcePx": 3.410605131648481E-13,
+      "visibility": "user-confirmed"
+    },
+    {
+      "id": "red-03",
+      "colour": "red",
+      "xPx": 1627.0,
+      "yPx": 105.0,
+      "draftUncertaintyPx": 6.0,
+      "tableX": 1.931884200610932,
+      "tableY": 0.03641741187339035,
+      "mappedDraftUncertaintyRadius": 0.00666287744873692,
+      "roundTripErrorSourcePx": 1.4210854715202004E-14,
+      "visibility": "user-confirmed"
+    },
+    {
+      "id": "red-04",
+      "colour": "red",
+      "xPx": 118.0,
+      "yPx": 510.0,
+      "draftUncertaintyPx": 5.0,
+      "tableX": 0.07235120739632567,
+      "tableY": 0.4496106013665614,
+      "mappedDraftUncertaintyRadius": 0.006958562104490398,
+      "roundTripErrorSourcePx": 6.355287432313019E-14,
+      "visibility": "user-confirmed"
+    },
+    {
+      "id": "red-05",
+      "colour": "red",
+      "xPx": 123.0,
+      "yPx": 861.0,
+      "draftUncertaintyPx": 7.0,
+      "tableX": 0.06740568627242147,
+      "tableY": 0.8897234469562402,
+      "mappedDraftUncertaintyRadius": 0.009794277268249219,
+      "roundTripErrorSourcePx": 1.214175959108492E-13,
+      "visibility": "user-confirmed"
+    },
+    {
+      "id": "red-06",
+      "colour": "red",
+      "xPx": 866.0,
+      "yPx": 930.0,
+      "draftUncertaintyPx": 6.0,
+      "tableX": 1.03797470123792,
+      "tableY": 0.9613318903997234,
+      "mappedDraftUncertaintyRadius": 0.007428049986307123,
+      "roundTripErrorSourcePx": 3.2155493553843715E-13,
+      "visibility": "user-confirmed"
+    },
+    {
+      "id": "red-07",
+      "colour": "red",
+      "xPx": 1609.0,
+      "yPx": 932.0,
+      "draftUncertaintyPx": 6.0,
+      "tableX": 1.8981328343086852,
+      "tableY": 0.9501439933783047,
+      "mappedDraftUncertaintyRadius": 0.006733264897711868,
+      "roundTripErrorSourcePx": 1.1368683772161603E-13,
+      "visibility": "user-confirmed"
+    },
+    {
+      "id": "yellow-01",
+      "colour": "yellow",
+      "xPx": 83.0,
+      "yPx": 201.0,
+      "draftUncertaintyPx": 6.0,
+      "tableX": 0.03411888562758996,
+      "tableY": 0.06204458070078318,
+      "mappedDraftUncertaintyRadius": 0.008384668951530585,
+      "roundTripErrorSourcePx": 2.842170943040401E-14,
+      "visibility": "user-confirmed"
+    },
+    {
+      "id": "yellow-02",
+      "colour": "yellow",
+      "xPx": 847.0,
+      "yPx": 147.0,
+      "draftUncertaintyPx": 6.0,
+      "tableX": 1.0340327390745252,
+      "tableY": 0.0409470802699949,
+      "mappedDraftUncertaintyRadius": 0.0073783497102079135,
+      "roundTripErrorSourcePx": 1.1368683772161603E-13,
+      "visibility": "user-confirmed"
+    },
+    {
+      "id": "yellow-03",
+      "colour": "yellow",
+      "xPx": 1639.0,
+      "yPx": 152.0,
+      "draftUncertaintyPx": 6.0,
+      "tableX": 1.9440414540268969,
+      "tableY": 0.08864555503783629,
+      "mappedDraftUncertaintyRadius": 0.006647990904797758,
+      "roundTripErrorSourcePx": 2.2737367544323206E-13,
+      "visibility": "user-confirmed"
+    },
+    {
+      "id": "yellow-04",
+      "colour": "yellow",
+      "xPx": 813.0,
+      "yPx": 535.0,
+      "draftUncertaintyPx": 4.0,
+      "tableX": 0.9825421454762742,
+      "tableY": 0.49522164822482023,
+      "mappedDraftUncertaintyRadius": 0.004944370337726019,
+      "roundTripErrorSourcePx": 1.1368683772161603E-13,
+      "visibility": "user-confirmed"
+    },
+    {
+      "id": "yellow-05",
+      "colour": "yellow",
+      "xPx": 1630.0,
+      "yPx": 543.0,
+      "draftUncertaintyPx": 5.0,
+      "tableX": 1.9276637086314117,
+      "tableY": 0.5189355180483421,
+      "mappedDraftUncertaintyRadius": 0.00552386844243087,
+      "roundTripErrorSourcePx": 0.0,
+      "visibility": "user-confirmed"
+    },
+    {
+      "id": "yellow-06",
+      "colour": "yellow",
+      "xPx": 800.0,
+      "yPx": 930.0,
+      "draftUncertaintyPx": 6.0,
+      "tableX": 0.9564204464701682,
+      "tableY": 0.9626035323705844,
+      "mappedDraftUncertaintyRadius": 0.007506292213645258,
+      "roundTripErrorSourcePx": 1.1368683772161603E-13,
+      "visibility": "user-confirmed"
+    },
+    {
+      "id": "yellow-07",
+      "colour": "yellow",
+      "xPx": 1657.0,
+      "yPx": 914.0,
+      "draftUncertaintyPx": 6.0,
+      "tableX": 1.950595120534498,
+      "tableY": 0.9293767632036747,
+      "mappedDraftUncertaintyRadius": 0.0066965110222487806,
+      "roundTripErrorSourcePx": 2.5421149729252077E-13,
+      "visibility": "user-confirmed"
+    }
+  ],
+  "proposedQuarterRadiusAccuracyLimit": 0.00675,
+  "maximumMappedDraftUncertaintyRadius": 0.009794277268249219,
+  "uncertaintyExceedsQuarterRadiusProposal": true,
+  "uncertaintyMethod": "Maximum 128-point transformed boundary distance for each source-pixel draft uncertainty circle; approximate label uncertainty, not measured detector error or physical cloth-plane accuracy."
+}

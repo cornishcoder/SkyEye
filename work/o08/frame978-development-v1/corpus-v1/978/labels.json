@@ -1,0 +1,129 @@
+{
+  "schemaVersion": 2,
+  "sequenceId": "code65-frame978-v1",
+  "annotator": "user in Codex chat; review of assistant visual draft",
+  "calibrationVersion": "6d304dd864f84c8486ee30844fe685b1",
+  "reviewed": true,
+  "frames": [
+    {
+      "sampleId": "code65-frame-978-v1",
+      "pixelSha256": "b368348c63d924f5c7834e8e849b7287225ab525b470bdc3b85f7a8278cbbe70",
+      "coordinateSpace": "table-2x1",
+      "balls": [
+        {
+          "id": "cue-01",
+          "colour": "cue",
+          "x": 0.0909443541600528,
+          "y": 0.945964544457539,
+          "visibility": "Visible"
+        },
+        {
+          "id": "red-01",
+          "colour": "red",
+          "x": 0.09137352912416079,
+          "y": 0.054493887053356074,
+          "visibility": "Visible"
+        },
+        {
+          "id": "red-02",
+          "colour": "red",
+          "x": 0.9577732039052652,
+          "y": 0.036233922205919006,
+          "visibility": "Visible"
+        },
+        {
+          "id": "red-03",
+          "colour": "red",
+          "x": 1.931884200610932,
+          "y": 0.03641741187339035,
+          "visibility": "Visible"
+        },
+        {
+          "id": "red-04",
+          "colour": "red",
+          "x": 0.07235120739632567,
+          "y": 0.4496106013665614,
+          "visibility": "Visible"
+        },
+        {
+          "id": "red-05",
+          "colour": "red",
+          "x": 0.06740568627242147,
+          "y": 0.8897234469562402,
+          "visibility": "Visible"
+        },
+        {
+          "id": "red-06",
+          "colour": "red",
+          "x": 1.03797470123792,
+          "y": 0.9613318903997234,
+          "visibility": "Visible"
+        },
+        {
+          "id": "red-07",
+          "colour": "red",
+          "x": 1.8981328343086852,
+          "y": 0.9501439933783047,
+          "visibility": "Visible"
+        },
+        {
+          "id": "yellow-01",
+          "colour": "yellow",
+          "x": 0.03411888562758996,
+          "y": 0.06204458070078318,
+          "visibility": "Visible"
+        },
+        {
+          "id": "yellow-02",
+          "colour": "yellow",
+          "x": 1.0340327390745252,
+          "y": 0.0409470802699949,
+          "visibility": "Visible"
+        },
+        {
+          "id": "yellow-03",
+          "colour": "yellow",
+          "x": 1.9440414540268969,
+          "y": 0.08864555503783629,
+          "visibility": "Visible"
+        },
+        {
+          "id": "yellow-04",
+          "colour": "yellow",
+          "x": 0.9825421454762742,
+          "y": 0.49522164822482023,
+          "visibility": "Visible"
+        },
+        {
+          "id": "yellow-05",
+          "colour": "yellow",
+          "x": 1.9276637086314117,
+          "y": 0.5189355180483421,
+          "visibility": "Visible"
+        },
+        {
+          "id": "yellow-06",
+          "colour": "yellow",
+          "x": 0.9564204464701682,
+          "y": 0.9626035323705844,
+          "visibility": "Visible"
+        },
+        {
+          "id": "yellow-07",
+          "colour": "yellow",
+          "x": 1.950595120534498,
+          "y": 0.9293767632036747,
+          "visibility": "Visible"
+        }
+      ],
+      "notes": "User confirmed all 15 displayed assistant-draft source centres. Review was conditioned on that draft; rough 4-7 source-pixel uncertainties are preserved separately. Inventory: cue 1, red 7, yellow 7, black absent. No numeric review tolerance was set.",
+      "tags": [
+        "Development",
+        "Code65",
+        "black-absent",
+        "user-reviewed-complete-visible-inventory"
+      ]
+    }
+  ],
+  "intervals": []
+}

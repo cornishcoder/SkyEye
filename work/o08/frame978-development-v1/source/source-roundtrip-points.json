@@ -1,0 +1,152 @@
+[
+  {
+    "id": "cue-01",
+    "colour": "cue",
+    "xSourcePx": 141.0,
+    "ySourcePx": 906.0,
+    "reviewedXSourcePx": 141.0,
+    "reviewedYSourcePx": 906.0,
+    "uncertaintyPx": 7.0,
+    "roundTripErrorPx": 0.0
+  },
+  {
+    "id": "red-01",
+    "colour": "red",
+    "xSourcePx": 124.00000000000001,
+    "ySourcePx": 193.00000000000003,
+    "reviewedXSourcePx": 124.0,
+    "reviewedYSourcePx": 193.0,
+    "uncertaintyPx": 6.0,
+    "roundTripErrorPx": 3.1776437161565096E-14
+  },
+  {
+    "id": "red-02",
+    "colour": "red",
+    "xSourcePx": 785.0000000000003,
+    "ySourcePx": 146.0,
+    "reviewedXSourcePx": 785.0,
+    "reviewedYSourcePx": 146.0,
+    "uncertaintyPx": 6.0,
+    "roundTripErrorPx": 3.410605131648481E-13
+  },
+  {
+    "id": "red-03",
+    "colour": "red",
+    "xSourcePx": 1627.0,
+    "ySourcePx": 104.99999999999999,
+    "reviewedXSourcePx": 1627.0,
+    "reviewedYSourcePx": 105.0,
+    "uncertaintyPx": 6.0,
+    "roundTripErrorPx": 1.4210854715202004E-14
+  },
+  {
+    "id": "red-04",
+    "colour": "red",
+    "xSourcePx": 117.99999999999997,
+    "ySourcePx": 509.99999999999994,
+    "reviewedXSourcePx": 118.0,
+    "reviewedYSourcePx": 510.0,
+    "uncertaintyPx": 5.0,
+    "roundTripErrorPx": 6.355287432313019E-14
+  },
+  {
+    "id": "red-05",
+    "colour": "red",
+    "xSourcePx": 122.99999999999996,
+    "ySourcePx": 860.9999999999999,
+    "reviewedXSourcePx": 123.0,
+    "reviewedYSourcePx": 861.0,
+    "uncertaintyPx": 7.0,
+    "roundTripErrorPx": 1.214175959108492E-13
+  },
+  {
+    "id": "red-06",
+    "colour": "red",
+    "xSourcePx": 866.0000000000002,
+    "ySourcePx": 930.0000000000002,
+    "reviewedXSourcePx": 866.0,
+    "reviewedYSourcePx": 930.0,
+    "uncertaintyPx": 6.0,
+    "roundTripErrorPx": 3.2155493553843715E-13
+  },
+  {
+    "id": "red-07",
+    "colour": "red",
+    "xSourcePx": 1609.0,
+    "ySourcePx": 932.0000000000001,
+    "reviewedXSourcePx": 1609.0,
+    "reviewedYSourcePx": 932.0,
+    "uncertaintyPx": 6.0,
+    "roundTripErrorPx": 1.1368683772161603E-13
+  },
+  {
+    "id": "yellow-01",
+    "colour": "yellow",
+    "xSourcePx": 83.0,
+    "ySourcePx": 201.00000000000003,
+    "reviewedXSourcePx": 83.0,
+    "reviewedYSourcePx": 201.0,
+    "uncertaintyPx": 6.0,
+    "roundTripErrorPx": 2.842170943040401E-14
+  },
+  {
+    "id": "yellow-02",
+    "colour": "yellow",
+    "xSourcePx": 847.0000000000001,
+    "ySourcePx": 147.0,
+    "reviewedXSourcePx": 847.0,
+    "reviewedYSourcePx": 147.0,
+    "uncertaintyPx": 6.0,
+    "roundTripErrorPx": 1.1368683772161603E-13
+  },
+  {
+    "id": "yellow-03",
+    "colour": "yellow",
+    "xSourcePx": 1638.9999999999998,
+    "ySourcePx": 152.0,
+    "reviewedXSourcePx": 1639.0,
+    "reviewedYSourcePx": 152.0,
+    "uncertaintyPx": 6.0,
+    "roundTripErrorPx": 2.2737367544323206E-13
+  },
+  {
+    "id": "yellow-04",
+    "colour": "yellow",
+    "xSourcePx": 813.0000000000001,
+    "ySourcePx": 535.0,
+    "reviewedXSourcePx": 813.0,
+    "reviewedYSourcePx": 535.0,
+    "uncertaintyPx": 4.0,
+    "roundTripErrorPx": 1.1368683772161603E-13
+  },
+  {
+    "id": "yellow-05",
+    "colour": "yellow",
+    "xSourcePx": 1630.0,
+    "ySourcePx": 543.0,
+    "reviewedXSourcePx": 1630.0,
+    "reviewedYSourcePx": 543.0,
+    "uncertaintyPx": 5.0,
+    "roundTripErrorPx": 0.0
+  },
+  {
+    "id": "yellow-06",
+    "colour": "yellow",
+    "xSourcePx": 800.0000000000001,
+    "ySourcePx": 930.0,
+    "reviewedXSourcePx": 800.0,
+    "reviewedYSourcePx": 930.0,
+    "uncertaintyPx": 6.0,
+    "roundTripErrorPx": 1.1368683772161603E-13
+  },
+  {
+    "id": "yellow-07",
+    "colour": "yellow",
+    "xSourcePx": 1656.9999999999998,
+    "ySourcePx": 914.0000000000001,
+    "reviewedXSourcePx": 1657.0,
+    "reviewedYSourcePx": 914.0,
+    "uncertaintyPx": 6.0,
+    "roundTripErrorPx": 2.5421149729252077E-13
+  }
+]

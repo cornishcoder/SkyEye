@@ -1,0 +1,57 @@
+{
+  "indexedFrame": {
+    "frameId": 978,
+    "sourceTimeUs": 48922017388,
+    "scope": {
+      "source": "mounted-camera",
+      "timeline": "2ea48e0c35cd474eb627acf970a7eec5",
+      "generation": 3,
+      "calibration": "6d304dd864f84c8486ee30844fe685b1"
+    },
+    "pixelFile": "978.png",
+    "pixelSha256": "b368348c63d924f5c7834e8e849b7287225ab525b470bdc3b85f7a8278cbbe70",
+    "encoding": "Png",
+    "width": 1920,
+    "height": 1080,
+    "analyzerPixelSource": "decoded-bitmap-lossless",
+    "embeddedFrameId": false,
+    "sampleId": "code65-frame-978-v1"
+  },
+  "calibrationCorners": [
+    {
+      "x": 0.029895832141240437,
+      "y": 0.14129628781919126,
+      "length": 0.14442438066649607
+    },
+    {
+      "x": 0.880104128519694,
+      "y": 0.06351851710566768,
+      "length": 0.8823932677965721
+    },
+    {
+      "x": 0.8873957951863607,
+      "y": 0.9061110885054977,
+      "length": 1.2682699247506626
+    },
+    {
+      "x": 0.04010416666666667,
+      "y": 0.8775925812897859,
+      "length": 0.8785084421443525
+    }
+  ],
+  "calibrationProvenance": "Corners reused from code64 source receipt 715 on the same fixed mount. Code65 live log retained calibrationId but not corners; the source frames show the same table framing, so interpret geometry-dependent replay diagnostically.",
+  "analyzerConfigurationIdentity": "{\"Algorithm\":\"body-priority-packed-colour-peaks-v25-neutralceiling94-edge23-pocket48-sparse20-review75-redyellow-black-radius13-support21\",\"Settings\":{\"Width\":800,\"MinimumRadius\":18,\"MaximumRadius\":35,\"Separation\":45,\"MorphologyKernel\":5,\"HoughDp\":1.3,\"EdgeThreshold\":150,\"InitialVotes\":15,\"NormalizedVotes\":14,\"HueBand\":7,\"PocketExclusionRadius\":48,\"LocalIlluminationNormalization\":false,\"IlluminationKernelWidth\":151,\"FreshCueBallRecovery\":true,\"BodyProposalPriority\":true,\"MinimumHoughBoundarySupport\":0.75,\"MinimumSparseColourBoundarySupport\":0.625,\"SparseBlackBoundarySearchExtentFraction\":1.3,\"MinimumSparseBlackBoundarySupport\":0.65625,\"SparseBlackRankByRadius\":true,\"DarkBodyValueCeiling\":40,\"VerificationBodyRefinement\":false,\"PackedClusterImageEdgeMargin\":23,\"PackedColourBoundarySearchExtentFraction\":0.4}}",
+  "capturedAt": "2026-10-31T01:45:38.4187949+00:00",
+  "frameSource": "decoded-live-texture",
+  "detectionRequested": true,
+  "sourceEvidenceId": "3815cc3d-408c-4422-9f85-fc962aad1769",
+  "sourceRelativePath": "evidence/3815cc3d408c44229f85fc962aad1769.png",
+  "calibrationId": "6d304dd864f84c8486ee30844fe685b1",
+  "corpusImportProvenance": {
+    "sampleIdAssignment": "Stable token assigned for this one-frame Development corpus; it does not replace source identity.",
+    "rawSourceReceipt": "source/raw-frame-978.json",
+    "rawSourceReceiptSha256": "653e1ea4bc6c927ba592ad796a6c084e49103c27003d13e5d23d0c98a3144034",
+    "userReviewRecord": "source/user-reviewed-centres-frame-978.json",
+    "userReviewRecordSha256": "4f8a2c1139b6e007e4a4789b1e6a9592b4d880d042772a709b36b4ff210b2fc1"
+  }
+}
