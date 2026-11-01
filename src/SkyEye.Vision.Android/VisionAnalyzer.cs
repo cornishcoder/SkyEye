@@ -68,8 +68,6 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
     }
     internal DiagnosticClassifierEvidence ClassifyDiagnosticCandidate(Point centre, double radius, byte[] hsvPixels)
     {
-        if (coordinates.Width != 1000)
-            throw new InvalidOperationException("Pocket-arc classifier evidence is supported only on the width-1000 analyzer.");
         ArgumentNullException.ThrowIfNull(hsvPixels);
         if (hsvPixels.Length != coordinates.Width * coordinates.Height * 3)
             throw new ArgumentException("Classifier pixels do not match this analyzer's dimensions.", nameof(hsvPixels));

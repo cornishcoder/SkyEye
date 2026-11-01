@@ -445,6 +445,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     ? detectionElement.GetBoolean() : true;
                 if (rawProposalReplay)
                 {
+                    const int rawProposalAnalysisWidth = 800;
                     if (!detectionRequested)
                     {
                         samples.Add(new { frameId, pixelSha256 = sha, receiptSha256, sourceTimeUs, detectionRequested, skipped = true, skipReason = "detection-not-requested" });
@@ -477,15 +478,17 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                         return new VisionAnalyzer.DiagnosticAnalysisProposal(id, kind,
                             new(centre[0].GetDouble(), centre[1].GetDouble()), source, confidence);
                     }).ToArray();
-                    var baseline = Measure(() => analyzer1000.Analyze(bytes, calibration), out var baselineMetrics);
+                    var baseline = Measure(() => analyzer800.Analyze(bytes, calibration), out var baselineMetrics);
                     byte[]? classifierPixels = null;
                     byte[]? boundaryPixels = null;
-                    analyzer1000.ObserveNextClassifierPixels(pixels => classifierPixels = pixels);
-                    analyzer1000.ObserveNextBoundaryPixels(pixels => boundaryPixels = pixels);
-                    var withRawProposals = Measure(() => analyzer1000.AnalyzeWithDiagnosticRawProposals(bytes, calibration,
+                    analyzer800.ObserveNextClassifierPixels(pixels => classifierPixels = pixels);
+                    analyzer800.ObserveNextBoundaryPixels(pixels => boundaryPixels = pixels);
+                    var withRawProposals = Measure(() => analyzer800.AnalyzeWithDiagnosticRawProposals(bytes, calibration,
                         proposals, sourceWidth, sourceHeight), out var rawProposalMetrics);
                     if (classifierPixels is null || boundaryPixels is null)
-                        throw new IOException($"Exact width-1000 classifier and boundary pixels were not captured for frame {frameId}.");
+                        throw new IOException($"Exact width-{rawProposalAnalysisWidth} classifier and boundary pixels were not captured for frame {frameId}.");
+                    if (baseline.PackedClusterFallback is not null || withRawProposals.PackedClusterFallback is not null)
+                        throw new IOException($"Raw-proposal frame {frameId} invoked the automatic 1000px packed-cluster fallback; its boundary trace cannot be compared with the captured width-{rawProposalAnalysisWidth} pixel buffers.");
                     var rawProposalAudits = withRawProposals.CandidateAudits
                         .Where(a => a.Pass == "initial" && a.Stage == "local-model-raw")
                         .OrderBy(a => a.Index).ToArray();
@@ -497,8 +500,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                             return (object)new { proposalId = proposal.Id, proposal.Kind, available = false,
                                 reason = "no-cue-or-black-boundary-fit" };
 
-                        const double expectedRadius = 27;
-                        var sectors = BallBoundaryRefiner.Inspect(boundaryPixels, 1000, 2000,
+                        double expectedRadius = PoolGeometry.Radius * rawProposalAnalysisWidth;
+                        var sectors = BallBoundaryRefiner.Inspect(boundaryPixels, rawProposalAnalysisWidth, rawProposalAnalysisWidth * 2,
                             audit.ProposalCentre, expectedRadius, fittedCentre, fittedRadius, proposal.Kind,
                             allowDarkBodyEdgeTransitions: proposal.Kind == "black");
                         var neighbours = withRawProposals.Circles;
@@ -542,19 +545,21 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     samples.Add(new
                     {
                         frameId, pixelSha256 = sha, receiptSha256, sourceTimeUs,
+                        analysisWidth = rawProposalAnalysisWidth,
                         capturedAt = metadataRoot.TryGetProperty("capturedAt", out var proposalCapturedAt)
                             ? proposalCapturedAt.GetDateTimeOffset() : DateTimeOffset.UtcNow,
                         sourceImage = new { width = sourceWidth, height = sourceHeight },
                         model = new { engine = modelResult.GetProperty("engine").GetString(), latencyMs = modelResult.GetProperty("latency_ms").GetDouble() },
                         baselineMetrics, rawProposalMetrics,
-                        baseline = Summarize(baseline, 1000),
-                        withRawProposals = Summarize(withRawProposals, 1000),
+                        baseline = Summarize(baseline, rawProposalAnalysisWidth),
+                        withRawProposals = Summarize(withRawProposals, rawProposalAnalysisWidth),
                         jointOcclusionDiagnostics,
                         proposals = proposals.Select((proposal, index) => new
                         {
                             proposal.Id, proposal.Kind, proposal.Source, proposal.Confidence,
                             rawCentre = proposal.Centre,
-                            skyEyeClassifier = ClassifyRawProposal(analyzer1000, calibration, proposal, sourceWidth, sourceHeight, classifierPixels),
+                            skyEyeClassifier = ClassifyRawProposal(analyzer800, calibration, proposal, sourceWidth, sourceHeight,
+                                rawProposalAnalysisWidth, classifierPixels),
                             audit = rawProposalAudits.SingleOrDefault(a => a.Index == index)
                         })
                     });
@@ -944,6 +949,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 mode = "raw-proposal-replay",
                 diagnosticOnly = true,
                 canonicalStateChanged = false,
+                rawProposalAnalysisWidth = 800,
                 boundaryAudit,
                 pipelineDiagnostics = PipelineDiagnostics.Snapshot(),
                 recordedAnalyzerConfigurationIdentity = recordedConfiguration,
@@ -954,7 +960,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                     : configurationSettingsMatchPrimary == true && configurationAlgorithmChangedSinceCapture == true
                         ? "settings-match; algorithm-revision-changed"
                         : recordedConfiguration is null ? "recorded-identity-unavailable" : "configuration-mismatch",
-                scope = "Saved local-model raw centres were mapped through the capture calibration into canonical analysis coordinates and evaluated by the existing detector candidate classifier, duplicate, pocket, cloth and boundary-fit gates. Proposal audits are diagnostic evidence only; model labels are not ground truth and do not affect live or match state.",
+                scope = "Each saved local-model raw centre is mapped through the capture calibration into the configured width-800 analysis grid, then evaluated by the width-800 analyzer and its existing candidate classifier, duplicate, pocket, cloth and boundary-fit gates. An automatic 1000px packed-cluster fallback is refused because its boundary pixels would not match the recorded width-800 fit trace. Proposal audits are diagnostic evidence only; model labels are not ground truth and do not affect live or match state.",
                 samples
             };
         }
@@ -1095,11 +1101,11 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         workerType.GetField("anchorDetections", fields)?.SetValue(worker, circles);
     }
     static object ClassifyRawProposal(VisionAnalyzer analyzer, TableCalibration calibration,
-        VisionAnalyzer.DiagnosticAnalysisProposal proposal, int sourceWidth, int sourceHeight, byte[] classifierPixels)
+        VisionAnalyzer.DiagnosticAnalysisProposal proposal, int sourceWidth, int sourceHeight, int analysisWidth, byte[] classifierPixels)
     {
         var tableCentre = calibration.Map(new(proposal.Centre.X / sourceWidth, proposal.Centre.Y / sourceHeight));
-        var analysisCentre = new AnalysisCoordinates(1000).FromTable(tableCentre);
-        var evidence = analyzer.ClassifyDiagnosticCandidate(analysisCentre, PoolGeometry.Radius * 1000, classifierPixels);
+        var analysisCentre = new AnalysisCoordinates(analysisWidth).FromTable(tableCentre);
+        var evidence = analyzer.ClassifyDiagnosticCandidate(analysisCentre, PoolGeometry.Radius * analysisWidth, classifierPixels);
         return new
         {
             kind = evidence.Classification.Kind,

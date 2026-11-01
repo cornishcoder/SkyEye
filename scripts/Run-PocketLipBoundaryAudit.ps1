@@ -539,6 +539,9 @@ if (-not $report.completed -or @($report.samples).Count -ne $frames.Count) {
     $reason = if ([string]::IsNullOrWhiteSpace([string]$report.error)) { 'sample count or completion flag mismatch' } else { [string]$report.error }
     throw "Replay report is incomplete ($reason): $localReport"
 }
+if ($RawProposalReplay -and [int]$report.rawProposalAnalysisWidth -ne 800) {
+    throw "Raw-proposal replay report must identify width-800 analysis; got '$($report.rawProposalAnalysisWidth)'."
+}
 Assert-VisionReplayReceiptBinding -Inputs @($inputs) -Report $report
 $maskArtifacts = @()
 $blackMaskArtifacts = @()
@@ -747,6 +750,7 @@ $manifest = [pscustomobject]@{
         $copiedProposal = Join-Path $runDirectory "local-proposals-$($_.Frame).json"
         [pscustomobject]@{ frameId = $_.Frame; file = [IO.Path]::GetFileName($copiedProposal); sha256 = (Get-FileHash -LiteralPath $copiedProposal -Algorithm SHA256).Hash.ToLowerInvariant(); sourcePixelSha256 = $_.Hash }
     } } else { @() }
+    rawProposalAnalysisWidth = if ($RawProposalReplay) { $report.rawProposalAnalysisWidth } else { $null }
     report = $reportName
     reportSha256 = (Get-FileHash -LiteralPath $localReport -Algorithm SHA256).Hash.ToLowerInvariant()
     cameraBefore = Get-CameraStatusForManifest $cameraBefore
