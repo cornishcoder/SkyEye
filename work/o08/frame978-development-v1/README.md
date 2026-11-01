@@ -23,6 +23,7 @@ The corners were copied from Code64 source receipt 715 on the same fixed mount. 
 - Sequence: code65-frame978-v1, split Development, purpose StillRegression.
 - Manifest SHA-256: 09d383902f0cd2c271a555f1ed41be7016d958dd7d251eb2b5b0affbb4366950.
 - Frozen split lock SHA-256: 49f8e735f49669b860cd0447a9db53fc4292b1194d957a76246b4504a2f93e76.
+- Frozen acceptance-contract SHA-256: 1574245e516431ea3087c9202875d4b26c17701f4d424457f722f987ead47563.
 - Imported index SHA-256: 21539c943d635e92ef802ca0ebab83614446a560e5b85f88e915ca3fefc92723.
 - Imported labels SHA-256: 10276ef090853643e6be8167afe05299120e8526d33c3cdefe8e4ef7fcad20022.
 - The O08 workbench validated one real StillRegression sample, zero Holdout samples, and accuracyGateReady=false.
@@ -32,7 +33,7 @@ No detector export, baseline score, or unscored-sample report exists yet. The sc
 
 ## Current device and replay gate
 
-Pixel 11 ADB is reachable as 66181FDDV001HS; installed Production package uk.co.skyeye.companion is version 0.8.59 / code 67, with installed base APK SHA-256 76f4b22037df10679fc07a2200dfbcb8d26499046cdd53e809974ff150b71720. This is a read-only installation identity check, not acceptance for current source. The companion is on Home with “Connect your camera”, “CAM —”, “Start live” (off), and Cast disconnected. Current camera /status timed out, therefore capture state is unverified, not Stopped. No capture was started, and no Cast/TV action occurred.
+Pixel 11 ADB is reachable as 66181FDDV001HS; installed Production package uk.co.skyeye.companion is version 0.8.59 / code 67, with installed base APK SHA-256 76f4b22037df10679fc07a2200dfbcb8d26499046cdd53e809974ff150b71720. This is a read-only installation identity check, not acceptance for current source. The companion is on Home with “Connect your camera”, “CAM —”, “Start live” (off), and Cast disconnected. Current camera /status timed out, therefore capture state is unverified, not Stopped. The Home screenshot SHA-256 is 72fd42dba8d7b38016fbd7b2bbccc30d9bdb53a2ff613f2862b8ab28c1da3c48. No capture was started, and no Cast/TV action occurred.
 
 Do not build, install, or replay until /status reports Stopped and Home shows “Start live session”. Then build the isolated Vision Device replay APK from the tested source, run frame 978 serially on the Pixel, produce the compatible screening export, and score the one-frame Development manifest with the explicit 0.010 tolerance. Keep the exact historical 0.4 reproduction and current-source 0.65 baseline separate; record APK/configuration hashes, device, warm-up, batch size, source PTS, and analyzer-to-observation mapping. The scorer reports stored-result quality; it does not itself establish physical accuracy, readiness, Holdout performance, or D1/D2/E.
 
