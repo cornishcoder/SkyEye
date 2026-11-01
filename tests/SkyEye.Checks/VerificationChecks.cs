@@ -273,7 +273,27 @@ static class VerificationChecks
         Check(session.State.Observation?.Verification?.RejectedSample?.ClockSampleAgeMs == 3000, "Refused frame metadata survives as rejected evidence, never as a valid sample");
         session.Invalidate(); frames.Gap = true;
         await session.VerifyAsync(Guid.NewGuid(), 1);
-        Check(session.State.Observation?.Reason == ObservationReason.SampleGap, "Legacy fifteen-second gap never substitutes for continuous evidence"); frames.Gap = false;
+        Check(session.State.Observation?.Reason == ObservationReason.SampleGap, "Legacy fifteen-second gap never substitutes for continuous evidence");
+        var gapObservation = session.State.Observation!;
+        var acceptedTiming = gapObservation.Verification!.Samples.Single();
+        var rejectedTiming = gapObservation.Verification.RejectedSample!;
+        var acceptedPhaseTotal = acceptedTiming.WorkerMeasureMs + acceptedTiming.EvidenceCaptureMs + acceptedTiming.ReviewEncodeMs;
+        var gapHistory = HistoricalVerificationReport.From(gapObservation, DateTimeOffset.UtcNow, true, CommandOutcome.Applied);
+        Check(double.IsFinite(acceptedTiming.ClockRefreshMs) && acceptedTiming.ClockRefreshMs >= 0
+            && double.IsFinite(acceptedTiming.TargetCadenceWaitMs) && acceptedTiming.TargetCadenceWaitMs >= 0
+            && double.IsFinite(acceptedTiming.NewFramePollingMs) && acceptedTiming.NewFramePollingMs >= 0
+            && double.IsFinite(acceptedTiming.WorkerMeasureMs) && acceptedTiming.WorkerMeasureMs >= 0
+            && double.IsFinite(acceptedTiming.EvidenceCaptureMs) && acceptedTiming.EvidenceCaptureMs >= 0
+            && double.IsFinite(acceptedTiming.ReviewEncodeMs) && acceptedTiming.ReviewEncodeMs >= 0
+            && acceptedPhaseTotal <= acceptedTiming.ProcessingMs + 1
+            && rejectedTiming.Reason == ObservationReason.SampleGap && rejectedTiming.SourceGapMs == 1000
+            && rejectedTiming.AcquisitionMs >= 0 && rejectedTiming.TargetCadenceWaitMs >= 0
+            && gapHistory.Samples.Single().FrameId == acceptedTiming.FrameId
+            && gapHistory.Samples.Single().WorkerMeasureMs == acceptedTiming.WorkerMeasureMs
+            && gapHistory.RejectedSample?.SourceGapMs == 1000
+            && gapHistory.RejectedSample.AcquisitionMs == rejectedTiming.AcquisitionMs,
+            "Accepted and rejected source frames retain separate per-phase verifier timings in historical evidence");
+        frames.Gap = false;
         session.Invalidate(); frames.AgeMs = 1600;
         await session.VerifyAsync(Guid.NewGuid(), 1);
         Check(session.State.Observation?.Reason == ObservationReason.FrameTooOld, "Age is checked before costly detection"); frames.AgeMs = 0;

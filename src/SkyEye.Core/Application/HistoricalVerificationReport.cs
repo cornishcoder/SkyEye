@@ -18,6 +18,12 @@ public sealed record HistoricalVerificationSample(
     HistoricalVerificationBallCounts? BallCounts, bool? DetectionUncertain, bool? Obstructed)
 {
     public ObstructionAuditTelemetry? ObstructionAudit { get; init; }
+    public double ClockRefreshMs { get; init; }
+    public double TargetCadenceWaitMs { get; init; }
+    public double NewFramePollingMs { get; init; }
+    public double WorkerMeasureMs { get; init; }
+    public double EvidenceCaptureMs { get; init; }
+    public double ReviewEncodeMs { get; init; }
 }
 
 /// <summary>Compact historical evidence for one completed bounded check. The per-frame
@@ -57,6 +63,12 @@ public sealed record HistoricalVerificationReport(
                 sample.Measurement.Vision?.Uncertain, sample.Measurement.Vision?.Obstructed)
             {
                 ObstructionAudit = sample.Measurement.Vision?.ObstructionAudit,
+                ClockRefreshMs = sample.ClockRefreshMs,
+                TargetCadenceWaitMs = sample.TargetCadenceWaitMs,
+                NewFramePollingMs = sample.NewFramePollingMs,
+                WorkerMeasureMs = sample.WorkerMeasureMs,
+                EvidenceCaptureMs = sample.EvidenceCaptureMs,
+                ReviewEncodeMs = sample.ReviewEncodeMs,
             })
             .ToArray();
 

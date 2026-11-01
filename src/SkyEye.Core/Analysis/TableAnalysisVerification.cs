@@ -41,11 +41,11 @@ public sealed partial class TableAnalysisSession
         using var linked = CancellationTokenSource.CreateLinkedTokenSource(activeOperation.Token, deadline.Token);
         var start = time.GetTimestamp(); var samples = new List<VerificationSample>();
         var capture = VerificationCapture;
-        ITableVerificationWorker? worker = null; Task<(VerificationMeasurement Measurement, byte[]? Review)>? processing = null; bool leased = false;
+        ITableVerificationWorker? worker = null; Task<(VerificationMeasurement Measurement, byte[]? Review, double WorkerMeasureMs, double EvidenceCaptureMs, double ReviewEncodeMs)>? processing = null; bool leased = false;
         byte[]? finalReview = null;
         Task? retiringAcquisition = null;
         string? timeline = null; DecodedFrameReceipt? lastReceipt = null; DateTimeOffset capturedAt = time.GetUtcNow();
-        double maxGapMs = 0, acquisitionMs = 0; long scheduleStart = start, finalReceiptAt = start;
+        double maxGapMs = 0; long scheduleStart = start, finalReceiptAt = start;
         ObservationReason reason = ObservationReason.InsufficientEvidence;
         VerificationRejection? rejected = null;
         VerificationFailure? failure = null;
@@ -63,28 +63,53 @@ public sealed partial class TableAnalysisSession
             while (samples.Count < maximumSamples)
             {
                 linked.Token.ThrowIfCancellationRequested();
+                double clockRefreshMs = 0, targetCadenceWaitMs = 0, newFramePollingMs = 0, acquisitionMs = 0;
                 if (samples.Count is 0 or 2 or 4 && frames is ITableVerificationFrameSource clockSource)
-                { stage = "clock"; await clockSource.RefreshVerificationClockAsync(linked.Token).WaitAsync(linked.Token).ConfigureAwait(false); }
+                {
+                    stage = "clock"; var clockStart = time.GetTimestamp();
+                    try { await clockSource.RefreshVerificationClockAsync(linked.Token).WaitAsync(linked.Token).ConfigureAwait(false); }
+                    finally { clockRefreshMs = time.GetElapsedTime(clockStart).TotalMilliseconds; }
+                }
                 if (samples.Count > 0)
                 {
                     var wait = TimeSpan.FromSeconds(samples.Count * ObservationPolicy.SampleIntervalSeconds) - time.GetElapsedTime(scheduleStart);
-                    if (wait > TimeSpan.Zero) await Task.Delay(wait, time, linked.Token).ConfigureAwait(false);
+                    if (wait > TimeSpan.Zero)
+                    {
+                        var waitStart = time.GetTimestamp();
+                        try { await Task.Delay(wait, time, linked.Token).ConfigureAwait(false); }
+                        finally { targetCadenceWaitMs = time.GetElapsedTime(waitStart).TotalMilliseconds; }
+                    }
                 }
                 if (samples.Count > 0 && frames is ITableMotionFrameSource polling)
                 {
                     stage = "poll";
                     var scope = new MotionFeedScope(admitted.Source!, mediaGeneration, admitted.CalibrationId, timeline!);
-                    while (!await polling.HasNewFrameAsync(scope, samples[^1].FrameId, samples[^1].SourceTimeUs, linked.Token).ConfigureAwait(false))
-                        await Task.Delay(TimeSpan.FromMilliseconds(40), time, linked.Token).ConfigureAwait(false);
+                    var pollStart = time.GetTimestamp();
+                    try
+                    {
+                        while (!await polling.HasNewFrameAsync(scope, samples[^1].FrameId, samples[^1].SourceTimeUs, linked.Token).ConfigureAwait(false))
+                            await Task.Delay(TimeSpan.FromMilliseconds(40), time, linked.Token).ConfigureAwait(false);
+                    }
+                    finally { newFramePollingMs = time.GetElapsedTime(pollStart).TotalMilliseconds; }
                 }
                 var readStart = time.GetTimestamp();
                 stage = "acquisition";
-                var frame = await ReadVerificationFrameAsync(admitted.Source!, linked.Token, cleanup => retiringAcquisition = cleanup).ConfigureAwait(false);
-                acquisitionMs = time.GetElapsedTime(readStart).TotalMilliseconds;
+                TableFrame frame;
+                try { frame = await ReadVerificationFrameAsync(admitted.Source!, linked.Token, cleanup => retiringAcquisition = cleanup).ConfigureAwait(false); }
+                finally { acquisitionMs = time.GetElapsedTime(readStart).TotalMilliseconds; }
                 var receipt = frame.DecodedReceipt; var pts = frame.SourceTimeUs;
+                double? sourceGapMs = samples.Count > 0 && pts.HasValue ? (pts.Value - samples[^1].SourceTimeUs) / 1000d : null;
                 var age = (time.GetUtcNow() - frame.CapturedAt).TotalMilliseconds;
                 var mappingAge = frame.ClockSampleAgeMs;
                 var uncertainty = frame.ClockUncertaintyMs;
+                void RejectFrame() => rejected = new(reason, receipt, frame.Timeline, pts, age, mappingAge, uncertainty)
+                {
+                    SourceGapMs = sourceGapMs,
+                    ClockRefreshMs = clockRefreshMs,
+                    TargetCadenceWaitMs = targetCadenceWaitMs,
+                    NewFramePollingMs = newFramePollingMs,
+                    AcquisitionMs = acquisitionMs,
+                };
                 reason = receipt is null || pts is null || receipt.MediaGeneration != mediaGeneration || receipt.FrameId <= 0 || pts < 0
                     || samples.Count > 0 && (frame.Timeline != timeline || receipt.Width != lastReceipt!.Width || receipt.Height != lastReceipt.Height)
                     ? ObservationReason.SourceChanged
@@ -98,7 +123,6 @@ public sealed partial class TableAnalysisSession
                 var gap = samples.Count == 0 ? 0 : (pts!.Value - samples[^1].SourceTimeUs) / 1000d;
                 maxGapMs = Math.Max(maxGapMs, gap);
                 if (gap > ObservationPolicy.MaximumVerificationGapSeconds * 1000) { reason = ObservationReason.SampleGap; RejectFrame(); frame.Dispose(); break; }
-                void RejectFrame() => rejected = new(reason, receipt, frame.Timeline, pts, age, mappingAge, uncertainty);
                 timeline = frame.Timeline; capturedAt = frame.CapturedAt; lastReceipt = receipt;
                 finalReceiptAt = time.GetTimestamp(); if (samples.Count == 0) scheduleStart = finalReceiptAt;
                 bool retryUncertainFinalDetection = samples.Count == ObservationPolicy.StandardVerificationSamples
@@ -112,24 +136,43 @@ public sealed partial class TableAnalysisSession
                     using (frame)
                     {
                         stage = "analysis";
+                        var measureStart = time.GetTimestamp();
                         var measured = worker.Measure(frame, detect, linked.Token);
+                        var workerMeasureMs = time.GetElapsedTime(measureStart).TotalMilliseconds;
                         linked.Token.ThrowIfCancellationRequested();
                         stage = "capture";
+                        var captureStart = time.GetTimestamp();
                         capture?.Invoke(new(operationId, admitted.Generation, admitted.CalibrationId, admitted.Calibration!.Corners.ToArray(), frame, measured)
                         {
                             AnalyzerConfigurationIdentity = (analyzer as ITableAnalyzerMetadata)?.ConfigurationIdentity
                                 ?? analyzer.GetType().FullName ?? analyzer.GetType().Name,
                             DetectionRequested = detect,
                         });
+                        var evidenceCaptureMs = time.GetElapsedTime(captureStart).TotalMilliseconds;
                         stage = "review";
-                        return (measured, reviewFrame && detect ? frame.ReviewImage() : null);
+                        var reviewEncodeMs = 0d; byte[]? review = null;
+                        if (reviewFrame && detect)
+                        {
+                            var reviewStart = time.GetTimestamp();
+                            review = frame.ReviewImage();
+                            reviewEncodeMs = time.GetElapsedTime(reviewStart).TotalMilliseconds;
+                        }
+                        return (measured, review, workerMeasureMs, evidenceCaptureMs, reviewEncodeMs);
                     }
                 }, CancellationToken.None);
                 var processed = await processing.WaitAsync(linked.Token).ConfigureAwait(false);
                 var measured = processed.Measurement;
                 if (processed.Review is not null) finalReview = processed.Review;
                 samples.Add(new(receipt!.FrameId, pts!.Value, age, mappingAge!.Value, uncertainty!.Value, acquisitionMs, time.GetElapsedTime(processStart).TotalMilliseconds, measured)
-                { CapturedAt = capturedAt });
+                {
+                    CapturedAt = capturedAt,
+                    ClockRefreshMs = clockRefreshMs,
+                    TargetCadenceWaitMs = targetCadenceWaitMs,
+                    NewFramePollingMs = newFramePollingMs,
+                    WorkerMeasureMs = processed.WorkerMeasureMs,
+                    EvidenceCaptureMs = processed.EvidenceCaptureMs,
+                    ReviewEncodeMs = processed.ReviewEncodeMs,
+                });
                 lock (gate)
                 {
                     linked.Token.ThrowIfCancellationRequested();

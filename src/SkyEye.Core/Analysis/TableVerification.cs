@@ -66,6 +66,12 @@ public sealed record VerificationSample(long FrameId, long SourceTimeUs, double 
     double AcquisitionMs, double ProcessingMs, VerificationMeasurement Measurement)
 {
     public DateTimeOffset CapturedAt { get; init; }
+    public double ClockRefreshMs { get; init; }
+    public double TargetCadenceWaitMs { get; init; }
+    public double NewFramePollingMs { get; init; }
+    public double WorkerMeasureMs { get; init; }
+    public double EvidenceCaptureMs { get; init; }
+    public double ReviewEncodeMs { get; init; }
 }
 public sealed record DetectionEvidenceAge(long FrameId, long SourceTimeUs, double AgeMs);
 public sealed record VerificationEvidence(Guid OperationId, string Configuration, string CalibrationId, string TargetGroup,
@@ -92,7 +98,14 @@ public sealed class FrameAcquisitionException(ObservationReason reason, string c
 }
 public sealed record ConsensusConflict(string Code, int Sample, string? BallId);
 public sealed record VerificationRejection(ObservationReason Reason, DecodedFrameReceipt? Receipt, string Timeline,
-    long? SourceTimeUs, double AgeMs, double? ClockSampleAgeMs, double? ClockUncertaintyMs);
+    long? SourceTimeUs, double AgeMs, double? ClockSampleAgeMs, double? ClockUncertaintyMs)
+{
+    public double? SourceGapMs { get; init; }
+    public double ClockRefreshMs { get; init; }
+    public double TargetCadenceWaitMs { get; init; }
+    public double NewFramePollingMs { get; init; }
+    public double AcquisitionMs { get; init; }
+}
 public sealed record VerificationProgress(int IndependentFrames, ObservationReason Reason);
 // Opt-in native evidence callback; TableFrame is borrowed only until the callback returns.
 // Pixels never enter TableObservation, agent projections or durable game state.
