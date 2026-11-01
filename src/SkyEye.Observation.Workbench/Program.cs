@@ -4,6 +4,16 @@ using System.Security.Cryptography;
 
 try
 {
+    if (args.Length == 2 && args[0] == "validate-o09-split-plan")
+    {
+        var splitPlanPath = Path.GetFullPath(args[1]);
+        var splitPlanInfo = new FileInfo(splitPlanPath);
+        if (!splitPlanInfo.Exists || splitPlanInfo.Length > 256 * 1024)
+            throw new InvalidDataException("Predeclared O09 split plan is missing or exceeds 256 KiB.");
+        var splitPlan = CorpusJson.Read<O09PredeclaredDevelopmentSplitPlan>(splitPlanPath);
+        Console.WriteLine(CorpusJson.Write(O09YoloDatasetExport.ValidatePredeclaredPlanDocument(splitPlan)));
+        return;
+    }
     if (args.Length == 3 && args[0] == "seed") { SeedFixtures.Write(args[1], args[2]); return; }
     if (args.Length == 3 && args[0] == "import-verification") { Console.WriteLine(VerificationCaptureImport.Import(args[1], args[2])); return; }
     if (args.Length == 4 && args[0] == "import-diagnostic-labels")
@@ -11,14 +21,14 @@ try
     if (args.Length == 4 && args[0] == "import-diagnostic-shots")
     { Console.WriteLine(DiagnosticLabelCaptureImport.ImportAssociationSequences(args[1], args[2], args[3])); return; }
     if (args.Length == 0 || args[0] is not ("validate" or "replay" or "freeze" or "baseline" or "verification" or "compare" or "export-yolo" or "export-o08" or "merge-o08" or "association"))
-        throw new ArgumentException("Usage: validate|replay|freeze|baseline|verification|compare|export-yolo|export-o08|merge-o08|association --root DIR --manifest FILE [--output FILE] [--output-dir DIR] [--lock FILE] [--detections FILE] [--requests FILE] [--current FILE --learned FILE --hybrid FILE --split Development|Holdout] [--current-export FILE --learned-export FILE --hybrid-export FILE] [--tolerance NUMBER] [export-o08: --sequence ID --run-dir DIR --output-dir NEW-DIR --lock FILE] [merge-o08: --exports DIR-LIST.json --output-dir NEW-DIR --lock FILE] [association: --candidate-name NAME --max-balls INTEGER --max-speed NUMBER --association-slack NUMBER --move-start NUMBER --move-stop NUMBER --truth-move-start NUMBER --truth-move-stop NUMBER --max-gap-ms INTEGER --ambiguity-margin NUMBER --colour-penalty NUMBER [--viewer-sequence ID --html-output FILE]] | import-diagnostic-labels CAPTURE_ROOT OUTPUT_ROOT ASSIGNMENTS.json | import-diagnostic-shots CAPTURE_ROOT OUTPUT_ROOT ASSIGNMENTS.json");
+        throw new ArgumentException("Usage: validate-o09-split-plan PLAN.json | validate|replay|freeze|baseline|verification|compare|export-yolo|export-o08|merge-o08|association --root DIR --manifest FILE [--output FILE] [--output-dir DIR] [--lock FILE] [--detections FILE] [--requests FILE] [--current FILE --learned FILE --hybrid FILE --split Development|Holdout] [--current-export FILE --learned-export FILE --hybrid-export FILE] [--tolerance NUMBER] [export-yolo: --split-plan PLAN.json] [export-o08: --sequence ID --run-dir DIR --output-dir NEW-DIR --lock FILE] [merge-o08: --exports DIR-LIST.json --output-dir NEW-DIR --lock FILE] [association: --candidate-name NAME --max-balls INTEGER --max-speed NUMBER --association-slack NUMBER --move-start NUMBER --move-stop NUMBER --truth-move-start NUMBER --truth-move-stop NUMBER --max-gap-ms INTEGER --ambiguity-margin NUMBER --colour-penalty NUMBER [--viewer-sequence ID --html-output FILE]] | import-diagnostic-labels CAPTURE_ROOT OUTPUT_ROOT ASSIGNMENTS.json | import-diagnostic-shots CAPTURE_ROOT OUTPUT_ROOT ASSIGNMENTS.json");
     var options = new Dictionary<string, string>();
     for (int i = 1; i < args.Length; i += 2)
         if (i + 1 == args.Length || args[i] is not ("--root" or "--manifest" or "--output" or "--lock" or "--detections" or "--requests" or "--tolerance"
             or "--current" or "--learned" or "--hybrid" or "--split" or "--output-dir" or "--candidate-name" or "--max-speed"
             or "--association-slack" or "--move-start" or "--move-stop" or "--truth-move-start" or "--truth-move-stop" or "--max-balls"
             or "--max-gap-ms" or "--ambiguity-margin" or "--colour-penalty" or "--viewer-sequence" or "--html-output" or "--sequence" or "--run-dir" or "--exports"
-            or "--current-export" or "--learned-export" or "--hybrid-export")
+            or "--current-export" or "--learned-export" or "--hybrid-export" or "--split-plan")
             || !options.TryAdd(args[i], args[i + 1])) throw new ArgumentException("Unknown, duplicate or incomplete option.");
     if (args[0] != "association" && (options.ContainsKey("--viewer-sequence") || options.ContainsKey("--html-output")))
         throw new ArgumentException("--viewer-sequence and --html-output are available only for O04 association.");
@@ -26,6 +36,8 @@ try
         throw new ArgumentException("--sequence and --run-dir are available only for export-o08.");
     if (args[0] != "merge-o08" && options.ContainsKey("--exports"))
         throw new ArgumentException("--exports is available only for merge-o08.");
+    if (args[0] != "export-yolo" && options.ContainsKey("--split-plan"))
+        throw new ArgumentException("--split-plan is available only for export-yolo.");
     if (args[0] != "compare" && (options.ContainsKey("--current-export") || options.ContainsKey("--learned-export") || options.ContainsKey("--hybrid-export")))
         throw new ArgumentException("Candidate export manifests are available only for compare.");
     string Required(string name) => options.GetValueOrDefault(name) ?? throw new ArgumentException("Missing " + name);
@@ -116,7 +128,21 @@ try
     object ExportYolo()
     {
         var outputDirectory = Path.GetFullPath(Required("--output-dir"));
-        var report = O09YoloDatasetExport.Export(manifest, frozen, files, outputDirectory);
+        O09PredeclaredDevelopmentSplitPlan? splitPlan = null;
+        string? splitPlanSha256 = null;
+        if (options.TryGetValue("--split-plan", out var splitPlanFile))
+        {
+            var path = Path.GetFullPath(splitPlanFile);
+            var info = new FileInfo(path);
+            if (!info.Exists || info.Length > 256 * 1024)
+                throw new InvalidDataException("Predeclared O09 split plan is missing or exceeds 256 KiB.");
+            var planBytes = File.ReadAllBytes(path);
+            if (planBytes.Length > 256 * 1024) throw new InvalidDataException("Predeclared O09 split plan exceeds 256 KiB.");
+            splitPlan = System.Text.Json.JsonSerializer.Deserialize<O09PredeclaredDevelopmentSplitPlan>(planBytes, CorpusJson.Options)
+                ?? throw new InvalidDataException("Predeclared O09 split plan is empty.");
+            splitPlanSha256 = CorpusFiles.Hash(planBytes);
+        }
+        var report = O09YoloDatasetExport.Export(manifest, frozen, files, outputDirectory, splitPlan, splitPlanSha256);
         return new { directory = outputDirectory, report };
     }
     object Compare()

@@ -2,30 +2,44 @@ using System.Collections.Immutable;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json.Serialization;
 
 namespace SkyEye.Observation;
 
 public sealed record O09ExportSession(string Session, string SplitGroupId, string Role);
 public sealed record O09ExportSplitGroup(string SplitGroupId, string Role, ImmutableArray<string> Sessions,
-    ImmutableArray<string> SetupGroups);
+    ImmutableArray<string> SetupGroups,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ImmutableArray<string>? LightingStrata = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] ImmutableArray<string>? LayoutIds = null);
 public sealed record O09DevelopmentSplitPlan(ImmutableArray<O09ExportSession> SessionAssignments,
     ImmutableArray<O09ExportSplitGroup> SplitGroups);
+public sealed record O09PlannedSetupGroup(string SetupGroupId, string Role, string? LightingStratum, string? LayoutId);
+public sealed record O09PredeclaredDevelopmentSplitPlan(int SchemaVersion, string CorpusId,
+    ImmutableArray<string> LightingStrata, ImmutableArray<O09PlannedSetupGroup> SetupGroups);
+public sealed record O09SplitPlanCoverageCell(string LightingStratum, string Role, int SetupGroups, int Layouts);
+public sealed record O09PredeclaredSplitPlanAudit(string CorpusId, int SetupGroupCount, int LayoutCount,
+    ImmutableArray<O09SplitPlanCoverageCell> Coverage);
 public sealed record O09ExportSample(string SequenceId, string Session, string Split, string SplitGroupId, string SampleId,
-    string ImageFile, string PixelSha256, string LabelFile, int VisibleBoxes);
+    string ImageFile, string PixelSha256, string LabelFile, int VisibleBoxes,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? LightingStratum = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? LayoutId = null);
 public sealed record O09TrainingExportReport(int SchemaVersion, string CorpusId, string ManifestSha256,
     string SourceSplit, ImmutableArray<O09ExportSession> SessionAssignments,
     ImmutableArray<O09ExportSplitGroup> SplitGroups,
     ImmutableArray<O09ExportSample> Samples, ImmutableArray<string> Classes, string AugmentationPolicy,
-    string HoldoutPolicy);
+    string HoldoutPolicy,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] string? PredeclaredSplitPlanSha256 = null);
 
 /// <summary>Exports reviewed development labels for a YOLO-compatible trainer without copying O01 holdout pixels.</summary>
 public static class O09YoloDatasetExport
 {
     static readonly ImmutableArray<string> Classes = ["cue", "black", "red", "yellow", "unknown"];
     sealed record PreparedSample(string SequenceId, string Session, string Role, string SplitGroupId, string SampleId,
-        IndexedFrame Frame, string ImageFile, string LabelFile, string LabelText, int VisibleBoxes);
+        IndexedFrame Frame, string ImageFile, string LabelFile, string LabelText, int VisibleBoxes,
+        string? LightingStratum, string? LayoutId);
 
-    public static O09DevelopmentSplitPlan PlanDevelopmentSplit(CorpusManifest manifest)
+    public static O09DevelopmentSplitPlan PlanDevelopmentSplit(CorpusManifest manifest,
+        O09PredeclaredDevelopmentSplitPlan? predeclared = null)
     {
         var development = manifest.Sequences.Where(s => s.Kind == CorpusKind.Real && s.Split == CorpusSplit.Development)
             .OrderBy(s => s.Id, StringComparer.Ordinal).ToArray();
@@ -78,27 +92,127 @@ public static class O09YoloDatasetExport
         if (components.Length < 3)
             throw new InvalidDataException("O09 needs at least three independent Development split groups after joining every shared recording session and setup/control group.");
 
-        int validationCount = Math.Clamp((int)Math.Round(components.Length * .2, MidpointRounding.AwayFromZero), 1, components.Length - 2);
-        var validation = components.OrderBy(component => StableSplitGroupHash(manifest.Id,
-                component.Id, component.Sessions, component.SetupGroups), StringComparer.Ordinal)
-            .ThenBy(component => component.Id, StringComparer.Ordinal).Take(validationCount)
-            .Select(component => component.Id).ToHashSet(StringComparer.Ordinal);
-        var groups = components.Select(component => new O09ExportSplitGroup(component.Id,
-                validation.Contains(component.Id) ? "validation" : "train", component.Sessions, component.SetupGroups))
-            .ToImmutableArray();
+        ImmutableArray<O09ExportSplitGroup> groups;
+        if (predeclared is null)
+        {
+            int validationCount = Math.Clamp((int)Math.Round(components.Length * .2, MidpointRounding.AwayFromZero), 1, components.Length - 2);
+            var validation = components.OrderBy(component => StableSplitGroupHash(manifest.Id,
+                    component.Id, component.Sessions, component.SetupGroups), StringComparer.Ordinal)
+                .ThenBy(component => component.Id, StringComparer.Ordinal).Take(validationCount)
+                .Select(component => component.Id).ToHashSet(StringComparer.Ordinal);
+            groups = components.Select(component => new O09ExportSplitGroup(component.Id,
+                    validation.Contains(component.Id) ? "validation" : "train", component.Sessions, component.SetupGroups))
+                .ToImmutableArray();
+        }
+        else
+        {
+            var plannedBySetupGroup = ValidatePredeclaredPlan(manifest, predeclared);
+            var observedSetupGroups = components.SelectMany(component => component.SetupGroups)
+                .ToHashSet(StringComparer.Ordinal);
+            if (!observedSetupGroups.SetEquals(plannedBySetupGroup.Keys))
+                throw new InvalidDataException("Predeclared O09 setup-group assignments must exactly match the Development corpus; missing or unexpected groups are not allowed.");
+            var plannedGroups = components.Select(component =>
+            {
+                var assignments = component.SetupGroups.Select(setupGroup => plannedBySetupGroup[setupGroup]).ToArray();
+                var roles = assignments.Select(assignment => assignment.Role).Distinct(StringComparer.Ordinal).ToArray();
+                if (roles.Length != 1)
+                    throw new InvalidDataException("A recording-session component bridges predeclared train and validation roles: " + component.Id);
+                return new O09ExportSplitGroup(component.Id, roles[0], component.Sessions, component.SetupGroups,
+                    assignments.Where(assignment => assignment.LightingStratum is not null)
+                        .Select(assignment => assignment.LightingStratum!).Distinct(StringComparer.Ordinal)
+                        .Order(StringComparer.Ordinal).ToImmutableArray(),
+                    assignments.Where(assignment => assignment.LayoutId is not null)
+                        .Select(assignment => assignment.LayoutId!).Distinct(StringComparer.Ordinal)
+                        .Order(StringComparer.Ordinal).ToImmutableArray());
+            }).ToImmutableArray();
+            ValidatePlannedCoverage(predeclared, components, plannedGroups, plannedBySetupGroup);
+            groups = plannedGroups;
+        }
         var sessionAssignments = groups.SelectMany(group => group.Sessions.Select(session =>
                 new O09ExportSession(session, group.SplitGroupId, group.Role)))
             .OrderBy(assignment => assignment.Session, StringComparer.Ordinal).ToImmutableArray();
         return new(sessionAssignments, groups);
     }
 
-    public static O09TrainingExportReport Export(CorpusManifest manifest, FrozenCorpus frozen, CorpusFiles files, string outputDirectory)
+    static Dictionary<string, O09PlannedSetupGroup> ValidatePredeclaredPlan(CorpusManifest manifest,
+        O09PredeclaredDevelopmentSplitPlan plan)
+    {
+        _ = ValidatePredeclaredPlanDocument(plan);
+        if (!StringComparer.Ordinal.Equals(plan.CorpusId, manifest.Id))
+            throw new InvalidDataException("Predeclared O09 split plan corpus ID does not match the Development manifest.");
+        return plan.SetupGroups.ToDictionary(group => group.SetupGroupId, StringComparer.Ordinal);
+    }
+
+    public static O09PredeclaredSplitPlanAudit ValidatePredeclaredPlanDocument(O09PredeclaredDevelopmentSplitPlan plan)
+    {
+        if (plan.SchemaVersion != 1 || string.IsNullOrWhiteSpace(plan.CorpusId))
+            throw new InvalidDataException("Predeclared O09 split plan schema or corpus ID is invalid.");
+        if (plan.LightingStrata.IsDefaultOrEmpty || plan.LightingStrata.Any(string.IsNullOrWhiteSpace)
+            || plan.LightingStrata.Distinct(StringComparer.Ordinal).Count() != plan.LightingStrata.Length)
+            throw new InvalidDataException("Predeclared O09 split plan needs unique, named lighting strata.");
+        if (plan.SetupGroups.IsDefaultOrEmpty || plan.SetupGroups.Any(group =>
+                string.IsNullOrWhiteSpace(group.SetupGroupId)
+                || group.Role is not ("train" or "validation")
+                || (group.LightingStratum is null) != (group.LayoutId is null)
+                || group.LightingStratum is { } stratum && !plan.LightingStrata.Contains(stratum, StringComparer.Ordinal)
+                || group.LayoutId is { } layout && string.IsNullOrWhiteSpace(layout)))
+            throw new InvalidDataException("Predeclared O09 split plan contains an invalid setup-group assignment.");
+        if (plan.SetupGroups.GroupBy(group => group.SetupGroupId, StringComparer.Ordinal).Any(group => group.Count() != 1))
+            throw new InvalidDataException("Predeclared O09 split plan repeats a setup-group assignment.");
+        if (plan.SetupGroups.Any(group => group.LayoutId is null && group.Role != "train"))
+            throw new InvalidDataException("Unstratified legacy setup groups may only be assigned to train.");
+        var coverage = plan.SetupGroups.Where(group => group.LayoutId is not null).ToArray();
+        if (coverage.GroupBy(group => group.LayoutId, StringComparer.Ordinal).Any(group => group.Count() != 1))
+            throw new InvalidDataException("Each predeclared O09 coverage layout must have exactly one setup group.");
+        var cells = plan.LightingStrata.SelectMany(lighting => new[] { "train", "validation" }.Select(role =>
+        {
+            var selected = coverage.Where(group => group.LightingStratum == lighting && group.Role == role).ToArray();
+            if (selected.Length < 3)
+                throw new InvalidDataException($"Predeclared O09 split needs at least three distinct layouts in {role}/{lighting}.");
+            return new O09SplitPlanCoverageCell(lighting, role, selected.Length,
+                selected.Select(group => group.LayoutId).Distinct(StringComparer.Ordinal).Count());
+        })).ToImmutableArray();
+        return new(plan.CorpusId, plan.SetupGroups.Length, coverage.Length, cells);
+    }
+
+    static void ValidatePlannedCoverage(O09PredeclaredDevelopmentSplitPlan plan,
+        (string Id, ImmutableArray<string> Sessions, ImmutableArray<string> SetupGroups)[] components,
+        ImmutableArray<O09ExportSplitGroup> groups,
+        Dictionary<string, O09PlannedSetupGroup> plannedBySetupGroup)
+    {
+        var actualGroups = components.SelectMany(component => component.SetupGroups).ToHashSet(StringComparer.Ordinal);
+        if (!actualGroups.SetEquals(plannedBySetupGroup.Keys))
+            throw new InvalidDataException("Predeclared O09 setup-group assignments must exactly match the Development corpus; missing or unexpected groups are not allowed.");
+        var roleByComponent = groups.ToDictionary(group => group.SplitGroupId, group => group.Role, StringComparer.Ordinal);
+        var componentBySetupGroup = components.SelectMany(component => component.SetupGroups.Select(setupGroup => (setupGroup, component.Id)))
+            .ToDictionary(row => row.setupGroup, row => row.Id, StringComparer.Ordinal);
+        var coverage = plan.SetupGroups.Where(group => group.LayoutId is not null).ToArray();
+        foreach (var lighting in plan.LightingStrata)
+        foreach (var role in new[] { "train", "validation" })
+        {
+            var selected = coverage.Where(group => group.LightingStratum == lighting && group.Role == role).ToArray();
+            var independentGroups = selected.Select(group => componentBySetupGroup[group.SetupGroupId])
+                .Distinct(StringComparer.Ordinal).Count();
+            if (selected.Length < 3 || independentGroups < 3)
+                throw new InvalidDataException($"Predeclared O09 split needs at least three distinct layouts in three independent groups for {role}/{lighting}.");
+        }
+        foreach (var group in coverage)
+            if (!StringComparer.Ordinal.Equals(roleByComponent[componentBySetupGroup[group.SetupGroupId]], group.Role))
+                throw new InvalidDataException("A connected recording/setup component does not retain its predeclared role.");
+    }
+
+    public static O09TrainingExportReport Export(CorpusManifest manifest, FrozenCorpus frozen, CorpusFiles files,
+        string outputDirectory, O09PredeclaredDevelopmentSplitPlan? predeclared = null, string? splitPlanSha256 = null)
     {
         if (string.IsNullOrWhiteSpace(outputDirectory)) throw new ArgumentException("Provide a new O09 dataset output directory.", nameof(outputDirectory));
+        if ((predeclared is null) != (splitPlanSha256 is null)
+            || splitPlanSha256 is not null && !CorpusFiles.IsHash(splitPlanSha256))
+            throw new InvalidDataException("A predeclared O09 plan must be bound to its exact SHA-256 bytes.");
         var development = manifest.Sequences.Where(s => s.Kind == CorpusKind.Real && s.Split == CorpusSplit.Development)
             .OrderBy(s => s.Id, StringComparer.Ordinal).ToArray();
-        var plan = PlanDevelopmentSplit(manifest);
+        var plan = PlanDevelopmentSplit(manifest, predeclared);
         var assignmentBySession = plan.SessionAssignments.ToDictionary(assignment => assignment.Session, StringComparer.Ordinal);
+        var plannedBySetupGroup = predeclared?.SetupGroups.ToDictionary(group => group.SetupGroupId, StringComparer.Ordinal);
 
         var target = Path.GetFullPath(outputDirectory);
         if (Directory.Exists(target) || File.Exists(target)) throw new IOException("O09 export destination already exists; choose a new versioned directory.");
@@ -109,12 +223,30 @@ public static class O09YoloDatasetExport
             var assignment = assignmentBySession[sequence.Session];
             var role = assignment.Role;
             var folder = role == "validation" ? "val" : "train";
+            string? lightingStratum = null;
+            string? layoutId = null;
+            if (plannedBySetupGroup is not null)
+            {
+                var sequenceGroups = CorpusSetupGroups.ForSequence(sequence);
+                if (sequenceGroups.Length != 1)
+                    throw new InvalidDataException("A predeclared O09 sequence must belong to exactly one setup group: " + sequence.Id);
+                var plannedGroup = plannedBySetupGroup[sequenceGroups[0]];
+                lightingStratum = plannedGroup.LightingStratum;
+                layoutId = plannedGroup.LayoutId;
+            }
             var labels = CorpusJson.Read<SequenceLabels>(files.Resolve(sequence.LabelsFile));
             if (!labels.Reviewed || labels.Frames.IsDefaultOrEmpty)
                 throw new InvalidDataException("O09 export requires reviewed labels: " + sequence.Id);
             var index = files.Index(sequence.IndexFile).ToDictionary(f => f.SampleId, StringComparer.Ordinal);
             foreach (var frameLabels in labels.Frames.OrderBy(f => f.SampleId, StringComparer.Ordinal))
             {
+                if (lightingStratum is not null)
+                {
+                    var lightingTags = (frameLabels.Tags.IsDefault ? ImmutableArray<string>.Empty : frameLabels.Tags)
+                        .Where(tag => tag.StartsWith("lighting-stratum:", StringComparison.Ordinal)).ToArray();
+                    if (lightingTags.Length != 1 || !StringComparer.Ordinal.Equals(lightingTags[0], "lighting-stratum:" + lightingStratum))
+                        throw new InvalidDataException("Every planned-layout label frame must carry exactly its predeclared lighting-stratum tag: " + frameLabels.SampleId);
+                }
                 if (frameLabels.CoordinateSpace != "image-normalized")
                     throw new InvalidDataException("YOLO export requires reviewed image-normalized labels; no calibration warp is inferred: " + frameLabels.SampleId);
                 if (frameLabels.Balls.Any(b => b.Visibility is LabelVisibility.Occluded or LabelVisibility.Uncertain))
@@ -135,7 +267,7 @@ public static class O09YoloDatasetExport
                 var yoloLines = visible.Select(ball => YoloBox(ball)).ToArray();
                 string labelText = yoloLines.Length == 0 ? string.Empty : string.Join("\n", yoloLines) + "\n";
                 prepared.Add(new(sequence.Id, sequence.Session, role, assignment.SplitGroupId, frameLabels.SampleId, indexed,
-                    imageRelative, labelRelative, labelText, visible.Length));
+                    imageRelative, labelRelative, labelText, visible.Length, lightingStratum, layoutId));
             }
         }
 
@@ -152,14 +284,15 @@ public static class O09YoloDatasetExport
             File.WriteAllBytes(imagePath, pixels);
             File.WriteAllText(labelPath, sample.LabelText, new UTF8Encoding(false));
             exported.Add(new(sample.SequenceId, sample.Session, sample.Role, sample.SplitGroupId, sample.SampleId,
-                sample.ImageFile, sample.Frame.PixelSha256, sample.LabelFile, sample.VisibleBoxes));
+                sample.ImageFile, sample.Frame.PixelSha256, sample.LabelFile, sample.VisibleBoxes,
+                sample.LightingStratum, sample.LayoutId));
         }
         File.WriteAllText(Path.Combine(target, "dataset.yaml"),
             "path: .\ntrain: images/train\nval: images/val\nnames:\n  0: cue\n  1: black\n  2: red\n  3: yellow\n  4: unknown\n", new UTF8Encoding(false));
-        var report = new O09TrainingExportReport(2, manifest.Id, frozen.ManifestSha256, "Development",
+        var report = new O09TrainingExportReport(predeclared is null ? 2 : 3, manifest.Id, frozen.ManifestSha256, "Development",
             plan.SessionAssignments, plan.SplitGroups, exported.ToImmutable(), Classes,
             "No augmentation is applied during export. Apply exposure changes up to plus/minus two stops, brightness/gamma/contrast, warm/cool white balance, saturation, directional/partial shadows, blind-like stripes, highlights, dim/bright-room variation, motion blur, slight defocus, compression/noise, overlap and partial occlusion to train sessions only. Keep validation and O01 Holdout pixels unchanged.",
-            "O01 Holdout sessions and pixels are not copied or listed as training samples; evaluate a frozen candidate against them only after model and thresholds are fixed.");
+            "O01 Holdout sessions and pixels are not copied or listed as training samples; evaluate a frozen candidate against them only after model and thresholds are fixed.", splitPlanSha256);
         File.WriteAllText(Path.Combine(target, "o09-export.json"), CorpusJson.Write(report) + "\n", new UTF8Encoding(false));
         return report;
     }

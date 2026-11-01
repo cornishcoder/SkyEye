@@ -6,7 +6,7 @@
 
 ### 1 November 2026 Development checkpoint
 
-The reviewed apparent image-space radii now support a Development export, but the learned baselines do not approach a usable detector: config-only scratch training scored 0/4 complete layouts, pretrained YOLO11n transfer scored 16/62 boxes (all yellow), 384 false positives, 46 misses, and 0/4 layouts on its validation group, and the frozen transfer checkpoint scored 0/7 complete layouts on seven new controls (36 TP, 664 capped FP, 73 FN; 5.14% precision, 33.03% recall, no correct cue/black matches). Holdout remains unopened. Do not integrate either checkpoint, retrain on the probe frames, or tune repeatedly against these Development samples. The seven-frame expansion improves target-control coverage but not broad rack/spread or lighting coverage; its validation split is only two frames from one correlated group. The next target is `O09-DEVELOPMENT-LAYOUT-LIGHTING-EXPANSION`, which needs stable playable light and precomputed setup/layout split roles before staging. See the [transfer result](evidence/live-detect-o09-training-dev-transfer-baseline-20261101.md), [new-control probe](evidence/live-detect-o09-transfer-new-controls-probe-20261101.md), [expansion report](evidence/live-detect-o09-dev-corpus-expansion-20261101.md), and [targeted test ledger](evidence/live-detect-targeted-test-ledger-20261101.md).
+The reviewed apparent image-space radii now support a Development export, but the learned baselines do not approach a usable detector: config-only scratch training scored 0/4 complete layouts, pretrained YOLO11n transfer scored 16/62 boxes (all yellow), 384 false positives, 46 misses, and 0/4 layouts on its validation group, and the frozen transfer checkpoint scored 0/7 complete layouts on seven new controls (36 TP, 664 capped FP, 73 FN; 5.14% precision, 33.03% recall, no correct cue/black matches). Holdout remains unopened. Do not integrate either checkpoint, retrain on the probe frames, or tune repeatedly against these Development samples. The seven-frame expansion improves target-control coverage but not broad rack/spread or lighting coverage; its validation split is only two frames from one correlated group. The next physical target is `O09-DEVELOPMENT-LAYOUT-LIGHTING-EXPANSION`, pending playable `normal-pool-room` and `warm-dim-playable` lighting. Its group roles are now predeclared and balanced; the table is currently off and capture has not started. See the [transfer result](evidence/live-detect-o09-training-dev-transfer-baseline-20261101.md), [new-control probe](evidence/live-detect-o09-transfer-new-controls-probe-20261101.md), [split and batch plan](evidence/live-detect-o09-development-layout-lighting-batch-plan-20261101.md), [expansion report](evidence/live-detect-o09-dev-corpus-expansion-20261101.md), and [targeted test ledger](evidence/live-detect-targeted-test-ledger-20261101.md).
 
 ### O09 Development expansion follow-up — 1 November 2026
 
@@ -33,6 +33,20 @@ python scripts/Probe-O09NewControlFrames.py --output work/o09/transfer-new-contr
 ```
 
 The script verifies the frozen checkpoint and training-export hashes, exact Development frame set, source/index/label hashes, class map, and zero sample overlap before inference. A reproduction must use a new `--output` path; the original evidence artifact is kept immutable.
+
+### Predeclared Development split and lighting plan — 1 November 2026
+
+Target `O09-PREDECLARED-DEVELOPMENT-SPLIT-PLAN` passes **7/7** focused assertions; `O09-PREDECLARED-DEVELOPMENT-SPLIT-EXPORT` passes **6/6** synthetic exporter assertions. The default splitter's five-group v2 assignment produced only one validation group, so the next v3 corpus uses a reviewed, hash-bound role plan with five legacy groups train-only plus 12 new layouts. Each contract stratum (`normal-pool-room`, `warm-dim-playable`) has three train and three validation groups. The Workbench preflight reports 17 declared groups, 12 layouts and all four balanced role/light cells. The export retains the plan SHA-256 and per-sample layout/light tags, rejects a mismatched lighting tag, and still rejects transitive camera-session joins across roles.
+
+The [batch plan](evidence/live-detect-o09-development-layout-lighting-batch-plan-20261101.md) reserves four role/light layouts for matched black/cue present-and-absent sequences; minimum batch is 24 reviewed frames. The user reports the table is off and current light stops play, so this is a pre-capture plan only: measured lighting strata remain zero. Actual export must confirm three independent connected groups in each role/light cell before another model run. Keep the existing v2 export, split and candidate results unchanged.
+
+Pre-capture plan audit:
+
+```powershell
+dotnet run --project src/SkyEye.Observation.Workbench/SkyEye.Observation.Workbench.csproj -c Release --no-restore -- validate-o09-split-plan docs/evidence/live-detect-o09-development-split-plan-20261101.json
+```
+
+When the v3 corpus is complete, pass the same file using `export-yolo --split-plan`; the actual session/setup component check then binds this matrix to observed source groups.
 
 Determine whether a small learned detector, alone or paired with the existing OpenCV geometry refinement, materially improves ball recall, false-positive rate and colour accuracy across held-out lighting conditions while meeting Pixel latency and resource needs. Keep the production path unchanged unless a candidate wins the frozen evaluation and passes O08 safety and release gates.
 

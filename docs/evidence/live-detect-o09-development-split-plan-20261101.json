@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "corpusId": "live-detect-20261101-black-cue-development-v4-o09-reviewed-layouts-v3",
+  "lightingStrata": [
+    "normal-pool-room",
+    "warm-dim-playable"
+  ],
+  "setupGroups": [
+    { "setupGroupId": "matched-setup-group-live-detect-20261101-lower-left-controls", "role": "train", "lightingStratum": null, "layoutId": null },
+    { "setupGroupId": "matched-setup-group-live-detect-20261101-lower-right-controls", "role": "train", "lightingStratum": null, "layoutId": null },
+    { "setupGroupId": "matched-setup-group-live-detect-20261101-upper-right-controls", "role": "train", "lightingStratum": null, "layoutId": null },
+    { "setupGroupId": "live-detect-20261101-opposite-cue-controls", "role": "train", "lightingStratum": null, "layoutId": null },
+    { "setupGroupId": "live-detect-20261101-mid-cushion-controls", "role": "train", "lightingStratum": null, "layoutId": null },
+    { "setupGroupId": "o09-v3-normal-train-layout-01", "role": "train", "lightingStratum": "normal-pool-room", "layoutId": "normal-train-layout-01" },
+    { "setupGroupId": "o09-v3-normal-train-layout-02", "role": "train", "lightingStratum": "normal-pool-room", "layoutId": "normal-train-layout-02" },
+    { "setupGroupId": "o09-v3-normal-train-layout-03", "role": "train", "lightingStratum": "normal-pool-room", "layoutId": "normal-train-layout-03" },
+    { "setupGroupId": "o09-v3-normal-validation-layout-01", "role": "validation", "lightingStratum": "normal-pool-room", "layoutId": "normal-validation-layout-01" },
+    { "setupGroupId": "o09-v3-normal-validation-layout-02", "role": "validation", "lightingStratum": "normal-pool-room", "layoutId": "normal-validation-layout-02" },
+    { "setupGroupId": "o09-v3-normal-validation-layout-03", "role": "validation", "lightingStratum": "normal-pool-room", "layoutId": "normal-validation-layout-03" },
+    { "setupGroupId": "o09-v3-warm-train-layout-01", "role": "train", "lightingStratum": "warm-dim-playable", "layoutId": "warm-train-layout-01" },
+    { "setupGroupId": "o09-v3-warm-train-layout-02", "role": "train", "lightingStratum": "warm-dim-playable", "layoutId": "warm-train-layout-02" },
+    { "setupGroupId": "o09-v3-warm-train-layout-03", "role": "train", "lightingStratum": "warm-dim-playable", "layoutId": "warm-train-layout-03" },
+    { "setupGroupId": "o09-v3-warm-validation-layout-01", "role": "validation", "lightingStratum": "warm-dim-playable", "layoutId": "warm-validation-layout-01" },
+    { "setupGroupId": "o09-v3-warm-validation-layout-02", "role": "validation", "lightingStratum": "warm-dim-playable", "layoutId": "warm-validation-layout-02" },
+    { "setupGroupId": "o09-v3-warm-validation-layout-03", "role": "validation", "lightingStratum": "warm-dim-playable", "layoutId": "warm-validation-layout-03" }
+  ]
+}

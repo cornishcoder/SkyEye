@@ -424,6 +424,54 @@ try
         SplitSequence("few-b", "few-session-b", "few-group-b")
     ])));
 
+    var plannedLightingStrata = ImmutableArray.Create("normal-pool-room", "warm-dim-playable");
+    var plannedAssignments = ImmutableArray.CreateBuilder<O09PlannedSetupGroup>();
+    var plannedSequences = new List<CorpusSequence>();
+    foreach (var lighting in plannedLightingStrata)
+    foreach (var role in new[] { "train", "validation" })
+    for (int layout = 1; layout <= 3; layout++)
+    {
+        string key = $"{lighting}-{role}-{layout}";
+        string setupGroup = "planned-" + key;
+        plannedSequences.Add(SplitSequence("planned-seq-" + key, "planned-session-" + key, setupGroup));
+        plannedAssignments.Add(new(setupGroup, role, lighting, "layout-" + key));
+    }
+    plannedSequences.Add(SplitSequence("legacy-seq", "legacy-session", "legacy-unstratified-controls"));
+    plannedAssignments.Add(new("legacy-unstratified-controls", "train", null, null));
+    var plannedManifest = new CorpusManifest(1, "o09-predeclared-split-fixture", plannedSequences.ToImmutableArray());
+    var predeclaredPlan = new O09PredeclaredDevelopmentSplitPlan(1, plannedManifest.Id, plannedLightingStrata,
+        plannedAssignments.ToImmutable());
+    var predeclaredAudit = O09YoloDatasetExport.ValidatePredeclaredPlanDocument(predeclaredPlan);
+    Check(predeclaredAudit.SetupGroupCount == 13 && predeclaredAudit.LayoutCount == 12
+        && predeclaredAudit.Coverage.Length == 4 && predeclaredAudit.Coverage.All(cell => cell.SetupGroups == 3 && cell.Layouts == 3),
+        "O09 pre-capture plan audit reports all lighting-by-role coverage cells");
+    var predeclaredSplit = O09YoloDatasetExport.PlanDevelopmentSplit(plannedManifest, predeclaredPlan);
+    Check(predeclaredSplit.SplitGroups.Count(group => group.Role == "validation") == 6
+        && predeclaredSplit.SplitGroups.Count(group => group.Role == "train") == 7
+        && plannedLightingStrata.All(lighting => new[] { "train", "validation" }.All(role =>
+            predeclaredPlan.SetupGroups.Count(group => group.LayoutId is not null
+                && group.LightingStratum == lighting && group.Role == role) == 3)),
+        "O09 honors a predeclared six-cell lighting/role plan while keeping legacy controls in train");
+    Check(CorpusJson.Write(predeclaredSplit) == CorpusJson.Write(O09YoloDatasetExport.PlanDevelopmentSplit(
+            plannedManifest with { Sequences = plannedManifest.Sequences.Reverse().ToImmutableArray() }, predeclaredPlan)),
+        "Predeclared O09 roles are deterministic regardless of manifest order");
+    Throws<InvalidDataException>(() => O09YoloDatasetExport.PlanDevelopmentSplit(plannedManifest,
+        predeclaredPlan with { SetupGroups = predeclaredPlan.SetupGroups.RemoveAt(0) }));
+    Throws<InvalidDataException>(() => O09YoloDatasetExport.PlanDevelopmentSplit(plannedManifest,
+        predeclaredPlan with { SetupGroups = predeclaredPlan.SetupGroups.SetItem(0,
+            predeclaredPlan.SetupGroups[0] with { SetupGroupId = "unexpected-planned-group" }) }));
+    Throws<InvalidDataException>(() => O09YoloDatasetExport.PlanDevelopmentSplit(plannedManifest,
+        predeclaredPlan with { SetupGroups = predeclaredPlan.SetupGroups.SetItem(0,
+            predeclaredPlan.SetupGroups[0] with { Role = "validation" }) }));
+    var crossRoleSessionManifest = plannedManifest with
+    {
+        Sequences = plannedManifest.Sequences.Select(sequence => sequence.Id == "planned-seq-normal-pool-room-validation-1"
+            ? sequence with { Session = "planned-session-normal-pool-room-train-1" }
+            : sequence).ToImmutableArray()
+    };
+    Throws<InvalidDataException>(() => O09YoloDatasetExport.PlanDevelopmentSplit(crossRoleSessionManifest, predeclaredPlan));
+    Console.WriteLine("PASS O09-PREDECLARED-DEVELOPMENT-SPLIT-PLAN 7/7 · balanced lighting roles, exact group coverage, order invariance and session-leak rejection");
+
     // O09 export must preserve PNG source bytes and extensions while retaining JPEG compatibility.
     var encodingRoot = Path.Combine(root, "o09-image-encoding"); Directory.CreateDirectory(encodingRoot);
     var encodingFiles = new CorpusFiles(encodingRoot);
@@ -476,6 +524,73 @@ try
     Console.WriteLine($"PASS O09-YOLO-PNG-ENCODING {pngPreserved}/2 files preserve .png extension and exact bytes");
     Console.WriteLine($"PASS O09-YOLO-JPEG-ENCODING {jpegPreserved}/1 file preserves .jpg extension and exact bytes");
     Check(pngPreserved == 2 && jpegPreserved == 1, "O09 exports retain indexed image formats and exact source bytes");
+
+    var plannedExportRoot = Path.Combine(root, "o09-predeclared-split-export"); Directory.CreateDirectory(plannedExportRoot);
+    var plannedExportFiles = new CorpusFiles(plannedExportRoot);
+    byte[] plannedPixels = pngFixture.ToArray();
+    File.WriteAllBytes(Path.Combine(plannedExportRoot, "planned.png"), plannedPixels);
+    var plannedExportSequences = new List<CorpusSequence>();
+    foreach (var assignment in predeclaredPlan.SetupGroups.Where(group => group.LayoutId is not null))
+    {
+        string id = "export-" + assignment.LayoutId;
+        string sampleId = id + "-sample";
+        var indexed = new IndexedFrame(sampleId, plannedExportSequences.Count + 1,
+            10_000L + plannedExportSequences.Count, scope with { Timeline = id }, "planned.png",
+            CorpusFiles.Hash(plannedPixels), PixelEncoding.Png, 1, 1);
+        string indexFile = id + "-frames.jsonl";
+        File.WriteAllText(Path.Combine(plannedExportRoot, indexFile), JsonSerializer.Serialize(indexed,
+            new JsonSerializerOptions(CorpusJson.Options) { WriteIndented = false }) + "\n");
+        string labelsFile = id + "-labels.json";
+        File.WriteAllText(Path.Combine(plannedExportRoot, labelsFile), CorpusJson.Write(new SequenceLabels(2, id,
+            "reviewer", "cal-v1", true,
+            [new FrameLabels(sampleId, indexed.PixelSha256, "image-normalized",
+                [new("R1", "red", .5, .5, LabelVisibility.Visible) { RadiusX = .25, RadiusY = .25 }], "synthetic split-plan export fixture")
+                { Tags = ["lighting-stratum:" + assignment.LightingStratum!] }], [])));
+        plannedExportSequences.Add(new(id, "session-" + id, CorpusKind.Real, CorpusSplit.Development,
+            SequencePurpose.StillRegression,
+            new("camera-" + id, "synthetic O09 split-plan export fixture", "planned.png", indexed.PixelSha256, 1, 1,
+                SourceClock.RecordingMicroseconds, "cal-v1"), indexFile, labelsFile, "Synthetic metadata fixture only",
+            ["setup-group:" + assignment.SetupGroupId]));
+    }
+    var plannedExportManifest = new CorpusManifest(1, "o09-predeclared-export-fixture", plannedExportSequences.ToImmutableArray());
+    var plannedExportManifestPath = Path.Combine(plannedExportRoot, "manifest.json");
+    File.WriteAllText(plannedExportManifestPath, CorpusJson.Write(plannedExportManifest) + "\n");
+    CorpusValidation.Validate(plannedExportManifest, plannedExportFiles);
+    var plannedExportLock = SplitLock.Freeze(plannedExportManifest, plannedExportFiles, plannedExportManifestPath);
+    var plannedExportPlan = new O09PredeclaredDevelopmentSplitPlan(1, plannedExportManifest.Id, plannedLightingStrata,
+        predeclaredPlan.SetupGroups.Where(group => group.LayoutId is not null).ToImmutableArray());
+    string plannedExportPlanSha = CorpusFiles.Hash(System.Text.Encoding.UTF8.GetBytes(CorpusJson.Write(plannedExportPlan)));
+    var plannedExportResult = O09YoloDatasetExport.Export(plannedExportManifest, plannedExportLock, plannedExportFiles,
+        Path.Combine(plannedExportRoot, "export"), plannedExportPlan, plannedExportPlanSha);
+    Check(plannedExportResult.SchemaVersion == 3 && plannedExportResult.PredeclaredSplitPlanSha256 == plannedExportPlanSha,
+        "O09 predeclared split export binds the exact plan hash and advances its report schema");
+    Check(plannedExportResult.Samples.Length == 12
+        && plannedExportResult.Samples.Count(sample => sample.Split == "train") == 6
+        && plannedExportResult.Samples.Count(sample => sample.Split == "validation") == 6,
+        "O09 predeclared split exports the balanced train and validation samples");
+    Check(plannedExportResult.Samples.All(sample => sample.LightingStratum is not null && sample.LayoutId is not null),
+        "O09 predeclared split carries layout and lighting tags to each sample");
+    Check(plannedExportResult.SplitGroups.All(group => group.LightingStrata is { Length: 1 }
+        && group.LayoutIds is { Length: 1 })
+        && plannedExportResult.SplitGroups.Sum(group => group.LayoutIds!.Value.Length) == 12,
+        "O09 predeclared split reports lighting and layout metadata for each independent group");
+    Check(plannedExportResult.Samples.All(sample =>
+            plannedExportPlan.SetupGroups.Any(group => group.LayoutId == sample.LayoutId && group.Role == sample.Split
+                && group.LightingStratum == sample.LightingStratum)),
+        "O09 exported per-sample metadata preserves its predeclared role and stratum");
+    var wrongLightingSequence = plannedExportSequences[0];
+    var wrongLightingPath = Path.Combine(plannedExportRoot, wrongLightingSequence.LabelsFile);
+    var wrongLightingLabels = CorpusJson.Read<SequenceLabels>(wrongLightingPath);
+    wrongLightingLabels = wrongLightingLabels with
+    {
+        Frames = [wrongLightingLabels.Frames[0] with { Tags = ["lighting-stratum:warm-dim-playable"] }]
+    };
+    File.WriteAllText(wrongLightingPath, CorpusJson.Write(wrongLightingLabels) + "\n");
+    CorpusValidation.Validate(plannedExportManifest, plannedExportFiles);
+    var wrongLightingLock = SplitLock.Freeze(plannedExportManifest, plannedExportFiles, plannedExportManifestPath);
+    Throws<InvalidDataException>(() => O09YoloDatasetExport.Export(plannedExportManifest, wrongLightingLock, plannedExportFiles,
+        Path.Combine(plannedExportRoot, "wrong-lighting-export"), plannedExportPlan, plannedExportPlanSha));
+    Console.WriteLine("PASS O09-PREDECLARED-DEVELOPMENT-SPLIT-EXPORT 6/6 · hash-bound balanced roles and verified lighting/layout metadata");
 
     var diagnosticCaptureRoot = Path.Combine(root, "o09-setup-group-captures");
     Directory.CreateDirectory(diagnosticCaptureRoot);
