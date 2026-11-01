@@ -217,6 +217,7 @@ $package = 'uk.co.skyeye.visionchecks'
 $instrumentation = "$package/uk.co.skyeye.visionchecks.VerificationReplayInstrumentation"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 . (Join-Path $PSScriptRoot 'Assert-VisionReplayReceiptBinding.ps1')
+. (Join-Path $PSScriptRoot 'CameraReplayPreflight.ps1')
 $sourceRoot = if ([IO.Path]::IsPathRooted($SourceRelativePath)) {
     $SourceRelativePath
 } else {
@@ -241,7 +242,9 @@ $runDirectory = Join-Path $evidenceRoot $run
 if (-not (Test-Path -LiteralPath $adb)) { throw "ADB was not found at $adb." }
 if (-not (Test-Path -LiteralPath $apk)) { throw "Replay APK was not found at $apk." }
 $cameraBefore = Invoke-RestMethod -Uri $cameraStatusUri -TimeoutSec 5
-if ($cameraBefore.state -ne 'Stopped') { throw "Mounted camera must be stopped; state is $($cameraBefore.state)." }
+if (-not (Test-CameraReplayIdleState $cameraBefore ([bool]$ScreenOnly))) {
+    throw "Mounted camera must be stopped, or demonstrably idle for a screen-only replay; state is $($cameraBefore.state)."
+}
 
 $deviceResult = Invoke-Adb @('devices', '-l')
 $devices = @($deviceResult.Output | Where-Object { $_ -match '^\S+\s+device\s+.*model:Pixel_11_Pro_XL(?:\s|$)' })
@@ -665,7 +668,11 @@ if ($PocketArcProbeOnly -or $PocketArcSweepOnly) {
 $stageTimer.Stop()
 $stageTimings.reportAndArtifactPullMs = [Math]::Round($stageTimer.Elapsed.TotalMilliseconds, 1)
 $cameraAfter = Invoke-RestMethod -Uri $cameraStatusUri -TimeoutSec 5
-if ($cameraAfter.state -ne 'Stopped') { throw "Mounted camera changed state during offline replay: $($cameraAfter.state)." }
+$cameraStateChanged = [string]$cameraAfter.state -ne [string]$cameraBefore.state
+$cameraAfterIdle = Test-CameraReplayIdleState $cameraAfter ([bool]$ScreenOnly)
+if ($cameraStateChanged -or -not $cameraAfterIdle) {
+    throw "Mounted camera changed from its safe idle state during offline replay: $($cameraBefore.state) to $($cameraAfter.state)."
+}
 $totalTimer.Stop()
 
 $manifest = [pscustomobject]@{
