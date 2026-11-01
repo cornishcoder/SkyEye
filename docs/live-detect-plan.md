@@ -858,3 +858,5 @@ Workflow: follow [the capture batching and offline efficiency protocol](live-det
 - Consult evidence/live-detect-targeted-test-ledger-20261101.md before selecting any target; records decisions/rerun triggers. MOTION-GAP-HANDOFF20/20 pass (was17/20), full scorecard active. Aggregate carried forward2/3 software,0/3 detector,0/3 physical.
 
 - SOFTWARE-HANDOFF complete3/3 software PASS, detector0/3 FAIL,physical0/3 proven. Focused handoff20/20. Next INVENTORY-POSITIVE: partial-arc silhouette discrimination against empty-rail negatives. Camera freshly Stopped/rev63.
+
+- ARC-PAIR fails discrimination: partial-arc diagnostic accepts positive678 (22/32 sectors) and empty844 (20/32). Keep evaluation-only, next study false acceptance on reviewed negatives. Current metrics software3/3, focused motion20/20, inventory0/3, physical0/3 proven.

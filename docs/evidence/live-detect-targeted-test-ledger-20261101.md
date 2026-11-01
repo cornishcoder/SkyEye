@@ -15,3 +15,6 @@ Consult this ledger before selecting a test. Reuse a valid result. Rerun only fo
 Seed run paths are under work/o08/live-detect-black-pair-v1/physical-controls/stage-replays. Detailed results: sparse-black-full-seed-enumeration-20261101.md and live-detect-scorecard-20261101.md in this directory. Earlier physical groups remain catalogued in live-detect-control-ledger-20261031.md; this ledger indexes the current focused engineering cycles and does not invent outcomes for historical runs.
 
 SOFTWARE-HANDOFF terminal result:3/3 suites PASS; combined exit1 due detector0/3, not software failure. No repeat needed absent relevant changes. Next target INVENTORY-POSITIVE partial-arc silhouette discrimination; require reviewed negatives and unchanged acceptance criteria.
+
+| ARC-PAIR | Do partial-arc checks distinguish reviewed black-present678 from expected-empty844 at lower-left? | FAIL: both pass diagnostic fit (22/32 vs20/32) | Do not promote. Next investigate false arc acceptance with reviewed empty controls; rerun only after model/config change. | live-detect-arc-discrimination-20261101.md |
+

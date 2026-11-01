@@ -187,3 +187,5 @@ The user staged the same mid-cushion black/chalk/table with only the cue moved t
 - MOTION-GAP-HANDOFF20/20 pass after idle-consumer handoff change; full scorecard active. Targeted-test ledger now centralizes hypotheses/results/stop rules. Aggregate carried forward2/3 software,0/3 detector,0/3 physical.
 
 - SOFTWARE-HANDOFF3/3 pass; combined scorecard exit1 correctly retains detector0/3 failure. Physical0/3 proven. Fresh Stopped/rev63. Next partial-arc positive/negative discrimination.
+
+- Partial-arc Development comparison on reviewed lower-left same-setup frames: both black-present678 and expected-empty844 pass diagnostic arc criteria (22/32 and20/32), so method fails discrimination and is not promoted. See live-detect-arc-discrimination-20261101.md. Current suite3/3, motion20/20, inventory0/3, physical0/3.
