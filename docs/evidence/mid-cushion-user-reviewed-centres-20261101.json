@@ -1,0 +1,1955 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "user-reviewed-assistant-visual-centres-and-expected-absence-locations",
+  "status": "user-reviewed-approximate-centres-and-absence-points",
+  "reviewer": "user in Codex chat",
+  "reviewedAt": "2026-11-01T16:02:18+00:00",
+  "reviewResponse": "Looks correct",
+  "reviewContext": {
+    "framesReviewed": [
+      2831,
+      542,
+      582,
+      622,
+      295,
+      334,
+      373,
+      288,
+      331,
+      370
+    ],
+    "promptScope": "Displayed per-frame overlays and enlarged crops; Y1-Y7 and R1-R7; visible C/B centres; B? and C? expected empty locations only.",
+    "userConfirmedAllDisplayedCentresAndExpectedLocations": true,
+    "noCorrectionsReported": true,
+    "userVisualEstimateOfRemainingVisibleCentreUncertainty": "approximately 3-4 source pixels, as a visual estimate only",
+    "numericMatchingTolerancePx": null,
+    "independentlyPlacedByUser": false,
+    "conditionedOnAssistantDraft": true,
+    "chalkIsNotABall": true,
+    "chalkNote": "The blue rail item in the displayed scene was identified by the user as chalk and is excluded from the ball inventory."
+  },
+  "coordinates": {
+    "system": "source image pixels",
+    "origin": "top-left",
+    "imageSize": "1920x1080"
+  },
+  "reviewSheets": [
+    {
+      "path": "work/o08/live-detect-black-pair-v1/physical-controls/review-overlays/mid-cushion-control-review-v1/black-absent-full-overlays.png",
+      "sha256": "5ced3c6aaab47c0c53f51c9edc880f420a321ee76ed36f7572114ae6c303841f"
+    },
+    {
+      "path": "work/o08/live-detect-black-pair-v1/physical-controls/review-overlays/mid-cushion-control-review-v1/cue-absent-full-overlays.png",
+      "sha256": "436c83f2f89b7d599755c65081628fbdf729e63f46961de823aec37a07440d81"
+    },
+    {
+      "path": "work/o08/live-detect-black-pair-v1/physical-controls/review-overlays/mid-cushion-control-review-v1/restored-black-cue-full-overlays.png",
+      "sha256": "93bab7e4d901fb1b388d26079ec1582ea62d650e959f7d0748bf860fdafd6193"
+    },
+    {
+      "path": "work/o08/live-detect-black-pair-v1/physical-controls/review-overlays/mid-cushion-control-review-v1/initial-positive-unmatched-full-overlay.png",
+      "sha256": "958a33b220013f2c8d9bc9997b5dac5448da8cafba833cd1ff5712d5074b2ada"
+    },
+    {
+      "path": "work/o08/live-detect-black-pair-v1/physical-controls/review-overlays/mid-cushion-control-review-v1/black-absent-cue-black-crops.png",
+      "sha256": "87fad9a560cf5bcbe46499c9a07a9c31edee106a6c4cc3bb56be56b8047df2db"
+    },
+    {
+      "path": "work/o08/live-detect-black-pair-v1/physical-controls/review-overlays/mid-cushion-control-review-v1/cue-absent-cue-black-crops.png",
+      "sha256": "8a440d34f8980b54408020bbe84e905366932896e6a473399618ffa42b935906"
+    },
+    {
+      "path": "work/o08/live-detect-black-pair-v1/physical-controls/review-overlays/mid-cushion-control-review-v1/restored-cue-black-crops.png",
+      "sha256": "5360d9f4996456d8e842f1f70a51973c9cfe8f97e095392f7b6888ea5a963dfd"
+    }
+  ],
+  "frames": [
+    {
+      "frameId": 2831,
+      "group": "initial-positive-unmatched",
+      "source": {
+        "image": "work/o08/live-detect-black-pair-v1/physical-controls/mid-cushion-present/9d2bc09785cf4f499f48faf30da9fe10/9d2bc09785cf4f499f48faf30da9fe10/2831.png",
+        "pngSha256": "d59148155e7c45c1a3b1d6e8804e95b5e5375b61fded7f82efcc5a4637b1eb6f",
+        "receipt": "work/o08/live-detect-black-pair-v1/physical-controls/mid-cushion-present/9d2bc09785cf4f499f48faf30da9fe10/9d2bc09785cf4f499f48faf30da9fe10/2831.json",
+        "receiptSha256": "4142fc835b5bfbba64b67c45f9a2b872ef7029e92784b04cd3f6469256a7aa09",
+        "sourceTimeUs": 14696486611,
+        "capturedAt": "2026-11-01T12:48:48.2226688+00:00",
+        "width": 1920,
+        "height": 1080,
+        "timeline": "ee05aed8310f491c88df150b8b736a50",
+        "generation": 7,
+        "calibrationId": "00a2e8e6d0eb4c90bec72c9bfea9c28f",
+        "operationId": "9d2bc097-85cf-4f49-9f48-faf30da9fe10"
+      },
+      "frameOverlay": {
+        "path": "work/o08/live-detect-black-pair-v1/physical-controls/review-overlays/mid-cushion-control-review-v1/frame-2831-overlay.png",
+        "sha256": "2ffba7ea05b02147b3871ef1ccceb7f443be4ba6aeb7b749c44115553c58fc96"
+      },
+      "labels": [
+        {
+          "id": "Y1",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 92,
+            "y": 211
+          },
+          "draftRoughUncertaintyPx": 6,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y2",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 782,
+            "y": 151
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y3",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 120,
+            "y": 563
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y4",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 416,
+            "y": 528
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y5",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 843,
+            "y": 548
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y6",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 1627,
+            "y": 510
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y7",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 1205,
+            "y": 914
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R1",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 420,
+            "y": 191
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R2",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1635,
+            "y": 126
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R3",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1236,
+            "y": 531
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R4",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 123,
+            "y": 898
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R5",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 498,
+            "y": 900
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R6",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 868,
+            "y": 927
+          },
+          "draftRoughUncertaintyPx": 10,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R7",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1643,
+            "y": 929
+          },
+          "draftRoughUncertaintyPx": 9,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "C",
+          "class": "cue",
+          "centreSourcePx": {
+            "x": 1168,
+            "y": 154
+          },
+          "draftRoughUncertaintyPx": 6,
+          "reviewStatus": "user-confirmed-approximate-presence",
+          "visibleBall": true,
+          "expectedLocationOnly": false
+        },
+        {
+          "id": "B",
+          "class": "black",
+          "centreSourcePx": {
+            "x": 1223,
+            "y": 153
+          },
+          "draftRoughUncertaintyPx": 6,
+          "reviewStatus": "user-confirmed-approximate-presence",
+          "visibleBall": true,
+          "expectedLocationOnly": false
+        }
+      ]
+    },
+    {
+      "frameId": 542,
+      "group": "black-absent",
+      "source": {
+        "image": "work/o08/live-detect-black-pair-v1/physical-controls/mid-cushion-absent/8622ddce3f3d467eadeec0a67a668822/542.png",
+        "pngSha256": "0af4aa286c07f5ea39cee6e676b4eb94de2f944200f0160cc1f46c175f14af85",
+        "receipt": "work/o08/live-detect-black-pair-v1/physical-controls/mid-cushion-absent/8622ddce3f3d467eadeec0a67a668822/542.json",
+        "receiptSha256": "4197f69cfb212b31b35da4ae6aaea11b6846d61ef6f6aca954e2cc403f15f33c",
+        "sourceTimeUs": 24933215444,
+        "capturedAt": "2026-11-01T15:39:24.9113882+00:00",
+        "width": 1920,
+        "height": 1080,
+        "timeline": "ee8f84f2e5fa49e1b5ccdfb98628696c",
+        "generation": 10,
+        "calibrationId": "00a2e8e6d0eb4c90bec72c9bfea9c28f",
+        "operationId": "8622ddce-3f3d-467e-adee-c0a67a668822"
+      },
+      "frameOverlay": {
+        "path": "work/o08/live-detect-black-pair-v1/physical-controls/review-overlays/mid-cushion-control-review-v1/frame-542-overlay.png",
+        "sha256": "06cb42044c24983a164ff331953aaa7806357204ccbe29f01c2d8c8a37793031"
+      },
+      "labels": [
+        {
+          "id": "Y1",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 92,
+            "y": 211
+          },
+          "draftRoughUncertaintyPx": 6,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y2",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 782,
+            "y": 151
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y3",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 120,
+            "y": 563
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y4",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 416,
+            "y": 528
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y5",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 843,
+            "y": 548
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y6",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 1627,
+            "y": 510
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y7",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 1205,
+            "y": 914
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R1",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 420,
+            "y": 191
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R2",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1635,
+            "y": 126
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R3",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1236,
+            "y": 531
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R4",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 123,
+            "y": 898
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R5",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 498,
+            "y": 900
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R6",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 868,
+            "y": 927
+          },
+          "draftRoughUncertaintyPx": 10,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R7",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1643,
+            "y": 929
+          },
+          "draftRoughUncertaintyPx": 9,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "C",
+          "class": "cue",
+          "centreSourcePx": {
+            "x": 1168,
+            "y": 154
+          },
+          "draftRoughUncertaintyPx": 6,
+          "reviewStatus": "user-confirmed-approximate-presence",
+          "visibleBall": true,
+          "expectedLocationOnly": false
+        },
+        {
+          "id": "B?",
+          "class": "black",
+          "centreSourcePx": {
+            "x": 1223,
+            "y": 154
+          },
+          "draftRoughUncertaintyPx": 9,
+          "reviewStatus": "user-confirmed-expected-empty-location",
+          "visibleBall": false,
+          "expectedLocationOnly": true
+        }
+      ]
+    },
+    {
+      "frameId": 582,
+      "group": "black-absent",
+      "source": {
+        "image": "work/o08/live-detect-black-pair-v1/physical-controls/mid-cushion-absent/8622ddce3f3d467eadeec0a67a668822/582.png",
+        "pngSha256": "8756037975745c6711e7c74e7e2ea4a7f027eade2ec646d10b4d2e66b553f954",
+        "receipt": "work/o08/live-detect-black-pair-v1/physical-controls/mid-cushion-absent/8622ddce3f3d467eadeec0a67a668822/582.json",
+        "receiptSha256": "e46909242a7a57d08e62370b02143612787683799367c167b9401c62f7f93b58",
+        "sourceTimeUs": 24934549788,
+        "capturedAt": "2026-11-01T15:39:26.2450554+00:00",
+        "width": 1920,
+        "height": 1080,
+        "timeline": "ee8f84f2e5fa49e1b5ccdfb98628696c",
+        "generation": 10,
+        "calibrationId": "00a2e8e6d0eb4c90bec72c9bfea9c28f",
+        "operationId": "8622ddce-3f3d-467e-adee-c0a67a668822"
+      },
+      "frameOverlay": {
+        "path": "work/o08/live-detect-black-pair-v1/physical-controls/review-overlays/mid-cushion-control-review-v1/frame-582-overlay.png",
+        "sha256": "65077ed843349fbc669cf14800eda4af5e147a0d92a3400e6b055252f3913094"
+      },
+      "labels": [
+        {
+          "id": "Y1",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 91,
+            "y": 211
+          },
+          "draftRoughUncertaintyPx": 6,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y2",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 781,
+            "y": 151
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y3",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 119,
+            "y": 563
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y4",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 415,
+            "y": 528
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y5",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 842,
+            "y": 548
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y6",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 1626,
+            "y": 510
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y7",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 1204,
+            "y": 914
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R1",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 419,
+            "y": 191
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R2",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1634,
+            "y": 126
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R3",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1235,
+            "y": 531
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R4",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 122,
+            "y": 898
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R5",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 497,
+            "y": 900
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R6",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 867,
+            "y": 927
+          },
+          "draftRoughUncertaintyPx": 10,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R7",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1642,
+            "y": 929
+          },
+          "draftRoughUncertaintyPx": 9,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "C",
+          "class": "cue",
+          "centreSourcePx": {
+            "x": 1168,
+            "y": 154
+          },
+          "draftRoughUncertaintyPx": 6,
+          "reviewStatus": "user-confirmed-approximate-presence",
+          "visibleBall": true,
+          "expectedLocationOnly": false
+        },
+        {
+          "id": "B?",
+          "class": "black",
+          "centreSourcePx": {
+            "x": 1222,
+            "y": 154
+          },
+          "draftRoughUncertaintyPx": 9,
+          "reviewStatus": "user-confirmed-expected-empty-location",
+          "visibleBall": false,
+          "expectedLocationOnly": true
+        }
+      ]
+    },
+    {
+      "frameId": 622,
+      "group": "black-absent",
+      "source": {
+        "image": "work/o08/live-detect-black-pair-v1/physical-controls/mid-cushion-absent/8622ddce3f3d467eadeec0a67a668822/622.png",
+        "pngSha256": "991fa5ecc5c95ff2a796b59296a007563a6ce1696bda1d03094a10bf77e40420",
+        "receipt": "work/o08/live-detect-black-pair-v1/physical-controls/mid-cushion-absent/8622ddce3f3d467eadeec0a67a668822/622.json",
+        "receiptSha256": "3318626d878212c9001eebd7544635d3812914c0194257bb4d2716c75e6a4445",
+        "sourceTimeUs": 24935883000,
+        "capturedAt": "2026-11-01T15:39:27.5839184+00:00",
+        "width": 1920,
+        "height": 1080,
+        "timeline": "ee8f84f2e5fa49e1b5ccdfb98628696c",
+        "generation": 10,
+        "calibrationId": "00a2e8e6d0eb4c90bec72c9bfea9c28f",
+        "operationId": "8622ddce-3f3d-467e-adee-c0a67a668822"
+      },
+      "frameOverlay": {
+        "path": "work/o08/live-detect-black-pair-v1/physical-controls/review-overlays/mid-cushion-control-review-v1/frame-622-overlay.png",
+        "sha256": "152c511a83a448d4c9fe55c5bc105a239b553fc0a11db30279e81c397bb30950"
+      },
+      "labels": [
+        {
+          "id": "Y1",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 92,
+            "y": 211
+          },
+          "draftRoughUncertaintyPx": 6,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y2",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 782,
+            "y": 151
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y3",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 120,
+            "y": 563
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y4",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 416,
+            "y": 528
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y5",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 843,
+            "y": 548
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y6",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 1627,
+            "y": 510
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y7",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 1205,
+            "y": 914
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R1",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 420,
+            "y": 191
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R2",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1635,
+            "y": 126
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R3",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1236,
+            "y": 531
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R4",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 123,
+            "y": 898
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R5",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 498,
+            "y": 900
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R6",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 868,
+            "y": 927
+          },
+          "draftRoughUncertaintyPx": 10,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R7",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1643,
+            "y": 929
+          },
+          "draftRoughUncertaintyPx": 9,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "C",
+          "class": "cue",
+          "centreSourcePx": {
+            "x": 1168,
+            "y": 154
+          },
+          "draftRoughUncertaintyPx": 6,
+          "reviewStatus": "user-confirmed-approximate-presence",
+          "visibleBall": true,
+          "expectedLocationOnly": false
+        },
+        {
+          "id": "B?",
+          "class": "black",
+          "centreSourcePx": {
+            "x": 1223,
+            "y": 154
+          },
+          "draftRoughUncertaintyPx": 9,
+          "reviewStatus": "user-confirmed-expected-empty-location",
+          "visibleBall": false,
+          "expectedLocationOnly": true
+        }
+      ]
+    },
+    {
+      "frameId": 295,
+      "group": "cue-absent",
+      "source": {
+        "image": "work/o08/live-detect-black-pair-v1/physical-controls/mid-cushion-cue-absent/2a366ec7339e4f219dbfc8e2a361fdcf/295.png",
+        "pngSha256": "9d4d21c90f02bbb05dcca48d1b8cc4b30d42f68146c5a6d6b910c1fc3e2ba3dd",
+        "receipt": "work/o08/live-detect-black-pair-v1/physical-controls/mid-cushion-cue-absent/2a366ec7339e4f219dbfc8e2a361fdcf/295.json",
+        "receiptSha256": "6985da77df9297071249a542dcde812c339163f877d87a79ef688b48006e26ff",
+        "sourceTimeUs": 25265044544,
+        "capturedAt": "2026-11-01T15:44:56.7380033+00:00",
+        "width": 1920,
+        "height": 1080,
+        "timeline": "26888a7c4e6b41c0ae0d83876fee080c",
+        "generation": 12,
+        "calibrationId": "00a2e8e6d0eb4c90bec72c9bfea9c28f",
+        "operationId": "2a366ec7-339e-4f21-9dbf-c8e2a361fdcf"
+      },
+      "frameOverlay": {
+        "path": "work/o08/live-detect-black-pair-v1/physical-controls/review-overlays/mid-cushion-control-review-v1/frame-295-overlay.png",
+        "sha256": "08485d442fb5f3914bbf23514ed4b7392d522e171b77abbbb3192a1204a43c12"
+      },
+      "labels": [
+        {
+          "id": "Y1",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 92,
+            "y": 211
+          },
+          "draftRoughUncertaintyPx": 6,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y2",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 782,
+            "y": 151
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y3",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 120,
+            "y": 563
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y4",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 416,
+            "y": 528
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y5",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 843,
+            "y": 548
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y6",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 1627,
+            "y": 510
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y7",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 1205,
+            "y": 914
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R1",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 420,
+            "y": 191
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R2",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1635,
+            "y": 126
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R3",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1236,
+            "y": 531
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R4",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 123,
+            "y": 898
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R5",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 498,
+            "y": 900
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R6",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 868,
+            "y": 927
+          },
+          "draftRoughUncertaintyPx": 10,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R7",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1643,
+            "y": 929
+          },
+          "draftRoughUncertaintyPx": 9,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "C?",
+          "class": "cue",
+          "centreSourcePx": {
+            "x": 1168,
+            "y": 154
+          },
+          "draftRoughUncertaintyPx": 9,
+          "reviewStatus": "user-confirmed-expected-empty-location",
+          "visibleBall": false,
+          "expectedLocationOnly": true
+        },
+        {
+          "id": "B",
+          "class": "black",
+          "centreSourcePx": {
+            "x": 1223,
+            "y": 153
+          },
+          "draftRoughUncertaintyPx": 6,
+          "reviewStatus": "user-confirmed-approximate-presence",
+          "visibleBall": true,
+          "expectedLocationOnly": false
+        }
+      ]
+    },
+    {
+      "frameId": 334,
+      "group": "cue-absent",
+      "source": {
+        "image": "work/o08/live-detect-black-pair-v1/physical-controls/mid-cushion-cue-absent/2a366ec7339e4f219dbfc8e2a361fdcf/334.png",
+        "pngSha256": "855b8bfdd0b87515d0647374e85a107fd7b81be101b2818b8b9388868fdf4f9b",
+        "receipt": "work/o08/live-detect-black-pair-v1/physical-controls/mid-cushion-cue-absent/2a366ec7339e4f219dbfc8e2a361fdcf/334.json",
+        "receiptSha256": "c61c56110a04ad4cd559c44d1df60317c77dd1c23da13e57f992d97299f00e5a",
+        "sourceTimeUs": 25266344655,
+        "capturedAt": "2026-11-01T15:44:58.0436078+00:00",
+        "width": 1920,
+        "height": 1080,
+        "timeline": "26888a7c4e6b41c0ae0d83876fee080c",
+        "generation": 12,
+        "calibrationId": "00a2e8e6d0eb4c90bec72c9bfea9c28f",
+        "operationId": "2a366ec7-339e-4f21-9dbf-c8e2a361fdcf"
+      },
+      "frameOverlay": {
+        "path": "work/o08/live-detect-black-pair-v1/physical-controls/review-overlays/mid-cushion-control-review-v1/frame-334-overlay.png",
+        "sha256": "191a5d9fa1efbc2ee45d3dfaea6c8e979d9e0be5717dc81a11fec932002849ed"
+      },
+      "labels": [
+        {
+          "id": "Y1",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 91,
+            "y": 211
+          },
+          "draftRoughUncertaintyPx": 6,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y2",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 781,
+            "y": 151
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y3",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 119,
+            "y": 563
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y4",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 415,
+            "y": 528
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y5",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 842,
+            "y": 548
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y6",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 1626,
+            "y": 510
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y7",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 1204,
+            "y": 914
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R1",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 419,
+            "y": 191
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R2",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1634,
+            "y": 126
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R3",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1235,
+            "y": 531
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R4",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 122,
+            "y": 898
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R5",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 497,
+            "y": 900
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R6",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 867,
+            "y": 927
+          },
+          "draftRoughUncertaintyPx": 10,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R7",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1642,
+            "y": 929
+          },
+          "draftRoughUncertaintyPx": 9,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "C?",
+          "class": "cue",
+          "centreSourcePx": {
+            "x": 1168,
+            "y": 154
+          },
+          "draftRoughUncertaintyPx": 9,
+          "reviewStatus": "user-confirmed-expected-empty-location",
+          "visibleBall": false,
+          "expectedLocationOnly": true
+        },
+        {
+          "id": "B",
+          "class": "black",
+          "centreSourcePx": {
+            "x": 1223,
+            "y": 153
+          },
+          "draftRoughUncertaintyPx": 6,
+          "reviewStatus": "user-confirmed-approximate-presence",
+          "visibleBall": true,
+          "expectedLocationOnly": false
+        }
+      ]
+    },
+    {
+      "frameId": 373,
+      "group": "cue-absent",
+      "source": {
+        "image": "work/o08/live-detect-black-pair-v1/physical-controls/mid-cushion-cue-absent/2a366ec7339e4f219dbfc8e2a361fdcf/373.png",
+        "pngSha256": "c4575e6fdb8487c5c3f89684c12765fd236ce361e5a825698c63c22ec1f4adff",
+        "receipt": "work/o08/live-detect-black-pair-v1/physical-controls/mid-cushion-cue-absent/2a366ec7339e4f219dbfc8e2a361fdcf/373.json",
+        "receiptSha256": "8497496aae2ccf5943572d9a765e520a0569c6a1d347e42bb35a2ff15b5f8d52",
+        "sourceTimeUs": 25267644777,
+        "capturedAt": "2026-11-01T15:44:59.3414467+00:00",
+        "width": 1920,
+        "height": 1080,
+        "timeline": "26888a7c4e6b41c0ae0d83876fee080c",
+        "generation": 12,
+        "calibrationId": "00a2e8e6d0eb4c90bec72c9bfea9c28f",
+        "operationId": "2a366ec7-339e-4f21-9dbf-c8e2a361fdcf"
+      },
+      "frameOverlay": {
+        "path": "work/o08/live-detect-black-pair-v1/physical-controls/review-overlays/mid-cushion-control-review-v1/frame-373-overlay.png",
+        "sha256": "085d85568020e9613df9150cf798c3dba69327a913ff9037bcfd5b11240ece79"
+      },
+      "labels": [
+        {
+          "id": "Y1",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 91,
+            "y": 212
+          },
+          "draftRoughUncertaintyPx": 6,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y2",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 781,
+            "y": 152
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y3",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 119,
+            "y": 564
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y4",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 415,
+            "y": 529
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y5",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 842,
+            "y": 549
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y6",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 1626,
+            "y": 511
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y7",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 1204,
+            "y": 915
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R1",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 419,
+            "y": 192
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R2",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1634,
+            "y": 127
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R3",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1235,
+            "y": 532
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R4",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 122,
+            "y": 899
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R5",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 497,
+            "y": 901
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R6",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 867,
+            "y": 928
+          },
+          "draftRoughUncertaintyPx": 10,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R7",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1642,
+            "y": 930
+          },
+          "draftRoughUncertaintyPx": 9,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "C?",
+          "class": "cue",
+          "centreSourcePx": {
+            "x": 1168,
+            "y": 154
+          },
+          "draftRoughUncertaintyPx": 9,
+          "reviewStatus": "user-confirmed-expected-empty-location",
+          "visibleBall": false,
+          "expectedLocationOnly": true
+        },
+        {
+          "id": "B",
+          "class": "black",
+          "centreSourcePx": {
+            "x": 1223,
+            "y": 153
+          },
+          "draftRoughUncertaintyPx": 6,
+          "reviewStatus": "user-confirmed-approximate-presence",
+          "visibleBall": true,
+          "expectedLocationOnly": false
+        }
+      ]
+    },
+    {
+      "frameId": 288,
+      "group": "restored-positive",
+      "source": {
+        "image": "work/o08/live-detect-black-pair-v1/physical-controls/mid-cushion-restored/f44428135f72479eaae0572c64aea970/288.png",
+        "pngSha256": "815fbaeef9224ee3dcf457be27260256fd1d0ec52875beb9b39c9ed92ef99474",
+        "receipt": "work/o08/live-detect-black-pair-v1/physical-controls/mid-cushion-restored/f44428135f72479eaae0572c64aea970/288.json",
+        "receiptSha256": "3cca9a9102f93ca63d51cbcee3b73e5c741e79e9cb24216beb42919eb045a384",
+        "sourceTimeUs": 25564671166,
+        "capturedAt": "2026-11-01T15:49:56.3669933+00:00",
+        "width": 1920,
+        "height": 1080,
+        "timeline": "9c88cf01eebe4b51a368dd16fa506665",
+        "generation": 15,
+        "calibrationId": "00a2e8e6d0eb4c90bec72c9bfea9c28f",
+        "operationId": "f4442813-5f72-479e-aae0-572c64aea970"
+      },
+      "frameOverlay": {
+        "path": "work/o08/live-detect-black-pair-v1/physical-controls/review-overlays/mid-cushion-control-review-v1/frame-288-overlay.png",
+        "sha256": "64bfc1eecdd3225f010004f4c6acfd2046cd2d5aafecbc302c03cb40fd69686e"
+      },
+      "labels": [
+        {
+          "id": "Y1",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 92,
+            "y": 211
+          },
+          "draftRoughUncertaintyPx": 6,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y2",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 782,
+            "y": 151
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y3",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 120,
+            "y": 563
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y4",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 416,
+            "y": 528
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y5",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 843,
+            "y": 548
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y6",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 1627,
+            "y": 510
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y7",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 1205,
+            "y": 914
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R1",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 420,
+            "y": 191
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R2",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1635,
+            "y": 126
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R3",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1236,
+            "y": 531
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R4",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 123,
+            "y": 898
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R5",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 498,
+            "y": 900
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R6",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 868,
+            "y": 927
+          },
+          "draftRoughUncertaintyPx": 10,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R7",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1643,
+            "y": 929
+          },
+          "draftRoughUncertaintyPx": 9,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "C",
+          "class": "cue",
+          "centreSourcePx": {
+            "x": 1168,
+            "y": 154
+          },
+          "draftRoughUncertaintyPx": 6,
+          "reviewStatus": "user-confirmed-approximate-presence",
+          "visibleBall": true,
+          "expectedLocationOnly": false
+        },
+        {
+          "id": "B",
+          "class": "black",
+          "centreSourcePx": {
+            "x": 1223,
+            "y": 153
+          },
+          "draftRoughUncertaintyPx": 6,
+          "reviewStatus": "user-confirmed-approximate-presence",
+          "visibleBall": true,
+          "expectedLocationOnly": false
+        }
+      ]
+    },
+    {
+      "frameId": 331,
+      "group": "restored-positive",
+      "source": {
+        "image": "work/o08/live-detect-black-pair-v1/physical-controls/mid-cushion-restored/f44428135f72479eaae0572c64aea970/331.png",
+        "pngSha256": "411122369bb434cf098d9b9c75bc1942f42a7b5b12a43ee0969894dfbc1c4f6a",
+        "receipt": "work/o08/live-detect-black-pair-v1/physical-controls/mid-cushion-restored/f44428135f72479eaae0572c64aea970/331.json",
+        "receiptSha256": "f6278934a3dec46058ce7fa70c2863ca2d24a4f3e4c72d134ca96e437d5c3c64",
+        "sourceTimeUs": 25566104555,
+        "capturedAt": "2026-11-01T15:49:57.7971701+00:00",
+        "width": 1920,
+        "height": 1080,
+        "timeline": "9c88cf01eebe4b51a368dd16fa506665",
+        "generation": 15,
+        "calibrationId": "00a2e8e6d0eb4c90bec72c9bfea9c28f",
+        "operationId": "f4442813-5f72-479e-aae0-572c64aea970"
+      },
+      "frameOverlay": {
+        "path": "work/o08/live-detect-black-pair-v1/physical-controls/review-overlays/mid-cushion-control-review-v1/frame-331-overlay.png",
+        "sha256": "810a9265fcbf927fdfe796200984ab400f8960fd180af45d4754ded560eb725d"
+      },
+      "labels": [
+        {
+          "id": "Y1",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 92,
+            "y": 211
+          },
+          "draftRoughUncertaintyPx": 6,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y2",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 782,
+            "y": 151
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y3",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 120,
+            "y": 563
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y4",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 416,
+            "y": 528
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y5",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 843,
+            "y": 548
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y6",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 1627,
+            "y": 510
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y7",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 1205,
+            "y": 914
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R1",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 420,
+            "y": 191
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R2",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1635,
+            "y": 126
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R3",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1236,
+            "y": 531
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R4",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 123,
+            "y": 898
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R5",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 498,
+            "y": 900
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R6",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 868,
+            "y": 927
+          },
+          "draftRoughUncertaintyPx": 10,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R7",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1643,
+            "y": 929
+          },
+          "draftRoughUncertaintyPx": 9,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "C",
+          "class": "cue",
+          "centreSourcePx": {
+            "x": 1168,
+            "y": 154
+          },
+          "draftRoughUncertaintyPx": 6,
+          "reviewStatus": "user-confirmed-approximate-presence",
+          "visibleBall": true,
+          "expectedLocationOnly": false
+        },
+        {
+          "id": "B",
+          "class": "black",
+          "centreSourcePx": {
+            "x": 1223,
+            "y": 153
+          },
+          "draftRoughUncertaintyPx": 6,
+          "reviewStatus": "user-confirmed-approximate-presence",
+          "visibleBall": true,
+          "expectedLocationOnly": false
+        }
+      ]
+    },
+    {
+      "frameId": 370,
+      "group": "restored-positive",
+      "source": {
+        "image": "work/o08/live-detect-black-pair-v1/physical-controls/mid-cushion-restored/f44428135f72479eaae0572c64aea970/370.png",
+        "pngSha256": "4148b95db7b463afe4b43158018890ba864553886481db2018cf5761d10917a8",
+        "receipt": "work/o08/live-detect-black-pair-v1/physical-controls/mid-cushion-restored/f44428135f72479eaae0572c64aea970/370.json",
+        "receiptSha256": "caf303dbb27ad01601c8ed38d5efc0c33c03271da090c3761bd3d874385f8a14",
+        "sourceTimeUs": 25567404811,
+        "capturedAt": "2026-11-01T15:49:59.0987109+00:00",
+        "width": 1920,
+        "height": 1080,
+        "timeline": "9c88cf01eebe4b51a368dd16fa506665",
+        "generation": 15,
+        "calibrationId": "00a2e8e6d0eb4c90bec72c9bfea9c28f",
+        "operationId": "f4442813-5f72-479e-aae0-572c64aea970"
+      },
+      "frameOverlay": {
+        "path": "work/o08/live-detect-black-pair-v1/physical-controls/review-overlays/mid-cushion-control-review-v1/frame-370-overlay.png",
+        "sha256": "a769e97a26f6d2516c4d9d7204f21939dd6798300e2adf6d9a18d13abae43c32"
+      },
+      "labels": [
+        {
+          "id": "Y1",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 92,
+            "y": 211
+          },
+          "draftRoughUncertaintyPx": 6,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y2",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 782,
+            "y": 151
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y3",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 120,
+            "y": 563
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y4",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 416,
+            "y": 528
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y5",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 843,
+            "y": 548
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y6",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 1627,
+            "y": 510
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "Y7",
+          "class": "yellow",
+          "centreSourcePx": {
+            "x": 1205,
+            "y": 914
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R1",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 420,
+            "y": 191
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R2",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1635,
+            "y": 126
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R3",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1236,
+            "y": 531
+          },
+          "draftRoughUncertaintyPx": 5,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R4",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 123,
+            "y": 898
+          },
+          "draftRoughUncertaintyPx": 8,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R5",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 498,
+            "y": 900
+          },
+          "draftRoughUncertaintyPx": 7,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R6",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 868,
+            "y": 927
+          },
+          "draftRoughUncertaintyPx": 10,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "R7",
+          "class": "red",
+          "centreSourcePx": {
+            "x": 1643,
+            "y": 929
+          },
+          "draftRoughUncertaintyPx": 9,
+          "reviewStatus": "user-confirmed-approximate"
+        },
+        {
+          "id": "C",
+          "class": "cue",
+          "centreSourcePx": {
+            "x": 1168,
+            "y": 154
+          },
+          "draftRoughUncertaintyPx": 6,
+          "reviewStatus": "user-confirmed-approximate-presence",
+          "visibleBall": true,
+          "expectedLocationOnly": false
+        },
+        {
+          "id": "B",
+          "class": "black",
+          "centreSourcePx": {
+            "x": 1223,
+            "y": 153
+          },
+          "draftRoughUncertaintyPx": 6,
+          "reviewStatus": "user-confirmed-approximate-presence",
+          "visibleBall": true,
+          "expectedLocationOnly": false
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "The user confirmed displayed assistant visual estimates; centres were not independently placed numerically.",
+    "The approximate visual uncertainty is not a numeric matching tolerance or physical cloth-plane accuracy bound.",
+    "Expected-empty B? and C? points are locations only, not object labels.",
+    "Frame 2831 remains unmatched for image-colour/current-light comparison.",
+    "This Development group is not a Holdout result and does not establish D1, D2, or physical acceptance."
+  ]
+}
