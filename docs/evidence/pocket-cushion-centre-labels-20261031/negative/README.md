@@ -8,4 +8,8 @@ The labels are **assistant draft; user review needed**. The red and yellow balls
 
 Frame 978 is a black-absent, empty-mouth spatial control from timeline `2ea48e0c35cd474eb627acf970a7eec5`. It is from a separate, dimmer timeline than the black-present daylight frame 1365. The two saved calibration corner sets match, but the pair is not a same-light or same-session comparison.
 
-`frame1179-red-proposal-review.png` is a separate review aid for one unreviewed YOLOv11 red hypothesis in exact-profile frame 1179. The marker is bound to the source PNG and replay report hashes by `review_frame1179_red_proposal.py`; it is not a manual centre label or detector ground truth. The requested user review is still pending.
+## One-point review for frame 1179
+
+After seeing the model proposal, the user confirmed that source pixel `(125.2, 194.4)` is the centre of the visible red ball near the upper-left pocket in saved frame 1179. [The point record](user-confirmed-point-frame-1179.json) binds that proposal-conditioned confirmation to the source PNG and receipt, source PTS, proposal file, exact-profile replay report, and manifest. It is not an independently placed ground-truth centre. This is a point-level label only: it does not review the frame's full inventory or any other ball centre, and it is not a held-out accuracy score.
+
+`frame1179-red-proposal-review.png` remains a separate review aid for the YOLOv11 proposal. Its marker shows the model proposal; it is not itself the user confirmation or a full-frame label.

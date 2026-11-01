@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "evidenceKind": "proposal-conditioned-user-confirmed-single-ball-centre",
+  "status": "partial-point-confirmation",
+  "reviewer": "user in Codex chat",
+  "reviewedDate": "2026-11-01",
+  "source": {
+    "file": "work/production/evidence/code65-source-frame-check-20261031/exact-replay-input/1179.png",
+    "receipt": "work/production/evidence/code65-source-frame-check-20261031/exact-replay-input/1179.json",
+    "pixelSha256": "0ce1efbdfdb940d04c0021356a527ab5ce45312334aa8bf988eb84362fac7301",
+    "receiptSha256": "fca4a67f270caba01d04af620d40beb84eaae7ed69a10e772b86bbba5a8c00ca",
+    "width": 1920,
+    "height": 1080,
+    "frameId": 1179,
+    "sourceTimeUs": 48928717966,
+    "timeline": "2ea48e0c35cd474eb627acf970a7eec5",
+    "generation": 3,
+    "calibrationId": "6d304dd864f84c8486ee30844fe685b1"
+  },
+  "reviewedPoint": {
+    "colour": "red",
+    "centrePx": {
+      "x": 125.2,
+      "y": 194.4
+    },
+    "visibility": "visible",
+    "location": "near upper-left pocket",
+    "status": "user-confirmed"
+  },
+  "reviewContext": {
+    "prompt": "For saved Code65 frame 1179, is source pixel (125.2, 194.4) the center of the visible red ball near the upper-left pocket? Review only; no new play or capture is needed.",
+    "response": "Yes — center is correct",
+    "conditionedOnPriorModelProposal": true,
+    "independentlyPlacedCentre": false
+  },
+  "modelProposal": {
+    "file": "work/production/evidence/local-raw-proposal-gates-20261031/exact-profile-negative-replay-20261101/runs/rawclneg800-004647/local-proposals-1179.json",
+    "sha256": "e01ed0f56f97dac02aebccad438754432360b0f1da7bcab26fb0b401247a3290",
+    "proposalId": "ball_2",
+    "model": "YOLOv11",
+    "confidence": 0.913,
+    "proposedCentrePx": {
+      "x": 125.2,
+      "y": 194.4
+    }
+  },
+  "replay": {
+    "runId": "rawclneg800-004647",
+    "report": "work/production/evidence/local-raw-proposal-gates-20261031/exact-profile-negative-replay-20261101/runs/rawclneg800-004647/o08-replay-proof-rawclneg800-004647-rawproposals.json",
+    "reportSha256": "f19910e93a8b3a12eb38f18a1ede2362f267959e9655875f756c0d147d2099e7",
+    "manifest": "work/production/evidence/local-raw-proposal-gates-20261031/exact-profile-negative-replay-20261101/runs/rawclneg800-004647/manifest.json",
+    "manifestSha256": "a3fc0045f925a4bb9eaecafebbbc0375e89ac15c2eb684e9aa5bf0896cd0036a",
+    "configurationComparison": "exact-match",
+    "analysisWidth": 800,
+    "packedColourBoundarySearchExtentFraction": 0.4,
+    "minimumHoughBoundarySupport": 0.75
+  },
+  "scope": {
+    "reviewedEntityCount": 1,
+    "completeFrameInventoryReviewed": false,
+    "otherBallCentresReviewed": false,
+    "centreErrorTolerancePx": null
+  },
+  "limitations": [
+    "The centre was selected by a model proposal before user confirmation; this is not an independently placed ground-truth centre.",
+    "The review confirms one visible red ball centre only; it does not label the frame inventory or any other ball.",
+    "This record alone does not establish frame-level recall, accuracy, held-out performance, or detector acceptance.",
+    "The frame output remained uncertain and the existing detector gates are unchanged."
+  ]
+}
