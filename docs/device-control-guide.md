@@ -2,7 +2,15 @@
 
 Use this guide to operate the Hybrid Production companion on the Pixel 11 and inspect the mounted camera without guessing at screen coordinates or changing match state. Prefer the current accessibility label and a fresh screenshot/UI tree; layout bounds move as the video and Settings panel scroll.
 
-## Current stopped state after code67 daylight pocket-cluster check — 31 October 2026
+## Current stopped state after lower-left black/cue controls — 1 November 2026
+
+Production companion `0.8.59` / code67 is installed on Pixel 11 (`66181FDDV001HS`). A Release build from source commit `1c19f1c` was installed in place for verifier timing diagnosis; build succeeded with 9 warnings and 0 errors, installed APK SHA-256 `872f3494843be309b147f13bf56d238f59097a9dc21cbb02abf9f90eac66c187`. UID/private storage were retained; the previous APK is `work/production/backups/20261101-102028/before.apk`. The camera package was untouched.
+
+After installation, a single Home **Start live** action made camera `/status` `Active` on timeline `4c1802ca0c294b0bbd9ec950bed670ff`, but the native player stayed loading with zero decoded/texture frames and the camera reported zero viewers. Home **Capture verifier frames** was disabled, so no verifier source pixels were saved. The Home **End recording session** action stopped the attempt; current `/status` is `Stopped`, revision 15, 8,642 completed frames, `clipCount=139`, zero viewers. [The after-stop screenshot](../work/o08/frame978-development-v1/device-state/pixel11-after-instrumented-prerequisite-stop-20261101.png) shows **Start live** and Live Detect off. Cast is disconnected. No new clips were created; capture is stopped.
+
+The [bounded control report](evidence/live-detect-bounded-control-attempts-20261101.md) records the four earlier user-declared lower-left layouts, exact frame/receipt hashes and verifier `SampleGap` results. The sequence is Development evidence only; centres and absence locations remain unreviewed, and the later instrumented startup attempt produced no frames. It provides no readiness claim.
+
+## Previous stopped state after code67 daylight pocket-cluster check — 31 October 2026
 
 Production `0.8.59` / code67 (`versionCode=67`) is installed in place on Pixel 11. It contains the baseline guard from commit `2a4216f`; release metadata was committed as `a51bf6b`. UID/private storage were retained, and rollback APK is `work/production/backups/20261031-082234/before.apk`. Home shows **Start live session** and **Live Detect stopped**. Latest Pixel 10 camera `/status` is `Stopped`, revision 90, battery 40%, `clipCount=139`, zero viewers. Current table state is unknown; the historical 14-ball result is not a current inventory. Cast/TV and the camera package were untouched.
 
