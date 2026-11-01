@@ -2,6 +2,8 @@
 
 This replay answers a narrow question: can the saved raw-image centres from PoolTableModeller pass through SkyEye's existing candidate checks on the same source frames? It does not run an independent raw-frame detector, and it does not modify live table or match state.
 
+**Exact-profile follow-up — 1 November:** the daylight positive set was replayed through the captured width-800 `.4` analyzer in the [new exact-profile note](../code70-raw-proposal-exact-profile-20261101.md). This does not change the status of the original runs below: they used width 1000 at `.65`, remain configuration-mismatched, and their separate dim negative set is not a matched control.
+
 ## Method
 
 The replay validates the model file's `sourceSha256` against the exact saved PNG and checks the decoded frame dimensions. Each raw centre is mapped through the receipt's `TableCalibration.Map` and `AnalysisCoordinates.FromTable`; candidate radius is the canonical 27px. The proposal then uses the same `ProcessCandidate` sequence as Hough candidates: table margin, pocket exclusion, duplicate checks, cloth rejection, boundary fit and support, fitted-pocket recheck, reclassification and final duplicate/body checks. The report also samples SkyEye's existing colour classifier at each mapped proposal using the exact HSV buffer from that analyzer invocation.
