@@ -855,7 +855,7 @@ Historical follow-up: cue-absent eligibility was fixed, along with stale invento
 
 - Restaged frame1691 seed audit: the trace's index64 cap excludes three nearby qualified seeds; inspect actual analyzer selection before attributing the miss to mask absence. Physical cue-removal confirmation is pending.
 
-- Next implementation: remove pre-ranking scan-order starvation in sparse-black FindPeakSeeds while retaining a bounded fit budget; evaluate saved positives and negatives. User reports darker lighting, invalidating the pending physical pair; defer further staging until offline diagnosis delivers a measured candidate.
+- `SPARSE-BLACK-CANDIDATE-ORDERING` is already measured: retained full-enumeration replay `allseed-positive-174021` remains 0/3, with nearby seeds reaching only18/32,19/32,18/32 support against21/32. Do not rerun or sweep the support threshold. This is the third bounded geometry-candidate miss. The authorized pivot is O09, but `O09-TRAINING-DATA-READINESS` is BLOCKED: the only O09 capture has two incomplete frames from one session; O08 corpus-v4 does not supply complete image-space radius labels or an O09-ready manifest/split. The next physical input is complete reviewed imagery across at least three Development sessions with independently reviewed centres/radii and frozen session assignments; reserve Holdout separately. Stable playable lighting is still missing. See [pivot readiness](evidence/live-detect-o09-pivot-readiness-20261101.md). D1/D2/E remain0/3 proven.
 
 ## Capture batching preference — 1 November 2026
 
