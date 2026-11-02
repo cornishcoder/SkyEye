@@ -79,6 +79,41 @@ public static class VerificationCaptureReceipts
     }
 }
 
+/// <summary>Runs bounded evidence writes in order without blocking verifier sample acquisition.</summary>
+public sealed class VerificationCaptureWriteQueue
+{
+    readonly object gate = new();
+    readonly List<Task> writes = [];
+    Task tail = Task.CompletedTask;
+
+    public void Enqueue(Action write)
+    {
+        ArgumentNullException.ThrowIfNull(write);
+        lock (gate)
+        {
+            tail = tail.ContinueWith(_ => write(), CancellationToken.None,
+                TaskContinuationOptions.None, TaskScheduler.Default);
+            writes.Add(tail);
+        }
+    }
+
+    public async Task<int> DrainAsync()
+    {
+        while (true)
+        {
+            Task observed;
+            lock (gate) observed = tail;
+            try { await observed.ConfigureAwait(false); }
+            catch { /* Count failed writes below; keep draining later queued frames. */ }
+            lock (gate)
+            {
+                if (ReferenceEquals(observed, tail))
+                    return writes.Count(task => task.IsFaulted || task.IsCanceled);
+            }
+        }
+    }
+}
+
 public sealed class VerificationCaptureRunStatus
 {
     readonly object gate = new();

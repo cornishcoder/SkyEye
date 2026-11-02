@@ -62,20 +62,19 @@ public sealed partial class ShellSession
         }
         var token = foreground!.Token;
         var previousCapture = table.VerificationCapture;
+        var pendingWrites = new VerificationCaptureWriteQueue();
+        var completionSummary = "Capture ended without a matching result";
         Message = "Capturing the bounded table check for review.";
         Publish();
         try
         {
-            table.VerificationCapture = CaptureVerificationPixels;
+            table.VerificationCapture = sample => CaptureVerificationPixels(sample, pendingWrites);
             await VerifyTableWithDiagnosticsPausedAsync(token, operationId, CommandOrigin.Touch, includeChoices: false);
             var observation = app.State.Observation;
             var verification = observation?.Verification;
-            var saved = VerificationCaptureReceipts.CountValid(Path.Combine(root, operationId.ToString("N")), operationId);
             if (verification is null || verification.OperationId != operationId)
             {
-                verificationCaptureStatus.Complete(operationId, DateTimeOffset.UtcNow,
-                    "Capture incomplete · no matching table result", saved);
-                Message = VerificationCaptureStatus;
+                completionSummary = "Capture incomplete · no matching table result";
                 return;
             }
 
@@ -84,33 +83,28 @@ public sealed partial class ShellSession
                 : observation.Reason == ObservationReason.None
                     ? observation.Outcome.ToString()
                     : $"{observation.Outcome} ({observation.Reason})";
-            verificationCaptureStatus.Complete(operationId, DateTimeOffset.UtcNow,
-                $"Table result: {tableResult}.", saved);
-            Message = VerificationCaptureStatus;
-            Publish();
+            completionSummary = $"Table result: {tableResult}.";
         }
         catch (OperationCanceledException)
         {
-            var saved = VerificationCaptureReceipts.CountValid(Path.Combine(root, operationId.ToString("N")), operationId);
-            verificationCaptureStatus.Complete(operationId, DateTimeOffset.UtcNow, "Capture cancelled", saved);
-            Message = VerificationCaptureStatus;
+            completionSummary = "Capture cancelled";
         }
         catch (Exception)
         {
-            var saved = VerificationCaptureReceipts.CountValid(Path.Combine(root, operationId.ToString("N")), operationId);
-            verificationCaptureStatus.Complete(operationId, DateTimeOffset.UtcNow, "Verifier evidence could not be saved", saved);
-            Message = VerificationCaptureStatus;
+            completionSummary = "Verifier evidence could not be saved";
             ShowError("Verifier evidence could not be saved. The readiness result was not accepted.");
         }
         finally
         {
             table.VerificationCapture = previousCapture;
+            var writeFailures = await pendingWrites.DrainAsync();
+            var saved = VerificationCaptureReceipts.CountValid(Path.Combine(root, operationId.ToString("N")), operationId);
+            if (writeFailures > 0) completionSummary += $" · {writeFailures} evidence write(s) failed";
             if (verificationCaptureStatus.Running)
             {
-                var saved = VerificationCaptureReceipts.CountValid(Path.Combine(root, operationId.ToString("N")), operationId);
-                verificationCaptureStatus.Complete(operationId, DateTimeOffset.UtcNow, "Capture ended without a matching result", saved);
-                Message = VerificationCaptureStatus;
+                verificationCaptureStatus.Complete(operationId, DateTimeOffset.UtcNow, completionSummary, saved);
             }
+            Message = VerificationCaptureStatus;
             Publish();
         }
     });
@@ -125,48 +119,105 @@ public sealed partial class ShellSession
 
     string VerificationEvidenceRoot => Path.Combine(Android.App.Application.Context.GetExternalFilesDir(null)!.AbsolutePath, "o08-corpus");
 
-    void CaptureVerificationPixels(VerificationCapture sample)
+    void CaptureVerificationPixels(VerificationCapture sample, VerificationCaptureWriteQueue pendingWrites)
     {
         var root = VerificationEvidenceRoot;
-        Directory.CreateDirectory(root);
-        var retained = Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).Sum(p => new FileInfo(p).Length);
-        if (retained > VerificationEvidenceBudget.MaximumBytes)
-            throw new IOException("O08 diagnostic capture budget reached. Export evidence before another capture.");
-        var folder = Path.Combine(root, sample.OperationId.ToString("N")); Directory.CreateDirectory(folder);
-        var decoded = sample.Frame.DecodedReceipt!;
-        byte[] pixels; string extension, encoding, inputSource; int width, height;
-        if (sample.Frame.Image is SkyEye.Vision.Android.BitmapTableImage bitmap)
+        var decoded = sample.Frame.DecodedReceipt ?? throw new IOException("Verifier frame receipt is unavailable.");
+        global::Android.Graphics.Bitmap? bitmapCopy = null;
+        byte[]? encodedPixels = null;
+        string extension, encoding, inputSource; int width, height;
+        try
         {
-            using var output = new MemoryStream();
-            if (!bitmap.Bitmap.Compress(Android.Graphics.Bitmap.CompressFormat.Png!, 0, output))
-                throw new IOException("Lossless verifier pixels could not be prepared.");
-            pixels = output.ToArray(); extension = ".png"; encoding = "Png"; inputSource = "decoded-bitmap-lossless";
-            width = bitmap.Bitmap.Width; height = bitmap.Bitmap.Height;
+            if (sample.Frame.Image is SkyEye.Vision.Android.BitmapTableImage bitmap)
+            {
+                // Copy the exact decoded ARGB pixels while the TableFrame is borrowed.
+                // PNG compression and storage happen on the ordered background writer.
+                var config = bitmap.Bitmap.GetConfig() ?? global::Android.Graphics.Bitmap.Config.Argb8888;
+                if (config is null) throw new IOException("Decoded verifier pixel format is unavailable.");
+                bitmapCopy = bitmap.Bitmap.Copy(config, false)
+                    ?? throw new IOException("Lossless verifier pixel snapshot could not be copied.");
+                extension = ".png"; encoding = "Png"; inputSource = "decoded-bitmap-lossless";
+                width = bitmapCopy.Width; height = bitmapCopy.Height;
+            }
+            else
+            {
+                encodedPixels = sample.Frame.Jpeg.Length > 0 ? sample.Frame.Jpeg.ToArray() : sample.Frame.ReviewImage();
+                extension = ".jpg"; encoding = "Jpeg"; inputSource = "jpeg-analysis-input";
+                width = decoded.Width; height = decoded.Height;
+            }
+
+            var pending = new PendingVerificationEvidence(root, sample.OperationId, sample.AnalysisGeneration + 1,
+                sample.CalibrationId, sample.CalibrationCorners.ToArray(), sample.Frame.CapturedAt,
+                sample.Frame.ClockSampleAgeMs, sample.Frame.ClockUncertaintyMs, sample.Frame.FrameSource,
+                sample.DetectionRequested, sample.AnalyzerConfigurationIdentity, decoded, sample.Frame.SourceTimeUs,
+                sample.Frame.Timeline, sample.Measurement, inputSource, extension, encoding, width, height,
+                bitmapCopy, encodedPixels);
+            pendingWrites.Enqueue(() => WriteVerificationPixels(pending));
+            bitmapCopy = null; // ownership transferred to the queue
         }
-        else
+        catch
         {
-            pixels = sample.Frame.Jpeg.Length > 0 ? sample.Frame.Jpeg : sample.Frame.ReviewImage();
-            extension = ".jpg"; encoding = "Jpeg"; inputSource = "jpeg-analysis-input";
-            width = decoded.Width; height = decoded.Height;
+            bitmapCopy?.Recycle();
+            bitmapCopy?.Dispose();
+            throw;
         }
-        if (pixels.Length > VerificationEvidenceBudget.MaximumFrameBytes) throw new IOException("O08 diagnostic frame exceeds the per-frame capture budget.");
-        if (!VerificationEvidenceBudget.CanWriteFrame(retained, pixels.Length)) throw new IOException("O08 diagnostic capture budget reached.");
-        var name = decoded.FrameId.ToString(System.Globalization.CultureInfo.InvariantCulture);
-        var sha = Convert.ToHexString(SHA256.HashData(pixels)).ToLowerInvariant();
-        File.WriteAllBytes(Path.Combine(folder, name + extension), pixels);
-        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true };
-        var receipt = new
-        {
-            indexedFrame = new { sampleId = $"{sample.OperationId:N}-{name}", frameId = decoded.FrameId, sourceTimeUs = sample.Frame.SourceTimeUs,
-                scope = new { source = "mounted-camera", timeline = sample.Frame.Timeline, generation = sample.AnalysisGeneration + 1, calibration = sample.CalibrationId },
-                pixelFile = name + extension, pixelSha256 = sha, encoding, width, height, analyzerPixelSource = inputSource, embeddedFrameId = false },
-            sample.OperationId, sample.CalibrationCorners, sample.Frame.CapturedAt, sample.Frame.ClockSampleAgeMs, sample.Frame.ClockUncertaintyMs,
-            sample.Frame.FrameSource, sample.DetectionRequested, sample.AnalyzerConfigurationIdentity,
-            decoder = decoded, sample.Measurement, configuration = ObservationPolicy.VerificationConfiguration,
-            labelStatus = "Unreviewed development evidence. User declared still table and 16 balls; centres and unsafe intervals need independent labels."
-        };
-        File.WriteAllText(Path.Combine(folder, name + ".json"), JsonSerializer.Serialize(receipt, options));
-        if (verificationCaptureStatus.RecordWrittenReceipt(sample.OperationId, decoded.FrameId))
-            MainThread.BeginInvokeOnMainThread(Publish);
     }
+
+    void WriteVerificationPixels(PendingVerificationEvidence sample)
+    {
+        try
+        {
+            byte[] pixels;
+            if (sample.Bitmap is { } bitmap)
+            {
+                using var output = new MemoryStream();
+                if (!bitmap.Compress(global::Android.Graphics.Bitmap.CompressFormat.Png!, 0, output))
+                    throw new IOException("Lossless verifier pixels could not be prepared.");
+                pixels = output.ToArray();
+            }
+            else pixels = sample.EncodedPixels ?? throw new IOException("Verifier pixel snapshot is unavailable.");
+
+            Directory.CreateDirectory(sample.Root);
+            var retained = Directory.EnumerateFiles(sample.Root, "*", SearchOption.AllDirectories).Sum(p => new FileInfo(p).Length);
+            if (retained > VerificationEvidenceBudget.MaximumBytes)
+                throw new IOException("O08 diagnostic capture budget reached. Export evidence before another capture.");
+            if (pixels.Length > VerificationEvidenceBudget.MaximumFrameBytes)
+                throw new IOException("O08 diagnostic frame exceeds the per-frame capture budget.");
+            if (!VerificationEvidenceBudget.CanWriteFrame(retained, pixels.Length))
+                throw new IOException("O08 diagnostic capture budget reached.");
+
+            var folder = Path.Combine(sample.Root, sample.OperationId.ToString("N")); Directory.CreateDirectory(folder);
+            var name = sample.Decoded.FrameId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            var sha = Convert.ToHexString(SHA256.HashData(pixels)).ToLowerInvariant();
+            File.WriteAllBytes(Path.Combine(folder, name + sample.Extension), pixels);
+            var options = new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = true };
+            var receipt = new
+            {
+                indexedFrame = new { sampleId = $"{sample.OperationId:N}-{name}", frameId = sample.Decoded.FrameId, sourceTimeUs = sample.SourceTimeUs,
+                    scope = new { source = "mounted-camera", timeline = sample.Timeline, generation = sample.Generation, calibration = sample.CalibrationId },
+                    pixelFile = name + sample.Extension, pixelSha256 = sha, encoding = sample.Encoding, width = sample.Width, height = sample.Height,
+                    analyzerPixelSource = sample.InputSource, embeddedFrameId = false },
+                operationId = sample.OperationId, calibrationCorners = sample.CalibrationCorners, capturedAt = sample.CapturedAt,
+                clockSampleAgeMs = sample.ClockSampleAgeMs, clockUncertaintyMs = sample.ClockUncertaintyMs,
+                frameSource = sample.FrameSource, detectionRequested = sample.DetectionRequested,
+                analyzerConfigurationIdentity = sample.AnalyzerConfigurationIdentity,
+                decoder = sample.Decoded, measurement = sample.Measurement, configuration = ObservationPolicy.VerificationConfiguration,
+                labelStatus = "Unreviewed development evidence. User declared still table and 16 balls; centres and unsafe intervals need independent labels."
+            };
+            File.WriteAllText(Path.Combine(folder, name + ".json"), JsonSerializer.Serialize(receipt, options));
+            if (verificationCaptureStatus.RecordWrittenReceipt(sample.OperationId, sample.Decoded.FrameId))
+                MainThread.BeginInvokeOnMainThread(Publish);
+        }
+        finally
+        {
+            sample.Bitmap?.Recycle();
+            sample.Bitmap?.Dispose();
+        }
+    }
+
+    sealed record PendingVerificationEvidence(string Root, Guid OperationId, long Generation, string CalibrationId,
+        SkyEye.Core.Point[] CalibrationCorners, DateTimeOffset CapturedAt, double? ClockSampleAgeMs, double? ClockUncertaintyMs,
+        string FrameSource, bool DetectionRequested, string AnalyzerConfigurationIdentity, DecodedFrameReceipt Decoded,
+        long? SourceTimeUs, string Timeline, VerificationMeasurement Measurement, string InputSource, string Extension,
+        string Encoding, int Width, int Height, global::Android.Graphics.Bitmap? Bitmap, byte[]? EncodedPixels);
 }

@@ -41,6 +41,12 @@ if (args.SequenceEqual(["--boundary-diagnostics"]))
     return;
 }
 
+if (args.SequenceEqual(["--verification-capture"]))
+{
+    await VerificationCaptureChecks.Run();
+    return;
+}
+
 await GptTableAdvisoryChecks.Run();
 
 if (args.SequenceEqual(["--game-tracking"]))

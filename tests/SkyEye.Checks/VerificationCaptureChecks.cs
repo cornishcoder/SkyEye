@@ -26,9 +26,36 @@ static class VerificationCaptureChecks
             "A frame write respects both exact remaining-space and per-image boundaries");
     }
 
+    static async Task CheckDeferredWrites()
+    {
+        var queue = new VerificationCaptureWriteQueue();
+        using var release = new ManualResetEventSlim();
+        using var started = new ManualResetEventSlim();
+        var order = new System.Collections.Concurrent.ConcurrentQueue<int>();
+        queue.Enqueue(() =>
+        {
+            started.Set();
+            if (!release.Wait(TimeSpan.FromSeconds(2))) throw new TimeoutException("The write barrier was not released.");
+            order.Enqueue(1);
+        });
+        Check(started.Wait(TimeSpan.FromSeconds(2)), "The queued writer starts outside the verifier caller");
+        queue.Enqueue(() => order.Enqueue(2));
+        Check(order.IsEmpty, "The second write queues while the first write is busy");
+        release.Set();
+        Check(await queue.DrainAsync() == 0 && order.SequenceEqual([1, 2]),
+            "Flush waits for ordered evidence writes to finish");
+
+        var failures = new VerificationCaptureWriteQueue();
+        failures.Enqueue(() => throw new IOException("expected write failure"));
+        failures.Enqueue(() => order.Enqueue(3));
+        Check(await failures.DrainAsync() == 1 && order.Last() == 3,
+            "A failed evidence write is reported without preventing later frames");
+    }
+
     public static Task Run()
     {
         CheckEvidenceBudget();
+        CheckDeferredWrites().GetAwaiter().GetResult();
         var root = Path.Combine(Path.GetTempPath(), "skyeye-verification-capture-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(root);
         try
@@ -120,6 +147,7 @@ static class VerificationCaptureChecks
                 "A late receipt from a completed run cannot overwrite the next run's status");
 
             Console.WriteLine("PASS verifier capture counts are operation-scoped, hash-validated, truthful for partial runs, and quota-bounded");
+        Console.WriteLine("PASS deferred verifier evidence writes stay ordered, flush at completion, and report failures");
         }
         finally
         {
