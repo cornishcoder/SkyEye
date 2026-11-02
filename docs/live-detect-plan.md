@@ -1,5 +1,7 @@
 # Live Detect delivery plan
 
+**O09-WARM-LAYOUT01-WORKER-STAGE-TRACE: PASS fallback identification.** Width800 primary15 balls/312.9029 ms; width1000 fallback16 balls/343.0061 ms; detector total655.909 ms. Fallback recovers inventory. Next test: matched saved-frame direct1000 versus current two-pass timing/output screen; no production change. Captured13/24, reviewed4/12, lighting0/2, D1/D2/E0/3 unchanged.
+
 **O09-WARM-LAYOUT01-HISTORICAL-TIMING-READBACK: PASS matching report and gap arithmetic.** Gap807.067 ms versus800 ms; worker781.8095 ms, evidence callback3.2277 ms, next acquisition6.4694 ms. One-sample analysis-margin diagnosis; no threshold change. Captured13/24, reviewed4/12, lighting0/2, D1/D2/E0/3. Next: offline worker-stage/configuration trace.
 
 **O09-WARM-LAYOUT01-RAW-CENTRE-REVIEW: PASS 16/16 centres.** User: all look good. Source/draft hashes frozen; radii and numeric tolerance unset. Reviewed anchors 4/12; captured 13/24; lighting 0/2; D1/D2/E 0/3. Verifier remains FAIL 1/5 SampleGap. Next offline target: historical timing readback.

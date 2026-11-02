@@ -25,3 +25,9 @@ One attempt indicates worker analysis consumes most of the source-gap margin; it
 Counts unchanged: captured13/24; reviewed4/12; lighting0/2; D1/D2/E0/3. No new capture, inference or test-suite run.
 
 Historical report SHA-256: `a270abf9c19d0925d1389d2fefa4667ab83048635cd4c583ea68d88bb9aa3209`.
+
+## Receipt-bound worker-stage trace
+
+`O09-WARM-LAYOUT01-WORKER-STAGE-TRACE`: PASS branch identification. Receipt configuration is width800 with packed-colour extent0.65. Its packedClusterFallback records primary width800, incomplete cluster,15 balls,312.9029 ms; fallback width1000,16 balls,343.0061 ms, recovered=true. Sum655.909 ms matches reported detector elapsed exactly. Worker781.8095 ms leaves125.9005 ms outside reported detector elapsed; this remainder is not individually profiled. Source path AnalyzePixels runs AnalyzePixelsCore twice when the primary packed cluster is incomplete, then preserves normalized circle coordinates via rescaling. VerificationWorker also validates geometry on its first frame and creates motion pixels; those are required tasks, not proven redundant work.
+
+The second pass recovered an actual missing detector output. Removing it without replacement would trade accuracy for speed. No source change is justified from this single observation. Next measured experiment: exact saved-frame direct-width1000 versus current width800-plus-fallback, on the same Pixel runtime with matched warm-up and output comparison; include both timing endpoints, preserve current production configuration and all gates. A positive timing screen requires additional full/reduced and negative controls before promotion. Existing historical mixed-batch timings must not substitute for the matched run. No replay or timing benchmark has run in this trace.
