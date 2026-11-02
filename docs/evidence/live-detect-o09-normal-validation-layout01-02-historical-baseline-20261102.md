@@ -1,0 +1,7 @@
+# Normal validation Layout01/02 historical spatial baseline — 2 November 2026
+
+O09-NORMAL-VALIDATION-LAYOUT01-02-SPATIAL-BASELINE: historical receipt score31/31 associated and correctly classified,0 unmatched,0 misses across2 reviewed frames. Frame1587 cue-absent15/15,uncertain=true; frame31 all-present16/16,uncertain=false. Both receipts detectionRequested=true. These are capture-build outputs, not current-source replay; preserve that arm identity. No D1/D2 or current-build acceptance.
+
+Actual Core TableCalibration.Map/Unmap maps reviewed source centres with each receipt's own corners. Maximum source round-trip residual2.624262887475154e-13 px for1587 and4.4286628067688115e-13 for31. Source PNG hashes bind reviewed labels and selected receipts. One-to-one minimum-cost matching uses diagnostic0.010 table2x1 gate, not accepted accuracy tolerance. Radius labels unset. Mapping/scoring artifacts retained under work/o09/development-v3/reviews/normal-validation-layout01-02-raw-selection-20261102/ including mapped-reviewed-centres.json and historical-receipt-spatial-score.json. No detector output was opened before user accepted centres.
+
+Next O09-NORMAL-VALIDATION-LAYOUT01-02-CURRENT-SOURCE-REPLAY: run each selected saved frame serially through current width800 configured screen, compare against historical receipt and reviewed labels. A clear frame or complete inventory does not replace five-sample stillness/readiness. No capture needed. Counts13/24 captured,6/12 centre-reviewed,lighting0/2,D1/D2/E0/3 unchanged.

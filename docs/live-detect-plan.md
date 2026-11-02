@@ -1,5 +1,7 @@
 # Live Detect delivery plan
 
+**O09-NORMAL-VALIDATION-LAYOUT01-02-SPATIAL-BASELINE: historical31/31 matched/colour-correct,0 unmatched/misses.** Actual C# mapping checked; cue-absent1587 remains uncertain,all-present31 clear. Capture-build outputs only; next current-source saved-frame replay. Captured13/24,reviewed6/12,lighting0/2,D1/D2/E0/3 unchanged.
+
 **Normal validation Layout01/02 centre review PASS31/31**, user Looks correct; reviewed anchors now6/12. Timing-screen host provenance guard PASS2/2 invalid scopes before device setup; new manifests record bounded timing protocol. Captured13/24,lighting0/2,D1/D2/E0/3 unchanged. Next align/score frames1587/31; warm-radius review pending.
 
 **O09-NORMAL-VALIDATION-UNREVIEWED-FRAME-SELECTION: PASS12/12 pixel/receipt hashes.** Lower-median PTS selects1587(Layout01) and31(Layout02), detector output unopened. Raw contact sheet prepared; next point/crop review packs. Warm radius review still pending. Counts13/24 captured,4/12 reviewed,lighting0/2,D1/D2/E0/3 unchanged.
