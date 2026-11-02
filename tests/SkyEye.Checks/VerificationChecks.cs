@@ -482,6 +482,41 @@ static class VerificationChecks
         var translatedExposure = VerificationTemplate.Compare(before, Exposure(after), w, h, 60, 100, 12);
         Check(translatedExposure is { Dx: > .8 and < 1.2, Dy: > -.2 and < .2 },
             "Photometric normalization preserves ball displacement evidence");
+        var clippedInterior = VerificationTemplate.CompareClipped(before, after, w, h, 60, 100, 12);
+        Check(clippedInterior is not null && translation is not null
+            && Math.Abs(clippedInterior.Dx - translation.Dx) < .01
+            && Math.Abs(clippedInterior.Dy - translation.Dy) < .01
+            && Math.Abs(clippedInterior.Residual - translation.Residual) < 1e-10,
+            "Clipped-template comparison preserves the existing in-bounds result");
+        byte[] EdgeBody(int centreX)
+        {
+            var output = new byte[w * h * 3];
+            for (int y = 0; y < h; y++) for (int x = 0; x < w; x++)
+            {
+                int dx = x - centreX, dy = y - 100;
+                int offset = (y * w + x) * 3;
+                output[offset] = 82; output[offset + 1] = 94; output[offset + 2] = 101;
+                if (dx * dx + dy * dy > 100) continue;
+                int seed = dx * 17 + dy * 31 + (dx * dy * 7 % 23);
+                int texture = ((seed % 53) + 53) % 53 - 26;
+                output[offset] = (byte)Math.Clamp(126 + texture / 2, 0, 255);
+                output[offset + 1] = (byte)Math.Clamp(64 + texture / 2, 0, 255);
+                output[offset + 2] = (byte)Math.Clamp(47 + texture / 2, 0, 255);
+            }
+            return output;
+        }
+        var edgeBefore = EdgeBody(6); var edgeAfter = EdgeBody(8);
+        Check(VerificationTemplate.Compare(edgeBefore, edgeAfter, w, h, 6, 100, 12) is null,
+            "The current full-window comparison remains unsupported for a clipped edge body");
+        var clippedEdgeMotion = VerificationTemplate.CompareClipped(edgeBefore, edgeAfter, w, h, 6, 100, 12);
+        Check(clippedEdgeMotion is { Dx: > 1.8 and < 2.2, Dy: > -.2 and < .2 },
+            $"A clipped edge body retains a known two-pixel movement signal (result={clippedEdgeMotion})");
+        Check(VerificationTemplate.CompareClipped(edgeBefore, Exposure(edgeBefore), w, h, 6, 100, 12)
+            is { Dx: > -.2 and < .2, Dy: > -.2 and < .2 },
+            "A clipped stationary body remains aligned across exposure and white-balance shifts");
+        var edgeBlank = Enumerable.Repeat((byte)100, w * h * 3).ToArray();
+        Check(VerificationTemplate.CompareClipped(edgeBlank, edgeBlank, w, h, 6, 100, 12) is null,
+            "A clipped textureless patch remains unknown");
         var blank = Enumerable.Repeat((byte)100, w * h * 3).ToArray();
         Check(VerificationTemplate.Compare(blank, blank, w, h, 60, 100, 12) is null, "Textureless body template is unknown");
         var chromatic = new VerificationPixels(w, h); var sameGray = Body(60, 100);

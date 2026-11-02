@@ -58,6 +58,75 @@ public static class VerificationTemplate
             by + Offset(scores[ix, iy - 1], best, scores[ix, iy + 1]), best);
     }
 
+    /// <summary>
+    /// Compares a ball patch that is clipped by the motion image edge. The same
+    /// source samples are used for every candidate shift, so an edge cannot win
+    /// merely because fewer pixels fell outside the frame. This remains unknown
+    /// when too few pixels or too little texture are available.
+    /// </summary>
+    public static TemplateDisplacement? CompareClipped(byte[] before, byte[] after, int width, int height,
+        int cx, int cy, int radius)
+    {
+        if (before.Length != width * height * 3 || after.Length != before.Length || radius is < 5 or > 60)
+            throw new ArgumentException("Invalid motion patch.");
+        const int reach = 4;
+        var disk = new List<(int X, int Y)>();
+        var samples = new List<(int X, int Y)>();
+        for (int y = -radius; y <= radius; y += 2)
+        for (int x = -radius; x <= radius; x += 2)
+        {
+            if (x * x + y * y > radius * radius) continue;
+            disk.Add((x, y));
+            if (cx + x - reach >= 0 && cx + x + reach < width
+                && cy + y - reach >= 0 && cy + y + reach < height)
+                samples.Add((x, y));
+        }
+        if (samples.Count < 30 || samples.Count < disk.Count * .25) return null;
+
+        var scores = new double[9, 9];
+        double best = double.PositiveInfinity; int bx = 0, by = 0;
+        for (int dy = -reach; dy <= reach; dy++) for (int dx = -reach; dx <= reach; dx++)
+        {
+            double error = 0, variance = 0;
+            foreach (int channel in Enumerable.Range(0, 3))
+            {
+                double sumA = 0, sumB = 0, squareA = 0, squareB = 0, cross = 0;
+                foreach (var (x, y) in samples)
+                {
+                    double a = before[((cy + y) * width + cx + x) * 3 + channel];
+                    double b = after[((cy + y + dy) * width + cx + x + dx) * 3 + channel];
+                    sumA += a; sumB += b; squareA += a * a; squareB += b * b; cross += a * b;
+                }
+                double count = samples.Count;
+                double varianceA = Math.Max(0, squareA - sumA * sumA / count);
+                double varianceB = Math.Max(0, squareB - sumB * sumB / count);
+                double covariance = cross - sumA * sumB / count;
+                double gain = varianceA > 1 ? covariance / varianceA : 1;
+                double channelVariance = varianceA + varianceB;
+                variance += channelVariance;
+                if (!double.IsFinite(gain) || gain is < .5 or > 2)
+                    error += channelVariance;
+                else
+                    error += Math.Max(0, varianceB - 2 * gain * covariance + gain * gain * varianceA);
+            }
+            if (variance / (6 * samples.Count) < 4) return null;
+            double score = Math.Max(0, error) / variance;
+            scores[dx + reach, dy + reach] = score;
+            if (score < best) { best = score; bx = dx; by = dy; }
+        }
+        if (best > .05 || Math.Abs(bx) == reach || Math.Abs(by) == reach) return null;
+        double Offset(double left, double centre, double right)
+        {
+            double denominator = left - 2 * centre + right;
+            return denominator > .00001 ? Math.Clamp(.5 * (left - right) / denominator, -.5, .5) : 0;
+        }
+        int ix = bx + reach, iy = by + reach;
+        if (scores[ix - 1, iy] + scores[ix + 1, iy] - 2 * best < .0001
+            || scores[ix, iy - 1] + scores[ix, iy + 1] - 2 * best < .0001) return null;
+        return new(bx + Offset(scores[ix - 1, iy], best, scores[ix + 1, iy]),
+            by + Offset(scores[ix, iy - 1], best, scores[ix, iy + 1]), best);
+    }
+
     /// <summary>Grayscale ball-body matching for high-rate motion analysis.</summary>
     public static TemplateDisplacement? CompareGray(byte[] before, byte[] after, int width, int height,
         int cx, int cy, int radius)

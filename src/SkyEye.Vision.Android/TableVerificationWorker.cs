@@ -86,12 +86,13 @@ public sealed partial class VisionAnalyzer
                         double scale = motionWidth / (double)owner.coordinates.Width;
                         int radius = Math.Max(12, (int)Math.Ceiling(body.Radius * scale * 1.8));
                         int x = (int)(body.Centre.X * scale), y = (int)(body.Centre.Y * scale);
-                        var a = VerificationTemplate.Compare(anchorColour, colour, motionWidth, motionHeight, x, y, radius);
-                        var p = VerificationTemplate.Compare(previousColour!, colour, motionWidth, motionHeight, x, y, radius);
+                        var a = VerificationTemplate.CompareClipped(anchorColour, colour, motionWidth, motionHeight, x, y, radius);
+                        var p = VerificationTemplate.CompareClipped(previousColour!, colour, motionWidth, motionHeight, x, y, radius);
                         if (a is null || p is null) continue;
                         supported++;
                         maximum = Math.Max(maximum, Math.Max(Math.Sqrt(a.Dx * a.Dx + a.Dy * a.Dy), Math.Sqrt(p.Dx * p.Dx + p.Dy * p.Dy)));
-                        for (int py = y - radius; py <= y + radius; py++) for (int px = x - radius; px <= x + radius; px++)
+                        for (int py = Math.Max(0, y - radius); py <= Math.Min(motionHeight - 1, y + radius); py++)
+                        for (int px = Math.Max(0, x - radius); px <= Math.Min(motionWidth - 1, x + radius); px++)
                             if ((px - x) * (px - x) + (py - y) * (py - y) <= radius * radius) mask[py * motionWidth + px] = true;
                     }
                 }
