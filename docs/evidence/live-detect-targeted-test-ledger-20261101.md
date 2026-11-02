@@ -1,5 +1,7 @@
 # Live Detect targeted test ledger
 
+**O09-WARM-LAYOUT01-HISTORICAL-TIMING-READBACK: PASS matching report and gap arithmetic.** Gap807.067 ms versus800 ms; worker781.8095 ms, evidence callback3.2277 ms, next acquisition6.4694 ms. One-sample analysis-margin diagnosis; no threshold change. Captured13/24, reviewed4/12, lighting0/2, D1/D2/E0/3. Next: offline worker-stage/configuration trace.
+
 **O09-WARM-LAYOUT01-RAW-CENTRE-REVIEW: PASS 16/16 centres.** User: all look good. Source/draft hashes frozen; radii and numeric tolerance unset. Reviewed anchors 4/12; captured 13/24; lighting 0/2; D1/D2/E 0/3. Verifier remains FAIL 1/5 SampleGap. Next offline target: historical timing readback.
 
 **Offline target `O09-WARM-LAYOUT01-SAMPLEGAP-TRACE`: rejection-path trace complete; cause unresolved.** Source gap exceeds800 ms; accepted receipt lacks the rejected-frame/stage timing breakdown. No retry or threshold change. Raw review pack has16 provisional centres awaiting user review; no labels accepted. Counts remain captured13/24, reviewed3/12, lighting0/2, D1/D2/E0/3. Next offline action: retrieve matching historical verification report read-only, if retained. [Trace record](live-detect-o09-warm-layout01-samplegap-trace-20261102.md).
