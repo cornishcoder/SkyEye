@@ -1,5 +1,7 @@
 # Live Detect targeted test ledger
 
+**O09-NORMAL-VALIDATION-CORPUS-ROUNDTRIP: PASS31/31 labels,2/2 image hashes,2/2 planned validation groups.** Maximum source residual1.14e-13 px. Partial corpus verified;full export still incomplete. Next locate other accepted radius-ready groups for assembly;pending reviews remain required. Counts13/24 captured,6/12 centre-reviewed,lighting0/2,D1/D2/E0/3 unchanged.
+
 **O09-NORMAL-VALIDATION-PARTIAL-CORPUS: Workbench validation PASS2 frames/31 reviewed visible radius labels.** Required intervals omission corrected after retained schema failure. Partial derivative only; accuracyGateReady=false,no export/training/split change. Next31-label round-trip/hash check. Counts13/24 captured,6/12 reviewed,lighting0/2,D1/D2/E0/3 unchanged.
 
 **O09-NORMAL-VALIDATION-RADIUS-LABEL-FREEZE: PASS31/31 reviewed apparent radii**, source/centre/proposal bindings frozen. User Looks correct; no detector radii. Warm266 rim review separately pending. Next versioned partial corpus assembly; no full export claim. Captured13/24,reviewed6/12,lighting0/2,D1/D2/E0/3 unchanged.
