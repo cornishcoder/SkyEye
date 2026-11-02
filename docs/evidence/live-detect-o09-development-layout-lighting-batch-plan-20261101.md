@@ -2,7 +2,11 @@
 
 ## Status
 
-The next physical target remains `O09-DEVELOPMENT-LAYOUT-LIGHTING-EXPANSION`. On 2 November the user confirmed both strata playable and the camera charged, then staged the normal/train layout-01 rack and hands-clear phone placement. The first bounded verifier returned `SampleGap` after saving one image; the camera was stopped at the result boundary and Home returned to `Start live session`. The hash-valid image is pending independent spatial review; it is not a verifier/readiness pass. Normal-light sensor/source/glare observations are provisional and exposure is unknown, so complete measured strata remain **0/2**. See the [lighting preflight](live-detect-o09-lighting-metadata-preflight-20261102.md) and [anchor report](live-detect-o09-normal-layout01-anchor-20261102.md).
+The 2 November normal/train layout-02 spread produced one independently reviewed Development anchor. Raw receipt integrity passed **7/7**; selected frame1085 was reviewed blind from raw pixels, then the current-source spatial baseline scored **16/16** reviewed balls with no extras/misses. Its physical verifier still failed `Unsettled (TimedOut)` after 4001.775ms. This anchor does not satisfy stillness/readiness, detector inventory, Holdout, D1, D2 or E. The full provenance and limits are in the [Layout02 evidence report](live-detect-o09-normal-layout02-blind-anchor-20261102.md).
+
+Current counts: reviewed Development anchors **1/12**; staged states attempted **2/24**; additional matched-control states **0/12**; criteria-complete lighting strata **0/2**; detector inventory acceptance **0/3**; Holdout unopened; D1/D2/E **0/3** proven. Layout01 requires a replacement independent anchor because the available review was proposal-conditioned. **23 staged-state acquisitions remain**. The next physical target is `O09-NORMAL-TRAIN-LAYOUT03-BLIND-ANCHOR-CONTROL`; keep its four-state black/cue sequence in one setup group, one bounded operation per confirmed state, with capture stopped and `/status:Stopped` checked between table changes.
+
+Earlier that day, both lighting conditions were reported playable and the camera charged. The normal-pool-room condition was described as daylight with no direct glare; complete measured lighting metadata remains **0/2**, and the warm-dim stratum still needs its repeatable measured condition. See the [lighting preflight](live-detect-o09-lighting-metadata-preflight-20261102.md) and prior [Layout01 report](live-detect-o09-normal-layout01-anchor-20261102.md).
 
 ### Capture-unit clarification
 

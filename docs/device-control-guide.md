@@ -1,6 +1,10 @@
 # Pixel companion control guide
 
-## Latest safe state after normal-rack verifier — 2 November 2026
+## Latest safe state after Layout02 verifier and replay — 2 November 2026
+
+At `2026-11-02T12:34:21.6746526Z`, a fresh mounted-camera `/status` read returned **Stopped**, revision9, timeline `39e4f6c1df9f44d185906b7903278514`, 9,334 completed frames, 1920×1080 at 30fps, zero viewers and `clipCount=139`. Pixel 11 Home showed **Camera ready** and enabled **Start live session**; capture and verifier actions were disabled. The visible verifier result was `Unsettled (TimedOut)` after saving seven frames. The installed companion was 0.8.61/code69, APK SHA-256 `9F3465F4D4A5BD3F5F848BA0D8DE299BA4D9E50AE05F7808DA8F7F033F3A0DCA`. No new clip was added; no match, Cast/TV action, camera package update or app-data reset occurred. See the [Layout02 evidence report](evidence/live-detect-o09-normal-layout02-blind-anchor-20261102.md) and token-free [safe-state snapshot](../work/o09/device-state/layout02-final-safe-state-20261102.json), SHA-256 `D8E6DCC60CD88796570448D8A036C7E7BC8C0510EB1EC4E355CBD22F2E02BBFE`.
+
+## Previous safe state after normal-rack verifier — 2 November 2026
 
 At `2026-11-02T11:35:34.2292026Z`, mounted-camera `/status` returned **Stopped**, revision3, 1,676 completed frames, zero viewers, 80% battery and `clipCount=139`. Pixel 11 Home shows enabled **Start live session**; capture and the verifier are stopped. The captured rack remains staged. No clip, match, Cast action, package update or app-data reset occurred. See the [normal/train anchor report](evidence/live-detect-o09-normal-layout01-anchor-20261102.md) and token-free [post-stop status](../work/o09/device-state/normal-anchor-poststop-status-20261102.json). The older 11:23Z `Ready` readback below is pre-capture and historical.
 
