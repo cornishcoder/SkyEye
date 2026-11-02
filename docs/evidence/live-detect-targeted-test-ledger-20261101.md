@@ -1,5 +1,7 @@
 # Live Detect targeted test ledger
 
+**O09-NORMAL-VALIDATION-LAYOUT01-02-CURRENT-SOURCE-REPLAY: PASS31/31 matched/colour-correct,0 unmatched/misses**,2/2 settings identities match receipts. Cue-absent1587 remains uncertain;complete31 clear. No D2 windows. Next raw-radius guides for31 accepted centres; warm radius review pending. Captured13/24,reviewed6/12,lighting0/2,D1/D2/E0/3 unchanged.
+
 **O09-NORMAL-VALIDATION-LAYOUT01-02-SPATIAL-BASELINE: historical31/31 matched/colour-correct,0 unmatched/misses.** Actual C# mapping checked; cue-absent1587 remains uncertain,all-present31 clear. Capture-build outputs only; next current-source saved-frame replay. Captured13/24,reviewed6/12,lighting0/2,D1/D2/E0/3 unchanged.
 
 **Normal validation Layout01/02 centre review PASS31/31**, user Looks correct; reviewed anchors now6/12. Timing-screen host provenance guard PASS2/2 invalid scopes before device setup; new manifests record bounded timing protocol. Captured13/24,lighting0/2,D1/D2/E0/3 unchanged. Next align/score frames1587/31; warm-radius review pending.
