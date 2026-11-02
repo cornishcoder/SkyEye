@@ -1,5 +1,7 @@
 # Live Detect targeted test ledger
 
+**Normal validation Layout01/02 centre review PASS31/31**, user Looks correct; reviewed anchors now6/12. Timing-screen host provenance guard PASS2/2 invalid scopes before device setup; new manifests record bounded timing protocol. Captured13/24,lighting0/2,D1/D2/E0/3 unchanged. Next align/score frames1587/31; warm-radius review pending.
+
 **O09-NORMAL-VALIDATION-UNREVIEWED-FRAME-SELECTION: PASS12/12 pixel/receipt hashes.** Lower-median PTS selects1587(Layout01) and31(Layout02), detector output unopened. Raw contact sheet prepared; next point/crop review packs. Warm radius review still pending. Counts13/24 captured,4/12 reviewed,lighting0/2,D1/D2/E0/3 unchanged.
 
 **O09-EXACT-DUPLICATE-HOST-REGRESSION: PASS69/69 named host groups,0 failures,exit0.** Complements16/16 Android saved-output assertions; production companion deployment/physical gates remain open. Warm radius16-guide review pending. Captured13/24,centre-reviewed4/12,lighting0/2,D1/D2/E0/3 unchanged. Do not rerun unchanged scope.

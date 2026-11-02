@@ -64,6 +64,9 @@ param(
 # ./scripts/Run-PocketLipBoundaryAudit.ps1 -PocketArcProbeOnly -Frames @(399) -BlackLabelX 102 -BlackLabelY 903
 
 $ErrorActionPreference = 'Stop'
+if ($TimingComparison -and (-not $ScreenOnly -or $Frames.Count -ne 1)) {
+    throw 'TimingComparison requires ScreenOnly and exactly one saved frame.'
+}
 $totalTimer = [Diagnostics.Stopwatch]::StartNew()
 $stageTimings = [ordered]@{}
 $maximumFrames = if ($ScreenOnly) { 24 } elseif ($ProbeOnly -or $PocketArcProbeOnly -or $PocketArcSweepOnly -or $RawProposalReplay) { 12 } else { 6 }
@@ -691,6 +694,13 @@ $manifest = [pscustomobject]@{
     apkSha256 = (Get-FileHash -LiteralPath $apk -Algorithm SHA256).Hash.ToLowerInvariant()
     run = $run
     mode = if ($ScreenOnly) { 'screening' } elseif ($ProbeOnly) { 'probe-only' } elseif ($PocketArcSweepOnly) { 'pocket-arc-sweep-only' } elseif ($PocketArcProbeOnly) { 'pocket-arc-probe-only' } elseif ($RawProposalReplay) { 'raw-proposal-replay' } else { 'full-audit' }
+    timingComparison = [pscustomobject]@{
+        enabled = [bool]$TimingComparison
+        warmupPerArm = if ($TimingComparison) { 1 } else { 0 }
+        measuredPerArm = if ($TimingComparison) { 4 } else { 0 }
+        order = if ($TimingComparison) { 'alternating-800-1000' } else { 'not-applicable' }
+        endpoint = 'saved-image decode plus analyzer wall time'
+    }
     independentFrames = [bool]$IndependentFrames
     timingsMs = [pscustomobject]@{
         inputHashAndOrderValidation = $stageTimings.inputHashAndOrderValidationMs

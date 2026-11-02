@@ -81,3 +81,7 @@ Preflight result: ignored `work/o09/development-v3/alignment/layout03-validation
 ## Additional raw review selection
 
 O09-NORMAL-VALIDATION-UNREVIEWED-FRAME-SELECTION:12/12 source PNG hashes match receipts across Layout01/02 (6 each). Lower-median source PTS selects frame1587 from Layout01 and frame31 from Layout02, independent of detector results. Source/receipt hashes and IDs retained in work/o09/development-v3/reviews/normal-validation-layout01-02-raw-selection-20261102/selection-manifest.json. Raw contact sheet generated and inspected; no centres/radii accepted or detector measurements opened. Next prepare raw-only point/crop review packs for both frames. Counts unchanged:13/24 captured,4/12 reviewed,lighting0/2,D1/D2/E0/3.
+
+## Layout01/02 accepted centre review
+
+User replied Looks correct to displayed frame1587 and frame31 raw crop sheets:31/31 visible centres accepted. Separate reviewed records retain original draft SHA and source SHA; radii/numeric tolerance unset. No detector measurements opened before review. Reviewed anchors advance4/12 to6/12; captured13/24 unchanged. Frame1587 cue absent; frame31 all16 present. Next source-bound C# transform/group alignment and scoring; radius guide review remains required for export.
