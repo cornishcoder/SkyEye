@@ -392,7 +392,8 @@ public sealed partial class VisionAnalyzer
                     cancellation.ThrowIfCancellationRequested();
                     diagnosticRawPixels ??= Read(raw);
                     var fit = BallBoundaryRefiner.Refine(diagnosticRawPixels, width, height,
-                        new(component.Circle.X, component.Circle.Y), expectedRadius);
+                        new(component.Circle.X, component.Circle.Y), expectedRadius,
+                        collectSectorEvidence: true);
                     evaluated++;
                     if (fit is null)
                     {
@@ -403,7 +404,8 @@ public sealed partial class VisionAnalyzer
                     if (fit.SupportedSectors < ObservationPolicy.MinimumSupportedBoundaryFraction)
                     {
                         rows.Add(ToRow(component, fit.Centre.X, fit.Centre.Y, fit.Radius,
-                            fit.SupportedSectors, null, null, "rejected-insufficient-boundary-support"));
+                            fit.SupportedSectors, null, null, "rejected-insufficient-boundary-support",
+                            fit.SectorEvidence));
                         continue;
                     }
 
@@ -413,7 +415,8 @@ public sealed partial class VisionAnalyzer
                     if (matching.Length > 1)
                     {
                         rows.Add(ToRow(component, fit.Centre.X, fit.Centre.Y, fit.Radius,
-                            fit.SupportedSectors, null, null, "rejected-ambiguous-existing-match"));
+                            fit.SupportedSectors, null, null, "rejected-ambiguous-existing-match",
+                            fit.SectorEvidence));
                         continue;
                     }
 
@@ -422,7 +425,8 @@ public sealed partial class VisionAnalyzer
                     if (matching.Length == 1 && existingKind is not ("unknown" or "cue"))
                     {
                         rows.Add(ToRow(component, fit.Centre.X, fit.Centre.Y, fit.Radius,
-                            fit.SupportedSectors, existingKind, null, "rejected-existing-kind-conflict"));
+                            fit.SupportedSectors, existingKind, null, "rejected-existing-kind-conflict",
+                            fit.SectorEvidence));
                         continue;
                     }
 
@@ -434,7 +438,8 @@ public sealed partial class VisionAnalyzer
                         string decision = classification.Kind != "cue"
                             ? "rejected-not-cue" : "rejected-no-local-contrast";
                         rows.Add(ToRow(component, fit.Centre.X, fit.Centre.Y, fit.Radius,
-                            fit.SupportedSectors, classification.Kind, localContrast, decision));
+                            fit.SupportedSectors, classification.Kind, localContrast, decision,
+                            fit.SectorEvidence));
                         continue;
                     }
 
@@ -443,7 +448,7 @@ public sealed partial class VisionAnalyzer
                     passing++;
                     rows.Add(ToRow(component, fit.Centre.X, fit.Centre.Y, fit.Radius,
                         fit.SupportedSectors, classification.Kind, localContrast,
-                        "passes-neutral-cue-recovery-gates"));
+                        "passes-neutral-cue-recovery-gates", fit.SectorEvidence));
                 }
             }
 
@@ -453,12 +458,14 @@ public sealed partial class VisionAnalyzer
             NeutralCueEdgePrunedCandidateTelemetry ToRow(
                 (Circle Circle, int Width, int Height, int Area, double Fill) component,
                 double? fittedX, double? fittedY, double? fittedRadius, double? support,
-                string? classification, bool? localContrast, string decision)
+                string? classification, bool? localContrast, string decision,
+                BoundarySectorEvidence[]? sectorEvidence = null)
                 => new(component.Circle.X, component.Circle.Y, component.Width, component.Height,
                     component.Area, component.Circle.Radius, component.Fill,
                     hasProbe ? Math.Sqrt(Math.Pow(component.Circle.X - probeCentre.X, 2)
                         + Math.Pow(component.Circle.Y - probeCentre.Y, 2)) : null,
-                    fittedX, fittedY, fittedRadius, support, classification, localContrast, decision);
+                    fittedX, fittedY, fittedRadius, support, classification, localContrast, decision)
+                { SectorEvidence = sectorEvidence ?? [] };
         }
 
         NeutralCueMaskHoughTelemetry ProbeHoughCandidates(Mat source, string sourceName)

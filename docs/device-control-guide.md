@@ -1,5 +1,9 @@
 # Pixel companion control guide
 
+## Latest safe state after offline cue-sector trace — 2 November 2026
+
+At `2026-11-02T15:46:59.806Z`, mounted-camera `/status` was `Stopped`, revision39, 37,352 completed frames, `clipCount=139`, battery100%, and zero viewers. Pixel 11 Home's fresh accessibility tree showed **Camera ready**, enabled **Start live session**, and Live Detect unavailable while stopped. The retained `Unclear (DetectionAmbiguous)` verifier message is historical. The sector replays did not start live capture or add clips. Token-free readback: `../work/o09/device-state/edge-pruned-sector-trace-final-safe-state-20261102.json`.
+
 ## Latest safe state after Layout03 safety-guard verifier — 2 November 2026
 
 At `2026-11-02T15:19:04.9063835Z`, mounted-camera `/status` returned **Stopped**, revision39, timeline `a2c31ce783e0441891e55d6c96820b73`, 37,352 completed frames, 1920×1080 at 30fps, zero viewers, 100% battery and `clipCount=139`. Pixel 11 Home showed **Camera ready** and enabled **Start live session**; the stored verifier result was `Unclear (DetectionAmbiguous)` after five saved frames. Production companion **0.8.62/code70** is installed in place, APK SHA-256 `B601D0943503E9FB77DD2145C46A875776EA1B6FFCDF520B05895171BD7BB88E`. The guarded run had 5/5 valid frame/receipt pairs and coverage, with four post-anchor `Still` measurements over 1.500122 seconds. No clip was added, no app data was cleared, no Cast/TV action occurred, and the mounted-camera package was not updated. See the [physical guard retest report](evidence/live-detect-o09-layout03-safety-guard-physical-verifier-retest-20261102.md) and token-free [status snapshot](../work/o09/device-state/safety-guard-poststop-status-20261102.json).

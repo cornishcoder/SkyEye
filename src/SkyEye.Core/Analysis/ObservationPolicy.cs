@@ -126,7 +126,10 @@ public sealed record NeutralCueEdgePrunedCandidateEvaluationTelemetry(double Edg
 public sealed record NeutralCueEdgePrunedCandidateTelemetry(double CentreX, double CentreY,
     int Width, int Height, int Area, double Radius, double FillFraction, double? DistanceToReviewPoint,
     double? FittedCentreX, double? FittedCentreY, double? FittedRadius, double? BoundarySupport,
-    string? Classification, bool? LocalContrast, string Decision);
+    string? Classification, bool? LocalContrast, string Decision)
+{
+    public BoundarySectorEvidence[] SectorEvidence { get; init; } = [];
+}
 public sealed record NeutralCueMaskEdgePrunedComponentTelemetry(double EdgeMarginFraction, double EdgeMargin,
     int MaskPixels, int ConnectedComponents, int ComponentLabel, double? CentreX, double? CentreY, int? Width,
     int? Height, int? Area, double? Radius, double? FillFraction, string Decision);
