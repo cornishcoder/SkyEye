@@ -1,5 +1,9 @@
 # Pixel companion control guide
 
+## Latest safe state after validation spatial baseline — 2 November 2026
+
+At `2026-11-02T19:20:42.4403420Z`, mounted-camera `/status` returned **Stopped**, revision58, timeline `8fec1bb48f5f412898534d62d2ce58c0`, 57,125 completed frames, 1920×1080 at 30fps, and `clipCount=139`; no viewers or host were reported. Pixel 11 Pro XL `66181FDDV001HS` was connected to ADB. Companion Home showed enabled **Start live session** and disabled **Capture verifier frames**. Its visible `Unclear (TimedOut)` verifier message is historical from 16:47:10 UTC. No live capture, clip, app-data change, Cast/TV interaction, companion update, or mounted-camera package update occurred. A read-only pull of `uk.co.skyeye.visionchecks` matched replay APK SHA-256 `e864d9333de952ddf1b1a52cb2142b15ef3cd839e795f03eb04caa786adf457a`. Token-free state snapshot: `../work/o09/device-state/normal-validation-layout03-spatial-baseline-final-safe-state-20261102.json`, SHA-256 `8284fc2937d2a607aee679158d8003d0e9fd3c354749847028f04fb96a56097d`.
+
 ## Latest safe state after offline cue-sector trace — 2 November 2026
 
 At `2026-11-02T15:46:59.806Z`, mounted-camera `/status` was `Stopped`, revision39, 37,352 completed frames, `clipCount=139`, battery100%, and zero viewers. Pixel 11 Home's fresh accessibility tree showed **Camera ready**, enabled **Start live session**, and Live Detect unavailable while stopped. The retained `Unclear (DetectionAmbiguous)` verifier message is historical. The sector replays did not start live capture or add clips. Token-free readback: `../work/o09/device-state/edge-pruned-sector-trace-final-safe-state-20261102.json`.
