@@ -1,5 +1,7 @@
 # Live Detect targeted test ledger
 
+**O09-WARM266-RAW-RADIUS-GUIDES: prepared16/16, human review pending.** Existing raw-image radial-gradient method;0 search-boundary hits; no detector radii used or labels accepted. Guide sheet displayed. Next reviewer rim confirmation, then versioned corpus derivative. Counts13/24 captured,4/12 centre-reviewed,lighting0/2,D1/D2/E0/3 unchanged.
+
 **O09-WARM266-CSHARP-TRANSFORM-ALIGNMENT: PASS16/16 points and planned train/warm group membership.** Actual Core Map/Unmap agrees with score mapping within4.01e-16 table units; round-trip residual2.45e-13 source px. No official corpus/split change. Next raw-pixel radius guides and reviewer rim check. Captured13/24,reviewed4/12,lighting0/2,D1/D2/E0/3 unchanged.
 
 **O09-WARM266-REVIEWED-SPATIAL-SCORE: diagnostic16/16 matched and colour-correct per arm**,0 unmatched/misses; median source error2.42 px,max4.41 px against approximate reviewed centres. No numeric acceptance bound or stillness pass. Next C# transform/group alignment before corpus ingestion; radii unreviewed. Counts13/24 captured,4/12 reviewed,lighting0/2,D1/D2/E0/3 unchanged.
