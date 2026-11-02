@@ -38,7 +38,25 @@ The lower-median `indexedFrame.sourceTimeUs` images were selected independently 
 - [Both-restored crops](../../work/o09/development-v3/reviews/layout03-validation-control-20261102/layout03-both-restored-raw-only-crops.png)
 - [Raw-only review manifest](../../work/o09/development-v3/reviews/layout03-validation-control-20261102/raw-only-review-manifest.json), SHA-256 `43D0208353C3427651C1AC83F12575070E4A8F73FCB3AF3EAEA4D4D522DBB864`
 
-These centres and radii remain drafts until the per-frame images are reviewed. Do not copy the previous train Layout03 labels into this validation group. The user has asked for no more daylight capture; no further live collection is planned in this cycle.
+The user reviewed the four selected frames and replied “Looks correct.” This accepts the visible centres and expected-empty locations for these four frames; it does not accept numeric centre tolerance or the provisional radius guides. Do not copy the previous train Layout03 labels into this validation group. The user has asked for no more daylight capture; no further live collection is planned in this cycle.
+
+The separate [user-reviewed centre-label record](../../work/o09/development-v3/reviews/layout03-validation-control-20261102/user-reviewed-centre-labels.json) binds each selected source hash and records only centres and presence/absence; its SHA-256 is `e3f348bd22b14bb696f7f79ff7c9631c3c14b6fd7266155663e39eed25037ab6`. Radius labels remain provisional and are omitted from the frozen centre record.
+
+## Fixed-patch image-condition check
+
+Five fixed, ball-free 80×50 source-pixel cloth patches were compared using raw RGB pixels only. Luminance is `0.2126R + 0.7152G + 0.0722B`; frame 2083 is the reference. No numeric same-light acceptance threshold was predeclared.
+
+| State/frame | Patch luminance deltas from frame 2083 (P1…P5) | Median absolute delta | Maximum absolute delta |
+| --- | --- | ---: | ---: |
+| Both-present / 2083 | 0.00, 0.00, 0.00, 0.00, 0.00 | 0.00 | 0.00 |
+| Black-absent / 957 | −9.29, −7.29, −7.51, −5.86, −9.29 | 7.51 | 9.29 |
+| Cue-absent / 962 | −12.22, −6.29, −5.29, −5.86, −9.29 | 6.29 | 12.22 |
+| Both-restored / 2263 | −18.73, −0.01, +6.49, −10.44, −8.93 | 8.93 | 18.73 |
+
+The source-patch shifts mean a same-light paired effect is **not established**. The cause is not assigned: daylight drift, camera exposure, or another imaging change may contribute. Keep the four reviewed frames as per-frame Development data, but do not make a causal matched-light black/cue claim from this sequence.
+
+- [Fixed-patch map](../../work/o09/development-v3/reviews/layout03-validation-control-20261102/fixed-cloth-patch-map.png), SHA-256 `87389bbdc7c7c9c69338e70b21fb53f63acb5bca9a7a8035e83635564299bc73`
+- [Photometry JSON](../../work/o09/development-v3/reviews/layout03-validation-control-20261102/fixed-cloth-patch-photometry.json), SHA-256 `8719d3ab7f36aa0a89d76017c84677533c545428073de5c53763018f9b7ed6ab`
 
 ## Safe boundary and metrics
 
@@ -46,4 +64,4 @@ After the bounded capture, Pixel 11 Home showed `Start live session`; camera `/s
 
 `SkyEye.Checks` remains **69/69 named groups PASS, carried forward; not rerun**. No source code or detector settings changed. The D2 acceptance counts remain **0/200** supported clear/still request windows, **0/100** held-out unsafe/source/control windows, and **0** 30-second soaks. This capture changes none of those denominators. D1, D2, and E remain **0/3 proven**. Physical shot/event/clip testing remains gated behind D1 and D2.
 
-Next targeted item: `O09-NORMAL-VALIDATION-LAYOUT03-RAW-LABEL-REVIEW` on frames 2083, 957, 962, and 2263.
+Next targeted item: `O09-DEVELOPMENT-V3-CORPUS-ALIGNMENT`; retain the four frames as separately labelled Development samples and preserve the unmatched photometry status.
