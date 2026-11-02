@@ -1,6 +1,6 @@
 # O09 normal/train Layout03 four-state control — 2 November 2026
 
-**Status: capture complete; spatial review pending.** The Development setup group contains both-present, black-absent, cue-absent, and restored both-present states. No selected frame has been detector-scored. The bounded verifier returned one `Unsettled (InsufficientEvidence)` and three `Unsettled (TimedOut)` outcomes; none is a stillness/readiness pass.
+**Status: capture and raw-image spatial review complete; current-source baseline pending.** The Development setup group contains both-present, black-absent, cue-absent, and restored both-present states. No selected frame has yet been detector-scored. The bounded verifier returned one `Unsettled (InsufficientEvidence)` and three `Unsettled (TimedOut)` outcomes; none is a stillness/readiness pass.
 
 ## Why capture paused, and capacity change
 
@@ -29,16 +29,18 @@ All four operations use the same analyzer-configuration identity (SHA-256 `6d4e4
 
 The user described the normal-pool-room condition as daylight with no direct glare and kept lighting unchanged during the sequence. A fixed empty-cloth patch in the four selected raw images has median RGB values **(103,115,122), (101,115,122), (102,115,122), and (102,115,122)**. This small image-space variation supports the matched-light description; it is not an ambient-light-sensor measurement or a frozen lighting criterion.
 
-The raw-only draft sheets are under `work/o09/development-v3/reviews/layout03-control-raw-only/`, with sources, hashes, per-frame centre/radius proposals, crops, and the rendering script. The script reads source PNG pixels only and did not read receipt measurement fields or invoke the SkyEye detector. Red/yellow centres were estimated separately from each raw frame; cue/black points and apparent radii remain visual drafts. The user has not reviewed these four frames yet.
+The raw-only draft sheets are under `work/o09/development-v3/reviews/layout03-control-raw-only/`. The script read source PNG pixels only; it did not read receipt measurement fields or invoke the SkyEye detector. Red/yellow centres were estimated separately from each raw frame. Cue/black points were checked on each displayed frame; the absent-state points refer to the reviewed empty locations.
 
-**Protocol exposure:** during the reconnect preflight, the Settings screen displayed one aggregate live Table-awareness result (`7 reds · 7 yellows · 0 cue balls · 0 black`, uncertain/obstructed) before the raw-only label review. No per-frame proposal coordinates or receipt measurement payloads were opened. Treat the upcoming labels as raw-image spatial review with aggregate detector-count exposure, not as a strictly blind review. Do not score until the user review is recorded.
+`O09-NORMAL-TRAIN-LAYOUT03-RAW-ONLY-REVIEW` **PASS 4/4 selected frames**: the user reviewed the full overlays and enlarged crops for frames 1274, 3360, 395 and 382 and replied “Looks correct.” This accepts the per-frame R/Y/C/B centre marks, the `B?`/`C?` expected-empty points, and the provisional apparent source-image radius guides. It does not set a numeric matching tolerance or establish cloth-plane accuracy. The immutable review record is `work/o09/development-v3/reviews/layout03-control-raw-only/reviewed-centres-source-pixels-v1.json`, SHA-256 `249f77ed1154513e77b109ec7d9489f7e0a1a2efb4adefad942bb5127de75a2a`; it independently rechecked all four source PNG, overlay and crop hashes. The original draft is unchanged.
+
+**Protocol exposure:** during the reconnect preflight, the Settings screen displayed one aggregate live Table-awareness result (`7 reds · 7 yellows · 0 cue balls · 0 black`, uncertain/obstructed) before the raw-only label review. No per-frame proposal coordinates or receipt measurement payloads were opened. Treat these accepted labels as raw-image spatial review with aggregate detector-count exposure, not as a strictly blind review.
 
 ## Current safe state and metrics
 
 At `2026-11-02T13:05:27.3428428Z`, mounted-camera `/status` was **Stopped**, revision 25, 22,043 completed frames, `clipCount=139`; Pixel 11 Home showed **Camera ready** and **Start live session**. The safe-state snapshot and Home screenshot are in `work/o09/device-state/layout03-control-group-poststop-20261102/`. No match, Live Detect, Cast/TV action, new clip, package reset, or camera-package update occurred.
 
 - Software: focused budget assertions **24/24 pass**; Production Release build **0 errors / 13 warnings**; the three broader software suites **3/3** and focused motion **20/20** are carried forward, not rerun.
-- Detector: selected-frame labels and scoring **pending**; detector inventory acceptance remains **0/3**. The aggregate UI count above is not a scored sample.
+- Detector: raw-only review **4/4 pass**; current-source `.65` spatial baseline pending; detector inventory acceptance remains **0/3**. The aggregate UI count above is not a scored sample.
 - Physical: four verifier results, **0/4** stillness passes; **30** valid raw pairs retained. D1/D2/E remain **0/3 proven**; Holdout remains unopened.
 
-**Next named test:** `O09-NORMAL-TRAIN-LAYOUT03-RAW-ONLY-REVIEW`. After the user reviews the four overlays and crops, freeze the labels and then run the single current-source Development baseline. Do not tune from this group before its labels and split assignment are frozen.
+**Next named test:** `O09-NORMAL-TRAIN-LAYOUT03-SPATIAL-BASELINE`. Run the current-source width-800 `.65` Development baseline on the four frozen selected frames, with explicit `0.010` table-2x1 scoring tolerance. Keep the four timelines serial and separate; preserve verifier failures and aggregate-count exposure. Do not tune from this group before measuring all four states.
