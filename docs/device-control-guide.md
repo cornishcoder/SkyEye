@@ -1,5 +1,9 @@
 # Pixel companion control guide
 
+## Latest safe state after transfer-control Pixel baseline replay — 2 November 2026
+
+For `O09-TRANSFER-NEW-CONTROLS-PIXEL-BASELINE-REPLAY`, preflight readback at `2026-11-02T22:15:33.2498575Z` showed mounted-camera `/status` **Stopped**, revision62, zero viewers, and `clipCount=139`. Pixel 11 Pro XL `66181FDDV001HS` was connected to ADB; the isolated `uk.co.skyeye.visionchecks` package SHA-256 matched its local Release APK (`e405c1cb1d3dce9d58eb53eab314229d7bd8728136242867eb6627f2caa44e62`). Home showed **Start live session** and **Sample collection off**. After the last corrected saved-frame replay, `/status` remained Stopped/revision62 and Home remained Start live / Samples off. No live frame, clip, app-data change, Cast/TV interaction, production companion update, or mounted-camera package update occurred. Detailed preflight and replay evidence is in the [Pixel baseline report](evidence/live-detect-o09-transfer-controls-pixel-baseline-replay-20261102.md).
+
 ## Latest safe state after validation spatial baseline — 2 November 2026
 
 At `2026-11-02T19:33:49.5944976Z`, mounted-camera `/status` returned **Stopped**, revision58, timeline `8fec1bb48f5f412898534d62d2ce58c0`, 57,125 completed frames, 1920×1080 at 30fps, and `clipCount=139`; zero viewers and no host were reported. Pixel 11 Pro XL `66181FDDV001HS` was connected to ADB. A fresh companion Home screenshot shows the **Start live** action and **Samples off**; the last verifier result `Unclear (TimedOut)` remains historical from 16:47:10 UTC. Screenshot SHA-256: `744FE794020EF6EED86AD3A159E85B6C9C795CE2D2D5F1DF086237EBD6A552AD`. Token-free state snapshot: `../work/o09/device-state/exact-stage-trace-final-safe-state-20261102.json`. No live capture, clip, app-data change, Cast/TV interaction, companion update, or mounted-camera package update occurred. The trace used only saved reports.
