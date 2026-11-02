@@ -24,6 +24,10 @@ The one-pass probe then rejected the checkpoint decisively: 0/7 layouts, every f
 
 The automatic split audit found a second repeat-loop risk before staging: five v2 groups yielded only one validation group, and every new control frame was training-only. The O09 exporter now accepts a hash-bound role plan, verifies its expected group set against the actual transitive session/setup components, checks each frame's lighting tag, and carries layout/light tags into the export report. A 12-layout plan was audited before the user is asked to stage: 3 train/3 validation layouts in each of the two contract lighting strata, with four matched-control sequences assigned inside their own groups. The focused planner/export checks pass 7/7 and 6/6; synthetic checks do not count as detector evidence. This moves the split decision and its failure checks ahead of physical staging, preventing a repeat of “collect, export, discover the validation split is unusable.” See the [batch plan](evidence/live-detect-o09-development-layout-lighting-batch-plan-20261101.md).
 
+## Camera recovery improvement — 2 November 2026
+
+When the stored camera address timed out, the companion's existing **Settings → Camera and recording → Find camera** action rediscovered **SkyEye Camera** and restored `/status` reachability without a capture. Use this supported discovery path before spending time on LAN scans or asking the user to hand-edit an address. Verify the returned status and Home action immediately; in this run the camera was `Ready`, not `Stopped`, Home showed `Start live session`, and its 3% battery still prevented collection. This shortens connection recovery while preserving the capture guard.
+
 ## Batch capture protocol
 
 1. Prepare offline: choose the hypothesis and a small batch, assign setup/step IDs, list exactly what moves, expected visible inventory, required controls and maximum capture per step. Prepare output paths and receipt checks. Confirm suitable light before requesting staging.

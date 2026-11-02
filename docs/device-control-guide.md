@@ -1,5 +1,9 @@
 # Pixel companion control guide
 
+## Current safe state after camera rediscovery — 2 November 2026
+
+Pixel 11 (`66181FDDV001HS`) was on the Android notification shade when the resumed O09 preflight began. The mounted-camera endpoint at `192.168.1.124:8765` initially timed out. In the existing companion Settings screen, **Find camera** discovered **SkyEye Camera** and restored endpoint reachability without starting capture. A fresh read at `2026-11-02T10:29:24Z` reported API state `Ready`, revision 0, 6% battery, 139 saved clips, zero viewers/host, and zero completed source frames. Earlier successive battery readbacks rose from 1% to 2% to 3%, so the camera appears to be charging; no minimum batch reserve is assumed. The companion is at Home showing **Camera ready** and **Start live session**. This is an idle fresh boot, not a literal `/status: Stopped` readback. No clip, verifier frame, match, Cast action, package update, or app-data reset occurred. The user reports the table is free; the camera must be charged before bounded capture. Token-free readback and screenshots are under `work/o09/device-state/`; see the [O09 reachability report](evidence/live-detect-o09-camera-reachability-20261102.md).
+
 Use this guide to operate the Hybrid Production companion on the Pixel 11 and inspect the mounted camera without guessing at screen coordinates or changing match state. Prefer the current accessibility label and a fresh screenshot/UI tree; layout bounds move as the video and Settings panel scroll.
 
 ## Current safe state after offline boundary trace — 1 November 2026
