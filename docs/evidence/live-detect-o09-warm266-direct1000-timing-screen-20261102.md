@@ -9,3 +9,9 @@ The opt-in harness runs separate analyzers with diagnostic audit flags disabled 
 Artifacts: `work/o09/development-v3/warm-batch-20261102/timing-screen/warm266timing-210413/`. Manifest binds source/receipt and installed isolated APK. Source hash is the reviewed frame266 hash. Next test: normalized geometry parity of all measured outputs, then broaden the same measured comparison to existing reviewed full/reduced/negative Development controls before any candidate decision. Do not repeat frame266 timing unchanged.
 
 Metrics remain captured13/24; reviewed4/12; lighting0/2; D1/D2/E0/3. Camera verified Stopped revision61 before replay. No thresholds relaxed.
+
+## Geometry parity follow-up
+
+`O09-WARM266-DIRECT1000-GEOMETRY-PARITY`: PASS8/8 outputs,16 circle identities each. Comparing published normalized table2x1 centres/radii by ball ID against the first current800 output: maximum centre delta2.220446049250313e-16; maximum radius delta3.469446951953614e-18. Classifications and uncertain/layoutUncertain/obstructed flags agree throughout. Values are floating-point rescaling differences. This checks repeatability and cross-arm output equivalence on one saved frame, not reviewed-label accuracy. No replay rerun. Full rows retained in timing-screen/warm266timing-210413/geometry-parity.json.
+
+Next target `O09-DIRECT1000-EXISTING-CONTROL-SCREEN`: preselect saved full/reduced and absent controls with exact receipts, then run the same bounded timing arms serially. Keep every changed detection and unsafe/negative output visible. Production width800 and fallback remain unchanged; no D1/D2 acceptance follows from parity.
