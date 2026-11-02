@@ -1,5 +1,7 @@
 # Live Detect delivery plan
 
+**O09-VALIDATION-LAYOUT03-RAW-RADIUS-GUIDES: prepared62;review pending.** B centres962/2263 visually need re-review;2263 radius hits search minimum. Prior labels immutable;affected centre-error/fit-nearness claims require refresh after correction. Other60 guides separately pending. Counts13/24 captured,6/12 previously centre-reviewed (2 B points under re-review),lighting0/2,D1/D2/E0/3.
+
 **O09-EXACT-DUPLICATE-PRODUCTION-CANDIDATE-BUILD: PASS0 errors/12 warnings**,signed0.8.62/code70 candidate packaged/hash-bound;not installed,physical acceptance pending. Camera Stopped revision62. Next offline validation Layout03 radius pack. Counts13/24 captured,6/12 reviewed,lighting0/2,D1/D2/E0/3 unchanged.
 
 **O09-PARTIAL-CORPUS-EXPANDED-INTEGRITY: PASS109/109 visible labels,2/2 absent points,7/7 image hashes,4/4 group roles;0 session role conflicts.** Full v3 incomplete. Next offline Production candidate build for tested duplicate fix; reviews/physical groups pending. Captured13/24,reviewed6/12,lighting0/2,D1/D2/E0/3 unchanged.
