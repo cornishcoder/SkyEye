@@ -12,6 +12,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
 {
     public VerificationReplayInstrumentation() { }
     public VerificationReplayInstrumentation(IntPtr handle, global::Android.Runtime.JniHandleOwnership ownership) : base(handle, ownership) { }
+    bool timingComparison;
     bool refinement, dump, boundaryAudit, screenOnly, independentFrames, probeOnly, pocketArcProbeOnly, pocketArcSweepOnly, rawProposalReplay, traceDarkMask, tracePackedColourFits, normalizedGeometry, normalizedPackedProposalMask, boundaryExtentAblation,
         edgeMarginAblation, continueCalibrationMismatch, obstructionMaskTrace, localIlluminationNormalization;
     int fastWidth, darkBodyCeiling = 40, packedClusterImageEdgeMargin = 23, manualBlackImageX = 1282, manualBlackImageY = 536;
@@ -163,6 +164,8 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
         }
         run = args?.GetString("run") ?? "";
         screenOnly = args?.GetString("screenOnly") == "1";
+        timingComparison = args?.GetString("timingComparison") == "1";
+        if (timingComparison && !screenOnly) throw new ArgumentException("Timing comparison requires screen-only mode.");
         independentFrames = args?.GetString("independentFrames") == "1";
         probeOnly = args?.GetString("probeOnly") == "1";
         pocketArcSweepOnly = args?.GetString("pocketArcSweepOnly") == "1";
@@ -634,6 +637,26 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                 {
                     if (detectionRequested)
                     {
+                        object? timingComparisonResults = null;
+                        if (timingComparison)
+                        {
+                            var timing800 = new VisionAnalyzer(ReplaySettings(800, boundaryExtent: production800BoundaryExtent));
+                            var timing1000 = new VisionAnalyzer(ReplaySettings(1000));
+                            // Equal warm-up; alternating measured order reduces fixed ordering bias.
+                            timing800.Analyze(bytes, calibration); timing1000.Analyze(bytes, calibration);
+                            var trials = new List<object>();
+                            for (int trial = 0; trial < 4; trial++)
+                            {
+                                foreach (int width in trial % 2 == 0 ? new[] { 800, 1000 } : new[] { 1000, 800 })
+                                {
+                                    var timer = System.Diagnostics.Stopwatch.StartNew();
+                                    var result = (width == 800 ? timing800 : timing1000).Analyze(bytes, calibration);
+                                    timer.Stop();
+                                    trials.Add(new { trial, width, elapsedMs = timer.Elapsed.TotalMilliseconds, analysis = Summarize(result, width) });
+                                }
+                            }
+                            timingComparisonResults = new { warmupPerArm = 1, measuredPerArm = 4, trials };
+                        }
                         var screened = Measure(() => analyzer800.Analyze(bytes, calibration), out var screenMetrics);
                         analyses800.Add(screened);
                         samples.Add(new
@@ -641,6 +664,7 @@ public sealed class VerificationReplayInstrumentation : global::Android.App.Inst
                             frameId, pixelSha256 = sha, receiptSha256, sourceTimeUs, capturedAt = metadataRoot.TryGetProperty("capturedAt", out var screenCapturedAt)
                                 ? screenCapturedAt.GetDateTimeOffset() : DateTimeOffset.UtcNow,
                             detectionRequested, configurationMatchesPrimary,
+                            timingComparisonResults,
                             analysis800Metrics = screenMetrics
                         });
                     }

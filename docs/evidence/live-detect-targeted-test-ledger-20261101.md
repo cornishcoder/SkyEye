@@ -1,5 +1,7 @@
 # Live Detect targeted test ledger
 
+**O09-WARM-LAYOUT01-DIRECT1000-TIMING-SCREEN: narrow inventory parity PASS8/8; promotion HOLD.** Matched saved-frame median1795.679 ms current two-pass versus1194.294 ms direct1000;4 measured runs per arm, equal warm-up, alternating order. Build0 errors/26 warnings. No live speedup claim or acceptance; next normalized geometry parity and broader existing-control comparison. Captured13/24, reviewed4/12, lighting0/2, D1/D2/E0/3.
+
 **O09-WARM-LAYOUT01-WORKER-STAGE-TRACE: PASS fallback identification.** Width800 primary15 balls/312.9029 ms; width1000 fallback16 balls/343.0061 ms; detector total655.909 ms. Fallback recovers inventory. Next test: matched saved-frame direct1000 versus current two-pass timing/output screen; no production change. Captured13/24, reviewed4/12, lighting0/2, D1/D2/E0/3 unchanged.
 
 **O09-WARM-LAYOUT01-HISTORICAL-TIMING-READBACK: PASS matching report and gap arithmetic.** Gap807.067 ms versus800 ms; worker781.8095 ms, evidence callback3.2277 ms, next acquisition6.4694 ms. One-sample analysis-margin diagnosis; no threshold change. Captured13/24, reviewed4/12, lighting0/2, D1/D2/E0/3. Next: offline worker-stage/configuration trace.

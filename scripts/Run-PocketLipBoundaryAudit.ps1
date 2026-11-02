@@ -17,6 +17,7 @@ param(
     [string]$SourceRelativePath = 'work/production/evidence/live-detect-pocket-lip-20261030/o08-capture',
     [int[]]$Frames = @(399, 433),
     [switch]$ScreenOnly,
+    [switch]$TimingComparison,
     [switch]$IndependentFrames,
     [switch]$ProbeOnly,
     [switch]$PocketArcProbeOnly,
@@ -464,6 +465,7 @@ $pocketArcSweepOnlyArgument = if ($PocketArcSweepOnly) { '1' } else { '0' }
 $rawProposalReplayArgument = if ($RawProposalReplay) { '1' } else { '0' }
 $auditArgument = if ($ScreenOnly) { '0' } else { '1' }
 $instrumentArguments = @('shell', 'am', 'instrument', '-w', '-e', 'run', $run,
+    '-e', 'timingComparison', $(if ($TimingComparison) { '1' } else { '0' }),
     '-e', 'screenOnly', $screenOnlyArgument, '-e', 'independentFrames', $independentFramesArgument, '-e', 'probeOnly', $probeOnlyArgument, '-e', 'pocketArcProbeOnly', $pocketArcProbeOnlyArgument,
     '-e', 'pocketArcSweepOnly', $pocketArcSweepOnlyArgument,
     '-e', 'rawProposalReplay', $rawProposalReplayArgument,
