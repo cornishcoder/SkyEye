@@ -1,4 +1,4 @@
-# Warm/train Layout01 bounded anchor �” 2 November 2026
+# Warm/train Layout01 bounded anchor — 2 November 2026
 
 `O09-WARM-TRAIN-LAYOUT01-BOUNDED-ANCHOR`: receipt integrity PASS 1/1; verifier FAIL 1/5, `SampleGap`. User confirmed warm-dim playable/stable and staged/hands clear. Operation `9a3c2da3-3ac4-4bb4-a5b6-458a3a44a2a7` completed at 20:00:53 UTC. Saved frame266 is 1920×1080, source PTS34661355877, timeline `f5d2618b269749e780a00f2550ba42ad`, calibration `060359311cdb47ca88d1f91d06070af2`. Pixel SHA-256 `f41627016c501c34198a57b6799f907d3f55e029d0ad1a93576ebe03efc1e2a7` matches the receipt.
 
@@ -10,4 +10,4 @@ Checkout at capture: `023e5a7`. Next physical target: warm/train Layout02, after
 
 User closed the table for the night after Layout01. Warm/train Layout02 staging is deferred and no capture was attempted. Final camera readback remains Stopped revision61, 58052 completed frames, 139 clips. Resume with Layout02 reference and a new hands-clear confirmation; re-establish playable stable lighting before capture. Light-source/glare description remains unanswered.
 
-User accepted all16 draft visible centres with “all look good.” Reviewed record saved separately at `work/o09/development-v3/warm-batch-20261102/raw-review-frame266/reviewed-centres.json`, binding source and original draft hashes. Radii remain unreviewed; no numeric centre tolerance. Reviewed Development anchors advance3/12 to4/12; captured states13/24, lighting0/2, D1/D2/E0/3 unchanged. Verifier remains FAIL1/5 SampleGap; spatial review does not change that outcome.
+User accepted all 16 draft centres: all look good. Source and draft hashes are frozen in the separate reviewed-centres.json record. Radii and numeric tolerance remain unset. Reviewed anchors now 4/12; captured states 13/24; lighting 0/2; D1/D2/E 0/3. Verifier remains FAIL 1/5 SampleGap.

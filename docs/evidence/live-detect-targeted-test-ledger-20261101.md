@@ -1,5 +1,7 @@
 # Live Detect targeted test ledger
 
+**O09-WARM-LAYOUT01-RAW-CENTRE-REVIEW: PASS 16/16 centres.** User: all look good. Source/draft hashes frozen; radii and numeric tolerance unset. Reviewed anchors 4/12; captured 13/24; lighting 0/2; D1/D2/E 0/3. Verifier remains FAIL 1/5 SampleGap. Next offline target: historical timing readback.
+
 **Offline target `O09-WARM-LAYOUT01-SAMPLEGAP-TRACE`: rejection-path trace complete; cause unresolved.** Source gap exceeds800 ms; accepted receipt lacks the rejected-frame/stage timing breakdown. No retry or threshold change. Raw review pack has16 provisional centres awaiting user review; no labels accepted. Counts remain captured13/24, reviewed3/12, lighting0/2, D1/D2/E0/3. Next offline action: retrieve matching historical verification report read-only, if retained. [Trace record](live-detect-o09-warm-layout01-samplegap-trace-20261102.md).
 
 **Night stopping point:** user closed the table; warm/train Layout02 was not attempted. Camera freshly verified Stopped revision61, clipCount139. Captured states13/24; reviewed anchors3/12; lighting0/2; D1/D2/E0/3. Next physical target remains `O09-WARM-TRAIN-LAYOUT02-BLIND-ANCHOR`, after lighting and hands-clear staging are reconfirmed.
