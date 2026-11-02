@@ -1,0 +1,7 @@
+# Exact duplicate Production candidate — 2 November 2026
+
+O09-EXACT-DUPLICATE-PRODUCTION-CANDIDATE-BUILD PASS: repository Build-SkyEye.ps1 -Target Production -Configuration Release, pinned .NET11 SDK,0 errors/12 warnings. APK signature verification passes; package uk.co.skyeye.companion,stable launcher uk.co.skyeye.companion.MainActivity,version0.8.62/code70. Build source 52ca540525f310c4a0b5ba6b551062c7945ea253; detector fix432c0a1. Immutable copied APK and manifest retained at work/o09/exact-duplicate-production-candidate-20261102/. APK SHA256 `c22b41213f97f19dfa69d45d91577afea312e3e6035be67b9a842ac54bec05d2`.
+
+Version alone is not build identity; earlier code70 artifacts remain distinct. No version bump, companion install, app-data change, camera update or capture. Camera freshly verified Stopped revision62. Installed companion remains earlier build. Source checks69/69 and saved-output duplicate/count assertions16/16 are prior linked evidence, not repeated by packaging. Build/signature/manifest checks do not establish live performance or D1/D2/E.
+
+Next physical retest uses supported in-place installer, preserving UID/data and bound APK readback, only when the table reopens for a bounded check. No install is necessary while physical acceptance is unavailable. Independent offline next task: normal-validation Layout03 raw-radius guide pack from accepted centres; other rim reviews remain pending. Metrics13/24 captured,6/12 centre-reviewed,lighting0/2,D1/D2/E0/3 unchanged.

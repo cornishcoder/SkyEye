@@ -1,5 +1,7 @@
 # Live Detect delivery plan
 
+**O09-EXACT-DUPLICATE-PRODUCTION-CANDIDATE-BUILD: PASS0 errors/12 warnings**,signed0.8.62/code70 candidate packaged/hash-bound;not installed,physical acceptance pending. Camera Stopped revision62. Next offline validation Layout03 radius pack. Counts13/24 captured,6/12 reviewed,lighting0/2,D1/D2/E0/3 unchanged.
+
 **O09-PARTIAL-CORPUS-EXPANDED-INTEGRITY: PASS109/109 visible labels,2/2 absent points,7/7 image hashes,4/4 group roles;0 session role conflicts.** Full v3 incomplete. Next offline Production candidate build for tested duplicate fix; reviews/physical groups pending. Captured13/24,reviewed6/12,lighting0/2,D1/D2/E0/3 unchanged.
 
 **O09-REVIEWED-GROUP-ASSEMBLY-READINESS: expanded partial corpus validates7 frames/4 groups**,109 visible reviewed radii+2 absent points. Existing accepted train reviews reused;exposure notes retained,v1 preserved. Next expanded round-trip/session isolation checks. Full v3 export incomplete. Counts13/24 captured,6/12 reviewed,lighting0/2,D1/D2/E0/3 unchanged.
