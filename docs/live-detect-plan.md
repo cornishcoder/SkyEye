@@ -1,5 +1,7 @@
 # Live Detect delivery plan
 
+**O09-REVIEWED-GROUP-ASSEMBLY-READINESS: expanded partial corpus validates7 frames/4 groups**,109 visible reviewed radii+2 absent points. Existing accepted train reviews reused;exposure notes retained,v1 preserved. Next expanded round-trip/session isolation checks. Full v3 export incomplete. Counts13/24 captured,6/12 reviewed,lighting0/2,D1/D2/E0/3 unchanged.
+
 **O09-NORMAL-VALIDATION-CORPUS-ROUNDTRIP: PASS31/31 labels,2/2 image hashes,2/2 planned validation groups.** Maximum source residual1.14e-13 px. Partial corpus verified;full export still incomplete. Next locate other accepted radius-ready groups for assembly;pending reviews remain required. Counts13/24 captured,6/12 centre-reviewed,lighting0/2,D1/D2/E0/3 unchanged.
 
 **O09-NORMAL-VALIDATION-PARTIAL-CORPUS: Workbench validation PASS2 frames/31 reviewed visible radius labels.** Required intervals omission corrected after retained schema failure. Partial derivative only; accuracyGateReady=false,no export/training/split change. Next31-label round-trip/hash check. Counts13/24 captured,6/12 reviewed,lighting0/2,D1/D2/E0/3 unchanged.
