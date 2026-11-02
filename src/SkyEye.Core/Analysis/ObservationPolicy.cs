@@ -117,7 +117,16 @@ public sealed record NeutralCueMaskTelemetry(int MaskPixels, int ConnectedCompon
     public NeutralCueMaskHoughTelemetry? HoughProbe { get; init; }
     public NeutralCueMaskHoughTelemetry? ValuePlaneHoughProbe { get; init; }
     public NeutralCueMaskEdgePrunedComponentTelemetry[] EdgePrunedComponents { get; init; } = [];
+    public NeutralCueEdgePrunedCandidateEvaluationTelemetry? EdgePrunedCandidateEvaluation { get; init; }
 }
+public sealed record NeutralCueEdgePrunedCandidateEvaluationTelemetry(double EdgeMarginFraction,
+    double EdgeMargin, int ConnectedComponents, Dictionary<string, int> ComponentFilterCounts,
+    int GeometryCandidates, int EvaluatedCandidates, int CandidatesPassingCueRecoveryGates,
+    NeutralCueEdgePrunedCandidateTelemetry[] Candidates);
+public sealed record NeutralCueEdgePrunedCandidateTelemetry(double CentreX, double CentreY,
+    int Width, int Height, int Area, double Radius, double FillFraction, double? DistanceToReviewPoint,
+    double? FittedCentreX, double? FittedCentreY, double? FittedRadius, double? BoundarySupport,
+    string? Classification, bool? LocalContrast, string Decision);
 public sealed record NeutralCueMaskEdgePrunedComponentTelemetry(double EdgeMarginFraction, double EdgeMargin,
     int MaskPixels, int ConnectedComponents, int ComponentLabel, double? CentreX, double? CentreY, int? Width,
     int? Height, int? Area, double? Radius, double? FillFraction, string Decision);

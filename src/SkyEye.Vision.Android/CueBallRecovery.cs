@@ -145,6 +145,8 @@ public sealed partial class VisionAnalyzer
         var candidates = new List<Circle>();
         var filterCounts = auditCandidates ? new Dictionary<string, int>(StringComparer.Ordinal) : null;
         var nearPocketComponents = auditCandidates ? new List<NeutralCueMaskComponentTelemetry>() : null;
+        NeutralCueEdgePrunedCandidateEvaluationTelemetry? edgePrunedCandidateEvaluation = null;
+        byte[]? diagnosticRawPixels = null;
         const int maximumNearPocketComponents = 128;
         double traceDistance = expectedRadius * 6;
         var pockets = PocketCentres();
@@ -223,6 +225,9 @@ public sealed partial class VisionAnalyzer
                     edgePrunedTelemetry.Add(new(edgeMarginFraction, edgeMargin, edgePixelCount,
                         edgeCount - 1, edgeLabel, x, y, (int)w, (int)h, (int)area, radius, fill, decision));
                 }
+                if (edgeMarginFraction == 1.7)
+                    edgePrunedCandidateEvaluation = EvaluateEdgePrunedCandidates(edgeLabels.Value,
+                        edgeStats.Value, edgeCentres.Value, edgeCount, edgeMargin);
             }
         }
         NeutralCueMaskProbeTelemetry? probeTelemetry = null;
@@ -234,7 +239,6 @@ public sealed partial class VisionAnalyzer
                 probeCentreValue, probeCentreFieldValue, probeCentreAppearance, probeCentreAdaptiveValue,
                 probeCentrePreMorphMask, probeCentrePostMorphMask, probeCentreComponentLabel);
         }
-        byte[]? diagnosticRawPixels = null;
         NeutralCueMaskHoughTelemetry? houghProbeTelemetry = null;
         NeutralCueMaskHoughTelemetry? valuePlaneHoughProbeTelemetry = null;
         if (hasProbe)
@@ -275,7 +279,8 @@ public sealed partial class VisionAnalyzer
             ? new NeutralCueMaskTelemetry(maskPixels, count - 1, filterCounts!, nearPocketComponents!.ToArray())
             { Probe = probeTelemetry, BoundaryProbe = boundaryProbeTelemetry, HoughProbe = houghProbeTelemetry,
                 ValuePlaneHoughProbe = valuePlaneHoughProbeTelemetry,
-                EdgePrunedComponents = edgePrunedTelemetry.ToArray() }
+                EdgePrunedComponents = edgePrunedTelemetry.ToArray(),
+                EdgePrunedCandidateEvaluation = edgePrunedCandidateEvaluation }
             : null;
         candidateCount = candidates.Count; recoveredCount = 0;
         var audits = auditCandidates ? new List<NeutralCueCandidateTelemetry>(Math.Min(4, candidates.Count)) : null;
@@ -341,6 +346,120 @@ public sealed partial class VisionAnalyzer
         }
         candidateAudits = audits?.ToArray() ?? [];
         return result.ToArray();
+
+        NeutralCueEdgePrunedCandidateEvaluationTelemetry EvaluateEdgePrunedCandidates(
+            Mat edgeLabels, Mat edgeStats, Mat edgeCentres, int edgeCount, double edgeMargin)
+        {
+            var componentFilterCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+            var geometryCandidates = new List<(Circle Circle, int Width, int Height, int Area, double Fill)>();
+            for (int label = 1; label < edgeCount; label++)
+            {
+                cancellation.ThrowIfCancellationRequested();
+                double w = edgeStats.Get(label, Imgproc.CcStatWidth)![0];
+                double h = edgeStats.Get(label, Imgproc.CcStatHeight)![0];
+                double area = edgeStats.Get(label, Imgproc.CcStatArea)![0];
+                double radius = (w + h) / 4;
+                double x = edgeCentres.Get(label, 0)![0], y = edgeCentres.Get(label, 1)![0];
+                double fill = w * h <= 0 ? 0 : area / (w * h);
+                double pocketDistance = pockets.Min(p => (new Point(x, y) - p).Length);
+                string decision = radius < expectedRadius * .65 || radius > expectedRadius * 1.3
+                    ? "rejected-radius"
+                    : w / h is < .75 or > 1.33 ? "rejected-aspect"
+                    : fill < .6 ? "rejected-fill"
+                    : x < edgeMargin || y < edgeMargin || x > width - edgeMargin || y > height - edgeMargin
+                        ? "rejected-image-edge"
+                    : pocketDistance < settings.PocketExclusionRadius * scale
+                        ? "rejected-pocket-exclusion"
+                    : "candidate";
+                componentFilterCounts[decision] = componentFilterCounts.GetValueOrDefault(decision) + 1;
+                if (decision == "candidate")
+                    geometryCandidates.Add((new Circle(x, y, radius), (int)w, (int)h, (int)area, fill));
+            }
+
+            var rows = new List<NeutralCueEdgePrunedCandidateTelemetry>();
+            int passing = 0, evaluated = 0;
+            var evaluationCircles = circles.ToList();
+            if (geometryCandidates.Count > 4)
+            {
+                foreach (var component in geometryCandidates)
+                    rows.Add(ToRow(component, null, null, null, null, null, null,
+                        "rejected-too-many-candidates"));
+            }
+            else
+            {
+                foreach (var component in geometryCandidates)
+                {
+                    cancellation.ThrowIfCancellationRequested();
+                    diagnosticRawPixels ??= Read(raw);
+                    var fit = BallBoundaryRefiner.Refine(diagnosticRawPixels, width, height,
+                        new(component.Circle.X, component.Circle.Y), expectedRadius);
+                    evaluated++;
+                    if (fit is null)
+                    {
+                        rows.Add(ToRow(component, null, null, null, null, null, null,
+                            "rejected-no-boundary-fit"));
+                        continue;
+                    }
+                    if (fit.SupportedSectors < ObservationPolicy.MinimumSupportedBoundaryFraction)
+                    {
+                        rows.Add(ToRow(component, fit.Centre.X, fit.Centre.Y, fit.Radius,
+                            fit.SupportedSectors, null, null, "rejected-insufficient-boundary-support"));
+                        continue;
+                    }
+
+                    var body = new Circle(fit.Centre.X, fit.Centre.Y, fit.Radius);
+                    var matching = evaluationCircles.Select((circle, index) => (Circle: circle, Index: index))
+                        .Where(candidate => SameBody(candidate.Circle, body)).ToArray();
+                    if (matching.Length > 1)
+                    {
+                        rows.Add(ToRow(component, fit.Centre.X, fit.Centre.Y, fit.Radius,
+                            fit.SupportedSectors, null, null, "rejected-ambiguous-existing-match"));
+                        continue;
+                    }
+
+                    string? existingKind = matching.Length == 1
+                        ? Classify(matching[0].Circle, hsv, true).Kind : null;
+                    if (matching.Length == 1 && existingKind is not ("unknown" or "cue"))
+                    {
+                        rows.Add(ToRow(component, fit.Centre.X, fit.Centre.Y, fit.Radius,
+                            fit.SupportedSectors, existingKind, null, "rejected-existing-kind-conflict"));
+                        continue;
+                    }
+
+                    var classification = Classify(body, hsv, true,
+                        allowWarmNeutralCueCandidate: matching.Length == 1 && existingKind == "unknown");
+                    bool localContrast = HasLowLightNeutralBallContrast(body, hsv, includeWarmCream: true);
+                    if (classification.Kind != "cue" || !localContrast)
+                    {
+                        string decision = classification.Kind != "cue"
+                            ? "rejected-not-cue" : "rejected-no-local-contrast";
+                        rows.Add(ToRow(component, fit.Centre.X, fit.Centre.Y, fit.Radius,
+                            fit.SupportedSectors, classification.Kind, localContrast, decision));
+                        continue;
+                    }
+
+                    if (matching.Length == 1) evaluationCircles[matching[0].Index] = body;
+                    else evaluationCircles.Add(body);
+                    passing++;
+                    rows.Add(ToRow(component, fit.Centre.X, fit.Centre.Y, fit.Radius,
+                        fit.SupportedSectors, classification.Kind, localContrast,
+                        "passes-neutral-cue-recovery-gates"));
+                }
+            }
+
+            return new(1.7, edgeMargin, edgeCount - 1, componentFilterCounts,
+                geometryCandidates.Count, evaluated, passing, rows.ToArray());
+
+            NeutralCueEdgePrunedCandidateTelemetry ToRow(
+                (Circle Circle, int Width, int Height, int Area, double Fill) component,
+                double? fittedX, double? fittedY, double? fittedRadius, double? support,
+                string? classification, bool? localContrast, string decision)
+                => new(component.Circle.X, component.Circle.Y, component.Width, component.Height,
+                    component.Area, component.Circle.Radius, component.Fill,
+                    hasProbe ? Math.Sqrt(Math.Pow(component.Circle.X - probeCentre.X, 2)
+                        + Math.Pow(component.Circle.Y - probeCentre.Y, 2)) : null,
+                    fittedX, fittedY, fittedRadius, support, classification, localContrast, decision);
+        }
 
         NeutralCueMaskHoughTelemetry ProbeHoughCandidates(Mat source, string sourceName)
         {
