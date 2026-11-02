@@ -1,6 +1,6 @@
 # O09 normal/train Layout03 four-state control — 2 November 2026
 
-**Status: capture and raw-image spatial review complete; current-source baseline pending.** The Development setup group contains both-present, black-absent, cue-absent, and restored both-present states. No selected frame has yet been detector-scored. The bounded verifier returned one `Unsettled (InsufficientEvidence)` and three `Unsettled (TimedOut)` outcomes; none is a stillness/readiness pass.
+**Status: capture, raw-image spatial review, current-source baseline, and verifier-failure trace complete.** The Development setup group contains both-present, black-absent, cue-absent, and restored both-present states. The baseline scored all four selected frames and found 56/62 reviewed balls (precision 1.000, recall 0.9032), missing every black and cue; all four results remain uncertain. The bounded verifier returned one `Unsettled (InsufficientEvidence)` and three `Unsettled (TimedOut)` outcomes; none is a stillness/readiness pass. Receipt tracing found incomplete edge-template coverage in 26/30 later samples; source gaps stayed below 534ms. Full score, cue trace, verifier analysis, hashes, and next test are in the [current-source baseline report](live-detect-o09-normal-layout03-spatial-baseline-20261102.md).
 
 ## Why capture paused, and capacity change
 
@@ -39,8 +39,8 @@ The raw-only draft sheets are under `work/o09/development-v3/reviews/layout03-co
 
 At `2026-11-02T13:05:27.3428428Z`, mounted-camera `/status` was **Stopped**, revision 25, 22,043 completed frames, `clipCount=139`; Pixel 11 Home showed **Camera ready** and **Start live session**. The safe-state snapshot and Home screenshot are in `work/o09/device-state/layout03-control-group-poststop-20261102/`. No match, Live Detect, Cast/TV action, new clip, package reset, or camera-package update occurred.
 
-- Software: focused budget assertions **24/24 pass**; Production Release build **0 errors / 13 warnings**; the three broader software suites **3/3** and focused motion **20/20** are carried forward, not rerun.
-- Detector: raw-only review **4/4 pass**; current-source `.65` spatial baseline pending; detector inventory acceptance remains **0/3**. The aggregate UI count above is not a scored sample.
+- Software: focused budget assertions **24/24 pass**; Production Release build **0 errors / 13 warnings**; the fresh Vision Device Release build for replay had **0 errors / 23 warnings**. The three broader software suites **3/3** and focused motion **20/20** are carried forward, not rerun.
+- Detector: raw-only review **4/4 pass**; current-source `.65` spatial baseline **4/4 frames scored, 56/62 TP, 0 FP, 6 FN**. Black and cue recall are each **0/3 present frames**; all four outputs remain uncertain. Detector inventory acceptance remains **0/3**. The aggregate UI count above is not a scored sample.
 - Physical: four verifier results, **0/4** stillness passes; **30** valid raw pairs retained. D1/D2/E remain **0/3 proven**; Holdout remains unopened.
 
-**Next named test:** `O09-NORMAL-TRAIN-LAYOUT03-SPATIAL-BASELINE`. Run the current-source width-800 `.65` Development baseline on the four frozen selected frames, with explicit `0.010` table-2x1 scoring tolerance. Keep the four timelines serial and separate; preserve verifier failures and aggregate-count exposure. Do not tune from this group before measuring all four states.
+**Next named test:** `O09-NORMAL-TRAIN-LAYOUT03-EDGE-TEMPLATE-COVERAGE-EXPERIMENT`. Use the saved four-state receipts to measure a conservative edge-template candidate against complete supported-body coverage and motion evidence. Keep the existing coverage requirement; treat this as Development-only. The separate edge-pruned cue proposal remains queued for detector completeness.
