@@ -1,0 +1,250 @@
+{
+  "target": "O09-DEVELOPMENT-REMAINDER-REFERENCE-SHEETS",
+  "corpusId": "live-detect-20261101-black-cue-development-v4-o09-reviewed-layouts-v3",
+  "splitPlanSha256": "6c0d224aca32e5781c03a3452560aac5fd13a25311cd2ea241791ffe7f34d834",
+  "scope": "Thirteen approximate staging references: twelve warm-stratum staged states plus an independent normal-train Layout01 replacement. No capture or staging request.",
+  "diagramSize": [
+    1600,
+    1080
+  ],
+  "ballRadiusPixels": 19,
+  "pillowVersion": "12.3.0",
+  "generatorSha256": "ddaf2086ea55b0e35345da2e45924a6981b723adbb363f9a4ada49f9247c1c0c",
+  "references": [
+    {
+      "file": "normal-train-layout01-replacement-reference.png",
+      "sha256": "08c2d3673717c6a0196409a7a968991f82b3e3c5edf369160399b7910826571b",
+      "setupGroupId": "o09-v3-normal-train-layout-01",
+      "layoutId": "normal-train-layout-01",
+      "role": "train",
+      "lightingStratum": "normal-pool-room",
+      "count": "16 balls: 7 red, 7 yellow, black and cue",
+      "instruction": "Use a fresh independent setup. Turn each ball's visible mark to the agreed A orientation; label raw centres before detector output.",
+      "absentPointIds": [],
+      "visibleCounts": {
+        "red": 7,
+        "yellow": 7,
+        "black": 1,
+        "cue": 1
+      }
+    },
+    {
+      "file": "warm-train-layout01-reference.png",
+      "sha256": "6e086fa0c1fab130c25ca1a1890ffcf4cdb0c3c8daf06a25411901590c2f3f7c",
+      "setupGroupId": "o09-v3-warm-train-layout-01",
+      "layoutId": "warm-train-layout-01",
+      "role": "train",
+      "lightingStratum": "warm-dim-playable",
+      "count": "16 balls: 7 red, 7 yellow, black and cue",
+      "instruction": "Keep the rack complete. Orient visible marks differently from normal/train A; this diagram shows colour/position, not mark angles.",
+      "absentPointIds": [],
+      "visibleCounts": {
+        "red": 7,
+        "yellow": 7,
+        "black": 1,
+        "cue": 1
+      }
+    },
+    {
+      "file": "warm-train-layout02-reference.png",
+      "sha256": "289d233021422edc716a9961d36e8bb435f53bd7e926843c8fae48be8b43c100",
+      "setupGroupId": "o09-v3-warm-train-layout-02",
+      "layoutId": "warm-train-layout-02",
+      "role": "train",
+      "lightingStratum": "warm-dim-playable",
+      "count": "16 balls: 7 red, 7 yellow, black and cue",
+      "instruction": "Keep every pocket mouth visible; R6/Y3 form a close pair, Y6 sits near the upper-right mouth, and chalk/shadow stay on the rail as negatives.",
+      "absentPointIds": [],
+      "visibleCounts": {
+        "red": 7,
+        "yellow": 7,
+        "black": 1,
+        "cue": 1
+      }
+    },
+    {
+      "file": "warm-validation-layout01-reference.png",
+      "sha256": "4efdc6828aa5a97133e9040f66cd42e8343c72c9ff46cf3da105066658a5b7da",
+      "setupGroupId": "o09-v3-warm-validation-layout-01",
+      "layoutId": "warm-validation-layout-01",
+      "role": "validation",
+      "lightingStratum": "warm-dim-playable",
+      "count": "15 balls: 7 red, 7 yellow and cue; black absent",
+      "instruction": "Do not place the black. Dashed B? shows only its expected empty point; leave all six pocket mouths open.",
+      "absentPointIds": [
+        "B?"
+      ],
+      "visibleCounts": {
+        "red": 7,
+        "yellow": 7,
+        "black": 0,
+        "cue": 1
+      }
+    },
+    {
+      "file": "warm-validation-layout02-reference.png",
+      "sha256": "78b2e0da2dafe6d191dc72a5d18db640481e141be47abba5568e362aa6d518b8",
+      "setupGroupId": "o09-v3-warm-validation-layout-02",
+      "layoutId": "warm-validation-layout-02",
+      "role": "validation",
+      "lightingStratum": "warm-dim-playable",
+      "count": "16 balls: 7 red, 7 yellow, black and cue",
+      "instruction": "R1 is near the upper-left mouth. Place R7/Y6 touching so the mounted view partly hides R7; do not physically overlap balls or label a covered centre.",
+      "absentPointIds": [],
+      "visibleCounts": {
+        "red": 7,
+        "yellow": 7,
+        "black": 1,
+        "cue": 1
+      }
+    },
+    {
+      "file": "warm-train-layout03-both-present-reference.png",
+      "sha256": "77df9ac7fb2a8780dfcda42bc2ff560571e479fc9cae7fca09f6b041ab73a76f",
+      "setupGroupId": "o09-v3-warm-train-layout-03",
+      "layoutId": "warm-train-layout-03",
+      "role": "train",
+      "lightingStratum": "warm-dim-playable",
+      "count": "16 balls: 7 red, 7 yellow, black B and cue C.",
+      "instruction": "Anchor: establish both visible centres.",
+      "absentPointIds": [],
+      "visibleCounts": {
+        "red": 7,
+        "yellow": 7,
+        "black": 1,
+        "cue": 1
+      }
+    },
+    {
+      "file": "warm-train-layout03-black-absent-reference.png",
+      "sha256": "ede44f509f3cbc767201a69f62cf82e8726061cfbbbc9c8dd3c00654e548515f",
+      "setupGroupId": "o09-v3-warm-train-layout-03",
+      "layoutId": "warm-train-layout-03",
+      "role": "train",
+      "lightingStratum": "warm-dim-playable",
+      "count": "15 balls: 7 red, 7 yellow and cue C; black is removed.",
+      "instruction": "Remove only B. Leave C and all 14 other object balls fixed.",
+      "absentPointIds": [
+        "B?"
+      ],
+      "visibleCounts": {
+        "red": 7,
+        "yellow": 7,
+        "black": 0,
+        "cue": 1
+      }
+    },
+    {
+      "file": "warm-train-layout03-cue-absent-reference.png",
+      "sha256": "70865524d0880787c7baf5761000111db368d4eb6f18ce2d32829c7537ba6af5",
+      "setupGroupId": "o09-v3-warm-train-layout-03",
+      "layoutId": "warm-train-layout-03",
+      "role": "train",
+      "lightingStratum": "warm-dim-playable",
+      "count": "15 balls: 7 red, 7 yellow and black B; cue is removed.",
+      "instruction": "Restore only B and remove only C. Keep every other object ball fixed.",
+      "absentPointIds": [
+        "C?"
+      ],
+      "visibleCounts": {
+        "red": 7,
+        "yellow": 7,
+        "black": 1,
+        "cue": 0
+      }
+    },
+    {
+      "file": "warm-train-layout03-both-restored-reference.png",
+      "sha256": "5406b5ca29889e123bc7a6e0391642786e0b81b33d53ea90ef9bb9f13097ae65",
+      "setupGroupId": "o09-v3-warm-train-layout-03",
+      "layoutId": "warm-train-layout-03",
+      "role": "train",
+      "lightingStratum": "warm-dim-playable",
+      "count": "16 balls: 7 red, 7 yellow, black B and cue C.",
+      "instruction": "Restore only C. Keep B, all other balls, camera and light fixed.",
+      "absentPointIds": [],
+      "visibleCounts": {
+        "red": 7,
+        "yellow": 7,
+        "black": 1,
+        "cue": 1
+      }
+    },
+    {
+      "file": "warm-validation-layout03-both-present-reference.png",
+      "sha256": "0be864a89225d40331425ea00c637dc4a6146f1e9d42f98de57535b0c2a5af2f",
+      "setupGroupId": "o09-v3-warm-validation-layout-03",
+      "layoutId": "warm-validation-layout-03",
+      "role": "validation",
+      "lightingStratum": "warm-dim-playable",
+      "count": "16 balls: 7 red, 7 yellow, black B and cue C.",
+      "instruction": "Anchor: establish both visible centres.",
+      "absentPointIds": [],
+      "visibleCounts": {
+        "red": 7,
+        "yellow": 7,
+        "black": 1,
+        "cue": 1
+      }
+    },
+    {
+      "file": "warm-validation-layout03-black-absent-reference.png",
+      "sha256": "b5d98210e0348a4d1d1cddfa8164d8fa435f89a58d70614331b2ed097ade536d",
+      "setupGroupId": "o09-v3-warm-validation-layout-03",
+      "layoutId": "warm-validation-layout-03",
+      "role": "validation",
+      "lightingStratum": "warm-dim-playable",
+      "count": "15 balls: 7 red, 7 yellow and cue C; black is removed.",
+      "instruction": "Remove only B. Leave C and all 14 other object balls fixed.",
+      "absentPointIds": [
+        "B?"
+      ],
+      "visibleCounts": {
+        "red": 7,
+        "yellow": 7,
+        "black": 0,
+        "cue": 1
+      }
+    },
+    {
+      "file": "warm-validation-layout03-cue-absent-reference.png",
+      "sha256": "fd345ca0118e6dfca35816b8d9af08284e8333e1a55ddd259903ab19e4ac0529",
+      "setupGroupId": "o09-v3-warm-validation-layout-03",
+      "layoutId": "warm-validation-layout-03",
+      "role": "validation",
+      "lightingStratum": "warm-dim-playable",
+      "count": "15 balls: 7 red, 7 yellow and black B; cue is removed.",
+      "instruction": "Restore only B and remove only C. Keep every other object ball fixed.",
+      "absentPointIds": [
+        "C?"
+      ],
+      "visibleCounts": {
+        "red": 7,
+        "yellow": 7,
+        "black": 1,
+        "cue": 0
+      }
+    },
+    {
+      "file": "warm-validation-layout03-both-restored-reference.png",
+      "sha256": "37da03abbcb34b1430b63772b3ceb0311a0292a1833561db1ca965306aaa9564",
+      "setupGroupId": "o09-v3-warm-validation-layout-03",
+      "layoutId": "warm-validation-layout-03",
+      "role": "validation",
+      "lightingStratum": "warm-dim-playable",
+      "count": "16 balls: 7 red, 7 yellow, black B and cue C.",
+      "instruction": "Restore only C. Keep B, all other balls, camera and light fixed.",
+      "absentPointIds": [],
+      "visibleCounts": {
+        "red": 7,
+        "yellow": 7,
+        "black": 1,
+        "cue": 1
+      }
+    }
+  ],
+  "contactSheet": {
+    "file": "remaining-staging-references-contact-sheet.png",
+    "sha256": "c2e40fc961de9e9041ce5a6b9fcba0d762452ec44def82ba9a449106443bcc67"
+  }
+}
