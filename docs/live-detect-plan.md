@@ -1,5 +1,7 @@
 # Live Detect delivery plan
 
+**O09-NORMAL-VALIDATION-RADIUS-LABEL-FREEZE: PASS31/31 reviewed apparent radii**, source/centre/proposal bindings frozen. User Looks correct; no detector radii. Warm266 rim review separately pending. Next versioned partial corpus assembly; no full export claim. Captured13/24,reviewed6/12,lighting0/2,D1/D2/E0/3 unchanged.
+
 **O09-NORMAL-VALIDATION-LAYOUT01-02-CURRENT-SOURCE-REPLAY: PASS31/31 matched/colour-correct,0 unmatched/misses**,2/2 settings identities match receipts. Cue-absent1587 remains uncertain;complete31 clear. No D2 windows. Next raw-radius guides for31 accepted centres; warm radius review pending. Captured13/24,reviewed6/12,lighting0/2,D1/D2/E0/3 unchanged.
 
 **O09-NORMAL-VALIDATION-LAYOUT01-02-SPATIAL-BASELINE: historical31/31 matched/colour-correct,0 unmatched/misses.** Actual C# mapping checked; cue-absent1587 remains uncertain,all-present31 clear. Capture-build outputs only; next current-source saved-frame replay. Captured13/24,reviewed6/12,lighting0/2,D1/D2/E0/3 unchanged.
