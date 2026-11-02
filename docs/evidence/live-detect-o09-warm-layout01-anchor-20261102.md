@@ -7,3 +7,5 @@ Raw frame inspected: full rack and separated cue are visible; labels remain unre
 Capture stopped using Home End recording session. Fresh endpoint: Stopped revision61, 58052 completed frames, clipCount139; fresh hierarchy shows enabled Start live session. No clip added. Source artifacts retained under `work/o09/development-v3/warm-batch-20261102/9a3c2da33ac44bb4a5b6458a3a44a2a7/`.
 
 Checkout at capture: `023e5a7`. Next physical target: warm/train Layout02, after reference staging and hands-clear confirmation. Review saved anchors together after collection.
+
+User closed the table for the night after Layout01. Warm/train Layout02 staging is deferred and no capture was attempted. Final camera readback remains Stopped revision61, 58052 completed frames, 139 clips. Resume with Layout02 reference and a new hands-clear confirmation; re-establish playable stable lighting before capture. Light-source/glare description remains unanswered.
