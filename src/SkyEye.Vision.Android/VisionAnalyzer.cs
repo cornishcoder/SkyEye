@@ -469,7 +469,11 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         if (!normalized) warnings.Add("No unique cue ball reference; colours were analyzed without normalization.");
         cancellation.ThrowIfCancellationRequested(); var balls = new List<Ball>(); var observations = new List<CircleObservation>();
         var boundaryAudits = new List<CircleBoundaryAudit>();
-        var ordered = circles.OrderBy(c => c.Y).ThenBy(c => c.X).ToArray();
+        // Separate proposals can converge to exactly the same fitted body during
+        // cue validation. Publish that geometry once, retaining ambiguity.
+        var uniqueCircles = circles.Distinct().ToArray();
+        if (uniqueCircles.Length != circles.Length) conflictingCoincidentCandidate = true;
+        var ordered = uniqueCircles.OrderBy(c => c.Y).ThenBy(c => c.X).ToArray();
         var rawLabels = ordered.Select(c => classificationCache.TryGetValue(c, out var cached)
             ? cached : Classify(c, pixels, inspectRim)).ToArray();
         var labels = BallClassifier.ConstrainInventory(rawLabels);
@@ -527,8 +531,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         bool obstructed = LargeObstruction(rawHsv.Value, rawHsvPixels, recognizedBallCircles, completePackedCluster, out var obstructionAudit);
         if (obstructed) { uncertain = layoutUncertain = true; warnings.Add("A large object covers part of the playable surface."); }
         for (int i = 0; i < balls.Count; i++) for (int j = i + 1; j < balls.Count; j++) if ((balls[i].Position - balls[j].Position).Length < .040) { uncertain = layoutUncertain = true; warnings.Add("Overlapping circle candidates need checking."); }
-        return new(balls.ToArray(), uncertain, warnings.Distinct().ToArray(), watch.Elapsed.TotalMilliseconds, circles.Length, normalized, Cv.Version, colourGains, ClothHue(pixels), obstructed, observations.ToArray())
-        { Recognition = new(normalized ? "cue-normalized" : "raw", rawCircleCount, circles.Length, rawLabels.Select(l => l.Kind).ToArray(), colourGains, ClothHue(pixels), warnings.Distinct().ToArray())
+        return new(balls.ToArray(), uncertain, warnings.Distinct().ToArray(), watch.Elapsed.TotalMilliseconds, ordered.Length, normalized, Cv.Version, colourGains, ClothHue(pixels), obstructed, observations.ToArray())
+        { Recognition = new(normalized ? "cue-normalized" : "raw", rawCircleCount, ordered.Length, rawLabels.Select(l => l.Kind).ToArray(), colourGains, ClothHue(pixels), warnings.Distinct().ToArray())
             { CueBallRecovery = new(initialCueCount, cueIndices.Length, normalizedCueCount,
                 labels.Count(l => l.Kind == "cue"), neutralCandidates, neutralRecovered,
                 cueGeometryRetained, cueRecoveryReason, retainedBoundarySupport)

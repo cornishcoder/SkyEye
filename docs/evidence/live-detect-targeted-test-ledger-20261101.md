@@ -1,5 +1,7 @@
 # Live Detect targeted test ledger
 
+**O09-EXACT-FITTED-DUPLICATE-COUNT-READBACK: PASS16/16 outputs.** Exact fitted duplicates removed before inventory constraint; ambiguity retained. Frame95715 unique/uncertain; rack26616 clear and geometry unchanged8/8. Build0 errors/23 warnings. Source fix only, production companion not deployed. Earlier stale-count candidate retained; final count/list checks pass. Next: reviewed warm corpus alignment/spatial score. Captured13/24,reviewed4/12,lighting0/2,D1/D2/E0/3 unchanged.
+
 **O09-DIRECT1000-NEGATIVE-PROPOSAL-SCORE: diagnostic association complete.** Frame957 both arms15/15 associated; direct1000 adds1 unmatched unknown and improves correct colours7 to14. No black output; both uncertain. One-to-one matching replaces failed nearest-label uniqueness check. No replay. Next: source-pixel/duplicate trace of surplus unknown. Counts13/24 captured,4/12 reviewed,lighting0/2,D1/D2/E0/3 unchanged.
 
 **O09-DIRECT1000-EXISTING-CONTROL-SCREEN: executed2 controls; blanket width1000 promotion rejected.** Direct1000 slower on2083 (1248.894 vs856.230 ms) and957 (1184.525 vs728.639 ms), with changed unknown proposals on957; both remain uncertain. Next: score changed proposals against reviewed labels. No production change. Counts13/24 captured,4/12 reviewed,lighting0/2,D1/D2/E0/3 unchanged.
