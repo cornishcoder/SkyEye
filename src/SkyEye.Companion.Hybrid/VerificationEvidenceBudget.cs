@@ -6,7 +6,7 @@ internal static class VerificationEvidenceBudget
 {
     const long MiB = 1024 * 1024;
 
-    public const long MaximumBytes = 256 * MiB;
+    public const long MaximumBytes = 1024 * MiB;
     public const long MaximumFrameBytes = 8 * MiB;
     public const long FrameWriteOverheadBytes = 512 * 1024;
     public const long FrameReservationBytes = 2 * MiB + FrameWriteOverheadBytes;

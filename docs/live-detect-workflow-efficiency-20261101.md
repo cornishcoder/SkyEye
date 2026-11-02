@@ -74,3 +74,11 @@ Track a live build or replay by its process/session handle until terminal. A qui
 Each work cycle should produce a runnable score, measured candidate, focused check, reviewed evidence or precise blocker. Keep one current status paragraph with tested commit/APK, last concrete result, next executable action and actual device readback. Put detailed hashes in the evidence record, not repeated status prose. Historical device snapshots must remain dated; take a fresh read when device state matters.
 
 For the next batch, record wall-clock capture-window length, user staging/review interruptions, usable versus rejected steps, build/install count, replay reuse count and time to the next measured decision. Use these to identify waste; do not set speed targets that encourage weaker evidence. No arbitrary timing improvement is claimed by this plan.
+
+## Layout03 capture results — 2 November 2026
+
+The staged black/cue sequence was collected as one four-state group, with camera capture stopped between each user-confirmed change and all four bursts processed offline together. That produced **30** hash-valid image/receipt pairs and four preselected lower-median frames from four separate source timelines. This supports batching table changes and artifact processing while keeping each physical state distinct.
+
+The first black-absent attempt exposed a custom 256 MiB evidence-store cap, not low phone storage (the phone had about 270 GiB free). Raising the bounded cap to **1 GiB** preserved the 18 MiB preflight reserve and allowed the remaining captures without deleting clips or app data. Two timed-out operations had eight valid pairs even though Home showed seven; a late receipt completed after status publication. Audit the operation directory and receipt hashes instead of treating the displayed count as the complete disk inventory.
+
+One strict-blindness issue remains visible: reconnect settings displayed an aggregate detector count before raw-label review. Future capture UX should keep aggregate counts hidden while a Development label review is pending, or explicitly mark the review as exposed. Do not score these four selected frames as strictly blind; the displayed aggregate contained no centre proposals and no receipt measurements were opened.

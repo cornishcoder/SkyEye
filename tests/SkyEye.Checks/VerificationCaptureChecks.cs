@@ -5,14 +5,19 @@ using SkyEye.Companion.Hybrid;
 
 static class VerificationCaptureChecks
 {
-    static void Check(bool yes, string reason) { if (!yes) throw new Exception(reason); }
+    static int checkCount;
+    static void Check(bool yes, string reason)
+    {
+        var check = Interlocked.Increment(ref checkCount);
+        if (!yes) throw new Exception($"FAIL verifier capture assertion {check}: {reason}");
+    }
     static string FormatTime(DateTimeOffset value) => value.ToUniversalTime().ToString("HH:mm:ss 'UTC'", CultureInfo.InvariantCulture);
 
     static void CheckEvidenceBudget()
     {
         const long MiB = 1024 * 1024;
-        Check(VerificationEvidenceBudget.MaximumBytes == 256 * MiB,
-            "The bounded verifier store cap is 256 MiB");
+        Check(VerificationEvidenceBudget.MaximumBytes == 1024 * MiB,
+            "The bounded verifier store cap is 1 GiB");
         Check(VerificationEvidenceBudget.CaptureReservationBytes == 17 * MiB + MiB / 2,
             "The preflight still reserves 2.5 MiB for each of the seven possible samples");
         Check(VerificationEvidenceBudget.CanReserveCapture(VerificationEvidenceBudget.MaximumBytes - VerificationEvidenceBudget.CaptureReservationBytes)
@@ -146,7 +151,8 @@ static class VerificationCaptureChecks
                 && status.Format(FormatTime).Contains(replacementRun.ToString("N")[..8], StringComparison.Ordinal),
                 "A late receipt from a completed run cannot overwrite the next run's status");
 
-            Console.WriteLine("PASS verifier capture counts are operation-scoped, hash-validated, truthful for partial runs, and quota-bounded");
+        Console.WriteLine($"PASS verifier capture assertions: {checkCount}/{checkCount}");
+        Console.WriteLine("PASS verifier capture counts are operation-scoped, hash-validated, truthful for partial runs, and quota-bounded");
         Console.WriteLine("PASS deferred verifier evidence writes stay ordered, flush at completion, and report failures");
         }
         finally
