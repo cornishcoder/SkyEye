@@ -9,3 +9,5 @@ Capture stopped using Home End recording session. Fresh endpoint: Stopped revisi
 Checkout at capture: `023e5a7`. Next physical target: warm/train Layout02, after reference staging and hands-clear confirmation. Review saved anchors together after collection.
 
 User closed the table for the night after Layout01. Warm/train Layout02 staging is deferred and no capture was attempted. Final camera readback remains Stopped revision61, 58052 completed frames, 139 clips. Resume with Layout02 reference and a new hands-clear confirmation; re-establish playable stable lighting before capture. Light-source/glare description remains unanswered.
+
+User accepted all16 draft visible centres with “all look good.” Reviewed record saved separately at `work/o09/development-v3/warm-batch-20261102/raw-review-frame266/reviewed-centres.json`, binding source and original draft hashes. Radii remain unreviewed; no numeric centre tolerance. Reviewed Development anchors advance3/12 to4/12; captured states13/24, lighting0/2, D1/D2/E0/3 unchanged. Verifier remains FAIL1/5 SampleGap; spatial review does not change that outcome.
