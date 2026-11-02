@@ -1,5 +1,7 @@
 # Live Detect delivery plan
 
+**O09-EXACT-DUPLICATE-HOST-REGRESSION: PASS69/69 named host groups,0 failures,exit0.** Complements16/16 Android saved-output assertions; production companion deployment/physical gates remain open. Warm radius16-guide review pending. Captured13/24,centre-reviewed4/12,lighting0/2,D1/D2/E0/3 unchanged. Do not rerun unchanged scope.
+
 **O09-WARM266-RAW-RADIUS-GUIDES: prepared16/16, human review pending.** Existing raw-image radial-gradient method;0 search-boundary hits; no detector radii used or labels accepted. Guide sheet displayed. Next reviewer rim confirmation, then versioned corpus derivative. Counts13/24 captured,4/12 centre-reviewed,lighting0/2,D1/D2/E0/3 unchanged.
 
 **O09-WARM266-CSHARP-TRANSFORM-ALIGNMENT: PASS16/16 points and planned train/warm group membership.** Actual Core Map/Unmap agrees with score mapping within4.01e-16 table units; round-trip residual2.45e-13 source px. No official corpus/split change. Next raw-pixel radius guides and reviewer rim check. Captured13/24,reviewed4/12,lighting0/2,D1/D2/E0/3 unchanged.
