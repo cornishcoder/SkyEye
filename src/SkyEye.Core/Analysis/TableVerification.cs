@@ -80,6 +80,8 @@ public sealed record VerificationEvidence(Guid OperationId, string Configuration
 {
     public int CandidateSpanStartSampleIndex { get; init; }
     public int CandidateSpanIndependentFrames { get; init; }
+    /// <summary>The final reduced inventory matches a fresh, explicitly confirmed layout in this source scope.</summary>
+    public bool ReviewedInventoryMatch { get; init; }
     public VerificationRejection? RejectedSample { get; init; }
     public VerificationFailure? Failure { get; init; }
     public ConsensusConflict? ConsensusConflict { get; init; }

@@ -158,8 +158,11 @@ public sealed partial class AppCoordinator
     public static bool HasVerificationProof(TableObservation result, Guid operationId, AdviceTargetGroup group)
     {
         var evidence = result.Verification;
+        var finalVision = evidence?.Samples.LastOrDefault(sample => sample.Measurement.Vision is not null)?.Measurement.Vision;
         if (evidence is null || evidence.OperationId != operationId || evidence.MediaGeneration != result.MediaGeneration
             || evidence.Configuration != ObservationPolicy.VerificationConfiguration || string.IsNullOrWhiteSpace(evidence.CalibrationId)
+            || finalVision is null || finalVision.Obstructed || finalVision.HasUncertainLayout
+            || finalVision.Uncertain && !evidence.ReviewedInventoryMatch
             || evidence.TargetGroup != group.ToString().ToLowerInvariant() || result.Motion != TableMotion.Still || result.Quality != LayoutQuality.Clear || result.Reason != ObservationReason.None
             || result.FrameAgeMs > ObservationPolicy.MaximumFinalAgeMs || evidence.IndependentFrames is < ObservationPolicy.MinimumVerificationSamples or > ObservationPolicy.MaximumVerificationSamples
             || evidence.Samples is null || evidence.Samples.Length != evidence.IndependentFrames || evidence.StartSourceUs is null || evidence.EndSourceUs is null

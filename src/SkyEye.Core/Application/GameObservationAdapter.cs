@@ -16,12 +16,17 @@ public static class GameObservationAdapter
     {
         var observed = observation.GameEvidence ?? throw new ArgumentException("Observation has no matching game evidence.");
         var counts = Counts(observed);
+        var verification = observation.Verification;
+        var finalVision = verification?.Samples.LastOrDefault(sample => sample.Measurement.Vision is not null)?.Measurement.Vision;
+        bool inventoryClear = finalVision is { Uncertain: false, HasUncertainLayout: false, Obstructed: false }
+            || finalVision is { Uncertain: true, HasUncertainLayout: false, Obstructed: false }
+                && verification?.ReviewedInventoryMatch == true;
         var evidence = new SettledTableEvidence(evidenceId, observed.Source, observation.SourceTimeUs,
             observation.CapturedAt, counts, observation.Outcome == ObservationOutcome.Ready,
-            observation.Quality == LayoutQuality.Clear && observed.Balls.All(b => b.Colour != BallColour.Unknown))
+            observation.Quality == LayoutQuality.Clear && inventoryClear && observed.Balls.All(b => b.Colour != BallColour.Unknown))
         {
-            BoundedStillnessVerified = observation.Verification is not null,
-            StableClearSampleCount = observation.Verification?.Samples.Count(s => s.Measurement.Vision is { Uncertain: false, Obstructed: false }) ?? 0
+            BoundedStillnessVerified = verification is not null,
+            StableClearSampleCount = verification?.Samples.Count(s => s.Measurement.Vision is { Uncertain: false, HasUncertainLayout: false, Obstructed: false }) ?? 0
         };
         return new(evidenceId, state.Match!.Id, state.Frame!.Id, observation.CapturedAt,
             new EstablishSettledBaseline(1, evidence), observed.Source, observation.SourceTimeUs);

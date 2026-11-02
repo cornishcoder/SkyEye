@@ -23,18 +23,26 @@ public sealed partial class TableAnalysisSession
             if (active is not null || state.Picking) throw new InvalidOperationException("Another table operation is finishing. Retry when it completes.");
             if (operationId == Guid.Empty || mediaGeneration <= 0 || state.Source is null || state.Calibration is null || analyzer is not ITableVerificationAnalyzer)
                 throw new InvalidOperationException("Calibrate an active live table before verifying it.");
+            var reviewedPriorLayout = tracker.State is { Settled: true, Occluded: false, Confirmed: true } prior
+                && prior.CalibrationId == state.CalibrationId
+                && lastTimeline is not null
+                && (time.GetUtcNow() - prior.CapturedAt).TotalSeconds is >= -2 and <= ObservationPolicy.ReviewFreshnessSeconds
+                ? prior : null;
+            var reviewedPriorTimeline = reviewedPriorLayout is null ? null : lastTimeline;
             tracker.Reset(); state = state with { Table = null, Vision = null, Jpeg = null, Observation = null, Choices = [], ChoicesComputed = false, VerificationProgress = new(0, ObservationReason.Checking) };
             var admitted = state; var completed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
             active = CancellationTokenSource.CreateLinkedTokenSource(cancellation); verificationRunning = true; pending = completed.Task;
             verificationOperationId = operationId; verificationMediaGeneration = mediaGeneration; verificationAnalysisGeneration = admitted.Generation;
             verificationReviewFrame = reviewFrame;
-            _ = RunVerificationAsync(admitted, group, operationId, mediaGeneration, active, cancellation, completed, reviewFrame);
+            _ = RunVerificationAsync(admitted, group, operationId, mediaGeneration, reviewedPriorLayout,
+                reviewedPriorTimeline, active, cancellation, completed, reviewFrame);
             return pending;
         }
     }
     public void CancelVerification() { lock (gate) { if (verificationRunning) active?.Cancel(); } }
 
     async Task RunVerificationAsync(TableAnalysisSnapshot admitted, string admittedGroup, Guid operationId, long mediaGeneration,
+        TableState? reviewedPriorLayout, string? reviewedPriorTimeline,
         CancellationTokenSource activeOperation, CancellationToken caller, TaskCompletionSource completed, bool reviewFrame)
     {
         using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(ObservationPolicy.VerificationTimeoutSeconds), time);
@@ -264,12 +272,24 @@ public sealed partial class TableAnalysisSession
                     ?? samples.LastOrDefault(s => s.Measurement.Vision is not null);
                 var consensus = VerificationConsensus.Resolve(visions, out var conflict);
                 bool still = HasStillSpan(candidateSamples);
+                var finalVision = lastDetection?.Measurement.Vision;
+                bool reviewedInventoryMatch = finalVision is { Uncertain: true, HasUncertainLayout: false, Obstructed: false }
+                    && reviewedPriorLayout is { Settled: true, Occluded: false, Confirmed: true } prior
+                    && prior.CalibrationId == admitted.CalibrationId && prior.Group == admittedGroup
+                    && reviewedPriorTimeline is not null && reviewedPriorTimeline == timeline
+                    && lastDetection is not null
+                    && (lastDetection.CapturedAt - prior.CapturedAt).TotalSeconds is >= -2 and <= ObservationPolicy.ReviewFreshnessSeconds
+                    && consensus is not null && TableTracker.SameLayout(prior.Balls, consensus);
+                bool inventoryReady = finalVision is { Uncertain: false, HasUncertainLayout: false, Obstructed: false }
+                    || reviewedInventoryMatch;
                 var sinceReceiptMs = time.GetElapsedTime(finalReceiptAt).TotalMilliseconds;
                 var finalAge = samples.Count == 0 ? 0 : samples[^1].AgeMs + samples[^1].ClockUncertaintyMs + sinceReceiptMs;
                 var finalClockAge = samples.Count == 0 ? double.PositiveInfinity : samples[^1].ClockSampleAgeMs + sinceReceiptMs;
                 if (reason == ObservationReason.None && (!double.IsFinite(finalAge) || finalAge is < -200 or > ObservationPolicy.MaximumFinalAgeMs)) reason = ObservationReason.FrameTooOld;
                 if (reason == ObservationReason.None && finalClockAge > ObservationPolicy.MaximumClockSampleAgeMs) reason = ObservationReason.ClockUntrusted;
-                if (reason is ObservationReason.None or ObservationReason.InsufficientEvidence) reason = !still ? ObservationReason.InsufficientEvidence : consensus is null ? ObservationReason.DetectionAmbiguous : ObservationReason.None;
+                if (reason is ObservationReason.None or ObservationReason.InsufficientEvidence)
+                    reason = !still ? ObservationReason.InsufficientEvidence
+                        : consensus is null || !inventoryReady ? ObservationReason.DetectionAmbiguous : ObservationReason.None;
                 bool ready = reason == ObservationReason.None && still && consensus is not null;
                 var balls = ready ? consensus! : allVisions.LastOrDefault()?.Balls ?? [];
                 var quality = reason switch { ObservationReason.Obstructed => LayoutQuality.Obstructed,
@@ -297,6 +317,7 @@ public sealed partial class TableAnalysisSession
                             samples.FirstOrDefault()?.SourceTimeUs, samples.LastOrDefault()?.SourceTimeUs, samples.Count, maxGapMs, double.IsFinite(finalClockAge) ? finalClockAge : -1, samples.ToArray())
                             { CandidateSpanStartSampleIndex = candidateSpanStartSampleIndex,
                                 CandidateSpanIndependentFrames = candidateSamples.Length,
+                                ReviewedInventoryMatch = reviewedInventoryMatch,
                                 RejectedSample = rejected, Failure = failure, ConsensusConflict = conflict } } };
                 lastTimeline = timeline;
                 return true;

@@ -194,21 +194,56 @@ static class VerificationChecks
         Check(!ShotPlanner.Eligible(noBlackTable, DateTimeOffset.UtcNow),
             "Advice remains unavailable when the verified layout has no black ball");
 
-        var noCueFrames = new Frames();
-        var noCueAnalyzer = new Analyzer
+        var untrustedAbsenceFrames = new Frames();
+        var untrustedAbsenceAnalyzer = new Analyzer
         {
-            DetectedBalls = good.Balls.Where(b => b.Kind != "cue").ToArray(),
+            DetectedBalls = good.Balls.Where(b => b.Kind is not ("cue" or "black")).ToArray(),
             LayoutUncertain = true,
             ClearLayoutWithIncompleteInventory = true
         };
-        using var noCueSession = new TableAnalysisSession(noCueFrames, noCueAnalyzer, new Calibration());
-        noCueSession.Bind(camera, "open"); noCueSession.RestoreCalibration();
-        await noCueSession.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !noCueSession.HasPendingWork);
-        Check(noCueSession.State.Observation is { Outcome: ObservationOutcome.Ready, Quality: LayoutQuality.Clear, Motion: TableMotion.Still }
-            && noCueSession.State.Vision is { Uncertain: true, HasUncertainLayout: false }
-            && noCueSession.State.Table is { Confirmed: true, Occluded: false }
-            && !ShotPlanner.Eligible(noCueSession.State.Table, DateTimeOffset.UtcNow),
-            "Stable cue-absent observations can be ready while their incomplete inventory remains blocked from shot advice");
+        using var untrustedAbsenceSession = new TableAnalysisSession(untrustedAbsenceFrames, untrustedAbsenceAnalyzer, new Calibration());
+        untrustedAbsenceSession.Bind(camera, "open"); untrustedAbsenceSession.RestoreCalibration();
+        await untrustedAbsenceSession.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !untrustedAbsenceSession.HasPendingWork);
+        Check(untrustedAbsenceSession.State.Observation is { Outcome: ObservationOutcome.Unclear, Quality: LayoutQuality.Ambiguous,
+                Motion: TableMotion.Still, Reason: ObservationReason.DetectionAmbiguous }
+            && untrustedAbsenceSession.State.Vision is { Uncertain: true, HasUncertainLayout: false }
+            && untrustedAbsenceSession.State.Table is { Confirmed: false, Occluded: true }
+            && VerificationConsensus.Resolve(Enumerable.Repeat(untrustedAbsenceSession.State.Vision!, 3).ToArray())?.Length == 1,
+            "Unreviewed initial cue/black absence stays unclear while the stable reduced detector consensus remains available for offline scoring");
+
+        var reviewedFrames = new Frames(); var reviewedAnalyzer = new Analyzer { DetectedBalls = good.Balls };
+        using var reviewedSession = new TableAnalysisSession(reviewedFrames, reviewedAnalyzer, new Calibration());
+        reviewedSession.Bind(camera, "open"); reviewedSession.RestoreCalibration();
+        await reviewedSession.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !reviewedSession.HasPendingWork);
+        var reviewedFull = reviewedSession.State.Table!;
+        var reviewedReduced = reviewedFull.Balls.Where(ball => ball.Kind != "black").ToArray();
+        var reviewedCorrection = string.Join('\n', reviewedReduced.Select(ball =>
+            $"{ball.Kind} {ball.Position.X.ToString("R", System.Globalization.CultureInfo.InvariantCulture)} {ball.Position.Y.ToString("R", System.Globalization.CultureInfo.InvariantCulture)}"));
+        reviewedSession.Correct(reviewedFull.Version, reviewedCorrection);
+        reviewedAnalyzer.DetectedBalls = reviewedReduced;
+        reviewedAnalyzer.LayoutUncertain = true;
+        reviewedAnalyzer.ClearLayoutWithIncompleteInventory = true;
+        await reviewedSession.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !reviewedSession.HasPendingWork);
+        Check(reviewedSession.State.Observation is { Outcome: ObservationOutcome.Ready, Quality: LayoutQuality.Clear, Motion: TableMotion.Still,
+                Verification.ReviewedInventoryMatch: true }
+            && reviewedSession.State.Vision is { Uncertain: true, HasUncertainLayout: false }
+            && reviewedSession.State.Table is { Confirmed: true, Occluded: false, Balls.Length: 2 }
+            && !ShotPlanner.Eligible(reviewedSession.State.Table, DateTimeOffset.UtcNow),
+            "A fresh explicit correction allows the same stable reduced inventory to verify while advice prerequisites remain enforced");
+
+        var disappearanceFrames = new Frames(); var disappearanceAnalyzer = new Analyzer { DetectedBalls = good.Balls };
+        using var disappearanceSession = new TableAnalysisSession(disappearanceFrames, disappearanceAnalyzer, new Calibration());
+        disappearanceSession.Bind(camera, "open"); disappearanceSession.RestoreCalibration();
+        await disappearanceSession.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !disappearanceSession.HasPendingWork);
+        disappearanceAnalyzer.DetectedBalls = good.Balls.Where(ball => ball.Kind != "black").ToArray();
+        disappearanceAnalyzer.LayoutUncertain = true;
+        disappearanceAnalyzer.ClearLayoutWithIncompleteInventory = true;
+        await disappearanceSession.VerifyAsync(Guid.NewGuid(), 1); await Until(() => !disappearanceSession.HasPendingWork);
+        Check(disappearanceSession.State.Observation is { Outcome: ObservationOutcome.Unclear, Reason: ObservationReason.DetectionAmbiguous }
+            && disappearanceSession.State.Observation.Verification is { ReviewedInventoryMatch: false }
+            && disappearanceSession.State.Table is { Confirmed: false },
+            "An unexplained ball disappearance from the last confirmed full inventory stays unclear");
+        Console.WriteLine("PASS O09-D2-UNTRUSTED-INITIAL-ABSENCE-READINESS-GUARD: initial absence, reviewed reduced inventory and unexplained disappearance");
         var packedEffect = new TableObservationEffect(() => packedSession, () => 1, () => true);
         var packedRequest = new ObserveTable(camera.Scope!, packedSession.State.Generation, 1, IncludeChoices: true,
             Mode: ObservationMode.VerifyForAdvice);

@@ -59,6 +59,19 @@ static class ObservationCommandChecks
             "The bounded verifier report keeps its exact five-frame proof, compact counts, initiating operation ID and fresh recorded time");
         Check(ReferenceEquals(report!.Samples[0].ObstructionAudit, obstructionAudit),
             "The metadata-only verification report preserves the per-frame obstruction component audit");
+        effect.Reset(); effect.Ready = true; effect.IncludeProof = true; effect.Uncertain = true;
+        var uncertainProof = app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, app.State.Version,
+            new ObserveTable(app.State.Camera.Scope!, 1, 1, Mode: ObservationMode.VerifyForAdvice)));
+        await effect.Entered.Task; effect.Release.TrySetResult();
+        Check((await uncertainProof).Outcome == CommandOutcome.Failed,
+            "A Ready proof with an uncertain final inventory is rejected without a same-layout review");
+        effect.Reset(); effect.Ready = true; effect.IncludeProof = true; effect.Uncertain = true; effect.ReviewedInventoryMatch = true;
+        var reviewedReducedProof = app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, app.State.Version,
+            new ObserveTable(app.State.Camera.Scope!, 1, 1, Mode: ObservationMode.VerifyForAdvice)));
+        await effect.Entered.Task; effect.Release.TrySetResult();
+        Check((await reviewedReducedProof).Succeeded,
+            "A fresh proof matching a reviewed reduced inventory passes the command boundary");
+        report = app.LatestVerificationReport;
         var stop = await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, app.State.Version,
             new ChangeCapture(app.State.Camera.Scope!, CaptureAction.Stop)));
         Check(stop.Succeeded && app.State.Camera.Capture == CaptureState.Stopped && app.State.Observation is null
@@ -68,7 +81,7 @@ static class ObservationCommandChecks
     }
     sealed class Observation : ITableObservationEffect
     {
-        public bool Current = true, Ready, IncludeProof; public int Calls;
+        public bool Current = true, Ready, IncludeProof, Uncertain, ReviewedInventoryMatch; public int Calls;
         public ObstructionAuditTelemetry? Audit;
         public TaskCompletionSource Entered = new(TaskCreationOptions.RunContinuationsAsynchronously), Release = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public void Reset() { Current = true; Entered = new(TaskCreationOptions.RunContinuationsAsynchronously); Release = new(TaskCreationOptions.RunContinuationsAsynchronously); }
@@ -85,8 +98,8 @@ static class ObservationCommandChecks
                 Ready ? ObservationOutcome.Ready : ObservationOutcome.Unsettled, "decoded-live-verification");
             if (!IncludeProof || request.Mode != ObservationMode.VerifyForAdvice) return result;
             var vision = new VisionResult([new("cue", "cue", new(1.8, .5), 1), new("red", "red", new(1, .5), 1),
-                new("black", "black", new(.2, .8), 1)], false, [], 1, 3, true, "fixture", [1, 1, 1], 100, false, [])
-            { ObstructionAudit = Audit };
+                new("black", "black", new(.2, .8), 1)], Uncertain, [], 1, 3, true, "fixture", [1, 1, 1], 100, false, [])
+            { ObstructionAudit = Audit, LayoutUncertain = false };
             var samples = Enumerable.Range(0, 5).Select(index => new VerificationSample(200 + index,
                 1_000_000 + index * 500_000, 1, 1, 1, 1, 1,
                 new(TableMotion.Still, ObservationReason.None, true, 0, .005, 0, vision)) { CapturedAt = now }).ToArray();
@@ -97,7 +110,8 @@ static class ObservationCommandChecks
                 DetectionEvidence = new(samples[^1].FrameId, samples[^1].SourceTimeUs, 1),
                 Verification = new(operationId, ObservationPolicy.VerificationConfiguration, "calibration", "open", 1,
                     samples[0].SourceTimeUs, samples[^1].SourceTimeUs, samples.Length, 500, 1, samples)
-                { CandidateSpanStartSampleIndex = 0, CandidateSpanIndependentFrames = samples.Length }
+                { CandidateSpanStartSampleIndex = 0, CandidateSpanIndependentFrames = samples.Length,
+                    ReviewedInventoryMatch = ReviewedInventoryMatch }
             };
         }
     }

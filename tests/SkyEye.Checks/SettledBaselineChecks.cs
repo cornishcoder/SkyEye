@@ -14,7 +14,7 @@ static class SettledBaselineChecks
         {
             var store = new GameJournalStore(root);
             var journal = new Journal(store);
-            var effect = new Observation();
+            var effect = new Observation { PackedRack = true };
             var app = new AppCoordinator(cameraControls: new Camera(), observations: effect, gameJournal: journal);
             await app.DispatchAsync(new(Guid.NewGuid(), CommandOrigin.Touch, 0, new ConnectCamera("camera:8765")));
             async Task<CommandReceipt> Send(G.GameInput input, G.EvidenceSource? source = null, long? pts = null,
@@ -40,7 +40,7 @@ static class SettledBaselineChecks
             journal.Fail = false;
             var first = await Observe();
             Check(first.Succeeded && app.State.GameTableCurrent && G.SettledTableEvidence.TryCapture(app.State.Game, out var baseline)
-                && baseline.Counts == new G.SettledTableCounts(0, 1, 1, 0), $"Verified fresh source establishes counts despite changed old positions: {first.Outcome}, {first.Message}, {app.State.GameError}");
+                && baseline.Counts == new G.SettledTableCounts(7, 7, 1, 1), $"Verified fresh full inventory establishes counts despite changed old positions: {first.Outcome}, {first.Message}, {app.State.GameError}");
             Check(app.State.Game.Frame == frame && app.State.Game.Frame!.Pots.Count == 0 && app.State.Game.Shot is null,
                 "Starting physical inventory declares no pot, turn, foul, group or score");
             Check(app.State.Game.Table.Balls.Values.All(b => b.Position is null
@@ -70,7 +70,7 @@ static class SettledBaselineChecks
             effect.YellowPresent = false;
             var before = app.State.Game;
             Check((await Observe()).Succeeded && app.State.Game.Version == before.Version && app.State.Game.Table.LastSettled == before.Table.LastSettled
-                && app.State.Game.Table.Remaining(G.BallColour.Yellow) == 1 && !app.State.GameTableCurrent,
+                && app.State.Game.Table.Remaining(G.BallColour.Yellow) == 7 && !app.State.GameTableCurrent,
                 "A later count change holds A for outcome review instead of silently changing canonical inventory");
             if (!G.SettledTableEvidence.TryCapture(before, out var liveBefore)
                 || !G.ActivityWindowContext.TryBegin(Guid.NewGuid(), before, liveBefore.SourceTimeUs!.Value + 1, out var liveContext))
@@ -167,7 +167,13 @@ static class SettledBaselineChecks
             var balls = PackedRack ? PackedRackFixture.Balls.ToList()
                 : new List<Ball> { new("detected-cue", "cue", new(1.4, .7), .9) };
             if (!PackedRack && YellowPresent) balls.Add(new("detected-yellow", "yellow", new(1.2, .8), .9));
-            var vision = new VisionResult(balls.ToArray(), false, [], 1, balls.Count, true, "fixture", [], 1, false, []);
+            if (PackedRack && !YellowPresent)
+            {
+                var yellow = balls.FindLastIndex(ball => ball.Kind == "yellow");
+                if (yellow >= 0) balls.RemoveAt(yellow);
+            }
+            bool incompleteEssentialInventory = balls.Count(ball => ball.Kind == "cue") != 1 || balls.Count(ball => ball.Kind == "black") != 1;
+            var vision = new VisionResult(balls.ToArray(), incompleteEssentialInventory, [], 1, balls.Count, true, "fixture", [], 1, false, []);
             var samples = Enumerable.Range(0, 5).Select(i => new VerificationSample(sequence * 10 + i, pts + i * 500000,
                 1, 1, 1, 1, 1, new(TableMotion.Still, ObservationReason.None, true, 0, 0, 0, vision)) { CapturedAt = now }).ToArray();
             var evidence = new VerificationEvidence(operationId, ObservationPolicy.VerificationConfiguration, "new-calibration", "open",
