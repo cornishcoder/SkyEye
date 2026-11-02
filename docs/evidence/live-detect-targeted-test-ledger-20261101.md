@@ -1,5 +1,7 @@
 # Live Detect targeted test ledger
 
+**Black correction review PASS2/2**, user looks good:962 B(160,858),2263 B(160,859),both apparent radius22px. Versioned labels frozen;prior records unchanged. Next corrected-black score/trace refresh from saved outputs. Other60 Layout03/warm266 radius reviews remain pending. Counts13/24 captured,6/12 reviewed,lighting0/2,D1/D2/E0/3 unchanged.
+
 **O09-VALIDATION-LAYOUT03-RAW-RADIUS-GUIDES: prepared62;review pending.** B centres962/2263 visually need re-review;2263 radius hits search minimum. Prior labels immutable;affected centre-error/fit-nearness claims require refresh after correction. Other60 guides separately pending. Counts13/24 captured,6/12 previously centre-reviewed (2 B points under re-review),lighting0/2,D1/D2/E0/3.
 
 **O09-EXACT-DUPLICATE-PRODUCTION-CANDIDATE-BUILD: PASS0 errors/12 warnings**,signed0.8.62/code70 candidate packaged/hash-bound;not installed,physical acceptance pending. Camera Stopped revision62. Next offline validation Layout03 radius pack. Counts13/24 captured,6/12 reviewed,lighting0/2,D1/D2/E0/3 unchanged.
