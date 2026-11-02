@@ -1,5 +1,7 @@
 # Live Detect delivery plan
 
+**O09-WARM266-REVIEWED-SPATIAL-SCORE: diagnostic16/16 matched and colour-correct per arm**,0 unmatched/misses; median source error2.42 px,max4.41 px against approximate reviewed centres. No numeric acceptance bound or stillness pass. Next C# transform/group alignment before corpus ingestion; radii unreviewed. Counts13/24 captured,4/12 reviewed,lighting0/2,D1/D2/E0/3 unchanged.
+
 **O09-EXACT-FITTED-DUPLICATE-COUNT-READBACK: PASS16/16 outputs.** Exact fitted duplicates removed before inventory constraint; ambiguity retained. Frame95715 unique/uncertain; rack26616 clear and geometry unchanged8/8. Build0 errors/23 warnings. Source fix only, production companion not deployed. Earlier stale-count candidate retained; final count/list checks pass. Next: reviewed warm corpus alignment/spatial score. Captured13/24,reviewed4/12,lighting0/2,D1/D2/E0/3 unchanged.
 
 **O09-DIRECT1000-NEGATIVE-PROPOSAL-SCORE: diagnostic association complete.** Frame957 both arms15/15 associated; direct1000 adds1 unmatched unknown and improves correct colours7 to14. No black output; both uncertain. One-to-one matching replaces failed nearest-label uniqueness check. No replay. Next: source-pixel/duplicate trace of surplus unknown. Counts13/24 captured,4/12 reviewed,lighting0/2,D1/D2/E0/3 unchanged.
