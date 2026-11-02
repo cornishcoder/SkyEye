@@ -1,6 +1,14 @@
 # Pixel companion control guide
 
-## Current safe state after camera rediscovery — 2 November 2026
+## Latest safe state after normal-rack verifier — 2 November 2026
+
+At `2026-11-02T11:35:34.2292026Z`, mounted-camera `/status` returned **Stopped**, revision3, 1,676 completed frames, zero viewers, 80% battery and `clipCount=139`. Pixel 11 Home shows enabled **Start live session**; capture and the verifier are stopped. The captured rack remains staged. No clip, match, Cast action, package update or app-data reset occurred. See the [normal/train anchor report](evidence/live-detect-o09-normal-layout01-anchor-20261102.md) and token-free [post-stop status](../work/o09/device-state/normal-anchor-poststop-status-20261102.json). The older 11:23Z `Ready` readback below is pre-capture and historical.
+
+## Earlier idle preflight — 2 November 2026, 11:23Z
+
+At `2026-11-02T11:23:08Z`, mounted-camera `/status` returned `Ready`, revision0, battery73%, 33.7 °C, 0 completed frames, 0 viewers, no host and `clipCount=139`. Pixel 11 Home showed **Start live session** enabled and **Capture verifier frames** disabled. This is an idle `Ready` state, not a literal `/status: Stopped` readback. The user confirmed both planned lighting strata were playable and the camera charged. See the [O09 lighting metadata preflight](evidence/live-detect-o09-lighting-metadata-preflight-20261102.md) and token-free [status snapshot](../work/o09/device-state/lighting-metadata-preflight-20261102.json).
+
+## Earlier camera rediscovery readback — 2 November 2026, 10:29Z
 
 Pixel 11 (`66181FDDV001HS`) was on the Android notification shade when the resumed O09 preflight began. The mounted-camera endpoint at `192.168.1.124:8765` initially timed out. In the existing companion Settings screen, **Find camera** discovered **SkyEye Camera** and restored endpoint reachability without starting capture. A fresh read at `2026-11-02T10:29:24Z` reported API state `Ready`, revision 0, 6% battery, 139 saved clips, zero viewers/host, and zero completed source frames. Earlier successive battery readbacks rose from 1% to 2% to 3%, so the camera appears to be charging; no minimum batch reserve is assumed. The companion is at Home showing **Camera ready** and **Start live session**. This is an idle fresh boot, not a literal `/status: Stopped` readback. No clip, verifier frame, match, Cast action, package update, or app-data reset occurred. The user reports the table is free; the camera must be charged before bounded capture. Token-free readback and screenshots are under `work/o09/device-state/`; see the [O09 reachability report](evidence/live-detect-o09-camera-reachability-20261102.md).
 
