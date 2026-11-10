@@ -237,3 +237,10 @@ thresholds on this prototype.
   shadow or pocket mouth joins that dark region and fails the shape test.
 - Cloth mask (`ClothMask`, VisionAnalyzer.cs 911-943) is one global HSV range
   (hue +/- 7 around the sampled cloth hue) plus a neutral fallback S < 45.
+
+## Working plan (10 Nov, 23:50)
+
+The live plan is `docs/claude/skyeye-detection-fix-plan.md`: threads T0-T9 with
+status, next action, done and kill criteria. Read its section 2 first: it corrects
+several conclusions in the diagnosis. Start with T0, T1, T3 and T4, which need no
+device and no approval. Not yet committed.

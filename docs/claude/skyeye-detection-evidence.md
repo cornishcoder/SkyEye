@@ -1,5 +1,11 @@
 # SkyEye detection evidence index
 
+> **Corrections, 10 November 23:50.** A later re-check of the code changed several
+> conclusions in this document: the cue/black uncertainty rule does not affect Live
+> Detect, the still-burst replay used a different rule from Live Detect's reducer, one
+> reviewed warm frame (266) exists, and cloth-facing arc scoring had already been
+> rejected by the project. See section 2 of the [working plan](skyeye-detection-fix-plan.md).
+
 Created 10 November 2026 by an independent review of ball detection, tracking
 and table-motion recognition (repository HEAD `f3431ec7`). Companion
 documents: [diagnosis](skyeye-detection-diagnosis.md) and

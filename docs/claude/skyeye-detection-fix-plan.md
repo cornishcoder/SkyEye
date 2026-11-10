@@ -1,0 +1,309 @@
+# SkyEye detection: working plan
+
+Last updated 10 November 2026, 23:50. Owner: whoever picks this up next. This
+is the live plan for the detection work; update the thread table and the log
+at the bottom whenever a thread moves.
+
+Inputs: this review's [diagnosis](skyeye-detection-diagnosis.md) and
+[evidence register](skyeye-detection-evidence.md), the
+[Argon review](../argon/engineering-diagnosis.md), two external comparisons
+of those reviews (ChatGPT and Luna, 10 November), and a re-check of the code
+and the project's own ledger made while writing this plan. Where the re-check
+changed an earlier conclusion, section 2 says so.
+
+Nothing here is implemented. All detector scores quoted are from results
+stored at capture time, not a re-run of HEAD.
+
+## 1. Where the project actually is
+
+From `docs/live-detect-plan.md` and the targeted-test ledger:
+
+- Project metrics: software suites 3/3, detector inventory cases 0/3,
+  physical gates 0/3.
+- The blocking case is a **persistent** miss, not flicker. In the Code70 run
+  the detector reported 14 of 16 balls in 147 of 151 checks at a pocket
+  cluster, never formed a clear baseline, and so emitted no events or clips.
+- Single-frame fixes for the black at a cushion have been tried and have
+  failed: full seed enumeration (support 18, 19, 18 of 32 against 21),
+  radial-offset probe, a partial-arc probe (accepts an empty point: frame
+  461 at 10/32, frame 844 at 20/32), and a learned detector spike (0 of 7
+  layouts). A frozen "bright number patch inside a dark ring" feature scored
+  8/10 on Development frames.
+- The ledger's own conclusion: the next change "must introduce independent
+  discriminating evidence or a different bounded candidate model".
+
+That last line sets the direction of this plan.
+
+## 2. Corrections to earlier conclusions
+
+Found by re-reading the code on 10 November. The diagnosis and evidence
+register carry a pointer to this section.
+
+| Earlier statement | What the code or record shows | Effect |
+|---|---|---|
+| "Frames without exactly one black and one cue are flagged uncertain", ranked as a main cause | True only for the broad `Uncertain` flag (`VisionAnalyzer.cs:507-508`). Live Detect and the session tracker use `HasUncertainLayout`, which that rule does not set. The ledger records this as already fixed for Live Detect | Demoted. It affects the Home readout and advice only. "7 of 19 reported clear" overstated the live problem |
+| Still-burst replay (26/42 settle, 38/42 with per-ball rule) describes Live Detect | The replay used `TableTracker.SameLayout` (0.015 tolerance), which serves the observation session and verifier. Live Detect uses `StableTableChangeTracker` and `LiveDetectCountCandidateTracker`: three matching clear samples, exact count equality, and a looser position rule in `SettledLayoutReconciler` | The all-or-nothing structure is the same, but the numbers do not transfer. Thread T3 re-measures on the real reducer |
+| "Colour correction only works if the cue has been found" | In a verification burst the last valid gains are reused after a cue dropout (`VisionAnalyzer.cs:404-408`). Single-frame analysis has no reuse | Narrowed, not removed |
+| "Cloth mask is a fixed hue band" | Hue, saturation floor and value floor are sampled from the cloth each frame (`ClothRange`), with a neutral low-saturation fallback. Only the band width and the 45 saturation ceiling of the fallback are fixed | The warm-cloth failure stays a hypothesis and is weaker than stated |
+| "No reviewed labels in dim or warm light" | Warm frame 266 has 16 reviewed centres and scores 16/16 with correct colours (`docs/evidence/live-detect-o09-warm266-reviewed-spatial-score-20261102.md`). It was missed because its labels are stored in a different format | One warm frame exists and it is read perfectly. Argon reports black and cue missed on the same frame; reconcile by hash in T1 |
+| Solution 2: require support only on the cloth-facing arc | Already tried as a diagnostic and rejected: it accepts empty rail points. `HasConservativeOcclusionCoverage` already handles neighbour occlusion with a 14/32 floor | Dropped as written. Replaced by T4 |
+
+Checked and still standing: the whole-colour demotion in
+`BallClassifier.ConstrainInventory`; the 64-seed and more-than-4-candidate
+caps; no exposure or white-balance lock in `CaptureEngine.java`; red and
+yellow accuracy; the two "false event" clips being motionless; and the
+detector having no desktop build.
+
+What the two external reviews got right and wrong is in section 7.
+
+## 3. Direction
+
+Three attempts to decide "is there a black ball here?" from one frame's edge
+evidence have failed for the same reason: a dark ball against a dark cushion
+shadow or pocket throat looks like an empty one. More of the same evidence
+will not separate them. Two other sources of evidence exist and are unused:
+
+1. **Change between settled states.** The camera is fixed. A ball that comes
+   to rest at a cushion changes those pixels relative to the settled frame
+   before the shot; an empty jaw does not change. After compensating for
+   brightness, any ball-sized change that no detected ball explains is a
+   candidate arrival, and any vanished ball with no change at its old
+   position has not moved.
+2. **Permanence.** A ball cannot leave the table without motion. A ball that
+   was confirmed and is not re-detected, with no change at its position and
+   no table motion since, is still there.
+
+Both need per-ball state across frames, which is also what stops one
+flickering ball from blocking the whole table. So the tracker and the
+black-ball problem are one piece of work, not two.
+
+Limits, stated now: neither source helps on the very first frame of a
+session if the black already sits on a cushion. Play normally starts from a
+rack, where the black is found inside the pack, so this may not matter in
+use; staged still-table tests are the hard case. The readout must show such
+a ball as "held, not re-observed" with its age, as the required outcome in
+`live-detect-plan.md` demands.
+
+## 4. Threads
+
+Status: `open` not started, `active`, `blocked`, `done`, `dropped`.
+
+| ID | Thread | Status | Needs | Next action |
+|---|---|---|---|---|
+| T0 | Protect the evidence | open | Richard: a backup location | Copy `work/`, verify against `inventory.csv` hashes |
+| T1 | One corpus manifest | open | nothing | Build manifest; reconcile frame 266 and Argon's duplicates |
+| T2 | Desktop detector runner | open | Richard: go-ahead (moves production code, no behaviour change) | Spike on one frame |
+| T3 | Replay Live Detect's real reducer on saved logs | open | nothing | Feed saved `live-detect.jsonl` through `LiveDetectTableEventTracker` |
+| T4 | Change-between-settled-states experiment | open | nothing (Python, existing clips) | Run on 29 Oct clips and control pairs |
+| T5 | Surplus-only inventory demotion | open | T2 for scoring | Small change in `ConstrainInventory` |
+| T6 | Per-ball state in the reducer | open | T3, T4 results | Design from what T3 and T4 show |
+| T7 | Camera exposure metadata, then lock | open | Richard: explicit approval (camera package) | Log first, lock later |
+| T8 | Cap removal, cushion position bias, verifier latency | open | T2 | Measure only; act if shown to matter |
+| T9 | Label existing frames and clips | open | Richard: two review sittings | Prepare sheets |
+
+Order: T0, T1, T3 and T4 can start now and need nothing from anyone except
+T0's destination. T2 runs alongside. T5 and T6 follow their inputs. T7 and
+T8 are last.
+
+### T0 Protect the evidence
+
+`work/` is git-ignored: 5,248 media files, 5.7 GB, including about 37
+minutes of unique video. The laptop disk was 99% full during the audit.
+Copy to external or cloud storage. **Done when** every SHA-1 in
+`work/evidence-audit/inventory.csv` is present in the copy.
+
+### T1 One corpus manifest
+
+There is no single list of test frames. This review used 26 reviewed
+frames; Argon's export has 32 rows over 28 frame IDs (four Layout03 frames
+appear before and after a fix with identical results, which inflates its
+totals); the project has corpus-v4 (10 stills) and a v3 Development set.
+
+- Create `tests/fixtures/detection-corpus/manifest.json`: one row per image
+  hash, with path, calibration corners, label source, light stratum, zone
+  tags, role (positive, empty control), and which corpus it came from.
+- Include frame 266 and convert its labels. Resolve the 266 conflict by
+  comparing image hash, receipt and analyser version between Argon's claim
+  and the 16/16 score.
+- Include the named empty controls (461, 844, 542, 562, 206, 978) and the
+  black positives (375, 678, 1365, 1691, 1726, 1764, 2831).
+- Respect the project's split: never open Holdout; mark Development frames
+  as tuning data.
+- **Done when** no hash appears twice and the scoring script runs from the
+  manifest alone.
+
+### T2 Desktop detector runner
+
+Measured size of the job: the detector is about 3,100 lines in 9 files
+(`VisionAnalyzer.cs` is 1,395). It uses about 25 OpenCV functions (colour
+conversion, connected components, morphology, Hough circles, warp, distance
+transform, blur, Canny, corner detection). `BallBoundaryRefiner` and the
+classifier are already in `SkyEye.Core`. Android-only pieces are bitmap
+conversion (3 call sites) and the `Org.Opencv` namespaces.
+
+- Approach: multi-target the detector, with a thin shim so the same source
+  compiles against the Android binding and OpenCvSharp. Do not rewrite or
+  port the algorithm.
+- Step 1 (spike, half a day): compile and run one labelled frame on desktop.
+- Step 2: `SkyEye.Checks` command that runs the T1 manifest and writes the
+  JSONL `tools/evidence/score_detections.py` reads.
+- **Done when** desktop output equals the device output on the frames with a
+  current-source device replay (the Layout03 set: 59/62 found, 0 false,
+  black missed 3 of 3), same balls and kinds, centres within 1 px.
+- **Risk:** numeric differences between OpenCV builds, most likely in Hough.
+  If parity fails, keep the device as the reference and use desktop only for
+  before/after comparisons, labelled as such.
+- First check whether `SkyEye.Observation.Workbench` already provides part
+  of this.
+
+### T3 Replay the real Live Detect reducer
+
+Question: in saved Live Detect runs, how often did a still table fail to
+form or hold a baseline, and was the cause a persistent miss, flicker, or
+the uncertainty flags?
+
+- Inputs: saved `live-detect.jsonl` logs (Code37 to Code70 runs), which hold
+  per-frame counts, quality and positions. The plan notes saved logs already
+  replay through `LiveDetectTableEventTracker`.
+- Measure per run: share of samples not usable and why; number of baseline
+  resets; time to first baseline; candidate events with no motion.
+- Include the two motionless "false pot" and "false shot" clips: find what
+  the reducer saw at those times.
+- **Done when** a table splits lost time between persistent miss, flicker
+  and flags. This decides how much T6 is worth and replaces the 26/42 and
+  38/42 figures.
+
+### T4 Change-between-settled-states experiment
+
+Hypothesis: brightness-compensated difference between two settled frames of
+the same timeline separates "ball arrived here" from "empty cushion or
+jaw", where single-frame edge support cannot.
+
+- Data: the 29 October real-play clips (continuous video, about 35 clips)
+  and bursts within one timeline. Take a settled frame before and after each
+  shot, rectify with the receipt corners, compensate gain per tile (as
+  `tools/evidence/video_change_signals.py` already does), and extract
+  ball-sized change regions.
+- Score by eye on sheets first, then against labels from T9: does each ball
+  that moved produce a departure and an arrival region; do cushion and jaw
+  arrivals show; how many change regions appear where nothing moved
+  (shadows of players, cue left on the rail, exposure steps).
+- **Kill criterion:** if arrivals at cushions are not clearly separable from
+  no-change controls on these clips, or player shadows produce ball-sized
+  regions that cannot be rejected, drop this and record it. Then the
+  remaining options are the frozen number-patch feature and permanence
+  alone.
+- Cost: Python only, no device, no staging.
+
+### T5 Surplus-only demotion
+
+`BallClassifier.ConstrainInventory` turns every ball of a colour into
+`unknown` when it sees more than seven. Demote only the surplus, least
+confident first. Verified defect, small change, but it changes production
+output, so score it through T2 on the manifest. **Done when** the Layout03
+frames keep their yellows (colour-correct now 43 of 59) with no new false
+positives.
+
+### T6 Per-ball state in the reducer
+
+Design after T3 and T4 report. Expected shape:
+
+- Each confirmed ball has a state: observed, held (not re-detected, no
+  change at its position, no motion since), or gone (motion seen and absent
+  from repeated clear frames).
+- Baseline and events are judged on ball states, not on whole-frame count
+  equality.
+- An unexplained arrival region from T4 can re-anchor a held or missing
+  black or cue; a count decrease without a departure is not a pot candidate.
+- Lives in the image-free reducer behind the existing
+  observation-in, events-out seam. `GameState` and the `Ball[]` contract do
+  not change. Behind a setting, off by default.
+- **Done when**, on replayed logs and the labelled clips: the Code70 pocket
+  cluster forms a baseline; no real pot or shot in the labelled clips is
+  missed or delayed by more than one sample; no held ball is reported as
+  freshly observed.
+- **Risk:** permanence can hide a ball removed by hand under obstruction.
+  Obstruction must clear held states for the covered area.
+
+### T7 Camera exposure
+
+No receipt records exposure, so nobody can say whether brightness steps come
+from the camera or the room.
+
+1. Add exposure time, sensitivity and white-balance state to `/status` and
+   receipts. Harmless, and it settles the question on the next ordinary
+   session.
+2. Only if the logs show the camera stepping: lock after convergence, with a
+   deliberate re-lock when the room light changes.
+
+Both steps change the camera package and need explicit approval under
+`AGENTS.md`. Low priority: within still bursts brightness was flat, and the
+one reviewed warm frame is read correctly.
+
+### T8 Measure before acting
+
+- Replace the 64-seed and more-than-4-candidate caps with ranked limits
+  only if a trace on a manifest frame shows a cap dropping a true ball.
+  The ledger shows full enumeration did not recover the black, so expect
+  little.
+- Cushion position bias: compare centre error by zone on reviewed labels.
+  The claimed 26.8 px comes from one frame, and the cited warp audit does
+  not measure centre error.
+- Verifier sample gaps: profile the loop. Pixel writes are already queued,
+  so that is not the cause; the per-frame bitmap copy and the 1000 px
+  fallback are the candidates.
+
+### T9 Labels from existing material
+
+- Sheet 1: about 40 saved frames (dim and warm pocket-lip operations,
+  racks, cushion blacks, empty controls) with draft centres to confirm.
+- Sheet 2: the 29 October clips: mark shot, rolling and settled intervals,
+  pots, and where each moved ball came to rest.
+- Drafts are never scored as truth. No staging.
+
+## 5. Rules
+
+1. One measurable change per commit, scored on the T1 manifest, reporting
+   regressions with improvements.
+2. Follow `AGENTS.md`: name the target test, its current result and the
+   intended change before each cycle; update the Live Detect plan and the
+   targeted-test ledger at each commit; keep software, detector and physical
+   metrics separate.
+3. Check the targeted-test ledger before choosing a target. It lists
+   experiments not to repeat (support-threshold sweeps, partial-arc
+   thresholds, seed budgets).
+4. Do not lower the 21/32 black gate or accept partial arcs.
+5. Every detector change must hold zero detections on the empty controls.
+6. No new ball staging. The camera stays stopped.
+7. Do not touch Holdout data or the split lock.
+
+## 6. Not planned
+
+A learned detector (already failed on this data volume), any pipeline
+rewrite, padded homography and height correction (unproven need),
+threshold tuning without a manifest score.
+
+## 7. External reviews: what held up
+
+**ChatGPT comparison.** Its ordering matches this review's original plan,
+so it inherited the errors in section 2: it repeats the per-ball replay
+figures as if they described Live Detect and endorses cloth-facing arc
+scoring, which the project had already rejected. Correct and useful: the
+duplicated rows in Argon's export, the backup warning, and the caution on
+an unconditional exposure lock.
+
+**Luna review.** Several of its file links point at paths that do not exist
+(`src/SkyEye.Vision/...`, `docs/argon/evidence-report.md`), so treat its
+line references with care. Its substantive points checked out against the
+code: the gain reuse after a cue dropout, the sampled cloth range, the
+frame 266 conflict, the existing neighbour-occlusion check, the partial-arc
+false acceptance, queued pixel writes, and that the warp audit measures no
+centre error. Its advice to keep gates unchanged and treat tracking,
+exposure and geometry as separate measured experiments is adopted above.
+It is right that the two reviews are not independent corroboration: this
+review read Argon's material and both drew on the same evidence.
+
+## 8. Log
+
+- 10 Nov 23:50. Plan written. Re-check found the corrections in section 2.
+  No thread started. Plan and corrections not yet committed.
