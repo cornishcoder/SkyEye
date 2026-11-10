@@ -1,0 +1,18 @@
+{
+  "work/companion-candidates.png": {
+    "size_bytes": 8961,
+    "first_64_hex": "416e64726f6964204465627567204272696467652076657273696f6e20312e302e34310d0a56657273696f6e2033362e302e302d31333230363532340d0a496e",
+    "first_64_ascii": "Android Debug Bridge version 1.0.41\r\nVersion 36.0.0-13206524\r\nIn"
+  },
+  "raw_buffer_counts": {
+    ".gray_64": 21,
+    ".argb_921600": 1,
+    ".bgr_6000000": 42,
+    ".bgr_960000": 28,
+    ".rgb_6220800": 2,
+    ".ppm_43215": 4,
+    ".bgr_3840000": 1
+  },
+  "project_image_count": 4970,
+  "project_unique_sha256": 2707
+}
