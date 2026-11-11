@@ -26,17 +26,39 @@ public sealed class SettledChangeComparer(SettledChangeSettings? settings = null
         EnsureLoaded();
         using var buffer = new MatOfByte(encodedImage);
         var decoded = Imgcodecs.Imdecode(buffer, Imgcodecs.ImreadColor);
-        var raster = new Mat();
         try
         {
             if (decoded.Empty()) throw new IOException("Image could not be decoded.");
-            using var transform = Homography(normalizedCorners, decoded.Cols(), decoded.Rows());
+            return Warp(decoded, normalizedCorners);
+        }
+        finally { Release(decoded); }
+    }
+
+    /// <summary>As <see cref="Rectify"/>, from a raw BGR image (for example a decoded video frame).</summary>
+    public byte[] RectifyBgr(byte[] bgr, int width, int height, IReadOnlyList<Point> normalizedCorners)
+    {
+        EnsureLoaded();
+        if (bgr.Length != width * height * 3) throw new ArgumentException("BGR size does not match.");
+        var image = new Mat(height, width, CvType.Cv8uc3);
+        try { image.Put(0, 0, bgr); return Warp(image, normalizedCorners); }
+        finally { Release(image); }
+    }
+
+    byte[] Warp(Mat source, IReadOnlyList<Point> normalizedCorners)
+    {
+        var raster = new Mat();
+        try
+        {
+            using var transform = Homography(normalizedCorners, source.Cols(), source.Rows());
             using var size = new Size(Settings.RasterWidth, Settings.RasterHeight);
-            Imgproc.WarpPerspective(decoded, raster, transform, size);
+            Imgproc.WarpPerspective(source, raster, transform, size);
             return Read(raster);
         }
-        finally { Release(decoded); Release(raster); }
+        finally { Release(raster); }
     }
+
+    /// <summary>Grey (OpenCV BGR2GRAY) of a raster of this comparer's size.</summary>
+    public byte[] Grey(byte[] bgr) => GreyAndHsv(bgr, Settings.RasterWidth, Settings.RasterHeight).Grey;
 
     /// <summary>Maps a source pixel through the same homography as <see cref="Rectify"/>.</summary>
     public (double X, double Y) MapToRaster(Point sourcePixel, IReadOnlyList<Point> normalizedCorners, int imageWidth, int imageHeight)

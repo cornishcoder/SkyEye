@@ -27,6 +27,15 @@ public sealed record SettledChangeSettings
     public int GridCellPixels { get; init; } = 20;
     public double GridCellFraction { get; init; } = .05;
     public double BallRadiusFraction { get; init; } = .027; // ball radius / table width
+    // Slice 2: settle detection at Live Detect cadence (T4 `scan` rule at quarter size).
+    public int MotionTilePixels { get; init; } = 16;        // quarter-size raster
+    public double MotionThreshold { get; init; } = .08;
+    public double StillMotionFraction { get; init; } = .0025;
+    public int SettleMinimumPasses { get; init; } = 3;
+    public double SettleMinimumSeconds { get; init; } = 1.2;
+    public double MaximumPassGapSeconds { get; init; } = 1.5;
+    public double MaximumComparisonGapSeconds { get; init; } = 60;
+    public int WindowFrames { get; init; } = 3;
     public int TableHeight => 2 * TableWidth;
     public int RasterWidth => TableWidth + 2 * Margin;
     public int RasterHeight => TableHeight + 2 * Margin;
@@ -51,4 +60,62 @@ public sealed record SettledChangeComparison(
     byte[] ChangeGrid, int GridColumns, int GridRows, double ComputeMs)
 {
     public bool Gated => GateReasons.Count > 0;
+}
+
+public enum SettledChangeState { Unavailable, Moving, Settling, Settled }
+public enum SettledChangeStatus { NoReference, Compared }
+
+/// <summary>Evidence for one settled segment: compared against the last settled view before the
+/// preceding motion, or NoReference for the first segment after a reset. Gate reasons include the
+/// comparison's own gates and <c>gap_too_long</c>. Times are source microseconds.</summary>
+public sealed record SettledChangeEvidence(
+    Guid Epoch, long Sequence, SettledChangeStatus Status, IReadOnlyList<string> GateReasons,
+    long? ReferenceSegmentStartUs, long? ReferenceSegmentEndUs,
+    long? ReferenceWindowStartUs, long? ReferenceWindowEndUs,
+    long CurrentWindowStartUs, long CurrentWindowEndUs,
+    SettledChangeComparison? Comparison);
+
+/// <summary>One processor pass. <see cref="Evidence"/> is the evidence in force (the latest settled
+/// segment's); <see cref="EvidenceIsNew"/> is true only on the pass that produced it.</summary>
+public sealed record SettledChangePass(
+    SettledChangeState State, double? MotionFraction, int StillPasses, double ComputeMs,
+    SettledChangeEvidence? Evidence, bool EvidenceIsNew);
+
+/// <summary>Settle state machine (design section 2.1 step 3): a pass is still when motion is below
+/// <see cref="SettledChangeSettings.StillMotionFraction"/>; a segment is settled after at least
+/// <see cref="SettledChangeSettings.SettleMinimumPasses"/> consecutive still passes spanning at least
+/// <see cref="SettledChangeSettings.SettleMinimumSeconds"/>. Unknown motion (first pass, or a source gap
+/// over <see cref="SettledChangeSettings.MaximumPassGapSeconds"/>) restarts the count. Pure; no images.</summary>
+public sealed class SettledSegmentTracker(SettledChangeSettings settings)
+{
+    int stillPasses;
+    long runStartUs, lastStillUs;
+    public SettledChangeState State { get; private set; } = SettledChangeState.Unavailable;
+    public int StillPasses => stillPasses;
+    /// <summary>Start of the current still run (the settled segment's start once settled).</summary>
+    public long RunStartUs => runStartUs;
+    public long LastStillUs => lastStillUs;
+
+    public readonly record struct Step(SettledChangeState State, bool BecameSettled, bool LeftSettled,
+        long SegmentStartUs, long SegmentEndUs);
+
+    public Step Observe(long sourceTimeUs, double? motionFraction)
+    {
+        bool wasSettled = State == SettledChangeState.Settled;
+        long segmentStart = runStartUs, segmentEnd = lastStillUs;
+        if (motionFraction is { } motion && motion < settings.StillMotionFraction)
+        {
+            if (stillPasses == 0) runStartUs = sourceTimeUs;
+            stillPasses++; lastStillUs = sourceTimeUs;
+            bool settled = stillPasses >= settings.SettleMinimumPasses
+                && (sourceTimeUs - runStartUs) / 1e6 >= settings.SettleMinimumSeconds;
+            State = settled ? SettledChangeState.Settled : SettledChangeState.Settling;
+            return new(State, settled && !wasSettled, false, runStartUs, lastStillUs);
+        }
+        stillPasses = 0;
+        State = motionFraction is null ? SettledChangeState.Settling : SettledChangeState.Moving;
+        return new(State, false, wasSettled, segmentStart, segmentEnd);
+    }
+
+    public void Reset() { stillPasses = 0; runStartUs = lastStillUs = 0; State = SettledChangeState.Unavailable; }
 }

@@ -67,6 +67,58 @@ static class SettledChangeMathChecks
         Require(grid.Columns == 20 && grid.Rows == 40 && grid.Bits[0] == 1 && grid.Bits.Skip(1).All(b => b == 0), "One changed cell sets one grid bit");
 
         Console.WriteLine("PASS D3 settled-change maths: gain field, blur, zones, table mapping, region rule, direction, drift and change grid");
+        RunSettle(s);
+    }
+
+    /// <summary>Slice 2: motion measure, window median and the settle state machine.</summary>
+    static void RunSettle(SettledChangeSettings s)
+    {
+        int qw = s.RasterWidth / 2, qh = s.RasterHeight / 2;
+        var rng = new Random(11);
+        var still = new byte[qw * qh];
+        for (int i = 0; i < still.Length; i++) still[i] = (byte)(90 + rng.Next(-4, 5));
+        var brighter = still.Select(v => (byte)Math.Min(255, Math.Round((v + 8) * 1.2 - 8))).ToArray();
+        // A rolling ball changes two places between passes: where it was and where it is now.
+        byte[] BallAt(int cx, int cy)
+        {
+            var image = (byte[])still.Clone();
+            for (int y = 0; y < qh; y++) for (int x = 0; x < qw; x++)
+                if ((x - cx) * (x - cx) + (y - cy) * (y - cy) < 6 * 6) image[y * qw + x] = 230;
+            return image;
+        }
+        var ballHere = BallAt(110, 150); var ballThere = BallAt(110, 270);
+        Require(SettledChangeMath.Motion(still, still, s) == 0, "Identical passes have no motion");
+        Require(SettledChangeMath.Motion(still, brighter, s) < s.StillMotionFraction, "A global exposure step is not motion");
+        double rollingMotion = SettledChangeMath.Motion(ballHere, ballThere, s);
+        Require(rollingMotion > s.StillMotionFraction, $"A ball moving between passes is motion (measured {rollingMotion:F4})");
+        Require(SettledChangeMath.HalveGrey([10, 20, 30, 41], 2, 2).Single() == 25, "2x2 block mean rounds half up");
+        Require(SettledChangeMath.Median([[1, 9], [5, 5], [9, 1]]).SequenceEqual(new byte[] { 5, 5 }), "Window median is per pixel");
+        var opened = SettledChangeMath.Open3([0, 0, 0, 0, 1, 0, 0, 0, 0], 3, 3);
+        Require(opened.All(v => v == 0), "Opening removes an isolated pixel");
+
+        var tracker = new SettledSegmentTracker(s);
+        long t = 0; SettledSegmentTracker.Step step = default;
+        void Pass(double? motion, double seconds = .35) { t += (long)(seconds * 1e6); step = tracker.Observe(t, motion); }
+        Pass(null);
+        Require(step.State == SettledChangeState.Settling, "Unknown motion is not settled");
+        Pass(0); Pass(0); Pass(0);
+        Require(step.State == SettledChangeState.Settling && !step.BecameSettled, "Three still passes over 0.7 s are not yet settled");
+        Pass(0); Pass(0);
+        Require(step.State == SettledChangeState.Settled && step.BecameSettled, "Still passes spanning 1.2 s settle");
+        long segmentStart = step.SegmentStartUs, lastStill = t;
+        Pass(0);
+        Require(step.State == SettledChangeState.Settled && !step.BecameSettled, "Settling is reported once per segment");
+        lastStill = t;
+        Pass(.05);
+        Require(step.State == SettledChangeState.Moving && step.LeftSettled && step.SegmentStartUs == segmentStart && step.SegmentEndUs == lastStill,
+            "Motion ends the segment and reports its span");
+        Pass(.05);
+        Require(!step.LeftSettled, "Leaving is reported once");
+        Pass(0); Pass(0); Pass(null); Pass(0); Pass(0); Pass(0);
+        Require(step.State == SettledChangeState.Settling, "A source gap restarts the still count");
+        Pass(0); Pass(0);
+        Require(step.BecameSettled, "After the gap the table settles again");
+        Console.WriteLine("PASS D3 settle detection: motion measure, exposure step, window median and settle state machine");
     }
 
     static void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }

@@ -168,6 +168,108 @@ public static class SettledChangeMath
         return (clothLike / n, dark / n, white / n);
     }
 
+    /// <summary>OpenCV GaussianBlur with ksize 5 and sigma 0 (kernel 1,4,6,4,1 / 16; BORDER_REFLECT_101).</summary>
+    public static float[] GaussianBlur5(float[] values, int width, int height)
+    {
+        static int Reflect(int i, int n) => i < 0 ? -i : i >= n ? 2 * n - 2 - i : i;
+        float[] k = [1 / 16f, 4 / 16f, 6 / 16f, 4 / 16f, 1 / 16f];
+        var horizontal = new float[values.Length]; var result = new float[values.Length];
+        for (int y = 0; y < height; y++)
+        for (int x = 0; x < width; x++)
+        {
+            float sum = 0;
+            for (int d = -2; d <= 2; d++) sum += k[d + 2] * values[y * width + Reflect(x + d, width)];
+            horizontal[y * width + x] = sum;
+        }
+        for (int y = 0; y < height; y++)
+        for (int x = 0; x < width; x++)
+        {
+            float sum = 0;
+            for (int d = -2; d <= 2; d++) sum += k[d + 2] * horizontal[Reflect(y + d, height) * width + x];
+            result[y * width + x] = sum;
+        }
+        return result;
+    }
+
+    /// <summary>Morphological opening with a 3x3 square, as OpenCV with its default borders
+    /// (erosion ignores pixels outside the image, dilation treats them as background).</summary>
+    public static byte[] Open3(byte[] mask, int width, int height)
+    {
+        var eroded = new byte[mask.Length]; var result = new byte[mask.Length];
+        for (int y = 0; y < height; y++)
+        for (int x = 0; x < width; x++)
+        {
+            byte v = 1;
+            for (int dy = -1; dy <= 1 && v != 0; dy++)
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                int yy = y + dy, xx = x + dx;
+                if (yy < 0 || yy >= height || xx < 0 || xx >= width) continue;
+                if (mask[yy * width + xx] == 0) { v = 0; break; }
+            }
+            eroded[y * width + x] = v;
+        }
+        for (int y = 0; y < height; y++)
+        for (int x = 0; x < width; x++)
+        {
+            byte v = 0;
+            for (int dy = -1; dy <= 1 && v == 0; dy++)
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                int yy = y + dy, xx = x + dx;
+                if (yy < 0 || yy >= height || xx < 0 || xx >= width) continue;
+                if (eroded[yy * width + xx] != 0) { v = 1; break; }
+            }
+            result[y * width + x] = v;
+        }
+        return result;
+    }
+
+    /// <summary>Halves a grey raster by 2x2 block means (OpenCV INTER_AREA for an exact factor of two).</summary>
+    public static byte[] HalveGrey(byte[] grey, int width, int height)
+    {
+        int w = width / 2, h = height / 2; var result = new byte[w * h];
+        for (int y = 0; y < h; y++)
+        for (int x = 0; x < w; x++)
+        {
+            int a = grey[2 * y * width + 2 * x], b = grey[2 * y * width + 2 * x + 1],
+                c = grey[(2 * y + 1) * width + 2 * x], d = grey[(2 * y + 1) * width + 2 * x + 1];
+            result[y * w + x] = (byte)((a + b + c + d + 2) / 4);
+        }
+        return result;
+    }
+
+    /// <summary>T4 `scan` motion at quarter size: fraction of the table interior whose tile-gain-compensated
+    /// log ratio, blurred 5x5 and opened 3x3, exceeds the motion threshold.</summary>
+    public static double Motion(byte[] previousQuarterGrey, byte[] currentQuarterGrey, SettledChangeSettings s)
+    {
+        int w = s.RasterWidth / 2, h = s.RasterHeight / 2, m = s.Margin / 2;
+        var change = GaussianBlur5(AbsoluteTileResidual(LogRatio(previousQuarterGrey, currentQuarterGrey), w, h, s.MotionTilePixels), w, h);
+        var mask = new byte[change.Length];
+        for (int i = 0; i < mask.Length; i++) mask[i] = change[i] > s.MotionThreshold ? (byte)1 : (byte)0;
+        var opened = Open3(mask, w, h);
+        int set = 0, total = 0;
+        for (int y = m; y < h - m; y++)
+            for (int x = m; x < w - m; x++) { total++; if (opened[y * w + x] != 0) set++; }
+        return total == 0 ? 0 : set / (double)total;
+    }
+
+    /// <summary>Per-byte median of up to three equal-length rasters (one: a copy; two: the rounded mean).</summary>
+    public static byte[] Median(IReadOnlyList<byte[]> rasters)
+    {
+        if (rasters.Count is < 1 or > 3) throw new ArgumentException("One to three rasters.");
+        var result = (byte[])rasters[0].Clone();
+        if (rasters.Count == 2)
+            for (int i = 0; i < result.Length; i++) result[i] = (byte)((rasters[0][i] + rasters[1][i] + 1) / 2);
+        else if (rasters.Count == 3)
+            for (int i = 0; i < result.Length; i++)
+            {
+                byte a = rasters[0][i], b = rasters[1][i], c = rasters[2][i];
+                result[i] = Math.Max(Math.Min(a, b), Math.Min(Math.Max(a, b), c));
+            }
+        return result;
+    }
+
     /// <summary>Change grid over the table interior: one bit per cell set when at least the cell fraction is changed.</summary>
     public static (byte[] Bits, int Columns, int Rows) ChangeGrid(byte[] mask, SettledChangeSettings s)
     {

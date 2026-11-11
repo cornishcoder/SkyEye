@@ -467,4 +467,12 @@ through the Python reducer port where possible.
   pair, 2 pairs differ in detail (one boundary region at 0.61 R, one gated
   pair). Next D3 slices: settle state machine with live-cadence simulation,
   clip-pair parity, then reducer rules in shadow.
+- 11 Nov. D3 slice 2 built (`d3-slice2-settle.md`): per-pass motion, settle
+  state machine, reference window and automatic comparison on settling;
+  still not wired live. Live-cadence simulation on the 25 T4 clips (538 s,
+  0.35 s passes): 26/28 T4 shots covered, 94/102 T4 ball-sized regions found,
+  0 ungated ball-sized regions in the 18 control windows (both code62
+  motionless clips: no comparison at all), 1 unverified region in a
+  two-shot comparison. Next: reducer rules in shadow with the golden test,
+  then live wiring (Richard's design questions apply there).
 
