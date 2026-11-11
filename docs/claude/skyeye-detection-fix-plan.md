@@ -92,10 +92,10 @@ Status: `open` not started, `active`, `blocked`, `done`, `dropped`.
 |---|---|---|---|---|
 | T0 | Protect the evidence | done (11 Nov 08:54) | - | `D:\SkyEye\backup-report.txt` PASS. Re-run the script after new captures or regenerated outputs |
 | T1 | One corpus manifest | done | - | Report in `tests/fixtures/detection-corpus/README.md`. All five cushion black misses are one table position, (1.48, 0.067), dim and bright |
-| T2 | Desktop detector runner | built; Layout03 parity PASS 4/4 | - | Add the `detect` command over the T1 manifest (`t2-desktop-parity.md`) |
+| T2 | Desktop detector runner | done: Layout03 parity PASS 4/4; `detect` scores the manifest | - | JPEG parity before trusting JPEG scores (`t2-desktop-parity.md`) |
 | T3 | Replay Live Detect's real reducer on saved logs | done | - | Report `t3-live-detect-replay.md`. Lost still time is flags (pocket-colour 1,149 s, obstruction 941 s), not flicker (1.4 s) |
 | T4 | Change-between-settled-states experiment | done: promising, conditional | T9 labels to score properly | Report `t4-settled-change-experiment.md`. Black at cushion/jaw 9/9 staged; fails under moving daylight |
-| T5 | Surplus-only inventory demotion | open | T2 for scoring | Small change in `ConstrainInventory` |
+| T5 | Surplus-only inventory demotion | ready | - | Small change in `ConstrainInventory`; score with T2 `detect` (957 and 2263 colours 7/15 now) |
 | T6 | Per-ball state in the reducer | D1+D2 built, offline checks pass; D3 designed | On-device check of D1+D2 (needs Richard); D3 shadow mode | See `d1-d2-implementation.md` and `d3-settled-change-design.md` |
 | T7 | Camera exposure metadata, then lock | open | Richard: explicit approval (camera package) | Log first, lock later |
 | T8 | Cap removal, cushion position bias, verifier latency | open | T2 | Measure only; act if shown to matter |
@@ -416,4 +416,17 @@ through the Python reducer port where possible.
   detector cases stay 0/3 and physical gates 0/3, carried forward. Report
   `t2-desktop-parity.md`. Next: the `detect` command over the T1 manifest,
   then T5.
+- 11 Nov. T2 `detect` added and run on the T1 manifest (production
+  settings, 35 of 37 labelled frames; 2 have no corners; Holdout unopened).
+  Detector score, newly executed on desktop: 529/546 balls, 0 FP, black
+  14/28, cue 25/28, colour 0.970, 19/35 frames complete. On the 24 frames
+  with a stored result it ties capture on balls (368/374) and black (13/19);
+  colour 0.978 against 1.000, all from 957, where the device's own
+  current-source replay agrees with desktop (unknown 8). Parity now also
+  checks final ball kinds; still PASS 4/4. New finding from frames that had
+  no stored result: a second miss position, cue at the cushion near
+  (0.062, 0.868) in 382, 1274 and 3360, and black in the corner pocket near
+  (0.03, 0.928) in 382, 1274 and 395. The cushion black spot (1.48, 0.067)
+  now shows in 8 frames. Detector inventory 0/3 and physical gates 0/3
+  carried forward. Next: T5.
 

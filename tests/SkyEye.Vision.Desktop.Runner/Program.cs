@@ -15,12 +15,15 @@ using SkyEye.Core.Analysis;
 using SkyEye.Vision.Android;
 
 var options = ParseOptions(args);
-if (args.Length == 0 || args[0] != "parity")
-{
-    Console.Error.WriteLine("usage: parity --image F.png --receipt F.json --proof PROOF.json [--threads N] [--out FILE.json]");
-    return 2;
-}
-return Parity(options);
+if (args.Length > 0 && args[0] == "parity") return Parity(options);
+if (args.Length > 0 && args[0] == "detect") return DetectCommand.Run(options);
+Console.Error.WriteLine("""
+    usage:
+      parity --image F.png --receipt F.json --proof PROOF.json [--threads N] [--out FILE.json]
+      detect --manifest M.json --output OUT.jsonl [--root DIR] [--settings production|receipt|FILE.json]
+             [--roles positive,empty-control] [--names 2083,957] [--threads N] [--limit N]
+    """);
+return 2;
 
 static int Parity(Dictionary<string, string> o)
 {
@@ -92,6 +95,8 @@ static int Parity(Dictionary<string, string> o)
     bool deviceLayout = device["layoutUncertain"]!.GetValue<bool>();
     bool? deviceRecovered = device["packedClusterFallback"]?["recovered"]?.GetValue<bool>();
     bool? desktopRecovered = first.PackedClusterFallback?.Recovered;
+    string deviceCounts = string.Join(" ", (device["counts"] as JsonObject ?? []).OrderBy(p => p.Key, StringComparer.Ordinal).Select(p => $"{p.Key}={p.Value}"));
+    string desktopCounts = string.Join(" ", first.Balls.GroupBy(b => b.Kind.ToString().ToLowerInvariant()).OrderBy(g => g.Key, StringComparer.Ordinal).Select(g => $"{g.Key}={g.Count()}"));
     int kindMismatches = matched.Count(m => m.Device.Kind != m.Desktop.Kind);
     double maxDistancePx = matched.Count == 0 ? 0 : matched.Max(m => m.Distance) / onePixel;
     double maxRadiusPx = matched.Count == 0 ? 0 : matched.Max(m => Math.Abs(m.Desktop.Radius - m.Device.Radius)) / onePixel;
@@ -104,6 +109,7 @@ static int Parity(Dictionary<string, string> o)
         ("uncertain", deviceUncertain == first.Uncertain, $"device {deviceUncertain}, desktop {first.Uncertain}"),
         ("layoutUncertain", deviceLayout == first.HasUncertainLayout, $"device {deviceLayout}, desktop {first.HasUncertainLayout}"),
         ("packedClusterFallback.recovered", deviceRecovered == desktopRecovered, $"device {Show(deviceRecovered)}, desktop {Show(desktopRecovered)}"),
+        ("final ball kinds (after inventory constraint)", deviceCounts == desktopCounts, $"device {deviceCounts}, desktop {desktopCounts}"),
     };
     Console.WriteLine();
     foreach (var c in checks) Console.WriteLine($"{(c.Pass ? "PASS" : "FAIL")}  {c.Name}: {c.Detail}");
