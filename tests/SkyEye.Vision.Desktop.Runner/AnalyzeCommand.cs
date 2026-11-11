@@ -14,7 +14,8 @@ static class AnalyzeCommand
         var settings = new VisionSettings(Width: 800)
         {
             PackedColourBoundarySearchExtentFraction = .65,
-            ObstructionShadowTolerance = !(o.TryGetValue("shadow-tolerance", out var st) && st == "off")
+            ObstructionShadowTolerance = !(o.TryGetValue("shadow-tolerance", out var st) && st == "off"),
+            PackedClusterLocalUnknowns = !(o.TryGetValue("local-unknowns", out var lu) && lu == "off")
         };
         var analyzer = new VisionAnalyzer(settings, includeObstructionMaskDiagnostics: o.ContainsKey("mask"));
         var v = analyzer.Analyze(File.ReadAllBytes(o["image"]), new TableCalibration(corners));

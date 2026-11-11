@@ -127,7 +127,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             string algorithm = previousAlgorithm
                 + (settings.SurplusOnlyInventoryDemotion ? "-surplus-sat40" : "")
                 + (settings.PackedCueHandover ? "-cuehandover75" : "")
-                + (settings.ObstructionShadowTolerance ? "-obstruction-shadow60" : "");
+                + (settings.ObstructionShadowTolerance ? "-obstruction-shadow60" : "")
+                + (settings.PackedClusterLocalUnknowns ? "-packed-local-unknown25" : "");
             bool normalizedProposalAblation = settings.UseNormalizedGeometryForDetection || settings.UseNormalizedPackedColourProposalMask;
             bool edgeMarginAblation = settings.PackedClusterImageEdgeMargin != 23;
             bool sparseColourSupportAblation = settings.MinimumSparseColourBoundarySupport
@@ -541,8 +542,17 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             uncertain = layoutUncertain = true;
             warnings.Add("Conflicting ball candidates share nearly the same centre; review before using table state.");
         }
+        bool clusterHasUnknown;
+        if (settings.PackedClusterLocalUnknowns)
+        {
+            double reach = 2.5 * PoolGeometry.Radius * coordinates.Width;
+            var coloured = ordered.Where((_, i) => labels[i].Kind is "red" or "yellow" or "black").ToArray();
+            clusterHasUnknown = ordered.Where((_, i) => labels[i].Kind == "unknown").Any(u =>
+                coloured.Any(c => Math.Sqrt((u.X - c.X) * (u.X - c.X) + (u.Y - c.Y) * (u.Y - c.Y)) <= reach));
+        }
+        else clusterHasUnknown = balls.Any(b => b.Kind == "unknown");
         bool packedClusterUnresolved = packedCluster.Detected &&
-            (balls.Any(b => b.Kind == "unknown") || balls.Count(b => b.Kind == "black") != 1 ||
+            (clusterHasUnknown || balls.Count(b => b.Kind == "black") != 1 ||
                 balls.Count(b => b.Kind == "red") != 7 || balls.Count(b => b.Kind == "yellow") != 7);
         if (packedClusterUnresolved)
         { uncertain = layoutUncertain = true; warnings.Add("Packed colour cluster still has unresolved visible balls; review it before using advice."); }

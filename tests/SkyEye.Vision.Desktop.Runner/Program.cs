@@ -59,6 +59,7 @@ static int Parity(Dictionary<string, string> o)
         SurplusOnlyInventoryDemotion = ProofAlgorithm(proof).Contains("-surplus-", StringComparison.Ordinal),
         PackedCueHandover = ProofAlgorithm(proof).Contains("-cuehandover", StringComparison.Ordinal),
         ObstructionShadowTolerance = ProofAlgorithm(proof).Contains("-obstruction-shadow", StringComparison.Ordinal),
+        PackedClusterLocalUnknowns = ProofAlgorithm(proof).Contains("-packed-local-unknown", StringComparison.Ordinal),
     };
     bool audit = proof["boundaryAudit"]!.GetValue<bool>();
     var analyzer = new VisionAnalyzer(settings, includeBoundaryDiagnostics: audit, includeCandidateDiagnostics: audit);

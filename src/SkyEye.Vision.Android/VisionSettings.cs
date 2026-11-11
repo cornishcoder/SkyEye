@@ -53,6 +53,11 @@ public sealed record VisionSettings(int Width = 1000, double MinimumRadius = 18,
     // "large object". Also treat S 46..60 at 0.6..1.15x cloth median brightness as cloth, any hue.
     // Skin measured S p50 93..94 and brighter than the cloth. False replays the earlier behaviour.
     public bool ObstructionShadowTolerance { get; init; } = true;
+    // A packed cluster was marked unresolved by an unknown ball anywhere on the table, so a cue read as
+    // unknown at the other end (afternoon run 7c151fba) denied a complete 7/7/1 rack its obstruction
+    // exemption. Count only unknown balls within 2.5 ball radii of a red, yellow or black ball. The
+    // whole-table colour counts still apply. False replays the earlier behaviour.
+    public bool PackedClusterLocalUnknowns { get; init; } = true;
     public double MinimumHoughBoundarySupport { get; init; } = .75;
     // A fresh six-frame pocket-lip holdout recovered a fitted top-left red with
     // 20/32 supported sectors; the separate pocket-colour review retains its
