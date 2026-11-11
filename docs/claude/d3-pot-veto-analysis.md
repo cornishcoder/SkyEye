@@ -39,6 +39,23 @@ The 21:40:18 false drop measured 0.0024 (a hand arriving), just under the thresh
 0.02 or more, but all involved several moving balls. Needed: the motion fraction of lone slow pots, from the
 T4 clips or a short staged session, and a veto threshold set below them.
 
+## Follow-up the same evening: the still-table signal is not enough on its own
+
+One ball as a fraction of the table bed is 0.00115; a ball that moves more than a diameter changes about
+0.0023 (0.0034 with its shadow), against the 0.0025 still threshold. So "the table stayed Settled" cannot
+rule out a single ball rolling slowly into a pocket, and a rule built only on it could cancel a real pot.
+
+A sturdier test, "nothing changed where the ball last stood", was added to `--pot-veto`: it looks for the
+next settled-change comparison spanning the drop and checks the change grid at the ball's last detected
+position. Result: for the real red pot and the yellow it correctly reports "changed at last position"
+(never contradicts them), but for the three still-table drops there is **no comparison to look at**,
+because D3 only compares after motion has settled.
+
+**Proposed design:** when a possible pot arrives while the table is still, have D3 run a comparison on
+demand (reference window from before the drop against the current settled window) and check the ball's
+last position. A ball that left must have changed that spot whatever the motion threshold says; a detection
+drop leaves it unchanged. This needs a processor change (on-demand comparison) and is not built.
+
 ## Limits
 
 Six events, three runs, one evening. The two 16:3x false pots come from the black missed in a touching group

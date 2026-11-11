@@ -20,7 +20,7 @@ static class LiveDetectPotVetoReport
         var paths = arguments.Where(a => a != "--detail").ToArray();
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         var seenRuns = new HashSet<Guid>();
-        int pots = 0, vetoes = 0, motionVetoes = 0;
+        int pots = 0, vetoes = 0, motionVetoes = 0, changeVetoes = 0;
         foreach (var path in paths)
         {
             var runs = new Dictionary<Guid, List<LiveDetectTableEventObservation>>();
@@ -82,6 +82,25 @@ static class LiveDetectPotVetoReport
                             : $"last {string.Join("+", colours)} at old count {observations[lastHigh].CapturedAt:HH:mm:ss.f}, " +
                               (motionFree ? "table Settled throughout" : "motion in between");
                         if (motionFree) { motionVetoes++; verdict = "MOTION VETO: dropped while the table was still"; }
+                        // Sturdier candidate: the next comparison after the pot shows no change at the ball's last
+                        // detected position, so the ball never moved and cannot have been potted.
+                        string changeAtLast = "no later comparison";
+                        if (lastHigh >= 0)
+                        {
+                            var lastBalls = observations[lastHigh].Layout.Where(b => colours.Contains(b.Colour.ToString().ToLowerInvariant())).ToArray();
+                            for (int k = i; k < Math.Min(batches.Length, i + 2 * LookaheadPasses); k++)
+                            {
+                                if (observations[k].SettledChange is not { EvidenceIsNew: true, Evidence: { Status: SettledChangeStatus.Compared, Comparison: { } comparison } } c) continue;
+                                if (c.Evidence.ReferenceWindowEndUs > observations[lastHigh].SourceTimeUs) { changeAtLast = "next comparison starts after the drop"; break; }
+                                bool changed = lastBalls.Any(b => LiveDetectSettledChangePolicy.GridChangedNear(comparison, b.X * 2, b.Y, LiveDetectSettledChangePolicy.Near));
+                                changeAtLast = lastBalls.Length == 0 ? "no last position" : changed
+                                    ? $"seq {c.Evidence.Sequence}: changed at last position (ball moved)"
+                                    : $"seq {c.Evidence.Sequence}: NO change at last position";
+                                if (!changed && lastBalls.Length > 0) { changeVetoes++; verdict = "CHANGE VETO: nothing changed where it stood" + (motionFree ? " (also still table)" : ""); }
+                                break;
+                            }
+                        }
+                        motion += "; " + changeAtLast;
                         for (int k = i; k < Math.Min(batches.Length, i + LookaheadPasses); k++)
                         {
                             if (k > i && batches[k].TableEvents.Any(e => e.Type is "possible_pot" or "balls_returned_candidate")) break;
@@ -114,6 +133,6 @@ static class LiveDetectPotVetoReport
                     }
             }
         }
-        Console.WriteLine($"pot-veto: {pots} possible pots; D3 inference contradicts {vetoes}; motion-free drop {motionVetoes}");
+        Console.WriteLine($"pot-veto: {pots} possible pots; D3 inference contradicts {vetoes}; motion-free drop {motionVetoes}; no change at last position {changeVetoes}");
     }
 }
