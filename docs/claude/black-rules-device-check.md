@@ -24,7 +24,7 @@ frames obstructed with the black missed in a touching group. **Outcome: PASS for
 | Break | obstructed only 20:33:46 to 20:33:52 (20 passes, Richard at the table breaking) |
 | Pot | `possible_pot` "red detections 7 to 6" at 20:33:54; `possible_pot_settled` at 20:33:58: 6 red, 7 yellow, 1 black, 1 cue. **Matches the red Richard potted** |
 | Settled after break | clear and unchanged to the stop (last pass 20:34:30: 6, 7, 1, 1) |
-| D3 shadow | 275/275 frames with evidence; median 15.1 ms, p95 24.2 ms; chain intact through the rack (len 1, 2) and after the decoder-independent re-anchor at the pot (len 1); one `unexplained_change` at (1.455, 0.914) cushion, not applied |
+| D3 shadow | 275/275 frames with evidence; median 15.1 ms, p95 24.2 ms; chain intact throughout (length 1 and 2 on the rack, then length 1 again after the pot, re-anchored to the new settled baseline); one `unexplained_change` at (1.455, 0.914) cushion, not applied |
 | Live Detect unchanged by D3 | `--golden-shadow` passes on the pulled log (868 frames, 86 table events identical) |
 
 ## Reading
