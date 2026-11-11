@@ -68,6 +68,9 @@ public sealed record PocketColourRegionAudit(Point Centre, int ColouredPixels, i
     PocketColourBallSupportAudit[]? BallSupportAudit = null);
 public sealed record PocketColourAuditTelemetry(int AnalysisWidth, int AnalysisHeight, double ExclusionRadius,
     double ReviewPixelThreshold, PocketColourRegionAudit[] Pockets);
+/// <summary>A table area whose contents are doubtful, in table units (x 0..2, y 0..1), such as a pocket
+/// mouth with unexplained ball colour. Balls inside it are individually uncertain.</summary>
+public sealed record UncertainTableRegion(Point Centre, double Radius, string Reason);
 public sealed record VisionResult(Ball[] Balls, bool Uncertain, string[] Warnings, double ElapsedMs, int CircleCount, bool Normalized, string Runtime, double[] ColourGains, int ClothHue, bool Obstructed, CircleObservation[] Circles)
 {
     /// <summary>Overrides broad advice uncertainty when the detected layout itself is clear.
@@ -81,6 +84,15 @@ public sealed record VisionResult(Ball[] Balls, bool Uncertain, string[] Warning
     public PackedClusterFallbackTelemetry? PackedClusterFallback { get; init; }
     public ObstructionAuditTelemetry? ObstructionAudit { get; init; }
     public PocketColourAuditTelemetry? PocketColourAudit { get; init; }
+    /// <summary>Regions that set the layout flags on their own (D1). <see cref="LayoutUncertain"/> still
+    /// covers the whole table for existing consumers; the two flags below say whether the rest of the
+    /// table would have been flagged without these regions. Null when no region was flagged.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public UncertainTableRegion[]? UncertainRegions { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? LayoutUncertainOutsideRegions { get; init; }
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public bool? UncertainOutsideRegions { get; init; }
     public CircleBoundaryAudit[] BoundaryAudits { get; init; } = [];
     public VisionCandidateAudit[] CandidateAudits { get; init; } = [];
 }

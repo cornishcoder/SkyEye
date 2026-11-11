@@ -29,10 +29,15 @@ internal static class LiveDetectInventoryReadoutChecks
         LiveDetectEventBatch last = default!;
         for (int i = 0; i < 3; i++) last = Observe(tracker, i, counts, layout, uncertain: true);
 
-        Require(last.CheckOutcome == "baseline_pending" && last.SettledBaseline is null
+        // D2: the first baseline may form, but it names the black and cue as not seen, and the
+        // current inventory is still not claimed as clear.
+        Require(last.CheckOutcome == "settled_layout_baseline" && last.SettledBaseline == counts
+            && last.BaselineBlackNotSeen && last.BaselineCueNotSeen
+            && LiveDetectInventoryReadoutPolicy.BaselineSummary(counts, last.BaselineBlackNotSeen, last.BaselineCueNotSeen)
+                == "1 reds · 0 yellows · black not seen · cue ball not seen"
             && !LiveDetectInventoryReadoutPolicy.IsCurrentInventoryClear(true, false, false, counts)
             && LiveDetectInventoryReadoutPolicy.SettledCurrentInventory(false, last) is null,
-            "an unexplained first view missing cue and black stays unknown");
+            "an unexplained first view missing cue and black says 'not seen' and is not claimed as current");
     }
 
     static void CueAbsenceAfterTrustedBaselineRemainsUnknownInReadout()

@@ -234,6 +234,9 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 : chosen.Circles,
             Uncertain = chosen.Uncertain || remainsUnresolved,
             Obstructed = chosen.Obstructed || (remainsUnresolved && primary.Obstructed),
+            // An unresolved packed cluster is not confined to a flagged pocket region (D1).
+            LayoutUncertainOutsideRegions = chosen.UncertainRegions is null ? null : chosen.LayoutUncertainOutsideRegions == true || remainsUnresolved,
+            UncertainOutsideRegions = chosen.UncertainRegions is null ? null : chosen.UncertainOutsideRegions == true || remainsUnresolved,
             Warnings = warnings,
             PackedCluster = remainsUnresolved ? primary.PackedCluster : chosen.PackedCluster,
             PackedClusterFallback = new(true, settings.Width, 1000,
@@ -524,13 +527,25 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             warnings.Add("No validated burst colour reference; raw colour labels are retained for layout review, not advice.");
         }
         if (uncertain) warnings.Add("Check uncertain colours or ball counts before using advice.");
-        if (PocketColourNeedsReview(pixels, rawWarped.Value, ordered, labels, boundaryColourMask, out var pocketColourAudit))
+        bool uncertainBeforePocketReview = uncertain, layoutUncertainBeforePocketReview = layoutUncertain;
+        bool pocketColourReview = PocketColourNeedsReview(pixels, rawWarped.Value, ordered, labels, boundaryColourMask, out var pocketColourAudit);
+        if (pocketColourReview)
         { uncertain = layoutUncertain = true; warnings.Add("Check a coloured ball at a pocket opening; the pocket mask may hide part of it."); }
         Circle[] recognizedBallCircles = ordered.Where((_, index) => labels[index].Kind != "unknown").ToArray();
         bool completePackedCluster = packedCluster.Detected && !packedClusterUnresolved;
         bool obstructed = LargeObstruction(rawHsv.Value, rawHsvPixels, recognizedBallCircles, completePackedCluster, out var obstructionAudit);
         if (obstructed) { uncertain = layoutUncertain = true; warnings.Add("A large object covers part of the playable surface."); }
-        for (int i = 0; i < balls.Count; i++) for (int j = i + 1; j < balls.Count; j++) if ((balls[i].Position - balls[j].Position).Length < .040) { uncertain = layoutUncertain = true; warnings.Add("Overlapping circle candidates need checking."); }
+        bool overlapping = false;
+        for (int i = 0; i < balls.Count; i++) for (int j = i + 1; j < balls.Count; j++) if ((balls[i].Position - balls[j].Position).Length < .040) { uncertain = layoutUncertain = overlapping = true; warnings.Add("Overlapping circle candidates need checking."); }
+        // D1: report each flagged pocket as a region (exclusion radius plus two ball radii, so any
+        // ball whose body reaches the exclusion is inside), and what the rest of the table shows.
+        UncertainTableRegion[]? pocketRegions = pocketColourReview
+            ? pocketColourAudit.Pockets.Where(pocket => pocket.NeedsReview).Select(pocket => new UncertainTableRegion(
+                coordinates.ToTable(pocket.Centre),
+                (pocketColourAudit.ExclusionRadius + 2 * PoolGeometry.Radius * coordinates.Width) / coordinates.Width,
+                "pocket-colour")).ToArray()
+            : null;
+        bool layoutUncertainOutsideRegions = layoutUncertainBeforePocketReview || obstructed || overlapping;
         return new(balls.ToArray(), uncertain, warnings.Distinct().ToArray(), watch.Elapsed.TotalMilliseconds, ordered.Length, normalized, Cv.Version, colourGains, ClothHue(pixels), obstructed, observations.ToArray())
         { Recognition = new(normalized ? "cue-normalized" : "raw", rawCircleCount, ordered.Length, rawLabels.Select(l => l.Kind).ToArray(), colourGains, ClothHue(pixels), warnings.Distinct().ToArray())
             { CueBallRecovery = new(initialCueCount, cueIndices.Length, normalizedCueCount,
@@ -548,6 +563,9 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             LayoutUncertain = layoutUncertain,
             ObstructionAudit = obstructionAudit,
             PocketColourAudit = pocketColourAudit,
+            UncertainRegions = pocketRegions,
+            LayoutUncertainOutsideRegions = pocketRegions is null ? null : layoutUncertainOutsideRegions,
+            UncertainOutsideRegions = pocketRegions is null ? null : uncertainBeforePocketReview || layoutUncertainOutsideRegions,
             BoundaryAudits = boundaryAudits.ToArray(), CandidateAudits = candidateAudits?.ToArray() ?? [] };
     }
     IlluminationTelemetry NormalizeIllumination(Mat image, CancellationToken cancellation)

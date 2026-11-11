@@ -1,6 +1,8 @@
 using System.Collections.Immutable;
 using System.Text.Json;
 using SkyEye.Companion.Hybrid;
+using SkyEye.Core;
+using SkyEye.Core.Analysis;
 using SkyEye.GameState;
 
 internal static class LiveDetectTableEventTrackerChecks
@@ -27,6 +29,12 @@ internal static class LiveDetectTableEventTrackerChecks
         OldInterruptedActivityDoesNotCreateOversizedClip();
         TransientInventoryDropoutDoesNotBecomeMovement();
         CumulativePositionChangeStartsMovementActivity();
+        FirstBaselineFormsWithBlackNotSeenAndLaterSightingCorrectsIt();
+        NotSeenBlackAtBaselineFormationIsNotAPotCandidate();
+        UncertainFirstViewWithBlackAndCueSeenStillCannotSeedBaseline();
+        PocketRegionFlagCoversOnlyItsRegion();
+        PocketRegionFlagBeforeBaselineStillWaits();
+        VisionRegionFieldsAreOmittedWhenUnset();
         Console.WriteLine("PASS Live Detect table event reducer handles baseline, activity, decoder recovery, no-pot, pot and re-rack sequences");
     }
 
@@ -110,7 +118,8 @@ internal static class LiveDetectTableEventTrackerChecks
 
     static void UncertainFirstViewCannotSeedBaseline()
     {
-        var tracker = new LiveDetectTableEventTracker();
+        // The reducer before decision D2 (kept as an option).
+        var tracker = new LiveDetectTableEventTracker(LiveDetectReducerOptions.Previous);
         var partialCounts = new LiveDetectCounts(1, 1, 0, 0, 0);
         var partialLayout = ImmutableArray.Create(
             new SettledBallPosition(BallColour.Red, .2, .3),
@@ -340,6 +349,130 @@ internal static class LiveDetectTableEventTrackerChecks
             "an interrupted obstruction without an independently observed movement signal remains clip-free");
     }
 
+    static void FirstBaselineFormsWithBlackNotSeenAndLaterSightingCorrectsIt()
+    {
+        var tracker = new LiveDetectTableEventTracker();
+        LiveDetectEventBatch baseline = default!;
+        for (int i = 0; i < 3; i++) baseline = tracker.Observe(Sample(i, BaseCounts, BaseLayout, uncertain: true));
+        Require(baseline.CheckOutcome == "settled_layout_baseline" && baseline.SettledBaseline == BaseCounts
+            && baseline.BaselineBlackNotSeen && !baseline.BaselineCueNotSeen
+            && baseline.TableEvents.Any(e => e.Message.Contains("black not seen", StringComparison.Ordinal)),
+            "D2: a stable first view without the black forms a baseline that says the black was not seen");
+
+        var withBlack = new LiveDetectCounts(1, 0, 1, 1, 0);
+        var withBlackLayout = BaseLayout.Add(new SettledBallPosition(BallColour.Black, .5, .5));
+        var batches = Enumerable.Range(3, 4).Select(i => tracker.Observe(Sample(i, withBlack, withBlackLayout))).ToArray();
+        var types = batches.SelectMany(batch => batch.TableEvents).Select(e => e.Type).ToArray();
+        Require(types.Count(type => type == "baseline_corrected") == 1
+            && !types.Any(type => type is "balls_returned_candidate" or "balls_returned_settled" or "possible_pot"
+                or "possible_pot_settled" or "table_inventory_changed_candidate" or "settled_inventory_change"
+                or "activity_started" or "movement_observed")
+            && batches[^1].SettledBaseline == withBlack && !batches[^1].BaselineBlackNotSeen
+            && batches[^1].SettledBaselineMatchesCurrent,
+            "D2: the first sighting of a not-seen black corrects the baseline and is never a ball returned");
+
+        var afterPot = Enumerable.Range(7, 3).Select(i => tracker.Observe(Sample(i, BaseCounts, BaseLayout,
+            uncertain: true, movementObserved: i == 7))).ToArray();
+        Require(afterPot.SelectMany(batch => batch.TableEvents).Any(e => e.Type == "possible_pot_settled"),
+            "D2: once corrected, the black is an ordinary ball and its later loss is a pot candidate");
+    }
+
+    static void NotSeenBlackAtBaselineFormationIsNotAPotCandidate()
+    {
+        var tracker = new LiveDetectTableEventTracker();
+        var withBlack = new LiveDetectCounts(1, 0, 1, 1, 0);
+        var withBlackLayout = BaseLayout.Add(new SettledBallPosition(BallColour.Black, .5, .5));
+        var batches = new List<LiveDetectEventBatch> { tracker.Observe(Sample(0, withBlack, withBlackLayout)) };
+        for (int i = 1; i < 7; i++) batches.Add(tracker.Observe(Sample(i, BaseCounts, BaseLayout, uncertain: true)));
+        Require(batches.Any(batch => batch.CheckOutcome == "settled_layout_baseline")
+            && batches.SelectMany(batch => batch.TableEvents).All(e => e.Type is not ("possible_pot" or "possible_pot_settled")),
+            "D2: a black seen once and then missed while the first baseline forms is not a pot candidate");
+    }
+
+    static void UncertainFirstViewWithBlackAndCueSeenStillCannotSeedBaseline()
+    {
+        var tracker = new LiveDetectTableEventTracker();
+        var counts = new LiveDetectCounts(1, 0, 1, 1, 0);
+        var layout = BaseLayout.Add(new SettledBallPosition(BallColour.Black, .5, .5));
+        LiveDetectEventBatch last = default!;
+        for (int i = 0; i < 3; i++) last = tracker.Observe(Sample(i, counts, layout, uncertain: true));
+        Require(last.CheckOutcome == "baseline_pending" && last.SettledBaseline is null,
+            "D2 only covers an unseen black or cue; other broad uncertainty still cannot seed a baseline");
+    }
+
+    static readonly ImmutableArray<LiveDetectUncertainRegion> MiddlePocket = [new(1, 0, .102)];
+
+    static void PocketRegionFlagCoversOnlyItsRegion()
+    {
+        // Red in open play, yellow at the top middle pocket mouth (table x .98, y .03).
+        var counts = new LiveDetectCounts(1, 1, 1, 1, 0);
+        var layout = ImmutableArray.Create(new SettledBallPosition(BallColour.Red, .25, .3),
+            new SettledBallPosition(BallColour.Yellow, .49, .03), new SettledBallPosition(BallColour.Black, .5, .5),
+            new SettledBallPosition(BallColour.Cue, .8, .7));
+        LiveDetectEventBatch Flagged(LiveDetectTableEventTracker tracker, int i, LiveDetectCounts c,
+            ImmutableArray<SettledBallPosition> l, bool movement = false) =>
+            tracker.Observe(Sample(i, c, l, uncertain: true, layoutUncertain: true, movementObserved: movement,
+                regions: MiddlePocket, uncertainOutsideRegions: false));
+
+        var tracker = new LiveDetectTableEventTracker();
+        for (int i = 0; i < 3; i++) tracker.Observe(Sample(i, counts, layout));
+        var held = Flagged(tracker, 3, counts, layout);
+        Require(held.CheckOutcome == "clear_unchanged" && held.SettledBaselineMatchesCurrent
+            && held.PocketRegionUncertain && held.PocketRegionBalls == 1 && held.TableEvents.IsEmpty,
+            "D1: a pocket-colour flag on an unchanged table marks only the ball at that pocket uncertain");
+
+        var moved = layout.SetItem(0, new SettledBallPosition(BallColour.Red, .35, .3));
+        var settled = Enumerable.Range(4, 3).Select(i => Flagged(tracker, i, counts, moved, movement: i == 4)).ToArray();
+        Require(settled.SelectMany(batch => batch.TableEvents).Any(e => e.Type == "no_pot_observed"),
+            "D1: the rest of the table still settles and reports events while the pocket region is flagged");
+
+        var yellowGone = new LiveDetectCounts(1, 0, 1, 1, 0);
+        var withoutYellow = moved.RemoveAt(1);
+        var waiting = Enumerable.Range(7, 4).Select(i => Flagged(tracker, i, yellowGone, withoutYellow)).ToArray();
+        Require(waiting.All(batch => batch.CheckOutcome == "layout_uncertain")
+            && waiting.SelectMany(batch => batch.TableEvents).All(e => e.Type is not ("possible_pot" or "possible_pot_settled")),
+            "D1: a red or yellow count change while the region is flagged waits; it may be the ball at the pocket");
+        var cleared = Enumerable.Range(11, 3).Select(i => tracker.Observe(Sample(i, yellowGone, withoutYellow))).ToArray();
+        Require(cleared.SelectMany(batch => batch.TableEvents).Any(e => e.Type == "possible_pot"),
+            "D1: once the region clears, the missing yellow is reported as an ordinary pot candidate");
+
+        var previous = new LiveDetectTableEventTracker(LiveDetectReducerOptions.Previous);
+        for (int i = 0; i < 3; i++) previous.Observe(Sample(i, counts, layout));
+        Require(Flagged(previous, 3, counts, layout).CheckOutcome == "layout_uncertain",
+            "with D1 off, the pocket-colour flag still voids the whole layout");
+    }
+
+    static void PocketRegionFlagBeforeBaselineStillWaits()
+    {
+        var tracker = new LiveDetectTableEventTracker();
+        LiveDetectEventBatch last = default!;
+        for (int i = 0; i < 3; i++)
+            last = tracker.Observe(Sample(i, BaseCounts, BaseLayout, uncertain: true, layoutUncertain: true,
+                regions: MiddlePocket, uncertainOutsideRegions: false));
+        Require(last.CheckOutcome == "layout_uncertain" && last.SettledBaseline is null,
+            "D1: a first baseline does not form while a pocket region is flagged (option off by default)");
+    }
+
+    static void VisionRegionFieldsAreOmittedWhenUnset()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        var plain = new VisionResult([], false, [], 0, 0, false, "check", [], 0, false, []);
+        var flagged = plain with
+        {
+            LayoutUncertain = true,
+            UncertainRegions = [new UncertainTableRegion(new Point(1, 0), .102, "pocket-colour")],
+            LayoutUncertainOutsideRegions = false,
+            UncertainOutsideRegions = false
+        };
+        string plainJson = JsonSerializer.Serialize(plain, options), flaggedJson = JsonSerializer.Serialize(flagged, options);
+        Require(!plainJson.Contains("uncertainRegions", StringComparison.Ordinal)
+            && !plainJson.Contains("OutsideRegions", StringComparison.Ordinal)
+            && flaggedJson.Contains("\"uncertainRegions\"", StringComparison.Ordinal)
+            && flaggedJson.Contains("\"layoutUncertainOutsideRegions\":false", StringComparison.Ordinal)
+            && flagged.HasUncertainLayout,
+            "D1 region fields are omitted unless set, and the whole-table layout flag stays for other consumers");
+    }
+
     static LiveDetectTableEventTracker NewBaseline()
     {
         var tracker = new LiveDetectTableEventTracker();
@@ -350,7 +483,8 @@ internal static class LiveDetectTableEventTrackerChecks
     static LiveDetectTableEventObservation Sample(int index, LiveDetectCounts counts,
         ImmutableArray<SettledBallPosition> layout, bool obstructed = false,
         bool uncertain = false, bool layoutUncertain = false, bool movementObserved = false, bool packedRack = false,
-        long sourceGeneration = 1, long mediaGeneration = 3)
+        long sourceGeneration = 1, long mediaGeneration = 3,
+        ImmutableArray<LiveDetectUncertainRegion> regions = default, bool? uncertainOutsideRegions = null)
     {
         long sourceTimeUs = index * 400_000L;
         var timeline = "event-check-timeline";
@@ -358,7 +492,7 @@ internal static class LiveDetectTableEventTrackerChecks
         return new(new("camera", timeline, sourceGeneration, calibration, ConnectionId.ToString("N")),
             ConnectionId, mediaGeneration, index + 1, Start.AddTicks(sourceTimeUs * 10), sourceTimeUs,
             timeline, calibration, counts, layout, obstructed, uncertain, layoutUncertain,
-            movementObserved, packedRack);
+            movementObserved, packedRack, regions, uncertainOutsideRegions);
     }
 
     public static void Replay(string path, Guid runId)

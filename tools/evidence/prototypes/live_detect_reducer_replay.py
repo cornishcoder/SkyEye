@@ -38,10 +38,14 @@ Not ported / approximations (see docs/claude/t3-live-detect-replay.md):
 Sub-commands:
   collect   merge every saved live-detect *.jsonl (deduplicated by run/frame)
   analyse   replay, measure, classify lost time, counterfactual, clip lookup
+  variants  replay under the D1/D2 variants (VARIANTS) and compare with HEAD; writes
+            variants-*.csv (docs/claude/d1-d2-implementation.md)
 
 Example (from the repository root):
   python3 tools/evidence/prototypes/live_detect_reducer_replay.py collect
   python3 tools/evidence/prototypes/live_detect_reducer_replay.py analyse
+  python3 tools/evidence/prototypes/live_detect_reducer_replay.py variants --movement recomputed \
+      --out work/evidence-audit/t3/d1-d2/movement-recomputed
 """
 import argparse, collections, csv, gzip, json, math, os, sys, uuid
 from functools import lru_cache
@@ -53,6 +57,26 @@ REQUIRED_STABLE_SAMPLES = 3
 MAX_CONFIRMATION_GAP_US = 5_000_000
 REQUIRED_CONFIRMATION_SAMPLES = 3
 COLOURS = ("red", "yellow", "cue", "black")
+
+# D1/D2 variants (docs/claude/d1-d2-implementation.md). Default = HEAD behaviour.
+#   d1: None (HEAD: a pocket-colour warning voids the whole layout); otherwise the warning covers
+#       only the flagged pocket regions once a baseline exists:
+#       "hold"  balls inside a flagged region are replaced by the baseline balls there;
+#       "match" the sample is used only if the balls inside the regions match the baseline's there
+#               (same colour, within .018); otherwise it waits, as HEAD;
+#       "fill"  as "match", but a baseline ball inside a region that is not re-detected is held,
+#               unless a same-colour ball outside the regions is new (it may have rolled out).
+#       "trust" the full detection is used, its balls inside the regions marked uncertain, but any
+#               red or yellow count change against the baseline waits until the regions clear (the
+#               warning is about red/yellow colour at a pocket, so such a change may be that ball).
+#   d1_first: also let a first baseline form from the full detection while a region is flagged.
+#   d2: False (HEAD) or True (a first baseline may form with the black and/or cue not seen; a later
+#       sighting of that kind is a baseline correction, never a balls-returned increase).
+VARIANT = dict(d1=None, d1_first=False, d2=False)
+# Region radius in table units (x 0..2, y 0..1): pocket exclusion (48 of 1000 analysis px) plus
+# two ball radii (PoolGeometry.Radius .027), i.e. any ball whose body can reach the exclusion.
+POCKET_REGION_RADIUS = .048 + 2 * .027
+TABLE_POCKETS = ((0.0, 0.0), (1.0, 0.0), (2.0, 0.0), (0.0, 1.0), (1.0, 1.0), (2.0, 1.0))
 
 # ---------------------------------------------------------------- reconciler
 
@@ -277,14 +301,29 @@ class EventTracker:
         self.timeline = None; self.media_gen = None; self.last_change_id = None; self.last_clear = None
         self.established = False; self.baseline_counts = None; self.baseline_layout = ()
         self.at_baseline_n = 0; self.cur_baseline_n = 0; self.activity = None
+        self.unseen = set()
 
     def observe(self, s):
         if self.timeline is not None and self.timeline != s["timeline"]: self.reset()
+        held_n = 0
+        if s.get("regions"):
+            # D1: the pocket-colour warning was the only layout trigger; it covers its regions only.
+            s = dict(s)
+            if self.established:
+                view = region_view(s["layout"], self.baseline_layout, s["regions"], VARIANT["d1"])
+                if view is None: s["layout_uncertain"] = True
+                else:
+                    s["layout"], held_n = view
+                    s["counts"] = counts_of(s["layout"])
+            elif not VARIANT["d1_first"]:
+                s["layout_uncertain"] = True
+            s["uncertain"] = s["uncertain_outside"]
         gen_changed = self.media_gen is not None and s["gen"] != self.media_gen
         self.media_gen = s["gen"]; self.timeline = s["timeline"]
         cand_eligible = not s["layout_uncertain"] and not s["obstructed"]
+        first_ok = not s["uncertain"] or (VARIANT["d2"] and (s["counts"][2] == 0 or s["counts"][3] == 0))
         eligible = (cand_eligible and is_stable_inventory(s["counts"]) and len(s["layout"]) == sum(s["counts"])
-                    and (self.established or not s["uncertain"]))
+                    and (self.established or first_ok))
         lc = s["counts"]; settled = (lc[0], lc[1], lc[3], lc[2])
         before = self.stable.snapshot()
         snap = self.stable.observe(dict(source=s["source"], t=s["t"], counts=settled if eligible else (0, 0, 0, 0),
@@ -316,7 +355,20 @@ class EventTracker:
                 add("movement_observed", before=to_live(self.baseline_counts), after=lc)
         self.last_clear = eligible
         rack_reset = False
-        c = self.cand.observe(s["t"], lc, eligible, s["rack"])
+        # D2: a sample admitted only because black/cue may be unseen never feeds the inventory
+        # candidates before the first baseline; the baseline then seeds them (below).
+        cand_ok = eligible and (self.established or not s["uncertain"])
+        c = self.cand.observe(s["t"], lc, cand_ok, s["rack"])
+        if c is not None and self.unseen:
+            b, a, kind = c
+            adj = correct_unseen(b, a, self.unseen)
+            if adj != b and kind != "Racked":
+                # D2: a first sighting of a kind not seen at the baseline is a correction, not a return.
+                if adj == a: c = None
+                else:
+                    kind = ("Decrease" if _named_decrease(adj, a) else "Increase" if _named_decrease(a, adj)
+                            else "Changed")
+                    c = (adj, a, kind)
         if c is not None:
             b, a, kind = c
             tp = {"Racked": "rack_detected", "Increase": "balls_returned_candidate",
@@ -331,6 +383,9 @@ class EventTracker:
             add("activity_ended"); self.activity = None
         if not before["established"] and snap["established"]:
             self.established = True; self.baseline_counts = snap["baseline_counts"]; self.baseline_layout = s["layout"]
+            if VARIANT["d2"] and s["uncertain"]:
+                self.unseen = {k for k, i in (("cue", 2), ("black", 3)) if self.baseline_counts[i] == 0}
+                if self.unseen: self.cand._set_baseline(lc, False)
             self.at_baseline_n = 0; adv = True; pass_type = "settled_layout_baseline"
             add("settled_layout_baseline", after=lc)
         ch = snap["last_event"]
@@ -339,18 +394,31 @@ class EventTracker:
             self.at_baseline_n = 0; adv = True
             rack = s["rack"]; had_activity = self.activity is not None
             movement = self.activity is not None and self.activity["moved"]
-            if not rack and self.activity is None: start("stable layout transition confirmed")
-            same = ch["before"] == ch["after"]
-            bl, al = to_live(ch["before"]), to_live(ch["after"])
+            before_s = ch["before"]; pure_correction = False
+            corrected = [k for k, i in (("cue", 2), ("black", 3)) if k in self.unseen and ch["after"][i] > before_s[i]]
+            if corrected:
+                adj = list(before_s)
+                for k, i in (("cue", 2), ("black", 3)):
+                    if k in corrected: adj[i] = ch["after"][i]
+                before_s = tuple(adj); self.unseen -= set(corrected); self.cand._set_baseline(lc, False)
+                add("baseline_corrected", before=to_live(ch["before"]), after=to_live(ch["after"]))
+                pass_type = "baseline_corrected"
+                rest = tuple(b for b in ch["after_layout"] if b[0] not in corrected)
+                pure_correction = (before_s == ch["after"] and not rack
+                                   and positions_compatible(ch["before_layout"], rest) if ch["before_layout"] and rest else False)
+            if not rack and self.activity is None and not pure_correction: start("stable layout transition confirmed")
+            same = before_s == ch["after"]
+            bl, al = to_live(before_s), to_live(ch["after"])
             dec = any(al[i] < bl[i] for i in range(4)); inc = any(al[i] > bl[i] for i in range(4))
             tp = ("rack_layout_settled" if rack else
                   ("no_pot_observed" if movement else "settled_layout_change_unclassified" if had_activity
                    else "layout_changed_without_activity_boundary") if same else
                   "possible_pot_settled" if dec and not inc else "balls_returned_settled" if inc and not dec
                   else "settled_inventory_change")
-            pass_type = tp
-            add(tp, before=bl, after=al, moved=ch["moved"])
-            if self.activity is not None:
+            if not pure_correction:
+                pass_type = tp
+                add(tp, before=bl, after=al, moved=ch["moved"])
+            if self.activity is not None and not pure_correction:
                 add("activity_ended", before=bl, after=al, moved=ch["moved"])
                 if not rack and tp in ("no_pot_observed", "possible_pot_settled", "settled_inventory_change") and (
                         not self.activity["suppressed"] or tp == "possible_pot_settled"):
@@ -381,9 +449,69 @@ class EventTracker:
         else: outcome = "inventory_change_pending"
         matches = eligible and self.cur_baseline_n >= REQUIRED_STABLE_SAMPLES
         return dict(outcome=outcome, events=events, eligible=eligible, matches=matches, clip=clip,
+                    lu_eff=s["layout_uncertain"], held=held_n, unseen="+".join(sorted(self.unseen)),
                     baseline_counts=self.baseline_counts,
                     stable_diag=self.stable.diag, established=self.established,
                     activity=self.activity is not None, cur_n=self.cur_baseline_n)
+
+def counts_of(layout):
+    cnt = collections.Counter(k for k, _, _ in layout)
+    return (cnt["red"], cnt["yellow"], cnt["black"], cnt["cue"], 0)
+
+
+def in_regions(xh, y, regions):
+    """Layout x is table x / 2; regions are in table units (x 0..2)."""
+    return any(math.hypot(2 * xh - rx, y - ry) <= POCKET_REGION_RADIUS for rx, ry in regions)
+
+
+def _match(cur, base):
+    """Greedy same-colour matching within .018 (layout units). Returns (unmatched cur, unmatched base)."""
+    left = list(base); extra = []
+    for c in cur:
+        best, bd = None, MOVEMENT_THRESHOLD
+        for j, b in enumerate(left):
+            if b[0] != c[0]: continue
+            d = math.hypot(b[1] - c[1], b[2] - c[2])
+            if d <= bd: best, bd = j, d
+        if best is None: extra.append(c)
+        else: left.pop(best)
+    return extra, left
+
+
+def region_view(layout, baseline, regions, mode):
+    """D1 view of a sample whose only layout flag is a pocket region. None = wait (treat as uncertain)."""
+    if mode == "hold": return hold_regions(layout, baseline, regions)
+    if mode == "trust":
+        n_in = sum(1 for b in layout if in_regions(b[1], b[2], regions))
+        return (layout, n_in) if counts_of(layout)[:2] == counts_of(baseline)[:2] else None
+    c_in = [b for b in layout if in_regions(b[1], b[2], regions)]
+    c_out = [b for b in layout if not in_regions(b[1], b[2], regions)]
+    b_in = [b for b in baseline if in_regions(b[1], b[2], regions)]
+    b_out = [b for b in baseline if not in_regions(b[1], b[2], regions)]
+    extra, missing = _match(c_in, b_in)
+    if extra: return None
+    if not missing: return layout, 0
+    if mode == "match": return None
+    new_out, _ = _match(c_out, b_out)
+    if any(n[0] == m[0] for n in new_out for m in missing): return None
+    return tuple(c_out + c_in + missing), len(missing)
+
+
+def hold_regions(layout, baseline, regions):
+    """D1 hold: current balls outside the flagged regions, plus the baseline balls inside them.
+    A current ball within .018 of a held ball of the same colour is the same ball (edge jitter)."""
+    held = [b for b in baseline if in_regions(b[1], b[2], regions)]
+    cur = [b for b in layout if not in_regions(b[1], b[2], regions)
+           and not any(h[0] == b[0] and math.hypot(h[1] - b[1], h[2] - b[2]) <= MOVEMENT_THRESHOLD for h in held)]
+    return tuple(cur + held), len(held)
+
+
+def correct_unseen(before, after, unseen):
+    """Live counts (r, y, black, cue, other): raise a not-seen kind in 'before' to its later sighting."""
+    adj = list(before)
+    for k, i in (("black", 2), ("cue", 3)):
+        if k in unseen and after[i] > before[i]: adj[i] = after[i]
+    return tuple(adj)
 
 # ---------------------------------------------------------------- collection
 
@@ -470,11 +598,18 @@ def build_sample(fr, balls_override=None):
         cnt = collections.Counter(COLOUR_ALIASES.get(k, "other") for k, _, _ in balls)
         lc = (cnt["red"], cnt["yellow"], cnt["black"], cnt["cue"], cnt["other"])
     lu = fr.get("layoutUncertain")
+    regions = ()
+    if VARIANT["d1"] and balls_override is None and is_region_only(fr):
+        w = fr.get("pocketAnalysisWidth") or 800
+        flagged = [pocket_xy(px, py, w) for nr, _, _, _, px, py in fr.get("pockets") or [] if nr and px is not None]
+        # Schema < 11 logs carry no per-pocket audit: approximate with all six pockets.
+        regions = tuple(flagged) if flagged else TABLE_POCKETS
     return dict(source=(fr.get("cameraConnectionId"), fr.get("timeline"), fr.get("calibrationId")),
+                regions=regions, uncertain_outside=(lc[2] != 1 or lc[3] != 1),
                 t=int(fr.get("sourceTimeUs") or 0), gen=fr.get("mediaGeneration"), frame=fr.get("frameId"),
                 timeline=fr.get("timeline"), counts=lc, layout=build_layout(balls),
                 obstructed=bool(fr.get("obstructed")), uncertain=bool(fr.get("uncertain")),
-                layout_uncertain=False if fr.get("_lu_off") else bool(fr.get("uncertain")) if lu is None else bool(lu),
+                layout_uncertain=False if (fr.get("_lu_off") or regions) else bool(fr.get("uncertain")) if lu is None else bool(lu),
                 movement=(fr.get("_moved") if MOVEMENT_MODE == "recomputed" else fr.get("spatiallyCompatible") is False),
                 rack=bool(fr.get("packedRackEvidence")))
 
@@ -538,7 +673,7 @@ def flag_reason(fr):
 
 def quality(fr, s, r, established_before):
     if s["obstructed"]: return "obstructed", "obstructed"
-    if s["layout_uncertain"]: return "layout_uncertain", flag_reason(fr)
+    if r.get("lu_eff", s["layout_uncertain"]): return "layout_uncertain", flag_reason(fr)
     if r["eligible"]: return "usable", ""
     if not is_stable_inventory(s["counts"]) or len(s["layout"]) != sum(s["counts"]):
         return "invalid_inventory", "empty" if sum(s["counts"]) == 0 else "unknown_or_range"
@@ -1032,6 +1167,13 @@ def is_pocket_only(f):
             and not any(int(f.get(k) or 0) > 1 for k in ("black", "cue")))
 
 
+def is_region_only(f):
+    """D1: the pocket-colour warning is the only layout-uncertain trigger (as is_pocket_only), and no
+    colour-reference warning with a cue present (that also sets layoutUncertain in VisionAnalyzer)."""
+    ws = f.get("warnings") or []
+    return is_pocket_only(f) and not (any("No validated burst colour" in w for w in ws) and int(f.get("cue") or 0) > 0)
+
+
 def pocket_xy(px, py, w):
     """Pocket audit centre (analysis pixels, portrait) -> logged ball coordinates (x 0..2, y 0..1).
     Mapping chosen empirically: for every pocket with supportedBallBodies > 0 in the saved logs a
@@ -1089,9 +1231,143 @@ def pocket_colour(runs):
                       nearest_ball_by_fixture=dict(near_by_exp.most_common()))
 
 
+# ---------------------------------------------------------------- D1/D2 variants
+
+VARIANTS = [("head", dict(d1=None, d1_first=False, d2=False)),
+            ("d1_hold", dict(d1="hold", d1_first=False, d2=False)),
+            ("d1_match", dict(d1="match", d1_first=False, d2=False)),
+            ("d1_fill", dict(d1="fill", d1_first=False, d2=False)),
+            ("d1_fill_first", dict(d1="fill", d1_first=True, d2=False)),
+            ("d1_trust", dict(d1="trust", d1_first=False, d2=False)),
+            ("d1_trust_first", dict(d1="trust", d1_first=True, d2=False)),
+            ("d2", dict(d1=None, d1_first=False, d2=True)),
+            ("d1_match+d2", dict(d1="match", d1_first=False, d2=True)),
+            ("d1_fill+d2", dict(d1="fill", d1_first=False, d2=True)),
+            ("d1_fill_first+d2", dict(d1="fill", d1_first=True, d2=True)),
+            ("d1_trust+d2", dict(d1="trust", d1_first=False, d2=True)),
+            ("d1_trust_first+d2", dict(d1="trust", d1_first=True, d2=True))]
+INVENTORY_TYPES = {"possible_pot", "possible_pot_settled", "balls_returned_candidate", "balls_returned_settled",
+                   "table_inventory_changed_candidate", "settled_inventory_change"}
+# Pocket-lip / staged fixture runs (code59-code70): the table was set up and left; any inventory
+# event in them is suspect unless a hand was on the table.
+FIXTURE_TAGS = {"code59", "code61", "code62", "code63", "code65", "code66", "code70"}
+
+
+def variants(merged, outdir):
+    """Replay every run under each D1/D2 variant; report lost still time by cause, baselines and
+    events, and list every inventory event a variant adds or removes relative to HEAD."""
+    global VARIANT
+    runs = sorted(load(merged), key=lambda r: r["frames"][0]["recordedAt"] if r["frames"] else "")
+    os.makedirs(outdir, exist_ok=True)
+    sum_rows, cause_rows, run_rows, new_rows = [], [], [], []
+    head_events = {}
+    for name, cfg in VARIANTS:
+        VARIANT = dict(cfg)
+        globals()["VARIANT"] = VARIANT
+        tot = collections.Counter(); cls_tot = collections.Counter(); ev_tot = collections.Counter()
+        still_tot = 0.0; runs_with_baseline = 0; held_s = 0.0; unseen_s = 0.0; region_s = 0.0
+        fixture = collections.Counter()
+        for run in runs:
+            frames = run["frames"]
+            if not frames: continue
+            rid = run["runId"]; tag, _ = run_label(run); exp = expected_for(rid)
+            if MOVEMENT_MODE == "recomputed": recompute_movement(frames)
+            res = replay(frames)
+            dts = durations(frames); segs = still_segments(frames)
+            cause, _ = cause_trace(frames, res, segs, exp)
+            in_seg = set(i for sg in segs for i in sg)
+            seg_of = {i: k for k, sg in enumerate(segs) for i in sg}
+            still = sum(dts[i] for i in in_seg); still_tot += still
+            lost = collections.Counter()
+            for i in in_seg:
+                if cause[i] is not None: lost[cause[i]] += dts[i]
+            tot.update(lost)
+            for (c, sub), v in lost.items(): cls_tot[c] += v
+            held_s += sum(dts[i] for i, r in enumerate(res) if r.get("held"))
+            unseen_s += sum(dts[i] for i, r in enumerate(res) if r.get("unseen") and r["established"])
+            region_s += sum(dts[i] for i, f in enumerate(frames) if build_sample(f)["regions"])
+            evs = [(e["type"], e["t"], e["frame"], e["before"], e["after"], i) for i, r in enumerate(res) for e in r["events"]]
+            ev_tot.update(e[0] for e in evs)
+            if tag in FIXTURE_TAGS:
+                fixture.update(e[0] for e in evs if e[0] in ("movement_observed", "no_pot_observed") or e[0] in INVENTORY_TYPES)
+                fixture["clips"] += sum(1 for r in res if r["clip"])
+            nb = sum(1 for e in evs if e[0] == "settled_layout_baseline")
+            runs_with_baseline += 1 if nb else 0
+            run_rows.append(dict(variant=name, run_id=rid, tag=tag, black_on_table=exp["black"], cue_on_table=exp["cue"],
+                                 still_s=round(still, 1), lost_s=round(sum(lost.values()), 1),
+                                 lost_pocket_flag_s=round(lost[("flags", "layout_uncertain:pocket_colour")], 1),
+                                 baselines=nb, first_baseline_after=next((e[3:5] for e in evs if e[0] == "settled_layout_baseline"), ""),
+                                 inventory_events=sum(1 for e in evs if e[0] in INVENTORY_TYPES),
+                                 corrections=sum(1 for e in evs if e[0] == "baseline_corrected"),
+                                 events=";".join("%s=%d" % kv for kv in sorted(collections.Counter(e[0] for e in evs).items()))))
+            key = lambda e: (e[0], e[1])
+            if name == "head":
+                head_events[rid] = collections.Counter(key(e) for e in evs)
+            else:
+                base = head_events.get(rid, collections.Counter())
+                mine = collections.Counter(key(e) for e in evs)
+                for e in evs:
+                    if e[0] in INVENTORY_TYPES | {"baseline_corrected"} and mine[key(e)] > base[key(e)]:
+                        i = e[5]
+                        new_rows.append(dict(variant=name, change="added", run_id=rid, tag=tag, fixture=tag in FIXTURE_TAGS,
+                                             type=e[0], source_us=e[1], frame=e[2], before=e[3], after=e[4],
+                                             in_still_segment=i in in_seg, obstructed_nearby=any(frames[j].get("obstructed") for j in range(max(0, i - 5), i + 1)),
+                                             movement_logged_nearby=any(frames[j].get("spatiallyCompatible") is False for j in range(max(0, i - 5), i + 1)),
+                                             black_on_table=exp["black"], cue_on_table=exp["cue"]))
+                head_list = [x for x in base.elements()]
+                for (tp, t) in head_list:
+                    if tp in INVENTORY_TYPES and mine[(tp, t)] < base[(tp, t)]:
+                        new_rows.append(dict(variant=name, change="removed", run_id=rid, tag=tag, fixture=tag in FIXTURE_TAGS,
+                                             type=tp, source_us=t, frame="", before="", after="", in_still_segment="",
+                                             obstructed_nearby="", movement_logged_nearby="", black_on_table=exp["black"], cue_on_table=exp["cue"]))
+        for (c, sub), v in sorted(tot.items()):
+            cause_rows.append(dict(variant=name, cls=c, sub=sub, seconds=round(v, 1)))
+        sum_rows.append(dict(variant=name, still_s=round(still_tot, 1), lost_s=round(sum(tot.values()), 1),
+                             **{"lost_" + c + "_s": round(cls_tot[c], 1) for c in ("flags", "persistent_miss", "flicker", "absent_or_missed", "other")},
+                             lost_pocket_flag_s=round(tot[("flags", "layout_uncertain:pocket_colour")], 1),
+                             runs_with_baseline=runs_with_baseline, baselines=ev_tot["settled_layout_baseline"],
+                             inventory_events=sum(v for k, v in ev_tot.items() if k in INVENTORY_TYPES),
+                             possible_pot=ev_tot["possible_pot"], possible_pot_settled=ev_tot["possible_pot_settled"],
+                             balls_returned=ev_tot["balls_returned_candidate"] + ev_tot["balls_returned_settled"],
+                             inventory_changed=ev_tot["table_inventory_changed_candidate"] + ev_tot["settled_inventory_change"],
+                             corrections=ev_tot["baseline_corrected"], movement_observed=ev_tot["movement_observed"],
+                             no_pot_observed=ev_tot["no_pot_observed"],
+                             held_ball_s=round(held_s, 1), baseline_with_unseen_kind_s=round(unseen_s, 1),
+                             region_only_flag_s=round(region_s, 1),
+                             fixture_movement_observed=fixture["movement_observed"], fixture_no_pot_observed=fixture["no_pot_observed"],
+                             fixture_inventory_events=sum(v for k, v in fixture.items() if k in INVENTORY_TYPES),
+                             fixture_clips=fixture["clips"]))
+    VARIANT.update(d1=None, d1_first=False, d2=False)
+    # Pair an added event with a removed one of the same type in the same run within 5 s: that is
+    # the same event at a shifted time, not a new one.
+    groups = collections.defaultdict(list)
+    for r in new_rows: groups[(r["variant"], r["run_id"], r["type"])].append(r)
+    for rs in groups.values():
+        removed = [r for r in rs if r["change"] == "removed"]
+        for r in rs:
+            if r["change"] != "added": continue
+            m = next((x for x in removed if abs(int(x["source_us"]) - int(r["source_us"])) <= 5_000_000), None)
+            r["paired_with_head_event"] = m is not None
+            if m is not None: removed.remove(m); m["paired_with_head_event"] = True
+    for row in sum_rows:
+        mine = [r for r in new_rows if r["variant"] == row["variant"]]
+        row["unpaired_added_inventory_events"] = sum(1 for r in mine if r["change"] == "added" and not r.get("paired_with_head_event") and r["type"] in INVENTORY_TYPES)
+        row["unpaired_added_in_fixture_runs"] = sum(1 for r in mine if r["change"] == "added" and not r.get("paired_with_head_event") and r["type"] in INVENTORY_TYPES and r["fixture"])
+        row["unpaired_removed_inventory_events"] = sum(1 for r in mine if r["change"] == "removed" and not r.get("paired_with_head_event"))
+    def wcsv(name, rows):
+        if not rows: return
+        keys = list(dict.fromkeys(k for r in rows for k in r))
+        with open(os.path.join(outdir, name), "w", newline="") as fh:
+            w = csv.DictWriter(fh, fieldnames=keys); w.writeheader(); w.writerows(rows)
+    wcsv("variants-summary.csv", sum_rows); wcsv("variants-lost-by-cause.csv", cause_rows)
+    wcsv("variants-per-run.csv", run_rows); wcsv("variants-event-diff.csv", new_rows)
+    for r in sum_rows: print(r)
+    print("event diff rows:", collections.Counter((r["variant"], r["change"], r["type"], r["fixture"], r["in_still_segment"]) for r in new_rows))
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("cmd", choices=["collect", "analyse"])
+    ap.add_argument("cmd", choices=["collect", "analyse", "variants"])
     ap.add_argument("--merged", default="work/evidence-audit/t3/live-detect-merged.jsonl.gz")
     ap.add_argument("--out", default="work/evidence-audit/t3")
     ap.add_argument("--inventory", default="work/evidence-audit/inventory.csv")
@@ -1100,3 +1376,4 @@ if __name__ == "__main__":
     a = ap.parse_args()
     MOVEMENT_MODE = a.movement
     if a.cmd == "analyse": analyse(a.merged, a.out, a.inventory)
+    if a.cmd == "variants": variants(a.merged, a.out)

@@ -324,14 +324,20 @@ public sealed partial class ShellSession
                     && counts == new LiveDetectCounts(7, 7, 1, 1, 0);
                 var evidenceSource = new EvidenceSource(source.CameraIdentity, observation.Timeline,
                     state.Generation + 1, calibrationId, source.ConnectionId.ToString("N"));
+                // D1: pass pocket regions only when they alone set the layout flag.
+                var uncertainRegions = vision.HasUncertainLayout && !vision.Obstructed
+                    && vision.UncertainRegions is { Length: > 0 } regions && vision.LayoutUncertainOutsideRegions == false
+                    ? regions.Select(region => new LiveDetectUncertainRegion(region.Centre.X, region.Centre.Y, region.Radius)).ToImmutableArray()
+                    : ImmutableArray<LiveDetectUncertainRegion>.Empty;
                 var eventBatch = eventTracker.Observe(new LiveDetectTableEventObservation(evidenceSource,
                     source.ConnectionId, receipt.MediaGeneration, receipt.FrameId, observation.CapturedAt,
                     sourceTimeUs, observation.Timeline, calibrationId, counts, layout,
                     vision.Obstructed, vision.Uncertain, vision.HasUncertainLayout,
-                    observation.Change is { SpatiallyCompatible: false }, rackEvidence));
+                    observation.Change is { SpatiallyCompatible: false }, rackEvidence,
+                    uncertainRegions, vision.UncertainOutsideRegions));
                 if (eventBatch.SettledBaseline is { } settledBaseline)
                 {
-                    liveDetectLastSettledInventory = $"{settledBaseline.Total} · {settledBaseline.Summary}";
+                    liveDetectLastSettledInventory = $"{settledBaseline.Total} · {LiveDetectInventoryReadoutPolicy.BaselineSummary(settledBaseline, eventBatch.BaselineBlackNotSeen, eventBatch.BaselineCueNotSeen)}";
                     liveDetectLastSettledAt = eventBatch.SettledBaselineAt;
                 }
                 else
@@ -351,6 +357,13 @@ public sealed partial class ShellSession
                     "inventory_change_pending" => "clear · inventory changing",
                     _ => checkOutcome.Replace('_', ' ')
                 };
+                if (eventBatch.PocketRegionUncertain)
+                    quality += eventBatch.PocketRegionBalls switch
+                    {
+                        0 => " · pocket mouth uncertain",
+                        1 => " · 1 ball at a pocket mouth uncertain",
+                        var balls => $" · {balls} balls at a pocket mouth uncertain"
+                    };
                 foreach (var tableEvent in eventBatch.TableEvents)
                 {
                     if (tableEvent.ActivityId is not { } activityId) continue;
@@ -426,7 +439,7 @@ public sealed partial class ShellSession
                     var settledCurrentInventory = LiveDetectInventoryReadoutPolicy.SettledCurrentInventory(
                         currentInventoryClear, eventBatch);
                     liveDetectInventory = settledCurrentInventory is { } settled
-                        ? $"Settled current state · {settled.Total} detected · {settled.Summary} · confirmed by this frame · frame age {ageSeconds:0.0}s"
+                        ? $"Settled current state · {settled.Total} detected · {LiveDetectInventoryReadoutPolicy.BaselineSummary(settled, eventBatch.BaselineBlackNotSeen, eventBatch.BaselineCueNotSeen)} · confirmed by this frame · frame age {ageSeconds:0.0}s"
                         : currentInventoryClear && checkOutcome == "clear_unchanged"
                             && eventBatch.SettledBaseline is not null
                             ? $"Fresh clear frame matches the last settled layout · {counts.Total} current detections · {counts.Summary} · stillness check {eventBatch.BaselineMatchSamples}/{StableTableChangeTracker.RequiredStableSamples} · frame age {ageSeconds:0.0}s"

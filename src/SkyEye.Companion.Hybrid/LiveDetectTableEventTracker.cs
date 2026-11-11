@@ -8,10 +8,39 @@ internal sealed record LiveDetectActivity(Guid Id, string Timeline, long StartSo
     DateTimeOffset StartedAt, string StartReason, bool MovementObserved = false,
     bool ShotClipSuppressed = false);
 
+/// <remarks><paramref name="UncertainRegions"/> is set only when <paramref name="LayoutUncertain"/> comes
+/// from those regions alone; <paramref name="UncertainOutsideRegions"/> is the broad flag the rest of
+/// the table would have had without them.</remarks>
 internal sealed record LiveDetectTableEventObservation(EvidenceSource Source, Guid CameraConnectionId,
     long MediaGeneration, long FrameId, DateTimeOffset CapturedAt, long SourceTimeUs, string Timeline,
     string CalibrationId, LiveDetectCounts Counts, ImmutableArray<SettledBallPosition> Layout,
-    bool Obstructed, bool Uncertain, bool LayoutUncertain, bool MovementObserved, bool PackedRack);
+    bool Obstructed, bool Uncertain, bool LayoutUncertain, bool MovementObserved, bool PackedRack,
+    ImmutableArray<LiveDetectUncertainRegion> UncertainRegions = default, bool? UncertainOutsideRegions = null);
+
+/// <summary>A doubtful table area in table units (x 0..2, y 0..1); layout positions use x / 2.</summary>
+internal readonly record struct LiveDetectUncertainRegion(double X, double Y, double Radius)
+{
+    public bool Contains(SettledBallPosition ball)
+    {
+        double dx = ball.X * 2 - X, dy = ball.Y - Y;
+        return dx * dx + dy * dy <= Radius * Radius;
+    }
+}
+
+/// <summary>
+/// Reducer choices for decisions D1 and D2 (docs/claude/d1-d2-implementation.md).
+/// D1: a pocket-colour flag covers only its pocket regions once a baseline exists.
+/// D2: a first baseline may form with the black or cue not seen; a later sighting corrects it.
+/// A first baseline formed while a pocket region is flagged stays off: in the saved logs it added
+/// false movement and no-pot clips on static fixtures.
+/// </summary>
+internal sealed record LiveDetectReducerOptions(bool PocketColourRegionOnly = true,
+    bool FirstBaselineWithPocketRegion = false, bool FirstBaselineWithoutBlackOrCue = true)
+{
+    public static LiveDetectReducerOptions Default { get; } = new();
+    /// <summary>The reducer as it behaved before D1 and D2.</summary>
+    public static LiveDetectReducerOptions Previous { get; } = new(false, false, false);
+}
 
 internal sealed record LiveDetectEventBatch(string CheckOutcome,
     ImmutableArray<LiveDetectLogTableEvent> TableEvents, LiveDetectActivity? ClipActivity,
@@ -20,6 +49,13 @@ internal sealed record LiveDetectEventBatch(string CheckOutcome,
     bool SettledBaselineMatchesCurrent, int BaselineMatchSamples)
 {
     public IEnumerable<string> Messages => TableEvents.Select(tableEvent => tableEvent.Message);
+    /// <summary>D2: the settled baseline formed without the black seen; not evidence it is off the table.</summary>
+    public bool BaselineBlackNotSeen { get; init; }
+    /// <summary>D2: the settled baseline formed without the cue ball seen.</summary>
+    public bool BaselineCueNotSeen { get; init; }
+    /// <summary>D1: only a pocket region is flagged; balls inside it are individually uncertain.</summary>
+    public bool PocketRegionUncertain { get; init; }
+    public int PocketRegionBalls { get; init; }
 }
 
 /// <summary>
@@ -28,6 +64,7 @@ internal sealed record LiveDetectEventBatch(string CheckOutcome,
 /// </summary>
 internal sealed class LiveDetectTableEventTracker
 {
+    readonly LiveDetectReducerOptions options;
     LiveDetectCountCandidateTracker candidateTracker = new();
     StableTableChangeTracker stableLayoutTracker = new();
     string? timeline;
@@ -41,6 +78,10 @@ internal sealed class LiveDetectTableEventTracker
     int stableAtBaselineSamples;
     int currentBaselineStableSamples;
     LiveDetectActivity? activity;
+    bool blackNotSeen, cueNotSeen;
+
+    public LiveDetectTableEventTracker(LiveDetectReducerOptions? options = null) =>
+        this.options = options ?? LiveDetectReducerOptions.Default;
 
     public void Reset()
     {
@@ -57,6 +98,7 @@ internal sealed class LiveDetectTableEventTracker
         stableAtBaselineSamples = 0;
         currentBaselineStableSamples = 0;
         activity = null;
+        blackNotSeen = cueNotSeen = false;
     }
 
     public LiveDetectEventBatch Observe(LiveDetectTableEventObservation sample)
@@ -69,14 +111,37 @@ internal sealed class LiveDetectTableEventTracker
         mediaGeneration = sample.MediaGeneration;
         timeline = sample.Timeline;
 
-        bool candidateEligible = !sample.LayoutUncertain && !sample.Obstructed;
+        // D1: a pocket-colour flag that is the only layout flag covers its pocket regions only. The
+        // balls inside them are individually uncertain; a red or yellow count change against the
+        // baseline, which such a ball could explain, waits until the regions clear.
+        bool pocketRegionOnly = options.PocketColourRegionOnly && sample.LayoutUncertain && !sample.Obstructed
+            && !sample.UncertainRegions.IsDefaultOrEmpty;
+        bool layoutUncertain = sample.LayoutUncertain, uncertain = sample.Uncertain;
+        int pocketRegionBalls = 0;
+        if (pocketRegionOnly)
+        {
+            uncertain = sample.UncertainOutsideRegions ?? sample.Uncertain;
+            layoutUncertain = stableBaselineEstablished
+                ? baselineCounts is not { } trusted
+                    || trusted.Reds != sample.Counts.Reds || trusted.Yellows != sample.Counts.Yellows
+                : !options.FirstBaselineWithPocketRegion;
+            pocketRegionBalls = sample.Layout.IsDefault ? 0
+                : sample.Layout.Count(ball => sample.UncertainRegions.Any(region => region.Contains(ball)));
+        }
+
+        bool candidateEligible = !layoutUncertain && !sample.Obstructed;
         // A broad uncertain result can describe a real post-shot cue/black absence,
-        // so keep accepting it after a trusted baseline. It must not seed the first
-        // baseline: without prior state, a missed cue or black is indistinguishable
-        // from a genuine incomplete table.
+        // so keep accepting it after a trusted baseline. Without prior state a missed
+        // cue or black is indistinguishable from a genuine incomplete table, so it may
+        // seed the first baseline only under D2, recorded as "not seen", never absent.
+        bool firstBaselineAllowed = !uncertain || options.FirstBaselineWithoutBlackOrCue
+            && (sample.Counts.Black == 0 || sample.Counts.Cue == 0);
         bool stableSampleEligible = candidateEligible && IsStableInventory(sample.Counts)
             && sample.Layout.Length == sample.Counts.Total
-            && (stableBaselineEstablished || !sample.Uncertain);
+            && (stableBaselineEstablished || firstBaselineAllowed);
+        // Before a baseline only certain samples feed inventory candidates, so an
+        // unseen black or cue cannot become a pot candidate.
+        bool candidateSampleEligible = stableSampleEligible && (stableBaselineEstablished || !uncertain);
         var settledCounts = new SettledTableCounts(sample.Counts.Reds, sample.Counts.Yellows,
             sample.Counts.Cue, sample.Counts.Black);
         var stableBefore = stableLayoutTracker.Snapshot;
@@ -188,8 +253,8 @@ internal sealed class LiveDetectTableEventTracker
         // Inventory candidates need the same complete, non-empty support as the
         // settled-layout tracker. A clear-looking zero-detection frame is not proof
         // that every ball was potted and must not create a count-decrease event.
-        if (candidateTracker.Observe(sample.SourceTimeUs, sample.Counts, stableSampleEligible,
-            sample.PackedRack) is { } candidate)
+        if (CorrectNotSeen(candidateTracker.Observe(sample.SourceTimeUs, sample.Counts, candidateSampleEligible,
+            sample.PackedRack)) is { } candidate)
         {
             string candidateType = candidate.Kind switch
             {
@@ -222,8 +287,14 @@ internal sealed class LiveDetectTableEventTracker
             baselineCapturedAt = sample.CapturedAt;
             stableAtBaselineSamples = 0;
             baselineAdvancedThisSample = true;
+            if (options.FirstBaselineWithoutBlackOrCue && uncertain)
+            {
+                blackNotSeen = sample.Counts.Black == 0;
+                cueNotSeen = sample.Counts.Cue == 0;
+                if (blackNotSeen || cueNotSeen) candidateTracker.SeedBaseline(sample.Counts);
+            }
             passEventType = "settled_layout_baseline";
-            Add("settled_layout_baseline", $"Stable table baseline established · {sample.Counts.Summary}.",
+            Add("settled_layout_baseline", $"Stable table baseline established · {LiveDetectInventoryReadoutPolicy.BaselineSummary(sample.Counts, blackNotSeen, cueNotSeen)}.",
                 after: sample.Counts, afterLayout: sample.Layout);
         }
 
@@ -239,10 +310,39 @@ internal sealed class LiveDetectTableEventTracker
             bool settledRack = sample.PackedRack;
             bool activityObservedBeforeSettlement = activity is not null;
             bool movementObserved = activity is { MovementObserved: true };
-            if (!settledRack && activity is null)
+            // D2: the first sighting of a kind the baseline formed without corrects the baseline;
+            // it is never a ball returned to the table.
+            var settledBefore = settledChange.Before;
+            bool blackCorrected = blackNotSeen && settledChange.After.BlackBalls > settledBefore.BlackBalls;
+            bool cueCorrected = cueNotSeen && settledChange.After.CueBalls > settledBefore.CueBalls;
+            bool pureCorrection = false;
+            if (blackCorrected || cueCorrected)
+            {
+                settledBefore = settledBefore with
+                {
+                    BlackBalls = blackCorrected ? settledChange.After.BlackBalls : settledBefore.BlackBalls,
+                    CueBalls = cueCorrected ? settledChange.After.CueBalls : settledBefore.CueBalls
+                };
+                blackNotSeen &= !blackCorrected;
+                cueNotSeen &= !cueCorrected;
+                // The candidate tracker may confirm the same sighting later; it must not see a return.
+                candidateTracker.SeedBaseline(sample.Counts);
+                var otherBalls = settledChange.AfterLayout.Where(ball =>
+                    !(blackCorrected && ball.Colour == BallColour.Black || cueCorrected && ball.Colour == BallColour.Cue))
+                    .ToImmutableArray();
+                pureCorrection = !settledRack && settledBefore == settledChange.After
+                    && SettledLayoutReconciler.PositionsCompatible(settledChange.BeforeLayout, otherBalls);
+                string seen = blackCorrected && cueCorrected ? "black and cue ball" : blackCorrected ? "black" : "cue ball";
+                passEventType = "baseline_corrected";
+                Add("baseline_corrected", $"Baseline corrected · {seen} now seen; it was not seen when the baseline formed, so it is not a ball returned to the table.",
+                    activity?.Id, ToLiveDetectCounts(settledChange.Before), ToLiveDetectCounts(settledChange.After),
+                    settledChange.BeforeLayoutSourceTimeUs ?? settledChange.BeforeSourceTimeUs,
+                    beforeLayout: settledChange.BeforeLayout, afterLayout: settledChange.AfterLayout);
+            }
+            if (!settledRack && activity is null && !pureCorrection)
                 StartActivity("stable layout transition confirmed");
-            bool sameInventory = settledChange.Before == settledChange.After;
-            var beforeCounts = ToLiveDetectCounts(settledChange.Before);
+            bool sameInventory = settledBefore == settledChange.After;
+            var beforeCounts = ToLiveDetectCounts(settledBefore);
             var afterCounts = ToLiveDetectCounts(settledChange.After);
             bool countDecreased = beforeCounts is { } beforeInventory && afterCounts is { } afterInventory
                 && (afterInventory.Reds < beforeInventory.Reds || afterInventory.Yellows < beforeInventory.Yellows
@@ -256,7 +356,7 @@ internal sealed class LiveDetectTableEventTracker
                 : countDecreased && !countIncreased ? "possible_pot_settled"
                 : countIncreased && !countDecreased ? "balls_returned_settled"
                 : "settled_inventory_change";
-            passEventType = settledType;
+            if (!pureCorrection) passEventType = settledType;
             string settledMessage = settledRack
                 ? "Packed rack reached a stable layout; inventory baseline advanced."
                 : sameInventory
@@ -271,16 +371,17 @@ internal sealed class LiveDetectTableEventTracker
                         : countIncreased && !countDecreased
                             ? $"Settled inventory increase · balls returned; {BuildCountSummary(settledChange.After)}."
                             : $"Settled table change · {BuildCountSummary(settledChange.After)}.";
-            Add(settledType, settledMessage, activity?.Id,
-                ToLiveDetectCounts(settledChange.Before), ToLiveDetectCounts(settledChange.After),
-                settledChange.BeforeLayoutSourceTimeUs ?? settledChange.BeforeSourceTimeUs,
-                settledChange.MovedBallCount, settledChange.LargestMovement,
-                settledChange.BeforeLayout, settledChange.AfterLayout);
+            if (!pureCorrection)
+                Add(settledType, settledMessage, activity?.Id,
+                    ToLiveDetectCounts(settledBefore), ToLiveDetectCounts(settledChange.After),
+                    settledChange.BeforeLayoutSourceTimeUs ?? settledChange.BeforeSourceTimeUs,
+                    settledChange.MovedBallCount, settledChange.LargestMovement,
+                    settledChange.BeforeLayout, settledChange.AfterLayout);
 
-            if (activity is { } settledActivity)
+            if (!pureCorrection && activity is { } settledActivity)
             {
                 Add("activity_ended", settledMessage, settledActivity.Id,
-                    ToLiveDetectCounts(settledChange.Before), ToLiveDetectCounts(settledChange.After),
+                    ToLiveDetectCounts(settledBefore), ToLiveDetectCounts(settledChange.After),
                     settledChange.BeforeLayoutSourceTimeUs ?? settledChange.BeforeSourceTimeUs,
                     settledChange.MovedBallCount, settledChange.LargestMovement,
                     settledChange.BeforeLayout, settledChange.AfterLayout);
@@ -335,7 +436,7 @@ internal sealed class LiveDetectTableEventTracker
         }
 
         string checkOutcome = sample.Obstructed ? "obstructed"
-            : sample.LayoutUncertain ? "layout_uncertain"
+            : layoutUncertain ? "layout_uncertain"
             : passEventType ?? (!stableBaselineEstablished ? "baseline_pending"
                 : baselineCounts == settledCounts && SettledLayoutReconciler.SameLayout(baselineLayout, sample.Layout)
                     ? "clear_unchanged"
@@ -344,7 +445,34 @@ internal sealed class LiveDetectTableEventTracker
             && currentBaselineStableSamples >= StableTableChangeTracker.RequiredStableSamples;
         return new(checkOutcome, events.ToImmutable(), clipActivity, clipEventType, clipEndSourceTimeUs,
             ToLiveDetectCounts(baselineCounts), baselineCapturedAt, settledBaselineMatchesCurrent,
-            currentBaselineStableSamples);
+            currentBaselineStableSamples)
+        {
+            BaselineBlackNotSeen = stableBaselineEstablished && blackNotSeen,
+            BaselineCueNotSeen = stableBaselineEstablished && cueNotSeen,
+            PocketRegionUncertain = pocketRegionOnly,
+            PocketRegionBalls = pocketRegionBalls
+        };
+    }
+
+    /// <summary>D2: an inventory candidate whose only increase is a kind the baseline formed without is a
+    /// correction, not a return; with other changes, those alone decide the candidate.</summary>
+    LiveDetectCountCandidate? CorrectNotSeen(LiveDetectCountCandidate? candidate)
+    {
+        if (candidate is not { } raw || raw.Kind == LiveDetectChangeKind.Racked || !blackNotSeen && !cueNotSeen)
+            return candidate;
+        var before = raw.Before with
+        {
+            Black = blackNotSeen && raw.After.Black > raw.Before.Black ? raw.After.Black : raw.Before.Black,
+            Cue = cueNotSeen && raw.After.Cue > raw.Before.Cue ? raw.After.Cue : raw.Before.Cue
+        };
+        if (before == raw.Before) return candidate;
+        if (before == raw.After) return null;
+        return new LiveDetectCountCandidate(before, raw.After)
+        {
+            Kind = LiveDetectCountCandidateTracker.IsNamedCountDecrease(before, raw.After) ? LiveDetectChangeKind.Decrease
+                : LiveDetectCountCandidateTracker.IsNamedCountDecrease(raw.After, before) ? LiveDetectChangeKind.Increase
+                : LiveDetectChangeKind.Changed
+        };
     }
 
     static bool IsStableInventory(LiveDetectCounts counts) =>
