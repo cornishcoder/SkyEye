@@ -439,4 +439,13 @@ through the Python reducer port where possible.
   cue stays unknown). 438 unlabelled frames: 20 change, all eight-to-seven
   plus one unknown, all still flagged. Suites pass; detector inventory 0/3
   and physical gates 0/3 carried forward. Report `t5-surplus-demotion.md`.
+- 11 Nov. Second miss spot diagnosed on desktop (`miss-spot-2-diagnosis.md`).
+  Cue at the cushion (382, 1274, 3360): proposed by the packed-yellow stage,
+  fitted at 0.875 to 0.938, classified `cue`, then rejected because that
+  stage keeps only yellows; a handover to the cue path is a candidate fix,
+  to be scored for false cues first. Black in the corner pocket mouth (382,
+  1274, 395): half its outline lies over the dark opening, best support
+  19 to 20/32 against the 21/32 gate, empty jaw 16/32; same family as the
+  cushion black, so D3 territory. Not the pocket exclusion. Branch not yet
+  pushed: this shell cannot authenticate to GitHub.
 
