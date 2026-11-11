@@ -96,7 +96,7 @@ Status: `open` not started, `active`, `blocked`, `done`, `dropped`.
 | T3 | Replay Live Detect's real reducer on saved logs | done | - | Report `t3-live-detect-replay.md`. Lost still time is flags (pocket-colour 1,149 s, obstruction 941 s), not flicker (1.4 s) |
 | T4 | Change-between-settled-states experiment | done: promising, conditional | T9 labels to score properly | Report `t4-settled-change-experiment.md`. Black at cushion/jaw 9/9 staged; fails under moving daylight |
 | T5 | Surplus-only inventory demotion | open | T2 for scoring | Small change in `ConstrainInventory` |
-| T6 | Per-ball state in the reducer | D1+D2 implemented (unbuilt); D3 designed | Windows build and checks | See `d1-d2-implementation.md` and `d3-settled-change-design.md` |
+| T6 | Per-ball state in the reducer | D1+D2 built, offline checks pass; D3 designed | On-device check of D1+D2 (needs Richard); D3 shadow mode | See `d1-d2-implementation.md` and `d3-settled-change-design.md` |
 | T7 | Camera exposure metadata, then lock | open | Richard: explicit approval (camera package) | Log first, lock later |
 | T8 | Cap removal, cushion position bias, verifier latency | open | T2 | Measure only; act if shown to matter |
 | T9 | Label existing frames and clips | sheets ready | Richard: two sittings of about 40 min | `work/evidence-audit/t9/README.md` |
@@ -381,4 +381,18 @@ through the Python reducer port where possible.
   designed (shadow mode by default). T9 review sheets ready.
 - 11 Nov 08:35. Session handed over to Claude Code on Richard's Windows
   machine. See the handover section of the investigation notes.
+- 11 Nov. D1+D2 compiled on Windows (local Claude Code session, branch
+  `claude/live-detect-d1-d3` at 4ffbeae, no source changes needed).
+  `Build-SkyEye.ps1 -Target All`: SkyEye.sln and Companion.Hybrid both 0
+  errors (SDK 11.0.100-rc.1). Software suites, newly run:
+  `SkyEye.AgentUi.Checks` passes, including the new D1/D2 reducer checks
+  and READINESS-ABSENCE-SEMANTICS-CONTROLS 5/5; `SkyEye.Checks` passes.
+  On the first, cold run `LiveDetectShotClipWindowChecks` failed once at
+  "post-roll rereads source observations…" (100 ms timeout in the check;
+  code not touched by this branch); three reruns passed. It is a timing
+  flake, recorded here, not fixed. C# replay of code66 `cfd3b9d4`: one
+  `settled_layout_baseline` (7 reds, 7 yellows, black and cue not seen),
+  199 `layout_uncertain` outcomes, no pot, return or clip. This matches the
+  Python port. Detector cases and physical gates were not run (carried
+  forward 0/3 and 0/3). On-device D1+D2 is still unverified.
 

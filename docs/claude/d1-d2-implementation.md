@@ -153,10 +153,16 @@ claim.
 
 Nothing in `VisionAnalyzer` can be checked off-device (no desktop build, T2).
 
+## Verified on Windows (11 Nov)
+
+- Every C# change compiles (`Build-SkyEye.ps1 -Target All`, 0 errors).
+- `SkyEye.AgentUi.Checks` (including the checks above) and `SkyEye.Checks` pass. One unrelated
+  timing flake was seen once in `LiveDetectShotClipWindowChecks` on a cold first run.
+- The C# replay of code66 forms one baseline (7 reds, 7 yellows, black and cue not seen) with no
+  pot, return or clip, which matches the Python port.
+
 ## Unverified
 
-- Compilation of every C# change (Core, Vision.Android, Companion.Hybrid, AgentUi.Checks).
-- The checks above have never run.
 - On-device behaviour, the readout text on the phone, and the logged frames.
 - Whether a real pot into a flagged pocket is reported once the flag clears.
 
