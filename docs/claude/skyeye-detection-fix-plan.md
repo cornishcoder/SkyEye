@@ -96,10 +96,10 @@ Status: `open` not started, `active`, `blocked`, `done`, `dropped`.
 | T3 | Replay Live Detect's real reducer on saved logs | done | - | Report `t3-live-detect-replay.md`. Lost still time is flags (pocket-colour 1,149 s, obstruction 941 s), not flicker (1.4 s) |
 | T4 | Change-between-settled-states experiment | done: promising, conditional | T9 labels to score properly | Report `t4-settled-change-experiment.md`. Black at cushion/jaw 9/9 staged; fails under moving daylight |
 | T5 | Surplus-only inventory demotion | open | T2 for scoring | Small change in `ConstrainInventory` |
-| T6 | Per-ball state in the reducer | redefined, needs decisions | Richard: decisions D1-D3 (section 9) | A hold rule alone is dropped (T3: recovers 1.4 s). Rework around first-baseline and per-region flags |
+| T6 | Per-ball state in the reducer | D1+D2 implemented (unbuilt); D3 designed | Windows build and checks | See `d1-d2-implementation.md` and `d3-settled-change-design.md` |
 | T7 | Camera exposure metadata, then lock | open | Richard: explicit approval (camera package) | Log first, lock later |
 | T8 | Cap removal, cushion position bias, verifier latency | open | T2 | Measure only; act if shown to matter |
-| T9 | Label existing frames and clips | active | Richard: two review sittings once sheets are ready | Sheets being prepared |
+| T9 | Label existing frames and clips | sheets ready | Richard: two sittings of about 40 min | `work/evidence-audit/t9/README.md` |
 
 Order: T0, T1, T3 and T4 can start now and need nothing from anyone except
 T0's destination. T2 runs alongside. T5 and T6 follow their inputs. T7 and
@@ -373,4 +373,12 @@ go on branch `claude/live-detect-d1-d3`. This environment cannot compile
 C#, so every C# change there is unbuilt until a Windows session runs
 `scripts/Build-SkyEye.ps1` and the check suites; each is first measured
 through the Python reducer port where possible.
+- 11 Nov 08:30. D1+D2 implemented on `claude/live-detect-d1-d3`, unbuilt.
+  Measured through the Python port on 48 runs: lost still time 2,402 s to
+  2,092 s; runs forming a baseline 33 to 37; two extra events, both real
+  settled pots; nothing new on static fixtures. A first baseline while a
+  pocket is flagged stays off (it added false movement on fixtures). D3
+  designed (shadow mode by default). T9 review sheets ready.
+- 11 Nov 08:35. Session handed over to Claude Code on Richard's Windows
+  machine. See the handover section of the investigation notes.
 
