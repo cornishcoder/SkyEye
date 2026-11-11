@@ -244,3 +244,12 @@ The live plan is `docs/claude/skyeye-detection-fix-plan.md`: threads T0-T9 with
 status, next action, done and kill criteria. Read its section 2 first: it corrects
 several conclusions in the diagnosis. Start with T0, T1, T3 and T4, which need no
 device and no approval. Not yet committed.
+
+## Paused 11 Nov 00:30
+
+All work is paused overnight. Resume from the plan's log (last entry) and the
+per-thread notes in `docs/claude/progress/`. Nothing is running. Uncommitted
+CRLF-only changes to about 258 tracked files are not ours; never stage them
+(add explicit paths only). Use `GIT_OPTIONAL_LOCKS=0` for git reads while
+another process may commit.
+

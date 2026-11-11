@@ -91,10 +91,10 @@ Status: `open` not started, `active`, `blocked`, `done`, `dropped`.
 | ID | Thread | Status | Needs | Next action |
 |---|---|---|---|---|
 | T0 | Protect the evidence | open | Richard: a backup location | Copy `work/`, verify against `inventory.csv` hashes |
-| T1 | One corpus manifest | open | nothing | Build manifest; reconcile frame 266 and Argon's duplicates |
-| T2 | Desktop detector runner | open | Richard: go-ahead (moves production code, no behaviour change) | Spike on one frame |
-| T3 | Replay Live Detect's real reducer on saved logs | open | nothing | Feed saved `live-detect.jsonl` through `LiveDetectTableEventTracker` |
-| T4 | Change-between-settled-states experiment | open | nothing (Python, existing clips) | Run on 29 Oct clips and control pairs |
+| T1 | One corpus manifest | active, paused | nothing | Add `--manifest` to `score_detections.py`, check it reproduces 292/295 and black 12/15, write the README (`progress/t1-manifest.md`) |
+| T2 | Desktop detector runner | design done; build blocked here (no .NET) | a session with .NET on Windows | Build the two desktop projects, run frame 2083 against its proof file (`t2-desktop-runner-design.md`, `progress/t2-desktop-runner.md`) |
+| T3 | Replay Live Detect's real reducer on saved logs | active, paused | nothing | Fix the never-detected-ball classification bug, recheck the hold counterfactual, read the code62 clip rows, write the report (`progress/t3-live-detect-replay.md`) |
+| T4 | Change-between-settled-states experiment | active, paused | nothing | Review the unviewed shot sheets, rerun the chroma variant, count moved balls against regions, write the report (`progress/t4-settled-change.md`) |
 | T5 | Surplus-only inventory demotion | open | T2 for scoring | Small change in `ConstrainInventory` |
 | T6 | Per-ball state in the reducer | open | T3, T4 results | Design from what T3 and T4 show |
 | T7 | Camera exposure metadata, then lock | open | Richard: explicit approval (camera package) | Log first, lock later |
@@ -307,3 +307,25 @@ review read Argon's material and both drew on the same evidence.
 
 - 10 Nov 23:50. Plan written. Re-check found the corrections in section 2.
   No thread started. Plan and corrections not yet committed.
+- 11 Nov 00:30. Paused overnight at Richard's request. Four agents ran T1-T4 in
+  parallel; each wrote a resume note in `docs/claude/progress/`. Provisional,
+  not to be quoted until each thread's report is written:
+  - T1: manifest of 495 unique frames (37 labelled: 19 bright, 8 mid, 8 dim);
+    frame 266 confirmed 16/16 (Argon's "missed" claim is unsupported); Argon's
+    32 rows are 28 frames.
+  - T3: Python port of the Live Detect reducer reproduces logged outcomes for
+    code40-code61 runs and the code66 replay. First pass suggests most lost
+    still-table time is quality flags (pocket-colour uncertainty, obstruction),
+    and that a per-ball hold rule recovers almost nothing, because the pocket
+    runs never form a first baseline. A classification bug remains.
+  - T4: in 9 staged still pairs, the black's addition or removal at a cushion
+    or jaw showed clearly (change 1.9-2.8 against at most 0.36 with nothing
+    moved), including a black the detector misses; 0 false regions in 18
+    within-clip controls. It fails across long gaps with moving daylight, and
+    hands can leave false regions.
+  - T2: design chooses a desktop look-alike of the OpenCV binding, linking the
+    detector files unchanged. Main parity risk: phone OpenCV 4.14 with ARM
+    kernels against desktop 4.13.
+  Resume order: T3 report (it decides whether T6 is worth building), then T4
+  review, then T1 scorer check. T2 needs a session with .NET.
+
