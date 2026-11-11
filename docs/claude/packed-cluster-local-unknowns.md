@@ -45,8 +45,8 @@ them. The 22 obstructed unlabelled frames (sheet numbers from `work/t2/obstructe
 | Rack with a yellow short | #25 |
 | No packed cluster detected | #1, #2, #29 |
 
-So in 15 of the 19 remaining false obstructions the black isn't found, and in 11 of those it is most likely
-the `unknown` ball (to be confirmed). That is the existing black-recall problem (black 14/28 on the labelled
+So in 15 of the 19 remaining false obstructions the black isn't found. (Checked afterwards: the `unknown`
+ball in those 11 is the cue, not the black; see [black-missing racks](black-missing-rack-obstructions.md).) That is the existing black-recall problem (black 14/28 on the labelled
 set), not an obstruction-mask problem, so the next fix belongs there, not in the obstruction rule.
 
 ## Next
