@@ -57,10 +57,32 @@ Software, newly executed: `Build-SkyEye.ps1 -Target All` 0 errors; `SkyEye.Check
 check: a yellow disc with a lamp shadow on near-grey cloth whose hue differs before and after) and
 `SkyEye.AgentUi.Checks` pass; D3 self-check PASS; Layout03 parity 4/4.
 
+## T4 reference regenerated (later the same evening)
+
+The prototype (`tools/evidence/prototypes/settled_change.py`) gained the same rule (`cloth_or_shadow`,
+`ball_centre`) and a `ballcentre` stage, which writes `work/evidence-audit/t4/regions-grey-ballcentre.csv`
+beside the original (cx/cy = ball centres, plain_cx/plain_cy = old centroids; the original T4 files are
+untouched). Ball-sized reference centres moved by a median 12.2 px (0.56 R) and at most 40.4 px (1.9 R) at
+full raster scale, consistent with the C# comparer's 0.6 R median on the same clips.
+`tools/evidence/d3_clips.py inputs ... --regions regions-grey-ballcentre.csv` builds the clip inputs from
+it (same 25 clips, 46 pairs, windows and region counts).
+
+| Live run | Reference | T4 regions found (of 102) | Ball regions not at a T4 region |
+|---|---|---|---|
+| plain centroid | plain (original) | 94 | 1 |
+| shadow-free | plain (original) | 88 | 7 |
+| plain centroid | shadow-free | 91 | 4 |
+| **shadow-free** | **shadow-free** | **93** | **2** |
+
+Like for like, the new method is within one region of the old. That one region is the cue leaving baulk in
+`break-red`: the live comparer kept its plain centroid (fewer than 20 % ball-like pixels, so it fell back
+by design) while the reference, from full-resolution 5 fps frames, moved onto the cue's actual position,
+2.7 R away. No other pair differs.
+
 ## Still open
 
 - U1 to U4 have no live evidence yet; next is a staged top-cushion black session (the black that Live Detect
   misses at baseline) with source frames saved.
-- The T4 reference should be regenerated with shadow-free centres before it is used as a score again.
+- Score D3 against the shadow-free reference (`clips-ballref.json`) from now on.
 
 Not built for or run on the device. Detector inventory 0/3 and physical gates D1/D2/E 0/3 carried forward.

@@ -1,6 +1,6 @@
 """D3 slice 2 (design 5.3 C): inputs and scoring for the live-cadence simulation on the T4 clips.
 
-    python -I tools/evidence/d3_clips.py inputs work/d3/clips.json
+    python -I tools/evidence/d3_clips.py inputs work/d3/clips.json [--regions regions-grey-ballcentre.csv]
     python -I tools/evidence/d3_clips.py score work/d3/clips.json work/d3/clips-live.jsonl [work/d3/clips-score.json]
 
 inputs: one entry per clip in work/evidence-audit/t4/pairs.csv with its corners (the T4 prototype's per-day
@@ -21,9 +21,9 @@ import settled_change as sc  # noqa: E402  (config only)
 R_HALF = 0.027 * 400  # ball radius in the half-scale raster
 
 
-def inputs(out):
+def inputs(out, regions_file="regions-grey.csv"):
     regions = collections.defaultdict(list)
-    for r in csv.DictReader(open(os.path.join(sc.T4, "regions-grey.csv"))):
+    for r in csv.DictReader(open(os.path.join(sc.T4, regions_file))):
         if r.get("k") in ("-1", "") or r.get("ball_v3") != "True": continue
         regions[r["pair"]].append(dict(x=float(r["cx"]) / 2, y=float(r["cy"]) / 2, zone=r["zone"], cls=r["cls"]))
     clips = collections.OrderedDict()
@@ -97,5 +97,5 @@ def score(clips_path, live_path, out=None):
 
 
 if __name__ == "__main__":
-    if sys.argv[1] == "inputs": inputs(sys.argv[2])
+    if sys.argv[1] == "inputs": inputs(sys.argv[2], sys.argv[sys.argv.index("--regions") + 1] if "--regions" in sys.argv else "regions-grey.csv")
     else: score(sys.argv[2], sys.argv[3], sys.argv[4] if len(sys.argv) > 4 else None)
