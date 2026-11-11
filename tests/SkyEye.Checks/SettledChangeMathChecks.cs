@@ -119,6 +119,21 @@ static class SettledChangeMathChecks
         Pass(0); Pass(0);
         Require(step.BecameSettled, "After the gap the table settles again");
         Console.WriteLine("PASS D3 settle detection: motion measure, exposure step, window median and settle state machine");
+
+        // Slice 4: the live cost guard trips on the median of the last 20 passes, not on one slow comparison.
+        var guard = new SettledChangeCostGuard();
+        Require(Enumerable.Range(0, 19).All(_ => !guard.Add(100)), "The guard waits for a full window");
+        var cheap = new SettledChangeCostGuard();
+        bool tripped = false;
+        for (int i = 0; i < 200; i++) tripped |= cheap.Add(i % 10 == 0 ? 90 : 18);
+        Require(!tripped, "Occasional comparison passes over the limit do not trip the guard");
+        var costly = new SettledChangeCostGuard();
+        tripped = false;
+        for (int i = 0; i < 20; i++) tripped = costly.Add(i < 9 ? 20 : 45);
+        Require(tripped && costly.MedianMs > 40, "A median over 40 ms trips the guard");
+        Require(SettledChangePass.Unavailable("no raw image") is { State: SettledChangeState.Unavailable, UnavailableReason: "no raw image", Evidence: null, EvidenceIsNew: false },
+            "An unavailable pass carries its reason and no evidence");
+        Console.WriteLine("PASS D3 live cost guard and unavailable passes");
     }
 
     static void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }

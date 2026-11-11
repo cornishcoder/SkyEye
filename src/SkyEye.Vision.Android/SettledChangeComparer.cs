@@ -44,7 +44,22 @@ public sealed class SettledChangeComparer(SettledChangeSettings? settings = null
         finally { Release(image); }
     }
 
-    byte[] Warp(Mat source, IReadOnlyList<Point> normalizedCorners)
+    /// <summary>JPEG-encodes a raster of this comparer's size (OpenCV default quality), for evidence sidecars.</summary>
+    public byte[] EncodeJpeg(byte[] bgrRaster)
+    {
+        EnsureLoaded();
+        var image = new Mat(Settings.RasterHeight, Settings.RasterWidth, CvType.Cv8uc3);
+        try
+        {
+            image.Put(0, 0, bgrRaster);
+            using var buffer = new MatOfByte();
+            if (!Imgcodecs.Imencode(".jpg", image, buffer)) throw new IOException("Raster could not be encoded.");
+            return buffer.ToArray();
+        }
+        finally { Release(image); }
+    }
+
+    internal byte[] Warp(Mat source, IReadOnlyList<Point> normalizedCorners)
     {
         var raster = new Mat();
         try

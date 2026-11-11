@@ -2,6 +2,7 @@ using SkyEye.Core;
 using SkyEye.Core.Application;
 using SkyEye.Core.Analysis;
 using SkyEye.GameState;
+using SkyEye.Vision.Android;
 using System.Collections.Immutable;
 using System.Text.Json;
 using System.Threading.Channels;
@@ -10,6 +11,25 @@ namespace SkyEye.Companion.Hybrid;
 
 public sealed partial class ShellSession
 {
+    /// <summary>D3: at most this many reference/current raster pairs are saved per Live Detect run.</summary>
+    const int SettledChangeRasterPairsPerRun = 60;
+    /// <summary>Private app preference for D3 settled-change evidence: "off" or "shadow" (default). There is
+    /// no in-app control; the Live Detect status line shows the mode read-only.</summary>
+    const string SettledChangePreferenceKey = "live-detect-settled-change";
+
+    static LiveDetectSettledChangeMode ReadSettledChangeMode()
+    {
+        string? value = Android.App.Application.Context.GetSharedPreferences("skyeye", Android.Content.FileCreationMode.Private)!
+            .GetString(SettledChangePreferenceKey, "shadow");
+        return string.Equals(value, "off", StringComparison.OrdinalIgnoreCase) ? LiveDetectSettledChangeMode.Off : LiveDetectSettledChangeMode.Shadow;
+    }
+
+    static string SettledChangeModeName(LiveDetectSettledChangeMode mode) => mode == LiveDetectSettledChangeMode.Off ? "off" : "shadow";
+
+    string liveDetectSettledChangeStatus = "Settled-change evidence: shadow (not used).";
+    /// <summary>Read-only D3 mode line for the Live Detect activity screen (not shown on Home).</summary>
+    public string LiveDetectSettledChangeStatus => liveDetectSettledChangeStatus;
+
     readonly record struct LiveDetectFrameAnchor(long? FrameId, long? SourceTimeUs, DateTimeOffset? CapturedAt);
     readonly record struct LiveDetectEventClipContext(SkyEyeState AppState,
         CameraScope? TableSource, long MediaGeneration, string? Timeline, LiveDetectFrameAnchor Frame,
@@ -176,12 +196,23 @@ public sealed partial class ShellSession
     {
         await Task.Yield();
         var cancellation = operation.Token;
-        AppendLiveDetectRunEvent(runId, "started", "Live Detect started.", null);
-        var eventTracker = new LiveDetectTableEventTracker();
+        // D3 settled-change evidence: shadow (computed and logged, never applied) unless switched off.
+        var settledChangeMode = ReadSettledChangeMode();
+        var settledChangeSettings = new SettledChangeSettings();
+        liveDetectSettledChangeStatus = settledChangeMode == LiveDetectSettledChangeMode.Off
+            ? "Settled-change evidence: off." : "Settled-change evidence: shadow (not used).";
+        AppendLiveDetectRunEvent(runId, "started", $"Live Detect started. Settled-change evidence: {SettledChangeModeName(settledChangeMode)}"
+            + (settledChangeMode == LiveDetectSettledChangeMode.Off ? "." : $" (not used); settings {JsonSerializer.Serialize(settledChangeSettings)}."), null);
+        var eventTracker = new LiveDetectTableEventTracker(LiveDetectReducerOptions.Default with { SettledChange = settledChangeMode });
         var frameCursor = new LiveDetectFrameCursor();
         var freshFrameWait = new LiveDetectFreshFrameWaitTracker();
         var evidenceCapture = new LiveDetectFrameEvidenceCapture();
         PendingLiveDetectFrameEvidence? liveDetectPendingFrameEvidence = null;
+        using var settledChangeObserver = settledChangeMode == LiveDetectSettledChangeMode.Shadow
+            ? new SettledChangeLiveObserver(calibration, calibrationId) : null;
+        SettledChangePass? pendingSettledChange = null;
+        int settledChangeComparisons = 0, settledChangeRasterPairs = 0;
+        string? settledChangeDisabledLogged = null;
         var eventClipQueue = Channel.CreateUnbounded<LiveDetectEventClipQueueMessage>();
         var eventClipTask = ProcessLiveDetectEventClipQueueAsync(runId, source,
             eventClipQueue.Reader, cancellation);
@@ -206,8 +237,14 @@ public sealed partial class ShellSession
                 try
                 {
                     liveDetectPendingFrameEvidence = null;
+                    pendingSettledChange = null;
                     await table.UpdateAsync(cancellation,
-                        frameObserver: (frame, vision) => liveDetectPendingFrameEvidence = evidenceCapture.Observe(frame, vision));
+                        frameObserver: (frame, vision) =>
+                        {
+                            liveDetectPendingFrameEvidence = evidenceCapture.Observe(frame, vision);
+                            // Last point where the bitmap exists; the observer copies what it needs and never throws.
+                            pendingSettledChange = settledChangeObserver?.Observe(frame);
+                        });
                     consecutiveAnalysisErrors = 0;
                     consecutiveFrameAcquisitionErrors = 0;
                 }
@@ -272,6 +309,8 @@ public sealed partial class ShellSession
                 cancellation.ThrowIfCancellationRequested();
                 var pendingFrameEvidence = liveDetectPendingFrameEvidence;
                 liveDetectPendingFrameEvidence = null;
+                var settledChangePass = pendingSettledChange;
+                pendingSettledChange = null;
                 var state = table.State;
                 var observation = state.Observation;
                 var receipt = observation?.DecodedReceipt;
@@ -334,7 +373,7 @@ public sealed partial class ShellSession
                     sourceTimeUs, observation.Timeline, calibrationId, counts, layout,
                     vision.Obstructed, vision.Uncertain, vision.HasUncertainLayout,
                     observation.Change is { SpatiallyCompatible: false }, rackEvidence,
-                    uncertainRegions, vision.UncertainOutsideRegions));
+                    uncertainRegions, vision.UncertainOutsideRegions, settledChangePass));
                 if (eventBatch.SettledBaseline is { } settledBaseline)
                 {
                     liveDetectLastSettledInventory = $"{settledBaseline.Total} · {LiveDetectInventoryReadoutPolicy.BaselineSummary(settledBaseline, eventBatch.BaselineBlackNotSeen, eventBatch.BaselineCueNotSeen)}";
@@ -405,6 +444,43 @@ public sealed partial class ShellSession
                         evidenceWriteFailed = true;
                     }
                 }
+                // D3 shadow: log the pass; save the comparison's two rasters when they matter for review.
+                LiveDetectLogSettledChange? settledChangeLog = null;
+                if (settledChangePass is { } settledPass)
+                {
+                    LiveDetectLogFrameEvidence[]? rasters = null;
+                    if (settledPass is { EvidenceIsNew: true, Evidence: { Status: SettledChangeStatus.Compared, Comparison: { } comparison } })
+                    {
+                        settledChangeComparisons++;
+                        bool review = comparison.Regions.Any(region => region.BallSized)
+                            || eventBatch.SettledChange is { Proposals.Length: > 0 }
+                            || comparison.GateReasons.Contains("lighting_drift")
+                            || settledChangeComparisons % 10 == 0;   // one in ten empty comparisons as controls
+                        if (review && settledChangeRasterPairs < SettledChangeRasterPairsPerRun)
+                        {
+                            try
+                            {
+                                if (settledChangeObserver?.EncodeLatestComparison() is { } encoded)
+                                {
+                                    rasters = [liveDetectLog.SaveSettledChangeRaster(encoded.Reference, "reference"),
+                                        liveDetectLog.SaveSettledChangeRaster(encoded.Current, "current")];
+                                    settledChangeRasterPairs++;
+                                }
+                            }
+                            catch (Exception error) when (error is not OutOfMemoryException)
+                            {
+                                rasters = [new(null, null, null, 0, null, "reference", false, error.GetType().Name)];
+                            }
+                        }
+                    }
+                    settledChangeLog = LiveDetectLogSettledChange.From(SettledChangeModeName(settledChangeMode), settledPass,
+                        eventBatch.SettledChange, rasters);
+                    if (settledChangeObserver?.DisabledReason is { } disabledReason && disabledReason != settledChangeDisabledLogged)
+                    {
+                        settledChangeDisabledLogged = disabledReason;
+                        AppendLiveDetectRunEvent(runId, "settled_change_disabled", $"Settled-change evidence {disabledReason}.", null);
+                    }
+                }
                 try
                 {
                     liveDetectLog.AppendFrame(runId, DateTimeOffset.UtcNow, new LiveDetectLogFrame(
@@ -419,7 +495,7 @@ public sealed partial class ShellSession
                         events.ToArray(), checkOutcome, observation.Change?.SpatiallyCompatible, rackEvidence,
                         LiveDetectLogObstructionAudit.From(vision.ObstructionAudit), observation.PlayerPlayback,
                         vision.PocketColourAudit, eventBatch.BaselineMatchSamples,
-                        eventBatch.SettledBaselineMatchesCurrent, frameEvidence));
+                        eventBatch.SettledBaselineMatchesCurrent, frameEvidence, settledChangeLog));
                     foreach (var tableEvent in eventBatch.TableEvents)
                         liveDetectLog.AppendTableEvent(runId, tableEvent.CapturedAt, tableEvent);
                     liveDetectLogError = evidenceWriteFailed ? "source evidence unavailable" : null;
@@ -436,6 +512,9 @@ public sealed partial class ShellSession
                     liveDetectHasResult = true;
                     liveDetectReadAt = observation.CapturedAt;
                     liveDetectStatus = $"Live Detect running · full pass {vision.ElapsedMs / 1000:0.0}s.";
+                    liveDetectSettledChangeStatus = settledChangeMode == LiveDetectSettledChangeMode.Off ? "Settled-change evidence: off."
+                        : settledChangeObserver?.DisabledReason is { } paused ? $"Settled-change evidence: shadow, {paused}."
+                        : $"Settled-change evidence: shadow (not used) · {settledChangeComparisons} comparison(s) this run.";
                     var settledCurrentInventory = LiveDetectInventoryReadoutPolicy.SettledCurrentInventory(
                         currentInventoryClear, eventBatch);
                     liveDetectInventory = settledCurrentInventory is { } settled

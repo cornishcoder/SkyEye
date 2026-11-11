@@ -79,7 +79,33 @@ public sealed record SettledChangeEvidence(
 /// segment's); <see cref="EvidenceIsNew"/> is true only on the pass that produced it.</summary>
 public sealed record SettledChangePass(
     SettledChangeState State, double? MotionFraction, int StillPasses, double ComputeMs,
-    SettledChangeEvidence? Evidence, bool EvidenceIsNew);
+    SettledChangeEvidence? Evidence, bool EvidenceIsNew, string? UnavailableReason = null)
+{
+    public static SettledChangePass Unavailable(string reason, double computeMs = 0) =>
+        new(SettledChangeState.Unavailable, null, 0, computeMs, null, false, reason);
+}
+
+/// <summary>Live cost guard (Richard, 11 November): once at least <see cref="Window"/> passes are measured,
+/// the processor turns itself off for the run when their median cost exceeds <see cref="LimitMs"/>.
+/// The median ignores the occasional comparison pass, which is expected to cost more.</summary>
+public sealed class SettledChangeCostGuard(int window = 20, double limitMs = 40)
+{
+    readonly Queue<double> recent = new();
+    public int Window { get; } = window;
+    public double LimitMs { get; } = limitMs;
+    public double? MedianMs { get; private set; }
+
+    /// <summary>Records one pass; true when the guard trips.</summary>
+    public bool Add(double ms)
+    {
+        recent.Enqueue(ms);
+        if (recent.Count > Window) recent.Dequeue();
+        if (recent.Count < Window) return false;
+        var sorted = recent.Order().ToArray();
+        MedianMs = (sorted[(Window - 1) / 2] + sorted[Window / 2]) / 2;
+        return MedianMs > LimitMs;
+    }
+}
 
 /// <summary>Settle state machine (design section 2.1 step 3): a pass is still when motion is below
 /// <see cref="SettledChangeSettings.StillMotionFraction"/>; a segment is settled after at least

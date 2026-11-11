@@ -20,11 +20,14 @@ public sealed class SettledChangeProcessor(SettledChangeComparer? comparer = nul
     SettledChangeEvidence? evidence;
     long sequence;
     public Guid Epoch { get; private set; } = Guid.NewGuid();
+    /// <summary>Reference and current rasters of the most recent comparison (managed copies), for sidecars.</summary>
+    public (byte[] Reference, byte[] Current)? LastComparisonRasters { get; private set; }
 
     /// <summary>Clears all state and starts a new epoch (timeline, media or calibration change).</summary>
     public void Reset()
     {
         window.Clear(); tracker?.Reset(); previousQuarter = null; reference = null; evidence = null; sequence = 0;
+        LastComparisonRasters = null;
         Epoch = Guid.NewGuid();
     }
 
@@ -58,7 +61,9 @@ public sealed class SettledChangeProcessor(SettledChangeComparer? comparer = nul
             long currentStart = window[0].TimeUs, currentEnd = window[^1].TimeUs;
             if (reference is { } r)
             {
-                var comparison = comparer.Compare(r.Raster, SettledChangeMath.Median(window.Select(f => f.Raster).ToList()));
+                var current = SettledChangeMath.Median(window.Select(f => f.Raster).ToList());
+                var comparison = comparer.Compare(r.Raster, current);
+                LastComparisonRasters = (r.Raster, current);
                 var gates = comparison.GateReasons.ToList();
                 if ((currentStart - r.WindowEndUs) / 1e6 > S.MaximumComparisonGapSeconds) gates.Add("gap_too_long");
                 evidence = new(Epoch, ++sequence, SettledChangeStatus.Compared, gates,

@@ -44,7 +44,28 @@ internal sealed record LiveDetectLogFrame(DateTimeOffset CapturedAt, double Fram
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] PocketColourAuditTelemetry? PocketColourAudit = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] int? BaselineMatchSamples = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] bool? SettledBaselineMatchesCurrent = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LiveDetectLogFrameEvidence? FrameEvidence = null);
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LiveDetectLogFrameEvidence? FrameEvidence = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LiveDetectLogSettledChange? SettledChange = null);
+
+/// <summary>Schema 15: D3 settled-change evidence for one pass, shadow only (nothing is applied). The full
+/// evidence record appears only on the pass that produced it; <see cref="Rasters"/> holds the reference and
+/// current raster sidecars when they were saved.</summary>
+internal sealed record LiveDetectLogSettledChange(string Mode, string State, double? MotionFraction, int StillPasses,
+    double ComputeMs, string? UnavailableReason, long? EvidenceSequence, bool EvidenceIsNew,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SettledChangeEvidence? Evidence = null,
+    bool? ChainIntact = null, int? ChainLength = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LiveDetectSettledChangeProposal[]? Proposals = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LiveDetectSettledBallState[]? BallStates = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LiveDetectLogFrameEvidence[]? Rasters = null)
+{
+    public static LiveDetectLogSettledChange From(string mode, SettledChangePass pass, LiveDetectSettledChangeShadow? shadow,
+        LiveDetectLogFrameEvidence[]? rasters) =>
+        new(mode, pass.State.ToString(), pass.MotionFraction is { } m ? Math.Round(m, 5) : null, pass.StillPasses,
+            Math.Round(pass.ComputeMs, 1), pass.UnavailableReason, pass.Evidence?.Sequence, pass.EvidenceIsNew,
+            pass.EvidenceIsNew ? pass.Evidence : null, shadow?.ChainIntact, shadow?.ChainLength,
+            shadow is { Proposals.Length: > 0 } ? shadow.Proposals.ToArray() : null,
+            shadow is { BallStates.Length: > 0 } ? shadow.BallStates.ToArray() : null, rasters);
+}
 internal sealed record LiveDetectLogClipSave(Guid OperationId, string Stage, DateTimeOffset RequestedAt,
     DateTimeOffset? CompletedAt, int RequestedSeconds, string Outcome, string Message,
     long? RequestFrameId, long? RequestSourceTimeUs, DateTimeOffset? RequestFrameCapturedAt,
@@ -77,20 +98,26 @@ internal sealed record LiveDetectLogReadout(LiveDetectLogSummary Summary, int Re
 /// <summary>Bounded Live Detect frame receipts, source-image sidecars and automatic clip-save receipts.</summary>
 internal sealed class LiveDetectLogStore
 {
-    internal const int CurrentSchemaVersion = 14;
+    internal const int CurrentSchemaVersion = 15;
     public const int MaximumRetainedRecords = 2000;
     internal const long MaximumBytes = 4 * 1024 * 1024;
     internal const long MaximumEvidenceBytes = 128 * 1024 * 1024;
     internal const int MaximumEvidenceFiles = 96;
     internal const int MaximumEvidenceFileBytes = 16 * 1024 * 1024;
+    // D3 settled-change raster sidecars: their own folder and caps, so they never crowd out frame evidence.
+    internal const int MaximumSettledChangeFiles = 120;
+    internal const long MaximumSettledChangeBytes = 32 * 1024 * 1024;
+    internal const int MaximumSettledChangeFileBytes = 2 * 1024 * 1024;
     const int RetainedRecordTarget = MaximumRetainedRecords * 3 / 4;
     const long RetainedBytesTarget = MaximumBytes * 3 / 4;
     static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
     readonly object gate = new();
     readonly string path;
     readonly string evidenceDirectory;
+    readonly string settledChangeDirectory;
     readonly HashSet<Guid> clipSaveIds = [];
     readonly HashSet<Guid> evidenceIds = [];
+    readonly HashSet<Guid> settledChangeIds = [];
     int retainedRecords, retainedFrames, retainedEventClipOperations, retainedRunEvents, retainedTableEvents;
     int retainedEvidenceFrames;
     long retainedEvidenceBytes;
@@ -100,10 +127,30 @@ internal sealed class LiveDetectLogStore
     {
         this.path = path;
         evidenceDirectory = Path.Combine(Path.GetDirectoryName(path)!, "evidence");
+        settledChangeDirectory = Path.Combine(Path.GetDirectoryName(path)!, "settled-change");
         lock (gate)
         {
             if (File.Exists(path)) RefreshIndex();
             PruneUnreferencedEvidence();
+        }
+    }
+
+    /// <summary>Saves one D3 raster JPEG. Kept only while a retained frame record references it.</summary>
+    public LiveDetectLogFrameEvidence SaveSettledChangeRaster(byte[] jpeg, string role)
+    {
+        if (jpeg.Length == 0) return new(null, null, null, 0, null, role, false, "empty image");
+        if (jpeg.Length > MaximumSettledChangeFileBytes) return new(null, null, null, jpeg.Length, null, role, false, "raster exceeds per-file limit");
+        lock (gate)
+        {
+            Directory.CreateDirectory(settledChangeDirectory);
+            var files = Directory.EnumerateFiles(settledChangeDirectory, "*.jpg").Select(file => new FileInfo(file)).ToArray();
+            if (files.Length >= MaximumSettledChangeFiles || files.Sum(file => file.Length) + jpeg.Length > MaximumSettledChangeBytes)
+                return new(null, null, null, jpeg.Length, null, role, false, "settled-change storage limit reached");
+            Guid id = Guid.NewGuid();
+            string fileName = id.ToString("N") + ".jpg";
+            AtomicWriteBytes(Path.Combine(settledChangeDirectory, fileName), jpeg);
+            string hash = Convert.ToHexString(SHA256.HashData(jpeg)).ToLowerInvariant();
+            return new(id, "settled-change/" + fileName, "image/jpeg", jpeg.Length, hash, role, true);
         }
     }
 
@@ -192,6 +239,8 @@ internal sealed class LiveDetectLogStore
                 retainedEvidenceFrames++;
                 retainedEvidenceBytes += record.Frame.FrameEvidence.ByteLength;
             }
+            foreach (var raster in record.Frame?.SettledChange?.Rasters ?? [])
+                if (raster is { Available: true, EvidenceId: { } rasterId }) settledChangeIds.Add(rasterId);
             if (record.Kind == "clipSave" && record.ClipSave is { ActivityId: not null, EventType: not null } save
                 && clipSaveIds.Add(save.OperationId))
                 retainedEventClipOperations = clipSaveIds.Count;
@@ -250,6 +299,7 @@ internal sealed class LiveDetectLogStore
         retainedEvidenceBytes = 0;
         clipSaveIds.Clear();
         evidenceIds.Clear();
+        settledChangeIds.Clear();
         firstRecordedAt = lastRecordedAt = null;
         foreach (var line in File.ReadLines(path))
         {
@@ -259,6 +309,8 @@ internal sealed class LiveDetectLogStore
             if (record.Kind == "frame" && record.Frame is not null) retainedFrames++;
             if (record.Kind == "frame" && record.Frame?.FrameEvidence is { Available: true, EvidenceId: { } id }
                 && EvidenceFileExists(id)) evidenceIds.Add(id);
+            foreach (var raster in record.Frame?.SettledChange?.Rasters ?? [])
+                if (raster is { Available: true, EvidenceId: { } rasterId }) settledChangeIds.Add(rasterId);
             if (record.Kind == "clipSave" && record.ClipSave is { ActivityId: not null, EventType: not null } save)
                 clipSaveIds.Add(save.OperationId);
             if (record.Kind == "runEvent" && record.RunEvent is not null) retainedRunEvents++;
@@ -280,19 +332,25 @@ internal sealed class LiveDetectLogStore
 
     void PruneUnreferencedEvidence()
     {
-        if (!Directory.Exists(evidenceDirectory)) return;
-        try
+        Prune(evidenceDirectory, evidenceIds);
+        Prune(settledChangeDirectory, settledChangeIds);
+
+        static void Prune(string directory, HashSet<Guid> referenced)
         {
-            foreach (var file in Directory.EnumerateFiles(evidenceDirectory))
+            if (!Directory.Exists(directory)) return;
+            try
             {
-                string name = Path.GetFileNameWithoutExtension(file);
-                if (!Guid.TryParseExact(name, "N", out var id) || !evidenceIds.Contains(id))
+                foreach (var file in Directory.EnumerateFiles(directory))
                 {
-                    try { File.Delete(file); } catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
+                    string name = Path.GetFileNameWithoutExtension(file);
+                    if (!Guid.TryParseExact(name, "N", out var id) || !referenced.Contains(id))
+                    {
+                        try { File.Delete(file); } catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
+                    }
                 }
             }
+            catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
         }
-        catch (Exception error) when (error is IOException or UnauthorizedAccessException) { }
     }
 
     bool EvidenceFileExists(Guid id) => EvidencePath(id) is { } file && File.Exists(file);

@@ -482,4 +482,12 @@ through the Python reducer port where possible.
   logs (285 runs, 72,832 frames, 4,882 events). Simplifications noted (no 3 s
   recheck, pass-level obstruction, strict anchor, no Active mode). Next: live
   wiring, which needs Richard's answers to the design's open questions.
+- 11 Nov. Richard accepted the recommended answers (shadow on by default;
+  self-off over a 40 ms median; sidecars only when they matter, 60 pairs per
+  run; no hold limit; pass-level obstruction; provisional gap and drift;
+  private preference with a read-only line, no Home control). D3 slice 4
+  built (`d3-slice4-live-wiring.md`): live observer in the Live Detect frame
+  observer, evidence on the reducer observation, schema 15 logging and
+  raster sidecars. Offline checks pass; not yet run on the Pixel (needs a
+  bounded live session, Richard's go-ahead).
 
