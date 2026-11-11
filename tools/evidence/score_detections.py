@@ -7,6 +7,11 @@ receipt at capture time (work/evidence-audit/receipts.jsonl). Pass
 `--detections FILE.jsonl` (lines of {"sha256":..., "balls":[[kind,x,y],...]} in
 table-2x1 coordinates) to score any candidate on exactly the same frames.
 
+`--manifest tests/fixtures/detection-corpus/manifest.json` reads corners, labels
+(already table-2x1), light and the stored at-capture result from the corpus
+manifest alone; `--corpus TAG` keeps only rows whose `corpora` include TAG
+(e.g. `claude-review-labels` for the original frame set).
+
 Matching: greedy nearest pairs within one ball radius (0.027 table units),
 colour-agnostic, so position and colour errors are reported separately.
 Strata: ball colour; ball position (pocket = centre within 0.11 of a pocket
@@ -39,8 +44,23 @@ def load():
     met = {r["sha12"]: r for r in csv.DictReader(open(os.path.join(A, "robust-light.csv")))} if os.path.exists(os.path.join(A, "robust-light.csv")) else {}
     return rec, labels, met
 
-def score(dets, name, out=None, quiet=False):
-    rec, labels, met = load()
+def load_manifest(path, corpus=None):
+    """Same structures as load(), built only from the corpus manifest."""
+    doc = json.load(open(path, encoding="utf-8"))
+    rec, labels, met = {}, [], {}
+    for r in doc["frames"]:
+        if r["role"] not in ("positive", "empty-control") or not r.get("labels"): continue
+        if corpus and corpus not in r.get("corpora", []): continue
+        h = r["sha256"]; sr = r.get("storedResult") or {}
+        rec[h] = dict(corners=(r.get("calibration") or {}).get("corners"), pixel=r.get("path"),
+                      hasVision=bool(sr.get("hasVision")), balls=sr.get("balls") or [])
+        labels.append(dict(sha256=h, space="table-2x1",
+                           balls=[dict(colour=b["kind"], x=b["x"], y=b["y"], vis="Visible" if b["visible"] else "Absent") for b in r["labels"]["balls"]]))
+        if r["light"].get("tableV") is not None: met[h[:12]] = dict(tableV=r["light"]["tableV"])
+    return rec, labels, met
+
+def score(dets, name, out=None, quiet=False, data=None):
+    rec, labels, met = data or load()
     T = collections.Counter(); per = []; errs = []; missed = []; extras = []
     for lab in labels:
         r = rec.get(lab["sha256"])
@@ -89,7 +109,9 @@ def score(dets, name, out=None, quiet=False):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(); ap.add_argument("--detections"); ap.add_argument("--name", default="production-at-capture"); ap.add_argument("--out")
+    ap.add_argument("--manifest", help="score from the corpus manifest alone"); ap.add_argument("--corpus", help="with --manifest: keep rows whose corpora include this tag")
     a = ap.parse_args()
+    data = load_manifest(a.manifest, a.corpus) if a.manifest else load()
     if a.detections: dets = {json.loads(l)["sha256"]: json.loads(l)["balls"] for l in open(a.detections)}
-    else: dets = {s: r["balls"] for s, r in load()[0].items() if r["hasVision"]}
-    score(dets, a.name, a.out or os.path.join(A, "score-%s.json" % a.name))
+    else: dets = {s: r["balls"] for s, r in data[0].items() if r["hasVision"]}
+    score(dets, a.name, a.out or os.path.join(A, "score-%s.json" % a.name), data=data)

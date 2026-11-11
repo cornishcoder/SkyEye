@@ -1,6 +1,6 @@
 # T1 corpus manifest: progress note
 
-Paused 11 November 2026 at the coordinator's request. Nothing committed.
+Resumed and finished 11 November 2026. T1 done; awaiting commit by the coordinator.
 
 ## Done
 
@@ -40,18 +40,17 @@ Paused 11 November 2026 at the coordinator's request. Nothing committed.
   duplicate fix, identical numbers). Frames 1587, 31, 266 and the post-shot
   frame appear only in its corpus summaries.
 
-## Half done / next steps
+## Finished on resume
 
-1. `tools/evidence/score_detections.py`: not yet changed (a pristine copy was
-   taken). Add `--manifest PATH` and `--corpus TAG` that build the same
-   `(rec, labels, met)` structures from the manifest (corners, table-2x1
-   labels, tableV, `storedResult.balls`) and pass them to `score()`. Then run
-   `--manifest ... --corpus claude-review-labels` and check it gives 19 frames,
-   292/295 balls, black 12/15, as in `work/evidence-audit/score-production-at-capture.json`.
-   Also run on the whole manifest and record the larger numbers.
-2. Write `tests/fixtures/detection-corpus/README.md` (British English): purpose,
-   regeneration, counts above, 266 and Argon results, gaps.
-3. Optional: compare the two 1691 label sets (labels.jsonl versus restaged review) as a consistency check.
+- `score_detections.py` now takes `--manifest PATH [--corpus TAG]`; default use unchanged
+  (re-run gives the same 19-frame result). `--manifest ... --corpus claude-review-labels`
+  reproduces 19 frames, 292/295, black 12/15, identical strata, misses and per-frame rows
+  (order aside). Score file: `work/evidence-audit/score-corpus-v1-production-at-capture.json`.
+- Whole manifest, stored results: 24 of 37 labelled frames scored, 368/374 balls, 0 false
+  positives, black 13/19 (5 cushion, 1 open). Dim: 4 of 8 frames scored (two layouts),
+  61/64, black 1/4; the three dim black misses and the two bright ones (2831, 288) are all at
+  table (1.48, 0.067). 266 is 16/16.
+- `tests/fixtures/detection-corpus/README.md` written.
 
 ## Known gaps
 
