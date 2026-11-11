@@ -47,7 +47,7 @@ PASS; Layout03 parity 4/4; golden-shadow passes on all three device log pulls (L
 
 Whether it fires on the device as intended: today's logs cannot replay it (it needs live rasters). Expected
 on the next run with flicker or a dropped black: a `pot_contradicted` where Live Detect logs a false pot on a
-still table. Not built for the device.
+still table. Installed as 0.8.70 (below) but not yet run live.
 
 Detector inventory 0/3 and physical gates D1/D2/E 0/3 carried forward.
 
