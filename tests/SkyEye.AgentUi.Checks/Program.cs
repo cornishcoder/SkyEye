@@ -14,6 +14,11 @@ if (args.Length == 2 && args[0] == "--replay-live-detect-summary")
     LiveDetectCountCandidateChecks.ReplaySummary(args[1]);
     return;
 }
+if (args.Length >= 2 && args[0] == "--pot-veto")
+{
+    LiveDetectPotVetoReport.Run(args.Skip(1));
+    return;
+}
 if (args.Length >= 2 && args[0] == "--golden-shadow")
 {
     foreach (var logPath in args.Skip(1)) LiveDetectSettledChangeChecks.GoldenShadowLog(logPath);
