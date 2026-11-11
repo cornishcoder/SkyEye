@@ -512,8 +512,8 @@ through the Python reducer port where possible.
   `--golden-shadow` passes (4 runs, 717 frames, 24 table events identical;
   344 logged shadow frames yield 77 intact settled passes across `seq 2..6`
   with chain lengths 1, 1, 1, 2, 3 and 1 `unexplained_change` proposal at
-  `(0.515, 0.471)` for the shadow-shifted cue departure; all 8 isolated
-  post-break ball arrivals match within `1.6R`). Software suites `SkyEye.Checks`
+  `(0.515, 0.471)` for the shadow-shifted cue departure; all 8 other ball-sized
+  regions (6 arrival, 2 unclear) sit on post-break balls within `1.6R`). Software suites `SkyEye.Checks`
   and `SkyEye.AgentUi.Checks` and `Build-SkyEye.ps1 -Target All` pass (0
   errors); detector inventory 0/3 and physical gates D1/D2/E 0/3 carried
   forward.
