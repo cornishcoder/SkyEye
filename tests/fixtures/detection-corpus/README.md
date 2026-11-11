@@ -142,6 +142,13 @@ corners. Score with:
 
     dotnet run --project tests/SkyEye.Vision.Desktop.Runner -- detect --manifest tests/fixtures/detection-corpus/obstruction-hand-controls.json --roles obstruction-control --output OUT.jsonl
 
+## Black-absent dim rack control
+
+`black-absent-dim-rack.json` (role `black-absent-control`): five lossless verifier frames of a full rack of
+7 reds and 7 yellows with the black left out, cue in baulk, evening light (table V 66), captured 11 November
+2026 (run `aa485778`). A detector must report no black. Score with
+`detect --manifest tests/fixtures/detection-corpus/black-absent-dim-rack.json --roles black-absent-control`.
+
 ## Known gaps
 
 - Dim coverage is two scored layouts, and no frame is darker than V 69.

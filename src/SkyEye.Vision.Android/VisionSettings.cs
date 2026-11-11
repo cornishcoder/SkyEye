@@ -71,6 +71,12 @@ public sealed record VisionSettings(int Width = 1000, double MinimumRadius = 18,
     // (29 Oct rack: support 15/32 at V 28 rising to found at V 86 on gamma copies of one frame).
     // Still needs 14/32 visible, every other sector explained, and a black classification.
     public bool PackedBlackAdjacentBallOcclusion { get; init; } = false;
+    // Packed black accepted on occlusion evidence must also be dark relative to the cloth: annulus
+    // (0.55..0.85 R at the expected radius) p25 V at most 0.28 x the inner-table median V. A real
+    // black-absent dim rack (control black-absent-dim-rack.json, 11 Nov) put a false black in the gap:
+    // shadowed cloth under the absolute dark ceiling of 40, ratio 0.36..0.39; real blacks 0.2 or less.
+    // False replays the earlier behaviour.
+    public bool PackedBlackOcclusionDarkBody { get; init; } = true;
     public double MinimumHoughBoundarySupport { get; init; } = .75;
     // A fresh six-frame pocket-lip holdout recovered a fitted top-left red with
     // 20/32 supported sectors; the separate pocket-colour review retains its

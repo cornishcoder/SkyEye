@@ -133,7 +133,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 + (settings.ObstructionShadowTolerance ? "-obstruction-shadow60" : "")
                 + (settings.PackedClusterLocalUnknowns ? "-packed-local-unknown25" : "")
                 + (settings.ObstructionDimChromaTolerance ? "-obstruction-chroma14" : "")
-                + (settings.PackedBlackAdjacentBallOcclusion ? "-packed-black-adjacent125" : "");
+                + (settings.PackedBlackAdjacentBallOcclusion ? "-packed-black-adjacent125" : "")
+                + (settings.PackedBlackOcclusionDarkBody ? "-packed-black-darkbody28" : "");
             bool normalizedProposalAblation = settings.UseNormalizedGeometryForDetection || settings.UseNormalizedPackedColourProposalMask;
             bool edgeMarginAblation = settings.PackedClusterImageEdgeMargin != 23;
             bool sparseColourSupportAblation = settings.MinimumSparseColourBoundarySupport

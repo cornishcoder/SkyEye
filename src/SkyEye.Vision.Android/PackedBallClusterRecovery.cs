@@ -150,6 +150,7 @@ public sealed partial class VisionAnalyzer
         candidateAudits?.Add(new(pass, "packed-black-search", "black", darkSeeds.Length,
             new((bounds.Left + bounds.Right) / 2, (bounds.Top + bounds.Bottom) / 2), 0, null, null, null, null,
             $"cluster-window-seeds={darkSeeds.Length};component-cap=64-after-window-filter"));
+        int? clothMedianValue = null;
         for (int i = 0; i < darkSeeds.Length; i++)
         {
             var seed = darkSeeds[i];
@@ -169,6 +170,21 @@ public sealed partial class VisionAnalyzer
             var classification = Classify(body, rawPixels, inspectRim: true);
             if (classification.Kind != "black")
             { Audit("rejected-classification", fit, fit.SupportedSectors, classification.Kind); continue; }
+            if (occlusionExplained && settings.PackedBlackOcclusionDarkBody)
+            {
+                // A black accepted on occlusion evidence must be dark relative to the cloth: the shadowed cloth
+                // in the gap of a black-absent rack passes the absolute dark ceiling (V 38 vs 40) and the
+                // occlusion exception (see VisionSettings.PackedBlackOcclusionDarkBody).
+                clothMedianValue ??= InnerTableMedianValue(rawPixels);
+                // Expected ball radius, not the fit's: a fit inside a gap can be half a ball wide.
+                double bodyValue = BodyAnnulusValueP25(new Circle(body.X, body.Y, expectedRadius), rawPixels);
+                occlusionEvidence = $"{occlusionEvidence};bodyAnnulusP25V={bodyValue:0.#};tableMedianV={clothMedianValue}";
+                if (clothMedianValue > 0 && bodyValue > PackedBlackOcclusionMaximumBodyToCloth * clothMedianValue.Value)
+                {
+                    Audit("rejected-occluded-body-not-dark", fit, fit.SupportedSectors, classification.Kind, occlusionEvidence);
+                    continue;
+                }
+            }
             if (circles.Any(c => Distance(c, body) < settings.Separation * scale))
             { Audit("rejected-duplicate-existing-proposal", fit, fit.SupportedSectors, classification.Kind); continue; }
             circles.Add(body);
@@ -351,6 +367,43 @@ public sealed partial class VisionAnalyzer
                 });
             }
         }
+    }
+
+    // Against the inner-table median V: real blacks in saved captures measure 0.2 or less (279 of 292
+    // detections; the rest are gamma-brightened copies); the gap of the black-absent dim rack 0.36 to 0.39.
+    // (The hue-filtered ClothRange median swings 47 to 91 between dim frames, leaving 0.23 vs 0.30.)
+    const double PackedBlackOcclusionMaximumBodyToCloth = .28;
+
+    /// <summary>Median V over the inner 80 % of the rectified table, sampled every 10 px.</summary>
+    int InnerTableMedianValue(byte[] hsv)
+    {
+        int w = coordinates.Width, h = coordinates.Height;
+        var values = new List<int>();
+        for (int y = h / 10; y < h * 9 / 10; y += 10)
+            for (int x = w / 10; x < w * 9 / 10; x += 10)
+                values.Add(hsv[(y * w + x) * 3 + 2]);
+        if (values.Count == 0) return 0;
+        values.Sort();
+        return values[values.Count / 2];
+    }
+
+    /// <summary>25th percentile of V on the 0.55..0.85 R annulus of a body: skips the white number disc and
+    /// central highlight of a black ball.</summary>
+    double BodyAnnulusValueP25(Circle body, byte[] hsv)
+    {
+        int w = coordinates.Width, h = coordinates.Height;
+        double inner = body.Radius * .55, outer = body.Radius * .85;
+        var values = new List<int>();
+        for (int y = (int)Math.Floor(body.Y - outer); y <= (int)Math.Ceiling(body.Y + outer); y++)
+            for (int x = (int)Math.Floor(body.X - outer); x <= (int)Math.Ceiling(body.X + outer); x++)
+            {
+                if (x < 0 || y < 0 || x >= w || y >= h) continue;
+                double d = Math.Sqrt((x - body.X) * (x - body.X) + (y - body.Y) * (y - body.Y));
+                if (d >= inner && d <= outer) values.Add(hsv[(y * w + x) * 3 + 2]);
+            }
+        if (values.Count == 0) return 0;
+        values.Sort();
+        return values[values.Count / 4];
     }
 
     bool HasOcclusionExplainedBlackBoundary(BallBoundary fit, Point proposal, double expectedRadius,

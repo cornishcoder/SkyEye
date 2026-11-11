@@ -60,7 +60,8 @@ static int Parity(Dictionary<string, string> o)
         PackedCueHandover = ProofAlgorithm(proof).Contains("-cuehandover", StringComparison.Ordinal),
         ObstructionShadowTolerance = ProofAlgorithm(proof).Contains("-obstruction-shadow", StringComparison.Ordinal),
         PackedClusterLocalUnknowns = ProofAlgorithm(proof).Contains("-packed-local-unknown", StringComparison.Ordinal),
-        ObstructionDimChromaTolerance = ProofAlgorithm(proof).Contains("-obstruction-chroma",StringComparison.Ordinal),
+        ObstructionDimChromaTolerance = ProofAlgorithm(proof).Contains("-obstruction-chroma", StringComparison.Ordinal),
+        PackedBlackOcclusionDarkBody = ProofAlgorithm(proof).Contains("-packed-black-darkbody", StringComparison.Ordinal),
     };
     bool audit = proof["boundaryAudit"]!.GetValue<bool>();
     var analyzer = new VisionAnalyzer(settings, includeBoundaryDiagnostics: audit, includeCandidateDiagnostics: audit);
