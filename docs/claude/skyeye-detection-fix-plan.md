@@ -490,4 +490,32 @@ through the Python reducer port where possible.
   observer, evidence on the reducer observation, schema 15 logging and
   raster sidecars. Offline checks pass; not yet run on the Pixel (needs a
   bounded live session, Richard's go-ahead).
+- 11 Nov. Bounded on-device D3 shadow check completed on Pixel 11
+  (`d3-device-check-result.md`, Companion 0.8.63 / code 71, run
+  `755281db-547e-4f68-9178-5a4887af1ff1`; capture stopped and `/status`
+  verified `Stopped` rev 5, Home `Start live`): 344/344 frames logged
+  `settledChange`, pass cost median 14.7 ms (p95 22.3 ms, break comparison
+  162 ms, well under the 40 ms guard), hand-pass control `seq 2` gave 0
+  ball-sized regions (1 corner region rejected as `rail`), break `seq 3` gave
+  9 ball-sized + 2 oversize regions and saved 1 raster pair (71 KB / 74 KB),
+  `seq 4..6` gave 0 regions, and decoder restart reset to a new epoch.
+  `chainIntact` was false on every pass in the device log; root-caused to
+  three timing mismatches between the 3-frame layout baseline (~0.7 s) and
+  the 1.2 s settled-change tracker (initial `NoReference` `seq 1` setting
+  `chainBroken`, `BaselineSourceTimeUs` recording probe sample 1 while
+  `ReferenceSegmentStartUs` starts on sample 2 or 3, and shot transition
+  comparison `seq 3` arriving 3 passes after `BaselineAdvanced`). Fixed in
+  `LiveDetectSettledChangePolicy` and `LiveDetectTableEventTracker`
+  (`D3-CHAIN-ANCHOR-FIX`) with unit checks for initial `NoReference`,
+  3-sample/moving baseline window, active-motion suspension, and transition
+  comparisons. Replaying run `755281db-547e-4f68-9178-5a4887af1ff1` through
+  `--golden-shadow` passes (4 runs, 717 frames, 24 table events identical;
+  344 logged shadow frames yield 77 intact settled passes across `seq 2..6`
+  with chain lengths 1, 1, 1, 2, 3 and 1 `unexplained_change` proposal at
+  `(0.515, 0.471)` for the shadow-shifted cue departure; all 8 isolated
+  post-break ball arrivals match within `1.6R`). Software suites `SkyEye.Checks`
+  and `SkyEye.AgentUi.Checks` and `Build-SkyEye.ps1 -Target All` pass (0
+  errors); detector inventory 0/3 and physical gates D1/D2/E 0/3 carried
+  forward.
+
 

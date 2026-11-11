@@ -88,6 +88,7 @@ internal sealed class LiveDetectTableEventTracker
     bool blackNotSeen, cueNotSeen;
     readonly LiveDetectSettledChangePolicy settledChangePolicy = new();
     bool settledChangeSeen;
+    long? baselineConfirmedSourceTimeUs;
 
     public LiveDetectTableEventTracker(LiveDetectReducerOptions? options = null) =>
         this.options = options ?? LiveDetectReducerOptions.Default;
@@ -110,6 +111,7 @@ internal sealed class LiveDetectTableEventTracker
         blackNotSeen = cueNotSeen = false;
         settledChangePolicy.Reset();
         settledChangeSeen = false;
+        baselineConfirmedSourceTimeUs = null;
     }
 
     public LiveDetectEventBatch Observe(LiveDetectTableEventObservation sample)
@@ -193,6 +195,8 @@ internal sealed class LiveDetectTableEventTracker
 
         if (mediaGenerationChanged)
         {
+            settledChangePolicy.Reset();
+            baselineConfirmedSourceTimeUs = null;
             stableAtBaselineSamples = 0;
             currentBaselineStableSamples = 0;
             if (activity is { } interruptedActivity)
@@ -455,13 +459,15 @@ internal sealed class LiveDetectTableEventTracker
         bool settledBaselineMatchesCurrent = stableSampleEligible
             && currentBaselineStableSamples >= StableTableChangeTracker.RequiredStableSamples;
         // D3 shadow: runs last, reads copies of the state above, and is reported only on the batch.
+        if (!stableSnapshot.BaselineEstablished) baselineConfirmedSourceTimeUs = null;
+        else if (baselineAdvancedThisSample) baselineConfirmedSourceTimeUs = sample.SourceTimeUs;
         LiveDetectSettledChangeShadow? settledChangeShadow = null;
         settledChangeSeen |= sample.SettledChange is not null;
         if (options.SettledChange == LiveDetectSettledChangeMode.Shadow && settledChangeSeen)
-            settledChangeShadow = settledChangePolicy.Observe(new(stableBaselineEstablished, baselineAdvancedThisSample,
-                stableBaselineEstablished ? stableSnapshot.BaselineSourceTimeUs : null, baselineLayout, sample.Layout,
+            settledChangeShadow = settledChangePolicy.Observe(new(stableSnapshot.BaselineEstablished, baselineAdvancedThisSample,
+                stableSnapshot.BaselineSourceTimeUs, baselineLayout, sample.Layout,
                 stableSampleEligible, sample.Obstructed, pocketRegionOnly ? sample.UncertainRegions : [],
-                blackNotSeen, cueNotSeen, sample.SourceTimeUs), sample.SettledChange);
+                blackNotSeen, cueNotSeen, sample.SourceTimeUs, baselineConfirmedSourceTimeUs), sample.SettledChange);
         return new(checkOutcome, events.ToImmutable(), clipActivity, clipEventType, clipEndSourceTimeUs,
             ToLiveDetectCounts(baselineCounts), baselineCapturedAt, settledBaselineMatchesCurrent,
             currentBaselineStableSamples)

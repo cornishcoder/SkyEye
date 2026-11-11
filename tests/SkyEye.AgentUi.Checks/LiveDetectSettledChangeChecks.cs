@@ -28,12 +28,14 @@ internal static class LiveDetectSettledChangeChecks
         Console.WriteLine($"PASS D3 settled-change rules in shadow: hold, no hold near change, chain breaks, black/cue inference, departure support, pocket regions, not-seen states; golden shadow test identical over {passes} generated passes ({events} table events, {proposals} shadow proposals of kinds {string.Join(", ", kinds.Order())})");
     }
 
-    /// <summary>Replays every run in a saved Live Detect log twice, without and with random shadow evidence,
-    /// and fails on any difference in outcome, events, clips or baseline.</summary>
+    /// <summary>Replays every run in a saved Live Detect log without shadow evidence, with any real logged
+    /// shadow evidence, and with random shadow evidence, failing on any difference in outcome, events, clips or baseline.</summary>
     public static void GoldenShadowLog(string path)
     {
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web);
         var runs = new Dictionary<Guid, List<LiveDetectTableEventObservation>>();
+        var lastEvidenceByRun = new Dictionary<Guid, SettledChangeEvidence?>();
+        int loggedShadowFrames = 0;
         foreach (string line in File.ReadLines(path))
         {
             if (string.IsNullOrWhiteSpace(line)) continue;
@@ -44,36 +46,70 @@ internal static class LiveDetectSettledChangeChecks
             var layout = LiveDetectTableEventTrackerChecks.CaptureLayoutForReplay(frame.Balls);
             var counts = new LiveDetectCounts(frame.Reds, frame.Yellows, frame.Black, frame.Cue, frame.Other);
             var source = new EvidenceSource("replay-camera", frame.Timeline, 1, frame.CalibrationId, frame.CameraConnectionId.ToString("N"));
+            SettledChangePass? loggedPass = null;
+            if (frame.SettledChange is { } sc)
+            {
+                loggedShadowFrames++;
+                if (sc.Evidence is not null) lastEvidenceByRun[record.RunId] = sc.Evidence;
+                else if (sc.EvidenceSequence is null) lastEvidenceByRun[record.RunId] = null;
+                lastEvidenceByRun.TryGetValue(record.RunId, out var carriedEvidence);
+                var state = Enum.TryParse<SettledChangeState>(sc.State, out var parsed) ? parsed : SettledChangeState.Settled;
+                loggedPass = new(state, sc.MotionFraction, sc.StillPasses, sc.ComputeMs,
+                    sc.EvidenceSequence is not null ? carriedEvidence : null, sc.EvidenceIsNew, sc.UnavailableReason);
+            }
             list.Add(new(source, frame.CameraConnectionId, frame.MediaGeneration, frame.FrameId, frame.CapturedAt,
                 frame.SourceTimeUs, frame.Timeline, frame.CalibrationId, counts, layout, frame.Obstructed, frame.Uncertain,
-                frame.LayoutUncertain, false, frame.PackedRackEvidence));
+                frame.LayoutUncertain, frame.SpatiallyCompatible == false, frame.PackedRackEvidence,
+                SettledChange: loggedPass));
         }
-        int frames = 0, proposals = 0, events = 0;
+        int frames = 0, proposals = 0, events = 0, loggedIntact = 0, loggedProposals = 0;
+        var loggedComparisons = new List<string>();
         foreach (var (runId, observations) in runs)
         {
-            frames += GoldenShadow(observations, LiveDetectReducerOptions.Default, runId.GetHashCode(), out int p, out int e, []);
+            frames += GoldenShadow(observations, LiveDetectReducerOptions.Default, runId.GetHashCode(), out int p, out int e, [],
+                out int runLoggedIntact, out int runLoggedProposals, loggedComparisons);
             proposals += p; events += e;
+            loggedIntact += runLoggedIntact; loggedProposals += runLoggedProposals;
         }
-        Console.WriteLine($"PASS golden shadow {Path.GetFileName(path)}: {runs.Count} runs, {frames} frames, {events} table events identical with and without shadow evidence ({proposals} shadow proposals computed)");
+        string loggedSummary = loggedShadowFrames > 0
+            ? $"; logged shadow replay: {loggedShadowFrames} frames, {loggedIntact} intact passes, {loggedProposals} proposals [{string.Join("; ", loggedComparisons)}]"
+            : "";
+        Console.WriteLine($"PASS golden shadow {Path.GetFileName(path)}: {runs.Count} runs, {frames} frames, {events} table events identical with and without shadow evidence ({proposals} random shadow proposals computed{loggedSummary})");
     }
 
     static int GoldenShadow(IReadOnlyList<LiveDetectTableEventObservation> observations, LiveDetectReducerOptions options, int seed,
-        out int proposals, out int events, HashSet<string> kinds)
+        out int proposals, out int events, HashSet<string> kinds) =>
+        GoldenShadow(observations, options, seed, out proposals, out events, kinds, out _, out _, null);
+
+    static int GoldenShadow(IReadOnlyList<LiveDetectTableEventObservation> observations, LiveDetectReducerOptions options, int seed,
+        out int proposals, out int events, HashSet<string> kinds, out int loggedIntact, out int loggedProposals, List<string>? loggedComparisons)
     {
         var plain = new LiveDetectTableEventTracker(options);
         var shadow = new LiveDetectTableEventTracker(options);
+        var logged = new LiveDetectTableEventTracker(options);
         var rng = new Random(seed);
-        long sequence = 0; proposals = 0; events = 0;
+        long sequence = 0; proposals = 0; events = 0; loggedIntact = 0; loggedProposals = 0;
         for (int i = 0; i < observations.Count; i++)
         {
             var observation = observations[i];
-            var a = plain.Observe(observation);
+            var a = plain.Observe(observation with { SettledChange = null });
             var b = shadow.Observe(observation with { SettledChange = RandomPass(rng, observation.SourceTimeUs, ref sequence) });
-            string left = Project(a), right = Project(b);
+            var c = logged.Observe(observation);
+            string left = Project(a), right = Project(b), real = Project(c);
             if (left != right)
                 throw new InvalidOperationException($"Shadow evidence changed the reducer at pass {i} (seed {seed}):\n{left}\n{right}");
+            if (left != real)
+                throw new InvalidOperationException($"Logged shadow evidence changed the reducer at pass {i}:\n{left}\n{real}");
             if (a.SettledChange is not null) throw new InvalidOperationException("No evidence must give no shadow output");
             proposals += b.SettledChange?.Proposals.Length ?? 0; events += a.TableEvents.Length;
+            if (c.SettledChange is { ChainIntact: true }) loggedIntact++;
+            loggedProposals += c.SettledChange?.Proposals.Length ?? 0;
+            if (loggedComparisons is not null && c.SettledChange is { EvidenceIsNew: true } sc)
+            {
+                string propText = sc.Proposals.IsEmpty ? "0"
+                    : string.Join(",", sc.Proposals.Select(p => $"{p.Kind}@({p.TableX:0.000},{p.TableY:0.000})"));
+                loggedComparisons.Add($"seq {sc.EvidenceSequence}: intact={sc.ChainIntact} len={sc.ChainLength} proposals={propText}");
+            }
             foreach (var p in b.SettledChange?.Proposals ?? []) kinds.Add(p.Kind);
         }
         return observations.Count;
@@ -139,6 +175,48 @@ internal static class LiveDetectSettledChangeChecks
         shadow = policy.Observe(Context(baseline, advanced: true), null);
         shadow = policy.Observe(Context([yellow, black]), Pass(Evidence(2) with { ReferenceSegmentStartUs = 500_000, ReferenceSegmentEndUs = 1_500_000 }));
         Require(shadow.ChainIntact, "A new baseline restarts a broken chain");
+
+        // Initial NoReference (Sequence 1) after baseline formation records the epoch without breaking the chain;
+        // a 3-sample baseline window [s1..s3] or moving BaselineSourceTimeUs on ordinary passes links cleanly.
+        policy = new();
+        policy.Observe(new(true, true, 1_000_000, baseline, baseline, true, false, [], false, false, 1_700_000, 1_700_000), null);
+        shadow = policy.Observe(new(true, false, 1_000_000, baseline, baseline, true, false, [], false, false, 2_200_000, 1_700_000),
+            Pass(new(Epoch, 1, SettledChangeStatus.NoReference, [], 0, 0, 0, 0, 1_350_000, 2_200_000, null)));
+        Require(!shadow.ChainIntact && shadow.ChainLength == 0, "Initial NoReference has no comparison link yet");
+        shadow = policy.Observe(new(true, false, 1_350_000, baseline, [yellow, black], true, false, [], false, false, 4_500_000, 1_700_000),
+            Pass(Evidence(2) with { ReferenceSegmentStartUs = 1_350_000, ReferenceSegmentEndUs = 3_000_000, CurrentWindowStartUs = 3_300_000, CurrentWindowEndUs = 4_500_000 }));
+        Require(shadow.ChainIntact && shadow.ChainLength == 1 && shadow.Proposals.Single().Kind == "hold",
+            "Initial NoReference + 3-sample baseline window + moving BaselineSourceTimeUs keeps chain intact and holds missing red");
+        shadow = policy.Observe(new(true, false, 1_700_000, baseline, [yellow, black], true, false, [], false, false, 6_500_000, 1_700_000),
+            Pass(Evidence(3) with { ReferenceSegmentStartUs = 3_300_000, ReferenceSegmentEndUs = 5_000_000, CurrentWindowStartUs = 5_300_000, CurrentWindowEndUs = 6_500_000 }));
+        Require(shadow.ChainIntact && shadow.ChainLength == 2, "Second comparison links onto the chain while BaselineSourceTimeUs moves");
+        shadow = policy.Observe(new(true, false, 1_700_000, baseline, [yellow, black], true, false, [], false, false, 7_000_000, 1_700_000),
+            new(SettledChangeState.Moving, .02, 0, 1, null, false));
+        Require(!shadow.ChainIntact && shadow.Proposals.IsEmpty, "Active motion suspends chainIntact and refuses hold until the motion settles");
+
+        // Transition comparison: when a shot settles, the 3-frame layout baseline advances (~0.7 s) before the
+        // 1.2 s settled-change comparison arrives (~1.2 s). The transition link keeps the chain intact, allows U2
+        // inference, explains pre-shot departures, and is replaced when the first post-shot comparison arrives.
+        ImmutableArray<SettledBallPosition> postShot = [red, new(BallColour.Yellow, .4, .6)];
+        shadow = policy.Observe(new(true, true, 10_000_000, postShot, postShot, true, false, [], false, false, 10_700_000, 10_700_000), null);
+        shadow = policy.Observe(new(true, false, 10_000_000, postShot, postShot, true, false, [], false, false, 11_200_000, 10_700_000),
+            Pass(Evidence(4, regions: [
+                Region(.5, .3, ChangeDirection.Departure), // pre-shot yellow departure at (0.5, 0.3)
+                Region(.8, .6, ChangeDirection.Arrival),   // post-shot yellow arrival at (0.8, 0.6)
+                Region(1.48, .067, ChangeDirection.Arrival, darkAfter: .7) // black arrival at cushion miss spot
+            ], grid: [(.5, .3), (.8, .6), (1.48, .067)]) with
+            {
+                ReferenceSegmentStartUs = 5_300_000, ReferenceSegmentEndUs = 8_000_000,
+                CurrentWindowStartUs = 10_400_000, CurrentWindowEndUs = 11_200_000
+            }));
+        Require(shadow.ChainIntact && shadow.ChainLength == 1
+            && shadow.Proposals.Single().Kind == "infer_black"
+            && !shadow.Proposals.Any(p => p.Kind == "unexplained_change"),
+            "Transition comparison after BaselineAdvanced keeps chain intact, infers black, and explains pre/post-shot balls");
+        shadow = policy.Observe(new(true, false, 10_000_000, postShot, [postShot[1]], true, false, [], false, false, 13_500_000, 10_700_000),
+            Pass(Evidence(5) with { ReferenceSegmentStartUs = 10_700_000, ReferenceSegmentEndUs = 12_000_000, CurrentWindowStartUs = 12_300_000, CurrentWindowEndUs = 13_500_000 }));
+        Require(shadow.ChainIntact && shadow.ChainLength == 1 && shadow.Proposals.Single().Kind == "hold",
+            "First post-shot comparison replaces the transition link and starts the post-shot chain");
 
         // U3: a ball-sized region at a missing ball's position supports a departure; no hold.
         policy = new(); policy.Observe(Context(baseline, advanced: true), null);
@@ -240,7 +318,9 @@ internal static class LiveDetectSettledChangeChecks
             evidence = new(Epoch, sequence, status, gates, refStart, refStart + rng.Next(0, 10) * 1_000_000L, refStart, refStart + 500_000,
                 timeUs - 1_000_000, timeUs, status == SettledChangeStatus.Compared ? new(gates, .01, 0, .1, n, regions, bits, 20, 40, 1) : null);
         }
-        return new((SettledChangeState)rng.Next(4), rng.NextDouble() * .01, rng.Next(0, 6), rng.NextDouble() * 20, evidence, isNew && evidence is not null);
+        var passState = isNew && evidence is not null || rng.NextDouble() < .6
+            ? SettledChangeState.Settled : (SettledChangeState)rng.Next(4);
+        return new(passState, rng.NextDouble() * .01, rng.Next(0, 6), rng.NextDouble() * 20, evidence, isNew && evidence is not null);
     }
 
     /// <summary>A long, varied observation stream: stable stretches, moves, pots, returns, missed black/cue,

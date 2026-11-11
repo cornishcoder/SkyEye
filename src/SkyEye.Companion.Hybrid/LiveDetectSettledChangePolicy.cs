@@ -28,7 +28,8 @@ internal readonly record struct LiveDetectSettledChangeContext(
     bool BaselineEstablished, bool BaselineAdvanced, long? BaselineSourceTimeUs,
     ImmutableArray<SettledBallPosition> BaselineLayout, ImmutableArray<SettledBallPosition> CurrentLayout,
     bool CurrentLayoutTrusted, bool Obstructed, ImmutableArray<LiveDetectUncertainRegion> PocketRegions,
-    bool BlackNotSeen, bool CueNotSeen, long SourceTimeUs);
+    bool BlackNotSeen, bool CueNotSeen, long SourceTimeUs,
+    long? BaselineConfirmedSourceTimeUs = null);
 
 /// <summary>
 /// D3 rules U1 to U5 (docs/claude/d3-settled-change-design.md, section 2.3), shadow mode only. Pure and
@@ -44,23 +45,74 @@ internal sealed class LiveDetectSettledChangePolicy
 
     readonly List<SettledChangeEvidence> chain = [];
     bool chainBroken;
-    long? anchorBaselineUs;
+    bool transitionLink;
+    long? anchorStartUs, anchorEndUs;
+    Guid? anchorEpoch;
+    ImmutableArray<SettledBallPosition> currentAnchorLayout = [];
+    bool previousIntact;
+    long? previousStartUs, previousEndUs;
+    Guid? previousEpoch;
+    long? previousSequence;
+    ImmutableArray<SettledBallPosition> previousBaselineLayout = [];
     readonly Dictionary<int, long> lastObservedUs = [];
 
-    public void Reset() { chain.Clear(); chainBroken = false; anchorBaselineUs = null; lastObservedUs.Clear(); }
+    public void Reset()
+    {
+        chain.Clear(); chainBroken = false; transitionLink = false;
+        anchorStartUs = anchorEndUs = null; anchorEpoch = null; currentAnchorLayout = [];
+        previousIntact = false; previousStartUs = previousEndUs = null; previousEpoch = null; previousSequence = null; previousBaselineLayout = [];
+        lastObservedUs.Clear();
+    }
 
     public LiveDetectSettledChangeShadow Observe(LiveDetectSettledChangeContext context, SettledChangePass? pass)
     {
-        if (context.BaselineAdvanced || anchorBaselineUs != context.BaselineSourceTimeUs)
+        if (!context.BaselineEstablished || context.BaselineSourceTimeUs is null)
         {
-            // A new baseline restarts the chain: only evidence about the table since this baseline counts.
-            chain.Clear(); chainBroken = false; anchorBaselineUs = context.BaselineSourceTimeUs; lastObservedUs.Clear();
+            Reset();
+        }
+        else if (context.BaselineAdvanced || anchorStartUs is null)
+        {
+            long start = context.BaselineSourceTimeUs.Value;
+            long end = context.BaselineConfirmedSourceTimeUs ?? start;
+            long newStart = Math.Min(start, end), newEnd = Math.Max(start, end);
+
+            previousIntact = anchorStartUs is not null && !chainBroken;
+            previousStartUs = anchorStartUs;
+            previousEndUs = anchorEndUs;
+            previousEpoch = chain.Count > 0 ? chain[^1].Epoch : anchorEpoch;
+            previousSequence = chain.Count > 0 ? chain[^1].Sequence : null;
+            previousBaselineLayout = currentAnchorLayout;
+
+            // Design 2.3: when the baseline advances, links whose current window ends before the new
+            // baseline are absorbed and dropped; a transition link that already settled into the new
+            // baseline's window stays until a post-baseline comparison replaces it.
+            SettledChangeEvidence? retained = !chainBroken && chain.Count > 0
+                && chain[^1].ReferenceSegmentEndUs < newStart && chain[^1].CurrentWindowEndUs >= newStart
+                ? chain[^1] : null;
+            chain.Clear();
+            chainBroken = false;
+            transitionLink = retained is not null;
+            if (retained is not null) chain.Add(retained);
+            anchorStartUs = newStart;
+            anchorEndUs = newEnd;
+            currentAnchorLayout = context.BaselineLayout;
+            lastObservedUs.Clear();
+        }
+        else
+        {
+            long start = context.BaselineSourceTimeUs.Value;
+            long end = context.BaselineConfirmedSourceTimeUs ?? start;
+            anchorStartUs = Math.Min(anchorStartUs.Value, Math.Min(start, end));
+            anchorEndUs = Math.Max(anchorEndUs!.Value, Math.Max(start, end));
+            currentAnchorLayout = context.BaselineLayout;
         }
         if (pass is { EvidenceIsNew: true, Evidence: { } evidence }) Link(evidence);
 
         var proposals = ImmutableArray.CreateBuilder<LiveDetectSettledChangeProposal>();
         var states = ImmutableArray.CreateBuilder<LiveDetectSettledBallState>();
-        bool intact = context.BaselineEstablished && !chainBroken && chain.Count > 0;
+        bool settledPass = pass is { State: SettledChangeState.Settled };
+        bool intact = context.BaselineEstablished && !chainBroken && chain.Count > 0 && settledPass;
+        var postBaselineChain = transitionLink ? [] : chain;
         long? sequence = pass?.Evidence?.Sequence;
         var current = context.CurrentLayoutTrusted && !context.CurrentLayout.IsDefault ? context.CurrentLayout : [];
 
@@ -71,10 +123,10 @@ internal sealed class LiveDetectSettledChangePolicy
                 var ball = context.BaselineLayout[i];
                 if (current.Any(c => c.Colour == ball.Colour && Distance(c, ball) <= Near))
                 { lastObservedUs[i] = context.SourceTimeUs; continue; }
-                if (!context.CurrentLayoutTrusted) continue;  // nothing is "missing" from an untrusted view
+                if (!context.CurrentLayoutTrusted || !settledPass) continue;  // nothing is missing from an untrusted or moving view
                 var (tx, ty) = Table(ball);
                 // U3: a ball-sized region at a missing ball's position supports a real departure.
-                var departure = chain.SelectMany(l => l.Comparison!.Regions.Select(r => (Link: l, Region: r)))
+                var departure = postBaselineChain.SelectMany(l => l.Comparison!.Regions.Select(r => (Link: l, Region: r)))
                     .FirstOrDefault(x => x.Region.BallSized && Distance(x.Region, tx, ty) <= Near);
                 if (departure.Region is not null)
                 {
@@ -82,12 +134,12 @@ internal sealed class LiveDetectSettledChangePolicy
                         departure.Region.Direction.ToString()));
                     continue;
                 }
-                // U1: held only while the chain is intact, nothing changed near it in any link, and no obstruction.
-                if (intact && !context.Obstructed && !chain.Any(l => GridChangedNear(l.Comparison!, tx, ty, Near)))
+                // U1: held only while the chain is intact, nothing changed near it in any post-baseline link, and no obstruction.
+                if (intact && !transitionLink && !context.Obstructed && !postBaselineChain.Any(l => GridChangedNear(l.Comparison!, tx, ty, Near)))
                 {
                     long? since = lastObservedUs.TryGetValue(i, out var seen) ? seen : context.BaselineSourceTimeUs;
-                    proposals.Add(new("hold", Name(ball.Colour), tx, ty, chain[^1].Sequence, false));
-                    states.Add(new(Name(ball.Colour), tx, ty, "held", since, chain[^1].Sequence));
+                    proposals.Add(new("hold", Name(ball.Colour), tx, ty, postBaselineChain[^1].Sequence, false));
+                    states.Add(new(Name(ball.Colour), tx, ty, "held", since, postBaselineChain[^1].Sequence));
                 }
             }
 
@@ -123,7 +175,9 @@ internal sealed class LiveDetectSettledChangePolicy
             // Ball-sized change that no baseline or current ball explains: logged only.
             if (pass is { EvidenceIsNew: true } && intact)
                 foreach (var region in chain[^1].Comparison!.Regions.Where(r => r.BallSized))
-                    if (!context.BaselineLayout.Any(b => Distance(region, b) <= Near) && !current.Any(c => Distance(region, c) <= Near)
+                    if (!context.BaselineLayout.Any(b => Distance(region, b) <= Near)
+                        && !(transitionLink && !previousBaselineLayout.IsDefault && previousBaselineLayout.Any(b => Distance(region, b) <= Near))
+                        && !current.Any(c => Distance(region, c) <= Near)
                         && !proposals.Any(p => p.Kind.StartsWith("infer_", StringComparison.Ordinal) && Math.Abs(p.TableX - region.TableX) < 1e-9 && Math.Abs(p.TableY - region.TableY) < 1e-9))
                         proposals.Add(new("unexplained_change", null, region.TableX, region.TableY, chain[^1].Sequence, false, region.Zone));
         }
@@ -139,20 +193,83 @@ internal sealed class LiveDetectSettledChangePolicy
 
     void Link(SettledChangeEvidence evidence)
     {
-        if (chainBroken || anchorBaselineUs is null) return;
-        if (evidence.Status != SettledChangeStatus.Compared || evidence.GateReasons.Count > 0 || evidence.Comparison is null)
-        { chainBroken = true; return; }
-        if (chain.Count == 0)
+        if (chainBroken || anchorStartUs is null || anchorEndUs is null) return;
+
+        // Design 2.3: the initial NoReference (Sequence 1) establishes the first reference window;
+        // only a NoReference after motion (Sequence > 1 or after links exist) breaks the chain.
+        if (evidence.Status == SettledChangeStatus.NoReference)
         {
-            // The first link must start from the settled view the baseline was taken in.
-            if (evidence.ReferenceSegmentStartUs <= anchorBaselineUs && anchorBaselineUs <= evidence.ReferenceSegmentEndUs) chain.Add(evidence);
-            else chainBroken = true;
+            if (chain.Count == 0 && evidence.Sequence == 1 && (anchorEpoch is null || anchorEpoch == evidence.Epoch))
+            {
+                anchorEpoch = evidence.Epoch;
+                return;
+            }
+            chainBroken = true;
             return;
         }
+
+        // Transition comparison: settled into the new baseline's segment from the pre-baseline segment
+        // (because the 3-frame layout baseline confirms ~0.5 s before the 1.2 s image settle window).
+        if (chain.Count == 0 && evidence.ReferenceSegmentEndUs < anchorStartUs && evidence.CurrentWindowEndUs >= anchorStartUs)
+        {
+            if (evidence.Status == SettledChangeStatus.Compared && evidence.GateReasons.Count == 0 && evidence.Comparison is not null
+                && previousIntact && LinksFromPrevious(evidence))
+            {
+                chain.Add(evidence);
+                transitionLink = true;
+                anchorEpoch = evidence.Epoch;
+            }
+            else
+            {
+                previousIntact = false;
+            }
+            return;
+        }
+
+        if (evidence.Status != SettledChangeStatus.Compared || evidence.GateReasons.Count > 0 || evidence.Comparison is null)
+        {
+            chainBroken = true;
+            return;
+        }
+
+        if (chain.Count == 0 || transitionLink)
+        {
+            if (transitionLink && (evidence.Epoch != chain[^1].Epoch || evidence.Sequence != chain[^1].Sequence + 1))
+            {
+                chainBroken = true;
+                return;
+            }
+            // The first post-baseline link must start from the settled segment the baseline formed in.
+            if (evidence.ReferenceSegmentStartUs <= anchorEndUs && anchorStartUs <= evidence.ReferenceSegmentEndUs
+                && (anchorEpoch is null || evidence.Epoch == anchorEpoch))
+            {
+                chain.Clear();
+                chain.Add(evidence);
+                transitionLink = false;
+                anchorEpoch = evidence.Epoch;
+            }
+            else
+            {
+                chainBroken = true;
+            }
+            return;
+        }
+
         var last = chain[^1];
-        if (evidence.Epoch != last.Epoch || evidence.Sequence != last.Sequence + 1 || chain.Count >= MaximumChain) { chainBroken = true; return; }
+        if (evidence.Epoch != last.Epoch || evidence.Sequence != last.Sequence + 1 || chain.Count >= MaximumChain)
+        {
+            chainBroken = true;
+            return;
+        }
         chain.Add(evidence);
     }
+
+    bool LinksFromPrevious(SettledChangeEvidence evidence) =>
+        previousSequence is { } seq
+            ? evidence.Epoch == previousEpoch && evidence.Sequence == seq + 1
+            : previousStartUs is { } start && previousEndUs is { } end
+                && evidence.ReferenceSegmentStartUs <= end && start <= evidence.ReferenceSegmentEndUs
+                && (previousEpoch is null || evidence.Epoch == previousEpoch);
 
     /// <summary>True when any change-grid cell overlapping the circle (table units) is set.</summary>
     internal static bool GridChangedNear(SettledChangeComparison comparison, double tableX, double tableY, double radius)
