@@ -11,7 +11,11 @@ static class AnalyzeCommand
     public static int Run(Dictionary<string, string> o)
     {
         var corners = o["corners"].Split(';').Select(p => p.Split(',')).Select(p => new Point(double.Parse(p[0]), double.Parse(p[1]))).ToArray();
-        var settings = new VisionSettings(Width: 800) { PackedColourBoundarySearchExtentFraction = .65 };
+        var settings = new VisionSettings(Width: 800)
+        {
+            PackedColourBoundarySearchExtentFraction = .65,
+            ObstructionShadowTolerance = !(o.TryGetValue("shadow-tolerance", out var st) && st == "off")
+        };
         var analyzer = new VisionAnalyzer(settings, includeObstructionMaskDiagnostics: o.ContainsKey("mask"));
         var v = analyzer.Analyze(File.ReadAllBytes(o["image"]), new TableCalibration(corners));
         var kinds = string.Join(" ", v.Balls.GroupBy(b => b.Kind).OrderBy(g => g.Key).Select(g => $"{g.Key}={g.Count()}"));

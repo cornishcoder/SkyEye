@@ -58,6 +58,7 @@ static int Parity(Dictionary<string, string> o)
         // Reproduce the proof's algorithm: proofs made before T5 used whole-colour demotion.
         SurplusOnlyInventoryDemotion = ProofAlgorithm(proof).Contains("-surplus-", StringComparison.Ordinal),
         PackedCueHandover = ProofAlgorithm(proof).Contains("-cuehandover", StringComparison.Ordinal),
+        ObstructionShadowTolerance = ProofAlgorithm(proof).Contains("-obstruction-shadow", StringComparison.Ordinal),
     };
     bool audit = proof["boundaryAudit"]!.GetValue<bool>();
     var analyzer = new VisionAnalyzer(settings, includeBoundaryDiagnostics: audit, includeCandidateDiagnostics: audit);

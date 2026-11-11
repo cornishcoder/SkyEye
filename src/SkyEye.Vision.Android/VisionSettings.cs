@@ -47,6 +47,12 @@ public sealed record VisionSettings(int Width = 1000, double MinimumRadius = 18,
     // other cue is found, admit exactly one such body (fit at least MinimumHoughBoundarySupport).
     // False replays the earlier behaviour and identity (Layout03 frames 382/1274/3360 diagnosis).
     public bool PackedCueHandover { get; init; } = true;
+    // Obstruction mask only: a cast shadow under mixed daylight and warm room light keeps the cloth's
+    // brightness but turns warm in hue (afternoon device run 7c151fba: H 17, S 53 against cloth H 102),
+    // so the hue band and the S<=45 neutral fallback reject it and it joins balls into a false
+    // "large object". Also treat S 46..60 at 0.6..1.15x cloth median brightness as cloth, any hue.
+    // Skin measured S p50 93..94 and brighter than the cloth. False replays the earlier behaviour.
+    public bool ObstructionShadowTolerance { get; init; } = true;
     public double MinimumHoughBoundarySupport { get; init; } = .75;
     // A fresh six-frame pocket-lip holdout recovered a fitted top-left red with
     // 20/32 supported sectors; the separate pocket-colour review retains its

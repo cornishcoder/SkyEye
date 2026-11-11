@@ -126,7 +126,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             // T5 changes published kinds, so it changes the algorithm name; turning it off reproduces the old identity.
             string algorithm = previousAlgorithm
                 + (settings.SurplusOnlyInventoryDemotion ? "-surplus-sat40" : "")
-                + (settings.PackedCueHandover ? "-cuehandover75" : "");
+                + (settings.PackedCueHandover ? "-cuehandover75" : "")
+                + (settings.ObstructionShadowTolerance ? "-obstruction-shadow60" : "");
             bool normalizedProposalAblation = settings.UseNormalizedGeometryForDetection || settings.UseNormalizedPackedColourProposalMask;
             bool edgeMarginAblation = settings.PackedClusterImageEdgeMargin != 23;
             bool sparseColourSupportAblation = settings.MinimumSparseColourBoundarySupport
@@ -1043,6 +1044,15 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             using var high = new Scalar(179, 45, Math.Min(255, neutralRange.Maximum));
             Cv.InRange(hsv, low, high, neutral.Value);
             Cv.Bitwise_or(mask.Value, neutral.Value, mask.Value);
+        }
+        if (settings.ObstructionShadowTolerance && clothRange.MedianValue > 0)
+        {
+            // Warm-filled cast shadow: low chroma at cloth brightness, any hue (see VisionSettings).
+            using var shadow = new MatLease(new Mat());
+            using var low = new Scalar(0, 46, Math.Floor(clothRange.MedianValue * .6));
+            using var high = new Scalar(179, 60, Math.Min(255, Math.Ceiling(clothRange.MedianValue * 1.15)));
+            Cv.InRange(hsv, low, high, shadow.Value);
+            Cv.Bitwise_or(mask.Value, shadow.Value, mask.Value);
         }
         Cv.Bitwise_not(mask.Value, mask.Value);
         // Crop only the uncertain calibration border; a hand connected to an image
