@@ -21,6 +21,7 @@ if (args.Length > 0 && args[0] == "classify") return ClassifyCommand.Run(options
 if (args.Length > 0 && args[0] == "settled-change") return SettledChangeCommand.Run(options);
 if (args.Length > 0 && args[0] == "settled-change-clips") return SettledChangeClipsCommand.Run(options);
 if (args.Length > 0 && args[0] == "settled-change-selfcheck") return SettledChangeSelfCheck.Run(options);
+if (args.Length > 0 && args[0] == "analyze") return AnalyzeCommand.Run(options);
 if (args.Length > 0 && args[0] == "audit")
     return AuditCommand.Run(options, args.Select((a, i) => (a, i)).Where(x => x.a == "--at" && x.i + 1 < args.Length).Select(x => args[x.i + 1]).ToList());
 Console.Error.WriteLine("""
