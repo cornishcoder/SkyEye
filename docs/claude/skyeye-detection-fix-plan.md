@@ -90,7 +90,7 @@ Status: `open` not started, `active`, `blocked`, `done`, `dropped`.
 
 | ID | Thread | Status | Needs | Next action |
 |---|---|---|---|---|
-| T0 | Protect the evidence | ready, waiting on Richard | Richard: run `scripts/Backup-WorkEvidence.ps1 -Destination D:\SkyEye`; confirm D: is a separate disk | Read `D:\SkyEye\backup-report.txt` for PASS |
+| T0 | Protect the evidence | done (11 Nov 08:54) | - | `D:\SkyEye\backup-report.txt` PASS. Re-run the script after new captures or regenerated outputs |
 | T1 | One corpus manifest | done | - | Report in `tests/fixtures/detection-corpus/README.md`. All five cushion black misses are one table position, (1.48, 0.067), dim and bright |
 | T2 | Desktop detector runner | design done; build blocked here (no .NET) | a session with .NET on Windows | Build the two desktop projects, run frame 2083 against its proof file (`t2-desktop-runner-design.md`, `progress/t2-desktop-runner.md`) |
 | T3 | Replay Live Detect's real reducer on saved logs | done | - | Report `t3-live-detect-replay.md`. Lost still time is flags (pocket-colour 1,149 s, obstruction 941 s), not flicker (1.4 s) |
@@ -395,4 +395,14 @@ through the Python reducer port where possible.
   199 `layout_uncertain` outcomes, no pot, return or clip. This matches the
   Python port. Detector cases and physical gates were not run (carried
   forward 0/3 and 0/3). On-device D1+D2 is still unverified.
+- 11 Nov 08:54. T0 done. D: is a separate physical disk (Disk 1, external
+  Sabrent USB, 1 TB; the laptop disk is Disk 0). An earlier run at 08:05
+  reported FAIL: 13 missing and 7 size mismatches, all T3/T9 outputs
+  rewritten after that copy, with 0 SHA-1 failures. Re-run
+  `Backup-WorkEvidence.ps1 -Destination D:\SkyEye`: 105,523 files, 21.4 GB,
+  0 missing, 0 size mismatches, 5,172 of 5,172 inventoried `work/` media
+  SHA-1 verified, PASS. The other 76 inventory rows are git-tracked files
+  (docs/evidence, tests/fixtures and so on), all present on origin/master.
+  The script exits 1 on success because it passes through robocopy's
+  "files copied" code; read the report, not the exit code.
 
