@@ -366,3 +366,11 @@ D3. **Use settled-frame change as evidence (T4).** When a settled state is
 
 T5 (surplus-only demotion) needs no decision, only T2 to score it.
 
+Decided by Richard, 11 Nov 08:45: D1 pocket region only; D2 allow a first
+baseline with black or cue "not seen"; D3 build settled-frame change into
+the pipeline, off by default until T9 labels score it. Production changes
+go on branch `claude/live-detect-d1-d3`. This environment cannot compile
+C#, so every C# change there is unbuilt until a Windows session runs
+`scripts/Build-SkyEye.ps1` and the check suites; each is first measured
+through the Python reducer port where possible.
+
