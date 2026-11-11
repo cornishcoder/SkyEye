@@ -14,8 +14,9 @@ internal sealed record LiveDetectSettledChangeProposal(string Kind, string? Colo
     long EvidenceSequence, bool Applied, string? Detail = null);
 
 /// <summary>A ball that is not observed in this pass: held (U1), inferred (U2) or not seen (D2).
-/// Never presented as observed.</summary>
-internal sealed record LiveDetectSettledBallState(string Colour, double TableX, double TableY, string State,
+/// Never presented as observed. A not-seen ball has no position (null, never NaN: the JSON log cannot
+/// write NaN, and device run 65ccfdec stopped on it).</summary>
+internal sealed record LiveDetectSettledBallState(string Colour, double? TableX, double? TableY, string State,
     long? SinceSourceTimeUs, long? EvidenceSequence);
 
 /// <summary>Per-pass shadow output, attached to the event batch for logging. Nothing in the reducer reads it.</summary>
@@ -184,8 +185,8 @@ internal sealed class LiveDetectSettledChangePolicy
 
         if (context.BaselineEstablished)
         {
-            if (context.BlackNotSeen && !states.Any(s => s.Colour == "black")) states.Add(new("black", double.NaN, double.NaN, "not_seen", context.BaselineSourceTimeUs, null));
-            if (context.CueNotSeen && !states.Any(s => s.Colour == "cue")) states.Add(new("cue", double.NaN, double.NaN, "not_seen", context.BaselineSourceTimeUs, null));
+            if (context.BlackNotSeen && !states.Any(s => s.Colour == "black")) states.Add(new("black", null, null, "not_seen", context.BaselineSourceTimeUs, null));
+            if (context.CueNotSeen && !states.Any(s => s.Colour == "cue")) states.Add(new("cue", null, null, "not_seen", context.BaselineSourceTimeUs, null));
         }
         return new(LiveDetectSettledChangeMode.Shadow, intact, chain.Count, sequence, pass?.EvidenceIsNew ?? false,
             proposals.ToImmutable(), states.ToImmutable());

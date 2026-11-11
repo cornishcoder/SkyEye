@@ -253,6 +253,16 @@ internal static class LiveDetectSettledChangeChecks
         policy = new(); policy.Observe(Context(noBlack, advanced: true, blackNotSeen: true, baselineLayout: noBlack), null);
         shadow = policy.Observe(Context(noBlack, blackNotSeen: true, baselineLayout: noBlack), Pass(Evidence(1)));
         Require(shadow.BallStates.Any(s => s.Colour == "black" && s.State == "not_seen"), "U5: without evidence the black stays not seen");
+        // Device run 65ccfdec (0.8.65): a not-seen state carried NaN coordinates and System.Text.Json threw
+        // ArgumentException writing the log record, which stopped Live Detect. It must serialise and round-trip.
+        var notSeenLog = LiveDetectLogSettledChange.From("shadow", Pass(Evidence(1)), shadow, null);
+        var webJson = new JsonSerializerOptions(JsonSerializerDefaults.Web);
+        string? notSeenJson = null;
+        try { notSeenJson = JsonSerializer.Serialize(notSeenLog, webJson); } catch (ArgumentException) { }
+        Require(notSeenJson is not null
+            && JsonSerializer.Deserialize<LiveDetectLogSettledChange>(notSeenJson, webJson)?.BallStates?
+                .Single(s => s.State == "not_seen") is { Colour: "black", TableX: null, TableY: null },
+            "U5: a not-seen ball state is logged without coordinates (no NaN in the log record)");
 
         // U4: a D1 pocket region is unchanged, or changed, since the baseline.
         ImmutableArray<LiveDetectUncertainRegion> pocket = [new(2.0, 0.0, .102)];
