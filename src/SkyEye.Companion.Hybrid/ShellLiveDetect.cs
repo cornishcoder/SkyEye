@@ -241,9 +241,11 @@ public sealed partial class ShellSession
                     await table.UpdateAsync(cancellation,
                         frameObserver: (frame, vision) =>
                         {
-                            liveDetectPendingFrameEvidence = evidenceCapture.Observe(frame, vision);
                             // Last point where the bitmap exists; the observer copies what it needs and never throws.
                             pendingSettledChange = settledChangeObserver?.Observe(frame);
+                            // A new settled-change comparison is the moment worth replaying exactly.
+                            liveDetectPendingFrameEvidence = evidenceCapture.Observe(frame, vision,
+                                settledComparison: pendingSettledChange is { EvidenceIsNew: true, Evidence.Status: SettledChangeStatus.Compared });
                         });
                     consecutiveAnalysisErrors = 0;
                     consecutiveFrameAcquisitionErrors = 0;

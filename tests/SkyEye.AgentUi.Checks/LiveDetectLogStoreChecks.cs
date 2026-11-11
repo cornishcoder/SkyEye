@@ -107,6 +107,23 @@ internal static class LiveDetectLogStoreChecks
                 && evidencePolicy.Observe(EvidenceFrame(checkAt.AddSeconds(3)), evidenceVision)?.Trigger == "interval:3s"
                 && evidencePolicy.Observe(EvidenceFrame(checkAt.AddSeconds(4)), evidenceVision with { Balls = [evidenceBall, new("yellow-1", "yellow", new(.6, .5), 1)] })?.Trigger.StartsWith("inventory:") == true,
                 "source evidence samples initial, interval and inventory-change frames without copying every pass");
+            // The budget is not spent before the shot: interval samples stop after two, quality flicker stops
+            // before the reserved slots, and every new settled-change comparison still gets a frame.
+            var budget = new LiveDetectFrameEvidenceCapture();
+            var clearVision = evidenceVision; var uncertainVision = evidenceVision with { LayoutUncertain = true };
+            var triggers = new List<string?>();
+            for (int second = 0; second < 30; second++)
+                triggers.Add(budget.Observe(EvidenceFrame(checkAt.AddSeconds(second * 3)), second % 2 == 0 ? clearVision : uncertainVision)?.Trigger);
+            for (int k = 0; k < 4; k++)
+                triggers.Add(budget.Observe(EvidenceFrame(checkAt.AddSeconds(100 + k)), clearVision, settledComparison: true)?.Trigger);
+            Require(triggers.Count(t => t is not null && t.StartsWith("quality:")) == LiveDetectFrameEvidenceCapture.MaximumFramesPerRun - LiveDetectFrameEvidenceCapture.ReservedForSettledChange - 1
+                && triggers.Count(t => t == "settled-change") == LiveDetectFrameEvidenceCapture.ReservedForSettledChange
+                && triggers.Count(t => t is not null) == LiveDetectFrameEvidenceCapture.MaximumFramesPerRun,
+                $"evidence keeps slots for settled-change comparisons after quality flicker ({string.Join(",", triggers.Where(t => t is not null))})");
+            var quiet = new LiveDetectFrameEvidenceCapture();
+            var quietTriggers = Enumerable.Range(0, 20).Select(s => quiet.Observe(EvidenceFrame(checkAt.AddSeconds(s * 3)), clearVision)?.Trigger).ToList();
+            Require(quietTriggers.Count(t => t == "interval:3s") == LiveDetectFrameEvidenceCapture.MaximumIntervalFrames,
+                "a quiet table takes only the initial frame and two interval samples");
 
             // A large exempted region must not crowd the actual triggering
             // components out of the bounded audit. Include unreported triggers.
