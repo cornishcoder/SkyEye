@@ -123,6 +123,25 @@ over 28 unique frames. All 28 are mapped to hashes in `argonMapping`.
 - Frames 1587, 31, 266 and the post-shot frame appear only in its corpus
   summaries.
 
+## Obstruction hand controls
+
+`obstruction-hand-controls.json` is a separate list, not part of the manifest
+above, using the same frame schema with role `obstruction-control`. It holds
+31 dim frames (table V 59 to 76) decoded from the saved code57 event clips of
+29 October 2026, each with an `expect` field:
+
+- `obstructed` (16): a hand, arm or body clearly over the playing surface;
+  the detector must report obstructed;
+- `edge` (12): a bridge hand at or on the cushion; recorded, not scored;
+- `cue-only` (3): only the cue stick over the cloth; recorded, not scored.
+
+The cloth in these clips is blue-grey, not warm-tinted, so they do not cover
+the warm-cloth case of manifest frame `hand-2s`. Corners are the current-mount
+set, checked visually; the session's own calibration was not saved with
+corners. Score with:
+
+    dotnet run --project tests/SkyEye.Vision.Desktop.Runner -- detect --manifest tests/fixtures/detection-corpus/obstruction-hand-controls.json --roles obstruction-control --output OUT.jsonl
+
 ## Known gaps
 
 - Dim coverage is two scored layouts, and no frame is darker than V 69.

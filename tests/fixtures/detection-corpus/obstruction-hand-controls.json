@@ -1,0 +1,1448 @@
+{
+ "schemaVersion": 1,
+ "id": "obstruction-hand-controls-20261111",
+ "description": "Obstruction controls: hand, arm and body over the cloth in dim light, from saved code57 event clips (29 Oct 2026, evening). Not part of the T1 manifest; same frame schema so the desktop detect command can read it with --roles obstruction-control.",
+ "rules": [
+  "expect obstructed: a hand, arm or body clearly over the playing surface; the detector must report obstructed.",
+  "expect edge: a bridge hand at or on the cushion; result recorded, no pass/fail.",
+  "expect cue-only: only the cue stick over the cloth; result recorded, no pass/fail.",
+  "Frames are video decodes (lossy), extracted with OpenCV at the listed frame index.",
+  "No Holdout source: the session path has no holdout folder."
+ ],
+ "summary": {
+  "rows": 31,
+  "byExpect": {
+   "obstructed": 16,
+   "edge": 12,
+   "cue-only": 3
+  }
+ },
+ "frames": [
+  {
+   "key": "hand-control:265b12a1-0",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/265b12a1-0.png",
+   "sha256": "830df9e9c98951ca5a306594ed4aee7410ecacc18f47eccc7805660fc8bfa559",
+   "sha1": "f50eee637e00a6d7652007cdfe286544793ac02d",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "edge",
+   "names": [
+    "hand-k0"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/265b12a133134c9e9a3682a39db4cdd2.mp4",
+    "frame": 0,
+    "seconds": 0.0,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 69,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:265b12a1-118",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/265b12a1-118.png",
+   "sha256": "cec3a33b34a0fdd21e4d01e36ac80cf57c2f8266b2fe99346ff009634da6f9c6",
+   "sha1": "4b7365657e30d4b3d9a4e57af09ec35e3f7f7b29",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "edge",
+   "names": [
+    "hand-k2"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/265b12a133134c9e9a3682a39db4cdd2.mp4",
+    "frame": 118,
+    "seconds": 3.96,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 68,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:265b12a1-354",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/265b12a1-354.png",
+   "sha256": "05f851d3d114db7950178c0d0efdd0dad65ffcc7b8115cefa5f5dbf1db377cf1",
+   "sha1": "7e4037f22f4ca5e5635275fbbb8b3fde03cca963",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "cue-only",
+   "names": [
+    "hand-k6"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/265b12a133134c9e9a3682a39db4cdd2.mp4",
+    "frame": 354,
+    "seconds": 11.89,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 65,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:265b12a1-413",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/265b12a1-413.png",
+   "sha256": "b877c1e9539cbc4d28c4a3956a4a9e63faf4f18a3c88f48416368bb6dd61a99b",
+   "sha1": "561459f6fec60c22ca2c2f4e83297240bb694bb1",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "obstructed",
+   "names": [
+    "hand-k7"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/265b12a133134c9e9a3682a39db4cdd2.mp4",
+    "frame": 413,
+    "seconds": 13.87,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 68,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:265b12a1-472",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/265b12a1-472.png",
+   "sha256": "dfc8c3aeae479295c2a033db45a48ab18a782eeeab98c929a84add3768296d5d",
+   "sha1": "2c1fd3cc30e8785cebe9454efc2c2f97ab5978da",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "cue-only",
+   "names": [
+    "hand-k8"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/265b12a133134c9e9a3682a39db4cdd2.mp4",
+    "frame": 472,
+    "seconds": 15.85,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 67,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:603ae482-118",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/603ae482-118.png",
+   "sha256": "3d6155ebe793e33db96cfe621a460fbd191db68b6016ce872248d05657fd5bee",
+   "sha1": "0c0082487e2b6d2879672d1c637d38c112566f91",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "edge",
+   "names": [
+    "hand-k13"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/603ae4822bbf4b1998d1d53214cd6c21.mp4",
+    "frame": 118,
+    "seconds": 3.95,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 70,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:603ae482-177",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/603ae482-177.png",
+   "sha256": "c5458d09368b2658208104472624ea4fedf65d797cba300bb51c5f2b29a79ff5",
+   "sha1": "d08f00b238e09aaad47ed09c188a86f22815ea03",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "edge",
+   "names": [
+    "hand-k14"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/603ae4822bbf4b1998d1d53214cd6c21.mp4",
+    "frame": 177,
+    "seconds": 5.92,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 70,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:603ae482-354",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/603ae482-354.png",
+   "sha256": "2a37f56c6e14cc5a339879e0762767e73472bd7087306b0808476ea487700ccf",
+   "sha1": "c7eb885522549685281aad8710e481b5afd14d53",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "edge",
+   "names": [
+    "hand-k17"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/603ae4822bbf4b1998d1d53214cd6c21.mp4",
+    "frame": 354,
+    "seconds": 11.84,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 74,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:7730ca23-177",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/7730ca23-177.png",
+   "sha256": "073859da42a5774f0f70f95264e9941b6f7c843bafd7f8cf9377496345a4361f",
+   "sha1": "0f2dde5def4cdf25d2d4e49738ce2c0e05d55a3c",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "edge",
+   "names": [
+    "hand-k21"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/7730ca232eef4980b103f40fbe5af7c6.mp4",
+    "frame": 177,
+    "seconds": 5.92,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 75,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:7730ca23-236",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/7730ca23-236.png",
+   "sha256": "f6119068e6bb249f95d29fd7a26b3120ff03fc8879b7b39664881a502564f1d6",
+   "sha1": "d1e634b49a9b0672290e6da845e08298ae3adb5d",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "edge",
+   "names": [
+    "hand-k22"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/7730ca232eef4980b103f40fbe5af7c6.mp4",
+    "frame": 236,
+    "seconds": 7.89,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 75,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:931d99d8-118",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/931d99d8-118.png",
+   "sha256": "8d58df0e8a764e59e536d15c526ea4fe17a517cf236443539f88ef3174c43439",
+   "sha1": "9bc3f3c2e1e29ffc1c1e4d3ad718ceb7cbac4849",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "obstructed",
+   "names": [
+    "hand-k35"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/931d99d87c7f4d01be1d6748ba45b2c1.mp4",
+    "frame": 118,
+    "seconds": 3.95,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 63,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:931d99d8-177",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/931d99d8-177.png",
+   "sha256": "b4b5156d0600a1cff0b35f24a4245b427a53a88a74a622f3c67e550a741f52d3",
+   "sha1": "5cde66079eee927b43adcd3703ccb9fc5d3177d4",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "obstructed",
+   "names": [
+    "hand-k36"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/931d99d87c7f4d01be1d6748ba45b2c1.mp4",
+    "frame": 177,
+    "seconds": 5.92,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 67,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:931d99d8-236",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/931d99d8-236.png",
+   "sha256": "f6d79090b3b081e731a196151d8ce2958226d067e1188c26a4cfe5c503d4aabf",
+   "sha1": "836293d829137ef301a3e1bd0d83cdfea58f0c0e",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "obstructed",
+   "names": [
+    "hand-k37"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/931d99d87c7f4d01be1d6748ba45b2c1.mp4",
+    "frame": 236,
+    "seconds": 7.89,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 68,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:931d99d8-472",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/931d99d8-472.png",
+   "sha256": "bbe52e91dd18392bbb796ac1a6898064fe95f03d8c7b53531fa0c8a957554d50",
+   "sha1": "1eb960938d338f5f9b77cb477dfd3c288e98f515",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "obstructed",
+   "names": [
+    "hand-k41"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/931d99d87c7f4d01be1d6748ba45b2c1.mp4",
+    "frame": 472,
+    "seconds": 15.79,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 73,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:931d99d8-531",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/931d99d8-531.png",
+   "sha256": "d55cf4e943195d929d325282f3a5df211c63acb9552fb7fd77505db03bf090cf",
+   "sha1": "82d4ec00ff2fb48a33e82e5240802cc1ca56de7c",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "obstructed",
+   "names": [
+    "hand-k42"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/931d99d87c7f4d01be1d6748ba45b2c1.mp4",
+    "frame": 531,
+    "seconds": 17.76,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 73,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:931d99d8-708",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/931d99d8-708.png",
+   "sha256": "de134b240387f3eb32345ace249e660537550a48c5bc2a4a74f17eae8ba43b7f",
+   "sha1": "96c5b3727fc8b7bd6ae7dd6191bdfc0ef470c9fe",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "cue-only",
+   "names": [
+    "hand-k45"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/931d99d87c7f4d01be1d6748ba45b2c1.mp4",
+    "frame": 708,
+    "seconds": 23.68,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 71,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:931d99d8-767",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/931d99d8-767.png",
+   "sha256": "bbdc6fa5b9e2617a3e1ab9b613e155a5631d8b94ad1791451ed5b84e556a6364",
+   "sha1": "f69ad752b77a9f108dc5082f860bc2925880b91d",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "obstructed",
+   "names": [
+    "hand-k46"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/931d99d87c7f4d01be1d6748ba45b2c1.mp4",
+    "frame": 767,
+    "seconds": 25.66,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 76,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:931d99d8-826",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/931d99d8-826.png",
+   "sha256": "43d95329c12d41cd260ace70cc5300b3999d5d0e0bced54fc6aa2b77736da4de",
+   "sha1": "5262355725528b603c24306c31cd5910653ed531",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "obstructed",
+   "names": [
+    "hand-k47"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/931d99d87c7f4d01be1d6748ba45b2c1.mp4",
+    "frame": 826,
+    "seconds": 27.63,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 76,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:931d99d8-885",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/931d99d8-885.png",
+   "sha256": "3f0dc56c7fd10d80ffcf1759c63239a78362b06385110c0099f5d40d836cde20",
+   "sha1": "e63ff0e9edba05419f1a71ad63b629fcd0b9d971",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "obstructed",
+   "names": [
+    "hand-k48"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/931d99d87c7f4d01be1d6748ba45b2c1.mp4",
+    "frame": 885,
+    "seconds": 29.6,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 75,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:b91845cd-59",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/b91845cd-59.png",
+   "sha256": "4c581efebd93d6cea79cf8ecf73f94d436217b411390a69478b4bf96429704bb",
+   "sha1": "0e3e8fac03103376a753778ad4c8515941e29eb8",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "edge",
+   "names": [
+    "hand-k51"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/b91845cd2c984cc489be541b1772b1ab.mp4",
+    "frame": 59,
+    "seconds": 1.98,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 66,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:b91845cd-118",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/b91845cd-118.png",
+   "sha256": "82c7545edab96cc66e5b697b779bf4a423b87f56a32812a376018f971586f3af",
+   "sha1": "f1a6960258367418bb19fc3ecde210fc6b063af1",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "edge",
+   "names": [
+    "hand-k52"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/b91845cd2c984cc489be541b1772b1ab.mp4",
+    "frame": 118,
+    "seconds": 3.97,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 66,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:b91845cd-295",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/b91845cd-295.png",
+   "sha256": "922dd29f6df0f7c04bb00e5cfc1eb499d21c96ac7558edfc8f71d0a782c19e67",
+   "sha1": "d0bbe7813ec4058e2a6183d413331d66d553544a",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "obstructed",
+   "names": [
+    "hand-k55"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/b91845cd2c984cc489be541b1772b1ab.mp4",
+    "frame": 295,
+    "seconds": 9.92,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 62,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:b91845cd-354",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/b91845cd-354.png",
+   "sha256": "792a7698a617804481a20e0deb6300f98aff829200735d8dd15de31313faa79f",
+   "sha1": "aa179d45c88cab3d3e36b9de4dc72d695c491951",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "obstructed",
+   "names": [
+    "hand-k56"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/b91845cd2c984cc489be541b1772b1ab.mp4",
+    "frame": 354,
+    "seconds": 11.9,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 61,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:b91845cd-413",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/b91845cd-413.png",
+   "sha256": "2ca13199cfeb397d3ee9d4494cd7ec957008efa0e34b04e8e3a5a7d18dd616e0",
+   "sha1": "3aec3c8efabc5e25d9c20d96eb350c01254666a5",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "obstructed",
+   "names": [
+    "hand-k57"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/b91845cd2c984cc489be541b1772b1ab.mp4",
+    "frame": 413,
+    "seconds": 13.89,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 65,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:c55e787d-295",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/c55e787d-295.png",
+   "sha256": "46da2e79d7d289913a93fdbd19f12df88843bab46a0cb2da3f110288bcb95114",
+   "sha1": "e3f56a5cf79d8ade0c6b98d449af72aa908c2adc",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "edge",
+   "names": [
+    "hand-k65"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/c55e787de993479f9948599c5c6bf8bd.mp4",
+    "frame": 295,
+    "seconds": 9.88,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 68,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:c55e787d-354",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/c55e787d-354.png",
+   "sha256": "a2045ea930964785c418fffe1b79078684047d584b96fb43707c107e35d65f35",
+   "sha1": "c00e9411968ee930b4c6b490f18aa5f2bd2fb8a8",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "edge",
+   "names": [
+    "hand-k66"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/c55e787de993479f9948599c5c6bf8bd.mp4",
+    "frame": 354,
+    "seconds": 11.85,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 65,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:eb73dd4f-0",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/eb73dd4f-0.png",
+   "sha256": "032d41352f39f080a7bbef1073f7d81da173a70e9f04851ad50c3686d74600b2",
+   "sha1": "daf51d2646d3201013dc72a3baf4701ea82ce3a2",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "edge",
+   "names": [
+    "hand-k67"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/eb73dd4f76e74c79a3f3d3e2e6177dc2.mp4",
+    "frame": 0,
+    "seconds": 0.0,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 67,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:f49ddb55-118",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/f49ddb55-118.png",
+   "sha256": "36783d455975c7fedc89dd569ebe291411f353ecda0a07ee7380c68dac2ed4c4",
+   "sha1": "74105502f706ae0c18c5c4beeca864ee0dfb9f4d",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "obstructed",
+   "names": [
+    "hand-k75"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/f49ddb559c1249efa6d2463406204b37.mp4",
+    "frame": 118,
+    "seconds": 3.95,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 71,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:f9cc6148-177",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/f9cc6148-177.png",
+   "sha256": "434a734699f32557cc6f388635ce33a462952240b021b99a204190a05b0074dd",
+   "sha1": "09460e80072fac48e471a523a9e62867bffb97e7",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "obstructed",
+   "names": [
+    "hand-k81"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/f9cc6148de6a4270a49a112d905db86d.mp4",
+    "frame": 177,
+    "seconds": 5.94,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 59,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:f9cc6148-236",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/f9cc6148-236.png",
+   "sha256": "0310a464d0fb6d12b9ff1999b564db2e6940ee722fbfbbfbe39a7f18c9f151eb",
+   "sha1": "be6d184a3d0f06b78fe0ce179a0fe0ab5abf15b9",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "obstructed",
+   "names": [
+    "hand-k82"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/f9cc6148de6a4270a49a112d905db86d.mp4",
+    "frame": 236,
+    "seconds": 7.91,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 62,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  },
+  {
+   "key": "hand-control:f9cc6148-295",
+   "path": "work/production/evidence/obstruction-hand-controls-20261111/f9cc6148-295.png",
+   "sha256": "d45181303a433f69ed4306bf088a032f185b92d8383696dd36460847c214e394",
+   "sha1": "4d8e38420a123993651d4135192522f8985b72f9",
+   "role": "obstruction-control",
+   "split": "Development",
+   "expect": "obstructed",
+   "names": [
+    "hand-k83"
+   ],
+   "source": {
+    "clip": "work/production/evidence/code57-readout-recovery-20261029/event-clips/f9cc6148de6a4270a49a112d905db86d.mp4",
+    "frame": 295,
+    "seconds": 9.89,
+    "session": "code57-readout-recovery-20261029"
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": null,
+    "note": "current-mount corner set, checked visually against this session; the session calibration 83bd5f29 is not recorded with corners"
+   },
+   "light": {
+    "tableV": 62,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table"
+   },
+   "pixelPresent": true
+  }
+ ]
+}
