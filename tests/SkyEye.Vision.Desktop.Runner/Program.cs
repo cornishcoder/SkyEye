@@ -52,8 +52,8 @@ static int Parity(Dictionary<string, string> o)
         DarkBodyValueCeiling = proof["darkBodyValueCeiling"]!.GetValue<int>(),
         PackedColourBoundarySearchExtentFraction = extent,
         // Reproduce the proof's algorithm: proofs made before T5 used whole-colour demotion.
-        SurplusOnlyInventoryDemotion = JsonNode.Parse(proof["replayAnalyzerConfigurationIdentity"]!.GetValue<string>())!["Algorithm"]!
-            .GetValue<string>().Contains("-surplus-", StringComparison.Ordinal),
+        SurplusOnlyInventoryDemotion = ProofAlgorithm(proof).Contains("-surplus-", StringComparison.Ordinal),
+        PackedCueHandover = ProofAlgorithm(proof).Contains("-cuehandover", StringComparison.Ordinal),
     };
     bool audit = proof["boundaryAudit"]!.GetValue<bool>();
     var analyzer = new VisionAnalyzer(settings, includeBoundaryDiagnostics: audit, includeCandidateDiagnostics: audit);
@@ -140,6 +140,9 @@ static int Parity(Dictionary<string, string> o)
 }
 
 static string Show(bool? value) => value?.ToString() ?? "none";
+
+static string ProofAlgorithm(JsonNode proof) =>
+    JsonNode.Parse(proof["replayAnalyzerConfigurationIdentity"]!.GetValue<string>())!["Algorithm"]!.GetValue<string>();
 
 // Same projection as VerificationReplayInstrumentation.Summarize: table-2x1 from the portrait warp.
 static Summary Summarize(VisionResult vision, int width) => new(vision.Circles.Select(c => new Circle(

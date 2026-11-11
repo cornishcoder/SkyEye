@@ -448,4 +448,14 @@ through the Python reducer port where possible.
   19 to 20/32 against the 21/32 gate, empty jaw 16/32; same family as the
   cushion black, so D3 territory. Not the pocket exclusion. Branch not yet
   pushed: this shell cannot authenticate to GitHub.
+- 11 Nov. Cue handover implemented (`cue-handover.md`): a cue fitted and
+  classified by the colour-peak stage is set aside, refitted neutrally, and
+  admitted only when cue recovery also finds no cue
+  (`PackedCueHandover`, default on; identity `-cuehandover75`). Desktop, 35
+  labelled frames: cue 25/28 to 28/28, balls 529 to 532/546, 0 FP, frames
+  complete 19 to 20; only 382, 1274, 3360 change; no false cue on 7
+  cue-absent frames. 438 unlabelled: 34 gain a cue (12 sampled, all real),
+  nothing else changes. Two earlier versions were rejected: they pre-empted
+  cue recovery (2083 cue 0.6 to 10.6 px; pocket flags raised on 16 frames).
+  Detector inventory 0/3 and physical gates 0/3 carried forward.
 

@@ -42,6 +42,11 @@ public sealed record VisionSettings(int Width = 1000, double MinimumRadius = 18,
     // (BallClassifier.ConstrainInventory); without a clear gap the whole colour is demoted as before.
     // False replays the earlier whole-colour demotion and its historical algorithm identity.
     public bool SurplusOnlyInventoryDemotion { get; init; } = true;
+    // A warm cue can fall inside the yellow colour mask. The packed-colour stage keeps only its
+    // own colour, so a well-fitted body there that classifies as the cue was discarded. When no
+    // other cue is found, admit exactly one such body (fit at least MinimumHoughBoundarySupport).
+    // False replays the earlier behaviour and identity (Layout03 frames 382/1274/3360 diagnosis).
+    public bool PackedCueHandover { get; init; } = true;
     public double MinimumHoughBoundarySupport { get; init; } = .75;
     // A fresh six-frame pocket-lip holdout recovered a fitted top-left red with
     // 20/32 supported sectors; the separate pocket-colour review retains its

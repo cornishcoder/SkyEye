@@ -11,7 +11,7 @@ dets = {}
 for line in open(dets_path, encoding="utf-8"):
     d = json.loads(line); dets[d["sha256"]] = d
 rows = [r for r in json.load(open(manifest, encoding="utf-8"))["frames"]
-        if r["role"] in ("positive", "empty-control") and any(str(n) in names for n in r.get("frameIds", []) + r.get("names", []))]
+        if r["role"] in ("positive", "empty-control", "unlabelled-reference") and r.get("split") != "Holdout" and r.get("pixelPresent") and (r.get("calibration") or {}).get("corners") and any(str(n) in names for n in r.get("frameIds", []) + r.get("names", []))]
 tiles = []
 for r in rows:
     img = cv2.imread(r["path"]); h, w = img.shape[:2]
@@ -20,7 +20,7 @@ for r in rows:
     dst = np.float32([[0, 0], [H, 0], [H, W], [0, W]])
     table = cv2.warpPerspective(img, cv2.getPerspectiveTransform(src, dst), (H, W))
     def px(x, y): return int(round(x * W)), int(round(y * W))
-    for b in r["labels"]["balls"]:
+    for b in (r.get("labels") or {}).get("balls", []):
         if b["visible"]:
             cv2.circle(table, px(b["x"], b["y"]), 18, (0, 255, 0), 1)
             cv2.putText(table, b["kind"][0].upper(), (px(b["x"], b["y"])[0] + 14, px(b["x"], b["y"])[1] - 14), cv2.FONT_HERSHEY_SIMPLEX, .45, (0, 255, 0), 1)

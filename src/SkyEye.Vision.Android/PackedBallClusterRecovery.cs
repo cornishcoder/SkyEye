@@ -22,7 +22,8 @@ public sealed partial class VisionAnalyzer
         List<Circle> circles, double scale,
         Dictionary<Circle, BallClassification>? packedClassifications,
         List<VisionCandidateAudit>? candidateAudits = null, string pass = "initial",
-        Dictionary<Circle, BallBoundary>? acceptedPackedBlackBoundaries = null)
+        Dictionary<Circle, BallBoundary>? acceptedPackedBlackBoundaries = null,
+        List<ClusterBall>? cueHandover = null)
     {
         byte[] rawBgrPixels = Read(rawBgr);
         using var red = new MatLease(new Mat());
@@ -39,9 +40,9 @@ public sealed partial class VisionAnalyzer
 
         double minimumPeakRadius = 12 * scale;
         var proposals = FindColourPeakBodies(red.Value, "red", rawPixels, rawBgrPixels, scale, minimumPeakRadius,
-                boundaryColourMask, candidateAudits, pass)
+                boundaryColourMask, candidateAudits, pass, cueHandover)
             .Concat(FindColourPeakBodies(yellow.Value, "yellow", rawPixels, rawBgrPixels, scale, minimumPeakRadius,
-                boundaryColourMask, candidateAudits, pass)).ToArray();
+                boundaryColourMask, candidateAudits, pass, cueHandover)).ToArray();
         var cluster = FindDenseColourCluster(proposals, scale);
         if (candidateAudits is not null)
             for (int i = 0; i < proposals.Length; i++)
@@ -397,7 +398,7 @@ public sealed partial class VisionAnalyzer
 
     ClusterBall[] FindColourPeakBodies(Mat colourMask, string kind, byte[] rawHsv, byte[] rawBgr, double scale,
         double minimumPeakRadius, BoundaryColourMask boundaryColourMask,
-        List<VisionCandidateAudit>? candidateAudits, string pass)
+        List<VisionCandidateAudit>? candidateAudits, string pass, List<ClusterBall>? cueHandover = null)
     {
         using var peakBodyTiming = PipelineDiagnostics.Measure($"{kind}ColourPeakBodiesMs");
         var candidates = new List<ClusterBall>();
@@ -437,6 +438,21 @@ public sealed partial class VisionAnalyzer
             { Audit(fit is null ? "rejected-no-boundary-fit" : "rejected-insufficient-boundary-support", fit, fit?.SupportedSectors); continue; }
             var body = new Circle(fit.Centre.X, fit.Centre.Y, fit.Radius);
             var classification = Classify(body, rawHsv, inspectRim: true);
+            if (classification.Kind == "cue" && cueHandover is not null && settings.PackedCueHandover
+                && fit.SupportedSectors >= settings.MinimumHoughBoundarySupport)
+            {
+                // Not this colour, but a well-fitted cue. The colour fit expects yellow or red paint, so
+                // refit the outline neutrally (as cue recovery does) and require the Hough-level support
+                // there too. Detect decides once every other body is known.
+                var neutral = BallBoundaryRefiner.Refine(rawBgr, coordinates.Width, coordinates.Height,
+                    fit.Centre, PoolGeometry.Radius * coordinates.Width, settings.MinimumHoughBoundarySupport);
+                var neutralBody = neutral is null ? default : new Circle(neutral.Centre.X, neutral.Centre.Y, neutral.Radius);
+                var neutralClassification = neutral is null ? null : Classify(neutralBody, rawHsv, inspectRim: true);
+                if (neutral is null || neutralClassification!.Kind != "cue")
+                { Audit("rejected-cue-handover-neutral-refit", neutral ?? fit, neutral?.SupportedSectors, neutralClassification?.Kind ?? classification.Kind); continue; }
+                cueHandover.Add(new("cue", neutralBody, new(x, y), interiorRadius, neutralClassification, neutral.SupportedSectors));
+                Audit("deferred-cue-handover", neutral, neutral.SupportedSectors, neutralClassification.Kind); continue;
+            }
             if (classification.Kind != kind)
             { Audit("rejected-classification", fit, fit.SupportedSectors, classification.Kind); continue; }
             // Nearby mask peaks can be duplicate seeds for one ball, but a
