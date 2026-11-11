@@ -253,6 +253,20 @@ internal static class LiveDetectSettledChangeChecks
         policy = new(); policy.Observe(Context(noBlack, advanced: true, blackNotSeen: true, baselineLayout: noBlack), null);
         shadow = policy.Observe(Context(noBlack, blackNotSeen: true, baselineLayout: noBlack), Pass(Evidence(1)));
         Require(shadow.BallStates.Any(s => s.Colour == "black" && s.State == "not_seen"), "U5: without evidence the black stays not seen");
+        // A not-seen black that leaves (cushion-black session e7276502, step 2): a dark departure where it stood,
+        // and the black now detected elsewhere, is departure support for the black, not an unexplained change.
+        var movedBlack = new SettledBallPosition(BallColour.Black, .5, .3);   // table (1.0, 0.3)
+        policy = new(); policy.Observe(Context(noBlack, advanced: true, blackNotSeen: true, baselineLayout: noBlack), null);
+        shadow = policy.Observe(Context([red, yellow, movedBlack], blackNotSeen: true, baselineLayout: noBlack),
+            Pass(Evidence(1, regions: [Region(1.92, .5, ChangeDirection.Unclear, darkAfter: .18, darkBefore: .48)])));
+        Require(shadow.Proposals is [{ Kind: "departure_support", Colour: "black", Detail: "not_seen_ball_left" }],
+            $"A not-seen black leaving is departure support ({string.Join(",", shadow.Proposals.Select(p => p.Kind + "/" + p.Detail))})");
+        policy = new(); policy.Observe(Context(noBlack, advanced: true, blackNotSeen: true, baselineLayout: noBlack), null);
+        shadow = policy.Observe(Context(noBlack, blackNotSeen: true, baselineLayout: noBlack),
+            Pass(Evidence(1, regions: [Region(1.92, .5, ChangeDirection.Unclear, darkAfter: .18, darkBefore: .48)])));
+        Require(shadow.Proposals is [{ Kind: "unexplained_change" }],
+            "The same dark departure with no black seen anywhere stays unexplained");
+
         // Device run 65ccfdec (0.8.65): a not-seen state carried NaN coordinates and System.Text.Json threw
         // ArgumentException writing the log record, which stopped Live Detect. It must serialise and round-trip.
         var notSeenLog = LiveDetectLogSettledChange.From("shadow", Pass(Evidence(1)), shadow, null);
@@ -303,8 +317,8 @@ internal static class LiveDetectSettledChangeChecks
             start + 1_000_000, start + 2_000_000, start + 2_600_000, comparison);
     }
 
-    static SettledChangeRegion Region(double x, double y, ChangeDirection direction, double darkAfter = 0, double whiteAfter = 0) =>
-        new(x, y, 0, 0, "cushion", 1, 1, 0, 1, true, null, direction, direction == ChangeDirection.Arrival ? .9 : .5, .1, 0, darkAfter, 0, whiteAfter);
+    static SettledChangeRegion Region(double x, double y, ChangeDirection direction, double darkAfter = 0, double whiteAfter = 0, double darkBefore = 0) =>
+        new(x, y, 0, 0, "cushion", 1, 1, 0, 1, true, null, direction, direction == ChangeDirection.Arrival ? .9 : .5, .1, darkBefore, darkAfter, 0, whiteAfter);
 
     // ---- Generated observation sequences and random evidence --------------------------------------
 

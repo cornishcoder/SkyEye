@@ -177,11 +177,25 @@ internal sealed class LiveDetectSettledChangePolicy
             // layout: on an obstructed or uncertain pass nothing can explain a change (D3 review: 8 of 10 false).
             if (pass is { EvidenceIsNew: true } && intact && context.CurrentLayoutTrusted)
                 foreach (var region in chain[^1].Comparison!.Regions.Where(r => r.BallSized))
+                {
+                    // A black or cue that the reference baseline never saw, now seen elsewhere, leaves a dark (or
+                    // white) departure where it stood: that change is explained (D3 cushion-black session, step 2).
+                    var referenceLayout = transitionLink && !previousBaselineLayout.IsDefault ? previousBaselineLayout : context.BaselineLayout;
+                    string? leftUnseen = NewlySeen(BallColour.Black) && region.DarkBefore >= .30 && region.DarkBefore - region.DarkAfter >= .20 ? "black"
+                        : NewlySeen(BallColour.Cue) && region.WhiteBefore >= .30 && region.WhiteBefore - region.WhiteAfter >= .20 ? "cue" : null;
+                    bool NewlySeen(BallColour colour) => current.Any(c => c.Colour == colour)
+                        && (referenceLayout.IsDefault || !referenceLayout.Any(b => b.Colour == colour));
+                    if (leftUnseen is not null && !context.BaselineLayout.Any(b => Distance(region, b) <= Near))
+                    {
+                        proposals.Add(new("departure_support", leftUnseen, region.TableX, region.TableY, chain[^1].Sequence, false, "not_seen_ball_left"));
+                        continue;
+                    }
                     if (!context.BaselineLayout.Any(b => Distance(region, b) <= Near)
                         && !(transitionLink && !previousBaselineLayout.IsDefault && previousBaselineLayout.Any(b => Distance(region, b) <= Near))
                         && !current.Any(c => Distance(region, c) <= Near)
                         && !proposals.Any(p => p.Kind.StartsWith("infer_", StringComparison.Ordinal) && Math.Abs(p.TableX - region.TableX) < 1e-9 && Math.Abs(p.TableY - region.TableY) < 1e-9))
                         proposals.Add(new("unexplained_change", null, region.TableX, region.TableY, chain[^1].Sequence, false, region.Zone));
+                }
         }
 
         if (context.BaselineEstablished)

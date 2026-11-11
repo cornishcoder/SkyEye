@@ -66,3 +66,7 @@ was on an end cushion, not the (1.48, 0.067) spot of the labelled misses.
 
 Software carried forward from `566195a`. Detector inventory 0/3 and physical gates D1/D2/E 0/3 carried
 forward.
+
+## Step 2 now explained (later the same evening)
+
+The policy now treats a ball-sized dark departure as `departure_support` (detail `not_seen_ball_left`) when the black is detected now but was not in the reference baseline. Replaying this session: comparison 12 changes from `unexplained_change` to `departure_support` at (1.924, 0.497); comparison 13 is still `infer_black`; Live Detect output identical.
