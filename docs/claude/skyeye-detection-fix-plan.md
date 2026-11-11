@@ -458,4 +458,13 @@ through the Python reducer port where possible.
   nothing else changes. Two earlier versions were rejected: they pre-empted
   cue recovery (2083 cue 0.6 to 10.6 px; pocket flags raised on 16 frames).
   Detector inventory 0/3 and physical gates 0/3 carried forward.
+- 11 Nov. D3 slice 1 built (`d3-slice1-comparer.md`): the settled-change
+  comparer (image side) in C#, not wired into Live Detect. On the 33 staged
+  still pairs (design 5.3 A) it hits the black in 9/9 change pairs, gives 0
+  ball-sized regions on 12/12 same-state controls, gates the 3
+  cross-session pairs on lighting drift and no others, and hits the cue in
+  7/11, all as the Python reference; drift within 0.0003 of Python on every
+  pair, 2 pairs differ in detail (one boundary region at 0.61 R, one gated
+  pair). Next D3 slices: settle state machine with live-cadence simulation,
+  clip-pair parity, then reducer rules in shadow.
 

@@ -18,6 +18,7 @@ var options = ParseOptions(args);
 if (args.Length > 0 && args[0] == "parity") return Parity(options);
 if (args.Length > 0 && args[0] == "detect") return DetectCommand.Run(options);
 if (args.Length > 0 && args[0] == "classify") return ClassifyCommand.Run(options);
+if (args.Length > 0 && args[0] == "settled-change") return SettledChangeCommand.Run(options);
 if (args.Length > 0 && args[0] == "audit")
     return AuditCommand.Run(options, args.Select((a, i) => (a, i)).Where(x => x.a == "--at" && x.i + 1 < args.Length).Select(x => args[x.i + 1]).ToList());
 Console.Error.WriteLine("""
