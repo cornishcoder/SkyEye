@@ -66,6 +66,25 @@ The plan's named frames are tagged in `names`:
 Frame 1365 has only an assistant draft with the black unresolved, so it has
 no labels.
 
+## Scores from the current desktop detector
+
+Desktop detector at `ef66dd1` (branch `claude/live-detect-d1-d3`, 11 November 2026; production settings,
+identity ending `-packed-black-adjacent125-packed-black-darkbody28`). Ball detection is unchanged since.
+Score with `tools/evidence/score_detections.py --detections` on the `detect` output.
+
+| Set | Result |
+|---|---|
+| 35 labelled frames | 532 of 546 balls, **0 false positives**, colour accuracy 0.996; 20 fully correct |
+| by colour | red 245/245, yellow 245/245, cue 28/28 (colour 0.929), **black 14/28** |
+| by light | bright 290/295, mid 121/124, dim 121/127 |
+| black misses | 8 at a cushion, 3 at a pocket, 3 in the open |
+| 438 unlabelled frames | 14 obstructed (3 are real hand/arm frames); 269 blacks detected |
+| `obstruction-hand-controls.json` | hand/arm over the cloth 14/16 obstructed; bridge hand at the cushion 3/12; cue only 1/3 |
+| `black-absent-dim-rack.json` | 0 false blacks on 5 frames |
+
+The labelled scores match the stored-result scores below apart from the cue (25 to 28 found, after the
+packed-stage cue handover) and colour accuracy (0.970 to 0.996, after surplus-only demotion).
+
 ## Scores from stored results
 
 - **Original 19 frames** (`--corpus claude-review-labels`): 292 of 295 balls
