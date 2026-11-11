@@ -50,3 +50,7 @@ on the next run with flicker or a dropped black: a `pot_contradicted` where Live
 still table. Not built for the device.
 
 Detector inventory 0/3 and physical gates D1/D2/E 0/3 carried forward.
+
+## On the device
+
+Companion 0.8.70 / code 78 installed in place on 11 November (storage retained; previous APK `work/production/backups/20261111-224439/before.apk`; camera package unchanged). Not yet run live.
