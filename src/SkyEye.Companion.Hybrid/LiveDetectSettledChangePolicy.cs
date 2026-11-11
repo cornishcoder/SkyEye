@@ -173,8 +173,9 @@ internal sealed class LiveDetectSettledChangePolicy
                     proposals.Add(new(changed ? "pocket_changed" : "pocket_unchanged", null, region.X, region.Y, chain[^1].Sequence, false));
                 }
 
-            // Ball-sized change that no baseline or current ball explains: logged only.
-            if (pass is { EvidenceIsNew: true } && intact)
+            // Ball-sized change that no baseline or current ball explains: logged only. Needs a trusted current
+            // layout: on an obstructed or uncertain pass nothing can explain a change (D3 review: 8 of 10 false).
+            if (pass is { EvidenceIsNew: true } && intact && context.CurrentLayoutTrusted)
                 foreach (var region in chain[^1].Comparison!.Regions.Where(r => r.BallSized))
                     if (!context.BaselineLayout.Any(b => Distance(region, b) <= Near)
                         && !(transitionLink && !previousBaselineLayout.IsDefault && previousBaselineLayout.Any(b => Distance(region, b) <= Near))

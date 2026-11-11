@@ -151,6 +151,45 @@ public static class SettledChangeMath
         return (Median(hs.ToArray()), Median(ss.ToArray()), Median(vs.ToArray()));
     }
 
+    /// <summary>True when a pixel looks like the cloth (shared by <see cref="Appearance"/> and <see cref="BallCentre"/>).</summary>
+    public static bool ClothLike(byte[] hsv, int i, (double H, double S, double V) cloth)
+    {
+        double h = hsv[i * 3], sat = hsv[i * 3 + 1], v = hsv[i * 3 + 2];
+        double dh = Math.Abs(h - cloth.H); dh = Math.Min(dh, 180 - dh);
+        return dh < 12 && Math.Abs(sat - cloth.S) < 70 && v > .45 * cloth.V && v < 1.4 * cloth.V + 20;
+    }
+
+    /// <summary>Cloth or its cast shadow: cloth hue and saturation at 0.2 to 1.4 x cloth brightness. A lamp
+    /// shadow keeps the cloth's chromaticity but can fall below the 0.45 x V of <see cref="ClothLike"/>; a black
+    /// ball is darker still (body 0.2 x table or less).</summary>
+    public static bool ClothOrShadow(byte[] hsv, int i, (double H, double S, double V) cloth)
+    {
+        double h = hsv[i * 3], sat = hsv[i * 3 + 1], v = hsv[i * 3 + 2];
+        if (v <= .2 * cloth.V || v >= 1.4 * cloth.V + 20) return false;
+        // Near-grey cloth (S 16 on the 11 Nov evening rasters) has no stable hue: the same cloth read H 165
+        // before and H 114 after. Below S 40 on both, judge by saturation alone.
+        if (sat < 40 && cloth.S < 40) return true;
+        double dh = Math.Abs(h - cloth.H); dh = Math.Min(dh, 180 - dh);
+        return dh < 12 && Math.Abs(sat - cloth.S) < 70;
+    }
+
+    /// <summary>Centre of a change region taken from its ball-like pixels only: those that are neither cloth
+    /// nor cast shadow in the before or the after image. A shadow keeps the cloth's chromaticity on both sides,
+    /// so it no longer pulls the centre toward itself. Returns null when fewer than
+    /// <paramref name="minimumFraction"/> of the region's pixels are ball-like (caller keeps the centroid).</summary>
+    public static (double X, double Y)? BallCentre(byte[] hsvBefore, byte[] hsvAfter, IReadOnlyList<int> pixelIndices,
+        (double H, double S, double V) clothBefore, (double H, double S, double V) clothAfter, int width, double minimumFraction = .2)
+    {
+        if (pixelIndices.Count == 0) return null;
+        double sx = 0, sy = 0; int n = 0;
+        foreach (int i in pixelIndices)
+        {
+            if (ClothOrShadow(hsvBefore, i, clothBefore) && ClothOrShadow(hsvAfter, i, clothAfter)) continue;
+            sx += i % width; sy += i / width; n++;
+        }
+        return n == 0 || n < minimumFraction * pixelIndices.Count ? null : (sx / n, sy / n);
+    }
+
     /// <summary>Fractions of the region's pixels that look like cloth, are black-ball dark, or are cue-ball white.</summary>
     public static (double Cloth, double Dark, double White) Appearance(byte[] hsv, IReadOnlyList<int> pixelIndices, (double H, double S, double V) cloth)
     {

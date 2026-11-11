@@ -60,6 +60,33 @@ static class SettledChangeMathChecks
         var drift = SettledChangeMath.Drift(bandOnly, s);
         Require(drift.Band > 0 && drift.Bed == 0, "Change only along a cushion counts as band drift, not bed change");
 
+        // Ball centre: a yellow disc at (100, 100) with a lamp shadow (cloth hue, darker) on one side. Near-grey
+        // cloth whose hue reads differently before and after must still count the shadow as cloth.
+        {
+            int cw = 200, chh = 200; var hsvB = new byte[cw * chh * 3]; var hsvA = new byte[cw * chh * 3];
+            var region = new List<int>();
+            for (int y = 0; y < chh; y++) for (int x = 0; x < cw; x++)
+            {
+                int i = y * cw + x, o = i * 3;
+                hsvB[o] = 165; hsvB[o + 1] = 8; hsvB[o + 2] = 70;            // grey cloth, unstable hue
+                hsvA[o] = 114; hsvA[o + 1] = 16; hsvA[o + 2] = 72;
+                bool ball = (x - 100) * (x - 100) + (y - 100) * (y - 100) <= 100;
+                bool shadow = !ball && (x - 100) * (x - 100) + (y - 85) * (y - 85) <= 120;
+                if (ball) { hsvA[o] = 15; hsvA[o + 1] = 250; hsvA[o + 2] = 240; }
+                else if (shadow) { hsvA[o + 2] = 35; }                          // same cloth, about half as bright
+                if (ball || shadow) region.Add(i);
+            }
+            var clothB = (H: 165d, S: 8d, V: 70d); var clothA = (H: 114d, S: 16d, V: 72d);
+            var ballCentre = SettledChangeMath.BallCentre(hsvB, hsvA, region, clothB, clothA, cw);
+            double plainY = region.Average(i => i / cw);
+            Require(ballCentre is { } c && Math.Abs(c.X - 100) < .5 && Math.Abs(c.Y - 100) < .5 && plainY < 97,
+                $"Ball centre ignores the cast shadow (centre {ballCentre}, plain centroid y {plainY:0.0})");
+            Require(!SettledChangeMath.ClothOrShadow(hsvA, 100 * cw + 100, clothA)
+                && SettledChangeMath.ClothOrShadow(hsvA, 78 * cw + 100, clothA)
+                && SettledChangeMath.ClothOrShadow(hsvB, 78 * cw + 100, clothB),
+                "A saturated ball is not cloth; near-grey cloth and its shadow are, whatever their hue");
+        }
+
         // Change grid: one changed cell sets exactly one bit.
         var mask = new byte[w * h];
         for (int y = s.Margin; y < s.Margin + s.GridCellPixels; y++) for (int x = s.Margin; x < s.Margin + s.GridCellPixels; x++) mask[y * w + x] = 1;

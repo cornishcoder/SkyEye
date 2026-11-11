@@ -117,6 +117,7 @@ public sealed class SettledChangeComparer(SettledChangeSettings? settings = null
             int count = Imgproc.ConnectedComponentsWithStats(maskMat, labels, stats, centres);
 
             var cloth = SettledChangeMath.ClothModel(hsvBefore, s);
+            var clothAfter = s.ShadowFreeCentre ? SettledChangeMath.ClothModel(hsvAfter, s) : cloth;
             var regions = new List<SettledChangeRegion>();
             int rawComponents = 0;
             for (int i = 1; i < count; i++)
@@ -124,7 +125,7 @@ public sealed class SettledChangeComparer(SettledChangeSettings? settings = null
                 double area = stats.Get(i, Imgproc.CcStatArea)![0];
                 if (area < s.MinimumRegionBallAreas * s.BallArea) continue;
                 rawComponents++;
-                regions.Add(Region(i, area, labels, stats, centres, change, hsvBefore, hsvAfter, cloth));
+                regions.Add(Region(i, area, labels, stats, centres, change, hsvBefore, hsvAfter, cloth, clothAfter));
             }
             var kept = regions.OrderByDescending(r => r.AreaBalls).Take(s.MaximumRegions).ToList();
             var gates = new List<string>();
@@ -141,7 +142,7 @@ public sealed class SettledChangeComparer(SettledChangeSettings? settings = null
     }
 
     SettledChangeRegion Region(int label, double area, Mat labels, Mat stats, Mat centres, float[] change,
-        byte[] hsvBefore, byte[] hsvAfter, (double H, double S, double V) cloth)
+        byte[] hsvBefore, byte[] hsvAfter, (double H, double S, double V) cloth, (double H, double S, double V) clothAfter)
     {
         var s = Settings; int w = s.RasterWidth, h = s.RasterHeight;
         int left = (int)stats.Get(label, Imgproc.CcStatLeft)![0], top = (int)stats.Get(label, Imgproc.CcStatTop)![0];
@@ -172,6 +173,8 @@ public sealed class SettledChangeComparer(SettledChangeSettings? settings = null
             var (ballSized, reason) = SettledChangeMath.ClassifyRegion(inscribed, area, outsideFraction, s);
             var before = SettledChangeMath.Appearance(hsvBefore, pixels, cloth);
             var after = SettledChangeMath.Appearance(hsvAfter, pixels, cloth);
+            if (s.ShadowFreeCentre && SettledChangeMath.BallCentre(hsvBefore, hsvAfter, pixels, cloth, clothAfter, w) is { } ball)
+                (cx, cy) = ball;
             var (tx, ty) = SettledChangeMath.RasterToTable(cx, cy, s);
             return new(Math.Round(tx, 4), Math.Round(ty, 4), Math.Round(cx, 1), Math.Round(cy, 1),
                 SettledChangeMath.Zone(cx, cy, s), Math.Round(area / s.BallArea, 3), Math.Round(inscribed / s.BallRadius, 3),

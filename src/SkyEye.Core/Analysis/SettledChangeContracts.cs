@@ -27,6 +27,9 @@ public sealed record SettledChangeSettings
     public int GridCellPixels { get; init; } = 20;
     public double GridCellFraction { get; init; } = .05;
     public double BallRadiusFraction { get; init; } = .027; // ball radius / table width
+    // Region centre from ball-like pixels, not the shadow (D3 proposal review, 11 Nov: centroids sat up to one
+    // ball diameter toward the cast shadow under the evening lamp). False keeps the plain component centroid.
+    public bool ShadowFreeCentre { get; init; } = true;
     // Slice 2: settle detection at Live Detect cadence (T4 `scan` rule at quarter size).
     public int MotionTilePixels { get; init; } = 16;        // quarter-size raster
     public double MotionThreshold { get; init; } = .08;

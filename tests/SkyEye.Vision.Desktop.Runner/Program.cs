@@ -20,6 +20,7 @@ if (args.Length > 0 && args[0] == "detect") return DetectCommand.Run(options);
 if (args.Length > 0 && args[0] == "classify") return ClassifyCommand.Run(options);
 if (args.Length > 0 && args[0] == "settled-change") return SettledChangeCommand.Run(options);
 if (args.Length > 0 && args[0] == "settled-change-clips") return SettledChangeClipsCommand.Run(options);
+if (args.Length > 0 && args[0] == "settled-change-rasters") return SettledChangeRastersCommand.Run(options);
 if (args.Length > 0 && args[0] == "settled-change-selfcheck") return SettledChangeSelfCheck.Run(options);
 if (args.Length > 0 && args[0] == "analyze") return AnalyzeCommand.Run(options);
 if (args.Length > 0 && args[0] == "audit")
