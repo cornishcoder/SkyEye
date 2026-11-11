@@ -375,15 +375,25 @@ public sealed partial class VisionAnalyzer
                     && (sector.InnerPoint - centre).Length <= neighbour.Body.Radius
                     && (sector.OuterPoint - centre).Length <= neighbour.Body.Radius;
             });
+        // Opt-in (VisionSettings.PackedBlackAdjacentBallOcclusion): in dim light the black's edge against a
+        // touching red or yellow has too little contrast to register, and the exterior is not rejected either.
+        // Such a sector abuts a recognised packed ball: its outer point is within the conservative occlusion
+        // radius of that ball's centre.
+        bool ExplainedByAdjacentBall(BoundarySectorEvidence sector)
+            => settings.PackedBlackAdjacentBallOcclusion && neighbours.Any(neighbour =>
+                (neighbour - fit.Centre).Length >= expectedRadius * 1.1
+                && (sector.OuterPoint - neighbour).Length <= expectedRadius * BallBoundaryRefiner.ConservativeOcclusionNeighborRadius);
+        bool Explained(BoundarySectorEvidence sector)
+            => ExplainedByMeasuredExterior(sector) || ExplainedByFittedBody(sector) || ExplainedByAdjacentBall(sector);
         int neighbourExplained = sectors.Count(sector => !sector.Supported && ExplainedByMeasuredExterior(sector));
         int fittedBodyExplained = sectors.Count(sector => !sector.Supported && ExplainedByFittedBody(sector));
+        int adjacentExplained = sectors.Count(sector => !sector.Supported && !ExplainedByMeasuredExterior(sector)
+            && !ExplainedByFittedBody(sector) && ExplainedByAdjacentBall(sector));
         bool accepted = BallBoundaryRefiner.HasConservativeOcclusionCoverage(sectors, fit.Centre,
             expectedRadius, neighbours, 14d / 32);
         if (!accepted && sectors.Length == 32 && visible >= 14)
-            accepted = sectors.Where(sector => !sector.Supported)
-                .All(sector => ExplainedByMeasuredExterior(sector) || ExplainedByFittedBody(sector));
-        var uncovered = sectors.Where(sector => !sector.Supported
-                && !ExplainedByMeasuredExterior(sector) && !ExplainedByFittedBody(sector))
+            accepted = sectors.Where(sector => !sector.Supported).All(Explained);
+        var uncovered = sectors.Where(sector => !sector.Supported && !Explained(sector))
             .Select(sector =>
             {
                 double nearestNeighbourRadius = neighbours
@@ -392,7 +402,7 @@ public sealed partial class VisionAnalyzer
                     .DefaultIfEmpty(double.PositiveInfinity).Min();
                 return $"{sector.Index}(edge={sector.EdgeContrast:0.#};outside={sector.ExteriorContrast:0.#};external={sector.ExteriorRejected};nearestNeighbourR={nearestNeighbourRadius:0.00})";
             });
-        evidence = $"visible={visible}/32;exteriorRejected={exteriorRejected}/32;fittedNeighbourExplained={neighbourExplained}/32;fittedBodyOccluded={fittedBodyExplained}/32;uncoveredSectors={string.Join(',', uncovered)};accepted={accepted}";
+        evidence = $"visible={visible}/32;exteriorRejected={exteriorRejected}/32;fittedNeighbourExplained={neighbourExplained}/32;fittedBodyOccluded={fittedBodyExplained}/32;adjacentBallOccluded={adjacentExplained}/32;uncoveredSectors={string.Join(',', uncovered)};accepted={accepted}";
         return accepted;
     }
 

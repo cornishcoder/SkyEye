@@ -65,6 +65,12 @@ public sealed record VisionSettings(int Width = 1000, double MinimumRadius = 18,
     // any hue. Skin measured chroma about 22 in the dimmest hand control and about 62 in a bright one.
     // False replays the earlier behaviour.
     public bool ObstructionDimChromaTolerance { get; init; } = true;
+    // Packed black only, OFF by default (no dim black-absent rack control yet): an unsupported boundary
+    // sector whose outer point lies within 1.25 R of a distinct recognised red or yellow also counts as
+    // occluded. In dim racks the black's edge against a touching dim red is too faint to register
+    // (29 Oct rack: support 15/32 at V 28 rising to found at V 86 on gamma copies of one frame).
+    // Still needs 14/32 visible, every other sector explained, and a black classification.
+    public bool PackedBlackAdjacentBallOcclusion { get; init; } = false;
     public double MinimumHoughBoundarySupport { get; init; } = .75;
     // A fresh six-frame pocket-lip holdout recovered a fitted top-left red with
     // 20/32 supported sectors; the separate pocket-colour review retains its
