@@ -92,7 +92,7 @@ Status: `open` not started, `active`, `blocked`, `done`, `dropped`.
 |---|---|---|---|---|
 | T0 | Protect the evidence | done (11 Nov 08:54) | - | `D:\SkyEye\backup-report.txt` PASS. Re-run the script after new captures or regenerated outputs |
 | T1 | One corpus manifest | done | - | Report in `tests/fixtures/detection-corpus/README.md`. All five cushion black misses are one table position, (1.48, 0.067), dim and bright |
-| T2 | Desktop detector runner | design done; build blocked here (no .NET) | a session with .NET on Windows | Build the two desktop projects, run frame 2083 against its proof file (`t2-desktop-runner-design.md`, `progress/t2-desktop-runner.md`) |
+| T2 | Desktop detector runner | built; Layout03 parity PASS 4/4 | - | Add the `detect` command over the T1 manifest (`t2-desktop-parity.md`) |
 | T3 | Replay Live Detect's real reducer on saved logs | done | - | Report `t3-live-detect-replay.md`. Lost still time is flags (pocket-colour 1,149 s, obstruction 941 s), not flicker (1.4 s) |
 | T4 | Change-between-settled-states experiment | done: promising, conditional | T9 labels to score properly | Report `t4-settled-change-experiment.md`. Black at cushion/jaw 9/9 staged; fails under moving daylight |
 | T5 | Surplus-only inventory demotion | open | T2 for scoring | Small change in `ConstrainInventory` |
@@ -405,4 +405,15 @@ through the Python reducer port where possible.
   (docs/evidence, tests/fixtures and so on), all present on origin/master.
   The script exits 1 on success because it passes through robocopy's
   "files copied" code; read the report, not the exit code.
+- 11 Nov. T2 built and parity checked. The detector sources compile on
+  desktop unchanged against a compat shim over OpenCvSharp 4.13
+  (`src/SkyEye.OpenCv.Desktop`, `src/SkyEye.Vision.Desktop`,
+  `tests/SkyEye.Vision.Desktop.Runner`, all in `SkyEye.sln`). Layout03
+  parity against the device replay proofs: PASS 4/4 frames, 59/59 circles
+  with the same kinds and flags, 58 centres identical, one 0.85 px. Desktop
+  output can now stand in for the device on PNG frames of this kind; JPEG
+  frames are untested. This is software parity, not a detector score:
+  detector cases stay 0/3 and physical gates 0/3, carried forward. Report
+  `t2-desktop-parity.md`. Next: the `detect` command over the T1 manifest,
+  then T5.
 
