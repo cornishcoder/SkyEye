@@ -243,9 +243,11 @@ public sealed partial class ShellSession
                         {
                             // Last point where the bitmap exists; the observer copies what it needs and never throws.
                             pendingSettledChange = settledChangeObserver?.Observe(frame);
-                            // A new settled-change comparison is the moment worth replaying exactly.
+                            // A new settled-change comparison that found a ball-sized change is the moment worth
+                            // replaying exactly (thin flicker regions are not).
                             liveDetectPendingFrameEvidence = evidenceCapture.Observe(frame, vision,
-                                settledComparison: pendingSettledChange is { EvidenceIsNew: true, Evidence.Status: SettledChangeStatus.Compared });
+                                settledComparison: pendingSettledChange is { EvidenceIsNew: true, Evidence: { Status: SettledChangeStatus.Compared, Comparison: { } comparison } }
+                                    && comparison.Regions.Any(region => region.BallSized));
                         });
                     consecutiveAnalysisErrors = 0;
                     consecutiveFrameAcquisitionErrors = 0;

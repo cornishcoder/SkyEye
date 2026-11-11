@@ -401,17 +401,21 @@ internal sealed class LiveDetectLogStore
 /// <summary>Captures a bounded, source-matched sample when analysis quality or inventory changes, and at each
 /// new settled-change comparison. The 11 Nov device runs spent the old six-frame budget in the first 15 s
 /// (initial plus 3 s samples, or quality flicker), so nothing was saved around the shot; interval samples are
-/// now limited to the run's start and the last slots are kept for settled-change comparisons.</summary>
+/// now limited to the run's start and the last slots are kept for settled-change comparisons. In the staged
+/// cushion-black session (run e7276502) a black flickering in and out of detection still used all 12 by
+/// 21:39:33, before the shots: change frames are now at least 5 s apart, and the caller asks for a
+/// settled-change frame only when the comparison found a ball-sized region.</summary>
 internal sealed class LiveDetectFrameEvidenceCapture
 {
     internal const int MaximumFramesPerRun = 12;
     internal const int MaximumIntervalFrames = 2;         // after the initial frame
     internal const int ReservedForSettledChange = 4;      // change triggers stop this many slots early
     static readonly TimeSpan MinimumSampleInterval = TimeSpan.FromSeconds(3);
+    internal static readonly TimeSpan MinimumChangeInterval = TimeSpan.FromSeconds(5);
     int attempts, intervalFrames;
     string? previousQuality;
     string? previousInventory;
-    DateTimeOffset? lastCaptureAt;
+    DateTimeOffset? lastCaptureAt, lastChangeCaptureAt;
 
     public PendingLiveDetectFrameEvidence? Observe(TableFrame frame, VisionResult vision, bool settledComparison = false)
     {
@@ -421,16 +425,19 @@ internal sealed class LiveDetectFrameEvidenceCapture
             .Select(group => group.Key + ":" + group.Count());
         string inventory = string.Join(",", grouped);
         bool changeRoom = attempts < MaximumFramesPerRun - ReservedForSettledChange;
+        bool changeDue = changeRoom && (lastChangeCaptureAt is not { } lastChange || frame.CapturedAt - lastChange >= MinimumChangeInterval);
         string? trigger = attempts == 0 ? "initial"
             : settledComparison ? "settled-change"
-            : changeRoom && previousQuality != quality ? "quality:" + quality
-            : changeRoom && previousInventory != inventory ? "inventory:" + inventory
+            : changeDue && previousQuality != quality ? "quality:" + quality
+            : changeDue && previousInventory != inventory ? "inventory:" + inventory
             : changeRoom && intervalFrames < MaximumIntervalFrames && lastCaptureAt is { } last && frame.CapturedAt - last >= MinimumSampleInterval ? "interval:3s"
             : null;
         previousQuality = quality;
         previousInventory = inventory;
         if (trigger is null || attempts >= MaximumFramesPerRun) return null;
         if (trigger == "interval:3s") intervalFrames++;
+        if (trigger.StartsWith("quality:", StringComparison.Ordinal) || trigger.StartsWith("inventory:", StringComparison.Ordinal))
+            lastChangeCaptureAt = frame.CapturedAt;
 
         attempts++;
         lastCaptureAt = frame.CapturedAt;

@@ -41,6 +41,23 @@ so the D3 side can be replayed; full-resolution detector frames for those moment
 `settled-change` frame only when the comparison has a ball-sized region, and keep flicker from spending
 change slots.
 
+## Frame budget fixed in 0.8.69 (later the same evening)
+
+- A `settled-change` frame is taken only when the comparison found a **ball-sized** region (the flicker
+  comparisons held only thin regions).
+- Change-triggered frames (quality or inventory) are at least **5 s apart**.
+
+Replaying this session's 322 passes through the new policy (offline): 11 frames, of which 5 are spaced
+flicker/interval frames before the shots and **3 are the comparisons that mattered** (21:40:28 shot,
+21:40:38 black to the open table, 21:40:47 black back on the cushion). New AgentUi check: inventory flicker
+every 0.5 s for 10 s takes two change frames.
+
+Verification (newly executed): `Build-SkyEye.ps1 -Target All` 0 errors; `SkyEye.Checks` and
+`SkyEye.AgentUi.Checks` pass; Layout03 parity 4/4; golden-shadow passes on this session's log (764 frames).
+Companion 0.8.69 / code 77 installed in place (storage retained; previous APK
+`work/production/backups/20261111-215947/before.apk`; camera package unchanged); camera `Stopped`
+revision 31. Not yet run live.
+
 ## Limits
 
 One staged layout, one light level, one inference. U1 (hold) and U3 (departure support) still have not

@@ -116,10 +116,17 @@ internal static class LiveDetectLogStoreChecks
                 triggers.Add(budget.Observe(EvidenceFrame(checkAt.AddSeconds(second * 3)), second % 2 == 0 ? clearVision : uncertainVision)?.Trigger);
             for (int k = 0; k < 4; k++)
                 triggers.Add(budget.Observe(EvidenceFrame(checkAt.AddSeconds(100 + k)), clearVision, settledComparison: true)?.Trigger);
-            Require(triggers.Count(t => t is not null && t.StartsWith("quality:")) == LiveDetectFrameEvidenceCapture.MaximumFramesPerRun - LiveDetectFrameEvidenceCapture.ReservedForSettledChange - 1
+            Require(triggers.Count(t => t is not null && (t.StartsWith("quality:") || t.StartsWith("interval:"))) == LiveDetectFrameEvidenceCapture.MaximumFramesPerRun - LiveDetectFrameEvidenceCapture.ReservedForSettledChange - 1
                 && triggers.Count(t => t == "settled-change") == LiveDetectFrameEvidenceCapture.ReservedForSettledChange
                 && triggers.Count(t => t is not null) == LiveDetectFrameEvidenceCapture.MaximumFramesPerRun,
                 $"evidence keeps slots for settled-change comparisons after quality flicker ({string.Join(",", triggers.Where(t => t is not null))})");
+            // Fast flicker (run e7276502: a cushion black seen and unseen every second or so) takes one change
+            // frame per 5 s, not one per flip.
+            var flicker = new LiveDetectFrameEvidenceCapture();
+            var blackVision = evidenceVision with { Balls = [evidenceBall, new("black-1", "black", new(1.92, .5), 1)] };
+            var flickerTriggers = Enumerable.Range(0, 20).Select(k => flicker.Observe(EvidenceFrame(checkAt.AddSeconds(k * .5)), k % 2 == 0 ? evidenceVision : blackVision)?.Trigger).ToList();
+            Require(flickerTriggers.Count(t => t is not null && t.StartsWith("inventory:")) == 2,
+                $"inventory flicker every 0.5 s for 10 s takes two change frames ({string.Join(",", flickerTriggers.Where(t => t is not null))})");
             var quiet = new LiveDetectFrameEvidenceCapture();
             var quietTriggers = Enumerable.Range(0, 20).Select(s => quiet.Observe(EvidenceFrame(checkAt.AddSeconds(s * 3)), clearVision)?.Trigger).ToList();
             Require(quietTriggers.Count(t => t == "interval:3s") == LiveDetectFrameEvidenceCapture.MaximumIntervalFrames,
