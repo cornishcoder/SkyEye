@@ -68,6 +68,15 @@ identical; unlabelled blacks 260 to 269 (+9, all real dim racks of 27 and 29 Oct
 the earlier g16/314 cue regression is gone (gamma copies no longer gain blacks). It now meets the bar
 except a device run.
 
+## Enabled (later the same evening)
+
+At Richard's request `PackedBlackAdjacentBallOcclusion` is now **on by default** (identity
+`-packed-black-adjacent125-packed-black-darkbody28`). Re-scored with production defaults (desktop, newly
+executed): control 0/5; labelled black 14/28, 0 FP (one frame's coordinates shift slightly); unlabelled
+blacks 260 to 269 and obstructed 20 to 14, identical to the both-on run above; 31 hand controls unchanged;
+the six afternoon device racks unchanged. Build 0 errors; `SkyEye.Checks` and `SkyEye.AgentUi.Checks` pass;
+Layout03 parity 4/4. Not yet built for or run on the device.
+
 ## Limits
 
 One control layout under one light level; the after-break touching group from the device run is still not

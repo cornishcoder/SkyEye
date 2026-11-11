@@ -65,12 +65,14 @@ public sealed record VisionSettings(int Width = 1000, double MinimumRadius = 18,
     // any hue. Skin measured chroma about 22 in the dimmest hand control and about 62 in a bright one.
     // False replays the earlier behaviour.
     public bool ObstructionDimChromaTolerance { get; init; } = true;
-    // Packed black only, OFF by default (no dim black-absent rack control yet): an unsupported boundary
-    // sector whose outer point lies within 1.25 R of a distinct recognised red or yellow also counts as
-    // occluded. In dim racks the black's edge against a touching dim red is too faint to register
-    // (29 Oct rack: support 15/32 at V 28 rising to found at V 86 on gamma copies of one frame).
-    // Still needs 14/32 visible, every other sector explained, and a black classification.
-    public bool PackedBlackAdjacentBallOcclusion { get; init; } = false;
+    // Packed black only: an unsupported boundary sector whose outer point lies within 1.25 R of a distinct
+    // recognised red or yellow also counts as occluded. In dim racks the black's edge against a touching
+    // dim red is too faint to register (29 Oct rack: support 15/32 at V 28 rising to found at V 86 on
+    // gamma copies of one frame). Still needs 14/32 visible, every other sector explained, a black
+    // classification and, with PackedBlackOcclusionDarkBody, a body darker than 0.28 x the table.
+    // Enabled after the real black-absent dim rack control stayed at 0/5 with both on. False replays the
+    // earlier behaviour.
+    public bool PackedBlackAdjacentBallOcclusion { get; init; } = true;
     // Packed black accepted on occlusion evidence must also be dark relative to the cloth: annulus
     // (0.55..0.85 R at the expected radius) p25 V at most 0.28 x the inner-table median V. A real
     // black-absent dim rack (control black-absent-dim-rack.json, 11 Nov) put a false black in the gap:

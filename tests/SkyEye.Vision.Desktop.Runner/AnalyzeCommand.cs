@@ -17,7 +17,7 @@ static class AnalyzeCommand
             ObstructionShadowTolerance = !(o.TryGetValue("shadow-tolerance", out var st) && st == "off"),
             PackedClusterLocalUnknowns = !(o.TryGetValue("local-unknowns", out var lu) && lu == "off"),
             ObstructionDimChromaTolerance = !(o.TryGetValue("dim-chroma", out var dc) && dc == "off"),
-            PackedBlackAdjacentBallOcclusion = o.TryGetValue("adjacent-black", out var ab) && ab == "on",
+            PackedBlackAdjacentBallOcclusion = !(o.TryGetValue("adjacent-black", out var ab) && ab == "off"),
             PackedBlackOcclusionDarkBody = !(o.TryGetValue("dark-body", out var db) && db == "off")
         };
         var analyzer = new VisionAnalyzer(settings, includeObstructionMaskDiagnostics: o.ContainsKey("mask"));
