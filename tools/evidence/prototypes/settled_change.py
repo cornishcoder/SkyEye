@@ -190,9 +190,17 @@ def change_map(a, b, variant):
     la = np.log(a.astype(np.float32) + 8); lb = np.log(b.astype(np.float32) + 8)
     return np.abs(tile_comp(la, lb, 80)).max(axis=2), 0.22
 
+LAST_BG = {}
+
 def regions(a, b, variant):
     d, thr = change_map(a, b, variant)
     d = cv2.GaussianBlur(d, (5, 5), 0)
+    # drift measures (lighting / shadow-geometry change): fraction of the cushion band
+    # and of the open bed above threshold. Used to flag a pair as unreliable.
+    band = np.zeros(d.shape, bool); band[M:M + H, M:M + W] = True
+    inner = np.zeros(d.shape, bool); inner[M + 90:M + H - 90, M + 90:M + W - 90] = True
+    band &= ~inner
+    LAST_BG.update(cushion_frac=round(float((d[band] > thr).mean()), 4), bed_frac=round(float((d[inner] > thr).mean()), 4), bed_p99=round(float(np.percentile(d[inner], 99)), 3))
     m = (d > thr).astype(np.uint8)
     m = cv2.morphologyEx(m, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
     m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9)))
@@ -212,12 +220,17 @@ def regions(a, b, variant):
         sub = comp[max(0, y - 2):y + h + 2, max(0, x - 2):x + w + 2]
         inr = float(cv2.distanceTransform(sub, cv2.DIST_L2, 5).max())
         ballsized = 0.6 * R_BALL <= inr <= 1.45 * R_BALL and area <= 5 * BALL_AREA
+        # v3 rail rule: a ball resting against a cushion or in a jaw stays inside the
+        # outer cushion edge (the raster edge); a hand or forearm on the rail crosses it.
+        ys, xs = np.nonzero(comp)
+        out_frac = float(((xs < M - 4) | (xs > M + W + 4) | (ys < M - 4) | (ys > M + H + 4)).mean())
+        ball_v3 = ballsized and out_frac <= 0.05
         msk = comp.astype(bool); ca, cb = clothlike(a, msk, ref), clothlike(b, msk, ref)
         va, vb = cv2.cvtColor(a, cv2.COLOR_BGR2HSV)[..., 2][msk], cv2.cvtColor(b, cv2.COLOR_BGR2HSV)[..., 2][msk]
         da, db = float((va < 0.35 * ref[2]).mean()), float((vb < 0.35 * ref[2]).mean())   # black-ball-dark pixels
         cls = "arrival" if ca - cb > 0.25 else "departure" if cb - ca > 0.25 else "unclear"
         out.append(dict(cx=float(cen[i][0]), cy=float(cen[i][1]), area=int(area), w=int(w), h=int(h), circ=round(circ, 2), ballsized=ballsized,
-                        inr=round(inr, 1), zone=zone(*cen[i]), cloth_a=round(ca, 2), cloth_b=round(cb, 2), cls=cls, peak=round(float(d[msk].max()), 2), dark_a=round(da, 2), dark_b=round(db, 2)))
+                        inr=round(inr, 1), out_frac=round(out_frac, 3), ball_v3=ball_v3, zone=zone(*cen[i]), cloth_a=round(ca, 2), cloth_b=round(cb, 2), cls=cls, peak=round(float(d[msk].max()), 2), dark_a=round(da, 2), dark_b=round(db, 2)))
     return d, thr, out
 
 def sheet(pair, a, b, d, thr, regs, path):
@@ -246,7 +259,7 @@ def sheet(pair, a, b, d, thr, regs, path):
 
 def stage_diff(variant):
     d = os.path.join(T4, "sheets-" + variant); os.makedirs(d, exist_ok=True)
-    out = os.path.join(T4, "regions-%s.csv" % variant); rows = []
+    out = os.path.join(T4, "regions-%s.csv" % variant); rows = []; prow = []
     for p in csv.DictReader(open(os.path.join(T4, "pairs.csv"))):
         fa = os.path.join(T4, "frames", p["pair"] + "_a.png"); fb = os.path.join(T4, "frames", p["pair"] + "_b.png")
         if not (os.path.exists(fa) and os.path.exists(fb)): continue
@@ -255,9 +268,12 @@ def stage_diff(variant):
         sheet(p["pair"] + " " + p["kind"] + " gap %ss" % p["gap_s"], a, b, dm, thr, regs, os.path.join(d, p["pair"] + ".jpg"))
         for k, r in enumerate(regs): rows.append(dict(pair=p["pair"], kind=p["kind"], k=k, **r))
         if not regs: rows.append(dict(pair=p["pair"], kind=p["kind"], k=-1))
-    keys = ["pair", "kind", "k", "cx", "cy", "area", "w", "h", "circ", "inr", "ballsized", "zone", "cloth_a", "cloth_b", "cls", "peak", "dark_a", "dark_b"]
+        prow.append(dict(pair=p["pair"], kind=p["kind"], gap_s=p["gap_s"], n_v2=sum(r["ballsized"] for r in regs), n_v3=sum(r["ball_v3"] for r in regs), **LAST_BG))
+    keys = ["pair", "kind", "k", "cx", "cy", "area", "w", "h", "circ", "inr", "out_frac", "ballsized", "ball_v3", "zone", "cloth_a", "cloth_b", "cls", "peak", "dark_a", "dark_b"]
     with open(out, "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=keys); w.writeheader(); w.writerows(rows)
+    with open(os.path.join(T4, "pairs-%s.csv" % variant), "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=list(prow[0].keys())); w.writeheader(); w.writerows(prow)
     print("wrote", out, len(rows))
 
 # ---------------------------------------------------------------------------
@@ -321,11 +337,12 @@ def stage_stills(variant):
             pts = {o: cv2.perspectiveTransform(np.float32([[cfg[o]]]), Ha)[0, 0] for o in "BC"}
             hit = {}
             for o, (px, py) in pts.items():
-                near = [k for k, r in enumerate(regs) if r["ballsized"] and np.hypot(r["cx"] - px, r["cy"] - py) < 1.6 * R_BALL]
+                near = [k for k, r in enumerate(regs) if r["ball_v3"] and np.hypot(r["cx"] - px, r["cy"] - py) < 1.6 * R_BALL]
                 anyn = [k for k, r in enumerate(regs) if np.hypot(r["cx"] - px, r["cy"] - py) < 2.5 * R_BALL]
                 hit[o] = (near, anyn)
             matched = set(k for o in hit for k in hit[o][1])
             unexpected = [k for k, r in enumerate(regs) if r["ballsized"] and k not in matched]
+            unexpected3 = [k for k, r in enumerate(regs) if r["ball_v3"] and k not in matched]
             for o in "BC": regs.append(dict(cx=float(pts[o][0]), cy=float(pts[o][1]), area=0, w=0, h=0, circ=0, ballsized=False, zone="ref", cloth_a=0, cloth_b=0, cls="ref-" + o, peak=0)) if False else None
             sheet(name + " expect " + (",".join("%s:%s" % kv for kv in expect.items()) or "none"), a, b, dm, thr, regs, os.path.join(d, name + ".jpg"))
             img = cv2.imread(os.path.join(d, name + ".jpg"))
@@ -336,7 +353,7 @@ def stage_stills(variant):
             row = dict(pair=name, group=g, kind="control-same-state" if sa == sb else "staged-change", expect=json.dumps(expect),
                        B_hit=bool(hit["B"][0]), C_hit=bool(hit["C"][0]), B_peak=max([regs[k]["peak"] for k in hit["B"][1]] or [0]), C_peak=max([regs[k]["peak"] for k in hit["C"][1]] or [0]),
                        B_cls="/".join(regs[k]["cls"] for k in hit["B"][0]), C_cls="/".join(regs[k]["cls"] for k in hit["C"][0]),
-                       unexpected_ballsized=len(unexpected), all_ballsized=sum(r["ballsized"] for r in regs), receipt_corners=oka and okb)
+                       unexpected_ballsized=len(unexpected), unexpected_v3=len(unexpected3), **LAST_BG, all_ballsized=sum(r["ballsized"] for r in regs), receipt_corners=oka and okb)
             # local residual at B/C: 95th percentile of the change map inside the ball disc, for separability
             for o, (px, py) in pts.items():
                 yy, xx = np.ogrid[:RH, :RW]; disc = (xx - px) ** 2 + (yy - py) ** 2 < (0.8 * R_BALL) ** 2

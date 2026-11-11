@@ -1,4 +1,7 @@
-# T4 settled-change experiment: progress note (paused 11 November 2026)
+# T4 settled-change experiment: progress note
+
+**Update 11 November (resumed): finished.** The report is written at `docs/claude/t4-settled-change-experiment.md`, with the verdict *promising, with conditions*. All 28 shot sheets have been viewed. Chroma was rerun. The rail rule (v3) was added and drift measures were added. The repo mount is now `$HOME/mnt/code--SkyEye`. The older notes below are kept for history.
+
 
 Status: **paused mid-review**. No verdict yet. The report
 `docs/claude/t4-settled-change-experiment.md` has **not** been written.
