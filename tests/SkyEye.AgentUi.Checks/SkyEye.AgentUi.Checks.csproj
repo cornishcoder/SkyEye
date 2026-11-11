@@ -18,6 +18,7 @@
     <Compile Include="../../src/SkyEye.Companion.Hybrid/LiveDetectCountCandidateTracker.cs" Link="LiveDetectCountCandidateTracker.cs" />
     <Compile Include="../../src/SkyEye.Companion.Hybrid/LiveDetectFreshFrameWaitTracker.cs" Link="LiveDetectFreshFrameWaitTracker.cs" />
     <Compile Include="../../src/SkyEye.Companion.Hybrid/LiveDetectTableEventTracker.cs" Link="LiveDetectTableEventTracker.cs" />
+    <Compile Include="../../src/SkyEye.Companion.Hybrid/LiveDetectSettledChangePolicy.cs" Link="LiveDetectSettledChangePolicy.cs" />
     <Compile Include="../../src/SkyEye.Companion.Hybrid/LiveDetectInventoryReadoutPolicy.cs" Link="LiveDetectInventoryReadoutPolicy.cs" />
     <Compile Include="../../src/SkyEye.Companion.Hybrid/LiveDetectShotClipWindow.cs" Link="LiveDetectShotClipWindow.cs" />
     <Compile Include="../../src/SkyEye.Companion.Hybrid/LiveDetectShotClipGrouping.cs" Link="LiveDetectShotClipGrouping.cs" />

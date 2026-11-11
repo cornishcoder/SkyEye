@@ -545,6 +545,8 @@ internal static class LiveDetectTableEventTrackerChecks
         Console.WriteLine("Replay used saved detector output; it did not rerun vision, write match state, or save camera clips.");
     }
 
+    internal static ImmutableArray<SettledBallPosition> CaptureLayoutForReplay(LiveDetectLoggedBall[] balls) => CaptureLayout(balls);
+
     static ImmutableArray<SettledBallPosition> CaptureLayout(LiveDetectLoggedBall[] balls)
     {
         if (balls.Length is < 1 or > 16) return [];

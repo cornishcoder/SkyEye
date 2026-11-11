@@ -475,4 +475,11 @@ through the Python reducer port where possible.
   motionless clips: no comparison at all), 1 unverified region in a
   two-shot comparison. Next: reducer rules in shadow with the golden test,
   then live wiring (Richard's design questions apply there).
+- 11 Nov. D3 slice 3 built (`d3-slice3-shadow-rules.md`): rules U1 to U5 as
+  shadow proposals in the reducer, never applied. Design 5.2 policy checks
+  pass; golden shadow test identical with and without evidence on 32,000
+  generated passes (18,887 events, all 7 proposal kinds) and on all 63 saved
+  logs (285 runs, 72,832 frames, 4,882 events). Simplifications noted (no 3 s
+  recheck, pass-level obstruction, strict anchor, no Active mode). Next: live
+  wiring, which needs Richard's answers to the design's open questions.
 

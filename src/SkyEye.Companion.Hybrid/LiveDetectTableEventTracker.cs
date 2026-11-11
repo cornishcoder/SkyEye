@@ -15,7 +15,8 @@ internal sealed record LiveDetectTableEventObservation(EvidenceSource Source, Gu
     long MediaGeneration, long FrameId, DateTimeOffset CapturedAt, long SourceTimeUs, string Timeline,
     string CalibrationId, LiveDetectCounts Counts, ImmutableArray<SettledBallPosition> Layout,
     bool Obstructed, bool Uncertain, bool LayoutUncertain, bool MovementObserved, bool PackedRack,
-    ImmutableArray<LiveDetectUncertainRegion> UncertainRegions = default, bool? UncertainOutsideRegions = null);
+    ImmutableArray<LiveDetectUncertainRegion> UncertainRegions = default, bool? UncertainOutsideRegions = null,
+    SettledChangePass? SettledChange = null);
 
 /// <summary>A doubtful table area in table units (x 0..2, y 0..1); layout positions use x / 2.</summary>
 internal readonly record struct LiveDetectUncertainRegion(double X, double Y, double Radius)
@@ -34,8 +35,11 @@ internal readonly record struct LiveDetectUncertainRegion(double X, double Y, do
 /// A first baseline formed while a pocket region is flagged stays off: in the saved logs it added
 /// false movement and no-pot clips on static fixtures.
 /// </summary>
+/// <remarks>D3: <paramref name="SettledChange"/> <c>Shadow</c> computes the settled-change rules from any
+/// evidence on the observation and reports them on the batch; it never changes an outcome or event.</remarks>
 internal sealed record LiveDetectReducerOptions(bool PocketColourRegionOnly = true,
-    bool FirstBaselineWithPocketRegion = false, bool FirstBaselineWithoutBlackOrCue = true)
+    bool FirstBaselineWithPocketRegion = false, bool FirstBaselineWithoutBlackOrCue = true,
+    LiveDetectSettledChangeMode SettledChange = LiveDetectSettledChangeMode.Shadow)
 {
     public static LiveDetectReducerOptions Default { get; } = new();
     /// <summary>The reducer as it behaved before D1 and D2.</summary>
@@ -56,6 +60,9 @@ internal sealed record LiveDetectEventBatch(string CheckOutcome,
     /// <summary>D1: only a pocket region is flagged; balls inside it are individually uncertain.</summary>
     public bool PocketRegionUncertain { get; init; }
     public int PocketRegionBalls { get; init; }
+    /// <summary>D3 shadow output (proposals and non-observed ball states); null when there is no evidence
+    /// or the mode is off. Nothing in the reducer reads it.</summary>
+    public LiveDetectSettledChangeShadow? SettledChange { get; init; }
 }
 
 /// <summary>
@@ -79,6 +86,8 @@ internal sealed class LiveDetectTableEventTracker
     int currentBaselineStableSamples;
     LiveDetectActivity? activity;
     bool blackNotSeen, cueNotSeen;
+    readonly LiveDetectSettledChangePolicy settledChangePolicy = new();
+    bool settledChangeSeen;
 
     public LiveDetectTableEventTracker(LiveDetectReducerOptions? options = null) =>
         this.options = options ?? LiveDetectReducerOptions.Default;
@@ -99,6 +108,8 @@ internal sealed class LiveDetectTableEventTracker
         currentBaselineStableSamples = 0;
         activity = null;
         blackNotSeen = cueNotSeen = false;
+        settledChangePolicy.Reset();
+        settledChangeSeen = false;
     }
 
     public LiveDetectEventBatch Observe(LiveDetectTableEventObservation sample)
@@ -443,6 +454,14 @@ internal sealed class LiveDetectTableEventTracker
                     : baselineCounts == settledCounts ? "layout_change_pending" : "inventory_change_pending");
         bool settledBaselineMatchesCurrent = stableSampleEligible
             && currentBaselineStableSamples >= StableTableChangeTracker.RequiredStableSamples;
+        // D3 shadow: runs last, reads copies of the state above, and is reported only on the batch.
+        LiveDetectSettledChangeShadow? settledChangeShadow = null;
+        settledChangeSeen |= sample.SettledChange is not null;
+        if (options.SettledChange == LiveDetectSettledChangeMode.Shadow && settledChangeSeen)
+            settledChangeShadow = settledChangePolicy.Observe(new(stableBaselineEstablished, baselineAdvancedThisSample,
+                stableBaselineEstablished ? stableSnapshot.BaselineSourceTimeUs : null, baselineLayout, sample.Layout,
+                stableSampleEligible, sample.Obstructed, pocketRegionOnly ? sample.UncertainRegions : [],
+                blackNotSeen, cueNotSeen, sample.SourceTimeUs), sample.SettledChange);
         return new(checkOutcome, events.ToImmutable(), clipActivity, clipEventType, clipEndSourceTimeUs,
             ToLiveDetectCounts(baselineCounts), baselineCapturedAt, settledBaselineMatchesCurrent,
             currentBaselineStableSamples)
@@ -450,7 +469,8 @@ internal sealed class LiveDetectTableEventTracker
             BaselineBlackNotSeen = stableBaselineEstablished && blackNotSeen,
             BaselineCueNotSeen = stableBaselineEstablished && cueNotSeen,
             PocketRegionUncertain = pocketRegionOnly,
-            PocketRegionBalls = pocketRegionBalls
+            PocketRegionBalls = pocketRegionBalls,
+            SettledChange = settledChangeShadow
         };
     }
 

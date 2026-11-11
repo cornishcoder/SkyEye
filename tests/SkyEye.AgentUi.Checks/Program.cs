@@ -14,6 +14,11 @@ if (args.Length == 2 && args[0] == "--replay-live-detect-summary")
     LiveDetectCountCandidateChecks.ReplaySummary(args[1]);
     return;
 }
+if (args.Length >= 2 && args[0] == "--golden-shadow")
+{
+    foreach (var logPath in args.Skip(1)) LiveDetectSettledChangeChecks.GoldenShadowLog(logPath);
+    return;
+}
 if (args.Length == 3 && args[0] == "--replay-live-detect-events" && Guid.TryParse(args[2], out var replayRunId))
 {
     LiveDetectTableEventTrackerChecks.Replay(args[1], replayRunId);
@@ -26,6 +31,7 @@ static Guid OperationId(string callId, string action) => new(SHA256.HashData(Enc
 LiveDetectCountCandidateChecks.Run();
 LiveDetectFreshFrameWaitChecks.Run();
 LiveDetectTableEventTrackerChecks.Run();
+LiveDetectSettledChangeChecks.Run();
 LiveDetectInventoryReadoutChecks.Run();
 await LiveDetectShotClipWindowChecks.Run();
 LiveDetectShotClipGroupingChecks.Run();
