@@ -417,6 +417,11 @@ def collect(root, out):
                 fr["recordedAt"] = r.get("recordedAt"); fr["schema"] = r.get("schemaVersion")
                 fr["balls"] = [[(b.get("colour") or b.get("kind") or "").strip().lower(), b.get("x"), b.get("y")]
                                for b in body.get("balls") or []]
+                pa = body.get("pocketColourAudit") or {}
+                fr["pockets"] = [[int(bool(q.get("needsReview"))), q.get("unexplainedPixels"), q.get("colouredPixels"),
+                                  q.get("supportedBallBodies"), (q.get("centre") or {}).get("x"), (q.get("centre") or {}).get("y")]
+                                 for q in pa.get("pockets") or []]
+                fr["pocketAnalysisWidth"] = pa.get("analysisWidth")
                 run["frames"][key] = fr
             elif kind == "tableEvent":
                 run["events"][body.get("eventId") or json.dumps(body, sort_keys=True)] = body
@@ -469,8 +474,28 @@ def build_sample(fr, balls_override=None):
                 t=int(fr.get("sourceTimeUs") or 0), gen=fr.get("mediaGeneration"), frame=fr.get("frameId"),
                 timeline=fr.get("timeline"), counts=lc, layout=build_layout(balls),
                 obstructed=bool(fr.get("obstructed")), uncertain=bool(fr.get("uncertain")),
-                layout_uncertain=bool(fr.get("uncertain")) if lu is None else bool(lu),
-                movement=fr.get("spatiallyCompatible") is False, rack=bool(fr.get("packedRackEvidence")))
+                layout_uncertain=False if fr.get("_lu_off") else bool(fr.get("uncertain")) if lu is None else bool(lu),
+                movement=(fr.get("_moved") if MOVEMENT_MODE == "recomputed" else fr.get("spatiallyCompatible") is False),
+                rack=bool(fr.get("packedRackEvidence")))
+
+
+MOVEMENT_MODE = "logged"
+
+
+def recompute_movement(frames):
+    """Approximation of HEAD TableAnalysisSession.SpatiallyCompatible (after c2caf21): colour-blind
+    PositionsCompatible(previous, current) at .018. The C# 'previous' is TableTracker's current table,
+    which is not logged; here it is the balls of the most recent frame that was neither obstructed nor
+    layout-uncertain. No movement value is produced for obstructed or layout-uncertain frames."""
+    prev = None; tl = None
+    for f in frames:
+        if f["timeline"] != tl: prev = None; tl = f["timeline"]
+        lu = f.get("layoutUncertain"); lu = f.get("uncertain") if lu is None else lu
+        b = all_balls(f)
+        if f.get("obstructed") or lu:
+            f["_moved"] = False; continue
+        f["_moved"] = bool(prev) and bool(b) and not positions_compatible(prev, b)
+        if b: prev = b
 
 
 def replay(frames, overrides=None):
@@ -576,16 +601,45 @@ def presence(frames, idx):
     out = {}
     for c in ("red", "yellow", "black", "cue"):
         if not rows: out[c] = (0, 0.0); continue
-        hi = max(r[c] for r in rows)
-        # cap at the legal inventory so an over-count does not define "present"
-        hi = min(hi, 7 if c in ("red", "yellow") else 1)
+        # Black and cue: judged against the legal inventory of one, so a ball that is never
+        # detected counts as absent (share 0), not as "present at count 0".
+        # Red and yellow: the highest count seen in the segment, capped at seven.
+        hi = 1 if c in ("black", "cue") else min(max(r[c] for r in rows), 7)
         out[c] = (hi, sum(1 for r in rows if r[c] >= hi) / len(rows))
     return out
 
 
-def classify_kind(colour, pres):
+# Whether the black and cue were physically on the table, from run notes written at capture time.
+# None = not stated. Sources are quoted in docs/claude/t3-live-detect-replay.md.
+EXPECTED = {
+    "2e887ca1": dict(black=False, cue=True, note="code59: user confirmed black removed (device-acceptance.md)"),
+    "b9a3826d": dict(black=False, cue=True, note="code61: black removed; 7R/7Y/cue confirmed"),
+    "1c89005d": dict(black=False, cue=True, note="code62: 15-ball layout, black absent (device-acceptance.md)"),
+    "b3ad94b6": dict(black=False, cue=True, note="code63: black intentionally absent"),
+    "6cdb8824": dict(black=False, cue=True, note="code65: black intentionally off the table"),
+    "567720c1": dict(black=True, cue=True, note="code59 pocket-lip holdout: all 16 identified by user"),
+    "85a34387": dict(black=True, cue=None, note="code59: black repositioned onto table"),
+    "d081fa28": dict(black=True, cue=True, note="code59: frames visibly contain the 16-ball layout"),
+    "cfd3b9d4": dict(black=True, cue=True, note="code66: raw crop shows red, cue and black at pocket"),
+    "f9dd4379": dict(black=True, cue=True, note="code70: user confirmed black, cue and red at lower-left pocket"),
+}
+
+
+def expected_for(run_id):
+    return EXPECTED.get(run_id[:8], dict(black=None, cue=None, note="not stated"))
+
+
+def classify_kind(colour, pres, expected=None):
+    """persistent_miss / flicker / other:kind_absent_from_table / absent_or_missed (unresolved)."""
     hi, share = pres[colour]
-    return ("persistent_miss" if share < .5 else "flicker"), colour
+    exp = (expected or {}).get(colour)
+    if colour in ("black", "cue") and exp is False:
+        return "other", "kind_absent_from_table:" + colour
+    if share < .5:
+        if colour in ("black", "cue") and exp is None:
+            return "absent_or_missed", colour
+        return "persistent_miss", colour
+    return "flicker", colour
 
 
 def analyse_run(run, hold_n=None):
@@ -600,14 +654,20 @@ def analyse_run(run, hold_n=None):
 def replay_with_hold(frames, n):
     """COUNTERFACTUAL, not production behaviour: a ball in the current settled baseline is added
     back to the observation for up to n consecutive samples in which it is not re-detected, as long
-    as no movement has been logged (spatiallyCompatible == false or an activity with movement).
-    Flags (obstructed, layout uncertain) are left untouched."""
+    as no movement is seen (spatiallyCompatible == false, an activity with movement, or the current
+    detections not position-compatible with the baseline at .018) and the frame is not obstructed.
+    A held ball is never added beyond the legal inventory (7/7/1/1). Flags (obstructed, layout
+    uncertain) are left untouched, so a hold cannot make a flagged frame usable."""
     tr = EventTracker(); out = []; missing = {}
     for f in frames:
         override = None
-        moving = f.get("spatiallyCompatible") is False or (tr.activity is not None and tr.activity["moved"])
-        if tr.established and tr.baseline_layout and not moving:
+        cur_all = all_balls(f)
+        moving = (f.get("spatiallyCompatible") is False or (tr.activity is not None and tr.activity["moved"])
+                  or (cur_all and tr.baseline_layout and not positions_compatible(tr.baseline_layout, cur_all)))
+        if tr.established and tr.baseline_layout and not moving and not f.get("obstructed"):
             cur = [list(b) for b in f["balls"]]
+            have = collections.Counter(COLOUR_ALIASES.get(k, "other") for k, _, _ in cur)
+            legal = {"red": 7, "yellow": 7, "black": 1, "cue": 1}
             pool = [(COLOUR_ALIASES.get(k), (x or 0) / 2.0, y or 0) for k, x, y in cur]
             used = set(); added = []
             for j, (k, bx, by) in enumerate(tr.baseline_layout):
@@ -621,7 +681,8 @@ def replay_with_hold(frames, n):
                     used.add(best); missing[key] = 0
                 else:
                     missing[key] = missing.get(key, 0) + 1
-                    if n == 0 or missing[key] <= n: added.append([k, bx * 2.0, by])
+                    if (n == 0 or missing[key] <= n) and have[k] < legal[k]:
+                        added.append([k, bx * 2.0, by]); have[k] += 1
             if added: override = cur + added
         elif moving:
             missing = {}
@@ -630,7 +691,7 @@ def replay_with_hold(frames, n):
     return out
 
 
-def cause_trace(frames, res, segs):
+def cause_trace(frames, res, segs, expected=None):
     """Assign a lost-time cause to each lost sample inside a still segment.
 
     Lost = the port's SettledBaselineMatchesCurrent is false. Classes:
@@ -641,6 +702,7 @@ def cause_trace(frames, res, segs):
     Usable samples that are still counting up to three inherit the cause of the last break."""
     n = len(frames)
     cause = [None] * n
+    under = [""] * n  # for flagged lost samples: black/cue not detected (and not known to be absent)
     established_before = [False] * n
     est = False
     for i in range(n):
@@ -662,14 +724,14 @@ def cause_trace(frames, res, segs):
                 elif q == "invalid_inventory": c = ("flags", "invalid_inventory:" + sub)
                 elif q == "uncertain_before_baseline":
                     miss = [k for k in ("black", "cue") if cc[k] == 0]
-                    c = classify_kind(min(miss, key=lambda m: pres[m][1]), pres) if miss else ("flags", "uncertain_other")
+                    c = classify_kind(min(miss, key=lambda m: pres[m][1]), pres, expected) if miss else ("flags", "uncertain_other")
                 else: c = ("other", "ineligible_other")
                 pending = c; prev_counts = None
             else:
                 d = r["stable_diag"].replace("change_", "")
                 if d == "probe_reset_count" and prev_counts is not None:
                     diff = [k for k in cc if cc[k] != prev_counts[k]] or list(cc)
-                    pending = classify_kind(min(diff, key=lambda m: pres[m][1]), pres)
+                    pending = classify_kind(min(diff, key=lambda m: pres[m][1]), pres, expected)
                 elif d == "probe_reset_position":
                     pending = ("other", "position_jitter_>.010")
                 elif d == "held_jitter":
@@ -678,7 +740,7 @@ def cause_trace(frames, res, segs):
                     bc = r.get("baseline_counts")
                     bcc = {"red": bc[0], "yellow": bc[1], "cue": bc[2], "black": bc[3]} if bc else cc
                     diff = [k for k in cc if cc[k] != bcc[k]]
-                    pending = (classify_kind(min(diff, key=lambda m: pres[m][1]), pres) if diff
+                    pending = (classify_kind(min(diff, key=lambda m: pres[m][1]), pres, expected) if diff
                                else ("other", "position_vs_baseline"))
                 c = pending
                 prev_counts = cc
@@ -686,6 +748,9 @@ def cause_trace(frames, res, segs):
                 cause[i] = None; pending = ("other", "confirmation_latency")
             else:
                 cause[i] = c
+                if c[0] == "flags":
+                    under[i] = "+".join(k for k in ("black", "cue") if cc[k] == 0 and (expected or {}).get(k) is not False)
+    cause_trace.under = under
     return cause, established_before
 
 
@@ -708,6 +773,8 @@ def analyse(merged, outdir, clip_inventory):
     inv_rows, run_rows, lost_rows, seg_rows, cf_rows, ev_rows, trace_rows = [], [], [], [], [], [], []
     verification = {}
     total_lost = collections.Counter(); total_lost_n = collections.Counter(); total_still = 0.0
+    total_under = collections.Counter(); total_under_known = collections.Counter()
+    newly_why = collections.defaultdict(collections.Counter); pocket_cf_rows = []
     cf_total = collections.defaultdict(collections.Counter)
     for run in runs:
         frames = run["frames"]
@@ -717,7 +784,10 @@ def analyse(merged, outdir, clip_inventory):
         res = replay(frames)
         dts = durations(frames)
         segs = still_segments(frames)
-        cause, est_before = cause_trace(frames, res, segs)
+        if MOVEMENT_MODE == "recomputed": recompute_movement(frames)
+        exp = expected_for(rid)
+        cause, est_before = cause_trace(frames, res, segs, exp)
+        under = list(cause_trace.under)
         in_seg = set(i for sg in segs for i in sg)
         # ---- inventory
         t0 = frames[0]["capturedAt"]; t1 = frames[-1]["capturedAt"]
@@ -766,6 +836,7 @@ def analyse(merged, outdir, clip_inventory):
         nobase_s = sum(dts[i] for i in in_seg if not res[i]["established"])
         total_still += still_s
         run_rows.append(dict(run_id=rid, tag=tag, frames=len(frames), sample_seconds=round(span, 1),
+            black_on_table=exp["black"], cue_on_table=exp["cue"], expected_note=exp["note"],
             usable_share=round(qn["usable"] / len(frames), 3),
             **{"n_" + k: qn[k] for k in ("usable", "obstructed", "layout_uncertain", "uncertain_before_baseline", "invalid_inventory", "other_ineligible")},
             top_flag_reasons=";".join("%s=%d" % kv for kv in flagsub.most_common(4)),
@@ -781,13 +852,19 @@ def analyse(merged, outdir, clip_inventory):
             still_segments=len(segs), still_s=round(still_s, 1), lost_s=round(lost_s, 1), no_baseline_s=round(nobase_s, 1),
             port_events=";".join("%s=%d" % kv for kv in sorted(port_ev.items())),
             logged_events=";".join("%s=%d" % kv for kv in sorted(logged_ev.items()))))
-        lc = collections.Counter(); lcn = collections.Counter()
+        lc = collections.Counter(); lcn = collections.Counter(); lcu = collections.Counter()
         for i in in_seg:
             if cause[i] is not None:
                 lc[cause[i]] += dts[i]; lcn[cause[i]] += 1
+                if under[i]: lcu[cause[i]] += dts[i]
         for (cls, sub), sec in sorted(lc.items()):
-            lost_rows.append(dict(run_id=rid, tag=tag, cls=cls, sub=sub, seconds=round(sec, 1), samples=lcn[(cls, sub)]))
+            lost_rows.append(dict(run_id=rid, tag=tag, black_on_table=exp["black"], cue_on_table=exp["cue"], cls=cls, sub=sub,
+                                  seconds=round(sec, 1), samples=lcn[(cls, sub)],
+                                  seconds_black_or_cue_undetected=round(lcu[(cls, sub)], 1)))
             total_lost[(cls, sub)] += sec; total_lost_n[(cls, sub)] += lcn[(cls, sub)]
+            total_under[(cls, sub)] += lcu[(cls, sub)]
+            if lcu[(cls, sub)]:
+                total_under_known[(cls, sub, "expected_present" if any(exp[k] for k in ("black", "cue")) else "not_stated")] += lcu[(cls, sub)]
         for k, sg in enumerate(segs):
             sec = sum(dts[i] for i in sg); lost = sum(dts[i] for i in sg if cause[i] is not None)
             cc = collections.Counter(cause[i] for i in sg if cause[i] is not None)
@@ -814,23 +891,46 @@ def analyse(merged, outdir, clip_inventory):
         # ---- counterfactual per-ball hold
         for hn in HOLD_VALUES:
             alt = replay_with_hold(frames, hn)
-            alt_cause, _ = cause_trace(frames, alt, segs)
+            alt_cause, _ = cause_trace(frames, alt, segs, exp)
             rec = collections.Counter()
             for i in in_seg:
                 if cause[i] is not None and alt_cause[i] is None:
                     rec[cause[i][0]] += dts[i]
             newly = sum(dts[i] for i in in_seg if cause[i] is None and alt_cause[i] is not None)
+            for i in in_seg:
+                if cause[i] is None and alt_cause[i] is not None:
+                    newly_why[hn if hn else "unlimited"]["%s/%s" % alt_cause[i] + " run=" + rid[:8]] += dts[i]
             alt_ev = collections.Counter(e["type"] for r in alt for e in r["events"])
             row = dict(run_id=rid, tag=tag, hold_n=hn if hn else "unlimited", lost_s=round(lost_s, 1),
                        recovered_flicker_s=round(rec["flicker"], 1), recovered_persistent_s=round(rec["persistent_miss"], 1),
-                       recovered_flags_s=round(rec["flags"], 1), recovered_other_s=round(rec["other"], 1), newly_lost_s=round(newly, 1),
+                       recovered_absent_or_missed_s=round(rec["absent_or_missed"], 1), recovered_flags_s=round(rec["flags"], 1), recovered_other_s=round(rec["other"], 1), newly_lost_s=round(newly, 1),
                        baselines=alt_ev["settled_layout_baseline"],
                        possible_pot_port=port_ev["possible_pot"], possible_pot_hold=alt_ev["possible_pot"],
                        settled_changes_port=sum(v for k, v in port_ev.items() if k in SETTLED_TYPES),
                        settled_changes_hold=sum(v for k, v in alt_ev.items() if k in SETTLED_TYPES))
             cf_rows.append(row)
-            for k in ("recovered_flicker_s", "recovered_persistent_s", "recovered_flags_s", "recovered_other_s", "newly_lost_s"):
+            for k in ("recovered_flicker_s", "recovered_persistent_s", "recovered_absent_or_missed_s", "recovered_flags_s", "recovered_other_s", "newly_lost_s"):
                 cf_total[row["hold_n"]][k] += row[k]
+        # ---- counterfactual: ignore the pocket-colour warning where it is the only layout-uncertain trigger
+        po = 0
+        for f in frames:
+            if is_pocket_only(f): f["_lu_off"] = True; po += 1
+        if po:
+            alt = replay(frames)
+            alt_cause, _ = cause_trace(frames, alt, segs, exp)
+            rec = collections.Counter()
+            for i in in_seg:
+                if cause[i] is not None and alt_cause[i] is None: rec["/".join(cause[i])] += dts[i]
+            still_lost = collections.Counter("/".join(alt_cause[i]) for i in in_seg if cause[i] == ("flags", "layout_uncertain:pocket_colour") and alt_cause[i] is not None)
+            first = [e["after"] for r in alt for e in r["events"] if e["type"] == "settled_layout_baseline"]
+            pocket_cf_rows.append(dict(run_id=rid, tag=tag, black_on_table=exp["black"], cue_on_table=exp["cue"], pocket_only_frames=po,
+                                       pocket_flag_lost_s=round(lc[("flags", "layout_uncertain:pocket_colour")], 1),
+                                       recovered_s=round(sum(rec.values()), 1),
+                                       recovered_from_pocket_flag_s=round(rec["flags/layout_uncertain:pocket_colour"], 1),
+                                       pocket_samples_still_lost_by_new_cause=";".join("%s=%d" % kv for kv in still_lost.most_common(4)),
+                                       baselines_formed=len(first), first_baseline_counts="%s" % (first[0],) if first else "",
+                                       events=";".join("%s=%d" % kv for kv in sorted(collections.Counter(e["type"] for r in alt for e in r["events"]).items()))))
+            for f in frames: f.pop("_lu_off", None)
     # ---- write
     def wcsv(name, rows):
         if not rows: return
@@ -842,11 +942,22 @@ def analyse(merged, outdir, clip_inventory):
         w = csv.DictWriter(fh, fieldnames=list(trace_rows[0].keys())); w.writeheader(); w.writerows(trace_rows)
     summary = dict(note="Python port of the HEAD Live Detect reducer replayed over saved logs; see docs/claude/t3-live-detect-replay.md",
                    still_seconds=round(total_still, 1), lost_seconds=round(sum(total_lost.values()), 1),
-                   lost_by_class={c: round(sum(v for (cc, _), v in total_lost.items() if cc == c), 1) for c in ("persistent_miss", "flicker", "flags", "other")},
+                   lost_by_class={c: round(sum(v for (cc, _), v in total_lost.items() if cc == c), 1) for c in ("persistent_miss", "flicker", "absent_or_missed", "flags", "other")},
                    lost_by_cause=[dict(cls=c, sub=s, seconds=round(v, 1), samples=total_lost_n[(c, s)]) for (c, s), v in total_lost.most_common()],
+                   flag_time_with_black_or_cue_undetected=[dict(cls=c, sub=s, seconds=round(v, 1)) for (c, s), v in total_under.most_common() if v],
+                   flag_time_with_black_or_cue_undetected_by_label=[dict(cls=c, sub=s, label=l, seconds=round(v, 1)) for (c, s, l), v in total_under_known.most_common()],
+                   counterfactual_newly_lost={str(k): [dict(cause=kk, seconds=round(vv, 1)) for kk, vv in v.most_common(10)] for k, v in newly_why.items()},
                    counterfactual_hold={str(k): {kk: round(vv, 1) for kk, vv in v.items()} for k, v in cf_total.items()},
                    verification=verification)
     summary["false_event_clips"] = false_clips(runs, clip_inventory)
+    pc_rows, pc_summary = pocket_colour(runs)
+    wcsv("pocket-colour.csv", pc_rows); summary["pocket_colour"] = pc_summary
+    wcsv("counterfactual-pocket-flag-ignored.csv", pocket_cf_rows)
+    summary["counterfactual_pocket_flag_ignored"] = dict(
+        pocket_flag_lost_s=round(sum(r["pocket_flag_lost_s"] for r in pocket_cf_rows), 1),
+        recovered_from_pocket_flag_s=round(sum(r["recovered_from_pocket_flag_s"] for r in pocket_cf_rows), 1),
+        recovered_total_s=round(sum(r["recovered_s"] for r in pocket_cf_rows), 1))
+    summary["movement_mode"] = MOVEMENT_MODE
     with open(os.path.join(outdir, "summary.json"), "w") as fh: json.dump(summary, fh, indent=1, default=str)
     print(json.dumps({k: summary[k] for k in ("still_seconds", "lost_seconds", "lost_by_class", "counterfactual_hold")}, indent=1))
 
@@ -907,11 +1018,85 @@ def _max_shift(a, b):
     return round(worst, 4)
 
 
+# ---------------------------------------------------------------- pocket-colour layout uncertainty
+
+OTHER_LU_TRIGGERS = ("edge support", "Packed colour cluster", "Overlapping circle", "share nearly the same centre",
+                     "large object")
+
+
+def is_pocket_only(f):
+    ws = f.get("warnings") or []
+    return (any("pocket opening" in w for w in ws) and not f.get("obstructed") and int(f.get("other") or 0) == 0
+            and not any(t in w for w in ws for t in OTHER_LU_TRIGGERS)
+            and not any(int(f.get(k) or 0) > 7 for k in ("reds", "yellows"))
+            and not any(int(f.get(k) or 0) > 1 for k in ("black", "cue")))
+
+
+def pocket_xy(px, py, w):
+    """Pocket audit centre (analysis pixels, portrait) -> logged ball coordinates (x 0..2, y 0..1).
+    Mapping chosen empirically: for every pocket with supportedBallBodies > 0 in the saved logs a
+    detected ball lies within .08 under this mapping (100% of 4,986 cases; the other three
+    orientations give 73-95%)."""
+    return py / w, 1 - px / w
+
+
+def pocket_colour(runs):
+    rows = []; tot = collections.Counter(); near_tot = collections.Counter(); near_by_exp = collections.Counter()
+    for run in runs:
+        fr = run["frames"]
+        if not fr: continue
+        exp = expected_for(run["runId"])
+        warned = [f for f in fr if any("pocket opening" in w for w in (f.get("warnings") or []))]
+        if not warned:
+            continue
+        only = [f for f in warned if not f.get("obstructed") and int(f.get("other") or 0) == 0
+                and not any(t in w for w in (f.get("warnings") or []) for t in OTHER_LU_TRIGGERS)
+                and not any(int(f.get(k) or 0) > 7 for k in ("reds", "yellows"))
+                and not any(int(f.get(k) or 0) > 1 for k in ("black", "cue"))]
+        pockets = collections.Counter(); unexpl = []; near = collections.Counter(); per_frame = []
+        for f in warned:
+            w = f.get("pocketAnalysisWidth") or 800
+            n_flag = 0
+            for nr, un, col, sup, px, py in f.get("pockets") or []:
+                if not nr or px is None: continue
+                n_flag += 1
+                X, Y = pocket_xy(px, py, w)
+                pockets["x%dy%d" % (round(X), round(Y))] += 1
+                unexpl.append(un or 0)
+                best = min(((math.hypot(b[1] - X, b[2] - Y), b[0]) for b in f["balls"] if b[1] is not None), default=(9, ""))
+                near[best[1] if best[0] <= .08 else "no_ball_within_.08"] += 1
+            per_frame.append(n_flag)
+        cc = [colour_counts(f) for f in warned]
+        def sh(pred): return round(sum(1 for c in cc if pred(c)) / len(cc), 3)
+        unexpl.sort()
+        row = dict(run_id=run["runId"], tag=run_label(run)[0], frames=len(fr), pocket_warning_frames=len(warned),
+                   pocket_warning_share=round(len(warned) / len(fr), 3),
+                   pocket_only_trigger_frames=len(only), obstructed_too=sum(1 for f in warned if f.get("obstructed")),
+                   black_on_table=exp["black"], cue_on_table=exp["cue"],
+                   black_detected_share=sh(lambda c: c["black"] == 1), cue_detected_share=sh(lambda c: c["cue"] == 1),
+                   median_detections=sorted(sum(c.values()) for c in cc)[len(cc) // 2],
+                   median_flagged_pockets=sorted(per_frame)[len(per_frame) // 2],
+                   flagged_pockets=";".join("%s=%d" % kv for kv in pockets.most_common()),
+                   median_unexplained_px=unexpl[len(unexpl) // 2] if unexpl else None,
+                   nearest_detected_ball_at_flagged_pocket=";".join("%s=%d" % kv for kv in near.most_common()))
+        rows.append(row)
+        tot["frames"] += len(fr); tot["pocket_warning_frames"] += len(warned); tot["pocket_only_trigger_frames"] += len(only)
+        tot["obstructed_too"] += row["obstructed_too"]
+        near_tot.update(near)
+        lab = "black_off_table" if exp["black"] is False else "black_on_table" if exp["black"] else "not_stated"
+        near_by_exp.update({lab + ":" + k: v for k, v in near.items()})
+    return rows, dict(totals=dict(tot), nearest_ball_at_flagged_pockets=dict(near_tot.most_common()),
+                      nearest_ball_by_fixture=dict(near_by_exp.most_common()))
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("cmd", choices=["collect", "analyse"])
     ap.add_argument("--merged", default="work/evidence-audit/t3/live-detect-merged.jsonl.gz")
     ap.add_argument("--out", default="work/evidence-audit/t3")
     ap.add_argument("--inventory", default="work/evidence-audit/inventory.csv")
+    ap.add_argument("--movement", choices=["logged", "recomputed"], default="logged",
+                    help="movement input: the logged spatiallyCompatible (as the device saw it) or a HEAD recomputation")
     a = ap.parse_args()
+    MOVEMENT_MODE = a.movement
     if a.cmd == "analyse": analyse(a.merged, a.out, a.inventory)

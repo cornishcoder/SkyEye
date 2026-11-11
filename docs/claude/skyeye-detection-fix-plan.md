@@ -90,16 +90,16 @@ Status: `open` not started, `active`, `blocked`, `done`, `dropped`.
 
 | ID | Thread | Status | Needs | Next action |
 |---|---|---|---|---|
-| T0 | Protect the evidence | open | Richard: a backup location | Copy `work/`, verify against `inventory.csv` hashes |
-| T1 | One corpus manifest | active, paused | nothing | Add `--manifest` to `score_detections.py`, check it reproduces 292/295 and black 12/15, write the README (`progress/t1-manifest.md`) |
+| T0 | Protect the evidence | ready, waiting on Richard | Richard: run `scripts/Backup-WorkEvidence.ps1 -Destination D:\SkyEye`; confirm D: is a separate disk | Read `D:\SkyEye\backup-report.txt` for PASS |
+| T1 | One corpus manifest | done | - | Report in `tests/fixtures/detection-corpus/README.md`. All five cushion black misses are one table position, (1.48, 0.067), dim and bright |
 | T2 | Desktop detector runner | design done; build blocked here (no .NET) | a session with .NET on Windows | Build the two desktop projects, run frame 2083 against its proof file (`t2-desktop-runner-design.md`, `progress/t2-desktop-runner.md`) |
-| T3 | Replay Live Detect's real reducer on saved logs | active, paused | nothing | Fix the never-detected-ball classification bug, recheck the hold counterfactual, read the code62 clip rows, write the report (`progress/t3-live-detect-replay.md`) |
-| T4 | Change-between-settled-states experiment | active, paused | nothing | Review the unviewed shot sheets, rerun the chroma variant, count moved balls against regions, write the report (`progress/t4-settled-change.md`) |
+| T3 | Replay Live Detect's real reducer on saved logs | done | - | Report `t3-live-detect-replay.md`. Lost still time is flags (pocket-colour 1,149 s, obstruction 941 s), not flicker (1.4 s) |
+| T4 | Change-between-settled-states experiment | done: promising, conditional | T9 labels to score properly | Report `t4-settled-change-experiment.md`. Black at cushion/jaw 9/9 staged; fails under moving daylight |
 | T5 | Surplus-only inventory demotion | open | T2 for scoring | Small change in `ConstrainInventory` |
-| T6 | Per-ball state in the reducer | open | T3, T4 results | Design from what T3 and T4 show |
+| T6 | Per-ball state in the reducer | redefined, needs decisions | Richard: decisions D1-D3 (section 9) | A hold rule alone is dropped (T3: recovers 1.4 s). Rework around first-baseline and per-region flags |
 | T7 | Camera exposure metadata, then lock | open | Richard: explicit approval (camera package) | Log first, lock later |
 | T8 | Cap removal, cushion position bias, verifier latency | open | T2 | Measure only; act if shown to matter |
-| T9 | Label existing frames and clips | open | Richard: two review sittings | Prepare sheets |
+| T9 | Label existing frames and clips | active | Richard: two review sittings once sheets are ready | Sheets being prepared |
 
 Order: T0, T1, T3 and T4 can start now and need nothing from anyone except
 T0's destination. T2 runs alongside. T5 and T6 follow their inputs. T7 and
@@ -328,4 +328,41 @@ review read Argon's material and both drew on the same evidence.
     kernels against desktop 4.13.
   Resume order: T3 report (it decides whether T6 is worth building), then T4
   review, then T1 scorer check. T2 needs a session with .NET.
+- 11 Nov 08:40. T1, T3 and T4 finished (reports linked in the thread
+  table). Findings that change the plan:
+  - Flicker is not the problem in Live Detect. Of 2,402 s of still table
+    without a matching baseline, 1,149 s is the pocket-colour layout flag
+    and 941 s obstruction; flicker is 1.4 s. A per-ball hold recovers
+    1.4 s, so it is dropped as a standalone change.
+  - Under the pocket-colour flag, about 370 s is a correct steady layout
+    (code48, code55); about 534 s hides a real black or cue miss.
+  - Fifteen runs never form a first baseline; the current rule needs a
+    black and a cue seen first.
+  - The black misses are positional: one cushion spot, every light level.
+  - Settled-frame change sees exactly that case (9/9 staged).
+  These point to three design decisions, section 9.
+
+## 9. Decisions needed from Richard
+
+D1. **Pocket-colour flag scope.** Today one ball at a pocket mouth with
+    doubtful colour marks the whole layout uncertain, which blocks every
+    baseline and event. Option: mark only the balls within that pocket
+    region as uncertain, so the rest of the table can settle and events
+    elsewhere still fire. Risk: a pot into that pocket could be missed
+    until the flag clears. Evidence: T3, about 370 s recovered on play runs.
+
+D2. **First baseline without the black or cue.** Today no first baseline
+    forms unless a black and a cue are seen. Option: allow it, with the
+    readout saying "black not seen" rather than "black absent". Risk: a
+    missed black is later "added" when finally seen; the event layer must
+    treat that as a correction, not a ball returned to the table.
+
+D3. **Use settled-frame change as evidence (T4).** When a settled state is
+    compared with the previous one, an unexplained ball-sized change at a
+    cushion or jaw would be treated as a ball arrival (and its absence as
+    "nothing moved there"), which can confirm a black or cue the single-frame
+    detector cannot see. Gated off when the cushion-band drift measure shows
+    moving light. Needs T9 labels before it is turned on by default.
+
+T5 (surplus-only demotion) needs no decision, only T2 to score it.
 
