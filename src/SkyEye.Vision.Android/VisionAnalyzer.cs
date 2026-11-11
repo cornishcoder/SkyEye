@@ -17,6 +17,9 @@ namespace SkyEye.Vision.Android;
 public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationAnalyzer, ITableAnalyzerMetadata
 {
     const int MinimumObstructionNeutralValueCeiling = 94;
+    // Obstruction low-chroma cloth: S*V/255 at most 14. At V 60 and above that is S <= 60, which the
+    // neutral and shadow bands already cover, so the pass only runs for dim cloth.
+    const int LowChromaClothLimit = 14, LowChromaClothValueLimit = 59;
     static readonly object loadGate = new(); static bool loaded;
     readonly AnalysisCoordinates coordinates;
     readonly VisionSettings settings;
@@ -128,7 +131,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 + (settings.SurplusOnlyInventoryDemotion ? "-surplus-sat40" : "")
                 + (settings.PackedCueHandover ? "-cuehandover75" : "")
                 + (settings.ObstructionShadowTolerance ? "-obstruction-shadow60" : "")
-                + (settings.PackedClusterLocalUnknowns ? "-packed-local-unknown25" : "");
+                + (settings.PackedClusterLocalUnknowns ? "-packed-local-unknown25" : "")
+                + (settings.ObstructionDimChromaTolerance ? "-obstruction-chroma14" : "");
             bool normalizedProposalAblation = settings.UseNormalizedGeometryForDetection || settings.UseNormalizedPackedColourProposalMask;
             bool edgeMarginAblation = settings.PackedClusterImageEdgeMargin != 23;
             bool sparseColourSupportAblation = settings.MinimumSparseColourBoundarySupport
@@ -1063,6 +1067,27 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             using var high = new Scalar(179, 60, Math.Min(255, Math.Ceiling(clothRange.MedianValue * 1.15)));
             Cv.InRange(hsv, low, high, shadow.Value);
             Cv.Bitwise_or(mask.Value, shadow.Value, mask.Value);
+        }
+        if (settings.ObstructionDimChromaTolerance && clothRange.MedianValue > 0)
+        {
+            // Dim cloth: low absolute chroma (S*V/255) at cloth brightness, any hue (see VisionSettings).
+            // Only pixels the S <= 60 bands above cannot already cover, i.e. V below 60.
+            // Not lower: control #3's arm is caught only by a near-black cushion shadow band (V 3..20).
+            int minimumValue = (int)Math.Floor(clothRange.MedianValue * .6);
+            int maximumValue = Math.Min(LowChromaClothValueLimit, (int)Math.Ceiling(clothRange.MedianValue * 1.15));
+            if (maximumValue >= minimumValue)
+            {
+                var lowChroma = new byte[coordinates.Width * coordinates.Height];
+                for (int i = 0, offset = 0; i < lowChroma.Length; i++, offset += 3)
+                {
+                    int v = pixels[offset + 2];
+                    if (v >= minimumValue && v <= maximumValue && pixels[offset + 1] * v <= LowChromaClothLimit * 255)
+                        lowChroma[i] = 255;
+                }
+                using var dimChroma = new MatLease(new Mat(coordinates.Height, coordinates.Width, CvType.Cv8uc1));
+                dimChroma.Value.Put(0, 0, lowChroma);
+                Cv.Bitwise_or(mask.Value, dimChroma.Value, mask.Value);
+            }
         }
         Cv.Bitwise_not(mask.Value, mask.Value);
         // Crop only the uncertain calibration border; a hand connected to an image

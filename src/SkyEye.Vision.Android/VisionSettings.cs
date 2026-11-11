@@ -58,6 +58,13 @@ public sealed record VisionSettings(int Width = 1000, double MinimumRadius = 18,
     // exemption. Count only unknown balls within 2.5 ball radii of a red, yellow or black ball. The
     // whole-table colour counts still apply. False replays the earlier behaviour.
     public bool PackedClusterLocalUnknowns { get; init; } = true;
+    // Obstruction mask only: on dim two-toned cloth (29 Oct device check, median V 27..43) the hue
+    // estimate lands on the warm tone and compressed blocks of the blue tone (H 104, S 64..116 at V 20..44)
+    // form table-sized false objects. At that darkness S is noise: S 106 at V 28 is a 12-level channel
+    // spread. Also treat absolute chroma S*V/255 <= 14 at 0.6..1.15x cloth median brightness as cloth,
+    // any hue. Skin measured chroma about 22 in the dimmest hand control and about 62 in a bright one.
+    // False replays the earlier behaviour.
+    public bool ObstructionDimChromaTolerance { get; init; } = true;
     public double MinimumHoughBoundarySupport { get; init; } = .75;
     // A fresh six-frame pocket-lip holdout recovered a fitted top-left red with
     // 20/32 supported sectors; the separate pocket-colour review retains its
