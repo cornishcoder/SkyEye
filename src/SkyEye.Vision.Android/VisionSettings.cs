@@ -38,6 +38,10 @@ public sealed record VisionSettings(int Width = 1000, double MinimumRadius = 18,
     public bool FreshCueBallRecovery { get; init; } = true;
     // Separately replay the whole-table proposal fix against the v2 cue branch.
     public bool BodyProposalPriority { get; init; } = true;
+    // T5: more than seven reds or yellows demotes only a clearly less saturated surplus to unknown
+    // (BallClassifier.ConstrainInventory); without a clear gap the whole colour is demoted as before.
+    // False replays the earlier whole-colour demotion and its historical algorithm identity.
+    public bool SurplusOnlyInventoryDemotion { get; init; } = true;
     public double MinimumHoughBoundarySupport { get; init; } = .75;
     // A fresh six-frame pocket-lip holdout recovered a fitted top-left red with
     // 20/32 supported sectors; the separate pocket-colour review retains its

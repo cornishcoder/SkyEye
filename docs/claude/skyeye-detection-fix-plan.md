@@ -95,7 +95,7 @@ Status: `open` not started, `active`, `blocked`, `done`, `dropped`.
 | T2 | Desktop detector runner | done: Layout03 parity PASS 4/4; `detect` scores the manifest | - | JPEG parity before trusting JPEG scores (`t2-desktop-parity.md`) |
 | T3 | Replay Live Detect's real reducer on saved logs | done | - | Report `t3-live-detect-replay.md`. Lost still time is flags (pocket-colour 1,149 s, obstruction 941 s), not flicker (1.4 s) |
 | T4 | Change-between-settled-states experiment | done: promising, conditional | T9 labels to score properly | Report `t4-settled-change-experiment.md`. Black at cushion/jaw 9/9 staged; fails under moving daylight |
-| T5 | Surplus-only inventory demotion | ready | - | Small change in `ConstrainInventory`; score with T2 `detect` (957 and 2263 colours 7/15 now) |
+| T5 | Surplus-only inventory demotion | done on desktop: colour 0.970 to 0.996 | On-device check (needs Richard) | `t5-surplus-demotion.md`. Ranked by saturation with a 40 margin, not quality |
 | T6 | Per-ball state in the reducer | D1+D2 built, offline checks pass; D3 designed | On-device check of D1+D2 (needs Richard); D3 shadow mode | See `d1-d2-implementation.md` and `d3-settled-change-design.md` |
 | T7 | Camera exposure metadata, then lock | open | Richard: explicit approval (camera package) | Log first, lock later |
 | T8 | Cap removal, cushion position bias, verifier latency | open | T2 | Measure only; act if shown to matter |
@@ -429,4 +429,14 @@ through the Python reducer port where possible.
   (0.03, 0.928) in 382, 1274 and 395. The cushion black spot (1.48, 0.067)
   now shows in 8 frames. Detector inventory 0/3 and physical gates 0/3
   carried forward. Next: T5.
+- 11 Nov. T5 implemented and scored on desktop. Classifier quality saturates
+  at 0.9, so "least confident first" could not separate the surplus; the
+  rule ranks by dominant-colour saturation and demotes only a surplus at
+  least 40 below the lowest kept ball, else the whole colour as before
+  (behind `SurplusOnlyInventoryDemotion`, default on; identity
+  `-surplus-sat40`). 35 labelled frames: colour 0.970 to 0.996, balls
+  529/546 and 0 FP unchanged, only 957 and 2263 change (7 yellows kept,
+  cue stays unknown). 438 unlabelled frames: 20 change, all eight-to-seven
+  plus one unknown, all still flagged. Suites pass; detector inventory 0/3
+  and physical gates 0/3 carried forward. Report `t5-surplus-demotion.md`.
 

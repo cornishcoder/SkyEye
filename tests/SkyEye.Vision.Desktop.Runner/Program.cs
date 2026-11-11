@@ -17,6 +17,7 @@ using SkyEye.Vision.Android;
 var options = ParseOptions(args);
 if (args.Length > 0 && args[0] == "parity") return Parity(options);
 if (args.Length > 0 && args[0] == "detect") return DetectCommand.Run(options);
+if (args.Length > 0 && args[0] == "classify") return ClassifyCommand.Run(options);
 Console.Error.WriteLine("""
     usage:
       parity --image F.png --receipt F.json --proof PROOF.json [--threads N] [--out FILE.json]
@@ -48,6 +49,9 @@ static int Parity(Dictionary<string, string> o)
         VerificationBodyRefinement = proof["bodyRefinement"]!.GetValue<bool>(),
         DarkBodyValueCeiling = proof["darkBodyValueCeiling"]!.GetValue<int>(),
         PackedColourBoundarySearchExtentFraction = extent,
+        // Reproduce the proof's algorithm: proofs made before T5 used whole-colour demotion.
+        SurplusOnlyInventoryDemotion = JsonNode.Parse(proof["replayAnalyzerConfigurationIdentity"]!.GetValue<string>())!["Algorithm"]!
+            .GetValue<string>().Contains("-surplus-", StringComparison.Ordinal),
     };
     bool audit = proof["boundaryAudit"]!.GetValue<bool>();
     var analyzer = new VisionAnalyzer(settings, includeBoundaryDiagnostics: audit, includeCandidateDiagnostics: audit);

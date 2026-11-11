@@ -14,16 +14,36 @@ public sealed record BallClassification(string Kind, string Pattern, double Qual
 public static class BallClassifier
 {
     /// <summary>Physical inventory limits are evidence against conflicting labels,
-    /// not permission to invent another colour or discard a visible body.</summary>
-    public static BallClassification[] ConstrainInventory(BallClassification[] labels)
+    /// not permission to invent another colour or discard a visible body.
+    /// More than one cue or black: every ball of that kind becomes unknown (an identity
+    /// cannot be chosen between candidates). More than seven reds or yellows: only the
+    /// surplus becomes unknown (T5): the balls with the lowest dominant-colour saturation, and
+    /// only when they sit at least <see cref="SurplusSaturationMargin"/> below every kept ball.
+    /// Without that clear gap every ball of the colour becomes unknown, as before, so no
+    /// arbitrary choice is made. <paramref name="surplusOnly"/> = false restores the earlier
+    /// whole-colour demotion in all cases.</summary>
+    public const double SurplusSaturationMargin = 40;
+    public static BallClassification[] ConstrainInventory(BallClassification[] labels, bool surplusOnly = true)
     {
-        var ambiguous = labels.GroupBy(b => b.Kind).Where(g => g.Key switch
+        var demote = new HashSet<int>();
+        foreach (var group in labels.Select((b, i) => (b, i)).GroupBy(x => x.b.Kind))
         {
-            "cue" or "black" => g.Count() > 1,
-            "red" or "yellow" => g.Count() > 7,
-            _ => false
-        }).Select(g => g.Key).ToHashSet();
-        return labels.Select(b => ambiguous.Contains(b.Kind) ? b with { Kind = "unknown", Quality = 0 } : b).ToArray();
+            int limit = group.Key switch { "cue" or "black" => 1, "red" or "yellow" => 7, _ => int.MaxValue };
+            int count = group.Count();
+            if (count <= limit) continue;
+            if (!surplusOnly || limit == 1) { demote.UnionWith(group.Select(x => x.i)); continue; }
+            // Rank by the saturation of the most saturated colour cluster. Quality is not used:
+            // it saturates at .9 and differs by under .001 between real balls. A cream cue read
+            // as yellow, or another body read as red, sits far below the painted balls (T5
+            // desktop measurement: gaps 80 to 119 on 22 surplus frames, S about 150 against 250).
+            static double Saturation(BallClassification b) => b.Clusters.Length == 0 ? 0 : b.Clusters.Max(c => c.Centre.S);
+            var bySaturation = group.OrderBy(x => Saturation(x.b)).ToArray();
+            int surplus = count - limit;
+            double gap = Saturation(bySaturation[surplus].b) - Saturation(bySaturation[surplus - 1].b);
+            // Only a clear outlier is singled out; otherwise the whole colour stays ambiguous.
+            demote.UnionWith((gap >= SurplusSaturationMargin ? bySaturation.Take(surplus) : bySaturation).Select(x => x.i));
+        }
+        return labels.Select((b, i) => demote.Contains(i) ? b with { Kind = "unknown", Quality = 0 } : b).ToArray();
     }
     public static BallClassification Classify(HsvPixel[] samples, bool lowLightNeutralCueBallContrast = false)
     {

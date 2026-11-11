@@ -122,7 +122,9 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 settings.DarkBodyValueCeiling, settings.VerificationBodyRefinement, settings.PackedClusterImageEdgeMargin,
                 settings.PackedColourBoundarySearchExtentFraction
             };
-            const string algorithm = "body-priority-packed-colour-peaks-v25-neutralceiling94-edge23-pocket48-sparse20-review75-redyellow-black-radius13-support21";
+            const string previousAlgorithm = "body-priority-packed-colour-peaks-v25-neutralceiling94-edge23-pocket48-sparse20-review75-redyellow-black-radius13-support21";
+            // T5 changes published kinds, so it changes the algorithm name; turning it off reproduces the old identity.
+            string algorithm = settings.SurplusOnlyInventoryDemotion ? previousAlgorithm + "-surplus-sat40" : previousAlgorithm;
             bool normalizedProposalAblation = settings.UseNormalizedGeometryForDetection || settings.UseNormalizedPackedColourProposalMask;
             bool edgeMarginAblation = settings.PackedClusterImageEdgeMargin != 23;
             bool sparseColourSupportAblation = settings.MinimumSparseColourBoundarySupport
@@ -479,7 +481,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         var ordered = uniqueCircles.OrderBy(c => c.Y).ThenBy(c => c.X).ToArray();
         var rawLabels = ordered.Select(c => classificationCache.TryGetValue(c, out var cached)
             ? cached : Classify(c, pixels, inspectRim)).ToArray();
-        var labels = BallClassifier.ConstrainInventory(rawLabels);
+        var labels = BallClassifier.ConstrainInventory(rawLabels, settings.SurplusOnlyInventoryDemotion);
         for (int i = 0; i < ordered.Length; i++)
         {
             var circle = ordered[i]; var label = labels[i]; var position = coordinates.ToTable(new(circle.X, circle.Y));
