@@ -19,17 +19,26 @@ public sealed class SettledChangeProcessor(SettledChangeComparer? comparer = nul
     (byte[] Raster, long WindowStartUs, long WindowEndUs, long SegmentStartUs, long SegmentEndUs)? reference;
     SettledChangeEvidence? evidence;
     long sequence;
+    // Still-table check: the settled window from when the current still segment began, and a pending request.
+    (byte[] Raster, long WindowStartUs, long WindowEndUs)? stillAnchor;
+    bool stillCheckRequested;
     public Guid Epoch { get; private set; } = Guid.NewGuid();
     /// <summary>Reference and current rasters of the most recent comparison (managed copies), for sidecars.</summary>
     public (byte[] Reference, byte[] Current)? LastComparisonRasters { get; private set; }
+    /// <summary>Anchor and current rasters of the most recent still check, for sidecars.</summary>
+    public (byte[] Anchor, byte[] Current)? LastStillCheckRasters { get; private set; }
 
     /// <summary>Clears all state and starts a new epoch (timeline, media or calibration change).</summary>
     public void Reset()
     {
         window.Clear(); tracker?.Reset(); previousQuarter = null; reference = null; evidence = null; sequence = 0;
-        LastComparisonRasters = null;
+        LastComparisonRasters = null; LastStillCheckRasters = null; stillAnchor = null; stillCheckRequested = false;
         Epoch = Guid.NewGuid();
     }
+
+    /// <summary>Ask for one still check on a later pass, if the table is still Settled by then with a full
+    /// window after the segment's anchor. Ignored once motion starts (the normal comparison covers that).</summary>
+    public void RequestStillCheck() { if (stillAnchor is not null) stillCheckRequested = true; }
 
     public SettledChangePass Observe(byte[] rasterBgr, long sourceTimeUs)
     {
@@ -43,6 +52,7 @@ public sealed class SettledChangeProcessor(SettledChangeComparer? comparer = nul
 
         var step = tracker.Observe(sourceTimeUs, motion);
         bool isNew = false;
+        if (step.LeftSettled) { stillAnchor = null; stillCheckRequested = false; }
         if (step.LeftSettled && window.Count > 0)
         {
             // The last settled view before motion becomes the reference for the next segment.
@@ -56,12 +66,15 @@ public sealed class SettledChangeProcessor(SettledChangeComparer? comparer = nul
         }
         else window.Clear();
 
+        SettledStillCheck? stillCheck = null;
         if (step.BecameSettled)
         {
             long currentStart = window[0].TimeUs, currentEnd = window[^1].TimeUs;
+            var current = SettledChangeMath.Median(window.Select(f => f.Raster).ToList());
+            stillAnchor = (current, currentStart, currentEnd);
+            stillCheckRequested = false;
             if (reference is { } r)
             {
-                var current = SettledChangeMath.Median(window.Select(f => f.Raster).ToList());
                 var comparison = comparer.Compare(r.Raster, current);
                 LastComparisonRasters = (r.Raster, current);
                 var gates = comparison.GateReasons.ToList();
@@ -74,6 +87,16 @@ public sealed class SettledChangeProcessor(SettledChangeComparer? comparer = nul
                     currentStart, currentEnd, null);
             isNew = true;
         }
-        return new(step.State, motion, tracker.StillPasses, watch.Elapsed.TotalMilliseconds, evidence, isNew);
+        else if (stillCheckRequested && step.State == SettledChangeState.Settled && stillAnchor is { } anchor
+            && window.Count >= S.WindowFrames && window[0].TimeUs > anchor.WindowEndUs)
+        {
+            var current = SettledChangeMath.Median(window.Select(f => f.Raster).ToList());
+            stillCheck = new(anchor.WindowStartUs, anchor.WindowEndUs, window[0].TimeUs, window[^1].TimeUs,
+                comparer.Compare(anchor.Raster, current));
+            LastStillCheckRasters = (anchor.Raster, current);
+            stillCheckRequested = false;
+        }
+        else if (step.State != SettledChangeState.Settled) stillCheckRequested = false;
+        return new(step.State, motion, tracker.StillPasses, watch.Elapsed.TotalMilliseconds, evidence, isNew) { StillCheck = stillCheck };
     }
 }

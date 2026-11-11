@@ -56,7 +56,8 @@ internal sealed record LiveDetectLogSettledChange(string Mode, string State, dou
     bool? ChainIntact = null, int? ChainLength = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LiveDetectSettledChangeProposal[]? Proposals = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LiveDetectSettledBallState[]? BallStates = null,
-    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LiveDetectLogFrameEvidence[]? Rasters = null)
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] LiveDetectLogFrameEvidence[]? Rasters = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] SettledStillCheck? StillCheck = null)
 {
     public static LiveDetectLogSettledChange From(string mode, SettledChangePass pass, LiveDetectSettledChangeShadow? shadow,
         LiveDetectLogFrameEvidence[]? rasters) =>
@@ -64,7 +65,7 @@ internal sealed record LiveDetectLogSettledChange(string Mode, string State, dou
             Math.Round(pass.ComputeMs, 1), pass.UnavailableReason, pass.Evidence?.Sequence, pass.EvidenceIsNew,
             pass.EvidenceIsNew ? pass.Evidence : null, shadow?.ChainIntact, shadow?.ChainLength,
             shadow is { Proposals.Length: > 0 } ? shadow.Proposals.ToArray() : null,
-            shadow is { BallStates.Length: > 0 } ? shadow.BallStates.ToArray() : null, rasters);
+            shadow is { BallStates.Length: > 0 } ? shadow.BallStates.ToArray() : null, rasters, pass.StillCheck);
 }
 internal sealed record LiveDetectLogClipSave(Guid OperationId, string Stage, DateTimeOffset RequestedAt,
     DateTimeOffset? CompletedAt, int RequestedSeconds, string Outcome, string Message,

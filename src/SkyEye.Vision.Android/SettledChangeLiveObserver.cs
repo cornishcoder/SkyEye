@@ -67,6 +67,16 @@ public sealed class SettledChangeLiveObserver : IDisposable
         }
     }
 
+    /// <summary>Ask the processor for one still check on a later pass (see <see cref="SettledChangeProcessor.RequestStillCheck"/>).</summary>
+    public void RequestStillCheck() { if (!disposed && DisabledReason is null) processor.RequestStillCheck(); }
+
+    /// <summary>JPEG anchor and current rasters of the latest still check; null when there is none.</summary>
+    public (byte[] Anchor, byte[] Current)? EncodeLatestStillCheck()
+    {
+        if (processor.LastStillCheckRasters is not { } rasters) return null;
+        return (comparer.EncodeJpeg(rasters.Anchor), comparer.EncodeJpeg(rasters.Current));
+    }
+
     /// <summary>JPEG reference and current rasters of the latest comparison; null when there is none.</summary>
     public (byte[] Reference, byte[] Current)? EncodeLatestComparison()
     {

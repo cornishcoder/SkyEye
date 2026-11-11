@@ -267,6 +267,33 @@ internal static class LiveDetectSettledChangeChecks
         Require(shadow.Proposals is [{ Kind: "unexplained_change" }],
             "The same dark departure with no black seen anywhere stays unexplained");
 
+        // U6 still check: the black drops out of detection while the table is still. No change at its baseline
+        // spot contradicts a pot; a change there does not; a gated check says so.
+        SettledChangePass StillPass(SettledChangeComparison comparison) =>
+            new(SettledChangeState.Settled, 0, 9, 1, null, false) { StillCheck = new(1, 2, 3, 4, comparison) };
+        LiveDetectSettledChangePolicy stillPolicy; LiveDetectSettledChangeShadow stillShadow;
+        var blankCheck = Evidence(1).Comparison!;
+        var changedCheck = Evidence(1, grid: [(1.48, .067)]).Comparison!;
+        stillPolicy = new(); stillPolicy.Observe(Context(baseline, advanced: true), null);
+        stillShadow = stillPolicy.Observe(Context([red, yellow]), StillPass(blankCheck));
+        Require(stillShadow.Proposals.Any(p => p.Kind == "pot_contradicted" && p.Colour == "black" && Math.Abs(p.TableX - 1.48) < 1e-9),
+            "U6: a still check with no change at the missing black's spot contradicts a pot");
+        stillPolicy = new(); stillPolicy.Observe(Context(baseline, advanced: true), null);
+        stillShadow = stillPolicy.Observe(Context([red, yellow]), StillPass(changedCheck));
+        Require(stillShadow.Proposals.Any(p => p.Kind == "still_check_changed" && p.Colour == "black") && !stillShadow.Proposals.Any(p => p.Kind == "pot_contradicted"),
+            "U6: a change at the missing black's spot does not contradict the pot");
+        stillPolicy = new(); stillPolicy.Observe(Context(baseline, advanced: true), null);
+        stillShadow = stillPolicy.Observe(Context([red, yellow]), StillPass(blankCheck with { GateReasons = ["lighting_drift"] }));
+        Require(stillShadow.Proposals.Any(p => p.Kind == "still_check_gated") && !stillShadow.Proposals.Any(p => p.Kind == "pot_contradicted"),
+            "U6: a gated still check does not contradict anything");
+        stillPolicy = new(); stillPolicy.Observe(Context(baseline, advanced: true), null);
+        stillShadow = stillPolicy.Observe(Context([red, yellow, black]), StillPass(blankCheck));
+        Require(!stillShadow.Proposals.Any(p => p.Kind is "pot_contradicted" or "still_check_changed"),
+            "U6: nothing to say when no baseline ball is missing");
+        var stillJson = JsonSerializer.Serialize(LiveDetectLogSettledChange.From("shadow", StillPass(blankCheck), stillShadow, null),
+            new JsonSerializerOptions(JsonSerializerDefaults.Web));
+        Require(stillJson.Contains("\"stillCheck\""), "U6: the still check is logged");
+
         // Device run 65ccfdec (0.8.65): a not-seen state carried NaN coordinates and System.Text.Json threw
         // ArgumentException writing the log record, which stopped Live Detect. It must serialise and round-trip.
         var notSeenLog = LiveDetectLogSettledChange.From("shadow", Pass(Evidence(1)), shadow, null);

@@ -477,8 +477,30 @@ public sealed partial class ShellSession
                             }
                         }
                     }
+                    // Still check: always worth its rasters (it only runs on a count drop while the table was still).
+                    if (settledPass.StillCheck is not null && settledChangeRasterPairs < SettledChangeRasterPairsPerRun)
+                    {
+                        try
+                        {
+                            if (settledChangeObserver?.EncodeLatestStillCheck() is { } still)
+                            {
+                                rasters = [.. rasters ?? [], liveDetectLog.SaveSettledChangeRaster(still.Anchor, "still-anchor"),
+                                    liveDetectLog.SaveSettledChangeRaster(still.Current, "still-current")];
+                                settledChangeRasterPairs++;
+                            }
+                        }
+                        catch (Exception error) when (error is not OutOfMemoryException)
+                        {
+                            rasters = [.. rasters ?? [], new(null, null, null, 0, null, "still-anchor", false, error.GetType().Name)];
+                        }
+                    }
                     settledChangeLog = LiveDetectLogSettledChange.From(SettledChangeModeName(settledChangeMode), settledPass,
                         eventBatch.SettledChange, rasters);
+                    // A count drop while the table is still: ask D3 for a still check on a later pass, so it can
+                    // say whether the ball's spot changed at all (shadow; the reducer is unchanged).
+                    if (settledPass.State == SettledChangeState.Settled
+                        && (eventBatch.CheckOutcome == "inventory_change_pending" || eventBatch.TableEvents.Any(e => e.Type == "possible_pot")))
+                        settledChangeObserver?.RequestStillCheck();
                     if (settledChangeObserver?.DisabledReason is { } disabledReason && disabledReason != settledChangeDisabledLogged)
                     {
                         settledChangeDisabledLogged = disabledReason;

@@ -71,6 +71,12 @@ public enum SettledChangeStatus { NoReference, Compared }
 /// <summary>Evidence for one settled segment: compared against the last settled view before the
 /// preceding motion, or NoReference for the first segment after a reset. Gate reasons include the
 /// comparison's own gates and <c>gap_too_long</c>. Times are source microseconds.</summary>
+/// <summary>Still-table check (D3 pot-veto follow-up, 11 Nov): the settled window from when this still segment
+/// began, against the current settled window. A ball that left the table must have changed its spot, whatever
+/// the motion threshold said; a detection drop leaves it unchanged.</summary>
+public sealed record SettledStillCheck(long AnchorWindowStartUs, long AnchorWindowEndUs,
+    long CurrentWindowStartUs, long CurrentWindowEndUs, SettledChangeComparison Comparison);
+
 public sealed record SettledChangeEvidence(
     Guid Epoch, long Sequence, SettledChangeStatus Status, IReadOnlyList<string> GateReasons,
     long? ReferenceSegmentStartUs, long? ReferenceSegmentEndUs,
@@ -84,6 +90,10 @@ public sealed record SettledChangePass(
     SettledChangeState State, double? MotionFraction, int StillPasses, double ComputeMs,
     SettledChangeEvidence? Evidence, bool EvidenceIsNew, string? UnavailableReason = null)
 {
+    /// <summary>On-demand comparison within one still segment, made when Live Detect asked for it (a count
+    /// decrease while the table was still). Separate from <see cref="Evidence"/>: it does not join the chain.</summary>
+    public SettledStillCheck? StillCheck { get; init; }
+
     public static SettledChangePass Unavailable(string reason, double computeMs = 0) =>
         new(SettledChangeState.Unavailable, null, 0, computeMs, null, false, reason);
 }

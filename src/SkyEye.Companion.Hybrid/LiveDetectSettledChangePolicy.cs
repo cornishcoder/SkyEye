@@ -9,7 +9,7 @@ namespace SkyEye.Companion.Hybrid;
 internal enum LiveDetectSettledChangeMode { Off, Shadow }
 
 /// <summary>What one rule would do. <paramref name="Applied"/> is always false in shadow mode.</summary>
-/// <param name="Kind">hold, infer_black, infer_cue, departure_support, pocket_unchanged, pocket_changed, unexplained_change.</param>
+/// <param name="Kind">hold, infer_black, infer_cue, departure_support, pocket_unchanged, pocket_changed, unexplained_change, pot_contradicted, still_check_changed, still_check_gated.</param>
 internal sealed record LiveDetectSettledChangeProposal(string Kind, string? Colour, double TableX, double TableY,
     long EvidenceSequence, bool Applied, string? Detail = null);
 
@@ -163,6 +163,22 @@ internal sealed class LiveDetectSettledChangePolicy
                     proposals.Add(new(kind, Name(colour), region.TableX, region.TableY, newest.Sequence, false,
                         "recheck_pending" + (notSeen ? ";upgrades_not_seen" : "")));
                     states.Add(new(Name(colour), region.TableX, region.TableY, "inferred", newest.CurrentWindowStartUs, newest.Sequence));
+                }
+
+            // U6: a still check (asked for when a count dropped while the table was still) at a missing ball's
+            // baseline position. No change there: the ball never moved, so it was not potted (pot_contradicted).
+            // A change there, or a ball-sized region near it: the ball may really have gone (still_check_changed).
+            if (pass?.StillCheck is { Comparison: { } stillComparison } && context.CurrentLayoutTrusted)
+                foreach (var ball in context.BaselineLayout)
+                {
+                    if (current.Any(c => c.Colour == ball.Colour && Distance(c, ball) <= Near)) continue;
+                    var (tx, ty) = Table(ball);
+                    if (stillComparison.Gated)
+                    { proposals.Add(new("still_check_gated", Name(ball.Colour), tx, ty, sequence ?? 0, false, string.Join(",", stillComparison.GateReasons))); continue; }
+                    bool changed = GridChangedNear(stillComparison, tx, ty, Near)
+                        || stillComparison.Regions.Any(r => r.BallSized && Distance(r, tx, ty) <= Near);
+                    proposals.Add(new(changed ? "still_check_changed" : "pot_contradicted", Name(ball.Colour), tx, ty,
+                        sequence ?? 0, false, "still_check"));
                 }
 
             // U4: a D1 pocket region is unchanged or changed since the baseline.
