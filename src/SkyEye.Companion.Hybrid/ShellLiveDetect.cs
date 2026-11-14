@@ -2,6 +2,7 @@ using SkyEye.Core;
 using SkyEye.Core.Application;
 using SkyEye.Core.Analysis;
 using SkyEye.GameState;
+using SkyEye.Vision.Android;
 using System.Collections.Immutable;
 using System.Text.Json;
 using System.Threading.Channels;
@@ -10,6 +11,25 @@ namespace SkyEye.Companion.Hybrid;
 
 public sealed partial class ShellSession
 {
+    /// <summary>D3: at most this many reference/current raster pairs are saved per Live Detect run.</summary>
+    const int SettledChangeRasterPairsPerRun = 60;
+    /// <summary>Private app preference for D3 settled-change evidence: "off" or "shadow" (default). There is
+    /// no in-app control; the Live Detect status line shows the mode read-only.</summary>
+    const string SettledChangePreferenceKey = "live-detect-settled-change";
+
+    static LiveDetectSettledChangeMode ReadSettledChangeMode()
+    {
+        string? value = Android.App.Application.Context.GetSharedPreferences("skyeye", Android.Content.FileCreationMode.Private)!
+            .GetString(SettledChangePreferenceKey, "shadow");
+        return string.Equals(value, "off", StringComparison.OrdinalIgnoreCase) ? LiveDetectSettledChangeMode.Off : LiveDetectSettledChangeMode.Shadow;
+    }
+
+    static string SettledChangeModeName(LiveDetectSettledChangeMode mode) => mode == LiveDetectSettledChangeMode.Off ? "off" : "shadow";
+
+    string liveDetectSettledChangeStatus = "Settled-change evidence: shadow (not used).";
+    /// <summary>Read-only D3 mode line for the Live Detect activity screen (not shown on Home).</summary>
+    public string LiveDetectSettledChangeStatus => liveDetectSettledChangeStatus;
+
     readonly record struct LiveDetectFrameAnchor(long? FrameId, long? SourceTimeUs, DateTimeOffset? CapturedAt);
     readonly record struct LiveDetectEventClipContext(SkyEyeState AppState,
         CameraScope? TableSource, long MediaGeneration, string? Timeline, LiveDetectFrameAnchor Frame,
@@ -176,12 +196,23 @@ public sealed partial class ShellSession
     {
         await Task.Yield();
         var cancellation = operation.Token;
-        AppendLiveDetectRunEvent(runId, "started", "Live Detect started.", null);
-        var eventTracker = new LiveDetectTableEventTracker();
+        // D3 settled-change evidence: shadow (computed and logged, never applied) unless switched off.
+        var settledChangeMode = ReadSettledChangeMode();
+        var settledChangeSettings = new SettledChangeSettings();
+        liveDetectSettledChangeStatus = settledChangeMode == LiveDetectSettledChangeMode.Off
+            ? "Settled-change evidence: off." : "Settled-change evidence: shadow (not used).";
+        AppendLiveDetectRunEvent(runId, "started", $"Live Detect started. Settled-change evidence: {SettledChangeModeName(settledChangeMode)}"
+            + (settledChangeMode == LiveDetectSettledChangeMode.Off ? "." : $" (not used); settings {JsonSerializer.Serialize(settledChangeSettings)}."), null);
+        var eventTracker = new LiveDetectTableEventTracker(LiveDetectReducerOptions.Default with { SettledChange = settledChangeMode });
         var frameCursor = new LiveDetectFrameCursor();
         var freshFrameWait = new LiveDetectFreshFrameWaitTracker();
         var evidenceCapture = new LiveDetectFrameEvidenceCapture();
         PendingLiveDetectFrameEvidence? liveDetectPendingFrameEvidence = null;
+        using var settledChangeObserver = settledChangeMode == LiveDetectSettledChangeMode.Shadow
+            ? new SettledChangeLiveObserver(calibration, calibrationId) : null;
+        SettledChangePass? pendingSettledChange = null;
+        int settledChangeComparisons = 0, settledChangeRasterPairs = 0;
+        string? settledChangeDisabledLogged = null;
         var eventClipQueue = Channel.CreateUnbounded<LiveDetectEventClipQueueMessage>();
         var eventClipTask = ProcessLiveDetectEventClipQueueAsync(runId, source,
             eventClipQueue.Reader, cancellation);
@@ -206,8 +237,18 @@ public sealed partial class ShellSession
                 try
                 {
                     liveDetectPendingFrameEvidence = null;
+                    pendingSettledChange = null;
                     await table.UpdateAsync(cancellation,
-                        frameObserver: (frame, vision) => liveDetectPendingFrameEvidence = evidenceCapture.Observe(frame, vision));
+                        frameObserver: (frame, vision) =>
+                        {
+                            // Last point where the bitmap exists; the observer copies what it needs and never throws.
+                            pendingSettledChange = settledChangeObserver?.Observe(frame);
+                            // A new settled-change comparison that found a ball-sized change is the moment worth
+                            // replaying exactly (thin flicker regions are not).
+                            liveDetectPendingFrameEvidence = evidenceCapture.Observe(frame, vision,
+                                settledComparison: pendingSettledChange is { EvidenceIsNew: true, Evidence: { Status: SettledChangeStatus.Compared, Comparison: { } comparison } }
+                                    && comparison.Regions.Any(region => region.BallSized));
+                        });
                     consecutiveAnalysisErrors = 0;
                     consecutiveFrameAcquisitionErrors = 0;
                 }
@@ -272,6 +313,8 @@ public sealed partial class ShellSession
                 cancellation.ThrowIfCancellationRequested();
                 var pendingFrameEvidence = liveDetectPendingFrameEvidence;
                 liveDetectPendingFrameEvidence = null;
+                var settledChangePass = pendingSettledChange;
+                pendingSettledChange = null;
                 var state = table.State;
                 var observation = state.Observation;
                 var receipt = observation?.DecodedReceipt;
@@ -324,14 +367,20 @@ public sealed partial class ShellSession
                     && counts == new LiveDetectCounts(7, 7, 1, 1, 0);
                 var evidenceSource = new EvidenceSource(source.CameraIdentity, observation.Timeline,
                     state.Generation + 1, calibrationId, source.ConnectionId.ToString("N"));
+                // D1: pass pocket regions only when they alone set the layout flag.
+                var uncertainRegions = vision.HasUncertainLayout && !vision.Obstructed
+                    && vision.UncertainRegions is { Length: > 0 } regions && vision.LayoutUncertainOutsideRegions == false
+                    ? regions.Select(region => new LiveDetectUncertainRegion(region.Centre.X, region.Centre.Y, region.Radius)).ToImmutableArray()
+                    : ImmutableArray<LiveDetectUncertainRegion>.Empty;
                 var eventBatch = eventTracker.Observe(new LiveDetectTableEventObservation(evidenceSource,
                     source.ConnectionId, receipt.MediaGeneration, receipt.FrameId, observation.CapturedAt,
                     sourceTimeUs, observation.Timeline, calibrationId, counts, layout,
                     vision.Obstructed, vision.Uncertain, vision.HasUncertainLayout,
-                    observation.Change is { SpatiallyCompatible: false }, rackEvidence));
+                    observation.Change is { SpatiallyCompatible: false }, rackEvidence,
+                    uncertainRegions, vision.UncertainOutsideRegions, settledChangePass));
                 if (eventBatch.SettledBaseline is { } settledBaseline)
                 {
-                    liveDetectLastSettledInventory = $"{settledBaseline.Total} · {settledBaseline.Summary}";
+                    liveDetectLastSettledInventory = $"{settledBaseline.Total} · {LiveDetectInventoryReadoutPolicy.BaselineSummary(settledBaseline, eventBatch.BaselineBlackNotSeen, eventBatch.BaselineCueNotSeen)}";
                     liveDetectLastSettledAt = eventBatch.SettledBaselineAt;
                 }
                 else
@@ -351,6 +400,13 @@ public sealed partial class ShellSession
                     "inventory_change_pending" => "clear · inventory changing",
                     _ => checkOutcome.Replace('_', ' ')
                 };
+                if (eventBatch.PocketRegionUncertain)
+                    quality += eventBatch.PocketRegionBalls switch
+                    {
+                        0 => " · pocket mouth uncertain",
+                        1 => " · 1 ball at a pocket mouth uncertain",
+                        var balls => $" · {balls} balls at a pocket mouth uncertain"
+                    };
                 foreach (var tableEvent in eventBatch.TableEvents)
                 {
                     if (tableEvent.ActivityId is not { } activityId) continue;
@@ -392,6 +448,65 @@ public sealed partial class ShellSession
                         evidenceWriteFailed = true;
                     }
                 }
+                // D3 shadow: log the pass; save the comparison's two rasters when they matter for review.
+                LiveDetectLogSettledChange? settledChangeLog = null;
+                if (settledChangePass is { } settledPass)
+                {
+                    LiveDetectLogFrameEvidence[]? rasters = null;
+                    if (settledPass is { EvidenceIsNew: true, Evidence: { Status: SettledChangeStatus.Compared, Comparison: { } comparison } })
+                    {
+                        settledChangeComparisons++;
+                        bool review = comparison.Regions.Any(region => region.BallSized)
+                            || eventBatch.SettledChange is { Proposals.Length: > 0 }
+                            || comparison.GateReasons.Contains("lighting_drift")
+                            || settledChangeComparisons % 10 == 0;   // one in ten empty comparisons as controls
+                        if (review && settledChangeRasterPairs < SettledChangeRasterPairsPerRun)
+                        {
+                            try
+                            {
+                                if (settledChangeObserver?.EncodeLatestComparison() is { } encoded)
+                                {
+                                    rasters = [liveDetectLog.SaveSettledChangeRaster(encoded.Reference, "reference"),
+                                        liveDetectLog.SaveSettledChangeRaster(encoded.Current, "current")];
+                                    settledChangeRasterPairs++;
+                                }
+                            }
+                            catch (Exception error) when (error is not OutOfMemoryException)
+                            {
+                                rasters = [new(null, null, null, 0, null, "reference", false, error.GetType().Name)];
+                            }
+                        }
+                    }
+                    // Still check: always worth its rasters (it only runs on a count drop while the table was still).
+                    if (settledPass.StillCheck is not null && settledChangeRasterPairs < SettledChangeRasterPairsPerRun)
+                    {
+                        try
+                        {
+                            if (settledChangeObserver?.EncodeLatestStillCheck() is { } still)
+                            {
+                                rasters = [.. rasters ?? [], liveDetectLog.SaveSettledChangeRaster(still.Anchor, "still-anchor"),
+                                    liveDetectLog.SaveSettledChangeRaster(still.Current, "still-current")];
+                                settledChangeRasterPairs++;
+                            }
+                        }
+                        catch (Exception error) when (error is not OutOfMemoryException)
+                        {
+                            rasters = [.. rasters ?? [], new(null, null, null, 0, null, "still-anchor", false, error.GetType().Name)];
+                        }
+                    }
+                    settledChangeLog = LiveDetectLogSettledChange.From(SettledChangeModeName(settledChangeMode), settledPass,
+                        eventBatch.SettledChange, rasters);
+                    // A count drop while the table is still: ask D3 for a still check on a later pass, so it can
+                    // say whether the ball's spot changed at all (shadow; the reducer is unchanged).
+                    if (settledPass.State == SettledChangeState.Settled
+                        && (eventBatch.CheckOutcome == "inventory_change_pending" || eventBatch.TableEvents.Any(e => e.Type == "possible_pot")))
+                        settledChangeObserver?.RequestStillCheck();
+                    if (settledChangeObserver?.DisabledReason is { } disabledReason && disabledReason != settledChangeDisabledLogged)
+                    {
+                        settledChangeDisabledLogged = disabledReason;
+                        AppendLiveDetectRunEvent(runId, "settled_change_disabled", $"Settled-change evidence {disabledReason}.", null);
+                    }
+                }
                 try
                 {
                     liveDetectLog.AppendFrame(runId, DateTimeOffset.UtcNow, new LiveDetectLogFrame(
@@ -406,7 +521,7 @@ public sealed partial class ShellSession
                         events.ToArray(), checkOutcome, observation.Change?.SpatiallyCompatible, rackEvidence,
                         LiveDetectLogObstructionAudit.From(vision.ObstructionAudit), observation.PlayerPlayback,
                         vision.PocketColourAudit, eventBatch.BaselineMatchSamples,
-                        eventBatch.SettledBaselineMatchesCurrent, frameEvidence));
+                        eventBatch.SettledBaselineMatchesCurrent, frameEvidence, settledChangeLog));
                     foreach (var tableEvent in eventBatch.TableEvents)
                         liveDetectLog.AppendTableEvent(runId, tableEvent.CapturedAt, tableEvent);
                     liveDetectLogError = evidenceWriteFailed ? "source evidence unavailable" : null;
@@ -423,10 +538,13 @@ public sealed partial class ShellSession
                     liveDetectHasResult = true;
                     liveDetectReadAt = observation.CapturedAt;
                     liveDetectStatus = $"Live Detect running · full pass {vision.ElapsedMs / 1000:0.0}s.";
+                    liveDetectSettledChangeStatus = settledChangeMode == LiveDetectSettledChangeMode.Off ? "Settled-change evidence: off."
+                        : settledChangeObserver?.DisabledReason is { } paused ? $"Settled-change evidence: shadow, {paused}."
+                        : $"Settled-change evidence: shadow (not used) · {settledChangeComparisons} comparison(s) this run.";
                     var settledCurrentInventory = LiveDetectInventoryReadoutPolicy.SettledCurrentInventory(
                         currentInventoryClear, eventBatch);
                     liveDetectInventory = settledCurrentInventory is { } settled
-                        ? $"Settled current state · {settled.Total} detected · {settled.Summary} · confirmed by this frame · frame age {ageSeconds:0.0}s"
+                        ? $"Settled current state · {settled.Total} detected · {LiveDetectInventoryReadoutPolicy.BaselineSummary(settled, eventBatch.BaselineBlackNotSeen, eventBatch.BaselineCueNotSeen)} · confirmed by this frame · frame age {ageSeconds:0.0}s"
                         : currentInventoryClear && checkOutcome == "clear_unchanged"
                             && eventBatch.SettledBaseline is not null
                             ? $"Fresh clear frame matches the last settled layout · {counts.Total} current detections · {counts.Summary} · stillness check {eventBatch.BaselineMatchSamples}/{StableTableChangeTracker.RequiredStableSamples} · frame age {ageSeconds:0.0}s"

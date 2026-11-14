@@ -107,6 +107,30 @@ internal static class LiveDetectLogStoreChecks
                 && evidencePolicy.Observe(EvidenceFrame(checkAt.AddSeconds(3)), evidenceVision)?.Trigger == "interval:3s"
                 && evidencePolicy.Observe(EvidenceFrame(checkAt.AddSeconds(4)), evidenceVision with { Balls = [evidenceBall, new("yellow-1", "yellow", new(.6, .5), 1)] })?.Trigger.StartsWith("inventory:") == true,
                 "source evidence samples initial, interval and inventory-change frames without copying every pass");
+            // The budget is not spent before the shot: interval samples stop after two, quality flicker stops
+            // before the reserved slots, and every new settled-change comparison still gets a frame.
+            var budget = new LiveDetectFrameEvidenceCapture();
+            var clearVision = evidenceVision; var uncertainVision = evidenceVision with { LayoutUncertain = true };
+            var triggers = new List<string?>();
+            for (int second = 0; second < 30; second++)
+                triggers.Add(budget.Observe(EvidenceFrame(checkAt.AddSeconds(second * 3)), second % 2 == 0 ? clearVision : uncertainVision)?.Trigger);
+            for (int k = 0; k < 4; k++)
+                triggers.Add(budget.Observe(EvidenceFrame(checkAt.AddSeconds(100 + k)), clearVision, settledComparison: true)?.Trigger);
+            Require(triggers.Count(t => t is not null && (t.StartsWith("quality:") || t.StartsWith("interval:"))) == LiveDetectFrameEvidenceCapture.MaximumFramesPerRun - LiveDetectFrameEvidenceCapture.ReservedForSettledChange - 1
+                && triggers.Count(t => t == "settled-change") == LiveDetectFrameEvidenceCapture.ReservedForSettledChange
+                && triggers.Count(t => t is not null) == LiveDetectFrameEvidenceCapture.MaximumFramesPerRun,
+                $"evidence keeps slots for settled-change comparisons after quality flicker ({string.Join(",", triggers.Where(t => t is not null))})");
+            // Fast flicker (run e7276502: a cushion black seen and unseen every second or so) takes one change
+            // frame per 5 s, not one per flip.
+            var flicker = new LiveDetectFrameEvidenceCapture();
+            var blackVision = evidenceVision with { Balls = [evidenceBall, new("black-1", "black", new(1.92, .5), 1)] };
+            var flickerTriggers = Enumerable.Range(0, 20).Select(k => flicker.Observe(EvidenceFrame(checkAt.AddSeconds(k * .5)), k % 2 == 0 ? evidenceVision : blackVision)?.Trigger).ToList();
+            Require(flickerTriggers.Count(t => t is not null && t.StartsWith("inventory:")) == 2,
+                $"inventory flicker every 0.5 s for 10 s takes two change frames ({string.Join(",", flickerTriggers.Where(t => t is not null))})");
+            var quiet = new LiveDetectFrameEvidenceCapture();
+            var quietTriggers = Enumerable.Range(0, 20).Select(s => quiet.Observe(EvidenceFrame(checkAt.AddSeconds(s * 3)), clearVision)?.Trigger).ToList();
+            Require(quietTriggers.Count(t => t == "interval:3s") == LiveDetectFrameEvidenceCapture.MaximumIntervalFrames,
+                "a quiet table takes only the initial frame and two interval samples");
 
             // A large exempted region must not crowd the actual triggering
             // components out of the bounded audit. Include unreported triggers.
@@ -153,6 +177,55 @@ internal static class LiveDetectLogStoreChecks
                 && JsonSerializer.Deserialize<LiveDetectLogRecord>(oldPocketRecord, oldOptions)
                     ?.Frame?.PocketColourAudit?.Pockets.Single().BallSupportAudit is null,
                 "older pocket audits without per-ball support details remain readable");
+
+            // Schema 15: D3 settled-change pass, evidence, shadow proposals and raster sidecars.
+            var settledPath = Path.Combine(directory, "settled", "live-detect.jsonl");
+            Directory.CreateDirectory(Path.GetDirectoryName(settledPath)!);
+            var settledStore = new LiveDetectLogStore(settledPath);
+            var reference = settledStore.SaveSettledChangeRaster([0xFF, 0xD8, 1, 2, 3], "reference");
+            var current = settledStore.SaveSettledChangeRaster([0xFF, 0xD8, 4, 5], "current");
+            Require(reference.Available && reference.RelativePath == "settled-change/" + reference.EvidenceId!.Value.ToString("N") + ".jpg"
+                && reference.ContentType == "image/jpeg" && current.Available,
+                "settled-change rasters are saved as JPEG sidecars in their own folder");
+            var grid = new byte[100]; grid[3] = 0b1010;
+            var region = new SettledChangeRegion(1.48, .067, 380, 612, "cushion", 1, 1, 0, 1.9, true, null, ChangeDirection.Arrival,
+                .9, .1, 0, .7, 0, 0);
+            var evidence = new SettledChangeEvidence(Guid.NewGuid(), 4, SettledChangeStatus.Compared, [], 1, 2, 3, 4, 5, 6,
+                new([], .01, 0, .05, 1, [region], grid, 20, 40, 51));
+            var pass = new SettledChangePass(SettledChangeState.Settled, .001, 5, 17.5, evidence, true);
+            var shadow = new LiveDetectSettledChangeShadow(LiveDetectSettledChangeMode.Shadow, true, 1, 4, true,
+                [new("infer_black", "black", 1.48, .067, 4, false, "recheck_pending")], [new("black", 1.48, .067, "inferred", 5, 4)]);
+            settledStore.AppendFrame(runId, checkAt, frame with
+            {
+                SettledChange = LiveDetectLogSettledChange.From("shadow", pass, shadow, [reference, current])
+            });
+            var settledRecord = new LiveDetectLogStore(settledPath).ReadLast(1).Records.Single();
+            Require(settledRecord.SchemaVersion == 15 && settledRecord.Frame?.SettledChange is { Mode: "shadow", State: "Settled", EvidenceIsNew: true,
+                    EvidenceSequence: 4, ChainIntact: true } logged
+                && logged.Evidence?.Comparison?.ChangeGrid.SequenceEqual(grid) == true
+                && logged.Evidence.Comparison.Regions.Single().TableX == 1.48
+                && logged.Proposals is [{ Kind: "infer_black", Applied: false }]
+                && logged.BallStates is [{ State: "inferred" }] && logged.Rasters?.Length == 2,
+                "schema-15 frames carry the settled-change pass, evidence, change grid, shadow proposals and raster references");
+            var settledFolder = Path.Combine(Path.GetDirectoryName(settledPath)!, "settled-change");
+            Require(Directory.GetFiles(settledFolder).Length == 2, "referenced rasters survive reopening the store");
+            var orphan = settledStore.SaveSettledChangeRaster([0xFF, 0xD8, 9], "reference");
+            Require(orphan.Available && Directory.GetFiles(settledFolder).Length == 3, "an unreferenced raster is written");
+            _ = new LiveDetectLogStore(settledPath);
+            Require(Directory.GetFiles(settledFolder).Length == 2 && !File.Exists(Path.Combine(settledFolder, orphan.EvidenceId!.Value.ToString("N") + ".jpg")),
+                "an unreferenced raster is pruned when the store reopens");
+            string later = JsonSerializer.Serialize(new LiveDetectLogRecord(14, "frame", runId, checkAt, Frame: frame), new JsonSerializerOptions(JsonSerializerDefaults.Web));
+            Require(!later.Contains("settledChange") && JsonSerializer.Deserialize<LiveDetectLogRecord>(later, new JsonSerializerOptions(JsonSerializerDefaults.Web))?.Frame?.SettledChange is null,
+                "frames without settled-change evidence omit the field and older records stay readable");
+            var capStore = new LiveDetectLogStore(Path.Combine(directory, "cap", "live-detect.jsonl"));
+            int saved = 0;
+            for (int i = 0; i < LiveDetectLogStore.MaximumSettledChangeFiles + 5; i++)
+                if (capStore.SaveSettledChangeRaster([0xFF, 0xD8, (byte)i], "current").Available) saved++;
+            Require(saved == LiveDetectLogStore.MaximumSettledChangeFiles
+                && capStore.SaveSettledChangeRaster([0xFF, 0xD8], "current").SkipReason == "settled-change storage limit reached",
+                "settled-change rasters have their own file cap");
+            Require(capStore.SaveFrameEvidence(new EncodedTableFrameEvidence([1, 2, 3], ".png", "image/png"), "initial").Available,
+                "full settled-change storage does not block frame evidence");
 
             var countPath = Path.Combine(directory, "record-cap.jsonl");
             var countStore = new LiveDetectLogStore(countPath);

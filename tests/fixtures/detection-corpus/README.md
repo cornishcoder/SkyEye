@@ -66,6 +66,25 @@ The plan's named frames are tagged in `names`:
 Frame 1365 has only an assistant draft with the black unresolved, so it has
 no labels.
 
+## Scores from the current desktop detector
+
+Desktop detector at `ef66dd1` (branch `claude/live-detect-d1-d3`, 11 November 2026; production settings,
+identity ending `-packed-black-adjacent125-packed-black-darkbody28`). Ball detection is unchanged since.
+Score with `tools/evidence/score_detections.py --detections` on the `detect` output.
+
+| Set | Result |
+|---|---|
+| 35 labelled frames | 532 of 546 balls, **0 false positives**, colour accuracy 0.996; 20 fully correct |
+| by colour | red 245/245, yellow 245/245, cue 28/28 (colour 0.929), **black 14/28** |
+| by light | bright 290/295, mid 121/124, dim 121/127 |
+| black misses | 8 at a cushion, 3 at a pocket, 3 in the open |
+| 438 unlabelled frames | 14 obstructed (3 are real hand/arm frames); 269 blacks detected |
+| `obstruction-hand-controls.json` | hand/arm over the cloth 14/16 obstructed; bridge hand at the cushion 3/12; cue only 1/3 |
+| `black-absent-dim-rack.json` | 0 false blacks on 5 frames |
+
+The labelled scores match the stored-result scores below apart from the cue (25 to 28 found, after the
+packed-stage cue handover) and colour accuracy (0.970 to 0.996, after surplus-only demotion).
+
 ## Scores from stored results
 
 - **Original 19 frames** (`--corpus claude-review-labels`): 292 of 295 balls
@@ -122,6 +141,32 @@ over 28 unique frames. All 28 are mapped to hashes in `argonMapping`.
   before and after the duplicate fix, with identical numbers.
 - Frames 1587, 31, 266 and the post-shot frame appear only in its corpus
   summaries.
+
+## Obstruction hand controls
+
+`obstruction-hand-controls.json` is a separate list, not part of the manifest
+above, using the same frame schema with role `obstruction-control`. It holds
+31 dim frames (table V 59 to 76) decoded from the saved code57 event clips of
+29 October 2026, each with an `expect` field:
+
+- `obstructed` (16): a hand, arm or body clearly over the playing surface;
+  the detector must report obstructed;
+- `edge` (12): a bridge hand at or on the cushion; recorded, not scored;
+- `cue-only` (3): only the cue stick over the cloth; recorded, not scored.
+
+The cloth in these clips is blue-grey, not warm-tinted, so they do not cover
+the warm-cloth case of manifest frame `hand-2s`. Corners are the current-mount
+set, checked visually; the session's own calibration was not saved with
+corners. Score with:
+
+    dotnet run --project tests/SkyEye.Vision.Desktop.Runner -- detect --manifest tests/fixtures/detection-corpus/obstruction-hand-controls.json --roles obstruction-control --output OUT.jsonl
+
+## Black-absent dim rack control
+
+`black-absent-dim-rack.json` (role `black-absent-control`): five lossless verifier frames of a full rack of
+7 reds and 7 yellows with the black left out, cue in baulk, evening light (table V 66), captured 11 November
+2026 (run `aa485778`). A detector must report no black. Score with
+`detect --manifest tests/fixtures/detection-corpus/black-absent-dim-rack.json --roles black-absent-control`.
 
 ## Known gaps
 

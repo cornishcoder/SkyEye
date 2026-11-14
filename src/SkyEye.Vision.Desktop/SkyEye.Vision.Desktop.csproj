@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- The Android detector sources, linked unchanged and compiled against the desktop
+       Org.Opencv look-alike (T2). Only BitmapTableImage is replaced by a desktop stub;
+       RoiMotionProcessor (live motion only) is left out. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>SkyEye.Vision.Android</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../SkyEye.Vision.Android/*.cs" Exclude="../SkyEye.Vision.Android/BitmapTableImage.cs;../SkyEye.Vision.Android/RoiMotionProcessor.cs" LinkBase="Linked" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../SkyEye.Core/SkyEye.Core.csproj" />
+    <ProjectReference Include="../SkyEye.OpenCv.Desktop/SkyEye.OpenCv.Desktop.csproj" />
+  </ItemGroup>
+  <ItemGroup><InternalsVisibleTo Include="SkyEye.Vision.Desktop.Runner" /></ItemGroup>
+</Project>

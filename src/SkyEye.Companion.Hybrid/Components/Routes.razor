@@ -173,6 +173,7 @@
                         @if (Session.LiveDetectInventory.Length > 0)
                         { <p class="live-detect-inventory">@Session.LiveDetectInventory · analyzed @Session.LiveDetectReadAt</p> }
                         <p class="hint">@Session.LiveDetectClipStatus</p>
+                        <p class="hint live-detect-settled-change-status">@Session.LiveDetectSettledChangeStatus</p>
                         <p class="hint live-detect-log-status">@Session.LiveDetectLogStatus</p>
                         <h2 class="live-detect-events-heading">Recent table events</h2>
                         @if (Session.LiveDetectEvents.Count == 0)

@@ -90,16 +90,16 @@ Status: `open` not started, `active`, `blocked`, `done`, `dropped`.
 
 | ID | Thread | Status | Needs | Next action |
 |---|---|---|---|---|
-| T0 | Protect the evidence | ready, waiting on Richard | Richard: run `scripts/Backup-WorkEvidence.ps1 -Destination D:\SkyEye`; confirm D: is a separate disk | Read `D:\SkyEye\backup-report.txt` for PASS |
+| T0 | Protect the evidence | done (11 Nov 08:54) | - | `D:\SkyEye\backup-report.txt` PASS. Re-run the script after new captures or regenerated outputs |
 | T1 | One corpus manifest | done | - | Report in `tests/fixtures/detection-corpus/README.md`. All five cushion black misses are one table position, (1.48, 0.067), dim and bright |
-| T2 | Desktop detector runner | design done; build blocked here (no .NET) | a session with .NET on Windows | Build the two desktop projects, run frame 2083 against its proof file (`t2-desktop-runner-design.md`, `progress/t2-desktop-runner.md`) |
+| T2 | Desktop detector runner | done: Layout03 parity PASS 4/4; `detect` scores the manifest | - | JPEG parity before trusting JPEG scores (`t2-desktop-parity.md`) |
 | T3 | Replay Live Detect's real reducer on saved logs | done | - | Report `t3-live-detect-replay.md`. Lost still time is flags (pocket-colour 1,149 s, obstruction 941 s), not flicker (1.4 s) |
 | T4 | Change-between-settled-states experiment | done: promising, conditional | T9 labels to score properly | Report `t4-settled-change-experiment.md`. Black at cushion/jaw 9/9 staged; fails under moving daylight |
-| T5 | Surplus-only inventory demotion | open | T2 for scoring | Small change in `ConstrainInventory` |
-| T6 | Per-ball state in the reducer | redefined, needs decisions | Richard: decisions D1-D3 (section 9) | A hold rule alone is dropped (T3: recovers 1.4 s). Rework around first-baseline and per-region flags |
+| T5 | Surplus-only inventory demotion | done on desktop: colour 0.970 to 0.996 | On-device check (needs Richard) | `t5-surplus-demotion.md`. Ranked by saturation with a 40 margin, not quality |
+| T6 | Per-ball state in the reducer | D1+D2 built, offline checks pass; D3 designed | On-device check of D1+D2 (needs Richard); D3 shadow mode | See `d1-d2-implementation.md` and `d3-settled-change-design.md` |
 | T7 | Camera exposure metadata, then lock | open | Richard: explicit approval (camera package) | Log first, lock later |
 | T8 | Cap removal, cushion position bias, verifier latency | open | T2 | Measure only; act if shown to matter |
-| T9 | Label existing frames and clips | active | Richard: two review sittings once sheets are ready | Sheets being prepared |
+| T9 | Label existing frames and clips | sheets ready | Richard: two sittings of about 40 min | `work/evidence-audit/t9/README.md` |
 
 Order: T0, T1, T3 and T4 can start now and need nothing from anyone except
 T0's destination. T2 runs alongside. T5 and T6 follow their inputs. T7 and
@@ -365,4 +365,157 @@ D3. **Use settled-frame change as evidence (T4).** When a settled state is
     moving light. Needs T9 labels before it is turned on by default.
 
 T5 (surplus-only demotion) needs no decision, only T2 to score it.
+
+Decided by Richard, 11 Nov 08:45: D1 pocket region only; D2 allow a first
+baseline with black or cue "not seen"; D3 build settled-frame change into
+the pipeline, off by default until T9 labels score it. Production changes
+go on branch `claude/live-detect-d1-d3`. This environment cannot compile
+C#, so every C# change there is unbuilt until a Windows session runs
+`scripts/Build-SkyEye.ps1` and the check suites; each is first measured
+through the Python reducer port where possible.
+- 11 Nov 08:30. D1+D2 implemented on `claude/live-detect-d1-d3`, unbuilt.
+  Measured through the Python port on 48 runs: lost still time 2,402 s to
+  2,092 s; runs forming a baseline 33 to 37; two extra events, both real
+  settled pots; nothing new on static fixtures. A first baseline while a
+  pocket is flagged stays off (it added false movement on fixtures). D3
+  designed (shadow mode by default). T9 review sheets ready.
+- 11 Nov 08:35. Session handed over to Claude Code on Richard's Windows
+  machine. See the handover section of the investigation notes.
+- 11 Nov. D1+D2 compiled on Windows (local Claude Code session, branch
+  `claude/live-detect-d1-d3` at 4ffbeae, no source changes needed).
+  `Build-SkyEye.ps1 -Target All`: SkyEye.sln and Companion.Hybrid both 0
+  errors (SDK 11.0.100-rc.1). Software suites, newly run:
+  `SkyEye.AgentUi.Checks` passes, including the new D1/D2 reducer checks
+  and READINESS-ABSENCE-SEMANTICS-CONTROLS 5/5; `SkyEye.Checks` passes.
+  On the first, cold run `LiveDetectShotClipWindowChecks` failed once at
+  "post-roll rereads source observations…" (100 ms timeout in the check;
+  code not touched by this branch); three reruns passed. It is a timing
+  flake, recorded here, not fixed. C# replay of code66 `cfd3b9d4`: one
+  `settled_layout_baseline` (7 reds, 7 yellows, black and cue not seen),
+  199 `layout_uncertain` outcomes, no pot, return or clip. This matches the
+  Python port. Detector cases and physical gates were not run (carried
+  forward 0/3 and 0/3). On-device D1+D2 is still unverified.
+- 11 Nov 08:54. T0 done. D: is a separate physical disk (Disk 1, external
+  Sabrent USB, 1 TB; the laptop disk is Disk 0). An earlier run at 08:05
+  reported FAIL: 13 missing and 7 size mismatches, all T3/T9 outputs
+  rewritten after that copy, with 0 SHA-1 failures. Re-run
+  `Backup-WorkEvidence.ps1 -Destination D:\SkyEye`: 105,523 files, 21.4 GB,
+  0 missing, 0 size mismatches, 5,172 of 5,172 inventoried `work/` media
+  SHA-1 verified, PASS. The other 76 inventory rows are git-tracked files
+  (docs/evidence, tests/fixtures and so on), all present on origin/master.
+  The script exits 1 on success because it passes through robocopy's
+  "files copied" code; read the report, not the exit code.
+- 11 Nov. T2 built and parity checked. The detector sources compile on
+  desktop unchanged against a compat shim over OpenCvSharp 4.13
+  (`src/SkyEye.OpenCv.Desktop`, `src/SkyEye.Vision.Desktop`,
+  `tests/SkyEye.Vision.Desktop.Runner`, all in `SkyEye.sln`). Layout03
+  parity against the device replay proofs: PASS 4/4 frames, 59/59 circles
+  with the same kinds and flags, 58 centres identical, one 0.85 px. Desktop
+  output can now stand in for the device on PNG frames of this kind; JPEG
+  frames are untested. This is software parity, not a detector score:
+  detector cases stay 0/3 and physical gates 0/3, carried forward. Report
+  `t2-desktop-parity.md`. Next: the `detect` command over the T1 manifest,
+  then T5.
+- 11 Nov. T2 `detect` added and run on the T1 manifest (production
+  settings, 35 of 37 labelled frames; 2 have no corners; Holdout unopened).
+  Detector score, newly executed on desktop: 529/546 balls, 0 FP, black
+  14/28, cue 25/28, colour 0.970, 19/35 frames complete. On the 24 frames
+  with a stored result it ties capture on balls (368/374) and black (13/19);
+  colour 0.978 against 1.000, all from 957, where the device's own
+  current-source replay agrees with desktop (unknown 8). Parity now also
+  checks final ball kinds; still PASS 4/4. New finding from frames that had
+  no stored result: a second miss position, cue at the cushion near
+  (0.062, 0.868) in 382, 1274 and 3360, and black in the corner pocket near
+  (0.03, 0.928) in 382, 1274 and 395. The cushion black spot (1.48, 0.067)
+  now shows in 8 frames. Detector inventory 0/3 and physical gates 0/3
+  carried forward. Next: T5.
+- 11 Nov. T5 implemented and scored on desktop. Classifier quality saturates
+  at 0.9, so "least confident first" could not separate the surplus; the
+  rule ranks by dominant-colour saturation and demotes only a surplus at
+  least 40 below the lowest kept ball, else the whole colour as before
+  (behind `SurplusOnlyInventoryDemotion`, default on; identity
+  `-surplus-sat40`). 35 labelled frames: colour 0.970 to 0.996, balls
+  529/546 and 0 FP unchanged, only 957 and 2263 change (7 yellows kept,
+  cue stays unknown). 438 unlabelled frames: 20 change, all eight-to-seven
+  plus one unknown, all still flagged. Suites pass; detector inventory 0/3
+  and physical gates 0/3 carried forward. Report `t5-surplus-demotion.md`.
+- 11 Nov. Second miss spot diagnosed on desktop (`miss-spot-2-diagnosis.md`).
+  Cue at the cushion (382, 1274, 3360): proposed by the packed-yellow stage,
+  fitted at 0.875 to 0.938, classified `cue`, then rejected because that
+  stage keeps only yellows; a handover to the cue path is a candidate fix,
+  to be scored for false cues first. Black in the corner pocket mouth (382,
+  1274, 395): half its outline lies over the dark opening, best support
+  19 to 20/32 against the 21/32 gate, empty jaw 16/32; same family as the
+  cushion black, so D3 territory. Not the pocket exclusion. Branch not yet
+  pushed: this shell cannot authenticate to GitHub.
+- 11 Nov. Cue handover implemented (`cue-handover.md`): a cue fitted and
+  classified by the colour-peak stage is set aside, refitted neutrally, and
+  admitted only when cue recovery also finds no cue
+  (`PackedCueHandover`, default on; identity `-cuehandover75`). Desktop, 35
+  labelled frames: cue 25/28 to 28/28, balls 529 to 532/546, 0 FP, frames
+  complete 19 to 20; only 382, 1274, 3360 change; no false cue on 7
+  cue-absent frames. 438 unlabelled: 34 gain a cue (12 sampled, all real),
+  nothing else changes. Two earlier versions were rejected: they pre-empted
+  cue recovery (2083 cue 0.6 to 10.6 px; pocket flags raised on 16 frames).
+  Detector inventory 0/3 and physical gates 0/3 carried forward.
+- 11 Nov. D3 slice 1 built (`d3-slice1-comparer.md`): the settled-change
+  comparer (image side) in C#, not wired into Live Detect. On the 33 staged
+  still pairs (design 5.3 A) it hits the black in 9/9 change pairs, gives 0
+  ball-sized regions on 12/12 same-state controls, gates the 3
+  cross-session pairs on lighting drift and no others, and hits the cue in
+  7/11, all as the Python reference; drift within 0.0003 of Python on every
+  pair, 2 pairs differ in detail (one boundary region at 0.61 R, one gated
+  pair). Next D3 slices: settle state machine with live-cadence simulation,
+  clip-pair parity, then reducer rules in shadow.
+- 11 Nov. D3 slice 2 built (`d3-slice2-settle.md`): per-pass motion, settle
+  state machine, reference window and automatic comparison on settling;
+  still not wired live. Live-cadence simulation on the 25 T4 clips (538 s,
+  0.35 s passes): 26/28 T4 shots covered, 94/102 T4 ball-sized regions found,
+  0 ungated ball-sized regions in the 18 control windows (both code62
+  motionless clips: no comparison at all), 1 unverified region in a
+  two-shot comparison. Next: reducer rules in shadow with the golden test,
+  then live wiring (Richard's design questions apply there).
+- 11 Nov. D3 slice 3 built (`d3-slice3-shadow-rules.md`): rules U1 to U5 as
+  shadow proposals in the reducer, never applied. Design 5.2 policy checks
+  pass; golden shadow test identical with and without evidence on 32,000
+  generated passes (18,887 events, all 7 proposal kinds) and on all 63 saved
+  logs (285 runs, 72,832 frames, 4,882 events). Simplifications noted (no 3 s
+  recheck, pass-level obstruction, strict anchor, no Active mode). Next: live
+  wiring, which needs Richard's answers to the design's open questions.
+- 11 Nov. Richard accepted the recommended answers (shadow on by default;
+  self-off over a 40 ms median; sidecars only when they matter, 60 pairs per
+  run; no hold limit; pass-level obstruction; provisional gap and drift;
+  private preference with a read-only line, no Home control). D3 slice 4
+  built (`d3-slice4-live-wiring.md`): live observer in the Live Detect frame
+  observer, evidence on the reducer observation, schema 15 logging and
+  raster sidecars. Offline checks pass; not yet run on the Pixel (needs a
+  bounded live session, Richard's go-ahead).
+- 11 Nov. Bounded on-device D3 shadow check completed on Pixel 11
+  (`d3-device-check-result.md`, Companion 0.8.63 / code 71, run
+  `755281db-547e-4f68-9178-5a4887af1ff1`; capture stopped and `/status`
+  verified `Stopped` rev 5, Home `Start live`): 344/344 frames logged
+  `settledChange`, pass cost median 14.7 ms (p95 22.3 ms, break comparison
+  162 ms, well under the 40 ms guard), hand-pass control `seq 2` gave 0
+  ball-sized regions (1 corner region rejected as `rail`), break `seq 3` gave
+  9 ball-sized + 2 oversize regions and saved 1 raster pair (71 KB / 74 KB),
+  `seq 4..6` gave 0 regions, and decoder restart reset to a new epoch.
+  `chainIntact` was false on every pass in the device log; root-caused to
+  three timing mismatches between the 3-frame layout baseline (~0.7 s) and
+  the 1.2 s settled-change tracker (initial `NoReference` `seq 1` setting
+  `chainBroken`, `BaselineSourceTimeUs` recording probe sample 1 while
+  `ReferenceSegmentStartUs` starts on sample 2 or 3, and shot transition
+  comparison `seq 3` arriving 3 passes after `BaselineAdvanced`). Fixed in
+  `LiveDetectSettledChangePolicy` and `LiveDetectTableEventTracker`
+  (`D3-CHAIN-ANCHOR-FIX`) with unit checks for initial `NoReference`,
+  3-sample/moving baseline window, active-motion suspension, and transition
+  comparisons. Replaying run `755281db-547e-4f68-9178-5a4887af1ff1` through
+  `--golden-shadow` passes (4 runs, 717 frames, 24 table events identical;
+  344 logged shadow frames yield 77 intact settled passes across `seq 2..6`
+  with chain lengths 1, 1, 1, 2, 3 and 1 `unexplained_change` proposal at
+  `(0.515, 0.471)` for the shadow-shifted cue departure; all 8 other ball-sized
+  regions (6 arrival, 2 unclear) sit on post-break balls within `1.6R`). Software suites `SkyEye.Checks`
+  and `SkyEye.AgentUi.Checks` and `Build-SkyEye.ps1 -Target All` pass (0
+  errors); detector inventory 0/3 and physical gates D1/D2/E 0/3 carried
+  forward.
+
 

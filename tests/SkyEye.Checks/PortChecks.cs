@@ -54,7 +54,36 @@ static class PortChecks
             Require(BallClassifier.ConstrainInventory(Enumerable.Repeat(label, limit).ToArray()).All(b => b.Kind == kind), "Valid inventory preserved");
             var constrained = BallClassifier.ConstrainInventory(Enumerable.Repeat(label, limit + 1).ToArray());
             Require(constrained.Length == limit + 1 && constrained.All(b => b.Kind == "unknown" && b.Quality == 0), "Conflicting inventory retained for review without invented colours");
+            var previous = BallClassifier.ConstrainInventory(Enumerable.Repeat(label, limit + 1).ToArray(), surplusOnly: false);
+            Require(previous.All(b => b.Kind == "unknown"), "Whole-colour demotion remains available for historical replay");
         }
+        // T5: a clearly less saturated "yellow" (a cream cue read as yellow, Layout03 957/2263) is the surplus.
+        ColourCluster[] Paint(double s) => [new(new HsvPixel(15, s, 210), 500), new(new HsvPixel(15, 120, 240), 20)];
+        var eightYellows = Enumerable.Range(0, 8).Select(i => new BallClassification("yellow", "solid", .9, Paint(i == 5 ? 161 : 250 + i % 3))).ToArray();
+        var surplus = BallClassifier.ConstrainInventory(eightYellows);
+        Require(surplus.Count(b => b.Kind == "yellow") == 7 && surplus[5].Kind == "unknown" && surplus[5].Quality == 0,
+            "Surplus-only demotion keeps the seven painted yellows and demotes the clear outlier");
+        Require(BallClassifier.ConstrainInventory(eightYellows, surplusOnly: false).All(b => b.Kind == "unknown"),
+            "Previous whole-colour demotion still demotes all eight");
+        // Quality does not choose: a slightly lower quality on a well-saturated red is not singled out.
+        var reds = Enumerable.Range(0, 8).Select(i => new BallClassification("red", "solid", i == 2 ? .8982 : .9, Paint(230 + i))).ToArray();
+        Require(BallClassifier.ConstrainInventory(reds).All(b => b.Kind == "unknown"),
+            "Without a clear saturation gap the whole colour stays ambiguous, whatever the quality");
+        // The gap must reach the margin: just under it, nothing is singled out; at it, the outlier is.
+        var near = Enumerable.Range(0, 8).Select(i => new BallClassification("yellow", "solid", .9, Paint(i == 0 ? 250 - BallClassifier.SurplusSaturationMargin + 1 : 250))).ToArray();
+        Require(BallClassifier.ConstrainInventory(near).All(b => b.Kind == "unknown"), "A gap below the margin demotes the whole colour");
+        var atMargin = Enumerable.Range(0, 8).Select(i => new BallClassification("yellow", "solid", .9, Paint(i == 0 ? 250 - BallClassifier.SurplusSaturationMargin : 250))).ToArray();
+        var atMarginResult = BallClassifier.ConstrainInventory(atMargin);
+        Require(atMarginResult[0].Kind == "unknown" && atMarginResult.Skip(1).All(b => b.Kind == "yellow"), "A gap at the margin singles out the outlier");
+        // Two surplus balls: both must be clearly below the seven kept.
+        var nine = Enumerable.Range(0, 9).Select(i => new BallClassification("red", "solid", .9, Paint(i switch { 0 => 120, 1 => 150, _ => 235 }))).ToArray();
+        var nineResult = BallClassifier.ConstrainInventory(nine);
+        Require(nineResult.Take(2).All(b => b.Kind == "unknown") && nineResult.Skip(2).All(b => b.Kind == "red"), "Two clear outliers are both demoted");
+        // Other colours are untouched, and two cue balls still both become unknown.
+        var mixed = eightYellows.Append(new("red", "solid", .9, [])).Append(new("cue", "white", .9, [])).Append(new("cue", "white", .7, [])).ToArray();
+        var mixedResult = BallClassifier.ConstrainInventory(mixed);
+        Require(mixedResult[8].Kind == "red" && mixedResult[9].Kind == "unknown" && mixedResult[10].Kind == "unknown",
+            "Surplus-only applies to reds and yellows; duplicate cue identities stay unresolved");
         Console.WriteLine("PASS repeatable bounded colour clustering, spotted cream cue, orange yellows and empty/cloth rejection");
         CheckPlanner(reference);
         CheckTracking();

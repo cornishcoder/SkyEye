@@ -172,6 +172,58 @@ def clothlike(img, mask, ref):
     ok = (dh < 12) & (np.abs(hsv[:, 1] - ref[1]) < 70) & (hsv[:, 2] > 0.45 * ref[2]) & (hsv[:, 2] < 1.4 * ref[2] + 20)
     return float(ok.mean()) if len(ok) else 0.0
 
+def cloth_or_shadow(hsv, ref):
+    """Boolean map: cloth or its cast shadow (matches C# SettledChangeMath.ClothOrShadow): cloth hue and
+    saturation at 0.2-1.4 x cloth V; below S 40 on both pixel and cloth, saturation alone (grey cloth has
+    no stable hue)."""
+    h, s, v = hsv[..., 0].astype(np.float32), hsv[..., 1].astype(np.float32), hsv[..., 2].astype(np.float32)
+    bright = (v > 0.2 * ref[2]) & (v < 1.4 * ref[2] + 20)
+    dh = np.abs(h - ref[0]); dh = np.minimum(dh, 180 - dh)
+    hue_ok = (dh < 12) & (np.abs(s - ref[1]) < 70)
+    grey_ok = (s < 40) & (ref[1] < 40)
+    return bright & (grey_ok | hue_ok)
+
+def ball_centre(a, b, comp, ref_a, ref_b, minimum_fraction=0.2):
+    """Region centre from pixels that are neither cloth nor shadow in a or b (C# BallCentre); None to keep
+    the plain centroid."""
+    ha, hb = cv2.cvtColor(a, cv2.COLOR_BGR2HSV), cv2.cvtColor(b, cv2.COLOR_BGR2HSV)
+    msk = comp.astype(bool); ball = msk & ~(cloth_or_shadow(ha, ref_a) & cloth_or_shadow(hb, ref_b))
+    n, total = int(ball.sum()), int(msk.sum())
+    if n == 0 or n < minimum_fraction * total: return None
+    ys, xs = np.nonzero(ball)
+    return float(xs.mean()), float(ys.mean())
+
+def stage_ballcentre(variant="grey"):
+    """Regenerate the T4 reference regions with ball-only centres (D3 region-centre fix, 11 Nov). Writes
+    regions-<variant>-ballcentre.csv beside the original; cx/cy are the ball centres, plain_cx/plain_cy the
+    old centroids. The original regions-<variant>.csv is not touched."""
+    out = os.path.join(T4, "regions-%s-ballcentre.csv" % variant); rows = []; moved = []
+    for p in csv.DictReader(open(os.path.join(T4, "pairs.csv"))):
+        fa = os.path.join(T4, "frames", p["pair"] + "_a.png"); fb = os.path.join(T4, "frames", p["pair"] + "_b.png")
+        if not (os.path.exists(fa) and os.path.exists(fb)): continue
+        a, b = cv2.imread(fa), cv2.imread(fb)
+        d, thr = change_map(a, b, variant)
+        d = cv2.GaussianBlur(d, (5, 5), 0)
+        m = (d > thr).astype(np.uint8)
+        m = cv2.morphologyEx(m, cv2.MORPH_OPEN, np.ones((5, 5), np.uint8))
+        m = cv2.morphologyEx(m, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (9, 9)))
+        n, lab, st, cen = cv2.connectedComponentsWithStats(m)
+        _, _, regs = regions(a, b, variant)   # same components, same order (area filter applied inside)
+        ref_a, ref_b = cloth_model(a), cloth_model(b)
+        comps = [i for i in range(1, n) if st[i, 4] >= 0.30 * BALL_AREA]
+        for k, (i, r) in enumerate(zip(comps, regs)):
+            c = ball_centre(a, b, (lab == i), ref_a, ref_b)
+            row = dict(pair=p["pair"], kind=p["kind"], k=k, **r); row["plain_cx"], row["plain_cy"] = r["cx"], r["cy"]
+            if c is not None:
+                row["cx"], row["cy"] = c; row["zone"] = zone(*c)
+                if r["ball_v3"]: moved.append(np.hypot(c[0] - r["cx"], c[1] - r["cy"]))
+            rows.append(row)
+        if not regs: rows.append(dict(pair=p["pair"], kind=p["kind"], k=-1))
+    keys = ["pair", "kind", "k", "cx", "cy", "plain_cx", "plain_cy", "area", "w", "h", "circ", "inr", "out_frac", "ballsized", "ball_v3", "zone", "cloth_a", "cloth_b", "cls", "peak", "dark_a", "dark_b"]
+    with open(out, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=keys); w.writeheader(); w.writerows(rows)
+    print("wrote", out, len(rows), "rows; ball-sized centres moved: median %.1f px, max %.1f px (R %.1f)" % (np.median(moved), max(moved), R_BALL))
+
 def zone(cx, cy):
     """table, cushion (centre within 4.4 radii of the raster edge) or jaw (within 5 radii of a pocket point)."""
     x, y = cx - M, cy - M
@@ -365,4 +417,4 @@ def stage_stills(variant):
 if __name__ == "__main__":
     st = sys.argv[1] if len(sys.argv) > 1 else "scan"
     variant = sys.argv[sys.argv.index("--variant") + 1] if "--variant" in sys.argv else "grey"
-    {"scan": stage_scan, "plan": stage_plan, "extract": stage_extract, "diff": lambda: stage_diff(variant), "stills": lambda: stage_stills(variant)}[st]()
+    {"scan": stage_scan, "plan": stage_plan, "extract": stage_extract, "diff": lambda: stage_diff(variant), "stills": lambda: stage_stills(variant), "ballcentre": lambda: stage_ballcentre(variant)}[st]()

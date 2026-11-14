@@ -1,0 +1,281 @@
+{
+ "schemaVersion": 1,
+ "id": "black-absent-dim-rack-20261111",
+ "description": "Black-absent control: full rack of 7 reds and 7 yellows with the black left out (gap showing cloth), cue in baulk, evening room light (table V 66). Five lossless verifier frames, Capture verifier frames run aa485778, Pixel 11 companion 0.8.66, 11 Nov 2026 17:00 UTC. Staged by Richard for this control.",
+ "rules": [
+  "A detector must report no black on these frames.",
+  "Same frame schema as the T1 manifest; read with detect --roles black-absent-control."
+ ],
+ "frames": [
+  {
+   "key": "black-absent-dim-rack:776",
+   "path": "work/production/evidence/black-absent-dim-rack-20261111/aa485778c34946eba023f845ab1dd2f6/776.png",
+   "sha256": "2a436b788fde9eabb2436852a269523c86fe7ba7d19b167d121333fc9c8cfc17",
+   "sha1": "f1377422509d7039a31a77cae869501f994edbfd",
+   "role": "black-absent-control",
+   "split": "Development",
+   "pixelPresent": true,
+   "frameIds": [
+    "776"
+   ],
+   "names": [
+    "black-absent-rack-776"
+   ],
+   "expect": {
+    "black": 0,
+    "cue": 1,
+    "red": 7,
+    "yellow": 7
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": "291b6fe2ead24d45b78f845eecafe961",
+    "receipt": "work/production/evidence/black-absent-dim-rack-20261111/aa485778c34946eba023f845ab1dd2f6/776.json"
+   },
+   "light": {
+    "tableV": 66,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table (frame 791)"
+   },
+   "source": {
+    "operationId": "aa485778-c349-46eb-a023-f845ab1dd2f6",
+    "capturedAt": "2026-11-11T17:00:36.8150139+00:00",
+    "frameSource": "decoded-live-texture",
+    "analyzerPixelSource": "decoded-bitmap-lossless"
+   }
+  },
+  {
+   "key": "black-absent-dim-rack:791",
+   "path": "work/production/evidence/black-absent-dim-rack-20261111/aa485778c34946eba023f845ab1dd2f6/791.png",
+   "sha256": "eae3e9a3ebd0d912dcff38188e5de0e626add1e0f22f4e0f5156f3cdfc97b241",
+   "sha1": "962c998266534a2bfb8bdb840d8e9e6cf79c2ddf",
+   "role": "black-absent-control",
+   "split": "Development",
+   "pixelPresent": true,
+   "frameIds": [
+    "791"
+   ],
+   "names": [
+    "black-absent-rack-791"
+   ],
+   "expect": {
+    "black": 0,
+    "cue": 1,
+    "red": 7,
+    "yellow": 7
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": "291b6fe2ead24d45b78f845eecafe961",
+    "receipt": "work/production/evidence/black-absent-dim-rack-20261111/aa485778c34946eba023f845ab1dd2f6/791.json"
+   },
+   "light": {
+    "tableV": 66,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table (frame 791)"
+   },
+   "source": {
+    "operationId": "aa485778-c349-46eb-a023-f845ab1dd2f6",
+    "capturedAt": "2026-11-11T17:00:37.3152367+00:00",
+    "frameSource": "decoded-live-texture",
+    "analyzerPixelSource": "decoded-bitmap-lossless"
+   }
+  },
+  {
+   "key": "black-absent-dim-rack:807",
+   "path": "work/production/evidence/black-absent-dim-rack-20261111/aa485778c34946eba023f845ab1dd2f6/807.png",
+   "sha256": "8519f3fbafd820f876bade011ee730ae6cde665e2e8bcce2bcf4db17d13284e9",
+   "sha1": "a5d5b4fe73b93aa181d0a21d38afd11f43dc89ba",
+   "role": "black-absent-control",
+   "split": "Development",
+   "pixelPresent": true,
+   "frameIds": [
+    "807"
+   ],
+   "names": [
+    "black-absent-rack-807"
+   ],
+   "expect": {
+    "black": 0,
+    "cue": 1,
+    "red": 7,
+    "yellow": 7
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": "291b6fe2ead24d45b78f845eecafe961",
+    "receipt": "work/production/evidence/black-absent-dim-rack-20261111/aa485778c34946eba023f845ab1dd2f6/807.json"
+   },
+   "light": {
+    "tableV": 66,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table (frame 791)"
+   },
+   "source": {
+    "operationId": "aa485778-c349-46eb-a023-f845ab1dd2f6",
+    "capturedAt": "2026-11-11T17:00:37.84841+00:00",
+    "frameSource": "decoded-live-texture",
+    "analyzerPixelSource": "decoded-bitmap-lossless"
+   }
+  },
+  {
+   "key": "black-absent-dim-rack:821",
+   "path": "work/production/evidence/black-absent-dim-rack-20261111/aa485778c34946eba023f845ab1dd2f6/821.png",
+   "sha256": "b4ec2a868de82104c830a9618f046f774cfbd4afd2f284d2aa15533460853a93",
+   "sha1": "b14cf13abc0d41ecc80b9c01bef365e2071fbd3d",
+   "role": "black-absent-control",
+   "split": "Development",
+   "pixelPresent": true,
+   "frameIds": [
+    "821"
+   ],
+   "names": [
+    "black-absent-rack-821"
+   ],
+   "expect": {
+    "black": 0,
+    "cue": 1,
+    "red": 7,
+    "yellow": 7
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": "291b6fe2ead24d45b78f845eecafe961",
+    "receipt": "work/production/evidence/black-absent-dim-rack-20261111/aa485778c34946eba023f845ab1dd2f6/821.json"
+   },
+   "light": {
+    "tableV": 66,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table (frame 791)"
+   },
+   "source": {
+    "operationId": "aa485778-c349-46eb-a023-f845ab1dd2f6",
+    "capturedAt": "2026-11-11T17:00:38.3141737+00:00",
+    "frameSource": "decoded-live-texture",
+    "analyzerPixelSource": "decoded-bitmap-lossless"
+   }
+  },
+  {
+   "key": "black-absent-dim-rack:837",
+   "path": "work/production/evidence/black-absent-dim-rack-20261111/aa485778c34946eba023f845ab1dd2f6/837.png",
+   "sha256": "d1955e00749297a3187c230ebc125e8609eef4c673b8e359c1e1f2d23d6a9ff6",
+   "sha1": "626ecacdc8c33b8ce967e5da1d26e4ac59fc2ae9",
+   "role": "black-absent-control",
+   "split": "Development",
+   "pixelPresent": true,
+   "frameIds": [
+    "837"
+   ],
+   "names": [
+    "black-absent-rack-837"
+   ],
+   "expect": {
+    "black": 0,
+    "cue": 1,
+    "red": 7,
+    "yellow": 7
+   },
+   "calibration": {
+    "corners": [
+     [
+      0.029895832141240437,
+      0.14129628781919126
+     ],
+     [
+      0.880104128519694,
+      0.06351851710566768
+     ],
+     [
+      0.8873957951863607,
+      0.9061110885054977
+     ],
+     [
+      0.04010416666666667,
+      0.8775925812897859
+     ]
+    ],
+    "calibrationId": "291b6fe2ead24d45b78f845eecafe961",
+    "receipt": "work/production/evidence/black-absent-dim-rack-20261111/aa485778c34946eba023f845ab1dd2f6/837.json"
+   },
+   "light": {
+    "tableV": 66,
+    "stratum": "dim",
+    "source": "median V of the rectified inner table (frame 791)"
+   },
+   "source": {
+    "operationId": "aa485778-c349-46eb-a023-f845ab1dd2f6",
+    "capturedAt": "2026-11-11T17:00:38.8492724+00:00",
+    "frameSource": "decoded-live-texture",
+    "analyzerPixelSource": "decoded-bitmap-lossless"
+   }
+  }
+ ]
+}

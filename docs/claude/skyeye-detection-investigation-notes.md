@@ -253,3 +253,36 @@ CRLF-only changes to about 258 tracked files are not ours; never stage them
 (add explicit paths only). Use `GIT_OPTIONAL_LOCKS=0` for git reads while
 another process may commit.
 
+## Handover to a local Claude Code session (11 Nov 08:35)
+
+Branch: `claude/live-detect-d1-d3` (local only, not pushed). Everything
+from the cloud session is committed there. Nothing is running.
+
+Do first, in this order:
+1. **Build and test the unbuilt C# (D1+D2).** `scripts\Build-SkyEye.ps1
+   -Target All`, then `tests/SkyEye.AgentUi.Checks` and `tests/SkyEye.Checks`.
+   Exact commands and what to expect are in `docs/claude/d1-d2-implementation.md`.
+   Use `git diff --ignore-cr-at-eol` to see the real edits (two files are
+   CRLF). Fix compile errors before anything else.
+2. **Backup (T0).** `scripts\Backup-WorkEvidence.ps1 -Destination D:\SkyEye`,
+   then read `D:\SkyEye\backup-report.txt`. Ask Richard whether D: is a
+   separate physical disk.
+3. **Desktop detector runner (T2).** Follow `docs/claude/t2-desktop-runner-design.md`;
+   parity check on Layout03 frame 2083 first.
+4. **D3 in shadow mode**, following `docs/claude/d3-settled-change-design.md`,
+   after D1+D2 build cleanly. Its open questions are for Richard; shadow
+   mode does not depend on them.
+5. **T5** (surplus-only colour demotion) once T2 can score it.
+6. When Richard returns the T9 replies, apply them with
+   `tools/evidence/apply_label_review.py` and rescore T4 and the detector.
+
+Housekeeping:
+- About 258 tracked files show as modified only by CRLF line endings. They
+  are not ours; never stage them. Add explicit paths.
+- `AGENTS.md` rules apply: camera stays stopped, no camera-package change
+  without explicit approval, update the Live Detect plan and ledger at
+  commit points, keep software, detector and physical metrics separate.
+- Reports and evidence: `docs/claude/` (plan, diagnosis, evidence register,
+  t3, t4, d1-d2, d3, t2 design), `docs/claude/progress/`, `tools/evidence/`,
+  `tests/fixtures/detection-corpus/`; generated data in `work/evidence-audit/`.
+

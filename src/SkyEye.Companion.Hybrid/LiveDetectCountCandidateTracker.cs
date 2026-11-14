@@ -128,6 +128,10 @@ internal sealed class LiveDetectCountCandidateTracker
         lastSourceTimeUs = long.MinValue;
     }
 
+    /// <summary>Replaces the trusted inventory with a settled baseline that formed without the black
+    /// or cue seen (D2), so the unseen kind is not later reported as a pot or a return.</summary>
+    public void SeedBaseline(LiveDetectCounts counts) => SetBaseline(counts, packedRack: false);
+
     void SetBaseline(LiveDetectCounts counts, bool packedRack)
     {
         baseline = counts;
@@ -150,7 +154,7 @@ internal sealed class LiveDetectCountCandidateTracker
         baselinePackedRack = false;
     }
 
-    static bool IsNamedCountDecrease(LiveDetectCounts before, LiveDetectCounts after) =>
+    internal static bool IsNamedCountDecrease(LiveDetectCounts before, LiveDetectCounts after) =>
         after.Reds <= before.Reds && after.Yellows <= before.Yellows
         && after.Black <= before.Black && after.Cue <= before.Cue
         && after.Other == before.Other

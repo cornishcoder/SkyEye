@@ -22,7 +22,8 @@ public sealed partial class VisionAnalyzer
         List<Circle> circles, double scale,
         Dictionary<Circle, BallClassification>? packedClassifications,
         List<VisionCandidateAudit>? candidateAudits = null, string pass = "initial",
-        Dictionary<Circle, BallBoundary>? acceptedPackedBlackBoundaries = null)
+        Dictionary<Circle, BallBoundary>? acceptedPackedBlackBoundaries = null,
+        List<ClusterBall>? cueHandover = null)
     {
         byte[] rawBgrPixels = Read(rawBgr);
         using var red = new MatLease(new Mat());
@@ -39,9 +40,9 @@ public sealed partial class VisionAnalyzer
 
         double minimumPeakRadius = 12 * scale;
         var proposals = FindColourPeakBodies(red.Value, "red", rawPixels, rawBgrPixels, scale, minimumPeakRadius,
-                boundaryColourMask, candidateAudits, pass)
+                boundaryColourMask, candidateAudits, pass, cueHandover)
             .Concat(FindColourPeakBodies(yellow.Value, "yellow", rawPixels, rawBgrPixels, scale, minimumPeakRadius,
-                boundaryColourMask, candidateAudits, pass)).ToArray();
+                boundaryColourMask, candidateAudits, pass, cueHandover)).ToArray();
         var cluster = FindDenseColourCluster(proposals, scale);
         if (candidateAudits is not null)
             for (int i = 0; i < proposals.Length; i++)
@@ -149,6 +150,7 @@ public sealed partial class VisionAnalyzer
         candidateAudits?.Add(new(pass, "packed-black-search", "black", darkSeeds.Length,
             new((bounds.Left + bounds.Right) / 2, (bounds.Top + bounds.Bottom) / 2), 0, null, null, null, null,
             $"cluster-window-seeds={darkSeeds.Length};component-cap=64-after-window-filter"));
+        int? clothMedianValue = null;
         for (int i = 0; i < darkSeeds.Length; i++)
         {
             var seed = darkSeeds[i];
@@ -168,6 +170,21 @@ public sealed partial class VisionAnalyzer
             var classification = Classify(body, rawPixels, inspectRim: true);
             if (classification.Kind != "black")
             { Audit("rejected-classification", fit, fit.SupportedSectors, classification.Kind); continue; }
+            if (occlusionExplained && settings.PackedBlackOcclusionDarkBody)
+            {
+                // A black accepted on occlusion evidence must be dark relative to the cloth: the shadowed cloth
+                // in the gap of a black-absent rack passes the absolute dark ceiling (V 38 vs 40) and the
+                // occlusion exception (see VisionSettings.PackedBlackOcclusionDarkBody).
+                clothMedianValue ??= InnerTableMedianValue(rawPixels);
+                // Expected ball radius, not the fit's: a fit inside a gap can be half a ball wide.
+                double bodyValue = BodyAnnulusValueP25(new Circle(body.X, body.Y, expectedRadius), rawPixels);
+                occlusionEvidence = $"{occlusionEvidence};bodyAnnulusP25V={bodyValue:0.#};tableMedianV={clothMedianValue}";
+                if (clothMedianValue > 0 && bodyValue > PackedBlackOcclusionMaximumBodyToCloth * clothMedianValue.Value)
+                {
+                    Audit("rejected-occluded-body-not-dark", fit, fit.SupportedSectors, classification.Kind, occlusionEvidence);
+                    continue;
+                }
+            }
             if (circles.Any(c => Distance(c, body) < settings.Separation * scale))
             { Audit("rejected-duplicate-existing-proposal", fit, fit.SupportedSectors, classification.Kind); continue; }
             circles.Add(body);
@@ -352,6 +369,43 @@ public sealed partial class VisionAnalyzer
         }
     }
 
+    // Against the inner-table median V: real blacks in saved captures measure 0.2 or less (279 of 292
+    // detections; the rest are gamma-brightened copies); the gap of the black-absent dim rack 0.36 to 0.39.
+    // (The hue-filtered ClothRange median swings 47 to 91 between dim frames, leaving 0.23 vs 0.30.)
+    const double PackedBlackOcclusionMaximumBodyToCloth = .28;
+
+    /// <summary>Median V over the inner 80 % of the rectified table, sampled every 10 px.</summary>
+    int InnerTableMedianValue(byte[] hsv)
+    {
+        int w = coordinates.Width, h = coordinates.Height;
+        var values = new List<int>();
+        for (int y = h / 10; y < h * 9 / 10; y += 10)
+            for (int x = w / 10; x < w * 9 / 10; x += 10)
+                values.Add(hsv[(y * w + x) * 3 + 2]);
+        if (values.Count == 0) return 0;
+        values.Sort();
+        return values[values.Count / 2];
+    }
+
+    /// <summary>25th percentile of V on the 0.55..0.85 R annulus of a body: skips the white number disc and
+    /// central highlight of a black ball.</summary>
+    double BodyAnnulusValueP25(Circle body, byte[] hsv)
+    {
+        int w = coordinates.Width, h = coordinates.Height;
+        double inner = body.Radius * .55, outer = body.Radius * .85;
+        var values = new List<int>();
+        for (int y = (int)Math.Floor(body.Y - outer); y <= (int)Math.Ceiling(body.Y + outer); y++)
+            for (int x = (int)Math.Floor(body.X - outer); x <= (int)Math.Ceiling(body.X + outer); x++)
+            {
+                if (x < 0 || y < 0 || x >= w || y >= h) continue;
+                double d = Math.Sqrt((x - body.X) * (x - body.X) + (y - body.Y) * (y - body.Y));
+                if (d >= inner && d <= outer) values.Add(hsv[(y * w + x) * 3 + 2]);
+            }
+        if (values.Count == 0) return 0;
+        values.Sort();
+        return values[values.Count / 4];
+    }
+
     bool HasOcclusionExplainedBlackBoundary(BallBoundary fit, Point proposal, double expectedRadius,
         byte[] rawBgr, ClusterBall[] packedColourBalls, out string evidence)
     {
@@ -374,15 +428,25 @@ public sealed partial class VisionAnalyzer
                     && (sector.InnerPoint - centre).Length <= neighbour.Body.Radius
                     && (sector.OuterPoint - centre).Length <= neighbour.Body.Radius;
             });
+        // Opt-in (VisionSettings.PackedBlackAdjacentBallOcclusion): in dim light the black's edge against a
+        // touching red or yellow has too little contrast to register, and the exterior is not rejected either.
+        // Such a sector abuts a recognised packed ball: its outer point is within the conservative occlusion
+        // radius of that ball's centre.
+        bool ExplainedByAdjacentBall(BoundarySectorEvidence sector)
+            => settings.PackedBlackAdjacentBallOcclusion && neighbours.Any(neighbour =>
+                (neighbour - fit.Centre).Length >= expectedRadius * 1.1
+                && (sector.OuterPoint - neighbour).Length <= expectedRadius * BallBoundaryRefiner.ConservativeOcclusionNeighborRadius);
+        bool Explained(BoundarySectorEvidence sector)
+            => ExplainedByMeasuredExterior(sector) || ExplainedByFittedBody(sector) || ExplainedByAdjacentBall(sector);
         int neighbourExplained = sectors.Count(sector => !sector.Supported && ExplainedByMeasuredExterior(sector));
         int fittedBodyExplained = sectors.Count(sector => !sector.Supported && ExplainedByFittedBody(sector));
+        int adjacentExplained = sectors.Count(sector => !sector.Supported && !ExplainedByMeasuredExterior(sector)
+            && !ExplainedByFittedBody(sector) && ExplainedByAdjacentBall(sector));
         bool accepted = BallBoundaryRefiner.HasConservativeOcclusionCoverage(sectors, fit.Centre,
             expectedRadius, neighbours, 14d / 32);
         if (!accepted && sectors.Length == 32 && visible >= 14)
-            accepted = sectors.Where(sector => !sector.Supported)
-                .All(sector => ExplainedByMeasuredExterior(sector) || ExplainedByFittedBody(sector));
-        var uncovered = sectors.Where(sector => !sector.Supported
-                && !ExplainedByMeasuredExterior(sector) && !ExplainedByFittedBody(sector))
+            accepted = sectors.Where(sector => !sector.Supported).All(Explained);
+        var uncovered = sectors.Where(sector => !sector.Supported && !Explained(sector))
             .Select(sector =>
             {
                 double nearestNeighbourRadius = neighbours
@@ -391,13 +455,13 @@ public sealed partial class VisionAnalyzer
                     .DefaultIfEmpty(double.PositiveInfinity).Min();
                 return $"{sector.Index}(edge={sector.EdgeContrast:0.#};outside={sector.ExteriorContrast:0.#};external={sector.ExteriorRejected};nearestNeighbourR={nearestNeighbourRadius:0.00})";
             });
-        evidence = $"visible={visible}/32;exteriorRejected={exteriorRejected}/32;fittedNeighbourExplained={neighbourExplained}/32;fittedBodyOccluded={fittedBodyExplained}/32;uncoveredSectors={string.Join(',', uncovered)};accepted={accepted}";
+        evidence = $"visible={visible}/32;exteriorRejected={exteriorRejected}/32;fittedNeighbourExplained={neighbourExplained}/32;fittedBodyOccluded={fittedBodyExplained}/32;adjacentBallOccluded={adjacentExplained}/32;uncoveredSectors={string.Join(',', uncovered)};accepted={accepted}";
         return accepted;
     }
 
     ClusterBall[] FindColourPeakBodies(Mat colourMask, string kind, byte[] rawHsv, byte[] rawBgr, double scale,
         double minimumPeakRadius, BoundaryColourMask boundaryColourMask,
-        List<VisionCandidateAudit>? candidateAudits, string pass)
+        List<VisionCandidateAudit>? candidateAudits, string pass, List<ClusterBall>? cueHandover = null)
     {
         using var peakBodyTiming = PipelineDiagnostics.Measure($"{kind}ColourPeakBodiesMs");
         var candidates = new List<ClusterBall>();
@@ -437,6 +501,21 @@ public sealed partial class VisionAnalyzer
             { Audit(fit is null ? "rejected-no-boundary-fit" : "rejected-insufficient-boundary-support", fit, fit?.SupportedSectors); continue; }
             var body = new Circle(fit.Centre.X, fit.Centre.Y, fit.Radius);
             var classification = Classify(body, rawHsv, inspectRim: true);
+            if (classification.Kind == "cue" && cueHandover is not null && settings.PackedCueHandover
+                && fit.SupportedSectors >= settings.MinimumHoughBoundarySupport)
+            {
+                // Not this colour, but a well-fitted cue. The colour fit expects yellow or red paint, so
+                // refit the outline neutrally (as cue recovery does) and require the Hough-level support
+                // there too. Detect decides once every other body is known.
+                var neutral = BallBoundaryRefiner.Refine(rawBgr, coordinates.Width, coordinates.Height,
+                    fit.Centre, PoolGeometry.Radius * coordinates.Width, settings.MinimumHoughBoundarySupport);
+                var neutralBody = neutral is null ? default : new Circle(neutral.Centre.X, neutral.Centre.Y, neutral.Radius);
+                var neutralClassification = neutral is null ? null : Classify(neutralBody, rawHsv, inspectRim: true);
+                if (neutral is null || neutralClassification!.Kind != "cue")
+                { Audit("rejected-cue-handover-neutral-refit", neutral ?? fit, neutral?.SupportedSectors, neutralClassification?.Kind ?? classification.Kind); continue; }
+                cueHandover.Add(new("cue", neutralBody, new(x, y), interiorRadius, neutralClassification, neutral.SupportedSectors));
+                Audit("deferred-cue-handover", neutral, neutral.SupportedSectors, neutralClassification.Kind); continue;
+            }
             if (classification.Kind != kind)
             { Audit("rejected-classification", fit, fit.SupportedSectors, classification.Kind); continue; }
             // Nearby mask peaks can be duplicate seeds for one ball, but a

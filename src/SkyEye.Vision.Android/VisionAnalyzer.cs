@@ -17,6 +17,9 @@ namespace SkyEye.Vision.Android;
 public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationAnalyzer, ITableAnalyzerMetadata
 {
     const int MinimumObstructionNeutralValueCeiling = 94;
+    // Obstruction low-chroma cloth: S*V/255 at most 14. At V 60 and above that is S <= 60, which the
+    // neutral and shadow bands already cover, so the pass only runs for dim cloth.
+    const int LowChromaClothLimit = 14, LowChromaClothValueLimit = 59;
     static readonly object loadGate = new(); static bool loaded;
     readonly AnalysisCoordinates coordinates;
     readonly VisionSettings settings;
@@ -122,7 +125,16 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 settings.DarkBodyValueCeiling, settings.VerificationBodyRefinement, settings.PackedClusterImageEdgeMargin,
                 settings.PackedColourBoundarySearchExtentFraction
             };
-            const string algorithm = "body-priority-packed-colour-peaks-v25-neutralceiling94-edge23-pocket48-sparse20-review75-redyellow-black-radius13-support21";
+            const string previousAlgorithm = "body-priority-packed-colour-peaks-v25-neutralceiling94-edge23-pocket48-sparse20-review75-redyellow-black-radius13-support21";
+            // T5 changes published kinds, so it changes the algorithm name; turning it off reproduces the old identity.
+            string algorithm = previousAlgorithm
+                + (settings.SurplusOnlyInventoryDemotion ? "-surplus-sat40" : "")
+                + (settings.PackedCueHandover ? "-cuehandover75" : "")
+                + (settings.ObstructionShadowTolerance ? "-obstruction-shadow60" : "")
+                + (settings.PackedClusterLocalUnknowns ? "-packed-local-unknown25" : "")
+                + (settings.ObstructionDimChromaTolerance ? "-obstruction-chroma14" : "")
+                + (settings.PackedBlackAdjacentBallOcclusion ? "-packed-black-adjacent125" : "")
+                + (settings.PackedBlackOcclusionDarkBody ? "-packed-black-darkbody28" : "");
             bool normalizedProposalAblation = settings.UseNormalizedGeometryForDetection || settings.UseNormalizedPackedColourProposalMask;
             bool edgeMarginAblation = settings.PackedClusterImageEdgeMargin != 23;
             bool sparseColourSupportAblation = settings.MinimumSparseColourBoundarySupport
@@ -234,6 +246,9 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 : chosen.Circles,
             Uncertain = chosen.Uncertain || remainsUnresolved,
             Obstructed = chosen.Obstructed || (remainsUnresolved && primary.Obstructed),
+            // An unresolved packed cluster is not confined to a flagged pocket region (D1).
+            LayoutUncertainOutsideRegions = chosen.UncertainRegions is null ? null : chosen.LayoutUncertainOutsideRegions == true || remainsUnresolved,
+            UncertainOutsideRegions = chosen.UncertainRegions is null ? null : chosen.UncertainOutsideRegions == true || remainsUnresolved,
             Warnings = warnings,
             PackedCluster = remainsUnresolved ? primary.PackedCluster : chosen.PackedCluster,
             PackedClusterFallback = new(true, settings.Width, 1000,
@@ -295,12 +310,14 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
                 return proposal with { Centre = coordinates.FromTable(tableCentre) };
             }).ToArray();
         }
+        var pendingCueHandover = new List<ClusterBall>();
         var circles = Detect(hsv.Value, pixels, settings.InitialVotes, out var packedCluster,
             out bool conflictingCoincidentCandidate,
             appearance is not null && settings.VerificationBodyRefinement,
             settings.FreshCueBallRecovery && settings.BodyProposalPriority ? geometryImage : null,
             geometryHsv, geometryHsvPixels, geometryBoundaryColourMask, packedClassifications,
-            candidateAudits, "initial", acceptedPackedBlackBoundaries, packedColourProposalHsv, analysisProposals);
+            candidateAudits, "initial", acceptedPackedBlackBoundaries, packedColourProposalHsv, analysisProposals,
+            pendingCueHandover);
         bool inspectRim = appearance is not null || settings.FreshCueBallRecovery;
         Interlocked.Exchange(ref nextClassifierPixelsObserver, null)?.Invoke(pixels);
         var initialLabels = circles.Select(c => Classify(c, pixels, inspectRim)).ToArray();
@@ -320,6 +337,26 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             circles = RecoverNeutralCueBodies(rawWarped.Value, circles, recoveredBoundaries, recoveredClassifications,
                 cancellation, out neutralCandidates, out neutralRecovered, out neutralCandidateAudits,
                 out neutralMaskTelemetry, candidateDiagnostics);
+        // Last resort for a cue the colour-peak stage fitted (PackedCueHandover): only when the
+        // first pass has no cue and neutral cue recovery found none either.
+        if (pendingCueHandover.Count == 1 && initialLabels.All(l => l.Kind != "cue") && neutralRecovered == 0)
+        {
+            var handover = pendingCueHandover[0];
+            bool clash = circles.Any(c => Math.Sqrt((c.X - handover.Body.X) * (c.X - handover.Body.X) + (c.Y - handover.Body.Y) * (c.Y - handover.Body.Y))
+                < settings.Separation * coordinates.Width / 1000.0);
+            if (!clash)
+            {
+                circles = [.. circles, handover.Body];
+                recoveredClassifications[handover.Body] = handover.Classification;
+            }
+            candidateAudits?.Add(new("initial", "packed-cue-handover", "cue", 0, new(handover.PeakCentre.X, handover.PeakCentre.Y),
+                handover.ColourRadius, new(handover.Body.X, handover.Body.Y), handover.Body.Radius, handover.BoundarySupport,
+                handover.Classification.Kind, clash ? "rejected-duplicate-after-cue-recovery" : "added-cue-handover"));
+        }
+        else if (pendingCueHandover.Count == 1)
+            candidateAudits?.Add(new("initial", "packed-cue-handover", "cue", 0, new(pendingCueHandover[0].PeakCentre.X, pendingCueHandover[0].PeakCentre.Y),
+                pendingCueHandover[0].ColourRadius, new(pendingCueHandover[0].Body.X, pendingCueHandover[0].Body.Y), pendingCueHandover[0].Body.Radius,
+                pendingCueHandover[0].BoundarySupport, "cue", "not-needed-cue-found"));
         var proposals = circles.ToArray();
         var boundaries = new Dictionary<Circle, BallBoundary>(recoveredBoundaries);
         var candidateBoundaries = new Dictionary<Circle, BallBoundary>();
@@ -476,7 +513,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         var ordered = uniqueCircles.OrderBy(c => c.Y).ThenBy(c => c.X).ToArray();
         var rawLabels = ordered.Select(c => classificationCache.TryGetValue(c, out var cached)
             ? cached : Classify(c, pixels, inspectRim)).ToArray();
-        var labels = BallClassifier.ConstrainInventory(rawLabels);
+        var labels = BallClassifier.ConstrainInventory(rawLabels, settings.SurplusOnlyInventoryDemotion);
         for (int i = 0; i < ordered.Length; i++)
         {
             var circle = ordered[i]; var label = labels[i]; var position = coordinates.ToTable(new(circle.X, circle.Y));
@@ -511,8 +548,17 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             uncertain = layoutUncertain = true;
             warnings.Add("Conflicting ball candidates share nearly the same centre; review before using table state.");
         }
+        bool clusterHasUnknown;
+        if (settings.PackedClusterLocalUnknowns)
+        {
+            double reach = 2.5 * PoolGeometry.Radius * coordinates.Width;
+            var coloured = ordered.Where((_, i) => labels[i].Kind is "red" or "yellow" or "black").ToArray();
+            clusterHasUnknown = ordered.Where((_, i) => labels[i].Kind == "unknown").Any(u =>
+                coloured.Any(c => Math.Sqrt((u.X - c.X) * (u.X - c.X) + (u.Y - c.Y) * (u.Y - c.Y)) <= reach));
+        }
+        else clusterHasUnknown = balls.Any(b => b.Kind == "unknown");
         bool packedClusterUnresolved = packedCluster.Detected &&
-            (balls.Any(b => b.Kind == "unknown") || balls.Count(b => b.Kind == "black") != 1 ||
+            (clusterHasUnknown || balls.Count(b => b.Kind == "black") != 1 ||
                 balls.Count(b => b.Kind == "red") != 7 || balls.Count(b => b.Kind == "yellow") != 7);
         if (packedClusterUnresolved)
         { uncertain = layoutUncertain = true; warnings.Add("Packed colour cluster still has unresolved visible balls; review it before using advice."); }
@@ -524,13 +570,25 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             warnings.Add("No validated burst colour reference; raw colour labels are retained for layout review, not advice.");
         }
         if (uncertain) warnings.Add("Check uncertain colours or ball counts before using advice.");
-        if (PocketColourNeedsReview(pixels, rawWarped.Value, ordered, labels, boundaryColourMask, out var pocketColourAudit))
+        bool uncertainBeforePocketReview = uncertain, layoutUncertainBeforePocketReview = layoutUncertain;
+        bool pocketColourReview = PocketColourNeedsReview(pixels, rawWarped.Value, ordered, labels, boundaryColourMask, out var pocketColourAudit);
+        if (pocketColourReview)
         { uncertain = layoutUncertain = true; warnings.Add("Check a coloured ball at a pocket opening; the pocket mask may hide part of it."); }
         Circle[] recognizedBallCircles = ordered.Where((_, index) => labels[index].Kind != "unknown").ToArray();
         bool completePackedCluster = packedCluster.Detected && !packedClusterUnresolved;
         bool obstructed = LargeObstruction(rawHsv.Value, rawHsvPixels, recognizedBallCircles, completePackedCluster, out var obstructionAudit);
         if (obstructed) { uncertain = layoutUncertain = true; warnings.Add("A large object covers part of the playable surface."); }
-        for (int i = 0; i < balls.Count; i++) for (int j = i + 1; j < balls.Count; j++) if ((balls[i].Position - balls[j].Position).Length < .040) { uncertain = layoutUncertain = true; warnings.Add("Overlapping circle candidates need checking."); }
+        bool overlapping = false;
+        for (int i = 0; i < balls.Count; i++) for (int j = i + 1; j < balls.Count; j++) if ((balls[i].Position - balls[j].Position).Length < .040) { uncertain = layoutUncertain = overlapping = true; warnings.Add("Overlapping circle candidates need checking."); }
+        // D1: report each flagged pocket as a region (exclusion radius plus two ball radii, so any
+        // ball whose body reaches the exclusion is inside), and what the rest of the table shows.
+        UncertainTableRegion[]? pocketRegions = pocketColourReview
+            ? pocketColourAudit.Pockets.Where(pocket => pocket.NeedsReview).Select(pocket => new UncertainTableRegion(
+                coordinates.ToTable(pocket.Centre),
+                (pocketColourAudit.ExclusionRadius + 2 * PoolGeometry.Radius * coordinates.Width) / coordinates.Width,
+                "pocket-colour")).ToArray()
+            : null;
+        bool layoutUncertainOutsideRegions = layoutUncertainBeforePocketReview || obstructed || overlapping;
         return new(balls.ToArray(), uncertain, warnings.Distinct().ToArray(), watch.Elapsed.TotalMilliseconds, ordered.Length, normalized, Cv.Version, colourGains, ClothHue(pixels), obstructed, observations.ToArray())
         { Recognition = new(normalized ? "cue-normalized" : "raw", rawCircleCount, ordered.Length, rawLabels.Select(l => l.Kind).ToArray(), colourGains, ClothHue(pixels), warnings.Distinct().ToArray())
             { CueBallRecovery = new(initialCueCount, cueIndices.Length, normalizedCueCount,
@@ -548,6 +606,9 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             LayoutUncertain = layoutUncertain,
             ObstructionAudit = obstructionAudit,
             PocketColourAudit = pocketColourAudit,
+            UncertainRegions = pocketRegions,
+            LayoutUncertainOutsideRegions = pocketRegions is null ? null : layoutUncertainOutsideRegions,
+            UncertainOutsideRegions = pocketRegions is null ? null : uncertainBeforePocketReview || layoutUncertainOutsideRegions,
             BoundaryAudits = boundaryAudits.ToArray(), CandidateAudits = candidateAudits?.ToArray() ?? [] };
     }
     IlluminationTelemetry NormalizeIllumination(Mat image, CancellationToken cancellation)
@@ -652,7 +713,8 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         List<VisionCandidateAudit>? candidateAudits = null, string pass = "initial",
         Dictionary<Circle, BallBoundary>? acceptedPackedBlackBoundaries = null,
         Mat? packedColourProposalHsv = null,
-        IReadOnlyList<DiagnosticAnalysisProposal>? diagnosticRawProposals = null)
+        IReadOnlyList<DiagnosticAnalysisProposal>? diagnosticRawProposals = null,
+        List<ClusterBall>? pendingCueHandover = null)
     {
         using var timing = PipelineDiagnostics.Measure("circleDetectionMs");
         packedCluster = default;
@@ -668,11 +730,12 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         // binary-mask texture can fill the Hough list with cloth holes.
         bool prioritizeBodies = settings.FreshCueBallRecovery && settings.BodyProposalPriority;
         byte[]? rawBoundaryPixels = null;
+        var cueHandover = new List<ClusterBall>();
         if (prioritizeBodies && rawImage is not null)
         {
             using var packedTiming = PipelineDiagnostics.Measure("packedClusterBodyProposalsMs");
             packedCluster = AddPackedClusterBodies(rawImage, rawHsv!, packedColourProposalHsv ?? rawHsv!, rawHsvPixels!, boundaryColourMask!, result, scale,
-                packedClassifications, candidateAudits, pass, acceptedPackedBlackBoundaries);
+                packedClassifications, candidateAudits, pass, acceptedPackedBlackBoundaries, cueHandover);
         }
         if (prioritizeBodies)
         {
@@ -701,6 +764,7 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             }
         }
         if (!prioritizeBodies) AddColourBodies(hsv, pixels, result, scale, candidateAudits, pass);
+        if (cueHandover.Count > 0 && pendingCueHandover is not null) SelectPackedCueHandover();
         if (refineGeometry)
         {
             using var refinementTiming = PipelineDiagnostics.Measure("bodyGeometryRefinementMs");
@@ -708,6 +772,34 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
         }
         conflictingCoincidentCandidate = conflictingCoincidentCandidateDetected;
         return result.ToArray();
+
+        // A cue fitted by the red/yellow colour-peak stage (see PackedCueHandover). Selected only
+        // when it is the one distinct such body, nothing else sits there, and no other body
+        // classifies as the cue: a second cue would make both unknown and lose the real one.
+        // Analyze admits it later, and only if neutral cue recovery also finds no cue.
+        void SelectPackedCueHandover()
+        {
+            var distinct = new List<ClusterBall>();
+            foreach (var candidate in cueHandover.OrderByDescending(c => c.BoundarySupport))
+                if (!distinct.Any(d => Distance(d.Body, candidate.Body) < settings.Separation * scale))
+                    distinct.Add(candidate);
+            void HandoverAudit(ClusterBall c, string decision) => candidateAudits?.Add(new(pass, "packed-cue-handover", "cue", 0,
+                new(c.PeakCentre.X, c.PeakCentre.Y), c.ColourRadius, new(c.Body.X, c.Body.Y), c.Body.Radius,
+                c.BoundarySupport, c.Classification.Kind, decision));
+            if (distinct.Count != 1)
+            { foreach (var c in distinct) HandoverAudit(c, "rejected-ambiguous-cue-handover"); return; }
+            var cue = distinct[0];
+            if (result.Count > 32) { HandoverAudit(cue, "rejected-candidate-limit"); return; }
+            if (result.Any(existing => Distance(existing, cue.Body) < settings.Separation * scale))
+            { HandoverAudit(cue, "rejected-duplicate"); return; }
+            byte[] classifierPixels = rawHsvPixels ?? pixels;
+            bool cuePresent = result.Any(existing =>
+                (packedClassifications is not null && packedClassifications.TryGetValue(existing, out var known)
+                    ? known : Classify(existing, classifierPixels, inspectRim: true)).Kind == "cue");
+            if (cuePresent) { HandoverAudit(cue, "rejected-cue-already-present"); return; }
+            pendingCueHandover!.Add(cue);
+            HandoverAudit(cue, "pending-until-cue-recovery");
+        }
 
         void ProcessCandidate(Circle proposed, string stage, int index)
         {
@@ -968,6 +1060,36 @@ public sealed partial class VisionAnalyzer : ITableAnalyzer, ITableVerificationA
             using var high = new Scalar(179, 45, Math.Min(255, neutralRange.Maximum));
             Cv.InRange(hsv, low, high, neutral.Value);
             Cv.Bitwise_or(mask.Value, neutral.Value, mask.Value);
+        }
+        if (settings.ObstructionShadowTolerance && clothRange.MedianValue > 0)
+        {
+            // Warm-filled cast shadow: low chroma at cloth brightness, any hue (see VisionSettings).
+            using var shadow = new MatLease(new Mat());
+            using var low = new Scalar(0, 46, Math.Floor(clothRange.MedianValue * .6));
+            using var high = new Scalar(179, 60, Math.Min(255, Math.Ceiling(clothRange.MedianValue * 1.15)));
+            Cv.InRange(hsv, low, high, shadow.Value);
+            Cv.Bitwise_or(mask.Value, shadow.Value, mask.Value);
+        }
+        if (settings.ObstructionDimChromaTolerance && clothRange.MedianValue > 0)
+        {
+            // Dim cloth: low absolute chroma (S*V/255) at cloth brightness, any hue (see VisionSettings).
+            // Only pixels the S <= 60 bands above cannot already cover, i.e. V below 60.
+            // Not lower: control #3's arm is caught only by a near-black cushion shadow band (V 3..20).
+            int minimumValue = (int)Math.Floor(clothRange.MedianValue * .6);
+            int maximumValue = Math.Min(LowChromaClothValueLimit, (int)Math.Ceiling(clothRange.MedianValue * 1.15));
+            if (maximumValue >= minimumValue)
+            {
+                var lowChroma = new byte[coordinates.Width * coordinates.Height];
+                for (int i = 0, offset = 0; i < lowChroma.Length; i++, offset += 3)
+                {
+                    int v = pixels[offset + 2];
+                    if (v >= minimumValue && v <= maximumValue && pixels[offset + 1] * v <= LowChromaClothLimit * 255)
+                        lowChroma[i] = 255;
+                }
+                using var dimChroma = new MatLease(new Mat(coordinates.Height, coordinates.Width, CvType.Cv8uc1));
+                dimChroma.Value.Put(0, 0, lowChroma);
+                Cv.Bitwise_or(mask.Value, dimChroma.Value, mask.Value);
+            }
         }
         Cv.Bitwise_not(mask.Value, mask.Value);
         // Crop only the uncertain calibration border; a hand connected to an image

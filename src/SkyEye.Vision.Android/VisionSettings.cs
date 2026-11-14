@@ -38,6 +38,47 @@ public sealed record VisionSettings(int Width = 1000, double MinimumRadius = 18,
     public bool FreshCueBallRecovery { get; init; } = true;
     // Separately replay the whole-table proposal fix against the v2 cue branch.
     public bool BodyProposalPriority { get; init; } = true;
+    // T5: more than seven reds or yellows demotes only a clearly less saturated surplus to unknown
+    // (BallClassifier.ConstrainInventory); without a clear gap the whole colour is demoted as before.
+    // False replays the earlier whole-colour demotion and its historical algorithm identity.
+    public bool SurplusOnlyInventoryDemotion { get; init; } = true;
+    // A warm cue can fall inside the yellow colour mask. The packed-colour stage keeps only its
+    // own colour, so a well-fitted body there that classifies as the cue was discarded. When no
+    // other cue is found, admit exactly one such body (fit at least MinimumHoughBoundarySupport).
+    // False replays the earlier behaviour and identity (Layout03 frames 382/1274/3360 diagnosis).
+    public bool PackedCueHandover { get; init; } = true;
+    // Obstruction mask only: a cast shadow under mixed daylight and warm room light keeps the cloth's
+    // brightness but turns warm in hue (afternoon device run 7c151fba: H 17, S 53 against cloth H 102),
+    // so the hue band and the S<=45 neutral fallback reject it and it joins balls into a false
+    // "large object". Also treat S 46..60 at 0.6..1.15x cloth median brightness as cloth, any hue.
+    // Skin measured S p50 93..94 and brighter than the cloth. False replays the earlier behaviour.
+    public bool ObstructionShadowTolerance { get; init; } = true;
+    // A packed cluster was marked unresolved by an unknown ball anywhere on the table, so a cue read as
+    // unknown at the other end (afternoon run 7c151fba) denied a complete 7/7/1 rack its obstruction
+    // exemption. Count only unknown balls within 2.5 ball radii of a red, yellow or black ball. The
+    // whole-table colour counts still apply. False replays the earlier behaviour.
+    public bool PackedClusterLocalUnknowns { get; init; } = true;
+    // Obstruction mask only: on dim two-toned cloth (29 Oct device check, median V 27..43) the hue
+    // estimate lands on the warm tone and compressed blocks of the blue tone (H 104, S 64..116 at V 20..44)
+    // form table-sized false objects. At that darkness S is noise: S 106 at V 28 is a 12-level channel
+    // spread. Also treat absolute chroma S*V/255 <= 14 at 0.6..1.15x cloth median brightness as cloth,
+    // any hue. Skin measured chroma about 22 in the dimmest hand control and about 62 in a bright one.
+    // False replays the earlier behaviour.
+    public bool ObstructionDimChromaTolerance { get; init; } = true;
+    // Packed black only: an unsupported boundary sector whose outer point lies within 1.25 R of a distinct
+    // recognised red or yellow also counts as occluded. In dim racks the black's edge against a touching
+    // dim red is too faint to register (29 Oct rack: support 15/32 at V 28 rising to found at V 86 on
+    // gamma copies of one frame). Still needs 14/32 visible, every other sector explained, a black
+    // classification and, with PackedBlackOcclusionDarkBody, a body darker than 0.28 x the table.
+    // Enabled after the real black-absent dim rack control stayed at 0/5 with both on. False replays the
+    // earlier behaviour.
+    public bool PackedBlackAdjacentBallOcclusion { get; init; } = true;
+    // Packed black accepted on occlusion evidence must also be dark relative to the cloth: annulus
+    // (0.55..0.85 R at the expected radius) p25 V at most 0.28 x the inner-table median V. A real
+    // black-absent dim rack (control black-absent-dim-rack.json, 11 Nov) put a false black in the gap:
+    // shadowed cloth under the absolute dark ceiling of 40, ratio 0.36..0.39; real blacks 0.2 or less.
+    // False replays the earlier behaviour.
+    public bool PackedBlackOcclusionDarkBody { get; init; } = true;
     public double MinimumHoughBoundarySupport { get; init; } = .75;
     // A fresh six-frame pocket-lip holdout recovered a fitted top-left red with
     // 20/32 supported sectors; the separate pocket-colour review retains its

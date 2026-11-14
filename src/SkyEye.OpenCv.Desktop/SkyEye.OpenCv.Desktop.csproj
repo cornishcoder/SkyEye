@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Desktop look-alike of the Org.Opencv Android binding, implemented over OpenCvSharp.
+       Lets the detector sources in src/SkyEye.Vision.Android compile unchanged on desktop
+       (T2, docs/claude/t2-desktop-runner-design.md). Never reference this from an Android project. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="OpenCvSharp4" Version="4.13.0.20260627" />
+    <PackageReference Include="OpenCvSharp4.runtime.win" Version="4.13.0.20260627" />
+  </ItemGroup>
+</Project>

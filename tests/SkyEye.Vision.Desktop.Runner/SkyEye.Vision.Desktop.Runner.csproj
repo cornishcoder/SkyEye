@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- T2 desktop detector runner. Kept out of SkyEye.Checks so the main suite needs no native OpenCV. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../../src/SkyEye.Vision.Desktop/SkyEye.Vision.Desktop.csproj" />
+  </ItemGroup>
+</Project>
